@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Microsoft.CodeAnalysis;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
@@ -27,6 +29,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private SynthesizedIteratorTypeSymbol? _iteratorStateMachine;
     private bool _containsAwait;
     private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
+    private SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine? _constructedAsyncStateMachine;
     private bool _hasAsyncReturnTypeError;
     private bool _requiresAsyncReturnTypeInference;
     private bool _asyncReturnTypeInferenceComplete;
@@ -133,6 +136,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public SynthesizedIteratorTypeSymbol? IteratorStateMachine => _iteratorStateMachine;
 
     public SynthesizedAsyncStateMachineTypeSymbol? AsyncStateMachine => _asyncStateMachine;
+    internal SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine? ConstructedAsyncStateMachine => _constructedAsyncStateMachine;
 
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
@@ -242,6 +246,21 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             throw new InvalidOperationException("Async state machine already assigned.");
 
         _asyncStateMachine = stateMachine;
+    }
+
+    internal void SetConstructedAsyncStateMachine(SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine stateMachine)
+    {
+        if (_asyncStateMachine is null)
+            throw new InvalidOperationException("Constructed async state machine requires definition to be assigned first.");
+
+        if (!ReferenceEquals(_asyncStateMachine, stateMachine.Definition))
+            throw new InvalidOperationException("Constructed async state machine does not match the assigned definition.");
+
+        if (_constructedAsyncStateMachine is SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine existing &&
+            !SymbolEqualityComparer.Default.Equals(existing.Type, stateMachine.Type))
+            throw new InvalidOperationException("Constructed async state machine already assigned.");
+
+        _constructedAsyncStateMachine = stateMachine;
     }
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)

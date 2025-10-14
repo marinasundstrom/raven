@@ -237,6 +237,14 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (symbolType is ITypeParameterSymbol typeParameter)
             return RuntimeTypeMatchesTypeParameter(runtimeType, typeParameter);
 
+        if (symbolType is ByRefTypeSymbol byRef && byRef.ElementType is ITypeParameterSymbol elementParameter)
+        {
+            if (!runtimeType.IsByRef)
+                return false;
+
+            return RuntimeTypeMatchesTypeParameter(runtimeType.GetElementType(), elementParameter);
+        }
+
         if (symbolType.SpecialType == SpecialType.System_Unit)
         {
             if (runtimeType == typeof(void))

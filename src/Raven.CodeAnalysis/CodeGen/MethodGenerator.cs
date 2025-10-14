@@ -16,6 +16,7 @@ internal class MethodGenerator
     private bool _bodyEmitted;
     private Compilation _compilation;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
+    private AsyncStateMachineEmissionContext? _asyncStateMachineContext;
 
     public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol, IILBuilderFactory? ilBuilderFactory = null)
     {
@@ -38,9 +39,12 @@ internal class MethodGenerator
     internal TypeGenerator.LambdaClosure? LambdaClosure => _lambdaClosure;
     public bool IsEntryPointCandidate { get; private set; }
     internal bool HasEmittedBody => _bodyEmitted;
+    internal AsyncStateMachineEmissionContext? AsyncStateMachineContext => _asyncStateMachineContext;
 
     internal void DefineMethodBuilder()
     {
+        EnsureAsyncStateMachineContext();
+
         var targetTypeBuilder = _lambdaClosure?.TypeBuilder ?? TypeGenerator.TypeBuilder
             ?? throw new InvalidOperationException("Type builder must be defined before creating method builders.");
 
@@ -120,7 +124,7 @@ internal class MethodGenerator
             if (!MethodSymbol.TypeParameters.IsDefaultOrEmpty)
             {
                 var genericBuilders = methodBuilder.DefineGenericParameters(MethodSymbol.TypeParameters.Select(tp => tp.Name).ToArray());
-                TypeGenerator.CodeGen.RegisterGenericParameters(MethodSymbol.TypeParameters, genericBuilders);
+                TypeGenerator.CodeGen.RegisterGenericParameters(MethodSymbol.TypeParameters, genericBuilders, _asyncStateMachineContext);
             }
 
             var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
@@ -217,6 +221,43 @@ internal class MethodGenerator
             }
 
             return builder.ToArray();
+        }
+    }
+
+    private void EnsureAsyncStateMachineContext()
+    {
+        if (_asyncStateMachineContext.HasValue)
+            return;
+
+        if (MethodSymbol is SourceMethodSymbol sourceMethod && TryCreateContext(sourceMethod, out var methodContext))
+        {
+            _asyncStateMachineContext = methodContext;
+            return;
+        }
+
+        if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+            TryCreateContext(stateMachine.AsyncMethod, out var stateMachineContext))
+        {
+            _asyncStateMachineContext = stateMachineContext;
+        }
+
+        bool TryCreateContext(SourceMethodSymbol asyncMethod, out AsyncStateMachineEmissionContext context)
+        {
+            if (asyncMethod.ConstructedAsyncStateMachine is { } constructed)
+            {
+                context = new AsyncStateMachineEmissionContext(asyncMethod, constructed);
+                return true;
+            }
+
+            if (asyncMethod.AsyncStateMachine is { } definition &&
+                TypeGenerator.CodeGen.TryGetConstructedAsyncStateMachine(definition, out var cached))
+            {
+                context = new AsyncStateMachineEmissionContext(asyncMethod, cached);
+                return true;
+            }
+
+            context = default;
+            return false;
         }
     }
 

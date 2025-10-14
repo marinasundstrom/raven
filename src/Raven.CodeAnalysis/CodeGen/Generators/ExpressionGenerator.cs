@@ -194,6 +194,15 @@ internal class ExpressionGenerator : Generator
         if (TryEmitCapturedVariableLoad(selfExpression.Symbol ?? selfExpression.Type))
             return;
 
+        if (MethodBodyGenerator.AsyncIlFrame is { } asyncFrame &&
+            SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type))
+        {
+            if (!asyncFrame.HasReceiverOnStack)
+                asyncFrame.EnsureReceiverLoaded(keepAlive: false);
+
+            return;
+        }
+
         ILGenerator.Emit(OpCodes.Ldarg_0);
     }
 
@@ -555,7 +564,7 @@ internal class ExpressionGenerator : Generator
     {
         try
         {
-            return constructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+            return GetConstructorInfo(constructor);
         }
         catch (InvalidOperationException)
         {
@@ -884,6 +893,44 @@ internal class ExpressionGenerator : Generator
 
     private void EmitAddressOfExpression(BoundAddressOfExpression addressOf)
     {
+        if (addressOf.Symbol is IFieldSymbol instanceField &&
+            !instanceField.IsStatic &&
+            MethodBodyGenerator.AsyncIlFrame is { } asyncFrame &&
+            MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
+            SymbolEqualityComparer.Default.Equals(instanceField.ContainingType, asyncContext.Definition))
+        {
+            var keepAlive = SymbolEqualityComparer.Default.Equals(instanceField, asyncContext.Definition.BuilderField)
+                || asyncContext.Definition.HoistedLocals.Any(hoisted => SymbolEqualityComparer.Default.Equals(hoisted, instanceField));
+
+            if (addressOf.Receiver is not null)
+            {
+                if (addressOf.Receiver is BoundSelfExpression selfExpression &&
+                    SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type))
+                {
+                    if (!asyncFrame.HasReceiverOnStack)
+                        asyncFrame.EnsureReceiverLoaded(keepAlive);
+                }
+                else
+                {
+                    EmitExpression(addressOf.Receiver);
+                }
+            }
+            else
+            {
+                asyncFrame.EnsureReceiverLoaded(keepAlive);
+            }
+
+            var fieldInfo = (FieldInfo)GetField(instanceField);
+            ILGenerator.Emit(OpCodes.Ldflda, fieldInfo);
+
+            asyncFrame.AfterFieldStore();
+
+            if (keepAlive)
+                asyncFrame.SuppressNextRelease();
+
+            return;
+        }
+
         switch (addressOf.Symbol)
         {
             case ILocalSymbol local:
@@ -1294,7 +1341,7 @@ internal class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+            var ctorInfo = GetConstructorInfo(ctor);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
             var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(namedType));
@@ -1342,7 +1389,7 @@ internal class ExpressionGenerator : Generator
         var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
 
         var ctor = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
-        var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        var ctorInfo = GetConstructorInfo(ctor);
 
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
@@ -1491,7 +1538,7 @@ internal class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+            var ctorInfo = GetConstructorInfo(ctor);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         }
@@ -1594,7 +1641,7 @@ internal class ExpressionGenerator : Generator
             }
         }
 
-        var constructorInfo = constructorSymbol.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        var constructorInfo = GetConstructorInfo(constructorSymbol);
 
         if (objectCreationExpression.Receiver is not null)
         {
@@ -1644,6 +1691,15 @@ internal class ExpressionGenerator : Generator
 
             case BoundFieldAssignmentExpression fieldAssignmentExpression:
                 {
+                    if (MethodBodyGenerator.AsyncIlFrame is { } asyncFrame &&
+                        MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
+                        fieldAssignmentExpression.Receiver is BoundSelfExpression selfExpression &&
+                        SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type) &&
+                        TryEmitAsyncStateMachineFieldAssignment(asyncFrame, asyncContext.Definition, fieldAssignmentExpression, preserveResult))
+                    {
+                        break;
+                    }
+
                     var fieldSymbol = fieldAssignmentExpression.Field;
                     var right = fieldAssignmentExpression.Right;
                     var receiver = fieldAssignmentExpression.Receiver;
@@ -2045,12 +2101,20 @@ internal class ExpressionGenerator : Generator
 
     private FieldInfo GetField(IFieldSymbol fieldSymbol)
     {
-        return fieldSymbol switch
+        if (fieldSymbol is null)
+            throw new ArgumentNullException(nameof(fieldSymbol));
+
+        var codeGen = MethodGenerator.TypeGenerator.CodeGen;
+
+        if (MethodGenerator.AsyncStateMachineContext is { } context &&
+            fieldSymbol is SourceSymbol sourceField &&
+            context.TryGetConstructedMemberInfo(sourceField, codeGen, out var constructedMember) &&
+            constructedMember is FieldInfo constructedField)
         {
-            SourceFieldSymbol sourceFieldSymbol => sourceFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            _ => throw new Exception("Unsupported field symbol")
-        };
+            return constructedField;
+        }
+
+        return fieldSymbol.GetFieldInfo(codeGen);
     }
 
     private void EmitStoreElement(ITypeSymbol elementType)
@@ -2135,6 +2199,15 @@ internal class ExpressionGenerator : Generator
     {
         var symbol = memberAccessExpression.Symbol;
         var receiver = memberAccessExpression.Receiver;
+
+        if (MethodBodyGenerator.AsyncIlFrame is { } asyncFrame &&
+            MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
+            receiver is BoundSelfExpression selfExpression &&
+            SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type) &&
+            TryEmitAsyncStateMachineMemberAccess(asyncFrame, asyncContext.Definition, symbol))
+        {
+            return;
+        }
 
         switch (symbol)
         {
@@ -2355,6 +2428,14 @@ internal class ExpressionGenerator : Generator
             if (TryEmitValueTypeReceiverAddress(member.Receiver, member.Receiver?.Type, containingType))
             {
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+
+                if (MethodBodyGenerator.AsyncIlFrame is { } frame &&
+                    MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
+                    SymbolEqualityComparer.Default.Equals(fieldSymbol.ContainingType, asyncContext.Definition))
+                {
+                    frame.AfterFieldStore();
+                }
+
                 return true;
             }
         }
@@ -2370,13 +2451,31 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     return false;
 
-                ILGenerator.Emit(OpCodes.Ldarg_0);
+                if (MethodBodyGenerator.AsyncIlFrame is { } frame &&
+                    MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
+                    SymbolEqualityComparer.Default.Equals(frame.StateMachine, asyncContext.Definition))
+                {
+                    if (!frame.HasReceiverOnStack)
+                        frame.EnsureReceiverLoaded(keepAlive: false);
 
+                    return true;
+                }
+
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
 
             case BoundSelfExpression selfExpression:
                 if (MethodSymbol.IsStatic)
                     return false;
+
+                if (MethodBodyGenerator.AsyncIlFrame is { } asyncFrame &&
+                    SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type))
+                {
+                    if (!asyncFrame.HasReceiverOnStack)
+                        asyncFrame.EnsureReceiverLoaded(keepAlive: false);
+
+                    return true;
+                }
 
                 ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
@@ -2782,6 +2881,13 @@ internal class ExpressionGenerator : Generator
     {
         var fieldSymbol = fieldAccess.Field;
         var metadataFieldSymbol = fieldAccess.Field as PEFieldSymbol;
+
+        if (MethodBodyGenerator.AsyncIlFrame is { } asyncFrame &&
+            MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
+            TryEmitAsyncStateMachineFieldLoad(asyncFrame, asyncContext.Definition, fieldSymbol))
+        {
+            return;
+        }
 
         if (fieldSymbol.IsLiteral)
         {
@@ -3240,7 +3346,181 @@ internal class ExpressionGenerator : Generator
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
-        return methodSymbol.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+        if (methodSymbol is null)
+            throw new ArgumentNullException(nameof(methodSymbol));
+
+        var codeGen = MethodGenerator.TypeGenerator.CodeGen;
+
+        if (MethodGenerator.AsyncStateMachineContext is { } context)
+        {
+            if (methodSymbol is SourceSymbol sourceMethod &&
+                context.TryGetConstructedMemberInfo(sourceMethod, codeGen, out var constructedMember) &&
+                constructedMember is MethodInfo constructedMethod)
+            {
+                return constructedMethod;
+            }
+
+            if (methodSymbol is ConstructedMethodSymbol constructed &&
+                constructed.Definition is SourceMethodSymbol constructedDefinition &&
+                context.TryGetConstructedMemberInfo(constructedDefinition, codeGen, out constructedMember) &&
+                constructedMember is MethodInfo constructedMethodInfo)
+            {
+                return constructedMethodInfo;
+            }
+
+            if (methodSymbol is SubstitutedMethodSymbol substituted &&
+                substituted.OriginalDefinition is SourceMethodSymbol substitutedDefinition &&
+                context.TryGetConstructedMemberInfo(substitutedDefinition, codeGen, out constructedMember) &&
+                constructedMember is MethodInfo substitutedMethodInfo)
+            {
+                return substitutedMethodInfo;
+            }
+        }
+
+        return methodSymbol.GetClrMethodInfo(codeGen);
+    }
+
+    private ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol)
+    {
+        if (constructorSymbol is null)
+            throw new ArgumentNullException(nameof(constructorSymbol));
+
+        var codeGen = MethodGenerator.TypeGenerator.CodeGen;
+
+        if (MethodGenerator.AsyncStateMachineContext is { } context)
+        {
+            if (constructorSymbol is SourceMethodSymbol sourceConstructor &&
+                context.TryGetConstructedMemberInfo(sourceConstructor, codeGen, out var constructedMember) &&
+                constructedMember is ConstructorInfo constructedConstructor)
+            {
+                return constructedConstructor;
+            }
+
+            if (constructorSymbol is ConstructedMethodSymbol constructed &&
+                constructed.Definition is SourceMethodSymbol constructedDefinition &&
+                context.TryGetConstructedMemberInfo(constructedDefinition, codeGen, out constructedMember) &&
+                constructedMember is ConstructorInfo constructedCtor)
+            {
+                return constructedCtor;
+            }
+
+            if (constructorSymbol is SubstitutedMethodSymbol substituted &&
+                substituted.OriginalDefinition is SourceMethodSymbol substitutedDefinition &&
+                context.TryGetConstructedMemberInfo(substitutedDefinition, codeGen, out constructedMember) &&
+                constructedMember is ConstructorInfo substitutedCtor)
+            {
+                return substitutedCtor;
+            }
+        }
+
+        return constructorSymbol.GetClrConstructorInfo(codeGen);
+    }
+
+    private bool TryEmitAsyncStateMachineFieldAssignment(
+        AsyncStateMachineILFrame frame,
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        BoundFieldAssignmentExpression assignment,
+        bool preserveResult)
+    {
+        if (preserveResult)
+            return false;
+
+        if (assignment.Field is not SourceFieldSymbol field)
+            return false;
+
+        if (!SymbolEqualityComparer.Default.Equals(field.ContainingType, stateMachine))
+            return false;
+
+        var keepAlive = ShouldKeepReceiverAlive(stateMachine, field, assignment.Right);
+
+        frame.EnsureReceiverLoaded(keepAlive);
+
+        EmitExpression(assignment.Right);
+
+        if (assignment.Right.Type is { IsValueType: true } rightValueType && !field.Type.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(rightValueType));
+
+        var fieldInfo = (FieldInfo)GetField(field);
+        ILGenerator.Emit(OpCodes.Stfld, fieldInfo);
+
+        frame.AfterFieldStore();
+
+        if (keepAlive)
+            frame.SuppressNextRelease();
+
+        return true;
+    }
+
+    private static bool ShouldKeepReceiverAlive(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SourceFieldSymbol field,
+        BoundExpression value)
+    {
+        if (SymbolEqualityComparer.Default.Equals(field, stateMachine.StateField))
+        {
+            if (value is BoundLiteralExpression { Value: int stateValue })
+                return stateValue != -1;
+
+            return true;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(field, stateMachine.BuilderField))
+            return true;
+
+        foreach (var hoisted in stateMachine.HoistedLocals)
+        {
+            if (SymbolEqualityComparer.Default.Equals(hoisted, field))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool TryEmitAsyncStateMachineMemberAccess(
+        AsyncStateMachineILFrame frame,
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        ISymbol symbol)
+    {
+        if (symbol is not IFieldSymbol field)
+            return false;
+
+        if (!SymbolEqualityComparer.Default.Equals(field.ContainingType, stateMachine))
+            return false;
+
+        var keepAlive = SymbolEqualityComparer.Default.Equals(field, stateMachine.BuilderField) ||
+            stateMachine.HoistedLocals.Any(hoisted => SymbolEqualityComparer.Default.Equals(hoisted, field));
+
+        frame.EnsureReceiverLoaded(keepAlive);
+
+        var fieldInfo = (FieldInfo)GetField(field);
+        ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+
+        frame.AfterFieldStore();
+
+        if (keepAlive)
+            frame.SuppressNextRelease();
+
+        return true;
+    }
+
+    private bool TryEmitAsyncStateMachineFieldLoad(
+        AsyncStateMachineILFrame frame,
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        IFieldSymbol field)
+    {
+        if (!SymbolEqualityComparer.Default.Equals(field.ContainingType, stateMachine))
+            return false;
+
+        if (field.IsStatic)
+            return false;
+
+        frame.EnsureReceiverLoaded(keepAlive: false);
+
+        var fieldInfo = (FieldInfo)GetField(field);
+        ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+
+        frame.AfterFieldStore();
+        return true;
     }
 
     private readonly struct DelegateConstructorCacheKey

@@ -22,6 +22,7 @@ internal class MethodBodyGenerator
     private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(SymbolEqualityComparer.Default);
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
+    private AsyncStateMachineILFrame? _asyncIlFrame;
 
     public MethodBodyGenerator(MethodGenerator methodGenerator)
     {
@@ -85,6 +86,8 @@ internal class MethodBodyGenerator
         local = _returnValueLocal;
         return local is not null;
     }
+
+    internal AsyncStateMachineILFrame? AsyncIlFrame => _asyncIlFrame;
 
     internal void RegisterLabelScope(ILabelSymbol labelSymbol, Scope scope)
     {
@@ -332,7 +335,7 @@ internal class MethodBodyGenerator
 
     private void EmitTopLevelMainBridge(SynthesizedMainMethodSymbol mainMethod, SynthesizedMainAsyncMethodSymbol asyncImplementation)
     {
-        if (MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(asyncImplementation) is not MethodInfo asyncMethodInfo)
+        if (MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(asyncImplementation, MethodGenerator.AsyncStateMachineContext) is not MethodInfo asyncMethodInfo)
             throw new NotSupportedException("Async entry point implementation is not defined.");
 
         if (MethodSymbol.Parameters.Length == 1)
@@ -403,8 +406,21 @@ internal class MethodBodyGenerator
             return;
         }
 
-        DeclareLocals(body);
-        EmitMethodBlock(body);
+        var previousFrame = _asyncIlFrame;
+
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.MoveNextMethod))
+            _asyncIlFrame = new AsyncStateMachineILFrame(this, asyncStateMachine);
+
+        try
+        {
+            DeclareLocals(body);
+            EmitMethodBlock(body);
+        }
+        finally
+        {
+            _asyncIlFrame?.Dispose();
+            _asyncIlFrame = previousFrame;
+        }
     }
 
     private BoundBlockStatement? GetAsyncStateMachineBody(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)

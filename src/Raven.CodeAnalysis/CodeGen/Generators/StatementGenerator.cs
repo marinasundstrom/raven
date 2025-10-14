@@ -22,6 +22,9 @@ internal class StatementGenerator : Generator
 
     public override void Emit()
     {
+        var asyncFrame = MethodBodyGenerator.AsyncIlFrame;
+        asyncFrame?.BeginStatement(_statement);
+
         switch (_statement)
         {
             case BoundReturnStatement returnStatement:
@@ -72,6 +75,8 @@ internal class StatementGenerator : Generator
                 EmitConditionalGotoStatement(conditionalGotoStatement);
                 break;
         }
+
+        asyncFrame?.EndStatement(_statement);
     }
 
     private void EmitIfStatement(BoundIfStatement ifStatement)

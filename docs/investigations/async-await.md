@@ -162,6 +162,224 @@ remains to match the behaviour of C#.
   smoke tests can assert the generated state machines reach completion.
 * Integrate the new `ravenc --ilverify` switch (or `peverify`) into CI once the
   state machine passes the runtime verifier to catch drift automatically.
+* Implement open generic async support following the staged plan below.
+
+### Roslyn open-generic async reference
+
+To ground the remaining work in concrete behaviour, we compiled the following
+C# method and inspected the generated IL with `ilspycmd`:
+
+```csharp
+class C
+{
+    public async Task<T> M<T>(T value)
+    {
+        await Task.Delay(10).ConfigureAwait(false);
+        return value;
+    }
+}
+```
+
+The nested state machine `C.<M>d__0<T>` carries the method’s type parameter and
+threads it through every metadata surface:
+
+```
+.field public valuetype AsyncTaskMethodBuilder`1<!T> '<>t__builder'
+.field public !T 'value'
+...
+IL_0042: ldflda valuetype AsyncTaskMethodBuilder`1<!0> class C/'<M>d__0`1'<!T>::'<>t__builder'
+IL_004b: call instance void AsyncTaskMethodBuilder`1<!T>::AwaitUnsafeOnCompleted<...>(!!0&, !!1&)
+
+IL_002e: call instance void AsyncTaskMethodBuilder`1<!!T>::Start<class C/'<M>d__0`1'<!!T>>(!!0&)
+IL_0039: call instance class Task`1<!0> AsyncTaskMethodBuilder`1<!!T>::get_Task()
+```
+
+Roslyn therefore:
+
+* Reuses the cloned method type parameter for the builder field, parameter
+  captures, `MoveNext` locals, and the synthesized type name.
+* Invokes `AsyncTaskMethodBuilder<T>.Start` and
+  `AwaitUnsafeOnCompleted<…, C.<M>d__0<T>>` with the fully constructed state
+  machine so `!!0` and `!!1` tokens already reflect the closed generic
+  arguments.
+* Emits the same constructed builder in the rewritten method body when loading
+  `_builder.Task`, keeping the returned metadata closed over `T`.
+
+Raven’s lowering now substitutes those generics, but the emitters still observe
+the open definition, so the remaining steps need to flow the constructed view
+through metadata caching.
+
+### Plan: open generic async state machines
+
+1. **Model the missing metadata**
+   * Audit `SynthesizedAsyncStateMachineTypeSymbol` and related factory helpers
+     to understand how method type parameters are currently discarded when
+     lowering an async method.
+   * Cross-check Roslyn’s `AsyncStateMachineTypeSymbol` stamping behaviour to
+     catalogue which generic arguments are threaded through the generated type
+     definition, `MoveNext`, and `SetStateMachine` methods.
+   * Capture diagnostics gaps where open-generic async methods should error
+     today (e.g. unverifiable emit) so we can flip them once support lands.
+2. **Thread method generics through lowering**
+   * Extend the async rewriter to surface the original `MethodSymbol` when
+     synthesizing state-machine types so the emitted definition closes over the
+     method’s type parameters.
+   * Ensure hoisted fields, awaiter instantiations, and builder fields refer to
+     those type parameters via `TypeMap` rather than constructing loose
+     `TypeSymbol`s.
+   * ✅ Raven now clones method type parameters onto
+     `SynthesizedAsyncStateMachineTypeSymbol`, substituting them through
+     parameter fields, hoisted locals, awaiter captures, and builder selection so
+     open-generic async methods stamp the same metadata as Roslyn. 【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L13-L227】
+   * ✅ `AsyncLowerer` threads the state-machine type map into awaiter locals and
+     the `AwaitOnCompleted` instantiation, and regression tests cover a generic
+     async method to lock in the behaviour. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1323-L1361】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L922-L989】
+3. **Stamp constructed state machines at call-sites**
+   * ✅ Update the bootstrap path that instantiates the synthesized struct so it
+     passes the constructed method type arguments (e.g. `T`, `U`) alongside the
+     original `Task`/`Task<T>` builder by materialising a constructed state-machine
+     instance and threading its substituted fields through the async bootstrap.
+     【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L118-L206】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L85-L155】
+   * ✅ Verify `AsyncTaskMethodBuilder<T>.Start` receives a closed generic instance
+     whose `MoveNext` signature includes the method type arguments in the same
+     order that Roslyn emits with regression coverage asserting the state-machine
+     local, address-of, and builder invocations use the constructed generic.
+     【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L860-L911】
+4. **Surface constructed instances inside emission caches**
+   * ✅ Rework `CodeGenerator` so the constructed async state machine tracked by
+     lowering is registered alongside the definition, allowing cache lookups to
+     resolve either the open symbol or the constructed instantiation. The
+     registration now occurs immediately after rewriting and mirrors the mapping
+     when type builders are created. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L19-L93】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L822-L899】
+   * ✅ Teach the generator pipeline to serve the constructed view for
+     downstream consumers so locals, field accesses, and builder invocations
+     never fall back to the open definition. This includes resolving field
+     metadata through the constructed symbol and verifying the cache behaviour
+     with a generic async IL regression test. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L990-L1006】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2046-L2051】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L173-L226】
+5. **Register cloned generics on the emitted type**
+   * ✅ `TypeGenerator` now defines generic parameters for synthesized async
+     state machines, registering the cloned method type parameters so metadata
+     encodes the same `!!0` ordering that Roslyn produces. 【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L138-L212】
+   * ✅ Field builders resolve through the constructed type map, keeping `_state`,
+     `_builder`, hoisted locals, and parameter captures stamped with substituted
+     method generics. Metadata regression coverage asserts `_builder` and
+     `_value` use the cloned type parameter. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L218-L269】
+6. **Thread constructed state machines through method registration**
+   * ✅ Teach `MethodGenerator` to request the `ConstructedStateMachine` that
+     lowering attached to the source method, and register generic parameters
+     against that constructed view instead of the open symbol so
+     `MethodBuilder` handles reflect the cloned `!!0/!!1` tokens.
+     【F:src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs†L24-L225】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L152】
+   * ✅ Rework `CodeGenerator.GetMemberBuilder` to accept a constructed async
+     context (definition + instantiation) and return substituted field/method
+     builders without forcing later passes to jump back through the open
+     definition. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L19-L142】【F:src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs†L142-L147】
+   * ✅ Introduce an explicit `AsyncStateMachineEmissionContext` struct that
+     packages the open symbol, constructed instance, and type map so every
+     emitter that participates in async lowering can thread the same
+     substitution data without re-querying caches, and add regression coverage
+     asserting the context flows through method generators. 【F:src/Raven.CodeAnalysis/CodeGen/AsyncStateMachineEmissionContext.cs†L1-L68】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L201-L260】
+7. **Emit `MoveNext`/`SetStateMachine` using constructed metadata**
+   * ✅ Updated `ExpressionGenerator` (and the callers that rely on it) to
+     resolve builder fields, constructor handles, and async helper invocations
+     through the `AsyncStateMachineEmissionContext` so the emitted IL always
+     references the constructed `AsyncTaskMethodBuilder<T>` and cloned state
+     machine members. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2029-L2087】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3243-L3281】
+   * ✅ Emitted `SetStateMachine` using the constructed receiver while
+     preserving the `IAsyncStateMachine` parameter, matching the signature Roslyn
+     produces for open generic async methods. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3255-L3281】
+   * ✅ Added IL regression tests that assert the generic async method’s
+     `Start`, `AwaitUnsafeOnCompleted`, and `SetStateMachine` callsites stamp the
+     cloned type parameter onto the builder and constructed state machine. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L270-L340】
+8. **Stabilise constructed `MoveNext` emission**
+   * ✅ Introduced `AsyncStateMachineILFrame` so `MethodBodyGenerator`,
+     `StatementGenerator`, and `ExpressionGenerator` can reuse a shared receiver
+     stack discipline across `_state`, `_builder`, and awaiter mutations instead
+     of reloading `ldarg.0` for every store. 【F:src/Raven.CodeAnalysis/CodeGen/AsyncStateMachineILFrame.cs†L1-L93】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L1-L462】
+   * ✅ Threaded the frame through async member lookups so builder calls, hoisted
+     awaiters, and state updates all consult the constructed metadata view rather
+     than re-querying the open definition. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1606-L3364】
+   * ✅ Added IL regression coverage that asserts the duplicated receiver stays on
+     the stack between the `_state` store and `AwaitUnsafeOnCompleted` call for
+     generic async methods, mirroring Roslyn’s instruction ordering. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L320-L370】
+9. **Align `SetStateMachine`/bootstrap helpers with Roslyn**
+   * ✅ Captured the async bootstrap IL and verified
+     `AsyncTaskMethodBuilder<T>.Start` consumes the constructed state machine by
+     reference, guarding the pattern with
+     `GenericAsyncMethod_StartCall_ReusesStateMachineLocalAddress` so the
+     builder receiver and `Start` argument both reuse the state-machine local
+     address. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L379-L405】
+   * ✅ Exercised the synthesized `SetStateMachine` body with
+     `GenericAsyncStateMachine_SetStateMachine_PassesReceiverByReference` to
+     confirm the `_builder` field and generic call mirror Roslyn’s emitted
+     metadata. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L442-L459】
+   * ✅ Documented the parity so future work can focus on the remaining
+     metadata-name alignment rather than recreating the bootstrap sequence.
+10. **Regression coverage and documentation**
+    * ✅ Extended async IL baselines so the generated state machine metadata name
+      must encode the method arity and the recorded builder helpers retain their
+      `!!0`/`!!1` method-generic tokens, mirroring the Roslyn IL baselines.
+      【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L353-L424】
+    * Add runtime executions for open-generic async methods returning both
+      `Task` and `Task<T>`, and document the parity with Roslyn once `ilverify`
+      passes.
+
+### Re-evaluation insights
+
+* Emission now retains the constructed async state machine alongside the
+  definition, so subsequent steps can focus on threading the cloned generics into
+  IL emission helpers without recreating substitutions on the fly. The caches
+  still expose the original `TypeGenerator`, meaning the remaining work must
+  ensure method bodies query the constructed mapping before resolving builder
+  handles. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L19-L93】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L990-L1006】
+* The new `AsyncStateMachineILFrame` keeps the receiver alive across state
+  updates, builder accesses, and awaiter stores so `MoveNext` now follows the
+  same `ldarg.0`/`dup`/`stfld` discipline Roslyn emits. Tests guard against
+  regressions by asserting no additional `ldarg.0` instructions appear between
+  the `_state` store and `AwaitUnsafeOnCompleted`. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs†L1-L83】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L320-L370】
+* Reflection on Roslyn’s emitted state machine confirms the struct carries four
+  instance fields—`int <>1__state`, `AsyncTaskMethodBuilder<T> <>t__builder`, the
+  captured parameter `T value`, and a `TaskAwaiter` slot—and both `MoveNext` and
+  the synthesized `SetStateMachine` live on that constructed type while the
+  interface method retains an `IAsyncStateMachine` parameter. Raven must register
+  the cloned type parameters before emitting either method so metadata tokens
+  line up with the constructed builder type that Roslyn exposes at runtime; the
+  proposed emission frame should own that registration.
+* Method generators now capture an `AsyncStateMachineEmissionContext`, letting
+  `RegisterGenericParameters` map both the method type parameters and their
+  cloned state-machine counterparts onto the same builder handles. The shared
+  context gives downstream emitters access to substituted members without
+  hopping back to the open definition, clearing the way for the IL rewrites in
+  Step 7. 【F:src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs†L24-L225】【F:src/Raven.CodeAnalysis/CodeGen/AsyncStateMachineEmissionContext.cs†L1-L68】
+* Regression coverage now asserts that async method generators expose the
+  constructed context and that `GetMemberBuilder` returns substituted builder
+  handles for the cloned `_builder` field. Future IL tests can therefore rely on
+  the context being available when binding constructed metadata. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L201-L260】
+* New IL baselines for the bootstrap and `SetStateMachine` helpers prove the
+  constructed async state machine flows by reference during `Start` and the
+  builder metadata remains stamped with the cloned type parameter. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L379-L405】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L442-L459】
+* Roslyn’s emitted IL for `C.<M>d__0<T>` confirms that the builder field, awaiter
+  plumbing, and `Start`/`AwaitUnsafeOnCompleted` invocations all reference
+  `AsyncTaskMethodBuilder<T>` with the method’s type parameter substituted. Our
+  emitters currently rehydrate the open definition when emitting the bootstrap,
+  so any metadata cached before substitution loses the constructed `!!0` tokens.
+  The revised plan separates cache rewrites, generic registration, and IL
+  generation so we can address each surface incrementally while keeping the
+  constructed view front and centre.
+* Reworking `CodeGenerator` to cache constructed state machines is likely to
+  ripple into how nested lambdas and iterator scaffolding share builders. We may
+  need a dedicated `ConstructedAsyncStateMachineRegistry` so the existing caches
+  stay monomorphic for non-async types while open-generic state machines consult
+  the constructed view on demand; the proposed emission frame can house that
+  lookup to avoid further cache churn.
+* Stamping the cloned type parameters directly onto the synthesized state machine
+  lets field builders resolve to `!!0` metadata tokens, matching Roslyn’s
+  emitted signatures and keeping future emission steps focused on the method body
+  rewrites rather than type registration. 【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L138-L212】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L218-L269】
+* Recording the IL after threading the constructed context through emission shows
+  the async method, `MoveNext`, and `SetStateMachine` now invoke
+  `AsyncTaskMethodBuilder<T>` with the cloned type parameter, confirming the
+  constructed metadata is preserved end-to-end for generic async methods.
 
 ## Step 1 – Desired semantics for `async Task<T>`
 
@@ -530,4 +748,39 @@ remains to match the behaviour of C#.
 * Scale the CLI-driven smoke tests to cover multiple awaits, error paths, and
   nested async helpers so generic state machines stay validated as new features
   land.
+
+## Step 12 – Open generic async state machines
+
+### Current status
+
+* C# stamps method type parameters onto the synthesized state machine struct
+  (for example, generating `<Test>d__0<T>` for `async Task<T> Test<T>(T value)`),
+  so each instantiation like `Test<int>` closes both the state machine and its
+  `AsyncTaskMethodBuilder<T>` field with the concrete type argument. That design
+  keeps hoisted locals, parameters, and awaiters bound to the constructed `T`
+  when `MoveNext` executes.
+* Raven currently manufactures one `SynthesizedAsyncStateMachineTypeSymbol` per
+  method definition and never clones the method's generic parameters onto the
+  generated struct, leaving the state machine non-generic regardless of the
+  declaration's arity. 【F:src/Raven.CodeAnalysis/Compilation.SynthesizedTypes.cs†L39-L60】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L18-L98】
+* Because the struct has no type parameters, hoisted fields such as `_value`
+  retain the open method type parameter, and `AsyncLowerer` reuses that open
+  symbol when it instantiates the state machine inside constructed bodies.
+  When the caller supplies concrete type arguments (e.g. `await Test(42)`), the
+  runtime still observes an open generic state machine, so the builder and
+  hoisted locals never close over `int`, diverging from the CLR shape produced
+  by Roslyn.
+
+### Next actions
+
+* Mirror Roslyn by projecting each method type parameter onto the synthesized
+  state machine (e.g. via `SourceNamedTypeSymbol.SetTypeParameters`) so the
+  struct becomes `<AsyncStateMachine<TArgs...>>` and its fields bind to the
+  constructed arguments.
+* Update the async lowering pipeline to request the constructed state machine
+  when rewriting a `ConstructedMethodSymbol`, ensuring the `BoundObjectCreation`
+  for the state machine uses the closed generic type and builder metadata.
+* Add IL and execution baselines that cover `async Task<T>` methods with both
+  explicit and inferred type arguments to verify the new instantiation logic and
+  guard against regressions when additional async features arrive.
 

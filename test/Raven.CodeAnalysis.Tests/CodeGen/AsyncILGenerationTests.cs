@@ -101,6 +101,17 @@ class C {
 }
 """;
 
+    private const string AsyncGenericMethodCode = """
+import System.Threading.Tasks.*
+
+class C {
+    async Identity<T>(value: T) -> Task<T> {
+        await Task.Delay(1)
+        return value
+    }
+}
+""";
+
     [Fact]
     public void AsyncAssembly_PassesIlVerifyWhenToolAvailable()
     {
@@ -156,6 +167,369 @@ class C {
             if (File.Exists(assemblyPath))
                 File.Delete(assemblyPath);
         }
+    }
+
+    [Fact]
+    public void GenericAsyncMethod_RegistersConstructedStateMachine()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericMethodCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+
+        var root = syntaxTree.GetRoot();
+        var methodSyntax = root
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.Text == "Identity");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+
+        var tryRewrite = typeof(CodeGenerator)
+            .GetMethod("TryRewriteAsyncMethod", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Missing TryRewriteAsyncMethod reflection handle.");
+
+        tryRewrite.Invoke(codeGenerator, new object?[]
+        {
+            model,
+            methodSymbol,
+            methodSyntax.Body,
+            methodSyntax.ExpressionBody
+        });
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+
+        Assert.True(codeGenerator.TryGetConstructedAsyncStateMachine(stateMachine, out var constructed));
+
+        Assert.True(methodSymbol.ConstructedAsyncStateMachine.HasValue);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol.ConstructedAsyncStateMachine.Value.Type, constructed.Type));
+
+        var definitionGenerator = codeGenerator.GetOrCreateTypeGenerator(stateMachine);
+        var constructedGenerator = codeGenerator.GetOrCreateTypeGenerator(constructed.Type);
+        Assert.Same(definitionGenerator, constructedGenerator);
+    }
+
+    [Fact]
+    public void GenericAsyncMethod_MethodGeneratorCapturesAsyncContext()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericMethodCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, Stream.Null);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var methodSyntax = root
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.Text == "Identity");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+
+        var containingGenerator = codeGenerator.GetOrCreateTypeGenerator(methodSymbol.ContainingType);
+        var methodGenerator = containingGenerator.GetMethodGenerator(methodSymbol);
+        Assert.NotNull(methodGenerator);
+        Assert.True(methodGenerator!.AsyncStateMachineContext.HasValue);
+
+        var context = methodGenerator.AsyncStateMachineContext!.Value;
+        Assert.Same(methodSymbol, context.AsyncMethod);
+        Assert.Same(stateMachine, context.Definition);
+
+        var constructedOpt = methodSymbol.ConstructedAsyncStateMachine;
+        Assert.True(constructedOpt.HasValue, "Constructed async state machine missing from method symbol.");
+        var constructed = constructedOpt.Value;
+
+        Assert.Equal(constructed.Type, context.Constructed.Type);
+
+        var builderFieldInfo = Assert.IsAssignableFrom<FieldInfo>(codeGenerator.GetMemberBuilder(stateMachine.BuilderField, context));
+        var constructedBuilder = context.Constructed.BuilderField.GetFieldInfo(codeGenerator);
+        Assert.Equal(constructedBuilder.DeclaringType?.FullName, builderFieldInfo.DeclaringType?.FullName);
+        Assert.Equal(constructedBuilder.FieldType, builderFieldInfo.FieldType);
+
+        var stateGenerator = codeGenerator.GetOrCreateTypeGenerator(stateMachine);
+        var moveNextGenerator = stateGenerator.GetMethodGenerator(stateMachine.MoveNextMethod);
+        Assert.NotNull(moveNextGenerator);
+        Assert.True(moveNextGenerator!.AsyncStateMachineContext.HasValue);
+        Assert.Equal(context.Constructed.Type, moveNextGenerator.AsyncStateMachineContext!.Value.Constructed.Type);
+    }
+
+    [Fact]
+    public void GenericAsyncStateMachine_RegistersClonedTypeParameterMetadata()
+    {
+        using var metadata = EmitAsyncMetadata(AsyncGenericMethodCode);
+
+        var reader = metadata.MetadataReader;
+        var stateMachineDefinition = reader.GetTypeDefinition(metadata.StateMachineHandle);
+
+        var genericParameters = stateMachineDefinition
+            .GetGenericParameters()
+            .Select(reader.GetGenericParameter)
+            .ToArray();
+
+        Assert.Single(genericParameters);
+        var typeParameter = genericParameters[0];
+        Assert.Equal("T", reader.GetString(typeParameter.Name));
+
+        var builderField = stateMachineDefinition
+            .GetFields()
+            .Select(reader.GetFieldDefinition)
+            .Single(field => reader.StringComparer.Equals(field.Name, "_builder"));
+
+        var builderSignature = reader.GetBlobReader(builderField.Signature);
+        var builderHeader = builderSignature.ReadSignatureHeader();
+        Assert.Equal(SignatureKind.Field, builderHeader.Kind);
+
+        var builderTypeCode = builderSignature.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.GenericTypeInstance, builderTypeCode);
+
+        var builderTypeKind = builderSignature.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.TypeHandle, builderTypeKind);
+
+        var builderHandle = builderSignature.ReadTypeHandle();
+        var builderTypeName = GetTypeQualifiedName(reader, builderHandle);
+        Assert.Equal("System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1", builderTypeName);
+
+        var builderArity = builderSignature.ReadCompressedInteger();
+        Assert.Equal(1, builderArity);
+
+        var builderArgumentCode = builderSignature.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.GenericTypeParameter, builderArgumentCode);
+
+        var builderArgumentOrdinal = builderSignature.ReadCompressedInteger();
+        Assert.Equal(0, builderArgumentOrdinal);
+
+        var valueField = stateMachineDefinition
+            .GetFields()
+            .Select(reader.GetFieldDefinition)
+            .Single(field => reader.StringComparer.Equals(field.Name, "_value"));
+
+        var valueSignature = reader.GetBlobReader(valueField.Signature);
+        var valueHeader = valueSignature.ReadSignatureHeader();
+        Assert.Equal(SignatureKind.Field, valueHeader.Kind);
+
+        var valueTypeCode = valueSignature.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.GenericTypeParameter, valueTypeCode);
+
+        var valueOrdinal = valueSignature.ReadCompressedInteger();
+        Assert.Equal(0, valueOrdinal);
+    }
+
+    [Fact]
+    public void GenericAsyncStateMachine_Metadata_NameIncludesMethodArity()
+    {
+        using var metadata = EmitAsyncMetadata(AsyncGenericMethodCode);
+
+        var reader = metadata.MetadataReader;
+        var definition = reader.GetTypeDefinition(metadata.StateMachineHandle);
+
+        var typeName = reader.GetString(definition.Name);
+        Assert.EndsWith("`1", typeName, StringComparison.Ordinal);
+
+        Assert.Equal(metadata.MethodSymbol.TypeParameters.Length, definition.GetGenericParameters().Count());
+    }
+
+    [Fact]
+    public void GenericAsyncStateMachine_Metadata_UsesGenericMethodParameterTokens()
+    {
+        using var metadata = EmitAsyncMetadata(AsyncGenericMethodCode);
+
+        var reader = metadata.MetadataReader;
+
+        var startHandle = FindMemberReference(
+            reader,
+            methodName: "Start",
+            parentTypeName: "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1",
+            expectedGenericParameterCount: 1,
+            expectedParameterCount: 1);
+
+        var startMember = reader.GetMemberReference(startHandle);
+        var startSignature = reader.GetBlobReader(startMember.Signature);
+        var startHeader = startSignature.ReadSignatureHeader();
+        Assert.True(startHeader.Kind == SignatureKind.Method && startHeader.IsGeneric);
+
+        var startGenericCount = startSignature.ReadCompressedInteger();
+        Assert.Equal(1, startGenericCount);
+
+        var startParameterCount = startSignature.ReadCompressedInteger();
+        Assert.Equal(1, startParameterCount);
+
+        Assert.Equal(SignatureTypeCode.Void, startSignature.ReadSignatureTypeCode());
+
+        Assert.Equal(SignatureTypeCode.ByReference, startSignature.ReadSignatureTypeCode());
+        Assert.Equal(SignatureTypeCode.GenericMethodParameter, startSignature.ReadSignatureTypeCode());
+        Assert.Equal(0, startSignature.ReadCompressedInteger());
+
+        var awaitHandle = FindMemberReference(
+            reader,
+            methodName: "AwaitUnsafeOnCompleted",
+            parentTypeName: "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1",
+            expectedGenericParameterCount: 2,
+            expectedParameterCount: 2);
+
+        var awaitMember = reader.GetMemberReference(awaitHandle);
+        var awaitSignature = reader.GetBlobReader(awaitMember.Signature);
+        var awaitHeader = awaitSignature.ReadSignatureHeader();
+        Assert.True(awaitHeader.Kind == SignatureKind.Method && awaitHeader.IsGeneric);
+
+        var awaitGenericCount = awaitSignature.ReadCompressedInteger();
+        Assert.Equal(2, awaitGenericCount);
+
+        var awaitParameterCount = awaitSignature.ReadCompressedInteger();
+        Assert.Equal(2, awaitParameterCount);
+
+        Assert.Equal(SignatureTypeCode.Void, awaitSignature.ReadSignatureTypeCode());
+
+        for (var ordinal = 0; ordinal < 2; ordinal++)
+        {
+            Assert.Equal(SignatureTypeCode.ByReference, awaitSignature.ReadSignatureTypeCode());
+            Assert.Equal(SignatureTypeCode.GenericMethodParameter, awaitSignature.ReadSignatureTypeCode());
+            Assert.Equal(ordinal, awaitSignature.ReadCompressedInteger());
+        }
+    }
+
+    [Fact]
+    public void GenericAsyncMethod_StartCall_UsesConstructedStateMachine()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericMethodCode, static generator =>
+            generator.MethodSymbol.Name == "Identity" &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol);
+
+        var startCall = instructions.First(instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("Start", StringComparison.Ordinal));
+
+        var startInfo = Assert.IsAssignableFrom<MethodInfo>(startCall.Operand.Value);
+        Assert.True(startInfo.DeclaringType!.IsGenericType);
+        var builderArgument = Assert.Single(startInfo.DeclaringType!.GetGenericArguments());
+        AssertGenericTypeParameter(builderArgument, "T");
+
+        var parameter = Assert.Single(startInfo.GetParameters());
+        var parameterType = parameter.ParameterType;
+        if (parameterType.IsByRef)
+            parameterType = parameterType.GetElementType()!;
+
+        Assert.True(parameterType.IsGenericParameter);
+    }
+
+    [Fact]
+    public void GenericAsyncMethod_StartCall_ReusesStateMachineLocalAddress()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericMethodCode, static generator =>
+            generator.MethodSymbol.Name == "Identity" &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol);
+
+        var startIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("Start", StringComparison.Ordinal));
+
+        Assert.True(startIndex >= 2, "Start invocation sequence too short.");
+
+        var builderReceiver = instructions[startIndex - 2];
+        Assert.Equal(OpCodes.Ldflda, builderReceiver.Opcode);
+        Assert.Equal("_builder", FormatOperand(builderReceiver.Operand));
+
+        var builderReceiverLoad = instructions[startIndex - 3];
+        Assert.True(builderReceiverLoad.Opcode == OpCodes.Ldloca_S || builderReceiverLoad.Opcode == OpCodes.Ldloca);
+
+        var stateMachineArgument = instructions[startIndex - 1];
+        Assert.True(stateMachineArgument.Opcode == OpCodes.Ldloca_S || stateMachineArgument.Opcode == OpCodes.Ldloca);
+
+        var builderOperand = Assert.IsAssignableFrom<FieldInfo>(builderReceiver.Operand.Value);
+        Assert.NotNull(builderOperand.DeclaringType);
+        Assert.True(builderOperand.DeclaringType!.IsGenericType);
+    }
+
+    [Fact]
+    public void GenericAsyncStateMachine_MoveNext_UsesConstructedBuilderMetadata()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericMethodCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var builderLoad = instructions.First(instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            string.Equals(FormatOperand(instruction.Operand), "_builder", StringComparison.Ordinal));
+
+        var builderType = GetFieldOperandType(builderLoad.Operand);
+        Assert.True(builderType.IsGenericType || builderType.IsGenericTypeDefinition);
+        var builderArguments = builderType.GetGenericArguments();
+        Assert.Single(builderArguments);
+        var builderArgument = builderArguments[0];
+        AssertGenericTypeParameter(builderArgument, "T");
+
+        var awaitCall = instructions.First(instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("AwaitUnsafeOnCompleted", StringComparison.Ordinal));
+
+        var awaitInfo = Assert.IsAssignableFrom<MethodInfo>(awaitCall.Operand.Value);
+        Assert.True(awaitInfo.DeclaringType!.IsGenericType);
+        var builderGeneric = Assert.Single(awaitInfo.DeclaringType!.GetGenericArguments());
+        AssertGenericTypeParameter(builderGeneric, "T");
+
+        var awaitGenericArguments = awaitInfo.GetGenericArguments();
+        Assert.Equal(2, awaitGenericArguments.Length);
+        var stateMachineGeneric = awaitGenericArguments[1];
+        Assert.True(stateMachineGeneric.IsGenericParameter);
+    }
+
+    [Fact]
+    public void GenericAsyncStateMachine_SetStateMachine_PassesReceiverByReference()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericMethodCode, static generator =>
+            generator.MethodSymbol.Name == "SetStateMachine" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var builderCall = instructions.First(instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name == nameof(AsyncTaskMethodBuilder.SetStateMachine));
+
+        var methodInfo = Assert.IsAssignableFrom<MethodInfo>(builderCall.Operand.Value);
+        Assert.True(methodInfo.DeclaringType!.IsGenericType);
+        var builderArgument = Assert.Single(methodInfo.DeclaringType!.GetGenericArguments());
+        AssertGenericTypeParameter(builderArgument, "T");
+
+        var parameter = Assert.Single(methodInfo.GetParameters());
+        Assert.Equal(typeof(IAsyncStateMachine), parameter.ParameterType);
     }
 
     [Fact]
@@ -435,6 +809,63 @@ class C {
         Assert.Contains(instructions, instruction =>
             instruction.Opcode == OpCodes.Ldflda && FormatOperand(instruction.Operand) == "_state" ||
             instruction.Opcode == OpCodes.Ldfld && FormatOperand(instruction.Operand) == "_state");
+    }
+
+    [Fact]
+    public void GenericAsyncStateMachine_MoveNext_DuplicatesReceiverAcrossStateAndBuilder()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericMethodCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var stateStoreIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Stfld && FormatOperand(instruction.Operand) == "_state");
+
+        Assert.True(stateStoreIndex >= 3, "State machine store sequence too short.");
+
+        Assert.Equal(OpCodes.Ldarg_0, instructions[stateStoreIndex - 3].Opcode);
+        Assert.Equal(OpCodes.Dup, instructions[stateStoreIndex - 2].Opcode);
+
+        var builderAccess = instructions[stateStoreIndex + 1];
+        Assert.Equal(OpCodes.Ldflda, builderAccess.Opcode);
+        Assert.Equal("_builder", FormatOperand(builderAccess.Operand));
+
+        var awaitCallIndex = Array.FindIndex(instructions, stateStoreIndex + 1, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("AwaitUnsafeOnCompleted", StringComparison.Ordinal));
+
+        Assert.True(awaitCallIndex > stateStoreIndex, "AwaitUnsafeOnCompleted call not found after state store.");
+    }
+
+    [Fact]
+    public void GenericAsyncStateMachine_SetStateMachine_UsesConstructedBuilderMetadata()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericMethodCode, static generator =>
+            generator.MethodSymbol.Name == "SetStateMachine" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var builderLoadIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderLoadIndex > 0, "Builder address load not found.");
+
+        var receiverLoad = instructions[builderLoadIndex - 1];
+        Assert.Equal(OpCodes.Ldarg_0, receiverLoad.Opcode);
+
+        var setStateMachineCall = instructions.First(instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("SetStateMachine", StringComparison.Ordinal));
+
+        var methodInfo = Assert.IsAssignableFrom<MethodInfo>(setStateMachineCall.Operand.Value);
+        Assert.True(methodInfo.DeclaringType!.IsGenericType);
+        var builderArgument = Assert.Single(methodInfo.DeclaringType!.GetGenericArguments());
+        AssertGenericTypeParameter(builderArgument, "T");
+
+        var parameter = Assert.Single(methodInfo.GetParameters());
+        Assert.Equal(typeof(IAsyncStateMachine), parameter.ParameterType);
     }
 
     [Fact]
@@ -1079,6 +1510,20 @@ class C {
         return (method, instructions.ToArray());
     }
 
+    private static void AssertGenericTypeParameter(Type type, string expectedName)
+    {
+        Assert.True(type.IsGenericParameter, $"Expected generic parameter '{expectedName}', but found '{type}'.");
+        Assert.Equal(expectedName, type.Name);
+    }
+
+    private static Type GetFieldOperandType(RecordedOperand operand)
+        => operand.Kind switch
+        {
+            RecordedOperandKind.FieldInfo => ((FieldInfo)operand.Value!).FieldType,
+            RecordedOperandKind.FieldBuilder => ((FieldBuilder)operand.Value!).FieldType,
+            _ => throw new InvalidOperationException($"Operand '{operand.Kind}' does not describe a field.")
+        };
+
     private static string EmitAsyncAssemblyToDisk(string source, out Compilation compilation)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
@@ -1170,6 +1615,54 @@ class C {
             RecordedOperandKind.Type when operand.Value is Type type => type.Name,
             RecordedOperandKind.Int32 or RecordedOperandKind.Int64 or RecordedOperandKind.Single or RecordedOperandKind.Double or RecordedOperandKind.String => operand.Value?.ToString() ?? string.Empty,
             _ => operand.Value?.ToString() ?? string.Empty
+        };
+    }
+
+    private static MemberReferenceHandle FindMemberReference(
+        MetadataReader reader,
+        string methodName,
+        string parentTypeName,
+        int expectedGenericParameterCount,
+        int expectedParameterCount)
+    {
+        foreach (var handle in reader.MemberReferences)
+        {
+            var member = reader.GetMemberReference(handle);
+
+            if (!reader.StringComparer.Equals(member.Name, methodName))
+                continue;
+
+            var parentName = GetMemberParentQualifiedName(reader, member.Parent);
+            if (!string.Equals(parentName, parentTypeName, StringComparison.Ordinal))
+                continue;
+
+            var signature = reader.GetBlobReader(member.Signature);
+            var header = signature.ReadSignatureHeader();
+
+            if (header.Kind != SignatureKind.Method || !header.IsGeneric)
+                continue;
+
+            var genericParameterCount = signature.ReadCompressedInteger();
+            if (genericParameterCount != expectedGenericParameterCount)
+                continue;
+
+            var parameterCount = signature.ReadCompressedInteger();
+            if (parameterCount != expectedParameterCount)
+                continue;
+
+            return handle;
+        }
+
+        throw new InvalidOperationException($"Member reference '{methodName}' on '{parentTypeName}' not found.");
+    }
+
+    private static string GetMemberParentQualifiedName(MetadataReader reader, EntityHandle handle)
+    {
+        return handle.Kind switch
+        {
+            HandleKind.TypeDefinition or HandleKind.TypeReference => GetTypeQualifiedName(reader, handle),
+            HandleKind.TypeSpecification => GetTypeSpecificationQualifiedName(reader, (TypeSpecificationHandle)handle),
+            _ => string.Empty
         };
     }
 
@@ -1325,6 +1818,28 @@ class C {
         var ns = reader.GetString(namespaceHandle);
         var name = reader.GetString(nameHandle);
         return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+    }
+
+    private static string GetTypeSpecificationQualifiedName(MetadataReader reader, TypeSpecificationHandle handle)
+    {
+        var specification = reader.GetTypeSpecification(handle);
+        var blob = reader.GetBlobReader(specification.Signature);
+        _ = blob.ReadSignatureHeader();
+
+        var typeCode = blob.ReadSignatureTypeCode();
+        return typeCode switch
+        {
+            SignatureTypeCode.GenericTypeInstance => GetTypeSpecificationQualifiedNameFromGenericInstance(reader, ref blob),
+            SignatureTypeCode.TypeHandle => GetTypeQualifiedName(reader, blob.ReadTypeHandle()),
+            _ => throw new NotSupportedException($"Unsupported type specification code '{typeCode}'.")
+        };
+    }
+
+    private static string GetTypeSpecificationQualifiedNameFromGenericInstance(MetadataReader reader, ref BlobReader blob)
+    {
+        _ = blob.ReadSignatureTypeCode();
+        var underlyingHandle = blob.ReadTypeHandle();
+        return GetTypeQualifiedName(reader, underlyingHandle);
     }
 
     private sealed class AsyncMetadataContext : IDisposable

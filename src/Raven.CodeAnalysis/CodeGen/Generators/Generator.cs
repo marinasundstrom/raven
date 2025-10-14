@@ -142,7 +142,8 @@ internal abstract class Generator
         return typeSymbol.GetClrType(MethodGenerator.TypeGenerator.CodeGen);
     }
 
-    public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);
+    public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol)
+        => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol, MethodGenerator.AsyncStateMachineContext);
 
     private SemanticModel ResolveSemanticModel(SyntaxNode syntaxNode)
     {

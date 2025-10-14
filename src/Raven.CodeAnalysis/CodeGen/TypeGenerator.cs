@@ -165,12 +165,15 @@ internal class TypeGenerator
                     synthesizedType.MetadataName,
                     synthesizedAttributes,
                     baseClrType);
+                DefineTypeGenericParameters(synthesizedType);
             }
             else
             {
                 TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                     synthesizedType.MetadataName,
                     synthesizedAttributes);
+
+                DefineTypeGenericParameters(synthesizedType);
 
                 if (baseClrType is not null)
                     TypeBuilder.SetParent(baseClrType);

@@ -198,10 +198,20 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (_definition is SubstitutedMethodSymbol substituted)
+            return substituted.GetMethodInfo(codeGen);
+
+        if (_definition is SourceMethodSymbol sourceDefinition &&
+            codeGen.GetMemberBuilder(sourceDefinition) is MethodInfo definitionBuilder)
+        {
+            return definitionBuilder;
+        }
+
         var containingType = _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
+
         var isTypeBuilderInstantiation = string.Equals(
             containingClrType.GetType().FullName,
             "System.Reflection.Emit.TypeBuilderInstantiation",

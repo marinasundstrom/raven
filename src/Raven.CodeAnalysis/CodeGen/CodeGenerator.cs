@@ -21,13 +21,21 @@ internal class CodeGenerator
     readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(SymbolEqualityComparer.Default);
+    readonly Dictionary<SynthesizedAsyncStateMachineTypeSymbol, SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine> _constructedAsyncStateMachines = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<INamedTypeSymbol, SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine> _constructedAsyncStateMachinesByType = new(SymbolEqualityComparer.Default);
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
 
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
 
-    public MemberInfo? GetMemberBuilder(SourceSymbol symbol)
+    public MemberInfo? GetMemberBuilder(SourceSymbol symbol, AsyncStateMachineEmissionContext? asyncContext = null)
     {
+        if (asyncContext.HasValue &&
+            asyncContext.Value.TryGetConstructedMemberInfo(symbol, this, out var constructedMember))
+        {
+            return constructedMember;
+        }
+
         if (_mappings.TryGetValue(symbol, out var memberInfo))
             return memberInfo;
 
@@ -65,13 +73,41 @@ internal class CodeGenerator
         return constructorInfo;
     }
 
+    internal bool TryGetConstructedAsyncStateMachine(SynthesizedAsyncStateMachineTypeSymbol stateMachine, out SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine constructed)
+        => _constructedAsyncStateMachines.TryGetValue(stateMachine, out constructed);
+
+    internal bool TryGetConstructedAsyncStateMachine(INamedTypeSymbol constructedType, out SynthesizedAsyncStateMachineTypeSymbol.ConstructedStateMachine constructed)
+        => _constructedAsyncStateMachinesByType.TryGetValue(constructedType, out constructed);
+
+    private void RegisterConstructedAsyncStateMachine(SourceMethodSymbol method)
+    {
+        if (method is null)
+            throw new ArgumentNullException(nameof(method));
+
+        var definition = method.AsyncStateMachine;
+        if (definition is null)
+            return;
+
+        if (method.ConstructedAsyncStateMachine is not { } constructed)
+            return;
+
+        _constructedAsyncStateMachines[definition] = constructed;
+        _constructedAsyncStateMachinesByType[constructed.Type] = constructed;
+
+        if (_typeGenerators.TryGetValue(definition, out var generator))
+            _typeGenerators[constructed.Type] = generator;
+    }
+
     internal Type CacheRuntimeTypeParameter(ITypeParameterSymbol symbol, Type type)
     {
         _genericParameterMap[symbol] = type;
         return type;
     }
 
-    internal void RegisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters, GenericTypeParameterBuilder[] builders)
+    internal void RegisterGenericParameters(
+        ImmutableArray<ITypeParameterSymbol> parameters,
+        GenericTypeParameterBuilder[] builders,
+        AsyncStateMachineEmissionContext? asyncContext = null)
     {
         if (parameters.IsDefaultOrEmpty || builders.Length == 0)
             return;
@@ -83,6 +119,12 @@ internal class CodeGenerator
             var parameter = parameters[i];
             var builder = builders[i];
             _genericParameterMap[parameter] = builder;
+
+            if (asyncContext.HasValue &&
+                asyncContext.Value.MethodTypeParameterMap.TryGetValue(parameter, out var cloned))
+            {
+                _genericParameterMap[cloned] = builder;
+            }
         }
 
         for (var i = 0; i < count; i++)
@@ -822,6 +864,7 @@ internal class CodeGenerator
 
         var rewritten = AsyncLowerer.Rewrite(mainMethod, body);
         semanticModel.CacheBoundNode(compilationUnit, rewritten);
+        RegisterConstructedAsyncStateMachine(mainMethod);
     }
 
     private static IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
@@ -867,6 +910,8 @@ internal class CodeGenerator
         {
             semanticModel.CacheBoundNode(expressionBody, rewritten);
         }
+
+        RegisterConstructedAsyncStateMachine(methodSymbol);
     }
 
     private static BoundBlockStatement? TryGetBoundBody(
@@ -959,10 +1004,22 @@ internal class CodeGenerator
 
     internal TypeGenerator GetOrCreateTypeGenerator(ITypeSymbol typeSymbol)
     {
+        if (typeSymbol is INamedTypeSymbol named &&
+            _constructedAsyncStateMachinesByType.TryGetValue(named, out var constructed))
+        {
+            typeSymbol = constructed.Definition;
+        }
+
         if (!_typeGenerators.TryGetValue(typeSymbol, out var generator))
         {
             generator = new TypeGenerator(this, typeSymbol);
             _typeGenerators[typeSymbol] = generator;
+
+            if (typeSymbol is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
+                _constructedAsyncStateMachines.TryGetValue(asyncStateMachine, out var constructedStateMachine))
+            {
+                _typeGenerators[constructedStateMachine.Type] = generator;
+            }
         }
 
         return generator;
@@ -1004,12 +1061,14 @@ internal class CodeGenerator
 
     private void DefineMemberBuilders()
     {
-        foreach (var typeGenerator in _typeGenerators.Values)
+        var generators = GetUniqueTypeGenerators().ToArray();
+
+        foreach (var typeGenerator in generators)
         {
             typeGenerator.DefineMemberBuilders();
         }
 
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in generators)
         {
             typeGenerator.CompleteInterfaceImplementations();
         }
@@ -1017,7 +1076,7 @@ internal class CodeGenerator
 
     private void CreateTypes()
     {
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in GetUniqueTypeGenerators())
         {
             typeGenerator.CreateType();
         }
@@ -1025,10 +1084,15 @@ internal class CodeGenerator
 
     private void EmitMemberILBodies()
     {
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in GetUniqueTypeGenerators())
         {
             typeGenerator.EmitMemberILBodies();
         }
+    }
+
+    private IEnumerable<TypeGenerator> GetUniqueTypeGenerators()
+    {
+        return _typeGenerators.Values.Distinct();
     }
 
     static DebugDirectoryBuilder EmitPdb(MetadataBuilder pdbBuilder, ImmutableArray<int> rowCounts, MethodDefinitionHandle entryPointHandle)
