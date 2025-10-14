@@ -135,9 +135,14 @@ remains to match the behaviour of C#.
   `CodeGenerator` for runtime builders. The reflection lookup therefore
   projects the concrete call-site substitutions instead of reusing the cloned
   builders, and the emitted callsite encodes `Task<int>` rather than `Task<!0>`.
-* **Next steps** – Expand regression coverage beyond the top-level await to
-  include member and local function scenarios so future substitutions continue
-  to close generic callsites correctly.
+* **Regression coverage** – Unit tests now exercise top-level, member method,
+  and generic async method await sites that call a shared generic helper,
+  asserting closed callsites materialize concrete metadata while open
+  invocations map back to the originating method’s type parameters instead of
+  the state-machine clones.
+* **Next steps** – Extend coverage to async lambdas and nested state-machine
+  scenarios so lambda-generated structs continue to substitute method
+  parameters correctly.
 
 ## Implementation plan for full `async Task<T>` support
 

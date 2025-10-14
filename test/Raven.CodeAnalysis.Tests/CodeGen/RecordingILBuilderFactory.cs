@@ -13,11 +13,17 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
     private readonly Func<MethodGenerator, bool> _predicate;
     private List<RecordedInstruction>? _capturedInstructions;
     private IMethodSymbol? _capturedMethod;
+    private readonly int _targetMatchIndex;
+    private int _currentMatch;
 
-    public RecordingILBuilderFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate)
+    public RecordingILBuilderFactory(
+        IILBuilderFactory inner,
+        Func<MethodGenerator, bool> predicate,
+        int targetMatchIndex = 0)
     {
         _inner = inner;
         _predicate = predicate;
+        _targetMatchIndex = targetMatchIndex;
     }
 
     public IReadOnlyList<RecordedInstruction>? CapturedInstructions => _capturedInstructions;
@@ -27,12 +33,25 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
     {
         var builder = _inner.Create(methodGenerator);
 
-        if (_capturedInstructions is not null || !_predicate(methodGenerator))
+        if (!_predicate(methodGenerator))
             return builder;
+
+        if (_capturedInstructions is not null)
+        {
+            _currentMatch++;
+            return builder;
+        }
+
+        if (_currentMatch != _targetMatchIndex)
+        {
+            _currentMatch++;
+            return builder;
+        }
 
         var instructions = new List<RecordedInstruction>();
         _capturedInstructions = instructions;
         _capturedMethod = methodGenerator.MethodSymbol;
+        _currentMatch++;
         return new RecordingILBuilder(builder, instructions);
     }
 

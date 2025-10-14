@@ -120,6 +120,45 @@ let value = await Test(42)
 WriteLine(value)
 """;
 
+    private const string MemberAwaitingGenericInvocationCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+class Runner {
+    async func Run() -> Task {
+        let value = await Test(42)
+        WriteLine(value)
+    }
+}
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+async func main() -> Task {
+    let runner = Runner()
+    await runner.Run()
+}
+""";
+
+    private const string GenericMethodAwaitingGenericInvocationCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+class Worker {
+    async func Run<T>(value: T) -> Task<T> {
+        WriteLine(value)
+        return await Test(value)
+    }
+}
+""";
+
     private const string TryAwaitAsyncCode = """
 import System.Threading.Tasks.*
 
@@ -208,61 +247,59 @@ class C {
     [Fact]
     public void TopLevelAwaitingGenericMethod_EmitsClosedGenericCallsite()
     {
-        var (_, instructions) = CaptureAsyncInstructions(
+        AssertClosedGenericTestCallsite(
             TopLevelAwaitingGenericInvocationCode,
             static generator =>
                 generator.MethodSymbol.Name == "MoveNext" &&
-                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
-                string.Equals(stateMachine.AsyncMethod.Name, "MainAsync", StringComparison.Ordinal));
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol,
+            matchIndex: 1,
+            assertStateMachine: static stateMachine =>
+                Assert.Equal("MainAsync", stateMachine.AsyncMethod.Name));
+    }
 
-        var callCandidates = instructions
+    [Fact]
+    public void MemberAwaitingGenericMethod_EmitsClosedGenericCallsite()
+    {
+        AssertClosedGenericTestCallsite(
+            MemberAwaitingGenericInvocationCode,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                string.Equals(stateMachine.AsyncMethod.Name, "Run", StringComparison.Ordinal),
+            assertStateMachine: static stateMachine =>
+            {
+                Assert.Equal("Run", stateMachine.AsyncMethod.Name);
+                Assert.Equal("Runner", stateMachine.AsyncMethod.ContainingType?.Name);
+            });
+    }
+
+    [Fact]
+    public void GenericMethodAwaitingGenericMethod_UsesMethodTypeParameter()
+    {
+        var (method, instructions) = CaptureAsyncInstructions(
+            GenericMethodAwaitingGenericInvocationCode,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                string.Equals(stateMachine.AsyncMethod.Name, "Run", StringComparison.Ordinal));
+
+        var stateMachine = Assert.IsAssignableFrom<SynthesizedAsyncStateMachineTypeSymbol>(method.ContainingType);
+        Assert.True(stateMachine.AsyncMethod.IsGenericMethod);
+
+        var callToTest = instructions
             .Where(instruction =>
                 (instruction.Opcode == OpCodes.Call || instruction.Opcode == OpCodes.Callvirt) &&
                 instruction.Operand.Kind == RecordedOperandKind.MethodInfo)
-            .ToList();
-
-        if (callCandidates.Count == 0)
-        {
-            foreach (var instruction in instructions)
-            {
-                var operandDescription = instruction.Operand.Kind switch
-                {
-                    RecordedOperandKind.MethodInfo => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value).ToString(),
-                    RecordedOperandKind.ConstructorInfo => Assert.IsAssignableFrom<ConstructorInfo>(instruction.Operand.Value).ToString(),
-                    RecordedOperandKind.FieldInfo => Assert.IsAssignableFrom<FieldInfo>(instruction.Operand.Value).ToString(),
-                    RecordedOperandKind.FieldBuilder => Assert.IsAssignableFrom<FieldBuilder>(instruction.Operand.Value).ToString(),
-                    RecordedOperandKind.Type => Assert.IsAssignableFrom<Type>(instruction.Operand.Value).ToString(),
-                    _ => instruction.Operand.Value?.ToString() ?? string.Empty
-                };
-
-                _output.WriteLine($"{instruction.Opcode,-10} {instruction.Operand.Kind,-15} {operandDescription}");
-            }
-
-            Assert.True(false, "Expected to record at least one call into Program.Test");
-        }
-
-        var candidateMethods = callCandidates
             .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
-            .ToList();
+            .Single(methodInfo => string.Equals(methodInfo.Name, "Test", StringComparison.Ordinal));
 
-        var callToTest = candidateMethods.SingleOrDefault(method => string.Equals(method.Name, "Test", StringComparison.Ordinal));
-
-        if (callToTest is null)
-        {
-            foreach (var method in candidateMethods)
-            {
-                var declaring = method.DeclaringType?.ToString() ?? "<null>";
-                _output.WriteLine($"call -> {declaring}::{method}");
-            }
-
-            Assert.True(false, "Unable to locate Program.Test in recorded call instructions");
-            return;
-        }
-
-        Assert.False(callToTest.ReturnType.ContainsGenericParameters);
-        var genericArguments = callToTest.GetGenericArguments();
-        Assert.NotEmpty(genericArguments);
-        Assert.All(genericArguments, argument => Assert.False(argument.IsGenericParameter));
+        Assert.True(callToTest.ReturnType.ContainsGenericParameters);
+        var builderArguments = callToTest.ReturnType.GetGenericArguments();
+        var awaitedArgument = Assert.Single(builderArguments);
+        Assert.True(awaitedArgument.IsGenericParameter);
+        Assert.Null(awaitedArgument.DeclaringType);
+        Assert.NotNull(awaitedArgument.DeclaringMethod);
+        Assert.Equal(stateMachine.AsyncMethod.Name, awaitedArgument.DeclaringMethod!.Name);
     }
 
     [Fact]
@@ -1182,12 +1219,17 @@ class C {
         Assert.NotNull(methodSymbol.AsyncStateMachine);
     }
 
-    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(Func<MethodGenerator, bool> predicate)
+    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(
+        Func<MethodGenerator, bool> predicate,
+        int matchIndex = 0)
     {
-        return CaptureAsyncInstructions(AsyncCode, predicate);
+        return CaptureAsyncInstructions(AsyncCode, predicate, matchIndex);
     }
 
-    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(string source, Func<MethodGenerator, bool> predicate)
+    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(
+        string source,
+        Func<MethodGenerator, bool> predicate,
+        int matchIndex = 0)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
@@ -1204,7 +1246,10 @@ class C {
 
         _ = compilation.GetSpecialType(SpecialType.System_Object);
 
-        var recordingFactory = new RecordingILBuilderFactory(ReflectionEmitILBuilderFactory.Instance, predicate);
+        var recordingFactory = new RecordingILBuilderFactory(
+            ReflectionEmitILBuilderFactory.Instance,
+            predicate,
+            matchIndex);
 
         var codeGenerator = new CodeGenerator(compilation)
         {
@@ -1218,6 +1263,29 @@ class C {
         var instructions = recordingFactory.CapturedInstructions ?? throw new InvalidOperationException("Failed to capture IL.");
 
         return (method, instructions.ToArray());
+    }
+
+    private void AssertClosedGenericTestCallsite(
+        string source,
+        Func<MethodGenerator, bool> predicate,
+        int matchIndex = 0,
+        Action<SynthesizedAsyncStateMachineTypeSymbol>? assertStateMachine = null)
+    {
+        var (method, instructions) = CaptureAsyncInstructions(source, predicate, matchIndex);
+        var stateMachine = Assert.IsAssignableFrom<SynthesizedAsyncStateMachineTypeSymbol>(method.ContainingType);
+        assertStateMachine?.Invoke(stateMachine);
+
+        var callToTest = instructions
+            .Where(instruction =>
+                (instruction.Opcode == OpCodes.Call || instruction.Opcode == OpCodes.Callvirt) &&
+                instruction.Operand.Kind == RecordedOperandKind.MethodInfo)
+            .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
+            .Single(method => string.Equals(method.Name, "Test", StringComparison.Ordinal));
+
+        Assert.False(callToTest.ReturnType.ContainsGenericParameters);
+        var genericArguments = callToTest.GetGenericArguments();
+        Assert.NotEmpty(genericArguments);
+        Assert.All(genericArguments, argument => Assert.False(argument.IsGenericParameter));
     }
 
     private static string EmitAsyncAssemblyToDisk(string source, out Compilation compilation)
