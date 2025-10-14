@@ -87,6 +87,62 @@ remains to match the behaviour of C#.
   regression tests should assert the presence of `ldflda`/`ldarga` before async
   builder calls to prevent the by-value copy from resurfacing. 【0145d5†L33-L69】
 
+### <a name="open-generic-state-machine-callsite"></a>Open generic state machine callsite
+
+* **Top-level await repro** – Compiling
+  
+  ```
+  import System.Console.*
+  import System.Threading.Tasks.*
+
+  async func Test<T>(value: T) -> Task<T> {
+      await Task.Delay(10)
+      return value
+  }
+
+  let value = await Test(42)
+
+  WriteLine(value)
+  ```
+
+  with `ravenc` and inspecting the emitted IL shows the generated
+  state machine calling `Program::Test<int32>` with an open return type:
+
+  ```il
+  IL_0035: call class [System.Private.CoreLib]System.Threading.Tasks.Task`1<!0> Program::Test<int32>(!!0)
+  ```
+
+  The single `!0` indicates the CLR thinks the return type is bound to the
+  state machine's first type parameter rather than the concrete `System.Int32`
+  that Raven inferred at the callsite. Because the struct is not generic, the
+  runtime rejects the assembly with `BadImageFormatException` before `Main`
+  completes. 【414c26†L74-L104】【414c26†L114-L146】
+* **Diagnosis** – `ConstructedMethodSymbol.GetMethodInfo` projects method type
+  arguments into runtime types by first consulting the substitution map it built
+  from the callsite and then falling back to `CodeGenerator.TryGetRuntimeTypeForTypeParameter`.
+  When emitting the top-level state machine, the binder clones the async method
+  type parameters onto `SynthesizedAsyncStateMachineTypeSymbol` so hoisted
+  fields can reference them. The constructed invocation still flows a
+  `ConstructedMethodSymbol`, but `GetProjectedRuntimeType` sees the cloned
+  parameter before the `_substitutionMap` kicks in, observes that the code
+  generator already cached a `GenericTypeParameterBuilder`, and substitutes the
+  clone instead of `System.Int32`. The subsequent `ILGenerator.Emit(OpCodes.Call,
+  methodInfo)` therefore encodes `!0` in the method spec. Captured instructions
+  confirm the `MethodInfo` handed to the emitter still reports
+  `ReturnType.ContainsGenericParameters == true`. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L208-L228】
+* **Next steps** – Guard the runtime projection so method-level substitutions
+  always win over the fallback map. One option is to thread the declaring symbol
+  into `GetProjectedRuntimeType` and only consult `TryGetRuntimeTypeForTypeParameter`
+  for type parameters owned by the containing type (the state machine) rather
+  than the invoked method. An alternative is to have the async lowerer hand the
+  emitter a constructed method symbol whose `_substitutionMap` already points at
+  the cloned type parameters; the code generator can then map the clone back to
+  the original method definition before instantiating `MethodInfo`. Either way,
+  we need to rehydrate the concrete runtime type arguments before creating the
+  method spec. Unskip `TopLevelAwaitingGenericMethod_EmitsClosedGenericCallsite`
+  once the fix lands to assert the return type no longer exposes generic
+  parameters and that the IL emits `Task<int>` instead of `Task<!0>`.
+
 ## Implementation plan for full `async Task<T>` support
 
 1. **Codify desired semantics**

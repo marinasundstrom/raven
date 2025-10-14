@@ -106,6 +106,20 @@ async func main() -> Task {
 }
 """;
 
+    private const string TopLevelAwaitingGenericInvocationCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+let value = await Test(42)
+
+WriteLine(value)
+""";
+
     private const string TryAwaitAsyncCode = """
 import System.Threading.Tasks.*
 
@@ -189,6 +203,28 @@ class C {
         Assert.True(invocationResult is null or Task);
         if (!string.IsNullOrWhiteSpace(output))
             Assert.Contains("42", output, StringComparison.Ordinal);
+    }
+
+    [Fact(Skip = "Generic async top-level await emits open generic IL; tracked in docs/investigations/async-await.md#open-generic-state-machine-callsite.")]
+    public void TopLevelAwaitingGenericMethod_EmitsClosedGenericCallsite()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(
+            TopLevelAwaitingGenericInvocationCode,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var callToTest = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Call &&
+                instruction.Operand.Kind == RecordedOperandKind.MethodInfo)
+            .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
+            .Single(method => string.Equals(method.Name, "Test", StringComparison.Ordinal));
+
+        Assert.False(callToTest.ReturnType.ContainsGenericParameters);
+        var genericArguments = callToTest.GetGenericArguments();
+        Assert.NotEmpty(genericArguments);
+        Assert.All(genericArguments, argument => Assert.False(argument.IsGenericParameter));
     }
 
     [Fact]
