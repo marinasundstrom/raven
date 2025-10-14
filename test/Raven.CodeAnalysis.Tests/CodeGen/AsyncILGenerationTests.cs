@@ -205,21 +205,59 @@ class C {
             Assert.Contains("42", output, StringComparison.Ordinal);
     }
 
-    [Fact(Skip = "Generic async top-level await emits open generic IL; tracked in docs/investigations/async-await.md#open-generic-state-machine-callsite.")]
+    [Fact]
     public void TopLevelAwaitingGenericMethod_EmitsClosedGenericCallsite()
     {
         var (_, instructions) = CaptureAsyncInstructions(
             TopLevelAwaitingGenericInvocationCode,
             static generator =>
                 generator.MethodSymbol.Name == "MoveNext" &&
-                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                string.Equals(stateMachine.AsyncMethod.Name, "MainAsync", StringComparison.Ordinal));
 
-        var callToTest = instructions
+        var callCandidates = instructions
             .Where(instruction =>
-                instruction.Opcode == OpCodes.Call &&
+                (instruction.Opcode == OpCodes.Call || instruction.Opcode == OpCodes.Callvirt) &&
                 instruction.Operand.Kind == RecordedOperandKind.MethodInfo)
+            .ToList();
+
+        if (callCandidates.Count == 0)
+        {
+            foreach (var instruction in instructions)
+            {
+                var operandDescription = instruction.Operand.Kind switch
+                {
+                    RecordedOperandKind.MethodInfo => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value).ToString(),
+                    RecordedOperandKind.ConstructorInfo => Assert.IsAssignableFrom<ConstructorInfo>(instruction.Operand.Value).ToString(),
+                    RecordedOperandKind.FieldInfo => Assert.IsAssignableFrom<FieldInfo>(instruction.Operand.Value).ToString(),
+                    RecordedOperandKind.FieldBuilder => Assert.IsAssignableFrom<FieldBuilder>(instruction.Operand.Value).ToString(),
+                    RecordedOperandKind.Type => Assert.IsAssignableFrom<Type>(instruction.Operand.Value).ToString(),
+                    _ => instruction.Operand.Value?.ToString() ?? string.Empty
+                };
+
+                _output.WriteLine($"{instruction.Opcode,-10} {instruction.Operand.Kind,-15} {operandDescription}");
+            }
+
+            Assert.True(false, "Expected to record at least one call into Program.Test");
+        }
+
+        var candidateMethods = callCandidates
             .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
-            .Single(method => string.Equals(method.Name, "Test", StringComparison.Ordinal));
+            .ToList();
+
+        var callToTest = candidateMethods.SingleOrDefault(method => string.Equals(method.Name, "Test", StringComparison.Ordinal));
+
+        if (callToTest is null)
+        {
+            foreach (var method in candidateMethods)
+            {
+                var declaring = method.DeclaringType?.ToString() ?? "<null>";
+                _output.WriteLine($"call -> {declaring}::{method}");
+            }
+
+            Assert.True(false, "Unable to locate Program.Test in recorded call instructions");
+            return;
+        }
 
         Assert.False(callToTest.ReturnType.ContainsGenericParameters);
         var genericArguments = callToTest.GetGenericArguments();

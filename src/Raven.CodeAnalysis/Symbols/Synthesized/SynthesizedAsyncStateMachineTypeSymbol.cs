@@ -15,6 +15,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private ImmutableArray<SourceFieldSymbol> _hoistedLocalsToDispose;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _methodTypeParameterMap;
+    private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _stateMachineTypeParameterToMethodMap;
 
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
@@ -40,7 +41,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod;
 
-        _methodTypeParameterMap = InitializeTypeParameters(asyncMethod);
+        _methodTypeParameterMap = InitializeTypeParameters(asyncMethod, out _stateMachineTypeParameterToMethodMap);
 
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
 
@@ -160,12 +161,21 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return orderedFields.ToImmutable();
     }
 
-    private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> InitializeTypeParameters(SourceMethodSymbol asyncMethod)
+    internal bool TryGetAsyncMethodTypeParameter(ITypeParameterSymbol stateMachineParameter, out ITypeParameterSymbol methodParameter)
+        => _stateMachineTypeParameterToMethodMap.TryGetValue(stateMachineParameter, out methodParameter);
+
+    private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> InitializeTypeParameters(
+        SourceMethodSymbol asyncMethod,
+        out ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> reverseMap)
     {
         if (asyncMethod.TypeParameters.IsDefaultOrEmpty)
+        {
+            reverseMap = ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty;
             return ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty;
+        }
 
         var mapBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+        var reverseBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
         var parameterBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(asyncMethod.TypeParameters.Length);
 
         for (var i = 0; i < asyncMethod.TypeParameters.Length; i++)
@@ -188,10 +198,12 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 typeParameter.Variance);
 
             mapBuilder.Add(typeParameter, synthesized);
+            reverseBuilder.Add(synthesized, typeParameter);
             parameterBuilder.Add(synthesized);
         }
 
         var map = mapBuilder.ToImmutable();
+        reverseMap = reverseBuilder.ToImmutable();
         SetTypeParameters(parameterBuilder.ToImmutable());
 
         foreach (var typeParameter in asyncMethod.TypeParameters)

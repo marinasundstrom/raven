@@ -130,18 +130,14 @@ remains to match the behaviour of C#.
   methodInfo)` therefore encodes `!0` in the method spec. Captured instructions
   confirm the `MethodInfo` handed to the emitter still reports
   `ReturnType.ContainsGenericParameters == true`. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L208-L228】
-* **Next steps** – Guard the runtime projection so method-level substitutions
-  always win over the fallback map. One option is to thread the declaring symbol
-  into `GetProjectedRuntimeType` and only consult `TryGetRuntimeTypeForTypeParameter`
-  for type parameters owned by the containing type (the state machine) rather
-  than the invoked method. An alternative is to have the async lowerer hand the
-  emitter a constructed method symbol whose `_substitutionMap` already points at
-  the cloned type parameters; the code generator can then map the clone back to
-  the original method definition before instantiating `MethodInfo`. Either way,
-  we need to rehydrate the concrete runtime type arguments before creating the
-  method spec. Unskip `TopLevelAwaitingGenericMethod_EmitsClosedGenericCallsite`
-  once the fix lands to assert the return type no longer exposes generic
-  parameters and that the IL emits `Task<int>` instead of `Task<!0>`.
+* **Resolution** – `ConstructedMethodSymbol.GetProjectedRuntimeType` now maps
+  state-machine clones back to their async-method type parameters before asking
+  `CodeGenerator` for runtime builders. The reflection lookup therefore
+  projects the concrete call-site substitutions instead of reusing the cloned
+  builders, and the emitted callsite encodes `Task<int>` rather than `Task<!0>`.
+* **Next steps** – Expand regression coverage beyond the top-level await to
+  include member and local function scenarios so future substitutions continue
+  to close generic callsites correctly.
 
 ## Implementation plan for full `async Task<T>` support
 
