@@ -303,6 +303,40 @@ class C {
     }
 
     [Fact]
+    public void GenericAsyncMethod_StateMachineInstantiationUsesMethodTypeParameters()
+    {
+        var (method, instructions) = CaptureAsyncInstructions(
+            GenericMethodAwaitingGenericInvocationCode,
+            static generator =>
+                string.Equals(generator.MethodSymbol.Name, "Test", StringComparison.Ordinal) &&
+                generator.MethodSymbol.IsAsync &&
+                generator.MethodSymbol.IsGenericMethod);
+
+        Assert.True(method.IsGenericMethod);
+
+        var stateMachineCtor = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Newobj &&
+                instruction.Operand.Kind == RecordedOperandKind.ConstructorInfo)
+            .Select(instruction => Assert.IsAssignableFrom<ConstructorInfo>(instruction.Operand.Value))
+            .Single(constructor => constructor.DeclaringType?.Name.Contains("AsyncStateMachine", StringComparison.Ordinal) == true);
+
+        var declaringType = Assert.IsAssignableFrom<Type>(stateMachineCtor.DeclaringType);
+        Assert.True(declaringType.IsGenericType);
+        Assert.True(declaringType.ContainsGenericParameters);
+
+        var genericArguments = declaringType.GetGenericArguments();
+        Assert.Equal(method.TypeParameters.Length, genericArguments.Length);
+        Assert.All(genericArguments, argument =>
+        {
+            Assert.True(argument.IsGenericParameter);
+            Assert.Null(argument.DeclaringType);
+            Assert.NotNull(argument.DeclaringMethod);
+            Assert.Equal(method.Name, argument.DeclaringMethod!.Name);
+        });
+    }
+
+    [Fact]
     public void TryAwaitExpressionAsyncAssembly_PassesIlVerifyWhenToolAvailable()
     {
         if (!IlVerifyTestHelper.TryResolve(_output))
