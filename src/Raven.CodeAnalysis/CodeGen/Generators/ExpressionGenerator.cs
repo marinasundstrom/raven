@@ -907,7 +907,7 @@ internal class ExpressionGenerator : Generator
                 if (addressOf.Receiver is BoundSelfExpression selfExpression &&
                     SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type))
                 {
-                    if (!asyncFrame.HasReceiverOnStack)
+                    if (!asyncFrame.TryBorrowReceiver(keepAlive))
                         asyncFrame.EnsureReceiverLoaded(keepAlive);
                 }
                 else
@@ -917,7 +917,8 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                asyncFrame.EnsureReceiverLoaded(keepAlive);
+                if (!asyncFrame.TryBorrowReceiver(keepAlive))
+                    asyncFrame.EnsureReceiverLoaded(keepAlive);
             }
 
             var fieldInfo = (FieldInfo)GetField(instanceField);
@@ -2823,10 +2824,30 @@ internal class ExpressionGenerator : Generator
         if (!SymbolEqualityComparer.Default.Equals(builderField.ContainingType, asyncContext.Definition))
             return false;
 
-        EmitAsyncStateMachineFieldAddress(frame, builderField);
-
-        var parameters = target.Parameters.ToArray();
         var arguments = invocationExpression.Arguments.ToArray();
+        var parameters = target.Parameters.ToArray();
+
+        IILocal? receiverLocal = null;
+
+        if (RequiresStateMachineReceiver(arguments, asyncContext))
+        {
+            var stateMachineSymbol = (ITypeSymbol?)asyncContext.Constructed.Type ?? asyncContext.Definition;
+            var stateMachineType = ResolveClrType(stateMachineSymbol);
+            receiverLocal = ILGenerator.DeclareLocal(stateMachineType.MakeByRefType());
+
+            frame.EnsureReceiverLoaded(keepAlive: false);
+            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+            frame.CaptureReceiver();
+        }
+
+        if (receiverLocal is not null && SymbolEqualityComparer.Default.Equals(builderField.ContainingType, asyncContext.Definition))
+        {
+            EmitStateMachineFieldAddressFromLocal(receiverLocal, builderField);
+        }
+        else
+        {
+            EmitAsyncStateMachineFieldAddress(frame, builderField);
+        }
 
         for (var i = 0; i < arguments.Length; i++)
         {
@@ -2838,6 +2859,9 @@ internal class ExpressionGenerator : Generator
                 switch (argument)
                 {
                     case BoundAddressOfExpression addressOf:
+                        if (receiverLocal is not null && TryEmitStateMachineAddress(addressOf, asyncContext, receiverLocal))
+                            break;
+
                         EmitAddressOfExpression(addressOf);
                         break;
                     case BoundLocalAccess { Symbol: ILocalSymbol local }:
@@ -2876,6 +2900,60 @@ internal class ExpressionGenerator : Generator
         }
 
         return true;
+    }
+
+    private bool RequiresStateMachineReceiver(BoundExpression?[] arguments, AsyncStateMachineEmissionContext asyncContext)
+    {
+        foreach (var argument in arguments)
+        {
+            if (argument is not BoundAddressOfExpression addressOf)
+                continue;
+
+            if (IsStateMachineField(addressOf.Symbol, asyncContext) || IsStateMachineSelf(addressOf, asyncContext))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool TryEmitStateMachineAddress(
+        BoundAddressOfExpression addressOf,
+        AsyncStateMachineEmissionContext asyncContext,
+        IILocal receiverLocal)
+    {
+        if (addressOf.Symbol is IFieldSymbol field && IsStateMachineField(field, asyncContext))
+        {
+            EmitStateMachineFieldAddressFromLocal(receiverLocal, field);
+            return true;
+        }
+
+        if (IsStateMachineSelf(addressOf, asyncContext))
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, receiverLocal);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsStateMachineField(ISymbol? symbol, AsyncStateMachineEmissionContext asyncContext)
+    {
+        return symbol is IFieldSymbol field &&
+            SymbolEqualityComparer.Default.Equals(field.ContainingType, asyncContext.Definition);
+    }
+
+    private static bool IsStateMachineSelf(BoundAddressOfExpression addressOf, AsyncStateMachineEmissionContext asyncContext)
+    {
+        return addressOf.Symbol is ITypeSymbol type &&
+            SymbolEqualityComparer.Default.Equals(type, asyncContext.Definition);
+    }
+
+    private void EmitStateMachineFieldAddressFromLocal(IILocal receiverLocal, IFieldSymbol field)
+    {
+        ILGenerator.Emit(OpCodes.Ldloc, receiverLocal);
+
+        var fieldInfo = (FieldInfo)GetField(field);
+        ILGenerator.Emit(OpCodes.Ldflda, fieldInfo);
     }
 
     private static bool IsAsyncBuilderHelper(IMethodSymbol method)

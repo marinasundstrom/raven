@@ -75,16 +75,39 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
 
     public void AfterFieldAccess(bool receiverRemainsOnTop)
     {
+        if (_receiverDepth == 0)
+        {
+            _receiverOnTop = false;
+            return;
+        }
+
         if (receiverRemainsOnTop)
         {
-            if (_receiverDepth == 0)
-                return;
-
             _receiverDepth--;
             _receiverOnTop = _receiverDepth > 0;
             return;
         }
 
+        _receiverDepth = Math.Max(0, _receiverDepth - 1);
+        _receiverOnTop = false;
+    }
+
+    public bool TryBorrowReceiver(bool keepAlive)
+    {
+        if (_receiverDepth == 0 || !_receiverOnTop)
+            return false;
+
+        if (keepAlive)
+        {
+            IL.Emit(OpCodes.Dup);
+            _receiverDepth++;
+        }
+
+        return true;
+    }
+
+    public void CaptureReceiver()
+    {
         _receiverDepth = 0;
         _receiverOnTop = false;
     }

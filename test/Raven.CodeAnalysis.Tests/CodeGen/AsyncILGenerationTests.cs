@@ -1275,20 +1275,23 @@ class C {
 
         Assert.True(builderAddressIndex >= 0, "Builder field address not loaded before AwaitUnsafeOnCompleted call.");
 
-        for (var i = builderAddressIndex + 1; i < awaitUnsafeIndex; i++)
-        {
-            Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
-        }
+        var receiverStoreIndex = Array.FindLastIndex(instructions, builderAddressIndex, instruction =>
+            instruction.Opcode == OpCodes.Stloc || instruction.Opcode == OpCodes.Stloc_S);
 
-        var stateMachineAddressIndex = Array.FindLastIndex(instructions, awaitUnsafeIndex, instruction =>
-            instruction.Opcode == OpCodes.Ldarga || instruction.Opcode == OpCodes.Ldarga_S);
+        Assert.True(receiverStoreIndex >= 0, "State machine receiver not stored before builder load.");
+        var receiverId = Assert.IsType<int>(instructions[receiverStoreIndex].Operand.Value);
 
-        Assert.True(stateMachineAddressIndex >= 0, "State machine address not loaded before AwaitUnsafeOnCompleted call.");
+        Assert.True(receiverStoreIndex + 1 < instructions.Length, "Missing ldloc following receiver store.");
+        var firstLoad = instructions[receiverStoreIndex + 1];
+        Assert.True(firstLoad.Opcode == OpCodes.Ldloc || firstLoad.Opcode == OpCodes.Ldloc_S,
+            "Receiver local not loaded after store.");
+        Assert.Equal(receiverId, Assert.IsType<int>(firstLoad.Operand.Value));
 
-        for (var i = stateMachineAddressIndex + 1; i < awaitUnsafeIndex; i++)
-        {
-            Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
-        }
+        var stateMachineLoadIndex = Array.FindLastIndex(instructions, awaitUnsafeIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldloc || instruction.Opcode == OpCodes.Ldloc_S);
+
+        Assert.True(stateMachineLoadIndex >= 0, "State machine local not loaded before AwaitUnsafeOnCompleted call.");
+        Assert.Equal(receiverId, Assert.IsType<int>(instructions[stateMachineLoadIndex].Operand.Value));
     }
 
     [Fact]
@@ -1317,8 +1320,18 @@ class C {
 
         Assert.True(awaitCallIndex > awaiterAddressIndex, "AwaitUnsafeOnCompleted call not found after awaiter address load.");
 
-        var betweenBuilderAndAwait = instructions[(builderAddressIndex + 1)..awaitCallIndex];
-        Assert.Contains(betweenBuilderAndAwait, instruction => instruction.Opcode == OpCodes.Ldarg_0);
+        var receiverStoreIndex = Array.FindLastIndex(instructions, builderAddressIndex, instruction =>
+            instruction.Opcode == OpCodes.Stloc || instruction.Opcode == OpCodes.Stloc_S);
+
+        Assert.True(receiverStoreIndex >= 0, "Receiver not stored before builder load.");
+        var receiverId = Assert.IsType<int>(instructions[receiverStoreIndex].Operand.Value);
+
+        var loadsBetweenBuilderAndAwait = instructions[(receiverStoreIndex + 1)..awaiterAddressIndex]
+            .Where(instruction => instruction.Opcode == OpCodes.Ldloc || instruction.Opcode == OpCodes.Ldloc_S)
+            .Select(instruction => Assert.IsType<int>(instruction.Operand.Value))
+            .ToArray();
+
+        Assert.Contains(receiverId, loadsBetweenBuilderAndAwait);
 
         var awaiterLoadInstruction = instructions[awaiterAddressIndex];
         Assert.Equal(OpCodes.Ldflda, awaiterLoadInstruction.Opcode);
@@ -1338,11 +1351,16 @@ class C {
 
         Assert.True(builderAddressIndex > 0, "Builder address load not found before await scheduling.");
 
-        var receiverLoadIndex = FindPrecedingLoadArgumentZero(instructions, builderAddressIndex);
-        Assert.True(receiverLoadIndex >= 0, "ldarg.0 not found before builder field address load.");
+        var precedingInstruction = instructions[builderAddressIndex - 1];
+        Assert.True(precedingInstruction.Opcode == OpCodes.Ldloc || precedingInstruction.Opcode == OpCodes.Ldloc_S,
+            "Builder address must be loaded from the stored state-machine local.");
+        var receiverId = Assert.IsType<int>(precedingInstruction.Operand.Value);
 
-        var betweenReceiverAndBuilder = instructions[(receiverLoadIndex + 1)..builderAddressIndex];
-        Assert.Contains(betweenReceiverAndBuilder, instruction => instruction.Opcode == OpCodes.Dup);
+        var receiverStoreIndex = Array.FindLastIndex(instructions, builderAddressIndex, instruction =>
+            (instruction.Opcode == OpCodes.Stloc || instruction.Opcode == OpCodes.Stloc_S) &&
+            instruction.Operand.Value is int value && value == receiverId);
+
+        Assert.True(receiverStoreIndex >= 0, "State machine receiver not stored before builder load.");
     }
 
     [Fact]

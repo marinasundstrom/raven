@@ -681,6 +681,15 @@ through metadata caching.
   `MoveNext` and `SetStateMachine` signatures to guarantee both methods return
   `void`, and `SetStateMachine` takes `IAsyncStateMachine` by reference. These
   checks ensure the emitter produces the same canonical metadata as Roslyn.
+* Async builder helpers now borrow the state-machine receiver through
+  `TryEmitAsyncBuilderHelperInvocation`, which stores `ldarg.0` into a by-ref
+  local and funnels all subsequent builder and awaiter address loads through
+  that cached pointer. `AsyncStateMachineILFrame.CaptureReceiver` resets the
+  frame’s stack tracking once the receiver is persisted, matching Roslyn’s IL
+  discipline and preventing stale values from flowing into
+  `AwaitUnsafeOnCompleted`. Regression coverage watches for the new `stloc` /
+  `ldloc` sequence before `AwaitUnsafeOnCompleted` and the awaiter helpers that
+  reuse the constructed receiver. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2812-L2956】【F:src/Raven.CodeAnalysis/CodeGen/AsyncStateMachineILFrame.cs†L60-L113】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1261-L1363】
 
 ### Remaining work
 
