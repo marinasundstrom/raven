@@ -6,7 +6,7 @@ Re-running every sample with `dotnet run --no-build --project src/Raven.Compiler
 | Sample | Status | Notes |
 | --- | --- | --- |
 | `arrays.rav` | ✅ Emitted / ✅ Ran | Recompiled via the CLI; running the emitted DLL prints 3, 1, 42, 3 as before.【0f5042†L1-L4】【1e4274†L1-L5】 |
-| `async-await.rav` | ✅ Emitted / ✅ Ran | The async sample now executes to completion, printing `first:1`, `sum:6`, and `done`.【5edb92†L1-L9】 |
+| `async-await.rav` | ✅ Emitted / ❌ InvalidProgram | Running the DLL aborts with `InvalidProgramException` because the state machine buries the receiver under the builder load before calling `AwaitUnsafeOnCompleted`, so the sample harness exits with code 134.【ed9cc9†L1-L7】【530b64†L1-L16】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L894-L929】 |
 | `catch.rav` | ✅ Emitted / ✅ Ran | Running the compiled DLL prints `Foo`.【5edb92†L10-L18】 |
 | `classes.rav` | ✅ Emitted / ✅ Ran | Execution prints `Hello`, `John`, the projected record, and the trailing unit value.【f240ae†L1-L10】 |
 | `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster in order when executed.【e1ebe5†L1-L11】 |

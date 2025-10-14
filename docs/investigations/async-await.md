@@ -198,6 +198,31 @@ Roslyn therefore:
 
 * Reuses the cloned method type parameter for the builder field, parameter
   captures, `MoveNext` locals, and the synthesized type name.
+
+### Await sample runtime regression
+
+The sample harness now compiles every async sample but the emitted assemblies
+still abort at runtime. Running `samples/async-await.rav` through `ravc` produces
+an assembly that throws `InvalidProgramException` when the state machine reaches
+the first await, and the end-to-end sample test fails with exit code 134 for the
+same reason.【ed9cc9†L1-L7】【530b64†L1-L16】
+
+Inspecting the generated IL shows the issue: while lowering `AwaitUnsafeOnCompleted`
+the emitter loads the builder field address, leaving the state-machine receiver
+buried underneath. The subsequent `ldflda` that is supposed to take the awaiter
+field’s address instead consumes the builder pointer, so the verifier observes a
+mismatched receiver type and rejects the call site.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L894-L929】【fe416a†L1-L38】
+
+Roslyn keeps the state-machine address on top of the stack by duplicating it
+before every field access; the generated IL therefore passes both the awaiter
+and the struct by reference to `AwaitUnsafeOnCompleted` without tripping the
+verifier.【68cc92†L1-L37】 Raven needs a comparable mechanism—either by teaching
+`EmitAddressOfExpression` to duplicate the receiver even when the async frame
+already has it cached, or by extending `AsyncStateMachineILFrame` with an explicit
+“borrow receiver” helper—so every async builder helper observes `ldarga.s 0`
+for the state machine. Once the stack management is fixed we should add IL
+assertions for the await path and flip the sample execution tests to expect the
+printed output instead of an abort.
 * Invokes `AsyncTaskMethodBuilder<T>.Start` and
   `AwaitUnsafeOnCompleted<…, C.<M>d__0<T>>` with the fully constructed state
   machine so `!!0` and `!!1` tokens already reflect the closed generic
