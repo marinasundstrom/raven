@@ -87,6 +87,21 @@ remains to match the behaviour of C#.
   regression tests should assert the presence of `ldflda`/`ldarga` before async
   builder calls to prevent the by-value copy from resurfacing. 【0145d5†L33-L69】
 
+## `samples/test8.rav` compilation status
+
+* Invoking the CLI without specifying a project fails immediately – running
+  `dotnet run -- samples/test8.rav -o test.dll -d pretty && dotnet test.dll`
+  from the repository root produces `Couldn't find a project to run`, so the
+  invocation must pass `--project src/Raven.Compiler/Raven.Compiler.csproj` to
+  select the compiler front end. 【226a8c†L1-L25】
+* After refreshing the generated syntax, bound node, and diagnostics sources the
+  compiler still fails to emit the sample. Executing
+  `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- src/Raven.Compiler/samples/test8.rav -o test.dll -d pretty`
+  throws `System.NotSupportedException: The invoked member is not supported
+  before the type is created.` from `ConstructedMethodSymbol.GetMethodInfo`
+  while the async state machine is being lowered, leaving `test.dll`
+  unproduced. 【c6da48†L1-L11】【2b0969†L1-L47】
+
 ## Implementation plan for full `async Task<T>` support
 
 1. **Codify desired semantics**
@@ -113,6 +128,10 @@ remains to match the behaviour of C#.
      and metadata handles for `Task<T>` state machines.
    * Verify the synthesized `SetStateMachine` and `MoveNext` signatures match the
      CLR's expectations for generic async builders.
+   * Ensure `ConstructedMethodSymbol.GetMethodInfo` can hand out method handles
+     before the async state machine type is materialised so generic builders no
+     longer trigger `NotSupportedException` while compiling `samples/test8.rav`.
+     【2b0969†L1-L47】
 5. **Regression and conformance testing**
    * Flip existing failing tests to assert successful execution and add new
      IL baselines validating builder construction, `_state` management, and
