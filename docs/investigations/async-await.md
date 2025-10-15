@@ -105,10 +105,10 @@ remains to match the behaviour of C#.
 
 | Sample | Build status | Runtime result | IL observation |
 | --- | --- | --- | --- |
-| `samples/async-await.rav` | ✅ `dotnet run -- samples/async-await.rav -o async-await.dll -d pretty` | ❌ `dotnet async-await.dll` throws `InvalidProgramException` before printing any output. | The synchronous branch still executes a stray `pop` immediately after `TaskAwaiter.get_IsCompleted`, leaving the evaluation stack empty when control flows into the awaited resume path. 【22d111†L1-L17】【35d9e6†L1-L7】【a45738†L1-L49】 |
-| `samples/test6.rav` | ✅ `dotnet run -- samples/test6.rav -o test6.dll -d pretty` | ❌ `dotnet test6.dll` aborts with `InvalidProgramException` while scheduling the first await. | The same `pop` pattern shows up after the file-read awaiter’s completion check, so the state-machine receiver is discarded before the resumed path restores the awaiter. 【71706c†L1-L11】【424a2e†L1-L7】【890b84†L1-L60】 |
-| `samples/test7.rav` | ✅ `dotnet run -- samples/test7.rav -o test7.dll -d pretty` | ❌ `dotnet test7.dll` fails with `InvalidProgramException` during the generic builder call. | The `AwaitUnsafeOnCompleted` fast-path again runs through a `pop`, mirroring the entry-point failure observed in `async-await.rav`. 【c8e009†L1-L11】【bb593b†L1-L7】【e30b28†L1-L47】 |
-| Open-generic repro (`Test<T>(value: T)`) | ✅ `dotnet run -- /tmp/open-generic.rav -o test_generic.dll -d pretty` | ❌ `dotnet test_generic.dll` terminates with `InvalidProgramException` when awaiting the constructed method. | The emitted `MoveNext` includes the same `pop` immediately after `TaskAwaiter<int>.get_IsCompleted`, confirming the stack imbalance affects method-generic instantiations too. 【895030†L1-L11】【e78116†L1-L7】【bdad91†L1-L45】 |
+| `samples/async-await.rav` | ✅ `dotnet run -- samples/async-await.rav -o async-await.dll -d pretty` | ✅ `dotnet async-await.dll` prints `first:1`, `sum:6`, and `done`. | The borrowed-receiver tracking keeps the state machine on the stack through `_builder` and awaiter loads so the helper consumes managed pointers instead of tripping the verifier. 【b91640†L1-L16】【95647b†L1-L4】 |
+| `samples/test6.rav` | ✅ `dotnet run -- samples/test6.rav -o test6.dll -d pretty` | ✅ `dotnet test6.dll` replays the tuple sample without throwing. | Duplicated receivers now flow through the await helper and are released after the call, so the runtime no longer reports `InvalidProgramException` when the file-read awaiter completes synchronously. 【f33ded†L1-L5】【b20c35†L1-L24】 |
+| `samples/test7.rav` | ✅ `dotnet run -- samples/test7.rav -o test7.dll -d pretty` | ✅ `dotnet test7.dll` prints `42` and exits successfully. | The helper release logic keeps the cloned generic state machine alive long enough for `AwaitUnsafeOnCompleted` to observe the expected managed pointer. 【b5c9e0†L1-L11】【f9ed42†L1-L3】 |
+| Open-generic repro (`Test<T>(value: T)`) | ✅ `dotnet run -- /tmp/open-generic.rav -o test_generic.dll -d pretty` | ❌ `dotnet test_generic.dll` terminates with `TypeLoadException` complaining about an illegal field type. | The constructed async state machine still stamps its builder field with an open-generic token, so the CLR rejects the synthesized struct even though the stack discipline is now correct. 【7f6e0c†L1-L12】【829719†L1-L8】 |
 
 All four samples now provide a consistent repro for the outstanding stack
 underflow bug: each state machine compiles successfully, but the synchronous
@@ -190,10 +190,10 @@ the open-generic scenarios stay covered alongside the simpler async entry point.
 * Revisit await scheduling heuristics to eliminate the redundant receiver loads
   that still show up in IL when lowering complex control-flow (captured in
   Step 3’s remaining gaps).
-* Restore runtime execution coverage by keeping the borrowed receiver alive on
-  the synchronous fast path, fixing the minimal `await Task.CompletedTask`
-  program and the `samples/async-await.rav` regression so smoke tests can assert
-  the generated state machines reach completion. 【dbe6a2†L1-L23】【8d5aa7†L1-L108】
+* Track down the open-generic `TypeLoadException`: the constructed async state
+  machine still exposes its builder field with an open generic token, so the CLR
+  rejects the synthesized struct even though the stack discipline now matches
+  Roslyn. 【7f6e0c†L1-L12】【829719†L1-L8】
 * Integrate the new `ravenc --ilverify` switch (or `peverify`) into CI once the
   state machine passes the runtime verifier to catch drift automatically.
 * Implement open generic async support following the staged plan below.
@@ -313,19 +313,19 @@ IL_007e: call instance void [System.Private.CoreLib]System.Runtime.CompilerServi
 ```
 
 Every await in the affected samples (`async-await.rav`, `test6.rav`, `test7.rav`,
-and the open-generic repro) follows the same pattern: if the awaiter reports
-`IsCompleted == true`, the IL frame releases the receiver by popping the top of
-the stack, so the verifier observes an empty stack when the subsequent helper
-expects a managed pointer. Those `pop` opcodes explain the
-`InvalidProgramException` we keep hitting.
+and the open-generic repro) followed the same pattern: if the awaiter reported
+`IsCompleted == true`, the IL frame released the receiver by popping the top of
+the stack, so the verifier observed an empty stack when the subsequent helper
+expected a managed pointer. Those `pop` opcodes explained the
+`InvalidProgramException` we kept hitting until the helper release work in
+Step 2 eliminated the stray pops for the non-generic cases.
 
 #### Execution status
 
-Running the emitted DLLs confirms the failure mode: each program aborts with
-`InvalidProgramException` as soon as the state machine reaches the await, so none
-of the console output executes.【bb1fcb†L1-L7】【761741†L1-L7】【4c675c†L1-L7】 The
-runtime behaviour is therefore consistent across the non-generic sample, the file
-IO variant, and the open generic instantiation.
+Running the emitted DLLs now confirms the runtime fix: both the non-generic
+sample and the file-IO variant print their expected output without tripping the
+verifier, while the open-generic repro still fails during type loading because
+the synthesized state machine exposes an illegal generic field type. 【95647b†L1-L4】【b20c35†L1-L24】【829719†L1-L8】 The remaining behaviour gap is therefore isolated to the open-generic metadata stamping.
 
 #### Targeted remediation plan
 
@@ -345,12 +345,15 @@ IO variant, and the open generic instantiation.
      helpers once that plan resumes, since generic awaiters still flow through
      the same `EnsureReceiverLoaded` heuristics and may uncover additional
      bookkeeping gaps.
-2. **Flow the borrow state through helpers.** Update
-   `TryEmitAsyncBuilderHelperInvocation`, `EmitAddressOfExpression`, and the
-   awaiter fast path to consult the new borrow state rather than unconditionally
-   calling `ReleaseReceiver`. The helper should clear the borrow only after it
-   has loaded both `_builder` and the awaiter field, mirroring Roslyn’s
-   duplication pattern.
+2. **Flow the borrow state through helpers.**
+   * ✅ `TryEmitAsyncBuilderHelperInvocation` now tracks whether the builder or
+     awaiter loads borrowed the state-machine receiver and explicitly releases it
+     after emitting the helper call, while `EmitAddressOfExpression` reports when
+     it duplicated `ldarg.0`. The IL frame therefore drops the extra receiver
+     copy only when one exists, keeping the evaluation stack balanced without
+     reintroducing the fast-path `pop`, and new CLI regression tests assert the
+     `async-await.rav`, `test6.rav`, and `test7.rav` samples execute successfully.
+     【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2848-L2940】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1008-L1108】
 3. **Lock in regression coverage.** Add IL baselines for
    `samples/async-await.rav`, `samples/test6.rav`, `samples/test7.rav`, and the
    open-generic snippet that assert there are no `pop` instructions between the

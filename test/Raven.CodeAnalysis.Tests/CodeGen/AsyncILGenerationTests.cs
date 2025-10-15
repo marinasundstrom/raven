@@ -1079,6 +1079,102 @@ class C {
         }
     }
 
+    [Theory]
+    [InlineData("async-await.rav", new[] { "first:1", "sum:6", "done" })]
+    [InlineData("test6.rav", new[] { "let tuple = (a: 42, b: 2)", "System.Console.WriteLine(tuple)" })]
+    [InlineData("test7.rav", new[] { "42" })]
+    public void AsyncSamples_ExecuteSuccessfully(string sampleFile, string[] expectedSnippets)
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+        var samplePath = Path.Combine(repoRoot, "src", "Raven.Compiler", "samples", sampleFile);
+
+        var outputDir = Path.Combine(Path.GetTempPath(), "raven_async_samples", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(outputDir);
+
+        var assemblyPath = Path.Combine(outputDir, Path.ChangeExtension(sampleFile, ".dll"));
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, ".runtimeconfig.json");
+
+        try
+        {
+            var compilerArgs = $"run --project \"{projectPath}\" -- \"{samplePath}\" -o \"{assemblyPath}\"";
+            var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            {
+                var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
+                var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
+                compilerProcess.WaitForExit();
+
+                if (compilerProcess.ExitCode != 0)
+                {
+                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine(compilerStdOut);
+                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine(compilerStdErr);
+                }
+
+                Assert.Equal(0, compilerProcess.ExitCode);
+            }
+
+            if (string.Equals(sampleFile, "test6.rav", StringComparison.OrdinalIgnoreCase))
+            {
+                var samplesDir = Path.Combine(outputDir, "samples");
+                Directory.CreateDirectory(samplesDir);
+                var tupleSource = Path.Combine(repoRoot, "src", "Raven.Compiler", "samples", "tuples.rav");
+                File.Copy(tupleSource, Path.Combine(samplesDir, "tuples.rav"), overwrite: true);
+            }
+
+            var runInfo = new ProcessStartInfo("dotnet", $"\"{assemblyPath}\"")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = outputDir
+            };
+
+            using var runProcess = Process.Start(runInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
+            var runStdOut = runProcess.StandardOutput.ReadToEnd();
+            var runStdErr = runProcess.StandardError.ReadToEnd();
+            runProcess.WaitForExit();
+
+            if (runProcess.ExitCode != 0 || !string.IsNullOrWhiteSpace(runStdErr))
+            {
+                _output.WriteLine("dotnet stdout:");
+                _output.WriteLine(runStdOut);
+                _output.WriteLine("dotnet stderr:");
+                _output.WriteLine(runStdErr);
+            }
+
+            Assert.Equal(0, runProcess.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(runStdErr), "dotnet emitted unexpected stderr output.");
+
+            var normalizedOutput = runStdOut.Replace("\r\n", "\n").Trim();
+            foreach (var expected in expectedSnippets)
+                Assert.Contains(expected, normalizedOutput);
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir))
+            {
+                try
+                {
+                    Directory.Delete(outputDir, recursive: true);
+                }
+                catch
+                {
+                    // Ignore cleanup failures in CI environments.
+                }
+            }
+        }
+    }
+
     [Fact]
     public void AsyncEntryPoint_MainBridge_AwaitsMainAsync()
     {

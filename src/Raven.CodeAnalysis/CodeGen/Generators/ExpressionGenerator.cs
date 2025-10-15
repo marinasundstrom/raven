@@ -892,7 +892,15 @@ internal class ExpressionGenerator : Generator
     }
 
     private void EmitAddressOfExpression(BoundAddressOfExpression addressOf)
+        => EmitAddressOfExpression(addressOf, trackBorrow: false, out _);
+
+    private void EmitAddressOfExpression(
+        BoundAddressOfExpression addressOf,
+        bool trackBorrow,
+        out bool receiverBorrowed)
     {
+        receiverBorrowed = false;
+
         if (addressOf.Symbol is IFieldSymbol instanceField &&
             !instanceField.IsStatic &&
             MethodBodyGenerator.AsyncIlFrame is { } asyncFrame &&
@@ -902,13 +910,22 @@ internal class ExpressionGenerator : Generator
             var keepAlive = SymbolEqualityComparer.Default.Equals(instanceField, asyncContext.Definition.BuilderField)
                 || asyncContext.Definition.HoistedLocals.Any(hoisted => SymbolEqualityComparer.Default.Equals(hoisted, instanceField));
 
+            var borrowedReceiver = false;
+
             if (addressOf.Receiver is not null)
             {
                 if (addressOf.Receiver is BoundSelfExpression selfExpression &&
                     SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type))
                 {
                     if (!asyncFrame.TryBorrowReceiver(keepAlive))
+                    {
                         asyncFrame.EnsureReceiverLoaded(keepAlive);
+                        borrowedReceiver = keepAlive;
+                    }
+                    else if (keepAlive)
+                    {
+                        borrowedReceiver = true;
+                    }
                 }
                 else
                 {
@@ -918,7 +935,14 @@ internal class ExpressionGenerator : Generator
             else
             {
                 if (!asyncFrame.TryBorrowReceiver(keepAlive))
+                {
                     asyncFrame.EnsureReceiverLoaded(keepAlive);
+                    borrowedReceiver = keepAlive;
+                }
+                else if (keepAlive)
+                {
+                    borrowedReceiver = true;
+                }
             }
 
             var fieldInfo = (FieldInfo)GetField(instanceField);
@@ -928,6 +952,9 @@ internal class ExpressionGenerator : Generator
 
             if (keepAlive)
                 asyncFrame.SuppressNextRelease();
+
+            if (trackBorrow && borrowedReceiver)
+                receiverBorrowed = true;
 
             return;
         }
@@ -2747,8 +2774,8 @@ internal class ExpressionGenerator : Generator
                 switch (argument)
                 {
                     case BoundAddressOfExpression addressOf:
-                        EmitAddressOfExpression(addressOf);
-                        break;
+                EmitAddressOfExpression(addressOf);
+                break;
                     case BoundLocalAccess { Symbol: ILocalSymbol local }:
                         ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                         break;
@@ -2851,6 +2878,8 @@ internal class ExpressionGenerator : Generator
             frame.CaptureReceiver();
         }
 
+        var releaseBorrowedReceiver = false;
+
         if (receiverLocal is not null && SymbolEqualityComparer.Default.Equals(builderField.ContainingType, asyncContext.Definition))
         {
             EmitStateMachineFieldAddressFromLocal(receiverLocal, builderField);
@@ -2858,6 +2887,7 @@ internal class ExpressionGenerator : Generator
         else
         {
             EmitAsyncStateMachineFieldAddress(frame, builderField);
+            releaseBorrowedReceiver = true;
         }
 
         for (var i = 0; i < arguments.Length; i++)
@@ -2873,7 +2903,8 @@ internal class ExpressionGenerator : Generator
                         if (receiverLocal is not null && TryEmitStateMachineAddress(addressOf, asyncContext, receiverLocal))
                             break;
 
-                        EmitAddressOfExpression(addressOf);
+                        EmitAddressOfExpression(addressOf, trackBorrow: true, out var borrowedReceiver);
+                        releaseBorrowedReceiver |= borrowedReceiver;
                         break;
                     case BoundLocalAccess { Symbol: ILocalSymbol local }:
                         ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
@@ -2920,6 +2951,11 @@ internal class ExpressionGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
         }
+
+        if (releaseBorrowedReceiver)
+            frame.ReleaseReceiver();
+        else
+            frame.CaptureReceiver();
 
         return true;
     }
