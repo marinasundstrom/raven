@@ -101,6 +101,12 @@ remains to match the behaviour of C#.
   before the type is created.` from `ConstructedMethodSymbol.GetMethodInfo`
   while the async state machine is being lowered, leaving `test.dll`
   unproduced. 【c6da48†L1-L11】【2b0969†L1-L47】
+* The stack trace pinpoints the failure to the lookup that enumerates
+  `methodSearchType.GetMethods` on the open generic `TypeBuilder` backing the
+  synthesized async state machine. Because the builder has not been materialised
+  via `CreateType`, Reflection.Emit throws `TypeBuilderImpl.ThrowIfNotCreated`
+  before `ConstructedMethodSymbol.GetMethodInfo` can project the closed generic
+  method. 【d5ec68†L1-L36】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L201-L270】
 
 ## Implementation plan for full `async Task<T>` support
 
@@ -129,9 +135,10 @@ remains to match the behaviour of C#.
    * Verify the synthesized `SetStateMachine` and `MoveNext` signatures match the
      CLR's expectations for generic async builders.
    * Ensure `ConstructedMethodSymbol.GetMethodInfo` can hand out method handles
-     before the async state machine type is materialised so generic builders no
-     longer trigger `NotSupportedException` while compiling `samples/test8.rav`.
-     【2b0969†L1-L47】
+     before the async state machine type is materialised by reusing the
+     `MethodBuilder` instances recorded in `CodeGenerator.AddMemberBuilder`
+     instead of reflecting over an uncreated `TypeBuilder`, unblocking
+     `samples/test8.rav`. 【2b0969†L1-L47】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L201-L270】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L61】
 5. **Regression and conformance testing**
    * Flip existing failing tests to assert successful execution and add new
      IL baselines validating builder construction, `_state` management, and
