@@ -335,6 +335,16 @@ IO variant, and the open generic instantiation.
    receiver from the evaluation stack. This probably means replacing the current
    boolean with a small struct that models “borrowed”, “cached local”, and
    “consumed” states.
+   * ✅ `AsyncStateMachineILFrame` now tracks when the state-machine receiver has
+     actually been borrowed across statements, so the synchronous `IsCompleted`
+     branch skips emitting a `pop` when no copy exists. The fast path therefore
+     falls through with an empty stack, matching Roslyn’s IL, and the new
+     regression test asserts that the `brtrue` target is no longer preceded by a
+     `pop`. 【F:src/Raven.CodeAnalysis/CodeGen/AsyncStateMachineILFrame.cs†L9-L156】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L403-L438】
+   * ⚠️ Follow-up: validate the borrow tracking against the open-generic async
+     helpers once that plan resumes, since generic awaiters still flow through
+     the same `EnsureReceiverLoaded` heuristics and may uncover additional
+     bookkeeping gaps.
 2. **Flow the borrow state through helpers.** Update
    `TryEmitAsyncBuilderHelperInvocation`, `EmitAddressOfExpression`, and the
    awaiter fast path to consult the new borrow state rather than unconditionally

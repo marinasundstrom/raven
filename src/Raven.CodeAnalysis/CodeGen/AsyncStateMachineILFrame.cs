@@ -13,6 +13,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
 
     private int _receiverDepth;
     private bool _receiverOnTop;
+    private bool _receiverBorrowed;
     private bool _suppressNextRelease;
 
     public AsyncStateMachineILFrame(MethodBodyGenerator methodBodyGenerator, SynthesizedAsyncStateMachineTypeSymbol stateMachine)
@@ -37,7 +38,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
             return;
         }
 
-        if (_receiverDepth > 0 && !_suppressNextRelease)
+        if (_receiverBorrowed && _receiverDepth > 0 && !_suppressNextRelease)
             ReleaseReceiver();
 
         _suppressNextRelease = false;
@@ -45,7 +46,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
 
     public void EndStatement(BoundStatement statement)
     {
-        if (statement is BoundReturnStatement or BoundThrowStatement)
+        if (_receiverBorrowed && statement is BoundReturnStatement or BoundThrowStatement)
             ReleaseReceiver();
     }
 
@@ -71,6 +72,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
 
         IL.Emit(OpCodes.Dup);
         _receiverDepth++;
+        _receiverBorrowed = true;
     }
 
     public void AfterFieldAccess(bool receiverRemainsOnTop)
@@ -78,6 +80,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
         if (_receiverDepth == 0)
         {
             _receiverOnTop = false;
+            _receiverBorrowed = false;
             return;
         }
 
@@ -85,11 +88,13 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
         {
             _receiverDepth--;
             _receiverOnTop = _receiverDepth > 0;
+            _receiverBorrowed = _receiverDepth > 0;
             return;
         }
 
         _receiverDepth = Math.Max(0, _receiverDepth - 1);
         _receiverOnTop = false;
+        _receiverBorrowed = _receiverDepth > 0;
     }
 
     public bool TryBorrowReceiver(bool keepAlive)
@@ -101,6 +106,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
         {
             IL.Emit(OpCodes.Dup);
             _receiverDepth++;
+            _receiverBorrowed = true;
         }
 
         return true;
@@ -110,6 +116,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
     {
         _receiverDepth = 0;
         _receiverOnTop = false;
+        _receiverBorrowed = false;
     }
 
     public bool TryConsumeReceiver()
@@ -124,6 +131,13 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
 
     public void ReleaseReceiver()
     {
+        if (!_receiverBorrowed)
+        {
+            _receiverDepth = 0;
+            _receiverOnTop = false;
+            return;
+        }
+
         while (_receiverDepth > 0)
         {
             IL.Emit(OpCodes.Pop);
@@ -131,6 +145,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
         }
 
         _receiverOnTop = false;
+        _receiverBorrowed = false;
     }
 
     public bool HasReceiverOnStack => _receiverDepth > 0;
@@ -140,5 +155,6 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
         ReleaseReceiver();
         _suppressNextRelease = false;
         _receiverOnTop = false;
+        _receiverBorrowed = false;
     }
 }

@@ -1365,6 +1365,36 @@ class C {
         }
     }
 
+    [Fact]
+    public void MoveNext_AwaitUnsafeOnCompleted_FastPathDoesNotPopReceiver()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var isCompletedIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("get_IsCompleted", StringComparison.Ordinal));
+
+        Assert.True(isCompletedIndex >= 0, "TaskAwaiter.get_IsCompleted call not found.");
+
+        var branchIndex = Array.FindIndex(instructions, isCompletedIndex + 1, instruction =>
+            instruction.Opcode == OpCodes.Brtrue || instruction.Opcode == OpCodes.Brtrue_S);
+
+        Assert.True(branchIndex >= 0, "Fast-path branch following get_IsCompleted not found.");
+
+        for (var index = branchIndex + 1; index < instructions.Length; index++)
+        {
+            var instruction = instructions[index];
+
+            if (instruction.Opcode == OpCodes.Br || instruction.Opcode == OpCodes.Br_S)
+                break;
+
+            Assert.NotEqual(OpCodes.Pop, instruction.Opcode);
+        }
+    }
+
 
     [Fact]
     public void MoveNext_AwaitUnsafeOnCompleted_BorrowsReceiverForBuilder()
