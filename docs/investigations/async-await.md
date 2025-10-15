@@ -243,6 +243,96 @@ for the state machine. Once the stack management is fixed we should add IL
 assertions for the await path and flip the sample execution tests to expect the
 printed output instead of an abort.
 
+#### Fresh Roslyn baseline for the await samples
+
+To ground the runtime work we compiled C# counterparts for `samples/async-await.rav`,
+`samples/test6.rav`, `samples/test7.rav`, and the open-generic smoke test. Roslyn’s
+generic helper mirrors the same state machines Raven should produce: the borrowed
+receiver is duplicated once, the builder and awaiter addresses are taken with
+`ldloca`, and `AwaitUnsafeOnCompleted` consumes the arguments without any stack
+cleanup opcodes. The relevant slice from `Program.<TestGeneric>d__2<T>.MoveNext`
+looks like this:
+
+```il
+IL_0025: ldarg.0
+IL_0026: ldc.i4.0
+IL_0027: dup
+IL_0028: stloc.0
+IL_0029: stfld int32 class Program/'<TestGeneric>d__2`1'<!T>::'<>1__state'
+IL_002e: ldarg.0
+IL_002f: ldloc.2
+IL_0030: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter class Program/'<TestGeneric>d__2`1'<!T>::'<>u__1'
+IL_0035: ldarg.0
+IL_0036: stloc.3
+IL_0037: ldarg.0
+IL_0038: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0> class Program/'<TestGeneric>d__2`1'<!T>::'<>t__builder'
+IL_003d: ldloca.s 2
+IL_003f: ldloca.s 3
+IL_0041: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!T>::AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter, class Program/'<TestGeneric>d__2`1'<!T>>(!!0&, !!1&)
+```
+
+The key detail is the absence of `pop`: Roslyn never discards the borrowed
+receiver after checking `TaskAwaiter.get_IsCompleted`, so the fast path keeps the
+state machine on the stack for whichever helper executes next.
+
+#### Raven IL divergence for the samples
+
+Dumping the Raven-generated assemblies for the same inputs shows the lingering
+stack bug. The `AwaitUnsafeOnCompleted` fast path in
+`Program.<>c__AsyncStateMachine1.MoveNext` (emitted for the open-generic snippet)
+still inserts a `pop` before the helper call:
+
+```il
+IL_0059: br IL_0064
+
+IL_005e: pop
+IL_005f: br IL_0088
+
+IL_0064: ldarg.0
+IL_0065: dup
+IL_0066: ldc.i4.0
+IL_0067: stfld int32 Program/'Program+<>c__AsyncStateMachine1'::_state
+IL_0070: ldflda valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder Program/'Program+<>c__AsyncStateMachine1'::_builder
+IL_0077: ldflda valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.TaskAwaiter`1<int32> Program/'Program+<>c__AsyncStateMachine1'::'<>awaiter0'
+IL_007e: call instance void [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::AwaitUnsafeOnCompleted<valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.TaskAwaiter`1<int32>, valuetype Program/'Program+<>c__AsyncStateMachine1'>(!!0&, !!1&)
+```
+
+Every await in the affected samples (`async-await.rav`, `test6.rav`, `test7.rav`,
+and the open-generic repro) follows the same pattern: if the awaiter reports
+`IsCompleted == true`, the IL frame releases the receiver by popping the top of
+the stack, so the verifier observes an empty stack when the subsequent helper
+expects a managed pointer. Those `pop` opcodes explain the
+`InvalidProgramException` we keep hitting.
+
+#### Execution status
+
+Running the emitted DLLs confirms the failure mode: each program aborts with
+`InvalidProgramException` as soon as the state machine reaches the await, so none
+of the console output executes.【bb1fcb†L1-L7】【761741†L1-L7】【4c675c†L1-L7】 The
+runtime behaviour is therefore consistent across the non-generic sample, the file
+IO variant, and the open generic instantiation.
+
+#### Targeted remediation plan
+
+1. **Track receiver borrows explicitly.** Rework `AsyncStateMachineILFrame` so it
+   records the outstanding borrow depth (including the fast path that skips
+   helper calls) and only emits a `pop` when the consumer actually read the
+   receiver from the evaluation stack. This probably means replacing the current
+   boolean with a small struct that models “borrowed”, “cached local”, and
+   “consumed” states.
+2. **Flow the borrow state through helpers.** Update
+   `TryEmitAsyncBuilderHelperInvocation`, `EmitAddressOfExpression`, and the
+   awaiter fast path to consult the new borrow state rather than unconditionally
+   calling `ReleaseReceiver`. The helper should clear the borrow only after it
+   has loaded both `_builder` and the awaiter field, mirroring Roslyn’s
+   duplication pattern.
+3. **Lock in regression coverage.** Add IL baselines for
+   `samples/async-await.rav`, `samples/test6.rav`, `samples/test7.rav`, and the
+   open-generic snippet that assert there are no `pop` instructions between the
+   `brtrue` fast path and the helper invocation. Once the IL matches Roslyn,
+   promote these programs to runtime execution tests so we catch future stack
+   regressions automatically.
+
 #### Re-evaluated remediation plan
 
 To turn the runtime investigation into actionable work we compared the IL that
