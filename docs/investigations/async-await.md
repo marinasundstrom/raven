@@ -63,6 +63,11 @@ remains to match the behaviour of C#.
 3. **Generic builders** – Every call into `AsyncTaskMethodBuilder<T>` must use the
    constructed generic and pass the builder field by reference. Additional IL
    assertions should pin the closed generic metadata to prevent regressions.
+   * ✅ `ExpressionGenerator` now instantiates `Start`/`AwaitUnsafeOnCompleted`
+     with the constructed method type arguments before emission.
+   * ☐ The remaining `StackUnderflow` at offset `0x5E` shows the borrowed-receiver
+     work still needs to ensure the state machine stays on the stack between the
+     `_state` store and helper invocations.
 4. **Runtime validation** – Once emission matches the Roslyn pattern, promote the
    console repro into an execution test that verifies the generated assembly
    completes successfully and emits the awaited value.
@@ -425,6 +430,13 @@ through metadata caching.
   still expose the original `TypeGenerator`, meaning the remaining work must
   ensure method bodies query the constructed mapping before resolving builder
   handles. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L19-L93】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L990-L1006】
+* `ExpressionGenerator` now instantiates generic builder helpers before emission
+  so `AsyncTaskMethodBuilder<T>.Start` and
+  `AsyncTaskMethodBuilder<T>.AwaitUnsafeOnCompleted` receive closed method
+  handles. `ilverify` no longer reports open-generic call sites—only the existing
+  stack underflow at offset `0x5E`—confirming the remaining `InvalidProgramException`
+  stems from the borrowed-receiver work captured in the plan rather than missing
+  metadata stamping.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2711-L2724】【ad2660†L1-L13】
 * The new `AsyncStateMachineILFrame` keeps the receiver alive across state
   updates, builder accesses, and awaiter stores so `MoveNext` now follows the
   same `ldarg.0`/`dup`/`stfld` discipline Roslyn emits. Tests guard against

@@ -2773,6 +2773,17 @@ internal class ExpressionGenerator : Generator
 
         var targetMethodInfo = GetMethodInfo(target);
 
+        if (targetMethodInfo.ContainsGenericParameters &&
+            target is IMethodSymbol { TypeArguments.Length: > 0 } constructedTarget)
+        {
+            var methodTypeArguments = constructedTarget.TypeArguments
+                .Select(ResolveClrType)
+                .ToArray();
+
+            if (methodTypeArguments.Length > 0)
+                targetMethodInfo = targetMethodInfo.MakeGenericMethod(methodTypeArguments);
+        }
+
         if (target.IsStatic)
         {
             ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
@@ -2885,6 +2896,17 @@ internal class ExpressionGenerator : Generator
 
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
         var targetMethodInfo = GetMethodInfo(target);
+
+        if (targetMethodInfo.ContainsGenericParameters &&
+            target is IMethodSymbol { TypeArguments.Length: > 0 } constructedTarget)
+        {
+            var methodTypeArguments = constructedTarget.TypeArguments
+                .Select(ResolveClrType)
+                .ToArray();
+
+            if (methodTypeArguments.Length > 0)
+                targetMethodInfo = targetMethodInfo.MakeGenericMethod(methodTypeArguments);
+        }
 
         if (target.IsStatic)
         {
