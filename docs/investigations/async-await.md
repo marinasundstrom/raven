@@ -101,6 +101,14 @@ remains to match the behaviour of C#.
   before the type is created.` from `ConstructedMethodSymbol.GetMethodInfo`
   while the async state machine is being lowered, leaving `test.dll`
   unproduced. 【c6da48†L1-L11】【2b0969†L1-L47】
+* Instrumenting the invocation emitter to print the symbols being lowered shows
+  the async builder path successfully resolves `Create`, `Start`,
+  `AwaitUnsafeOnCompleted`, and `SetResult` before the crash. The failure only
+  occurs when emitting the instantiated `Program.Test(int)` method that backs
+  `Test<T>`, and because the containing `Program` `TypeBuilder` has not been
+  materialised yet, reflecting over its methods via
+  `ConstructedMethodSymbol.GetMethodInfo` triggers
+  `TypeBuilderImpl.ThrowIfNotCreated`. 【5406d5†L65-L132】
 * The stack trace pinpoints the failure to the lookup that enumerates
   `methodSearchType.GetMethods` on the open generic `TypeBuilder` backing the
   synthesized async state machine. Because the builder has not been materialised
@@ -138,7 +146,10 @@ remains to match the behaviour of C#.
      before the async state machine type is materialised by reusing the
      `MethodBuilder` instances recorded in `CodeGenerator.AddMemberBuilder`
      instead of reflecting over an uncreated `TypeBuilder`, unblocking
-     `samples/test8.rav`. 【2b0969†L1-L47】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L201-L270】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L61】
+     `samples/test8.rav`. The lookup must recognise `SubstitutedMethodSymbol`
+     callers such as the instantiated `Program.Test(int)` entry point and route
+     them back to the cached builder for `Test<T>` rather than triggering
+     reflection. 【2b0969†L1-L47】【5406d5†L65-L132】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L201-L270】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L61】
 5. **Regression and conformance testing**
    * Flip existing failing tests to assert successful execution and add new
      IL baselines validating builder construction, `_state` management, and
