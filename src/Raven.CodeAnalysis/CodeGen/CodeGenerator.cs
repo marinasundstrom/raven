@@ -387,7 +387,9 @@ internal class CodeGenerator
 
         CreateTypes();
 
-        var entryPointSymbol = _compilation.GetEntryPoint();
+        var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
+            ? _compilation.GetEntryPoint()
+            : null;
         MethodGenerator? entryPointGenerator = null;
 
         if (entryPointSymbol is not null)
