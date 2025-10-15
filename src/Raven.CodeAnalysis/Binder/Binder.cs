@@ -1236,7 +1236,12 @@ internal abstract class Binder
 
             if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
             {
-                foreach (var constraintType in typeParameter.ConstraintTypes)
+                var constraintTypes = method is SubstitutedMethodSymbol substituted &&
+                    substituted.TryGetSubstitutedConstraintTypes(typeParameter, out var substitutedConstraints)
+                        ? substitutedConstraints
+                        : typeParameter.ConstraintTypes;
+
+                foreach (var constraintType in constraintTypes)
                 {
                     if (constraintType is IErrorTypeSymbol)
                         continue;
