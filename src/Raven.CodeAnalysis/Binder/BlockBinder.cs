@@ -721,6 +721,20 @@ partial class BlockBinder : Binder
         return null;
     }
 
+    private static bool IsImplicitReturnTarget(BlockStatementSyntax block, ExpressionStatementSyntax expressionStatement)
+    {
+        if (block.Statements.Count == 0 || block.Statements.LastOrDefault() != expressionStatement)
+            return false;
+
+        return block.Parent switch
+        {
+            BaseMethodDeclarationSyntax => true,
+            FunctionStatementSyntax => true,
+            AccessorDeclarationSyntax => true,
+            _ => false,
+        };
+    }
+
     private IPropertySymbol? FindIsCompletedProperty(ITypeSymbol awaiterType)
     {
         foreach (var property in awaiterType.GetMembers("IsCompleted").OfType<IPropertySymbol>())
@@ -2180,7 +2194,15 @@ partial class BlockBinder : Binder
                         continue;
                     }
 
-                case ExpressionStatementSyntax:
+                case ExpressionStatementSyntax expressionStatement:
+                    if (expressionStatement.Expression == node &&
+                        expressionStatement.Parent is BlockStatementSyntax block &&
+                        IsImplicitReturnTarget(block, expressionStatement) &&
+                        _containingSymbol is IMethodSymbol methodSymbol)
+                    {
+                        return methodSymbol.ReturnType;
+                    }
+
                     return null;
 
                 default:

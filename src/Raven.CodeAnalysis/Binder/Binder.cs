@@ -1236,7 +1236,7 @@ internal abstract class Binder
 
             if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
             {
-                var constraintTypes = method is SubstitutedMethodSymbol substituted &&
+                var constraintTypes = typeParameter.ContainingSymbol is SubstitutedMethodSymbol substituted &&
                     substituted.TryGetSubstitutedConstraintTypes(typeParameter, out var substitutedConstraints)
                         ? substitutedConstraints
                         : typeParameter.ConstraintTypes;

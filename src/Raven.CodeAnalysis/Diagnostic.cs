@@ -12,6 +12,8 @@ public class Diagnostic : IEquatable<Diagnostic>
 
     public bool IsSuppressed { get; }
 
+    public string Id => Descriptor.Id;
+
     public object[] GetMessageArgs() => _messageArgs ?? [];
 
     public Diagnostic(
