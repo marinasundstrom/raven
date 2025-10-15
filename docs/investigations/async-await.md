@@ -91,6 +91,15 @@ remains to match the behaviour of C#.
   members always observe the original state machine by reference. Future
   regression tests should assert the presence of `ldflda`/`ldarga` before async
   builder calls to prevent the by-value copy from resurfacing. 【0145d5†L33-L69】
+* **Borrowed-receiver release** – Running the `samples/async-await.rav` repro
+  still aborts with `InvalidProgramException`, and inspecting the emitted IL
+  shows `AsyncStateMachineILFrame.ReleaseReceiver` inserting `pop` instructions
+  on the fast path after `TaskAwaiter.get_IsCompleted`. When the awaiter is
+  already complete, control jumps over `AwaitUnsafeOnCompleted`, hits the
+  injected `pop`, and underflows the evaluation stack that should still contain
+  the state-machine receiver. The CLR reports the resulting invalid program
+  before any console output executes, so the IL frame must stop releasing the
+  borrowed receiver on those branches. 【dbe6a2†L1-L23】【8d5aa7†L1-L108】
 
 ## Implementation plan for full `async Task<T>` support
 
@@ -111,8 +120,12 @@ remains to match the behaviour of C#.
    * Update `AsyncLowerer` so `_state`, `_builder`, and hoisted awaiters share a
      single receiver load when mutating the state machine.
    * Emit `AsyncTaskMethodBuilder<T>` invocations using the constructed generic
-     type, mirroring Roslyn's IL for `AwaitUnsafeOnCompleted` and completion
-     paths.
+      type, mirroring Roslyn's IL for `AwaitUnsafeOnCompleted` and completion
+      paths.
+   * Prevent the IL frame from releasing the borrowed receiver when
+     short-circuiting `AwaitUnsafeOnCompleted`, eliminating the stray `pop`
+     instructions that underflow the evaluation stack on the synchronous fast
+     path. 【8d5aa7†L1-L108】
 4. **Adjust code generation**
    * Teach the emitter to produce correctly constructed generic builder fields
      and metadata handles for `Task<T>` state machines.
@@ -162,9 +175,10 @@ remains to match the behaviour of C#.
 * Revisit await scheduling heuristics to eliminate the redundant receiver loads
   that still show up in IL when lowering complex control-flow (captured in
   Step 3’s remaining gaps).
-* Restore runtime execution coverage by fixing the minimal `await
-  Task.CompletedTask` program and the `samples/async-await.rav` regression so
-  smoke tests can assert the generated state machines reach completion.
+* Restore runtime execution coverage by keeping the borrowed receiver alive on
+  the synchronous fast path, fixing the minimal `await Task.CompletedTask`
+  program and the `samples/async-await.rav` regression so smoke tests can assert
+  the generated state machines reach completion. 【dbe6a2†L1-L23】【8d5aa7†L1-L108】
 * Integrate the new `ravenc --ilverify` switch (or `peverify`) into CI once the
   state machine passes the runtime verifier to catch drift automatically.
 * Implement open generic async support following the staged plan below.
