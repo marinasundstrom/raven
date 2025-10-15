@@ -234,6 +234,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     private readonly IMethodSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
     private ImmutableArray<IParameterSymbol>? _parameters;
+    private Dictionary<ITypeParameterSymbol, ImmutableArray<ITypeSymbol>>? _constraintTypeMap;
 
     public SubstitutedMethodSymbol(IMethodSymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -305,6 +306,39 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
     {
         return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
+    }
+
+    internal bool TryGetSubstitutedConstraintTypes(
+        ITypeParameterSymbol typeParameter,
+        out ImmutableArray<ITypeSymbol> substituted)
+    {
+        substituted = default;
+
+        if (!_original.TypeParameters.Contains(typeParameter))
+            return false;
+
+        _constraintTypeMap ??= new Dictionary<ITypeParameterSymbol, ImmutableArray<ITypeSymbol>>(SymbolEqualityComparer.Default);
+
+        if (_constraintTypeMap.TryGetValue(typeParameter, out substituted))
+            return true;
+
+        var originalConstraints = typeParameter.ConstraintTypes;
+
+        if (originalConstraints.IsDefaultOrEmpty || originalConstraints.Length == 0)
+        {
+            substituted = originalConstraints;
+            _constraintTypeMap[typeParameter] = substituted;
+            return true;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(originalConstraints.Length);
+
+        foreach (var constraint in originalConstraints)
+            builder.Add(_constructed.Substitute(constraint));
+
+        substituted = builder.ToImmutable();
+        _constraintTypeMap[typeParameter] = substituted;
+        return true;
     }
 
     internal ConstructorInfo GetConstructorInfo(CodeGenerator codeGen)
