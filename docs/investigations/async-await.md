@@ -101,6 +101,21 @@ remains to match the behaviour of C#.
   before any console output executes, so the IL frame must stop releasing the
   borrowed receiver on those branches. 【dbe6a2†L1-L23】【8d5aa7†L1-L108】
 
+### Sample execution audit
+
+| Sample | Build status | Runtime result | IL observation |
+| --- | --- | --- | --- |
+| `samples/async-await.rav` | ✅ `dotnet run -- samples/async-await.rav -o async-await.dll -d pretty` | ❌ `dotnet async-await.dll` throws `InvalidProgramException` before printing any output. | The synchronous branch still executes a stray `pop` immediately after `TaskAwaiter.get_IsCompleted`, leaving the evaluation stack empty when control flows into the awaited resume path. 【22d111†L1-L17】【35d9e6†L1-L7】【a45738†L1-L49】 |
+| `samples/test6.rav` | ✅ `dotnet run -- samples/test6.rav -o test6.dll -d pretty` | ❌ `dotnet test6.dll` aborts with `InvalidProgramException` while scheduling the first await. | The same `pop` pattern shows up after the file-read awaiter’s completion check, so the state-machine receiver is discarded before the resumed path restores the awaiter. 【71706c†L1-L11】【424a2e†L1-L7】【890b84†L1-L60】 |
+| `samples/test7.rav` | ✅ `dotnet run -- samples/test7.rav -o test7.dll -d pretty` | ❌ `dotnet test7.dll` fails with `InvalidProgramException` during the generic builder call. | The `AwaitUnsafeOnCompleted` fast-path again runs through a `pop`, mirroring the entry-point failure observed in `async-await.rav`. 【c8e009†L1-L11】【bb593b†L1-L7】【e30b28†L1-L47】 |
+| Open-generic repro (`Test<T>(value: T)`) | ✅ `dotnet run -- /tmp/open-generic.rav -o test_generic.dll -d pretty` | ❌ `dotnet test_generic.dll` terminates with `InvalidProgramException` when awaiting the constructed method. | The emitted `MoveNext` includes the same `pop` immediately after `TaskAwaiter<int>.get_IsCompleted`, confirming the stack imbalance affects method-generic instantiations too. 【895030†L1-L11】【e78116†L1-L7】【bdad91†L1-L45】 |
+
+All four samples now provide a consistent repro for the outstanding stack
+underflow bug: each state machine compiles successfully, but the synchronous
+fast path still discards the receiver before resuming execution. These IL
+captures give us a concrete baseline for validating the eventual fix and ensure
+the open-generic scenarios stay covered alongside the simpler async entry point.
+
 ## Implementation plan for full `async Task<T>` support
 
 1. **Codify desired semantics**
