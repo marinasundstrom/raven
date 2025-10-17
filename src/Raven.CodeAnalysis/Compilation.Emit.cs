@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
@@ -16,7 +17,18 @@ public partial class Compilation
             return new EmitResult(false, diagnostics);
         }
 
+        ResetCodeGenerationDiagnostics();
+
         new CodeGenerator(this).Emit(peStream, pdbStream);
+
+        var instrumentationDiagnostics = GetCodeGenerationDiagnostics()
+            .Select(d => ApplyCompilationOptions(d))
+            .Where(diagnostic => diagnostic is not null)
+            .Cast<Diagnostic>()
+            .ToImmutableArray();
+
+        if (instrumentationDiagnostics.Length > 0)
+            diagnostics = diagnostics.AddRange(instrumentationDiagnostics);
 
         return new EmitResult(true, diagnostics);
     }
