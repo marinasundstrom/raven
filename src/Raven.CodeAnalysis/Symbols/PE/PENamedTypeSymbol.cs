@@ -318,9 +318,17 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ITypeSymbol? LookupType(string name)
     {
         EnsureMembersLoaded();
-        return _members
+
+        var candidates = _members
             .OfType<INamedTypeSymbol>()
-            .FirstOrDefault(type => type.Name == name);
+            .Where(type => type.Name == name)
+            .ToImmutableArray();
+
+        if (candidates.IsDefaultOrEmpty)
+            return null;
+
+        var nonGeneric = candidates.FirstOrDefault(static t => t.Arity == 0);
+        return nonGeneric ?? candidates[0];
     }
 
     private bool IsValueTupleSpecialType()

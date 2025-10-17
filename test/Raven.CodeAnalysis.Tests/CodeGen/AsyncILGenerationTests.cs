@@ -91,6 +91,17 @@ let value = await Test(42)
 WriteLine(value)
 """;
 
+    private const string ConstructedAsyncGenericCode = """
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+let value = await Test(42)
+""";
+
     private const string TryAwaitAsyncCode = """
 import System.Threading.Tasks.*
 
@@ -1039,6 +1050,78 @@ class C {
 
         var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
         Assert.NotNull(methodSymbol.AsyncStateMachine);
+    }
+
+    [Fact]
+    public void ConstructedAsyncGeneric_EmitsUsingCachedBuilder()
+    {
+        var syntaxTree = SyntaxTree.ParseText(ConstructedAsyncGenericCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnosticLog = string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString()));
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        Assert.True(peStream.Length > 0, "Emit completed without producing PE bytes.");
+
+        var syntaxRoot = syntaxTree.GetRoot();
+        var functionSyntax = syntaxRoot
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(node => string.Equals(node.Identifier.Text, "Test", StringComparison.Ordinal));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var methodSymbol = Assert.IsAssignableFrom<SourceMethodSymbol>(semanticModel.GetDeclaredSymbol(functionSyntax));
+
+        Assert.True(codeGenerator.TryGetMemberBuilder(methodSymbol, out var cachedMember));
+        var definitionBuilder = Assert.IsAssignableFrom<MethodInfo>(cachedMember);
+
+        compilation.ResetCodeGenerationDiagnostics();
+
+        var constructedSymbol = methodSymbol.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+        var constructedMethod = Assert.IsAssignableFrom<ConstructedMethodSymbol>(constructedSymbol);
+        var projectedMethod = constructedMethod.GetMethodInfo(codeGenerator);
+
+        Assert.True(
+            definitionBuilder.DeclaringType is TypeBuilder,
+            "Definition method should originate from a TypeBuilder before type creation.");
+        Assert.True(
+            projectedMethod.DeclaringType is TypeBuilder || string.Equals(
+                projectedMethod.DeclaringType?.GetType().FullName,
+                "System.Reflection.Emit.TypeBuilderInstantiation",
+                StringComparison.Ordinal),
+            "Constructed method should project onto the cached TypeBuilder instance.");
+
+        var instrumentationDiagnostics = compilation.GetCodeGenerationDiagnostics()
+            .Where(diagnostic =>
+                diagnostic.Id == CompilerDiagnostics.ConstructedMethodLookupInstrumentation.Id &&
+                diagnostic.GetMessage().Contains("Constructed method 'Test'", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(instrumentationDiagnostics);
+        Assert.All(
+            instrumentationDiagnostics,
+            diagnostic => Assert.Contains("(builder cached: True)", diagnostic.GetMessage(), StringComparison.Ordinal));
     }
 
     private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(Func<MethodGenerator, bool> predicate)

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -60,9 +61,20 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     public ITypeSymbol? LookupType(string name)
     {
         EnsureMembersLoaded();
-        var type = _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
-        if (type != null)
-            return type;
+
+        var candidates = _members
+            .OfType<INamedTypeSymbol>()
+            .Where(t => t.Name == name)
+            .ToImmutableArray();
+
+        if (!candidates.IsDefaultOrEmpty)
+        {
+            var nonGeneric = candidates.FirstOrDefault(static t => t.Arity == 0);
+            if (nonGeneric is not null)
+                return nonGeneric;
+
+            return candidates[0];
+        }
 
         var fullName = string.IsNullOrEmpty(MetadataName) ? name : MetadataName + "." + name;
         return (ContainingAssembly as PEAssemblySymbol)?.GetTypeByMetadataName(fullName);

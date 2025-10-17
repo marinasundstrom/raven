@@ -905,14 +905,30 @@ internal class ExpressionGenerator : Generator
             case IFieldSymbol field:
                 if (addressOf.Receiver is not null)
                 {
-                    EmitExpression(addressOf.Receiver);
+                    if (field.ContainingType?.IsValueType == true && addressOf.Receiver is BoundSelfExpression)
+                    {
+                        if (MethodSymbol.IsStatic)
+                            throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
+
+                        ILGenerator.Emit(OpCodes.Ldarga, 0);
+                    }
+                    else if (!TryEmitValueTypeReceiverAddress(addressOf.Receiver, addressOf.Receiver.Type, field.ContainingType))
+                    {
+                        EmitExpression(addressOf.Receiver);
+
+                        if (field.ContainingType?.IsValueType == true)
+                            EmitValueTypeAddressIfNeeded(addressOf.Receiver.Type, field.ContainingType);
+                    }
                 }
                 else
                 {
                     if (MethodSymbol.IsStatic)
                         throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
 
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    if (MethodSymbol.ContainingType?.IsValueType == true)
+                        ILGenerator.Emit(OpCodes.Ldarga, 0);
+                    else
+                        ILGenerator.Emit(OpCodes.Ldarg_0);
                 }
 
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
@@ -922,7 +938,10 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 
-                ILGenerator.Emit(OpCodes.Ldarg_0);
+                if (MethodSymbol.ContainingType?.IsValueType == true)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
             default:
@@ -2364,13 +2383,18 @@ internal class ExpressionGenerator : Generator
 
     private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver)
     {
+        var requiresAddress = MethodSymbol.ContainingType?.IsValueType == true;
+
         switch (receiver)
         {
             case null:
                 if (MethodSymbol.IsStatic)
                     return false;
 
-                ILGenerator.Emit(OpCodes.Ldarg_0);
+                if (requiresAddress)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
 
                 return true;
 
@@ -2378,7 +2402,10 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     return false;
 
-                ILGenerator.Emit(OpCodes.Ldarg_0);
+                if (requiresAddress)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
 
             case BoundAddressOfExpression addressOf:
