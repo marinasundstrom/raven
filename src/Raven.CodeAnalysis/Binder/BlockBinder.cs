@@ -2272,6 +2272,20 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(type);
         }
 
+        if (syntax is PointerTypeSyntax pointerTypeSyntax)
+        {
+            if (BindTypeSyntax(pointerTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+            var elementType = elementTypeExpression.Type;
+
+            if (elementType.ContainsErrorType())
+                return new BoundTypeExpression(elementType);
+
+            var pointerType = Compilation.CreatePointerTypeSymbol(elementType);
+            return new BoundTypeExpression(pointerType);
+        }
+
         if (syntax is ArrayTypeSyntax arrayTypeSyntax)
         {
             if (BindTypeSyntax(arrayTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
@@ -4003,37 +4017,68 @@ partial class BlockBinder : Binder
         // Fall back to normal variable/property assignment
         var left = BindExpression(leftSyntax);
 
-        if (left.Symbol is ILocalSymbol localSymbol)
+        if (left is BoundLocalAccess localAccess)
         {
+            var localSymbol = localAccess.Local;
+            var localType = localSymbol.Type;
+
+            var right2 = BindExpression(rightSyntax);
+
+            if (localType is ByRefTypeSymbol byRefLocalType)
+            {
+                var converted = ConvertValueForAssignment(right2, byRefLocalType.ElementType, rightSyntax);
+                if (converted is BoundErrorExpression)
+                    return converted;
+
+                return new BoundByRefAssignmentExpression(localAccess, byRefLocalType.ElementType, converted);
+            }
+
             if (!localSymbol.IsMutable)
             {
                 _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
-            var right2 = BindExpression(rightSyntax);
-
             if (right2 is BoundEmptyCollectionExpression)
             {
                 return new BoundLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
             }
 
-            if (localSymbol.Type.TypeKind != TypeKind.Error &&
+            if (localType.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right2))
             {
-                if (!IsAssignable(localSymbol.Type, right2.Type!, out var conversion))
+                if (!IsAssignable(localType, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
                         right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        localSymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        localType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         rightSyntax.GetLocation());
-                    return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                    return new BoundErrorExpression(localType, null, BoundExpressionReason.TypeMismatch);
                 }
 
-                right2 = ApplyConversion(right2, localSymbol.Type, conversion, rightSyntax);
+                right2 = ApplyConversion(right2, localType, conversion, rightSyntax);
             }
 
             return new BoundLocalAssignmentExpression(localSymbol, right2);
+        }
+        else if (left is BoundParameterAccess parameterAccess)
+        {
+            var parameterSymbol = parameterAccess.Parameter;
+            var parameterType = parameterSymbol.Type;
+
+            if (parameterType is not ByRefTypeSymbol byRefParameterType ||
+                parameterSymbol.RefKind is not (RefKind.Ref or RefKind.Out))
+            {
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            }
+
+            var right2 = BindExpression(rightSyntax);
+            var converted = ConvertValueForAssignment(right2, byRefParameterType.ElementType, rightSyntax);
+            if (converted is BoundErrorExpression)
+                return converted;
+
+            return new BoundByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, converted);
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
@@ -4116,6 +4161,23 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
         => BindAssignment(syntax.Left, syntax.Right, syntax);
+
+    private BoundExpression ConvertValueForAssignment(BoundExpression value, ITypeSymbol targetType, SyntaxNode syntax)
+    {
+        if (targetType.TypeKind == TypeKind.Error || value.Type is null || !ShouldAttemptConversion(value))
+            return value;
+
+        if (!IsAssignable(targetType, value.Type, out var conversion))
+        {
+            _diagnostics.ReportCannotAssignFromTypeToType(
+                value.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+            return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        return ApplyConversion(value, targetType, conversion, syntax);
+    }
 
     private BoundStatement BindAssignmentStatement(AssignmentStatementSyntax syntax)
     {

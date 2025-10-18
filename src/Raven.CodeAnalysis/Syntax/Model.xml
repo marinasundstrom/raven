@@ -416,6 +416,10 @@
     <Slot Name="AmpersandToken" Type="Token" DefaultToken="AmpersandToken"/>
     <Slot Name="ElementType" Type="Type" />
   </Node>
+  <Node Name="PointerType" Inherits="Type">
+    <Slot Name="StarToken" Type="Token" DefaultToken="StarToken" />
+    <Slot Name="ElementType" Type="Type" />
+  </Node>
   <Node Name="UnionType" Inherits="Type">
     <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
   </Node>

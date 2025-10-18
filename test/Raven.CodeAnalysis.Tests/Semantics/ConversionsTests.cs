@@ -161,4 +161,34 @@ public class ConversionsTests : CompilationTestBase
 
         Assert.Equal(SpecialType.System_String, converted.UnderlyingType.SpecialType);
     }
+
+    [Fact]
+    public void AddressType_To_ByRef_IsImplicit()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var address = new AddressTypeSymbol(intType);
+        var byRef = new ByRefTypeSymbol(intType);
+
+        var conversion = compilation.ClassifyConversion(address, byRef);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.False(conversion.IsPointer);
+    }
+
+    [Fact]
+    public void AddressType_To_Pointer_IsImplicitPointerConversion()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var address = new AddressTypeSymbol(intType);
+        var pointer = (IPointerTypeSymbol)compilation.CreatePointerTypeSymbol(intType);
+
+        var conversion = compilation.ClassifyConversion(address, pointer);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsPointer);
+    }
 }

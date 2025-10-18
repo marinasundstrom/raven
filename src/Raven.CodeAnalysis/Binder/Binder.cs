@@ -756,6 +756,13 @@ internal abstract class Binder
             return new ByRefTypeSymbol(elementType, effectiveRefKind);
         }
 
+        if (typeSyntax is PointerTypeSyntax pointer)
+        {
+            var elementType = ResolveTypeInternal(pointer.ElementType, refKindHint: null);
+            var pointerType = Compilation.CreatePointerTypeSymbol(elementType);
+            return ApplyRefKindHint(pointerType, refKindHint);
+        }
+
         if (typeSyntax is NullableTypeSyntax nb)
         {
             var elementType = ResolveTypeInternal(nb.ElementType, refKindHint: null);

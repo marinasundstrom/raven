@@ -270,7 +270,11 @@ Literal                  ::= NumericLiteral
 
 (* ---------- Types ---------- *)
 
-Type                     ::= '&'? UnionType ;
+Type                     ::= ByRefType | PointerType | UnionType ;
+
+ByRefType                ::= '&' Type ;
+
+PointerType              ::= '*' Type ;
 
 UnionType                ::= FunctionType {'|' FunctionType} ;     (* left-assoc *)
 

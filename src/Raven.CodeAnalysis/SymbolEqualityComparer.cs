@@ -139,6 +139,18 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return false;
         }
 
+        if (x is IPointerTypeSymbol pointerX && y is IPointerTypeSymbol pointerY)
+        {
+            if (!EqualsCore(pointerX.PointedAtType, pointerY.PointedAtType, visited))
+                return false;
+        }
+
+        if (x is IAddressTypeSymbol addressX && y is IAddressTypeSymbol addressY)
+        {
+            if (!EqualsCore(addressX.ReferencedType, addressY.ReferencedType, visited))
+                return false;
+        }
+
         if (x is IFieldSymbol fieldX && y is IFieldSymbol fieldY)
         {
             if (!EqualsCore(fieldX.Type, fieldY.Type, visited))
@@ -309,6 +321,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
             hash.Add(arrayType.Rank);
             hash.Add(GetHashCodeCore(arrayType.ElementType, visited));
+        }
+
+        if (obj is IPointerTypeSymbol pointerType)
+        {
+            hash.Add(GetHashCodeCore(pointerType.PointedAtType, visited));
         }
 
         if (obj is IFieldSymbol field)

@@ -60,6 +60,28 @@ public partial class Compilation
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
 
+        if (source is IAddressTypeSymbol addressSource)
+        {
+            if (destination is ByRefTypeSymbol byRefDestination &&
+                SymbolEqualityComparer.Default.Equals(addressSource.ReferencedType, byRefDestination.ElementType))
+            {
+                return Finalize(new Conversion(isImplicit: true));
+            }
+
+            if (destination is IPointerTypeSymbol addressPointerDestination &&
+                SymbolEqualityComparer.Default.Equals(addressSource.ReferencedType, addressPointerDestination.PointedAtType))
+            {
+                return Finalize(new Conversion(isImplicit: true, isPointer: true));
+            }
+        }
+
+        if (source is ByRefTypeSymbol byRefSource &&
+            destination is IPointerTypeSymbol pointerDestination &&
+            SymbolEqualityComparer.Default.Equals(byRefSource.ElementType, pointerDestination.PointedAtType))
+        {
+            return Finalize(new Conversion(isImplicit: true, isPointer: true));
+        }
+
         if (SymbolEqualityComparer.Default.Equals(source, destination) &&
             source is not NullableTypeSymbol &&
             destination is not NullableTypeSymbol)

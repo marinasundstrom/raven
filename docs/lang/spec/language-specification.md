@@ -1596,13 +1596,55 @@ class Accumulator {
 }
 ```
 
+### Pointer types
+
+The `*Type` form declares a native pointer to `Type`. Pointer types are
+distinct from by-reference types but interoperate with address-of
+expressions: taking the address of a local or field produces an address
+handle that implicitly converts to the matching pointer type.
+
+```raven
+let value = 42
+let pointer: *int = &value
+```
+
+### Pass by reference
+
+By-reference types can annotate locals and return values. A local
+declared with `&Type` acts as an alias to the underlying storage, so
+assignments flow through to the referenced location. Functions may
+return by-reference values to expose existing storage to the caller. If
+you plan to reassign the alias, declare it with `var` so the reference
+itself remains mutable.
+
+```raven
+func headSlot(values: int[]) -> &int {
+    return &values[0]
+}
+
+var numbers: int[] = [10, 20, 30]
+var slot = headSlot(numbers)
+slot = 42 // numbers[0] is now 42
+```
+
 ### `ref`/`out` arguments
 
-Parameters can be declared by reference using `&Type`. Use `out` before
-the parameter name to indicate that the value must be assigned by the
-callee. At call sites, pass the argument with the address operator `&`.
-(Exact rules are contextual; the binder enforces that the target is
-assignable.)
+Parameters can also be declared by reference using `&Type`. When a
+by-reference parameter is passed **into** a function, it behaves just
+like a by-reference local: the callee receives an alias to the caller's
+storage and can both read and write through that reference. To mark a
+parameter that must be assigned by the callee before returning, place
+`out` before the parameter name. At call sites, pass the argument with
+the address operator `&`. (Exact rules are contextual; the binder
+enforces that the target is assignable.)
+
+By-reference locals and fields never use the `out` modifier—`out` is
+only meaningful at the call boundary to signal definite assignment
+responsibilities between caller and callee. Declaring a local with
+`&Type` produces a reference variable that immediately aliases an
+existing storage location; invoking a member with an `out &Type`
+parameter transfers that aliasing requirement to the parameter for the
+duration of the call.
 
 ```raven
 func TryParse(text: string, out result: &int) -> bool { /* ... */ }

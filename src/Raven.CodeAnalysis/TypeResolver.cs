@@ -182,6 +182,17 @@ internal class TypeResolver(Compilation compilation)
 
         // TODO: Return immediately if built in type
 
+        if (type.IsPointer)
+        {
+            var element = ResolveType(type.GetElementType()!, methodContext);
+            if (element is null)
+                return null;
+
+            var pointer = new PointerTypeSymbol(element);
+            _cache[type] = pointer;
+            return pointer;
+        }
+
         if (type.IsGenericTypeDefinition)
         {
             return ResolveTypeCore(type);

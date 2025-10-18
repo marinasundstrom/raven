@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 internal sealed partial class BoundAddressOfExpression : BoundExpression
 {
     public BoundAddressOfExpression(ISymbol symbol, ITypeSymbol valueType, BoundExpression? receiver = null)
-        : base(new ByRefTypeSymbol(valueType), symbol)
+        : base(new AddressTypeSymbol(valueType), symbol)
     {
         ValueType = valueType ?? throw new ArgumentNullException(nameof(valueType));
         Receiver = receiver;
@@ -17,5 +17,5 @@ internal sealed partial class BoundAddressOfExpression : BoundExpression
 
     public ITypeSymbol ValueType { get; }
 
-    public ITypeSymbol ReferencedType => ((ByRefTypeSymbol)Type).ElementType;
+    public ITypeSymbol ReferencedType => ValueType;
 }

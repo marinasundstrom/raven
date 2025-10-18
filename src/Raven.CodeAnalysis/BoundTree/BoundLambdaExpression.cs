@@ -201,6 +201,9 @@ internal partial class BoundLambdaExpression : BoundExpression
                             return true;
 
                         return TryAddTypeMappings(sourceByRef.ElementType, targetByRef.ElementType, substitutions);
+
+                    case IAddressTypeSymbol sourceAddress when targetType is IAddressTypeSymbol targetAddress:
+                        return TryAddTypeMappings(sourceAddress.ReferencedType, targetAddress.ReferencedType, substitutions);
                 }
 
                 return true;
@@ -271,6 +274,17 @@ internal partial class BoundLambdaExpression : BoundExpression
                             }
 
                             return byRefType;
+                        }
+
+                    case IAddressTypeSymbol addressType:
+                        {
+                            var substitutedElement = SubstituteType(addressType.ReferencedType, substitutions, compilation);
+                            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, addressType.ReferencedType))
+                            {
+                                return new AddressTypeSymbol(substitutedElement);
+                            }
+
+                            return (ITypeSymbol)addressType;
                         }
                 }
 

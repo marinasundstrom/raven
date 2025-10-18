@@ -133,6 +133,16 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             return type;
         }
 
+        if (type is IAddressTypeSymbol address)
+        {
+            var substitutedElement = Substitute(address.ReferencedType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                return new AddressTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
             var substitutedArgs = named.TypeArguments.Select(Substitute).ToArray();

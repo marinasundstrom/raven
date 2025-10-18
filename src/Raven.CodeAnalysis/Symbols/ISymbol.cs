@@ -419,6 +419,7 @@ public enum TypeKind
     Error,
     Interface,
     Pointer,
+    Address,
     Struct,
     TypeParameter,
     FunctionPointer,
@@ -468,6 +469,16 @@ public interface IArrayTypeSymbol : ITypeSymbol
     ITypeSymbol ElementType { get; }
 
     public int Rank { get; }
+}
+
+public interface IPointerTypeSymbol : ITypeSymbol
+{
+    ITypeSymbol PointedAtType { get; }
+}
+
+public interface IAddressTypeSymbol : ITypeSymbol
+{
+    ITypeSymbol ReferencedType { get; }
 }
 
 public interface ITupleTypeSymbol : INamedTypeSymbol
