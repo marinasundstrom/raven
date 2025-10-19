@@ -1617,6 +1617,11 @@ return by-reference values to expose existing storage to the caller. If
 you plan to reassign the alias, declare it with `var` so the reference
 itself remains mutable.
 
+Taking the address of a value with `&expression` implicitly produces a
+by-reference type when the target binding has no explicit annotation.
+Use a pointer annotation to force the result into a native pointer
+instead of a managed alias.
+
 ```raven
 func headSlot(values: int[]) -> &int {
     return &values[0]
@@ -1625,6 +1630,10 @@ func headSlot(values: int[]) -> &int {
 var numbers: int[] = [10, 20, 30]
 var slot = headSlot(numbers)
 slot = 42 // numbers[0] is now 42
+
+let value = 0
+let alias = &value      // alias : &int
+let raw: *int = &value  // raw : *int
 ```
 
 ### `ref`/`out` arguments
