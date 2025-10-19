@@ -212,39 +212,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var containingType = _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
-        var builderKey = TryGetSourceDefinitionSymbol();
-        MemberInfo? cachedMemberInfo = null;
-
-        if (builderKey is not null && codeGen.TryGetMemberBuilder(builderKey, out var resolvedMember))
-            cachedMemberInfo = resolvedMember;
-
-        var builderCached = cachedMemberInfo is not null;
-        var constructedDisplay = this.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-        var definitionDisplay = _definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-        var containingDisplay = containingType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-
-        codeGen.Compilation.ReportCodeGenerationDiagnostic(
-            Diagnostic.Create(
-                CompilerDiagnostics.ConstructedMethodLookupInstrumentation,
-                Location.None,
-                constructedDisplay,
-                definitionDisplay,
-                containingDisplay,
-                builderCached));
-
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
-        var runtimeTypeArguments = TypeArguments.Length == 0
-            ? Array.Empty<Type>()
-            : TypeArguments
-                .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
-                .ToArray();
-
-        if (cachedMemberInfo is MethodInfo cachedMethod
-            && TryResolveCachedMethodInfo(cachedMethod, containingClrType, runtimeTypeArguments, out var resolvedMethod))
-        {
-            return resolvedMethod;
-        }
-
         var isTypeBuilderInstantiation = string.Equals(
             containingClrType.GetType().FullName,
             "System.Reflection.Emit.TypeBuilderInstantiation",
@@ -254,6 +222,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             : containingClrType;
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
+        var runtimeTypeArguments = TypeArguments
+            .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
+            .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         foreach (var method in methodSearchType.GetMethods(Flags))
@@ -308,65 +279,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
-    }
-
-    private SourceSymbol? TryGetSourceDefinitionSymbol()
-    {
-        if (_definition is SourceSymbol source)
-            return source;
-
-        return _definition.OriginalDefinition as SourceSymbol;
-    }
-
-    private bool TryResolveCachedMethodInfo(
-        MethodInfo definitionMethod,
-        Type containingClrType,
-        Type[] runtimeTypeArguments,
-        out MethodInfo resolved)
-    {
-        if (definitionMethod is null)
-            throw new ArgumentNullException(nameof(definitionMethod));
-        if (containingClrType is null)
-            throw new ArgumentNullException(nameof(containingClrType));
-        if (runtimeTypeArguments is null)
-            throw new ArgumentNullException(nameof(runtimeTypeArguments));
-
-        resolved = definitionMethod;
-
-        if (!ReferenceEquals(resolved.DeclaringType, containingClrType))
-        {
-            var isTypeBuilderInstantiation = string.Equals(
-                containingClrType.GetType().FullName,
-                "System.Reflection.Emit.TypeBuilderInstantiation",
-                StringComparison.Ordinal);
-
-            if (isTypeBuilderInstantiation || containingClrType is TypeBuilder)
-            {
-                var projected = TypeBuilder.GetMethod(containingClrType, resolved);
-                if (projected is null)
-                    return false;
-
-                resolved = projected;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        if (runtimeTypeArguments.Length == 0)
-            return true;
-
-        if (!resolved.IsGenericMethodDefinition)
-        {
-            if (!resolved.ContainsGenericParameters)
-                return false;
-
-            resolved = resolved.GetGenericMethodDefinition();
-        }
-
-        resolved = resolved.MakeGenericMethod(runtimeTypeArguments);
-        return true;
     }
 
     private bool ParametersMatch(

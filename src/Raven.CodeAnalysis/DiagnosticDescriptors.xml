@@ -408,8 +408,4 @@
   <Descriptor Id="RAV2601" Identifier="ContinueStatementNotWithinLoop" Title="Continue statement not within loop"
     Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV9010" Identifier="ConstructedMethodLookupInstrumentation"
-    Title="Constructed method lookup instrumentation"
-    Message="Constructed method '{constructedMethod}' resolved from '{definitionMethod}' in '{containingType}' (builder cached: {builderCached})"
-    Category="instrumentation" Severity="Info" EnabledByDefault="true" Description="Temporary instrumentation for async emission investigation." HelpLinkUri="" />
 </Diagnostics>

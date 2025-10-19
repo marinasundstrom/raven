@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
-using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -25,25 +24,17 @@ public partial class Compilation
     private readonly Dictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
     private readonly Dictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _metadataSearchDirectories = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, IAssemblySymbol> _lazyMetadataAssemblySymbols = new(StringComparer.OrdinalIgnoreCase);
     private bool _trustedPlatformAssembliesCached;
     private MetadataLoadContext _metadataLoadContext;
     private GlobalBinder _globalBinder;
     private bool setup;
-    private bool _setupInProgress;
-    private int _setupThreadId;
     private ErrorTypeSymbol _errorTypeSymbol;
     private NullTypeSymbol _nullTypeSymbol;
     private UnitTypeSymbol _unitTypeSymbol;
     private TypeResolver _typeResolver;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
-    private bool _topLevelProgramsInitialized;
-    private bool _isInitializingTopLevelPrograms;
-    private int _topLevelProgramsThreadId;
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
-    private DiagnosticBag _codeGenerationDiagnostics = new();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -62,22 +53,6 @@ public partial class Compilation
     public PerformanceInstrumentation PerformanceInstrumentation => Options.PerformanceInstrumentation;
 
     public ILoweringTraceSink? LoweringTrace => Options.LoweringTrace;
-
-    internal void ResetCodeGenerationDiagnostics()
-    {
-        _codeGenerationDiagnostics = new DiagnosticBag();
-    }
-
-    internal void ReportCodeGenerationDiagnostic(Diagnostic diagnostic)
-    {
-        if (diagnostic is null)
-            throw new ArgumentNullException(nameof(diagnostic));
-
-        _codeGenerationDiagnostics.Report(diagnostic);
-    }
-
-    internal IEnumerable<Diagnostic> GetCodeGenerationDiagnostics()
-        => _codeGenerationDiagnostics.AsEnumerable();
 
     public IAssemblySymbol Assembly { get; private set; }
 
@@ -154,57 +129,17 @@ public partial class Compilation
 
     internal void EnsureSetup()
     {
-        int currentThreadId = Environment.CurrentManagedThreadId;
-
         if (setup)
-        {
-            EnsureTopLevelProgramsInitialized();
             return;
-        }
 
         lock (_setupLock)
         {
-            if (setup)
-                return;
-
-            if (_setupInProgress)
+            if (!setup)
             {
-                if (_setupThreadId == currentThreadId)
-                    return;
-
-                while (_setupInProgress && !setup)
-                    Monitor.Wait(_setupLock);
-
-                EnsureTopLevelProgramsInitialized();
-                return;
-            }
-
-            _setupInProgress = true;
-            _setupThreadId = currentThreadId;
-        }
-
-        bool setupCompleted = false;
-
-        try
-        {
-            Setup();
-            setupCompleted = true;
-        }
-        finally
-        {
-            lock (_setupLock)
-            {
-                if (setupCompleted)
-                    setup = true;
-
-                _setupInProgress = false;
-                _setupThreadId = 0;
-                Monitor.PulseAll(_setupLock);
+                Setup();
+                setup = true;
             }
         }
-
-        if (setupCompleted)
-            EnsureTopLevelProgramsInitialized();
     }
 
     private void Setup()
@@ -214,63 +149,8 @@ public partial class Compilation
             .Select(portableExecutableReference => portableExecutableReference.FilePath)
             .ToList();
 
-        _metadataSearchDirectories.Clear();
-        foreach (var referencePath in paths)
-        {
-            if (string.IsNullOrEmpty(referencePath))
-                continue;
-
-            var directory = Path.GetDirectoryName(referencePath);
-            if (!string.IsNullOrEmpty(directory))
-                _metadataSearchDirectories.Add(directory);
-        }
-
-        var resolverPaths = new HashSet<string>(paths.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
-
-        foreach (var directory in _metadataSearchDirectories)
-        {
-            if (!Directory.Exists(directory))
-                continue;
-
-            foreach (var assemblyPath in Directory.EnumerateFiles(directory, "*.dll"))
-                resolverPaths.Add(assemblyPath);
-        }
-
-        var resolver = new CachingPathAssemblyResolver(resolverPaths);
-
-        var coreAssemblyName = typeof(object).Assembly.GetName().Name ?? "System.Private.CoreLib";
-
-        var runtimeReference = paths.FirstOrDefault(static p =>
-            !string.IsNullOrEmpty(p) &&
-            string.Equals(Path.GetFileName(p), "System.Runtime.dll", StringComparison.OrdinalIgnoreCase));
-
-        if (!string.IsNullOrEmpty(runtimeReference))
-        {
-            coreAssemblyName = "System.Runtime";
-        }
-        else
-        {
-            foreach (var candidatePath in paths)
-            {
-                if (string.IsNullOrEmpty(candidatePath) || !File.Exists(candidatePath))
-                    continue;
-
-                try
-                {
-                    var candidateName = System.Reflection.AssemblyName.GetAssemblyName(candidatePath).Name;
-                    if (!string.IsNullOrEmpty(candidateName))
-                    {
-                        coreAssemblyName = candidateName;
-                        break;
-                    }
-                }
-                catch
-                {
-                }
-            }
-        }
-
-        _metadataLoadContext = new MetadataLoadContext(resolver, coreAssemblyName);
+        var resolver = new PathAssemblyResolver(paths);
+        _metadataLoadContext = new MetadataLoadContext(resolver);
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
         RuntimeCoreAssembly = typeof(object).Assembly;
@@ -289,56 +169,8 @@ public partial class Compilation
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
-    }
 
-    private void EnsureTopLevelProgramsInitialized()
-    {
-        if (_topLevelProgramsInitialized)
-            return;
-
-        int currentThreadId = Environment.CurrentManagedThreadId;
-
-        lock (_setupLock)
-        {
-            while (true)
-            {
-                if (_topLevelProgramsInitialized)
-                    return;
-
-                if (_isInitializingTopLevelPrograms)
-                {
-                    if (_topLevelProgramsThreadId == currentThreadId)
-                        return;
-
-                    Monitor.Wait(_setupLock);
-                    continue;
-                }
-
-                _isInitializingTopLevelPrograms = true;
-                _topLevelProgramsThreadId = currentThreadId;
-                break;
-            }
-        }
-
-        bool initialized = false;
-
-        try
-        {
-            InitializeTopLevelPrograms();
-            initialized = true;
-        }
-        finally
-        {
-            lock (_setupLock)
-            {
-                if (initialized)
-                    _topLevelProgramsInitialized = true;
-
-                _isInitializingTopLevelPrograms = false;
-                _topLevelProgramsThreadId = 0;
-                Monitor.PulseAll(_setupLock);
-            }
-        }
+        InitializeTopLevelPrograms();
     }
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
@@ -382,9 +214,7 @@ public partial class Compilation
         if (_topLevelProgramMembers.TryGetValue(compilationUnit.SyntaxTree, out var existing))
             return (existing.ProgramClass, existing.MainMethod, existing.AsyncMainMethod);
 
-        var returnsInt = bindableGlobals.Any(static g =>
-            ContainsReturnWithExpressionOutsideNestedFunctions(g.Statement) ||
-            ContainsAwaitInitializerOutsideNestedFunctions(g.Statement));
+        var returnsInt = bindableGlobals.Any(static g => ContainsReturnWithExpressionOutsideNestedFunctions(g.Statement));
         var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
 
         var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
@@ -467,37 +297,6 @@ public partial class Compilation
                     continue;
 
                 if (ContainsReturnWithExpressionOutsideNestedFunctions(child))
-                    return true;
-            }
-
-            return false;
-        }
-    }
-
-    internal static bool ContainsAwaitInitializerOutsideNestedFunctions(StatementSyntax statement)
-    {
-        return ContainsAwaitInitializerOutsideNestedFunctions((SyntaxNode)statement);
-
-        static bool ContainsAwaitInitializerOutsideNestedFunctions(SyntaxNode node)
-        {
-            if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
-                return false;
-
-            if (node is LocalDeclarationStatementSyntax localDeclaration)
-            {
-                foreach (var declarator in localDeclaration.Declaration.Declarators)
-                {
-                    if (declarator.Initializer?.Value is UnaryExpressionSyntax unary && unary.Kind == SyntaxKind.AwaitExpression)
-                        return true;
-                }
-            }
-
-            foreach (var child in node.ChildNodes())
-            {
-                if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
-                    continue;
-
-                if (ContainsAwaitInitializerOutsideNestedFunctions(child))
                     return true;
             }
 
@@ -787,7 +586,6 @@ public partial class Compilation
     {
         return new PointerTypeSymbol(pointedAtType);
     }
-
     public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
     {
         var systemNamespace = GlobalNamespace.LookupNamespace("System");
@@ -925,7 +723,7 @@ public partial class Compilation
                 assembly.ManifestModule,
                 [],
                 refs.Select(x =>
-                { 
+                {
                     try
                     {
                         var loadedAssembly = _metadataLoadContext.LoadFromAssemblyName(x);
@@ -937,26 +735,6 @@ public partial class Compilation
                     }
                     catch
                     {
-                        foreach (var directory in _metadataSearchDirectories)
-                        {
-                            var candidate = Path.Combine(directory, x.Name + ".dll");
-                            if (!File.Exists(candidate))
-                                continue;
-
-                            try
-                            {
-                                var loadedAssembly = _metadataLoadContext.LoadFromAssemblyPath(candidate);
-                                RegisterRuntimeAssembly(loadedAssembly, candidate);
-                                var candidateDirectory = Path.GetDirectoryName(candidate);
-                                if (!string.IsNullOrEmpty(candidateDirectory))
-                                    _metadataSearchDirectories.Add(candidateDirectory);
-                                return GetAssembly(loadedAssembly);
-                            }
-                            catch
-                            {
-                            }
-                        }
-
                         return null;
                     }
                 }).Where(x => x is not null).ToArray()));
@@ -1311,20 +1089,10 @@ public partial class Compilation
 
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
-        bool isSetupThread = false;
-        int currentThreadId = Environment.CurrentManagedThreadId;
-
-        if (_setupInProgress && _setupThreadId == currentThreadId)
-            isSetupThread = true;
-
-        if (!isSetupThread)
-            EnsureSetup();
+        EnsureSetup();
 
         if (!_sourceTypesInitialized && !_isPopulatingSourceTypes)
         {
-            if (isSetupThread)
-                return LookupMetadataType(metadataName);
-
             try
             {
                 _isPopulatingSourceTypes = true;
@@ -1343,11 +1111,6 @@ public partial class Compilation
         if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
             return sourceType;
 
-        return LookupMetadataType(metadataName);
-    }
-
-    private INamedTypeSymbol? LookupMetadataType(string metadataName)
-    {
         foreach (var assembly in _metadataReferenceSymbols.Values)
         {
             var type = assembly.GetTypeByMetadataName(metadataName);
@@ -1355,59 +1118,7 @@ public partial class Compilation
                 return type;
         }
 
-        foreach (var assembly in _lazyMetadataAssemblySymbols.Values)
-        {
-            var type = assembly.GetTypeByMetadataName(metadataName);
-            if (type is not null)
-                return type;
-        }
-
-        var segments = metadataName.Split('.');
-        for (int length = segments.Length; length >= 1; length--)
-        {
-            var candidateAssemblyName = string.Join('.', segments.Take(length));
-            if (!TryLoadMetadataAssembly(candidateAssemblyName))
-                continue;
-
-            foreach (var assembly in _lazyMetadataAssemblySymbols.Values)
-            {
-                var type = assembly.GetTypeByMetadataName(metadataName);
-                if (type is not null)
-                    return type;
-            }
-        }
-
         return null;
-    }
-
-    private bool TryLoadMetadataAssembly(string assemblyName)
-    {
-        if (string.IsNullOrWhiteSpace(assemblyName))
-            return false;
-
-        if (_lazyMetadataAssemblySymbols.ContainsKey(assemblyName))
-            return true;
-
-        foreach (var directory in _metadataSearchDirectories)
-        {
-            var candidate = Path.Combine(directory, assemblyName + ".dll");
-            if (!File.Exists(candidate))
-                continue;
-
-            try
-            {
-                var metadataAssembly = _metadataLoadContext.LoadFromAssemblyPath(candidate);
-                RegisterRuntimeAssembly(metadataAssembly, candidate);
-                var symbol = GetAssembly(metadataAssembly);
-                _lazyMetadataAssemblySymbols[assemblyName] = symbol;
-                return true;
-            }
-            catch
-            {
-            }
-        }
-
-        return false;
     }
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
@@ -1559,39 +1270,5 @@ public partial class Compilation
             SyntaxKind.InKeyword => VarianceKind.In,
             _ => VarianceKind.None,
         };
-    }
-
-    private sealed class CachingPathAssemblyResolver : MetadataAssemblyResolver
-    {
-        private readonly PathAssemblyResolver _inner;
-
-        public CachingPathAssemblyResolver(IEnumerable<string> assemblyPaths)
-        {
-            _inner = new PathAssemblyResolver(assemblyPaths);
-        }
-
-        public override Assembly? Resolve(MetadataLoadContext context, AssemblyName assemblyName)
-        {
-            foreach (var loaded in context.GetAssemblies())
-            {
-                if (System.Reflection.AssemblyName.ReferenceMatchesDefinition(loaded.GetName(), assemblyName))
-                    return loaded;
-            }
-
-            try
-            {
-                return _inner.Resolve(context, assemblyName);
-            }
-            catch (FileLoadException)
-            {
-                foreach (var loaded in context.GetAssemblies())
-                {
-                    if (System.Reflection.AssemblyName.ReferenceMatchesDefinition(loaded.GetName(), assemblyName))
-                        return loaded;
-                }
-
-                return null;
-            }
-        }
     }
 }
