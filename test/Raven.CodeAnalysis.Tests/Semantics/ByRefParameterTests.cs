@@ -137,4 +137,50 @@ class C {
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
     }
+
+    [Fact]
+    public void Method_ByRefParameter_WithAddressOfLocal_Compiles()
+    {
+        var source = """
+class C {
+    static Set(value: &int) -> unit { value = 42 }
+
+    static Run() -> unit {
+        var data = 0
+        Set(&data)
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Method_OutParameter_WithAddressOfLocal_Compiles()
+    {
+        var source = """
+class C {
+    static TryParse(text: string, out result: &int) -> bool {
+        result = 1
+        return true
+    }
+
+    static Consume(arg: string) -> bool {
+        var total = 0
+        if !TryParse(arg, &total) {
+            return false
+        }
+
+        total = total + 1
+        return true
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
 }
