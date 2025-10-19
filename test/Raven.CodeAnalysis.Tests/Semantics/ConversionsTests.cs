@@ -191,4 +191,57 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsPointer);
     }
+
+    [Fact]
+    public void AddressType_To_ByRef_AliasUnderlying_FlagsAlias()
+    {
+        const string source = """
+        alias Text = System.String
+
+        let value: Text = ""
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var aliasType = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type!;
+        Assert.True(aliasType.IsAlias);
+
+        var address = new AddressTypeSymbol(aliasType);
+        var byRef = new ByRefTypeSymbol(aliasType);
+
+        var conversion = compilation.ClassifyConversion(address, byRef);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsAlias);
+    }
+
+    [Fact]
+    public void AddressType_To_Pointer_AliasUnderlying_FlagsAlias()
+    {
+        const string source = """
+        alias Text = System.String
+
+        let value: Text = ""
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var aliasType = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type!;
+        Assert.True(aliasType.IsAlias);
+
+        var address = new AddressTypeSymbol(aliasType);
+        var pointer = (IPointerTypeSymbol)compilation.CreatePointerTypeSymbol(aliasType);
+
+        var conversion = compilation.ClassifyConversion(address, pointer);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsPointer);
+        Assert.True(conversion.IsAlias);
+    }
 }
