@@ -545,6 +545,7 @@ partial class BlockBinder : Binder
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
+            DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
             UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
@@ -574,6 +575,12 @@ partial class BlockBinder : Binder
 
         //_diagnostics.ReportSelfNotAllowed(selfExpression.GetLocation());
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindDiscardExpression(DiscardExpressionSyntax discardExpression)
+    {
+        _diagnostics.ReportDiscardExpressionNotAllowed(discardExpression.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
     }
 
     private BoundExpression BindTupleExpression(TupleExpressionSyntax tupleExpression)

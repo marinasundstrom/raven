@@ -79,6 +79,8 @@ deconstruction, or other declaration spells its designation as `_` (optionally
 with a type annotation), the compiler suppresses the binding and treats the
 designation as a discard instead. Longer identifiers may still contain
 underscores, and `$` is available for interop- or DSL-oriented naming schemes.
+Because `_` never produces a value, using it as an expression—for example
+in `_ + 2`—is rejected as an error.
 
 ```raven
 let $ffiResult = call()

@@ -56,6 +56,9 @@
     Title="Deconstruction element count mismatch"
     Message="Deconstruction pattern expects {expectedCount} element(s) but the right-hand side contains {actualCount}"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0134" Identifier="DiscardExpressionNotAllowed" Title="Discard is not a value"
+    Message="The discard '_' cannot be used as a value" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0149" Identifier="MethodNameExpected" Title="Method name expected"
     Message="Method name expected" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
