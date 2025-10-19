@@ -919,7 +919,7 @@ internal class ExpressionGenerator : Generator
                         if (MethodSymbol.IsStatic)
                             throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
 
-                        ILGenerator.Emit(OpCodes.Ldarga, 0);
+                        ILGenerator.Emit(OpCodes.Ldarg_0);
                     }
                     else if (!TryEmitValueTypeReceiverAddress(addressOf.Receiver, addressOf.Receiver.Type, field.ContainingType))
                     {
@@ -934,10 +934,7 @@ internal class ExpressionGenerator : Generator
                     if (MethodSymbol.IsStatic)
                         throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
 
-                    if (MethodSymbol.ContainingType?.IsValueType == true)
-                        ILGenerator.Emit(OpCodes.Ldarga, 0);
-                    else
-                        ILGenerator.Emit(OpCodes.Ldarg_0);
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
                 }
 
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
@@ -947,10 +944,7 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 
-                if (MethodSymbol.ContainingType?.IsValueType == true)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
-                else
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
             case null when addressOf.Storage is BoundArrayAccessExpression arrayAccess:
@@ -2541,21 +2535,14 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     return false;
 
-                if (requiresAddress)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
-                else
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
-
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
 
             case BoundSelfExpression selfExpression:
                 if (MethodSymbol.IsStatic)
                     return false;
 
-                if (requiresAddress)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
-                else
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
 
             case BoundAddressOfExpression addressOf:
