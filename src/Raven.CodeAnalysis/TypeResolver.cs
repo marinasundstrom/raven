@@ -287,8 +287,31 @@ internal class TypeResolver(Compilation compilation)
     protected ITypeSymbol? ResolveTypeCore(Type type)
     {
         var typeInfo = type.GetTypeInfo();
+        var metadataName = typeInfo.FullName ?? typeInfo.Name;
 
-        var assemblySymbol = (PEAssemblySymbol)compilation.ReferencedAssemblySymbols.First(x => x.Name == type.Assembly.GetName().Name);
-        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName);
+        if (string.IsNullOrEmpty(metadataName))
+            return null;
+
+        if (compilation.TryGetPEAssemblySymbol(typeInfo.Assembly, out var assemblySymbol))
+        {
+            var resolved = (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(
+                assemblySymbol.GlobalNamespace,
+                metadataName);
+
+            if (resolved is not null)
+                return resolved;
+        }
+
+        var assemblyName = typeInfo.Assembly?.GetName().Name;
+
+        if (!string.IsNullOrEmpty(assemblyName) &&
+            string.Equals(compilation.Assembly.Name, assemblyName, StringComparison.Ordinal))
+        {
+            var sourceType = compilation.Assembly.GetTypeByMetadataName(metadataName);
+            if (sourceType is not null)
+                return sourceType;
+        }
+
+        return compilation.GetTypeByMetadataName(metadataName);
     }
 }

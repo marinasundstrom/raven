@@ -966,6 +966,34 @@ public partial class Compilation
         return assemblySymbol;
     }
 
+    internal bool TryGetPEAssemblySymbol(Assembly assembly, out PEAssemblySymbol? symbol)
+    {
+        symbol = null;
+
+        if (assembly is null)
+            return false;
+
+        if (_assemblySymbols.TryGetValue(assembly, out var existing) && existing is PEAssemblySymbol peAssembly)
+        {
+            symbol = peAssembly;
+            return true;
+        }
+
+        try
+        {
+            if (GetAssembly(assembly) is PEAssemblySymbol resolved)
+            {
+                symbol = resolved;
+                return true;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
     private Assembly? RegisterRuntimeAssembly(Assembly metadataAssembly, string? explicitPath = null)
     {
         if (metadataAssembly is null)
