@@ -775,9 +775,25 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindAddressOfExpression(BoundExpression operand, UnaryExpressionSyntax syntax)
     {
-        if (operand is BoundLocalAccess or BoundParameterAccess)
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        switch (operand)
         {
-            return new BoundAddressOfExpression(operand.Symbol!, operand.Type!);
+            case BoundLocalAccess or BoundParameterAccess:
+                return new BoundAddressOfExpression(operand);
+
+            case BoundFieldAccess fieldAccess:
+                return new BoundAddressOfExpression(fieldAccess);
+
+            case BoundMemberAccessExpression { Member: IFieldSymbol } memberAccess:
+                return new BoundAddressOfExpression(memberAccess);
+
+            case BoundArrayAccessExpression arrayAccess:
+                return new BoundAddressOfExpression(arrayAccess);
+
+            case BoundSelfExpression selfExpression:
+                return new BoundAddressOfExpression(selfExpression);
         }
 
         //_diagnostics.ReportInvalidAddressOf(syntax.Expression.GetLocation());

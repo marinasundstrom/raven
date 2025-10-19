@@ -953,6 +953,10 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
+            case null when addressOf.Storage is BoundArrayAccessExpression arrayAccess:
+                EmitArrayElementAddress(arrayAccess);
+                break;
+
             default:
                 throw new NotSupportedException($"Cannot take address of: {addressOf.Symbol}");
         }
@@ -1537,6 +1541,20 @@ internal class ExpressionGenerator : Generator
         }
 
         EmitLoadElement(arrayType.ElementType);
+    }
+
+    private void EmitArrayElementAddress(BoundArrayAccessExpression arrayAccess)
+    {
+        if (arrayAccess.Receiver.Type is not IArrayTypeSymbol arrayType)
+            throw new NotSupportedException("Cannot take the address of a non-array element access.");
+
+        EmitExpression(arrayAccess.Receiver);
+
+        foreach (var index in arrayAccess.Indices)
+            EmitExpression(index);
+
+        var elementClrType = ResolveClrType(arrayType.ElementType);
+        ILGenerator.Emit(OpCodes.Ldelema, elementClrType);
     }
 
     private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
