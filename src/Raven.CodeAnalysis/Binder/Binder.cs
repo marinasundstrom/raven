@@ -752,8 +752,14 @@ internal abstract class Binder
         if (typeSyntax is ByRefTypeSyntax byRef)
         {
             var elementType = ResolveTypeInternal(byRef.ElementType, refKindHint: null);
-            var effectiveRefKind = refKindHint ?? RefKind.Ref;
-            return new ByRefTypeSymbol(elementType, effectiveRefKind);
+            return new ByRefTypeSymbol(elementType);
+        }
+
+        if (typeSyntax is PointerTypeSyntax pointer)
+        {
+            var elementType = ResolveTypeInternal(pointer.ElementType, refKindHint: null);
+            var pointerType = Compilation.CreatePointerTypeSymbol(elementType);
+            return ApplyRefKindHint(pointerType, refKindHint);
         }
 
         if (typeSyntax is NullableTypeSyntax nb)
@@ -903,14 +909,9 @@ internal abstract class Binder
             return type;
 
         if (type is ByRefTypeSymbol existing)
-        {
-            if (existing.RefKind == refKindHint)
-                return existing;
+            return existing;
 
-            return new ByRefTypeSymbol(existing.ElementType, refKindHint.Value);
-        }
-
-        return new ByRefTypeSymbol(type, refKindHint.Value);
+        return new ByRefTypeSymbol(type);
     }
 
     private ITypeSymbol? ResolveQualifiedType(QualifiedNameSyntax qualified)

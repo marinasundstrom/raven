@@ -61,6 +61,17 @@ internal partial class BoundArrayAssignmentExpression : BoundAssignmentExpressio
     }
 }
 
+internal partial class BoundParameterAssignmentExpression : BoundAssignmentExpression
+{
+    public IParameterSymbol Parameter { get; }
+
+    public BoundParameterAssignmentExpression(IParameterSymbol parameter, BoundExpression right)
+        : base(parameter.Type, right)
+    {
+        Parameter = parameter;
+    }
+}
+
 internal partial class BoundIndexerAssignmentExpression : BoundAssignmentExpression
 {
     public BoundIndexerAccessExpression Left { get; }

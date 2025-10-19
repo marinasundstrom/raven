@@ -276,8 +276,8 @@ type C {}
 alias x = int // RAV1006
 ```
 
-## RAV1007: Field declaration requires 'let' or 'var'
-Fields must specify `let` or `var` when declaring storage in a type.
+## RAV1007: Field declaration requires a binding keyword
+Fields must specify `let`, `var`, or `const` when declaring storage in a type.
 
 ```raven
 class Foo {

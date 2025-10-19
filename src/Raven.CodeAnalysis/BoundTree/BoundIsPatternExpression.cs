@@ -318,7 +318,7 @@ internal partial class BlockBinder
 
     private BoundPattern BindVariablePattern(VariablePatternSyntax syntax)
     {
-        var isMutable = syntax.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
+        var isMutable = syntax.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
         return BindVariableDesignation(syntax.Designation, isMutable, expectedType: null);
     }
 

@@ -152,7 +152,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var declarators = SyntaxFactory.SeparatedList<VariableDeclaratorSyntax>(newList.ToArray());
 
-        return node.Update(node.LetOrVarKeyword.WithTrailingTrivia(SyntaxFactory.Space), declarators!);
+        return node.Update(node.BindingKeyword.WithTrailingTrivia(SyntaxFactory.Space), declarators!);
     }
 
     public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
@@ -327,7 +327,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             ? (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.DefaultValue)
             : null;
 
-        return node.Update(node.AttributeLists, node.Modifiers, identifier, typeAnnotation, defaultValue);
+        return node.Update(node.AttributeLists, node.RefKindKeyword, node.BindingKeyword, identifier, typeAnnotation, defaultValue);
     }
 
     public override SyntaxNode? VisitTypeAnnotationClause(TypeAnnotationClauseSyntax node)

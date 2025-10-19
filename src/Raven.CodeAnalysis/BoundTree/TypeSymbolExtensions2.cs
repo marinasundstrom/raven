@@ -11,6 +11,12 @@ public static class TypeSymbolExtensions2
         if (type is ArrayTypeSymbol arrayType)
             return arrayType.ElementType;
 
+        if (type is IPointerTypeSymbol pointer)
+            return pointer.PointedAtType;
+
+        if (type is IAddressTypeSymbol address)
+            return address.ReferencedType;
+
         return type is ByRefTypeSymbol byRef ? byRef.ElementType : null;
     }
 }

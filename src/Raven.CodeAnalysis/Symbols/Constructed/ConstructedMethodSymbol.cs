@@ -128,7 +128,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             var substitutedElement = Substitute(byRef.ElementType);
 
             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                return new ByRefTypeSymbol(substitutedElement, byRef.RefKind);
+                return new ByRefTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
+        if (type is IAddressTypeSymbol address)
+        {
+            var substitutedElement = Substitute(address.ReferencedType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                return new AddressTypeSymbol(substitutedElement);
 
             return type;
         }
@@ -182,6 +192,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public ITypeSymbol Type => _owner.Substitute(_original.Type);
         public bool IsParams => _original.IsParams;
         public RefKind RefKind => _original.RefKind;
+        public bool IsMutable => _original.IsMutable;
         public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;
         public object? ExplicitDefaultValue => _original.ExplicitDefaultValue;
 

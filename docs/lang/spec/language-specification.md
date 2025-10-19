@@ -51,7 +51,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `continue`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `const`, `continue`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
@@ -149,19 +149,22 @@ Structured exception handling is covered in [Error handling](error-handling.md).
 
 ### Variable bindings
 
-`let` introduces an immutable binding while `var` introduces a mutable one. A binding
-may declare its type explicitly or rely on the compiler to infer it from the
-initializer expression.
+`let` introduces an immutable binding, `var` introduces a mutable one, and `const`
+produces an immutable binding whose value is baked in at compile time. A binding may
+declare its type explicitly or rely on the compiler to infer it from the initializer
+expression.
 
 ```raven
-let answer = 42        // inferred int
-var name = "Alice"   // inferred string, mutable
-let count: long = 0    // explicit type
+let answer = 42         // inferred int
+var name = "Alice"    // inferred string, mutable
+const greeting = "Hi"  // inferred string constant
+let count: long = 0     // explicit type
 ```
 
 If the type annotation is omitted, an initializer is required so the compiler can
-determine the variable's type. With an explicit type, the initializer may be
-omitted.
+determine the variable's type. Const bindings always require an initializer, even when
+annotated, and the expression must be a .NET compile-time constant (numeric and
+character literals, `true`/`false`, strings, or `null`).
 
 Control-flow constructs such as `if`, `while`, and `for` are expressions whose
 statement forms are described in [Control flow](control-flow.md).
@@ -188,7 +191,7 @@ func sayHello() {
 Many expressions rely on the type expected by their context, called the **target type**.
 For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type
 `Grades` to resolve the member. Numeric literals and `null` similarly adapt to their
-target types. Type inference for `let` and `var` bindings uses this mechanism to
+target types. Type inference for `let`, `var`, and `const` bindings uses this mechanism to
 determine the variable's type from its initializer.
 
 ### Type inference
@@ -1596,16 +1599,70 @@ class Accumulator {
 }
 ```
 
-### `ref`/`out` arguments
+### Pointer types
 
-Parameters can be declared by reference using `&Type`. Use `out` before
-the parameter name to indicate that the value must be assigned by the
-callee. At call sites, pass the argument with the address operator `&`.
-(Exact rules are contextual; the binder enforces that the target is
-assignable.)
+The `*Type` form declares a native pointer to `Type`. Pointer types are
+distinct from by-reference types but interoperate with address-of
+expressions: taking the address of a local or field produces an address
+handle that implicitly converts to the matching pointer type.
 
 ```raven
-func TryParse(text: string, out result: &int) -> bool { /* ... */ }
+let value = 42
+let pointer: *int = &value
+```
+
+### Pass by reference
+
+By-reference types can annotate locals and return values. A local
+declared with `&Type` acts as an alias to the underlying storage, so
+assignments flow through to the referenced location. Functions may
+return by-reference values to expose existing storage to the caller. If
+you plan to reassign the alias, declare it with `var` so the reference
+itself remains mutable.
+
+Taking the address of a value with `&expression` implicitly produces a
+by-reference type when the target binding has no explicit annotation.
+Use a pointer annotation to force the result into a native pointer
+instead of a managed alias.
+
+```raven
+func headSlot(values: int[]) -> &int {
+    return &values[0]
+}
+
+var numbers: int[] = [10, 20, 30]
+var slot = headSlot(numbers)
+slot = 42 // numbers[0] is now 42
+
+let value = 0
+let alias = &value      // alias : &int
+let raw: *int = &value  // raw : *int
+```
+
+### `ref`/`out` arguments
+
+Parameters can also be declared by reference using `&Type`. When a
+by-reference parameter is passed **into** a function, it behaves just
+like a by-reference local: the callee receives an alias to the caller's
+storage and can both read and write through that reference. To mark a
+parameter that must be assigned by the callee before returning, place
+`out` before the parameter name. Parameters are immutable by default, so
+add the `var` modifier when you need to reassign the alias—for example
+to satisfy an `out` contract or to reuse a ref parameter as scratch
+storage. At call sites, pass the argument with the address operator
+`&`. (Exact rules are contextual; the binder enforces that the target is
+assignable.)
+
+By-reference locals and fields never use the `out` modifier—`out` is
+only meaningful at the call boundary to signal definite assignment
+responsibilities between caller and callee. Declaring a local with
+`&Type` produces a reference variable that immediately aliases an
+existing storage location; invoking a member with an `out &Type`
+parameter transfers that aliasing requirement to the parameter for the
+duration of the call.
+
+```raven
+func TryParse(text: string, out var result: &int) -> bool { /* ... */ }
 
 var total = 0
 if !TryParse(arg, &total) {
@@ -1637,6 +1694,27 @@ x = "Bar"
 var y: int = 2
 y = 3
 ```
+
+### Constant binding (`const`)
+
+A `const` binding is immutable like `let` but additionally requires a compile-time
+constant initializer. The compiler embeds the resulting value directly into the
+generated IL so the symbol can be referenced from other assemblies without
+executing the initializer.
+
+```raven
+const pi: double = 3.141592653589793
+const banner = "Ready"      // inferred string constant
+```
+
+Const bindings support the primitive constant forms recognized by .NET: numeric and
+character literals (including the appropriate suffixes), `true`/`false`, strings, and
+`null` for reference types. Type inference works the same way as `let`; the initializer
+must still be a compile-time constant.
+
+Const applies to both local bindings and fields. Member declarations treat `const`
+fields as implicitly `static`; the value is emitted as metadata so other assemblies can
+import it without running an initializer.
 
 Tuple patterns let you bind or assign multiple values at once. The outer
 `let`/`var` controls the tuple's mutability, while each element uses a

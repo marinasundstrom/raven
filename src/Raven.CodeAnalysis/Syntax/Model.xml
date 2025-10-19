@@ -416,6 +416,10 @@
     <Slot Name="AmpersandToken" Type="Token" DefaultToken="AmpersandToken"/>
     <Slot Name="ElementType" Type="Type" />
   </Node>
+  <Node Name="PointerType" Inherits="Type">
+    <Slot Name="StarToken" Type="Token" DefaultToken="StarToken" />
+    <Slot Name="ElementType" Type="Type" />
+  </Node>
   <Node Name="UnionType" Inherits="Type">
     <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
   </Node>
@@ -550,7 +554,7 @@
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsAbstract="true" />
   </Node>
   <Node Name="VariableDeclaration" Inherits="Node">
-    <Slot Name="LetOrVarKeyword" Type="Token" />
+    <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Declarators" Type="SeparatedList" ElementType="VariableDeclarator" />
   </Node>
   <Node Name="LambdaExpression" Inherits="Expression" IsAbstract="true">
@@ -559,7 +563,8 @@
   </Node>
   <Node Name="Parameter" Inherits="Node">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
-    <Slot Name="Modifiers" Type="TokenList" />
+    <Slot Name="RefKindKeyword" Type="Token" IsNullable="true" />
+    <Slot Name="BindingKeyword" Type="Token" IsNullable="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />
     <Slot Name="DefaultValue" Type="EqualsValueClause" IsNullable="true" />
@@ -585,7 +590,7 @@
     <Slot Name="Right" Type="Pattern" />
   </Node>
   <Node Name="VariablePattern" Inherits="Pattern">
-    <Slot Name="LetOrVarKeyword" Type="Token" />
+    <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Designation" Type="VariableDesignation" />
   </Node>
   <Node Name="DiscardPattern" Inherits="Pattern">

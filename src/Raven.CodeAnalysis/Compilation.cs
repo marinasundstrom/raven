@@ -582,6 +582,10 @@ public partial class Compilation
         return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank);
     }
 
+    public ITypeSymbol CreatePointerTypeSymbol(ITypeSymbol pointedAtType)
+    {
+        return new PointerTypeSymbol(pointedAtType);
+    }
     public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
     {
         var systemNamespace = GlobalNamespace.LookupNamespace("System");

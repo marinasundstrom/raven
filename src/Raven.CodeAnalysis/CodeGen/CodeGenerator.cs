@@ -47,6 +47,12 @@ internal class CodeGenerator
         throw new KeyNotFoundException($"Missing member builder for '{symbol.Name}'.");
     }
 
+    internal bool HasMemberBuilder(SourceSymbol symbol)
+        => _mappings.ContainsKey(symbol);
+
+    internal bool TryGetMemberBuilder(SourceSymbol symbol, out MemberInfo memberInfo)
+        => _mappings.TryGetValue(symbol, out memberInfo!);
+
     internal bool TryGetRuntimeMethod(IMethodSymbol symbol, out MethodInfo methodInfo)
         => _runtimeMethodCache.TryGetValue(symbol, out methodInfo);
 

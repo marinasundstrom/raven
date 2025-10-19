@@ -15,6 +15,7 @@
   <TokenKind Name="NamespaceKeyword" Text="namespace" IsReservedWord="false" />
   <TokenKind Name="LetKeyword" Text="let" IsReservedWord="true" />
   <TokenKind Name="VarKeyword" Text="var" IsReservedWord="true" />
+  <TokenKind Name="ConstKeyword" Text="const" IsReservedWord="true" />
   <TokenKind Name="FuncKeyword" Text="func" IsReservedWord="true" />
   <TokenKind Name="EnumKeyword" Text="enum" IsReservedWord="true" />
   <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />

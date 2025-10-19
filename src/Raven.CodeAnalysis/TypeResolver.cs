@@ -34,11 +34,7 @@ internal class TypeResolver(Compilation compilation)
             if (nullInfo.ElementType is not null)
                 elementType = ApplyNullability(elementType, nullInfo.ElementType);
 
-            var refKind = parameterInfo.IsOut
-                ? RefKind.Out
-                : parameterInfo.IsIn ? RefKind.In : RefKind.Ref;
-
-            return new ByRefTypeSymbol(elementType, refKind);
+            return new ByRefTypeSymbol(elementType);
         }
 
         var declaredType = ResolveType(parameterType, methodContext);
@@ -181,6 +177,17 @@ internal class TypeResolver(Compilation compilation)
         }
 
         // TODO: Return immediately if built in type
+
+        if (type.IsPointer)
+        {
+            var element = ResolveType(type.GetElementType()!, methodContext);
+            if (element is null)
+                return null;
+
+            var pointer = new PointerTypeSymbol(element);
+            _cache[type] = pointer;
+            return pointer;
+        }
 
         if (type.IsGenericTypeDefinition)
         {

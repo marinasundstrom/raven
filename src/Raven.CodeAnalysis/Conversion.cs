@@ -11,6 +11,7 @@ public struct Conversion
     public bool IsReference { get; }
     public bool IsBoxing { get; }
     public bool IsUnboxing { get; }
+    public bool IsPointer { get; }
 
     public bool IsUserDefined { get; }
     public bool IsAlias { get; }
@@ -23,6 +24,7 @@ public struct Conversion
         bool isReference = false,
         bool isBoxing = false,
         bool isUnboxing = false,
+        bool isPointer = false,
         bool isUserDefined = false,
         bool isAlias = false,
         IMethodSymbol? methodSymbol = null)
@@ -34,6 +36,7 @@ public struct Conversion
         IsReference = isReference;
         IsBoxing = isBoxing;
         IsUnboxing = isUnboxing;
+        IsPointer = isPointer;
         IsUserDefined = isUserDefined;
         IsAlias = isAlias;
         MethodSymbol = methodSymbol;
@@ -59,6 +62,7 @@ public struct Conversion
            IsUnboxing == other.IsUnboxing &&
            IsUserDefined == other.IsUserDefined &&
            IsAlias == other.IsAlias &&
+           IsPointer == other.IsPointer &&
            SymbolEqualityComparer.Default.Equals(MethodSymbol, other.MethodSymbol);
 
     public override int GetHashCode()
@@ -71,6 +75,7 @@ public struct Conversion
         hash.Add(IsReference);
         hash.Add(IsBoxing);
         hash.Add(IsUnboxing);
+        hash.Add(IsPointer);
         hash.Add(IsUserDefined);
         hash.Add(IsAlias);
         hash.Add(MethodSymbol, SymbolEqualityComparer.Default);
@@ -93,6 +98,7 @@ public struct Conversion
             isReference: IsReference,
             isBoxing: IsBoxing,
             isUnboxing: IsUnboxing,
+            isPointer: IsPointer,
             isUserDefined: IsUserDefined,
             isAlias: combined,
             methodSymbol: MethodSymbol);

@@ -94,9 +94,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParseVariablePattern()
     {
-        var letOrVarKeyword = ReadToken();
+        var bindingKeyword = ReadToken();
         var designation = ParseDesignation();
-        return VariablePattern(letOrVarKeyword, designation);
+        return VariablePattern(bindingKeyword, designation);
     }
 
     private TuplePatternSyntax ParseTuplePattern()

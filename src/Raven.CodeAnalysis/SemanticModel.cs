@@ -1339,13 +1339,14 @@ public partial class SemanticModel
         var seenOptionalParameter = false;
         foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
         {
-            var refKind = RefKind.None;
-            if (parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword))
-                refKind = RefKind.Out;
-            else if (parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.InKeyword))
-                refKind = RefKind.In;
-            else if (parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.RefKeyword))
-                refKind = RefKind.Ref;
+            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+            var refKind = refKindTokenKind switch
+            {
+                SyntaxKind.OutKeyword => RefKind.Out,
+                SyntaxKind.InKeyword => RefKind.In,
+                SyntaxKind.RefKeyword => RefKind.Ref,
+                _ => RefKind.None,
+            };
 
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
@@ -1361,6 +1362,7 @@ public partial class SemanticModel
                 parameterSyntax.Identifier.ValueText,
                 classBinder.Diagnostics,
                 ref seenOptionalParameter);
+            var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 parameterType,
@@ -1371,7 +1373,8 @@ public partial class SemanticModel
                 [parameterSyntax.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue);
+                defaultResult.ExplicitDefaultValue,
+                isMutable);
 
             parameters.Add(parameterSymbol);
 

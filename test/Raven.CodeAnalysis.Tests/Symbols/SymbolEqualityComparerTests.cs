@@ -608,6 +608,8 @@ class Sample {{
 
         public RefKind RefKind { get; }
 
+        public bool IsMutable => false;
+
         public bool HasExplicitDefaultValue => false;
 
         public object? ExplicitDefaultValue => null;

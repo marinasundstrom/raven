@@ -65,7 +65,7 @@ let result = value match {
         var (arm, tree) = ParseFirstMatchArm("let value");
 
         var variable = Assert.IsType<VariablePatternSyntax>(arm.Pattern);
-        Assert.Equal(SyntaxKind.LetKeyword, variable.LetOrVarKeyword.Kind);
+        Assert.Equal(SyntaxKind.LetKeyword, variable.BindingKeyword.Kind);
 
         var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
         Assert.Equal("value", designation.Identifier.ValueText);
