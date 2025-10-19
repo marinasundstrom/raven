@@ -258,6 +258,47 @@ interpreted as a whole—Raven currently resolves the base class, implemented in
 declaration it processes, so later declarations should match or omit those clauses. Apart from these shared attributes, each
 partial declaration may contribute additional members, and the aggregate behaves exactly like a class declared in one piece.
 
+### Parameter semantics
+
+Method, constructor, and accessor parameters are immutable by default. They
+behave like `let` bindings: the compiler rejects assignments that attempt to
+rebind the parameter name. Add the `var` modifier when a parameter must be
+reassigned inside the body—for example, to reuse a scratch variable or to
+satisfy an `out` contract.
+
+```raven
+func clamp(min: int, value: int, max: int) -> int
+{
+    // value = ...    // error: parameters are immutable by default
+    return Math.Max(min, Math.Min(value, max))
+}
+
+func TryParse(text: string, out var result: &int) -> bool
+{
+    result = 0      // ok: the parameter explicitly opts into mutation
+    /* ... */
+}
+```
+
+Declaring a parameter with `&Type` passes the argument by reference. The callee
+receives an alias to the caller's storage and can read or write through that
+alias. Callers supply such arguments with the address-of operator `&expr`.
+Placing `out` before the parameter name signals that the method must assign the
+alias before returning; the caller is required to pass an assignable storage
+location. Ordinary by-reference parameters omit `out` and behave like `ref`
+arguments in other languages.
+
+```raven
+func Increment(var value: &int) -> ()
+{
+    value = value + 1
+}
+
+var total = 41
+Increment(&total)
+Console.WriteLine(total) // prints 42
+```
+
 ### Method overloading
 
 Functions and methods may share a name as long as their parameter counts or
