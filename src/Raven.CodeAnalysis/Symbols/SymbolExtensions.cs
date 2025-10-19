@@ -47,11 +47,10 @@ public static partial class SymbolExtensions
             return elementType.ToDisplayStringKeywordAware(format) + "[]";
         }
 
-        /*
         if (typeSymbol is IPointerTypeSymbol pointerType)
         {
             return pointerType.PointedAtType.ToDisplayStringKeywordAware(format) + "*";
-        } */
+        }
 
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
         {
@@ -95,6 +94,12 @@ public static partial class SymbolExtensions
 
             case ByRefTypeSymbol byRef:
                 return byRef.ElementType.ContainsErrorType();
+
+            case IPointerTypeSymbol pointer:
+                return pointer.PointedAtType.ContainsErrorType();
+
+            case IAddressTypeSymbol address:
+                return address.ReferencedType.ContainsErrorType();
 
             case IUnionTypeSymbol union:
                 foreach (var member in union.Types)

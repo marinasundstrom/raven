@@ -709,6 +709,9 @@ internal class ExpressionGenerator : Generator
         if (conversion.IsIdentity)
             return;
 
+        if (to is ByRefTypeSymbol && from is IAddressTypeSymbol)
+            return;
+
         if (to is NullableTypeSymbol nullableTo && nullableTo.UnderlyingType.IsValueType)
         {
             EmitNullableConversion(from, nullableTo);
@@ -744,6 +747,12 @@ internal class ExpressionGenerator : Generator
         if (conversion.IsReference)
         {
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(to));
+            return;
+        }
+
+        if (conversion.IsPointer)
+        {
+            ILGenerator.Emit(OpCodes.Conv_U);
             return;
         }
 
@@ -942,6 +951,10 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldarga, 0);
                 else
                     ILGenerator.Emit(OpCodes.Ldarg_0);
+                break;
+
+            case null when addressOf.Storage is BoundArrayAccessExpression arrayAccess:
+                EmitArrayElementAddress(arrayAccess);
                 break;
 
             default:
@@ -1530,6 +1543,20 @@ internal class ExpressionGenerator : Generator
         EmitLoadElement(arrayType.ElementType);
     }
 
+    private void EmitArrayElementAddress(BoundArrayAccessExpression arrayAccess)
+    {
+        if (arrayAccess.Receiver.Type is not IArrayTypeSymbol arrayType)
+            throw new NotSupportedException("Cannot take the address of a non-array element access.");
+
+        EmitExpression(arrayAccess.Receiver);
+
+        foreach (var index in arrayAccess.Indices)
+            EmitExpression(index);
+
+        var elementClrType = ResolveClrType(arrayType.ElementType);
+        ILGenerator.Emit(OpCodes.Ldelema, elementClrType);
+    }
+
     private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
     {
         var indexerProperty = boundIndexerAccessExpression.Symbol as IPropertySymbol;
@@ -1659,6 +1686,14 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Dup);
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+                break;
+
+            case BoundParameterAssignmentExpression parameterAssignmentExpression:
+                EmitParameterAssignmentExpression(parameterAssignmentExpression, preserveResult);
+                break;
+
+            case BoundByRefAssignmentExpression byRefAssignmentExpression:
+                EmitByRefAssignmentExpression(byRefAssignmentExpression, preserveResult);
                 break;
 
             case BoundFieldAssignmentExpression fieldAssignmentExpression:
@@ -1903,6 +1938,121 @@ internal class ExpressionGenerator : Generator
 
         if (preserveResult && node.Type?.SpecialType == SpecialType.System_Unit)
             EmitUnitValue();
+    }
+
+    private void EmitParameterAssignmentExpression(BoundParameterAssignmentExpression node, bool preserveResult)
+    {
+        var rightExpression = node.Right;
+        EmitExpression(rightExpression);
+
+        var resultType = node.Type;
+        var needsResult = preserveResult
+            && resultType is not null
+            && resultType.SpecialType is not SpecialType.System_Unit
+            and not SpecialType.System_Void;
+
+        var needsBox = rightExpression.Type is { IsValueType: true }
+            && resultType?.SpecialType == SpecialType.System_Object;
+
+        if (needsBox)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(rightExpression.Type));
+
+        if (needsResult)
+            ILGenerator.Emit(OpCodes.Dup);
+
+        var parameterBuilder = MethodGenerator.GetParameterBuilder(node.Parameter);
+        var argumentIndex = parameterBuilder.Position;
+        if (MethodSymbol.IsStatic)
+            argumentIndex -= 1;
+
+        ILGenerator.Emit(OpCodes.Starg, (short)argumentIndex);
+    }
+
+    private void EmitByRefAssignmentExpression(BoundByRefAssignmentExpression node, bool preserveResult)
+    {
+        var reference = node.Reference;
+        var rightExpression = node.Right;
+        var elementType = node.ElementType;
+        var resultType = node.Type;
+
+        var needsResult = preserveResult
+            && resultType is not null
+            && resultType.SpecialType is not SpecialType.System_Unit
+            and not SpecialType.System_Void;
+
+        var needsBox = rightExpression.Type is { IsValueType: true }
+            && resultType?.SpecialType == SpecialType.System_Object;
+
+        EmitExpression(reference);
+        EmitExpression(rightExpression);
+
+        IILocal? tempLocal = null;
+        ITypeSymbol? tempStorageType = null;
+
+        if (needsResult)
+        {
+            tempStorageType = rightExpression.Type ?? elementType;
+            var tempClrType = ResolveClrType(tempStorageType);
+            tempLocal = ILGenerator.DeclareLocal(tempClrType);
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Stloc, tempLocal);
+        }
+
+        EmitStoreIndirect(elementType);
+
+        if (needsResult && tempLocal is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, tempLocal);
+
+            if (needsBox && tempStorageType is not null)
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(tempStorageType));
+        }
+    }
+
+    private void EmitStoreIndirect(ITypeSymbol elementType)
+    {
+        switch (elementType.SpecialType)
+        {
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Boolean:
+                ILGenerator.Emit(OpCodes.Stind_I1);
+                break;
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Stind_I2);
+                break;
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Stind_I4);
+                break;
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Stind_I8);
+                break;
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Stind_R4);
+                break;
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Stind_R8);
+                break;
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+                ILGenerator.Emit(OpCodes.Stind_I);
+                break;
+            default:
+                if (elementType.IsValueType)
+                {
+                    ILGenerator.Emit(OpCodes.Stobj, ResolveClrType(elementType));
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Stind_Ref);
+                }
+
+                break;
+        }
     }
 
     private void EmitPatternAssignmentExpression(BoundPatternAssignmentExpression node)

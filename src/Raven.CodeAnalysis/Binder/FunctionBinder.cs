@@ -128,16 +128,31 @@ class FunctionBinder : Binder
         foreach (var p in _syntax.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation.Type;
-            var refKind = RefKind.None;
+            var refKindTokenKind = p.RefKindKeyword?.Kind;
             var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
 
-            if (isByRefSyntax)
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+            var refKind = isByRefSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
 
             var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
             var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
                 ? methodBinder.ResolveType(typeSyntax, refKindForType)
                 : methodBinder.ResolveType(typeSyntax);
+
+            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
 
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 p,
@@ -156,7 +171,8 @@ class FunctionBinder : Binder
                 [p.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue));
+                defaultResult.ExplicitDefaultValue,
+                isMutable));
         }
 
         _methodSymbol.SetParameters(parameters);

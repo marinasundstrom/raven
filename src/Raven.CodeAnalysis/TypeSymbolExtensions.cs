@@ -77,14 +77,15 @@ public static class TypeSymbolExtensions
         }
         */
 
-        /*
         // Handle pointer types
         if (typeSymbol is IPointerTypeSymbol pointerTypeSymbol)
         {
             var elementClrType = pointerTypeSymbol.PointedAtType.GetClrType(compilation);
-            return elementClrType?.MakePointerType();
+            if (elementClrType is null)
+                throw new NotSupportedException($"Unsupported pointer element type: {pointerTypeSymbol.PointedAtType}");
+
+            return elementClrType.MakePointerType();
         }
-        */
 
         // Unsupported cases
         throw new NotSupportedException($"Unsupported type symbol: {typeSymbol}");

@@ -26,7 +26,7 @@ public class PrettySyntaxTreePrinterTests
             │   └── GlobalStatement
             │       └── Statement: LocalDeclarationStatement
             │           ├── Declaration: VariableDeclaration
-            │           │   ├── LetOrVarKeyword: let LetKeyword
+            │           │   ├── BindingKeyword: let LetKeyword
             │           │   └── Declarators
             │           │       └── VariableDeclarator
             │           │           ├── Identifier: x IdentifierToken
@@ -62,7 +62,7 @@ public class PrettySyntaxTreePrinterTests
             ├── GlobalStatement
             │   └── Statement: LocalDeclarationStatement
             │       ├── Declaration: VariableDeclaration
-            │       │   ├── LetOrVarKeyword: let LetKeyword
+            │       │   ├── BindingKeyword: let LetKeyword
             │       │   └── VariableDeclarator
             │       │       ├── Identifier: x IdentifierToken
             │       │       └── Initializer: EqualsValueClause

@@ -33,6 +33,12 @@ internal class NameSyntaxParser : SyntaxParser
             return ByRefType(ampToken, elementType);
         }
 
+        if (ConsumeToken(SyntaxKind.StarToken, out var starToken))
+        {
+            var elementType = ParseTypeName();
+            return PointerType(starToken, elementType);
+        }
+
         var signedLiteral = TryParseSignedNumericLiteralType();
         if (signedLiteral is not null)
         {

@@ -84,7 +84,7 @@ class Counter {
     {
         const string code = """
 class Accumulator {
-    static TryAccumulate(state: &int, out doubled: &int) -> bool {
+    static TryAccumulate(var state: &int, out var doubled: &int) -> bool {
         state = state + 1
         doubled = state * 2
         true
@@ -130,7 +130,7 @@ class Accumulator {
     {
         const string code = """
 class Accumulator {
-    static TryAccumulate(state: &int, out doubled: &int) -> bool {
+    static TryAccumulate(var state: &int, out var doubled: &int) -> bool {
         state = state + 1
         doubled = state * 2
         true

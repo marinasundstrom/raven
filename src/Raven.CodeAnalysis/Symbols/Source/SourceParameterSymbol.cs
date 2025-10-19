@@ -12,13 +12,15 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         SyntaxReference[] declaringSyntaxReferences,
         RefKind refKind = RefKind.None,
         bool hasExplicitDefaultValue = false,
-        object? explicitDefaultValue = null)
+        object? explicitDefaultValue = null,
+        bool isMutable = false)
         : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = parameterType;
         RefKind = refKind;
         HasExplicitDefaultValue = hasExplicitDefaultValue;
         ExplicitDefaultValue = explicitDefaultValue;
+        IsMutable = isMutable;
     }
 
     public ITypeSymbol Type { get; }
@@ -32,4 +34,6 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
     public object? ExplicitDefaultValue { get; }
 
     public bool IsOptional => HasExplicitDefaultValue;
+
+    public bool IsMutable { get; }
 }

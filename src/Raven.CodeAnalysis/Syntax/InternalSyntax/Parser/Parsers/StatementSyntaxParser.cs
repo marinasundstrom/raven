@@ -512,13 +512,13 @@ internal class StatementSyntaxParser : SyntaxParser
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
-            SyntaxList modifiers = SyntaxList.Empty;
+        SyntaxToken? refKindKeyword = null;
+        if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+            refKindKeyword = ReadToken();
 
-            SyntaxToken modifier;
-            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
-            {
-                modifiers = modifiers.Add(modifier);
-            }
+        SyntaxToken? bindingKeyword = null;
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+            bindingKeyword = ReadToken();
 
             SyntaxToken name;
             if (CanTokenBeIdentifier(PeekToken()))
@@ -554,7 +554,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(attributeLists, modifiers, name, typeAnnotation, defaultValue));
+        parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -633,6 +633,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             case SyntaxKind.LetKeyword:
             case SyntaxKind.VarKeyword:
+            case SyntaxKind.ConstKeyword:
                 if (PeekToken(1).Kind != SyntaxKind.OpenParenToken)
                     return ParseLocalDeclarationStatementSyntax();
                 break;
@@ -688,7 +689,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
     {
-        var letOrVarKeyword = ReadToken();
+        var bindingKeyword = ReadToken();
 
         SyntaxToken identifier = MissingToken(SyntaxKind.IdentifierToken);
 
@@ -709,7 +710,7 @@ internal class StatementSyntaxParser : SyntaxParser
         var declarators = new SyntaxList(
             [VariableDeclarator(identifier, typeAnnotation, initializer)]);
 
-        return new VariableDeclarationSyntax(letOrVarKeyword, declarators);
+        return new VariableDeclarationSyntax(bindingKeyword, declarators);
     }
 
     private TypeAnnotationClauseSyntax? ParseTypeAnnotationClauseSyntax()

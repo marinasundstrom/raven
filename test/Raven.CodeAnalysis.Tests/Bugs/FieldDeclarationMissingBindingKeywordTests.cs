@@ -3,10 +3,10 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Bugs;
 
-public class FieldDeclarationMissingLetOrVarTests : DiagnosticTestBase
+public class FieldDeclarationMissingBindingKeywordTests : DiagnosticTestBase
 {
     [Fact]
-    public void FieldWithoutLetOrVar_ReportsDiagnostic()
+    public void FieldWithoutBindingKeyword_ReportsDiagnostic()
     {
         const string code = """
         class Foo {
@@ -22,7 +22,7 @@ public class FieldDeclarationMissingLetOrVarTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void FieldWithoutLetOrVar_ParsesSingleMember()
+    public void FieldWithoutBindingKeyword_ParsesSingleMember()
     {
         const string code = """
         class Foo {

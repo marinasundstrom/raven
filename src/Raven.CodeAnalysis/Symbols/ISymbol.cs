@@ -319,6 +319,8 @@ public interface IParameterSymbol : ISymbol
 
     RefKind RefKind { get; }
 
+    bool IsMutable { get; }
+
     bool HasExplicitDefaultValue { get; }
 
     object? ExplicitDefaultValue { get; }
@@ -419,6 +421,7 @@ public enum TypeKind
     Error,
     Interface,
     Pointer,
+    Address,
     Struct,
     TypeParameter,
     FunctionPointer,
@@ -470,6 +473,16 @@ public interface IArrayTypeSymbol : ITypeSymbol
     public int Rank { get; }
 }
 
+public interface IPointerTypeSymbol : ITypeSymbol
+{
+    ITypeSymbol PointedAtType { get; }
+}
+
+public interface IAddressTypeSymbol : ITypeSymbol
+{
+    ITypeSymbol ReferencedType { get; }
+}
+
 public interface ITupleTypeSymbol : INamedTypeSymbol
 {
 
@@ -502,6 +515,10 @@ public interface ILocalSymbol : ISymbol
     ITypeSymbol Type { get; }
 
     bool IsMutable { get; }
+
+    bool IsConst { get; }
+
+    object? ConstantValue { get; }
 }
 
 public interface IErrorTypeSymbol : INamedTypeSymbol

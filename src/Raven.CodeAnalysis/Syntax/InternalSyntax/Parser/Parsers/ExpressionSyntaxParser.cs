@@ -495,12 +495,20 @@ internal class ExpressionSyntaxParser : SyntaxParser
         if (asyncKeyword is null && ConsumeToken(SyntaxKind.AsyncKeyword, out var parsedAsync))
             asyncKeyword = parsedAsync;
 
-        SyntaxList modifiers = SyntaxList.Empty;
+        SyntaxToken? refKindKeyword = null;
         if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
             || ConsumeToken(SyntaxKind.OutKeyword, out modifier)
             || ConsumeToken(SyntaxKind.InKeyword, out modifier))
         {
-            modifiers = modifiers.Add(modifier);
+            refKindKeyword = modifier;
+        }
+
+        SyntaxToken? bindingKeyword = null;
+        if (ConsumeToken(SyntaxKind.LetKeyword, out var binding)
+            || ConsumeToken(SyntaxKind.VarKeyword, out binding)
+            || ConsumeToken(SyntaxKind.ConstKeyword, out binding))
+        {
+            bindingKeyword = binding;
         }
 
         if (!CanTokenBeIdentifier(PeekToken()))
@@ -529,7 +537,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 
-        var parameter = Parameter(attributeLists, modifiers, identifier, typeAnnotation, defaultValue);
+        var parameter = Parameter(attributeLists, refKindKeyword, bindingKeyword, identifier, typeAnnotation, defaultValue);
 
         lambda = SimpleLambdaExpression(asyncKeyword, parameter, returnType, fatArrowToken, body);
 

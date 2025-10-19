@@ -60,7 +60,7 @@ public class PatternSyntaxParserTests
 
         var variablePattern = Assert.IsType<VariablePatternSyntax>(pattern);
         Assert.Equal("let (first, second): (int, string)", sourceText.ToString(variablePattern.Span));
-        Assert.Equal("let", variablePattern.LetOrVarKeyword.Text);
+        Assert.Equal("let", variablePattern.BindingKeyword.Text);
 
         var typedDesignation = Assert.IsType<TypedVariableDesignationSyntax>(variablePattern.Designation);
         var tupleDesignation = Assert.IsType<ParenthesizedVariableDesignationSyntax>(typedDesignation.Designation);

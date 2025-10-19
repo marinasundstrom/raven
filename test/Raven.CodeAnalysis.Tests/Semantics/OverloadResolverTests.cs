@@ -464,6 +464,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public RefKind RefKind { get; }
 
+        public bool IsMutable => false;
+
         public bool HasExplicitDefaultValue { get; }
 
         public object? ExplicitDefaultValue { get; }

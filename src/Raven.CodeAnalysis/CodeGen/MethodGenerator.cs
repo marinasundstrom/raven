@@ -211,8 +211,11 @@ internal class MethodGenerator
             foreach (var parameter in MethodSymbol.Parameters)
             {
                 var clrType = ResolveClrType(parameter.Type);
-                if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
-                    clrType = clrType.MakeByRefType();
+                if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter)
+                {
+                    if (!clrType.IsByRef)
+                        clrType = clrType.MakeByRefType();
+                }
                 builder.Add(clrType);
             }
 

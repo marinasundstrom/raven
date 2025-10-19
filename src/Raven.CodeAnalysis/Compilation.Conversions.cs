@@ -60,6 +60,45 @@ public partial class Compilation
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
 
+        bool ElementTypesAreCompatible(ITypeSymbol sourceElement, ITypeSymbol destinationElement)
+        {
+            bool sourceElementUsedAlias = false;
+            var unaliasedSource = Unalias(sourceElement, ref sourceElementUsedAlias);
+
+            bool destinationElementUsedAlias = false;
+            var unaliasedDestination = Unalias(destinationElement, ref destinationElementUsedAlias);
+
+            if (!SymbolEqualityComparer.Default.Equals(unaliasedSource, unaliasedDestination))
+                return false;
+
+            if (sourceElementUsedAlias || destinationElementUsedAlias)
+                aliasInvolved = true;
+
+            return true;
+        }
+
+        if (source is IAddressTypeSymbol addressSource)
+        {
+            if (destination is ByRefTypeSymbol byRefDestination &&
+                ElementTypesAreCompatible(addressSource.ReferencedType, byRefDestination.ElementType))
+            {
+                return Finalize(new Conversion(isImplicit: true));
+            }
+
+            if (destination is IPointerTypeSymbol addressPointerDestination &&
+                ElementTypesAreCompatible(addressSource.ReferencedType, addressPointerDestination.PointedAtType))
+            {
+                return Finalize(new Conversion(isImplicit: true, isPointer: true));
+            }
+        }
+
+        if (source is ByRefTypeSymbol byRefSource &&
+            destination is IPointerTypeSymbol pointerDestination &&
+            ElementTypesAreCompatible(byRefSource.ElementType, pointerDestination.PointedAtType))
+        {
+            return Finalize(new Conversion(isImplicit: true, isPointer: true));
+        }
+
         if (SymbolEqualityComparer.Default.Equals(source, destination) &&
             source is not NullableTypeSymbol &&
             destination is not NullableTypeSymbol)

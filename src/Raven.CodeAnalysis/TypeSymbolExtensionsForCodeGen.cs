@@ -69,6 +69,12 @@ public static class TypeSymbolExtensionsForCodeGen
             return elementClrType.MakeByRefType();
         }
 
+        if (typeSymbol is IPointerTypeSymbol pointerType)
+        {
+            var elementClrType = GetClrTypeInternal(pointerType.PointedAtType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return elementClrType.MakePointerType();
+        }
+
         if (typeSymbol is ITupleTypeSymbol tupleSymbol)
         {
             var tupleClrType = GetClrTypeInternal(tupleSymbol.UnderlyingTupleType, codeGen, treatUnitAsVoid, isTopLevel: false);

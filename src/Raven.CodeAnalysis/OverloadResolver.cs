@@ -618,21 +618,22 @@ internal sealed class OverloadResolver
 
         if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
         {
-            if (argument is not BoundAddressOfExpression addr ||
-                addr.Type is not ByRefTypeSymbol argByRef ||
+            if (argument is not BoundAddressOfExpression ||
+                argType is not IAddressTypeSymbol addressType ||
                 argType.SpecialType == SpecialType.System_Void)
             {
                 return false;
             }
 
             var parameterType = parameter.Type;
+            var referencedType = addressType.ReferencedType;
 
             if (parameterType is ByRefTypeSymbol paramByRef)
             {
-                if (!SymbolEqualityComparer.Default.Equals(argByRef.ElementType, paramByRef.ElementType))
+                if (!SymbolEqualityComparer.Default.Equals(referencedType, paramByRef.ElementType))
                     return false;
             }
-            else if (!SymbolEqualityComparer.Default.Equals(argByRef.ElementType, parameterType))
+            else if (!SymbolEqualityComparer.Default.Equals(referencedType, parameterType))
             {
                 return false;
             }
@@ -655,7 +656,14 @@ internal sealed class OverloadResolver
         }
 
         if (argument is BoundAddressOfExpression)
-            return false;
+        {
+            var conversion = compilation.ClassifyConversion(argType, parameter.Type);
+            if (!conversion.IsImplicit)
+                return false;
+
+            score += GetConversionScore(conversion);
+            return true;
+        }
 
         if (!lambdaCompatible)
         {
@@ -710,6 +718,9 @@ internal sealed class OverloadResolver
             return 0;
 
         if (conversion.IsNumeric)
+            return 1;
+
+        if (conversion.IsPointer)
             return 1;
 
         if (conversion.IsReference)

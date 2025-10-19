@@ -24,11 +24,11 @@ This document captures several risks uncovered while reviewing the binder and re
 ### 3. By-ref syntax loses ref/out information during binding
 *Observation.* Originally, `ResolveType` simply returned the element type for `ByRefTypeSyntax` nodes, ignoring the presence of the ref/out modifier even though a `ByRefTypeSymbol` exists in the type system.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ByRefTypeSymbol.cs†L5-L55】
 
-*Status.* **Resolved.** `Binder.ResolveType` now constructs `ByRefTypeSymbol` instances (using contextual `RefKind` hints when supplied) so by-ref declarations retain their metadata through binding.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L328-L438】
+*Status.* **Resolved.** `Binder.ResolveType` now constructs `ByRefTypeSymbol` instances when a declaration is marked `&`, while the consuming symbol (such as a parameter) records the specific `ref`/`out`/`in` modifier via its own `RefKind`.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L328-L438】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceParameterSymbol.cs†L13-L30】
 
 *Why it matters.* Any code that relies on tracking ref, in, or out semantics during binding (for overload resolution, assignment checks, or emission) will see those types as plain value types. That can lead to incorrect conversions, missed diagnostics, or invalid IL generation.
 
-*Potential direction.* Construct the appropriate `ByRefTypeSymbol` (respecting `RefKind`) when encountering `ByRefTypeSyntax`, so downstream phases receive accurate type information.
+*Potential direction.* Ensure ref/out/in semantics remain surfaced on the parameter symbol while keeping the by-ref type itself agnostic of modifier-specific metadata.
 
 ### 4. Nullable type symbols expose unfinished APIs
 *Observation.* Nullable type syntax is lowered to `NullableTypeSymbol`, but that implementation throws `NotImplementedException` from its `LookupType` member (and other members rely on the underlying type).【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L383-L387】【F:src/Raven.CodeAnalysis/Symbols/Constructed/NullableTypeSymbol.cs†L6-L52】

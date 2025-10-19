@@ -138,7 +138,7 @@ Statement                ::= LocalDeclaration
                            | TryStatement
                            | ExpressionStatement ;
 
-LocalDeclaration         ::= ('let' | 'var') LocalVariableDeclarators ;
+LocalDeclaration         ::= ('let' | 'var' | 'const') LocalVariableDeclarators ;
 LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
@@ -270,7 +270,11 @@ Literal                  ::= NumericLiteral
 
 (* ---------- Types ---------- *)
 
-Type                     ::= '&'? UnionType ;
+Type                     ::= ByRefType | PointerType | UnionType ;
+
+ByRefType                ::= '&' Type ;
+
+PointerType              ::= '*' Type ;
 
 UnionType                ::= FunctionType {'|' FunctionType} ;     (* left-assoc *)
 

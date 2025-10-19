@@ -16,15 +16,42 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 8: Adjust async lowering so entry-point state machines
-  mutate `_state` in-place before awaiting.
+* **Active step** – Step 9: Instrument the entry-point state machine so
+  `_builder`, `_state`, and awaiter fields log their by-ref interactions and
+  isolate where `SetException` still observes a corrupted receiver.
+  * Emit temporary `Console.WriteLine` hooks in `Program.<Main>d__0.MoveNext`
+    covering every `_builder` and `_state` read/write so the log captures
+    whether the state machine fields share the same by-ref address across
+    await transitions.
+  * Patch the generated `async_entry.dll` with `ilspycmd` to confirm that each
+    instrumentation site sits immediately after the corresponding
+    `ldarga.s`/`ldfld` instruction pairs; this guards against the logger
+    accidentally reordering state-machine loads.
+  * Capture a full execution trace by running
+    `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- docs/investigations/assets/async_entry.rav -o async_entry.dll`
+    and archive the log beside the investigation so subsequent IL diffs can be
+    correlated with the observed corruption.
+  * Keep the binder/codegen pipeline projecting `BoundAddressOfExpression`
+    results as address handles that can convert to either pointer or by-ref
+    types so Step 9 instrumentation can record the exact storage location shared
+    across unsafe scheduler touchpoints.
 
 ### Upcoming steps
 
-* Step 9: Emit `AsyncTaskMethodBuilder<T>` invocations with constructed
-  generics and verify the IL signature requirements.
-* Step 10: Promote the console repro into a passing runtime execution test
-  once the verifier succeeds.
+* Step 10: Diff the Raven-generated IL against Roslyn's `async Task<int>`
+  entry point to pinpoint the missing `ldfld`/`stfld` sequences and update the
+  remediation plan with concrete deltas. The diff should include the
+  instrumentation hooks recorded during Step 9 so the log lines can be mapped to
+  the precise IL offsets that mutate `_builder`.
+* Step 11: Fix lowering to share a single `ldarga.s` receiver across `_state`,
+  builder, and awaiter interactions once instrumentation confirms the failure
+  site. Factor the rewrite so the `BoundAwaitExpression` lowering emits a helper
+  that threads the address through `SetException`/`SetResult` without cloning
+  the struct.
+* Step 12: Promote the console repro into a passing runtime execution test
+  after IL verification succeeds. Automate the instrumentation removal and add
+  an assertion that `AsyncTaskMethodBuilder<int>.SetResult` executes without
+  exceptions.
 
 ### Completed steps
 
@@ -326,9 +353,17 @@ that validates the awaited value flows through the entry point.
 
 **Next steps**
 
-* Adjust the lowering shape to avoid copying the struct before mutating `_state`.
-* Emit `AsyncTaskMethodBuilder<T>` invocations using the constructed generic type.
-* Promote the repro into a runtime execution test once the verifier passes.
+* Instrument the synthesized `MainAsync` state machine so `_state`, `_builder`,
+  and awaiter locals record their address-taking behaviour, confirming exactly
+  where the struct receiver is copied.
+* Capture Roslyn's baseline IL for an `async Task<int>` entry point and diff it
+  against Raven's emission to identify the missing `ldfld`/`stfld` sequences and
+  builder API usage.
+* Update `AsyncLowerer` and the synthesized entry-point lowering to reuse the
+  state-machine address across `_state`, builder, and awaiter interactions while
+  emitting `AsyncTaskMethodBuilder<T>` calls against constructed generics.
+* Promote the console repro into a runtime execution test once IL verification
+  and the runtime execution path both succeed.
 
 **Latest progress**
 
