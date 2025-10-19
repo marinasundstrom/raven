@@ -62,9 +62,18 @@ partial class BlockBinder
             var annotation = parameterSyntax.TypeAnnotation;
             var typeSyntax = annotation?.Type;
             var refKind = RefKind.None;
+            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
 
             if (typeSyntax is ByRefTypeSyntax)
-                refKind = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+            {
+                refKind = refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                };
+            }
 
             var targetParam = targetSignature is { } invoke && invoke.Parameters.Length > index
                 ? invoke.Parameters[index]
@@ -110,7 +119,7 @@ partial class BlockBinder
                 }
             }
 
-            var isMutable = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
 
             var symbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
@@ -699,7 +708,7 @@ partial class BlockBinder
         {
             var parameterSyntax = parameterSyntaxes[index];
             var delegateParameter = invoke.Parameters[index];
-            var isMutable = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 delegateParameter.Type,

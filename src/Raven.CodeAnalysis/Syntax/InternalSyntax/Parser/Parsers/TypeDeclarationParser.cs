@@ -716,13 +716,13 @@ internal class TypeDeclarationParser : SyntaxParser
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
-            SyntaxList modifiers = SyntaxList.Empty;
+            SyntaxToken? refKindKeyword = null;
+            if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+                refKindKeyword = ReadToken();
 
-            SyntaxToken modifier;
-            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
-            {
-                modifiers = modifiers.Add(modifier);
-            }
+            SyntaxToken? bindingKeyword = null;
+            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+                bindingKeyword = ReadToken();
 
             SyntaxToken name;
             if (CanTokenBeIdentifier(PeekToken()))
@@ -742,7 +742,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(attributeLists, modifiers, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -853,13 +853,14 @@ internal class TypeDeclarationParser : SyntaxParser
                 break;
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
-            SyntaxList modifiers = SyntaxList.Empty;
 
-            SyntaxToken modifier;
-            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
-            {
-                modifiers = modifiers.Add(modifier);
-            }
+            SyntaxToken? refKindKeyword = null;
+            if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+                refKindKeyword = ReadToken();
+
+            SyntaxToken? bindingKeyword = null;
+            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+                bindingKeyword = ReadToken();
 
             SyntaxToken name;
             if (CanTokenBeIdentifier(PeekToken()))
@@ -879,7 +880,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(attributeLists, modifiers, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

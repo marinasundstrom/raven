@@ -244,11 +244,24 @@ internal class TypeMemberBinder : Binder
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax)
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKind = typeSyntax is ByRefTypeSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
 
-            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p, isMutable));
         }
 
@@ -592,15 +605,28 @@ internal class TypeMemberBinder : Binder
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax)
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKind = typeSyntax is ByRefTypeSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
 
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
             var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
                 ? ResolveType(typeSyntax, refKindForType)
                 : ResolveType(typeSyntax);
-            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -681,15 +707,28 @@ internal class TypeMemberBinder : Binder
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax)
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKind = typeSyntax is ByRefTypeSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
 
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
             var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
                 ? ResolveType(typeSyntax, refKindForType)
                 : ResolveType(typeSyntax);
-            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
@@ -1135,10 +1174,23 @@ internal class TypeMemberBinder : Binder
         foreach (var p in indexerDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKind = RefKind.None;
+            var refKindTokenKind = p.RefKindKeyword?.Kind;
             var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
-            if (isByRefSyntax)
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+            var refKind = isByRefSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
 
             var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
             var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
@@ -1152,7 +1204,7 @@ internal class TypeMemberBinder : Binder
                 _diagnostics,
                 ref seenOptionalParameter);
 
-            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
 
             indexerParametersBuilder.Add((p, type, refKind, isMutable, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
         }
