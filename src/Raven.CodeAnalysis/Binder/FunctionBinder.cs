@@ -139,6 +139,8 @@ class FunctionBinder : Binder
                 ? methodBinder.ResolveType(typeSyntax, refKindForType)
                 : methodBinder.ResolveType(typeSyntax);
 
+            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 p,
                 type,
@@ -156,7 +158,8 @@ class FunctionBinder : Binder
                 [p.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue));
+                defaultResult.ExplicitDefaultValue,
+                isMutable));
         }
 
         _methodSymbol.SetParameters(parameters);

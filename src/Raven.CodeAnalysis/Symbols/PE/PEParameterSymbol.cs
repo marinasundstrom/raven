@@ -40,6 +40,8 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         }
     }
 
+    public bool IsMutable => RefKind is RefKind.Ref or RefKind.Out;
+
     public ParameterInfo GetParameterInfo() => _parameterInfo;
 
     public bool HasExplicitDefaultValue

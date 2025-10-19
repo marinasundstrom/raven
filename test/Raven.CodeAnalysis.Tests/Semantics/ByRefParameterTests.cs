@@ -33,7 +33,7 @@ class C {
     {
         var source = """
 class C {
-    test(out x: &int) -> unit { x = 1 }
+    test(out var x: &int) -> unit { x = 1 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -71,7 +71,7 @@ class C {
     {
         var source = """
 class C {
-    init(out x: &int) { x = 0 }
+    init(out var x: &int) { x = 0 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -109,7 +109,7 @@ func outer() {
     {
         var source = """
 func outer() {
-    func inner(out x: &int) { x = 1 }
+    func inner(out var x: &int) { x = 1 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -128,7 +128,7 @@ func outer() {
     {
         var source = """
 class C {
-    static Set(x: &int) { x = 1 }
+    static Set(var x: &int) { x = 1 }
     static Pass(x: &int) { Set(&x) }
 }
 """;
@@ -143,7 +143,7 @@ class C {
     {
         var source = """
 class C {
-    static Set(value: &int) -> unit { value = 42 }
+    static Set(var value: &int) -> unit { value = 42 }
 
     static Run() -> unit {
         var data = 0
@@ -162,7 +162,7 @@ class C {
     {
         var source = """
 class C {
-    static TryParse(text: string, out result: &int) -> bool {
+    static TryParse(text: string, out var result: &int) -> bool {
         result = 1
         return true
     }
@@ -178,6 +178,43 @@ class C {
     }
 }
 """;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Method_OutParameter_WithoutVar_ReportsDiagnostic()
+    {
+        var source = """
+class C {
+    static TryParse(text: string, out result: &int) -> bool {
+        result = 0
+        return true
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Equal(CompilerDiagnostics.ThisValueIsNotMutable.Id, diagnostic.Id);
+    }
+
+    [Fact]
+    public void Method_ValueParameter_WithVar_AllowsAssignment()
+    {
+        var source = """
+class C {
+    static Increment(var value: int) -> int {
+        value = value + 1
+        return value
+    }
+}
+""";
+
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();

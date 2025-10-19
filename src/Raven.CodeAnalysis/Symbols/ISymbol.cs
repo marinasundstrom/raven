@@ -319,6 +319,8 @@ public interface IParameterSymbol : ISymbol
 
     RefKind RefKind { get; }
 
+    bool IsMutable { get; }
+
     bool HasExplicitDefaultValue { get; }
 
     object? ExplicitDefaultValue { get; }

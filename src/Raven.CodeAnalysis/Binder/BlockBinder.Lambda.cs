@@ -110,6 +110,8 @@ partial class BlockBinder
                 }
             }
 
+            var isMutable = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+
             var symbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 parameterType,
@@ -118,7 +120,8 @@ partial class BlockBinder
                 _containingSymbol.ContainingNamespace,
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
-                refKind
+                refKind,
+                isMutable: isMutable
             );
 
             parameterSymbols.Add(symbol);
@@ -696,6 +699,7 @@ partial class BlockBinder
         {
             var parameterSyntax = parameterSyntaxes[index];
             var delegateParameter = invoke.Parameters[index];
+            var isMutable = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 delegateParameter.Type,
@@ -704,7 +708,8 @@ partial class BlockBinder
                 _containingSymbol.ContainingNamespace,
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
-                delegateParameter.RefKind);
+                delegateParameter.RefKind,
+                isMutable: isMutable);
 
             parameterSymbols.Add(parameterSymbol);
         }

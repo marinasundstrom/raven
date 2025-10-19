@@ -239,6 +239,7 @@ public static class SymbolExtensions
                 AppendProperty(builder, "Type", parameterSymbol.Type.ToDisplayString(displayFormat));
                 AppendProperty(builder, "RefKind", parameterSymbol.RefKind.ToString());
                 AppendBooleanProperty(builder, "IsParams", parameterSymbol.IsParams);
+                AppendBooleanProperty(builder, "IsMutable", parameterSymbol.IsMutable);
                 AppendBooleanProperty(builder, "HasExplicitDefaultValue", parameterSymbol.HasExplicitDefaultValue);
                 if (parameterSymbol.HasExplicitDefaultValue)
                 {
@@ -278,6 +279,9 @@ public static class SymbolExtensions
             RefKind.RefReadOnlyParameter => "ref readonly",
             _ => string.Empty
         });
+
+        if (parameter.IsMutable)
+            parts.Add("var");
 
         var typeDisplay = parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         parts.Add(typeDisplay);

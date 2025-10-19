@@ -1643,9 +1643,12 @@ by-reference parameter is passed **into** a function, it behaves just
 like a by-reference local: the callee receives an alias to the caller's
 storage and can both read and write through that reference. To mark a
 parameter that must be assigned by the callee before returning, place
-`out` before the parameter name. At call sites, pass the argument with
-the address operator `&`. (Exact rules are contextual; the binder
-enforces that the target is assignable.)
+`out` before the parameter name. Parameters are immutable by default, so
+add the `var` modifier when you need to reassign the alias—for example
+to satisfy an `out` contract or to reuse a ref parameter as scratch
+storage. At call sites, pass the argument with the address operator
+`&`. (Exact rules are contextual; the binder enforces that the target is
+assignable.)
 
 By-reference locals and fields never use the `out` modifier—`out` is
 only meaningful at the call boundary to signal definite assignment
@@ -1656,7 +1659,7 @@ parameter transfers that aliasing requirement to the parameter for the
 duration of the call.
 
 ```raven
-func TryParse(text: string, out result: &int) -> bool { /* ... */ }
+func TryParse(text: string, out var result: &int) -> bool { /* ... */ }
 
 var total = 0
 if !TryParse(arg, &total) {

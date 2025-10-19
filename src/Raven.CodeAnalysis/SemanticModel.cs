@@ -1361,6 +1361,7 @@ public partial class SemanticModel
                 parameterSyntax.Identifier.ValueText,
                 classBinder.Diagnostics,
                 ref seenOptionalParameter);
+            var isMutable = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 parameterType,
@@ -1371,7 +1372,8 @@ public partial class SemanticModel
                 [parameterSyntax.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue);
+                defaultResult.ExplicitDefaultValue,
+                isMutable);
 
             parameters.Add(parameterSymbol);
 

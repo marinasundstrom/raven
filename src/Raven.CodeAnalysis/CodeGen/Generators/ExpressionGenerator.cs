@@ -1688,6 +1688,10 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
                 break;
 
+            case BoundParameterAssignmentExpression parameterAssignmentExpression:
+                EmitParameterAssignmentExpression(parameterAssignmentExpression, preserveResult);
+                break;
+
             case BoundByRefAssignmentExpression byRefAssignmentExpression:
                 EmitByRefAssignmentExpression(byRefAssignmentExpression, preserveResult);
                 break;
@@ -1934,6 +1938,34 @@ internal class ExpressionGenerator : Generator
 
         if (preserveResult && node.Type?.SpecialType == SpecialType.System_Unit)
             EmitUnitValue();
+    }
+
+    private void EmitParameterAssignmentExpression(BoundParameterAssignmentExpression node, bool preserveResult)
+    {
+        var rightExpression = node.Right;
+        EmitExpression(rightExpression);
+
+        var resultType = node.Type;
+        var needsResult = preserveResult
+            && resultType is not null
+            && resultType.SpecialType is not SpecialType.System_Unit
+            and not SpecialType.System_Void;
+
+        var needsBox = rightExpression.Type is { IsValueType: true }
+            && resultType?.SpecialType == SpecialType.System_Object;
+
+        if (needsBox)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(rightExpression.Type));
+
+        if (needsResult)
+            ILGenerator.Emit(OpCodes.Dup);
+
+        var parameterBuilder = MethodGenerator.GetParameterBuilder(node.Parameter);
+        var argumentIndex = parameterBuilder.Position;
+        if (MethodSymbol.IsStatic)
+            argumentIndex -= 1;
+
+        ILGenerator.Emit(OpCodes.Starg, (short)argumentIndex);
     }
 
     private void EmitByRefAssignmentExpression(BoundByRefAssignmentExpression node, bool preserveResult)

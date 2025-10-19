@@ -205,7 +205,7 @@ internal class TypeMemberBinder : Binder
             }
         }
 
-        var paramInfos = new List<(string name, TypeSyntax typeSyntax, RefKind refKind, ParameterSyntax syntax)>();
+        var paramInfos = new List<(string name, TypeSyntax typeSyntax, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
@@ -213,7 +213,8 @@ internal class TypeMemberBinder : Binder
             if (typeSyntax is ByRefTypeSyntax)
                 refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
 
-            paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p));
+            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p, isMutable));
         }
 
         var modifiers = methodDecl.Modifiers;
@@ -343,14 +344,14 @@ internal class TypeMemberBinder : Binder
             hasInvalidAsyncReturnType = true;
         }
 
-        var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
-        foreach (var (paramName, typeSyntax, refKind, syntax) in paramInfos)
+        var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
+        foreach (var (paramName, typeSyntax, refKind, syntax, isMutable) in paramInfos)
         {
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
             var resolvedType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
                 ? methodBinder.ResolveType(typeSyntax, refKindForType)
                 : methodBinder.ResolveType(typeSyntax);
-            resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax));
+            resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax, isMutable));
         }
 
         ITypeSymbol? receiverType = null;
@@ -431,7 +432,7 @@ internal class TypeMemberBinder : Binder
             parameters.Add(selfParameter);
         }
 
-        foreach (var (paramName, paramType, refKind, syntax) in resolvedParamInfos)
+        foreach (var (paramName, paramType, refKind, syntax, isMutable) in resolvedParamInfos)
         {
             var defaultResult = ProcessParameterDefault(
                 syntax,
@@ -449,7 +450,8 @@ internal class TypeMemberBinder : Binder
                 [syntax.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue
+                defaultResult.ExplicitDefaultValue,
+                isMutable
             );
             parameters.Add(pSymbol);
         }
@@ -551,7 +553,7 @@ internal class TypeMemberBinder : Binder
         if (isStatic)
             ctorAccessibility = Accessibility.Private;
 
-        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
+        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
@@ -563,7 +565,8 @@ internal class TypeMemberBinder : Binder
             var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
                 ? ResolveType(typeSyntax, refKindForType)
                 : ResolveType(typeSyntax);
-            paramInfos.Add((p.Identifier.ValueText, pType, refKind, p));
+            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
         CheckForDuplicateSignature(".ctor", _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation(), ctorDecl);
@@ -583,7 +586,7 @@ internal class TypeMemberBinder : Binder
 
         var parameters = new List<SourceParameterSymbol>();
         var seenOptionalParameter = false;
-        foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
+        foreach (var (paramName, paramType, refKind, syntax, isMutable) in paramInfos)
         {
             var defaultResult = ProcessParameterDefault(
                 syntax,
@@ -601,7 +604,8 @@ internal class TypeMemberBinder : Binder
                 [syntax.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue
+                defaultResult.ExplicitDefaultValue,
+                isMutable
             );
             parameters.Add(pSymbol);
         }
@@ -638,7 +642,7 @@ internal class TypeMemberBinder : Binder
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var ctorAccessibility = AccessibilityUtilities.DetermineAccessibility(ctorDecl.Modifiers, defaultAccessibility);
 
-        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
+        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
@@ -650,7 +654,8 @@ internal class TypeMemberBinder : Binder
             var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
                 ? ResolveType(typeSyntax, refKindForType)
                 : ResolveType(typeSyntax);
-            paramInfos.Add((p.Identifier.ValueText, pType, refKind, p));
+            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+            paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
         CheckForDuplicateSignature(ctorDecl.Identifier.ValueText, ctorDecl.Identifier.ValueText, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.Identifier.GetLocation(), ctorDecl);
@@ -670,7 +675,7 @@ internal class TypeMemberBinder : Binder
 
         var parameters = new List<SourceParameterSymbol>();
         var seenOptionalParameter = false;
-        foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
+        foreach (var (paramName, paramType, refKind, syntax, isMutable) in paramInfos)
         {
             var defaultResult = ProcessParameterDefault(
                 syntax,
@@ -688,7 +693,8 @@ internal class TypeMemberBinder : Binder
                 [syntax.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue
+                defaultResult.ExplicitDefaultValue,
+                isMutable
             );
             parameters.Add(pSymbol);
         }
@@ -1089,7 +1095,7 @@ internal class TypeMemberBinder : Binder
         var explicitInterfaceSpecifier = indexerDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(indexerDecl.Identifier, explicitInterfaceSpecifier);
 
-        var indexerParametersBuilder = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool HasDefaultValue, object? DefaultValue)>();
+        var indexerParametersBuilder = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool IsMutable, bool HasDefaultValue, object? DefaultValue)>();
         var seenOptionalParameter = false;
         foreach (var p in indexerDecl.ParameterList.Parameters)
         {
@@ -1111,7 +1117,9 @@ internal class TypeMemberBinder : Binder
                 _diagnostics,
                 ref seenOptionalParameter);
 
-            indexerParametersBuilder.Add((p, type, refKind, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
+            var isMutable = p.Modifiers.Any(m => m.Kind == SyntaxKind.VarKeyword);
+
+            indexerParametersBuilder.Add((p, type, refKind, isMutable, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
         }
 
         var indexerParameters = indexerParametersBuilder.ToArray();
@@ -1338,7 +1346,8 @@ internal class TypeMemberBinder : Binder
                         [param.Syntax.GetReference()],
                         param.RefKind,
                         param.HasDefaultValue,
-                        param.DefaultValue));
+                        param.DefaultValue,
+                        param.IsMutable));
                 }
                 if (!isGet)
                 {

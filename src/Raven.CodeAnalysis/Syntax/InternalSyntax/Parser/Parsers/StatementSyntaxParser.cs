@@ -512,13 +512,19 @@ internal class StatementSyntaxParser : SyntaxParser
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
-            SyntaxList modifiers = SyntaxList.Empty;
+        SyntaxList modifiers = SyntaxList.Empty;
 
-            SyntaxToken modifier;
-            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
+        while (true)
+        {
+            var nextModifier = PeekToken();
+            if (nextModifier.Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword or SyntaxKind.VarKeyword or SyntaxKind.LetKeyword)
             {
-                modifiers = modifiers.Add(modifier);
+                modifiers = modifiers.Add(ReadToken());
+                continue;
             }
+
+            break;
+        }
 
             SyntaxToken name;
             if (CanTokenBeIdentifier(PeekToken()))

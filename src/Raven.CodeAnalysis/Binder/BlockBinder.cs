@@ -4082,19 +4082,39 @@ partial class BlockBinder : Binder
             var parameterSymbol = parameterAccess.Parameter;
             var parameterType = parameterSymbol.Type;
 
-            if (parameterType is not ByRefTypeSymbol byRefParameterType ||
-                parameterSymbol.RefKind is not (RefKind.Ref or RefKind.Out))
+            if (!parameterSymbol.IsMutable)
             {
                 _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
             var right2 = BindExpression(rightSyntax);
-            var converted = ConvertValueForAssignment(right2, byRefParameterType.ElementType, rightSyntax);
-            if (converted is BoundErrorExpression)
-                return converted;
+            if (parameterType is ByRefTypeSymbol byRefParameterType &&
+                parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
+            {
+                var converted = ConvertValueForAssignment(right2, byRefParameterType.ElementType, rightSyntax);
+                if (converted is BoundErrorExpression)
+                    return converted;
 
-            return new BoundByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, converted);
+                return new BoundByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, converted);
+            }
+
+            if (parameterType.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(right2))
+            {
+                if (!IsAssignable(parameterType, right2.Type!, out var conversion))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        parameterType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        rightSyntax.GetLocation());
+                    return new BoundErrorExpression(parameterType, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                right2 = ApplyConversion(right2, parameterType, conversion, rightSyntax);
+            }
+
+            return new BoundParameterAssignmentExpression(parameterSymbol, right2);
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
