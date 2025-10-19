@@ -639,6 +639,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             case SyntaxKind.LetKeyword:
             case SyntaxKind.VarKeyword:
+            case SyntaxKind.ConstKeyword:
                 if (PeekToken(1).Kind != SyntaxKind.OpenParenToken)
                     return ParseLocalDeclarationStatementSyntax();
                 break;

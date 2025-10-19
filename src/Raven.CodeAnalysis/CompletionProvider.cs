@@ -642,7 +642,7 @@ public static class CompletionProvider
         }
 
         // Language keywords
-        var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "new", "true", "false", "null" };
+        var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "const", "new", "true", "false", "null" };
         foreach (var keyword in keywords.Where(k => string.IsNullOrEmpty(tokenValueText) || k.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)))
         {
             if (seen.Add(keyword))

@@ -73,6 +73,14 @@
     Title="Variable shadows outer scope variable"
     Message="Variable '{name}' shadows a variable declared in an outer scope"
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0169" Identifier="ConstLocalMustBeConstant"
+    Title="Const local requires a constant initializer"
+    Message="Const local '{name}' must be initialized with a compile-time constant" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0170" Identifier="ConstLocalCannotConvert"
+    Title="Const local initializer cannot be converted"
+    Message="The initializer for const local '{name}' cannot be converted to '{typeName}'" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0191" Identifier="ReadOnlyFieldCannotBeAssignedTo"
     Title="A readonly field cannot be assigned to (except in a constructor or a variable initializer)"
     Message="A readonly field cannot be assigned to (except in a constructor or a variable initializer)"

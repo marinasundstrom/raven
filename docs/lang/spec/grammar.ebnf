@@ -138,7 +138,7 @@ Statement                ::= LocalDeclaration
                            | TryStatement
                            | ExpressionStatement ;
 
-LocalDeclaration         ::= ('let' | 'var') LocalVariableDeclarators ;
+LocalDeclaration         ::= ('let' | 'var' | 'const') LocalVariableDeclarators ;
 LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 

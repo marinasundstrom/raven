@@ -51,7 +51,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `continue`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `const`, `continue`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
@@ -149,19 +149,22 @@ Structured exception handling is covered in [Error handling](error-handling.md).
 
 ### Variable bindings
 
-`let` introduces an immutable binding while `var` introduces a mutable one. A binding
-may declare its type explicitly or rely on the compiler to infer it from the
-initializer expression.
+`let` introduces an immutable binding, `var` introduces a mutable one, and `const`
+produces an immutable binding whose value is baked in at compile time. A binding may
+declare its type explicitly or rely on the compiler to infer it from the initializer
+expression.
 
 ```raven
-let answer = 42        // inferred int
-var name = "Alice"   // inferred string, mutable
-let count: long = 0    // explicit type
+let answer = 42         // inferred int
+var name = "Alice"    // inferred string, mutable
+const greeting = "Hi"  // inferred string constant
+let count: long = 0     // explicit type
 ```
 
 If the type annotation is omitted, an initializer is required so the compiler can
-determine the variable's type. With an explicit type, the initializer may be
-omitted.
+determine the variable's type. Const bindings always require an initializer, even when
+annotated, and the expression must be a .NET compile-time constant (numeric and
+character literals, `true`/`false`, strings, or `null`).
 
 Control-flow constructs such as `if`, `while`, and `for` are expressions whose
 statement forms are described in [Control flow](control-flow.md).
@@ -188,7 +191,7 @@ func sayHello() {
 Many expressions rely on the type expected by their context, called the **target type**.
 For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type
 `Grades` to resolve the member. Numeric literals and `null` similarly adapt to their
-target types. Type inference for `let` and `var` bindings uses this mechanism to
+target types. Type inference for `let`, `var`, and `const` bindings uses this mechanism to
 determine the variable's type from its initializer.
 
 ### Type inference
@@ -1691,6 +1694,23 @@ x = "Bar"
 var y: int = 2
 y = 3
 ```
+
+### Constant binding (`const`)
+
+A `const` binding is immutable like `let` but additionally requires a compile-time
+constant initializer. The compiler embeds the resulting value directly into the
+generated IL so the symbol can be referenced from other assemblies without
+executing the initializer.
+
+```raven
+const pi: double = 3.141592653589793
+const banner = "Ready"      // inferred string constant
+```
+
+Const bindings support the primitive constant forms recognized by .NET: numeric and
+character literals (including the appropriate suffixes), `true`/`false`, strings, and
+`null` for reference types. Type inference works the same way as `let`; the initializer
+must still be a compile-time constant.
 
 Tuple patterns let you bind or assign multiple values at once. The outer
 `let`/`var` controls the tuple's mutability, while each element uses a

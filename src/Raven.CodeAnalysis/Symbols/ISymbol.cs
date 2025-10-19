@@ -515,6 +515,10 @@ public interface ILocalSymbol : ISymbol
     ITypeSymbol Type { get; }
 
     bool IsMutable { get; }
+
+    bool IsConst { get; }
+
+    object? ConstantValue { get; }
 }
 
 public interface IErrorTypeSymbol : INamedTypeSymbol
