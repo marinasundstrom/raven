@@ -106,6 +106,12 @@ position to the corresponding statement node when the value is discarded.
 `ExpressionStatement` covers the remaining expressions that may appear on their
 own line and always evaluates to `unit`.
 
+When an expression produces a meaningful value that should be ignored, assign it
+to the discard identifier: `_ = expensiveCall()`. The assignment uses the same
+pattern rules as tuple deconstruction, so `_` never introduces a binding but still
+forces the right-hand expression to execute. This makes it explicit that the
+result is deliberately ignored.
+
 ## Return statements
 
 The `return` keyword exits a function, lambda, or property accessor. Because

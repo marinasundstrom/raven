@@ -181,12 +181,14 @@ Assignable               ::= Identifier
                            | MemberBindingExpression
                            | ElementAccessExpression ;
 
-Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern ;
+Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern | DiscardPattern ;
 
 VariablePattern          ::= ('let' | 'var') VariableDesignation ;
 DeclarationPattern       ::= Type VariableDesignation ;
 TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [Identifier ':'] Pattern ;
+
+DiscardPattern           ::= '_' | Type '_' ;
 
 VariableDesignation      ::= VariableDesignationCore [':' Type] ;
 VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;

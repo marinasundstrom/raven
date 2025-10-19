@@ -298,6 +298,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.OpenParenToken => true,
             SyntaxKind.LetKeyword => true,
             SyntaxKind.VarKeyword => true,
+            SyntaxKind.UnderscoreToken => true,
             _ => false,
         };
     }

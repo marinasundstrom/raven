@@ -58,6 +58,33 @@ first + second
     }
 
     [Fact]
+    public void DiscardAssignmentStatement_BindsDiscardPattern()
+    {
+        const string source = "_ = 1";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        Assert.IsType<BoundDiscardPattern>(patternAssignment.Pattern);
+
+        var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, patternAssignment.Type));
+    }
+
+    [Fact]
     public void TuplePatternAssignment_WithExistingLocals_ReusesBindings()
     {
         const string source = """
