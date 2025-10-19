@@ -104,8 +104,10 @@ internal sealed class AssignmentCollector : SyntaxWalker
 
     public override void VisitAssignmentStatement(AssignmentStatementSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundAssignmentStatement;
-        if (bound?.Expression.Symbol is ILocalSymbol local)
+        if (_semanticModel.GetBoundNode(node) is BoundAssignmentStatement bound)
+            CollectAssignedLocals(bound.Expression);
+
+        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
             Written.Add(local);
 
         base.VisitAssignmentStatement(node);
@@ -113,8 +115,10 @@ internal sealed class AssignmentCollector : SyntaxWalker
 
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundAssignmentExpression;
-        if (bound?.Symbol is ILocalSymbol local)
+        if (_semanticModel.GetBoundNode(node) is BoundAssignmentExpression bound)
+            CollectAssignedLocals(bound);
+
+        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
             Written.Add(local);
 
         base.VisitAssignmentExpression(node);
@@ -141,6 +145,49 @@ internal sealed class AssignmentCollector : SyntaxWalker
         }
 
         base.VisitLocalDeclarationStatement(node);
+    }
+
+    private void CollectAssignedLocals(BoundAssignmentExpression? assignment)
+    {
+        switch (assignment)
+        {
+            case null:
+                return;
+            case BoundLocalAssignmentExpression localAssignment:
+                Written.Add(localAssignment.Local);
+                break;
+            case BoundPatternAssignmentExpression patternAssignment:
+                CollectAssignedLocals(patternAssignment.Pattern);
+                break;
+        }
+    }
+
+    private void CollectAssignedLocals(BoundPattern pattern)
+    {
+        switch (pattern)
+        {
+            case BoundDeclarationPattern declaration when declaration.Designator is BoundSingleVariableDesignator single:
+                Written.Add(single.Local);
+                break;
+            case BoundTuplePattern tuple:
+                foreach (var element in tuple.Elements)
+                    CollectAssignedLocals(element);
+                break;
+            case BoundBinaryPattern binary:
+                CollectAssignedLocals(binary.Left);
+                CollectAssignedLocals(binary.Right);
+                break;
+            case BoundUnaryPattern unary:
+                CollectAssignedLocals(unary.Pattern);
+                break;
+            default:
+                foreach (var designator in pattern.GetDesignators())
+                {
+                    if (designator is BoundSingleVariableDesignator nested)
+                        Written.Add(nested.Local);
+                }
+                break;
+        }
     }
 }
 
@@ -266,9 +313,10 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundAssignmentExpression;
+        if (_semanticModel.GetBoundNode(node) is BoundAssignmentExpression bound)
+            MarkAssigned(bound);
 
-        if (bound?.Symbol is ILocalSymbol local)
+        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
         {
             _writtenInside.Add(local);
             _dataFlowsOut.Add(local);
@@ -279,9 +327,10 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitAssignmentStatement(AssignmentStatementSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundAssignmentStatement;
+        if (_semanticModel.GetBoundNode(node) is BoundAssignmentStatement bound)
+            MarkAssigned(bound.Expression);
 
-        if (bound?.Expression.Symbol is ILocalSymbol local)
+        foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, node.Left))
         {
             _writtenInside.Add(local);
             _dataFlowsOut.Add(local);
@@ -335,6 +384,59 @@ internal sealed class DataFlowWalker : SyntaxWalker
         _assignedOnEntry = assigned;
     }
 
+    private void MarkAssigned(BoundAssignmentExpression? assignment)
+    {
+        switch (assignment)
+        {
+            case null:
+                return;
+            case BoundLocalAssignmentExpression localAssignment:
+                _writtenInside.Add(localAssignment.Local);
+                _dataFlowsOut.Add(localAssignment.Local);
+                break;
+            case BoundPatternAssignmentExpression patternAssignment:
+                foreach (var local in GetPatternLocals(patternAssignment.Pattern))
+                {
+                    _writtenInside.Add(local);
+                    _dataFlowsOut.Add(local);
+                }
+                break;
+        }
+    }
+
+    private static IEnumerable<ILocalSymbol> GetPatternLocals(BoundPattern pattern)
+    {
+        switch (pattern)
+        {
+            case BoundDeclarationPattern declaration when declaration.Designator is BoundSingleVariableDesignator single:
+                yield return single.Local;
+                yield break;
+            case BoundTuplePattern tuple:
+                foreach (var element in tuple.Elements)
+                {
+                    foreach (var local in GetPatternLocals(element))
+                        yield return local;
+                }
+                yield break;
+            case BoundBinaryPattern binary:
+                foreach (var local in GetPatternLocals(binary.Left))
+                    yield return local;
+                foreach (var local in GetPatternLocals(binary.Right))
+                    yield return local;
+                yield break;
+            case BoundUnaryPattern unary:
+                foreach (var local in GetPatternLocals(unary.Pattern))
+                    yield return local;
+                yield break;
+        }
+
+        foreach (var designator in pattern.GetDesignators())
+        {
+            if (designator is BoundSingleVariableDesignator nested)
+                yield return nested.Local;
+        }
+    }
+
     public DataFlowAnalysis ToResult()
     {
         return new DataFlowAnalysis
@@ -354,6 +456,55 @@ internal sealed class DataFlowWalker : SyntaxWalker
             WrittenOutside = _writtenOutside.ToImmutableArray(),
             Succeeded = true
         };
+    }
+}
+
+static class DataFlowAnalysisHelpers
+{
+    public static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, ExpressionOrPatternSyntax left)
+    {
+        return left switch
+        {
+            PatternSyntax pattern => GetAssignedLocals(semanticModel, pattern),
+            ExpressionSyntax expression => GetAssignedLocals(semanticModel, expression),
+            _ => Enumerable.Empty<ILocalSymbol>()
+        };
+    }
+
+    private static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, PatternSyntax pattern)
+    {
+        foreach (var identifier in pattern.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            if (semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol local && !string.IsNullOrEmpty(local.Name))
+                yield return local;
+        }
+
+        foreach (var designation in pattern.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
+        {
+            if (semanticModel.GetDeclaredSymbol(designation) is ILocalSymbol local && !string.IsNullOrEmpty(local.Name))
+                yield return local;
+        }
+    }
+
+    private static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, ExpressionSyntax expression)
+    {
+        switch (expression)
+        {
+            case IdentifierNameSyntax identifier when semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol local && !string.IsNullOrEmpty(local.Name):
+                yield return local;
+                yield break;
+            case TupleExpressionSyntax tuple:
+                foreach (var argument in tuple.Arguments)
+                {
+                    foreach (var local in GetAssignedLocals(semanticModel, argument.Expression))
+                        yield return local;
+                }
+                yield break;
+            case ParenthesizedExpressionSyntax parenthesized:
+                foreach (var local in GetAssignedLocals(semanticModel, parenthesized.Expression))
+                    yield return local;
+                yield break;
+        }
     }
 }
 
