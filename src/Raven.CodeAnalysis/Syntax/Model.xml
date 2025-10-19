@@ -554,7 +554,7 @@
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsAbstract="true" />
   </Node>
   <Node Name="VariableDeclaration" Inherits="Node">
-    <Slot Name="LetOrVarKeyword" Type="Token" />
+    <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Declarators" Type="SeparatedList" ElementType="VariableDeclarator" />
   </Node>
   <Node Name="LambdaExpression" Inherits="Expression" IsAbstract="true">
@@ -589,7 +589,7 @@
     <Slot Name="Right" Type="Pattern" />
   </Node>
   <Node Name="VariablePattern" Inherits="Pattern">
-    <Slot Name="LetOrVarKeyword" Type="Token" />
+    <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Designation" Type="VariableDesignation" />
   </Node>
   <Node Name="DiscardPattern" Inherits="Pattern">

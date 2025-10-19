@@ -695,7 +695,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
     {
-        var letOrVarKeyword = ReadToken();
+        var bindingKeyword = ReadToken();
 
         SyntaxToken identifier = MissingToken(SyntaxKind.IdentifierToken);
 
@@ -716,7 +716,7 @@ internal class StatementSyntaxParser : SyntaxParser
         var declarators = new SyntaxList(
             [VariableDeclarator(identifier, typeAnnotation, initializer)]);
 
-        return new VariableDeclarationSyntax(letOrVarKeyword, declarators);
+        return new VariableDeclarationSyntax(bindingKeyword, declarators);
     }
 
     private TypeAnnotationClauseSyntax? ParseTypeAnnotationClauseSyntax()

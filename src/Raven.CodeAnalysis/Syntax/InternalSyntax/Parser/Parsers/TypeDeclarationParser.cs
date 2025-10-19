@@ -772,12 +772,12 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var firstToken = ReadToken();
 
-        SyntaxToken letOrVarKeyword;
+        SyntaxToken bindingKeyword;
         SyntaxToken identifier;
 
-        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword)
+        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
         {
-            letOrVarKeyword = firstToken;
+            bindingKeyword = firstToken;
 
             if (CanTokenBeIdentifier(PeekToken()))
             {
@@ -792,10 +792,10 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             AddDiagnostic(
                 DiagnosticInfo.Create(
-                    CompilerDiagnostics.FieldDeclarationRequiresLetOrVar,
+                    CompilerDiagnostics.FieldDeclarationRequiresBindingKeyword,
                     GetSpanOfLastToken()));
 
-            letOrVarKeyword = MissingToken(SyntaxKind.LetKeyword);
+            bindingKeyword = MissingToken(SyntaxKind.LetKeyword);
 
             if (CanTokenBeIdentifier(firstToken))
             {
@@ -824,7 +824,7 @@ internal class TypeDeclarationParser : SyntaxParser
         var declarators = new SyntaxList(
             [VariableDeclarator(identifier, typeAnnotation, initializer)]);
 
-        return new VariableDeclarationSyntax(letOrVarKeyword, declarators);
+        return new VariableDeclarationSyntax(bindingKeyword, declarators);
     }
 
     private TypeAnnotationClauseSyntax? ParseTypeAnnotationClauseSyntax()

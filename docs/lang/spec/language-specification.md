@@ -1712,6 +1712,10 @@ character literals (including the appropriate suffixes), `true`/`false`, strings
 `null` for reference types. Type inference works the same way as `let`; the initializer
 must still be a compile-time constant.
 
+Const applies to both local bindings and fields. Member declarations treat `const`
+fields as implicitly `static`; the value is emitted as metadata so other assemblies can
+import it without running an initializer.
+
 Tuple patterns let you bind or assign multiple values at once. The outer
 `let`/`var` controls the tuple's mutability, while each element uses a
 designation (possibly nested) to capture or discard the corresponding value.

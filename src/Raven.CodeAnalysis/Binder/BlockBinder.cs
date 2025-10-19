@@ -100,7 +100,7 @@ partial class BlockBinder : Binder
     {
         var name = variableDeclarator.Identifier.ValueText;
         var decl = (VariableDeclarationSyntax)variableDeclarator.Parent!;
-        var bindingKeyword = decl.LetOrVarKeyword;
+        var bindingKeyword = decl.BindingKeyword;
         var isUsingDeclaration = decl.Parent is UsingDeclarationStatementSyntax;
         var initializer = variableDeclarator.Initializer;
 
@@ -4161,6 +4161,12 @@ partial class BlockBinder : Binder
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
+            if (fieldSymbol.IsLiteral)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+                return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
+            }
+
             var right2 = BindExpression(rightSyntax);
 
             if (right2 is BoundEmptyCollectionExpression)
@@ -4323,7 +4329,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindVariablePatternForAssignment(VariablePatternSyntax pattern, ITypeSymbol valueType)
     {
-        var isMutable = pattern.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
+        var isMutable = pattern.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
         return BindVariableDesignationForAssignment(pattern.Designation, valueType, isMutable);
     }
 

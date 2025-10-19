@@ -131,7 +131,9 @@ internal class TypeMemberBinder : Binder
 
     public void BindFieldDeclaration(FieldDeclarationSyntax fieldDecl)
     {
-        var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var bindingKeyword = fieldDecl.Declaration.BindingKeyword;
+        var isConstDeclaration = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
+        var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
         var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
             fieldDecl.Modifiers,
             AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType));
@@ -143,6 +145,9 @@ internal class TypeMemberBinder : Binder
                 : ResolveType(decl.TypeAnnotation.Type);
 
             BoundExpression? initializer = null;
+            object? constantValue = null;
+            var constantValueComputed = false;
+
             if (decl.Initializer is not null)
             {
                 var exprBinder = new BlockBinder(_containingType, this);
@@ -150,20 +155,50 @@ internal class TypeMemberBinder : Binder
 
                 foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
                     _diagnostics.Report(diag);
+
+                if (isConstDeclaration && decl.TypeAnnotation is null && initializer?.Type is { } inferred)
+                    fieldType = TypeSymbolNormalization.NormalizeForInference(inferred);
+
+                if (isConstDeclaration && initializer is not BoundErrorExpression)
+                {
+                    if (!ConstantValueEvaluator.TryEvaluate(decl.Initializer.Value, out var evaluated))
+                    {
+                        _diagnostics.ReportConstFieldMustBeConstant(decl.Identifier.ValueText, decl.Initializer.Value.GetLocation());
+                    }
+                    else if (!ConstantValueEvaluator.TryConvert(fieldType, evaluated, out constantValue))
+                    {
+                        var display = fieldType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        _diagnostics.ReportConstFieldCannotConvert(decl.Identifier.ValueText, display, decl.Initializer.Value.GetLocation());
+                    }
+                    else
+                    {
+                        constantValueComputed = true;
+                        initializer = null;
+                    }
+                }
             }
+            else
+            {
+                if (isConstDeclaration)
+                    _diagnostics.ReportConstFieldRequiresInitializer(decl.Identifier.ValueText, decl.Identifier.GetLocation());
+            }
+
+            var isLiteral = isConstDeclaration && constantValueComputed;
+            var initializerForSymbol = isLiteral ? null : initializer;
+            var constantValueForSymbol = isLiteral ? constantValue : null;
 
             _ = new SourceFieldSymbol(
                 decl.Identifier.ValueText,
                 fieldType,
                 isStatic: isStatic,
-                isLiteral: false,
-                constantValue: null,
+                isLiteral: isLiteral,
+                constantValue: constantValueForSymbol,
                 _containingType,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [decl.GetLocation()],
                 [decl.GetReference()],
-                initializer,
+                initializerForSymbol,
                 declaredAccessibility: fieldAccessibility
             );
         }

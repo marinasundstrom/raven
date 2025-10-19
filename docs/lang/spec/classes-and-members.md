@@ -36,10 +36,16 @@ class Counter
 
 **Notes**
 
-* Fields use `let`/`var` and require `;` after declarators.
+* Fields use binding keywords (`let`, `var`, or `const`) and require `;` after declarators.
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
+
+`const` fields behave like their local counterparts: they must specify a
+compile-time constant initializer, and the compiler records the folded value in
+metadata. Raven treats these declarations as implicitly `static` even if the
+modifier is omitted, and any attempt to reassign the field produces a diagnostic
+just like rebinding an immutable local.
 
 ### Generic types
 
