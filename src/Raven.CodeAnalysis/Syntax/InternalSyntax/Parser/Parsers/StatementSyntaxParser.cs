@@ -653,11 +653,7 @@ internal class StatementSyntaxParser : SyntaxParser
         if (expression is AssignmentExpressionSyntax assignment)
         {
             var assignmentTerminatorToken = ConsumeTerminator();
-            var kind = assignment.Kind switch
-            {
-                SyntaxKind.SimpleAssignmentExpression => SyntaxKind.SimpleAssignmentStatement,
-                _ => SyntaxKind.SimpleAssignmentStatement,
-            };
+            var kind = GetAssignmentStatementKind(assignment.Kind, assignment.Left);
 
             return AssignmentStatement(kind, assignment.Left, assignment.OperatorToken, assignment.Right, assignmentTerminatorToken, Diagnostics);
         }
@@ -668,6 +664,18 @@ internal class StatementSyntaxParser : SyntaxParser
     }
 
     public StatementSyntax? LastStatement { get; set; }
+
+    private static SyntaxKind GetAssignmentStatementKind(SyntaxKind expressionKind, ExpressionOrPatternSyntax left)
+    {
+        var isDiscard = left is DiscardPatternSyntax or DiscardExpressionSyntax;
+
+        return expressionKind switch
+        {
+            SyntaxKind.SimpleAssignmentExpression when isDiscard => SyntaxKind.DiscardAssignmentStatement,
+            SyntaxKind.SimpleAssignmentExpression => SyntaxKind.SimpleAssignmentStatement,
+            _ => SyntaxKind.SimpleAssignmentStatement,
+        };
+    }
 
     private LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
     {

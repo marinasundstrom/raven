@@ -81,6 +81,9 @@ semantic kinds for:
   well as individual `CatchClause` nodes.
 - Exception expressions: `TryExpression` for expression-based exception
   handling forms.
+- Assignments: `Assignment` operations appear for both assignment expressions
+  and statements. Statement syntax nodes expose `AssignmentStatementSyntax.IsDiscard`
+  so analyzers can spot `_ = expression` patterns.
 - Indirection and access: `AddressOf`, `ArrayElement`, and `IndexerElement`
   expressions.
 - Contextual references: `NamespaceExpression` and `SelfReference` to model

@@ -1749,11 +1749,13 @@ Use `_` to discard unwanted elements. Nested tuples work the same way:
 var ((x, y), let magnitude, _) = samples()
 ```
 
-The discard pattern also appears in ordinary assignment statements. Writing `_ =
-Compute()` evaluates the right-hand expression and then ignores the result.
-Because the left-hand side is a pattern, the same rules as tuple assignment
-apply: a discard never declares a binding and may carry a type when needed to
-drive overload resolution.
+The discard identifier also appears in ordinary assignment statements. Writing
+`_ = Compute()` produces a discard assignment statement whose left-hand side is a
+dedicated discard expression. The assignment still evaluates the right-hand
+expression, but the result is ignored. Discard assignments follow the same rules
+as tuple assignment: they never declare a binding and may carry a type
+annotation when overload resolution needs guidance. `AssignmentStatementSyntax`
+exposes an `IsDiscard` helper when analyzers need to detect this pattern.
 
 ### Resource declarations (`using`)
 

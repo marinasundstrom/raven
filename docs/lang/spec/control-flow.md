@@ -96,21 +96,27 @@ let a = 42
 let b = 1; b = 3
 ```
 
+## Assignment statements
+
+Assignments in statement position produce an `AssignmentStatement` node rather
+than flowing through `ExpressionStatement`. The left-hand side accepts both
+assignable expressions and patterns, mirroring tuple and declaration
+assignments. Raven recognizes `_ = expression` as a discard assignment where the
+left-hand side is a dedicated discard expression. The assignment still runs the
+right-hand side but the result is explicitly ignored.
+
+`AssignmentStatementSyntax.IsDiscard` reports whether the assignment targets the
+discard identifier (either via a discard pattern or the discard expression).
+
 ## Expression statements
 
-Any expression can appear as a statement.
+Most other expressions can appear as statements.
 
 Control flow constructs such as `if`, `while`, and `for` also have dedicated
 statement forms for convenience. The parser rewrites an expression in statement
 position to the corresponding statement node when the value is discarded.
 `ExpressionStatement` covers the remaining expressions that may appear on their
 own line and always evaluates to `unit`.
-
-When an expression produces a meaningful value that should be ignored, assign it
-to the discard identifier: `_ = expensiveCall()`. The assignment uses the same
-pattern rules as tuple deconstruction, so `_` never introduces a binding but still
-forces the right-hand expression to execute. This makes it explicit that the
-result is deliberately ignored.
 
 ## Return statements
 

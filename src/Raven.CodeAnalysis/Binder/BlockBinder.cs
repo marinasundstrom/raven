@@ -4024,6 +4024,15 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindAssignment(ExpressionSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node)
     {
+        if (leftSyntax is DiscardExpressionSyntax)
+        {
+            var right = BindExpression(rightSyntax);
+            var assignmentType = right.Type ?? Compilation.ErrorTypeSymbol;
+            var discardType = assignmentType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : assignmentType;
+            var pattern = new BoundDiscardPattern(discardType);
+            return new BoundPatternAssignmentExpression(assignmentType, pattern, right);
+        }
+
         if (leftSyntax is ElementAccessExpressionSyntax elementAccess)
         {
             var right = BindExpression(rightSyntax);

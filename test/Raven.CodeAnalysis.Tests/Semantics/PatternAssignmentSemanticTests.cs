@@ -76,6 +76,7 @@ first + second
             .OfType<AssignmentStatementSyntax>()
             .Single();
 
+        Assert.True(assignment.IsDiscard);
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
         var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
         Assert.IsType<BoundDiscardPattern>(patternAssignment.Pattern);
