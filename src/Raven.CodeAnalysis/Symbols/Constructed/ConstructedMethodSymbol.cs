@@ -128,7 +128,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             var substitutedElement = Substitute(byRef.ElementType);
 
             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                return new ByRefTypeSymbol(substitutedElement, byRef.RefKind);
+                return new ByRefTypeSymbol(substitutedElement);
 
             return type;
         }

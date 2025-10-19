@@ -24,8 +24,8 @@ class C {
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
         var type = Assert.IsType<ByRefTypeSymbol>(symbol.Type);
-        Assert.Equal(RefKind.Ref, type.RefKind);
         Assert.Equal(RefKind.Ref, symbol.RefKind);
+        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
     }
 
     [Fact]
@@ -43,8 +43,8 @@ class C {
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
         var type = Assert.IsType<ByRefTypeSymbol>(symbol.Type);
-        Assert.Equal(RefKind.Out, type.RefKind);
         Assert.Equal(RefKind.Out, symbol.RefKind);
+        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
     }
 
     [Fact]
@@ -62,8 +62,8 @@ class C {
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
         var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
-        Assert.Equal(RefKind.Ref, type.RefKind);
         Assert.Equal(RefKind.Ref, parameter.RefKind);
+        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
     }
 
     [Fact]
@@ -81,8 +81,8 @@ class C {
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
         var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
-        Assert.Equal(RefKind.Out, type.RefKind);
         Assert.Equal(RefKind.Out, parameter.RefKind);
+        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
     }
 
     [Fact]
@@ -100,8 +100,8 @@ func outer() {
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
         var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
-        Assert.Equal(RefKind.Ref, type.RefKind);
         Assert.Equal(RefKind.Ref, parameter.RefKind);
+        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
     }
 
     [Fact]
@@ -119,8 +119,8 @@ func outer() {
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
         var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
-        Assert.Equal(RefKind.Out, type.RefKind);
         Assert.Equal(RefKind.Out, parameter.RefKind);
+        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
     }
 
     [Fact]

@@ -5,11 +5,8 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed class ByRefTypeSymbol : SourceSymbol, ITypeSymbol
 {
     public ITypeSymbol ElementType { get; }
-    public RefKind RefKind { get; }
 
-    public ByRefTypeSymbol(
-        ITypeSymbol elementType,
-        RefKind refKind = RefKind.Ref)
+    public ByRefTypeSymbol(ITypeSymbol elementType)
         : base(
             SymbolKind.Type, "",
             containingSymbol: elementType.ContainingSymbol ?? throw new ArgumentNullException(nameof(elementType.ContainingSymbol)),
@@ -18,15 +15,9 @@ internal sealed class ByRefTypeSymbol : SourceSymbol, ITypeSymbol
             locations: [], declaringSyntaxReferences: [])
     {
         ElementType = elementType;
-        RefKind = refKind;
     }
 
-    public override string Name => RefKind switch
-    {
-        RefKind.In => $"in {ElementType.Name}",
-        RefKind.Out => $"out {ElementType.Name}",
-        _ => $"{ElementType.Name}&"
-    };
+    public override string Name => $"{ElementType.Name}&";
 
     public override string MetadataName => ElementType.MetadataName + "&";
 
@@ -65,10 +56,9 @@ internal sealed class ByRefTypeSymbol : SourceSymbol, ITypeSymbol
 
     public override bool Equals(object? obj) =>
         obj is ByRefTypeSymbol other &&
-        RefKind == other.RefKind &&
         SymbolEqualityComparer.Default.Equals(ElementType, other.ElementType);
 
-    public override int GetHashCode() => HashCode.Combine(ElementType, (int)RefKind);
+    public override int GetHashCode() => HashCode.Combine(ElementType);
 
     public override void Accept(SymbolVisitor visitor) => visitor.Visit(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.Visit(this);

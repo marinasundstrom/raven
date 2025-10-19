@@ -34,11 +34,7 @@ internal class TypeResolver(Compilation compilation)
             if (nullInfo.ElementType is not null)
                 elementType = ApplyNullability(elementType, nullInfo.ElementType);
 
-            var refKind = parameterInfo.IsOut
-                ? RefKind.Out
-                : parameterInfo.IsIn ? RefKind.In : RefKind.Ref;
-
-            return new ByRefTypeSymbol(elementType, refKind);
+            return new ByRefTypeSymbol(elementType);
         }
 
         var declaredType = ResolveType(parameterType, methodContext);
