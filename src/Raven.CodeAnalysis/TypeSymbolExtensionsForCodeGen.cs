@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -77,10 +78,11 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol is ITupleTypeSymbol tupleSymbol)
         {
-            var tupleClrType = GetClrTypeInternal(tupleSymbol.UnderlyingTupleType, codeGen, treatUnitAsVoid, isTopLevel: false);
-            return tupleClrType.MakeGenericType(tupleSymbol.TupleElements
+            var elementClrTypes = tupleSymbol.TupleElements
                 .Select(e => GetClrTypeInternal(e.Type, codeGen, treatUnitAsVoid, isTopLevel: false))
-                .ToArray());
+                .ToArray();
+
+            return GetValueTupleClrType(elementClrTypes, compilation);
         }
 
         if (typeSymbol is NullTypeSymbol)
@@ -230,6 +232,31 @@ public static class TypeSymbolExtensionsForCodeGen
             SpecialType.System_Unit => FromRuntime(compilation, "System.Void"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
+    }
+
+    internal static Type GetValueTupleClrType(Type[] elementClrTypes, Compilation compilation)
+    {
+        if (elementClrTypes.Length == 0)
+            return ResolveRuntimeTypeOrThrow(compilation, "System.ValueTuple");
+
+        if (elementClrTypes.Length <= 7)
+        {
+            var metadataName = $"System.ValueTuple`{elementClrTypes.Length}";
+            var definition = ResolveRuntimeTypeOrThrow(compilation, metadataName);
+            return definition.MakeGenericType(elementClrTypes);
+        }
+
+        var restLength = elementClrTypes.Length - 7;
+        var restTypes = new Type[restLength];
+        Array.Copy(elementClrTypes, 7, restTypes, 0, restLength);
+        var restTuple = GetValueTupleClrType(restTypes, compilation);
+
+        var args = new Type[8];
+        Array.Copy(elementClrTypes, args, 7);
+        args[7] = restTuple;
+
+        var valueTuple8 = ResolveRuntimeTypeOrThrow(compilation, "System.ValueTuple`8");
+        return valueTuple8.MakeGenericType(args);
     }
 
     private static Type ResolveRuntimeTypeOrThrow(Compilation compilation, string metadataName)

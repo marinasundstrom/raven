@@ -454,7 +454,11 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (symbol is ITupleTypeSymbol tuple)
         {
-            return GetProjectedRuntimeType(tuple.UnderlyingTupleType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            var elementClrTypes = tuple.TupleElements
+                .Select(element => GetProjectedRuntimeType(element.Type, codeGen, treatUnitAsVoid, isTopLevel: false))
+                .ToArray();
+
+            return TypeSymbolExtensionsForCodeGen.GetValueTupleClrType(elementClrTypes, codeGen.Compilation);
         }
 
         if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
