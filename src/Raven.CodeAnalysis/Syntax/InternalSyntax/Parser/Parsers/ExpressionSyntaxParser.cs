@@ -279,6 +279,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var checkpoint = CreateCheckpoint("assignment-pattern");
 
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken) &&
+            ContainsAssignmentBeforeMatchingCloseParen())
+        {
+            checkpoint.Dispose();
+            return false;
+        }
+
         var parsedPattern = new PatternSyntaxParser(this).ParsePattern();
 
         if (!PeekToken().IsKind(SyntaxKind.EqualsToken))
@@ -289,6 +296,39 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         pattern = parsedPattern;
         return true;
+    }
+
+    private bool ContainsAssignmentBeforeMatchingCloseParen()
+    {
+        var depth = 0;
+        var offset = 0;
+
+        while (true)
+        {
+            var token = PeekToken(offset++);
+
+            if (token.Kind == SyntaxKind.EndOfFileToken)
+                return false;
+
+            if (token.Kind == SyntaxKind.OpenParenToken)
+            {
+                depth++;
+                continue;
+            }
+
+            if (token.Kind == SyntaxKind.CloseParenToken)
+            {
+                depth--;
+
+                if (depth == 0)
+                    return false;
+
+                continue;
+            }
+
+            if (token.Kind == SyntaxKind.EqualsToken && depth > 0)
+                return true;
+        }
     }
 
     private static bool IsPossibleAssignmentPatternStart(SyntaxToken token)
