@@ -46,12 +46,12 @@ class MethodBodyBinder : BlockBinder
                 [block.GetLocation()],
                 [block.GetReference()]);
 
-            var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal);
+            var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal, Compilation);
             bound = rewriter.Rewrite(bound);
             _namedConstructorRewritten = true;
         }
 
-        var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var unit = Compilation.UnitTypeSymbol;
         var skipTrailingExpressionCheck = ShouldSkipTrailingExpressionCheck(unit);
 
         if (!skipTrailingExpressionCheck &&
@@ -112,11 +112,13 @@ class MethodBodyBinder : BlockBinder
     {
         private readonly IMethodSymbol _methodSymbol;
         private readonly SourceLocalSymbol _self;
+        private readonly Compilation _compilation;
 
-        public NamedConstructorRewriter(IMethodSymbol methodSymbol, SourceLocalSymbol self)
+        public NamedConstructorRewriter(IMethodSymbol methodSymbol, SourceLocalSymbol self, Compilation compilation)
         {
             _methodSymbol = methodSymbol;
             _self = self;
+            _compilation = compilation;
         }
 
         private BoundLocalAccess CreateSelfAccess() => new BoundLocalAccess(_self);
@@ -157,6 +159,7 @@ class MethodBodyBinder : BlockBinder
             // Rewrite field and property assignments that implicitly target `self`.
             // The binder leaves such assignments with a null receiver. After introducing
             // the `__self` local, these assignments should explicitly reference it.
+            var factory = _compilation.BoundNodeFactory;
             for (var i = 1; i < statements.Count - 1; i++)
             {
                 switch (statements[i])
@@ -165,12 +168,12 @@ class MethodBodyBinder : BlockBinder
                         switch (assignStmt.Expression)
                         {
                             case BoundFieldAssignmentExpression fieldAssignment when fieldAssignment.Receiver is null:
-                                statements[i] = new BoundAssignmentStatement(
-                                    new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), fieldAssignment.Field, fieldAssignment.Right));
+                                statements[i] = factory.CreateAssignmentStatement(
+                                    factory.CreateFieldAssignmentExpression(CreateSelfAccess(), fieldAssignment.Field, fieldAssignment.Right));
                                 break;
                             case BoundPropertyAssignmentExpression propertyAssignment when propertyAssignment.Receiver is null:
-                                statements[i] = new BoundAssignmentStatement(
-                                    new BoundPropertyAssignmentExpression(new BoundLocalAccess(_self), propertyAssignment.Property, propertyAssignment.Right));
+                                statements[i] = factory.CreateAssignmentStatement(
+                                    factory.CreatePropertyAssignmentExpression(CreateSelfAccess(), propertyAssignment.Property, propertyAssignment.Right));
                                 break;
                         }
                         break;
@@ -178,12 +181,12 @@ class MethodBodyBinder : BlockBinder
                         switch (exprStmt.Expression)
                         {
                             case BoundFieldAssignmentExpression fieldAssignment when fieldAssignment.Receiver is null:
-                                statements[i] = new BoundAssignmentStatement(
-                                    new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), fieldAssignment.Field, fieldAssignment.Right));
+                                statements[i] = factory.CreateAssignmentStatement(
+                                    factory.CreateFieldAssignmentExpression(CreateSelfAccess(), fieldAssignment.Field, fieldAssignment.Right));
                                 break;
                             case BoundPropertyAssignmentExpression propertyAssignment when propertyAssignment.Receiver is null:
-                                statements[i] = new BoundAssignmentStatement(
-                                    new BoundPropertyAssignmentExpression(new BoundLocalAccess(_self), propertyAssignment.Property, propertyAssignment.Right));
+                                statements[i] = factory.CreateAssignmentStatement(
+                                    factory.CreatePropertyAssignmentExpression(CreateSelfAccess(), propertyAssignment.Property, propertyAssignment.Right));
                                 break;
                         }
                         break;
@@ -233,14 +236,14 @@ class MethodBodyBinder : BlockBinder
         {
             var receiver = RewriteReceiver(node.Receiver, node.Field);
             var right = (BoundExpression)Visit(node.Right)!;
-            return new BoundFieldAssignmentExpression(receiver, node.Field, right);
+            return _compilation.BoundNodeFactory.CreateFieldAssignmentExpression(receiver, node.Field, right);
         }
 
         public override BoundNode? VisitPropertyAssignmentExpression(BoundPropertyAssignmentExpression node)
         {
             var receiver = RewriteReceiver(node.Receiver, node.Property);
             var right = (BoundExpression)Visit(node.Right)!;
-            return new BoundPropertyAssignmentExpression(receiver, node.Property, right);
+            return _compilation.BoundNodeFactory.CreatePropertyAssignmentExpression(receiver, node.Property, right);
         }
 
         public override BoundNode? VisitBinaryExpression(BoundBinaryExpression node)

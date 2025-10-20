@@ -221,7 +221,7 @@ partial class BlockBinder
             {
                 _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
                 var expr = ret.Expression is null
-                    ? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))
+                    ? BoundFactory.UnitExpression()
                     : BindExpression(ret.Expression);
                 bound = new BoundExpressionStatement(expr);
             }
@@ -231,7 +231,7 @@ partial class BlockBinder
                 if (!allowReturn && bound is BoundReturnStatement br)
                 {
                     _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
-                    var expr = br.Expression ?? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+                    var expr = br.Expression ?? BoundFactory.UnitExpression();
                     bound = new BoundExpressionStatement(expr);
                 }
             }
@@ -606,7 +606,7 @@ partial class BlockBinder
     {
         if (_expressionContextDepth > 0)
         {
-            var unit = new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+            var unit = BoundFactory.UnitExpression();
             return new BoundExpressionStatement(unit);
         }
 

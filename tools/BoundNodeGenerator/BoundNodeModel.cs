@@ -22,7 +22,8 @@ sealed record ParameterModel(
     bool IsNullable,
     ParameterKind Kind,
     string? ElementTypeName,
-    bool ElementIsNullable)
+    bool ElementIsNullable,
+    string? DefaultValue)
 {
     public bool RequiresRewrite => Kind is ParameterKind.BoundNode or ParameterKind.BoundNodeList or ParameterKind.Symbol or ParameterKind.SymbolList;
 }
@@ -38,6 +39,7 @@ sealed record BoundNodeModel(
     public string VisitorMethodName => Name.StartsWith("Bound", StringComparison.Ordinal)
         ? Name["Bound".Length..]
         : Name;
+    public string FactoryMethodName => $"Create{VisitorMethodName}";
 }
 
 sealed record SymbolClassModel(

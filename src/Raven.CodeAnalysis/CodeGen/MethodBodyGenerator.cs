@@ -511,7 +511,8 @@ internal class MethodBodyGenerator
             BoundExpression assignment = new BoundFieldAssignmentExpression(
                 isStatic ? null : new BoundSelfExpression(MethodSymbol.ContainingType!),
                 field,
-                field.Initializer!);
+                field.Initializer!,
+                Compilation.GetSpecialType(SpecialType.System_Unit));
 
             var statement = new BoundAssignmentStatement((BoundAssignmentExpression)assignment);
             new StatementGenerator(baseGenerator, statement).Emit();

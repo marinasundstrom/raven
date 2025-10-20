@@ -363,7 +363,7 @@ partial class BlockBinder : Binder
         var accessibleMethods = GetAccessibleMethods(methods, location);
 
         if (accessibleMethods.IsDefaultOrEmpty)
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
         return CreateMethodGroup(receiver, accessibleMethods);
     }
@@ -489,7 +489,7 @@ partial class BlockBinder : Binder
             ContinueStatementSyntax continueStatement => BindContinueStatement(continueStatement),
             YieldReturnStatementSyntax yieldReturn => BindYieldReturnStatement(yieldReturn),
             YieldBreakStatementSyntax yieldBreak => BindYieldBreakStatement(yieldBreak),
-            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
+            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(BoundFactory.UnitExpression()),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
 
@@ -574,13 +574,13 @@ partial class BlockBinder : Binder
         }
 
         //_diagnostics.ReportSelfNotAllowed(selfExpression.GetLocation());
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindDiscardExpression(DiscardExpressionSyntax discardExpression)
     {
         _diagnostics.ReportDiscardExpressionNotAllowed(discardExpression.GetLocation());
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
     }
 
     private BoundExpression BindTupleExpression(TupleExpressionSyntax tupleExpression)
@@ -665,7 +665,7 @@ partial class BlockBinder : Binder
         if (!IsAwaitExpressionAllowed())
         {
             _diagnostics.ReportAwaitExpressionRequiresAsyncContext(awaitExpression.OperatorToken.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
         var operand = BindExpression(awaitExpression.Expression);
@@ -679,7 +679,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportExpressionIsNotAwaitable(
                 operandType?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<unknown>",
                 awaitExpression.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
         var getAwaiter = FindGetAwaiterMethod(operandType);
@@ -688,7 +688,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportExpressionIsNotAwaitable(
                 operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 awaitExpression.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
         var awaiterType = getAwaiter.ReturnType;
@@ -697,7 +697,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportExpressionIsNotAwaitable(
                 operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 awaitExpression.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
         var isCompleted = FindIsCompletedProperty(awaiterType);
@@ -706,7 +706,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportAwaiterMissingIsCompleted(
                 awaiterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 awaitExpression.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
         var getResult = FindGetResultMethod(awaiterType);
@@ -715,7 +715,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportAwaiterMissingGetResult(
                 awaiterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 awaitExpression.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
         var resultType = getResult.ReturnType;
@@ -847,12 +847,12 @@ partial class BlockBinder : Binder
         }
 
         //_diagnostics.ReportInvalidAddressOf(syntax.Expression.GetLocation());
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed /*,.InvalidAddressOfTarget */);
+        return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed /*,.InvalidAddressOfTarget */);
     }
 
     private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)
     {
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindParenthesizedExpression(ParenthesizedExpressionSyntax parenthesizedExpression)
@@ -897,11 +897,11 @@ partial class BlockBinder : Binder
         {
             var operandDisplay = typeOfExpression.Type.ToString();
             _diagnostics.ReportNamespaceUsedLikeAType(operandDisplay, typeOfExpression.Type.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
         if (boundType is not BoundTypeExpression typeExpression)
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
         var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
 
@@ -1089,7 +1089,7 @@ partial class BlockBinder : Binder
         if (tryExpression.Expression is TryExpressionSyntax nestedTry)
         {
             _diagnostics.ReportTryExpressionCannotBeNested(nestedTry.TryKeyword.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol);
+            return ErrorExpression();
         }
 
         var expression = BindExpression(tryExpression.Expression);
@@ -1810,7 +1810,7 @@ partial class BlockBinder : Binder
         if (ifExpression.ElseClause is null)
         {
             _diagnostics.ReportIfExpressionRequiresElse(ifExpression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
         }
 
         var elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
@@ -1834,7 +1834,7 @@ partial class BlockBinder : Binder
         {
             _diagnostics.ReportIdentifierExpected(simpleName.Identifier.GetLocation());
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(string.Empty, simpleName.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         var name = simpleName.Identifier.ValueText;
@@ -1845,7 +1845,7 @@ partial class BlockBinder : Binder
         {
             var boundTypeArguments = TryBindTypeArguments(genericName);
             if (boundTypeArguments is null)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             explicitTypeArguments = boundTypeArguments;
             genericTypeSyntax = genericName;
@@ -1864,7 +1864,7 @@ partial class BlockBinder : Binder
                 return new BoundTypeExpression(type);
 
             _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(name, nsExpr.Namespace.Name, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (receiver is BoundTypeExpression typeExpr)
@@ -1876,7 +1876,7 @@ partial class BlockBinder : Binder
             if (nonMethodMember is not null)
             {
                 if (!EnsureMemberAccessible(nonMethodMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(nonMethodMember)))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
             }
@@ -1907,11 +1907,11 @@ partial class BlockBinder : Binder
             {
                 var typeName = typeExpr.Symbol!.Name;
                 _diagnostics.ReportMemberDoesNotContainDefinition(typeName, memberAccess.Name.ToString(), memberAccess.Name.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             if (!EnsureMemberAccessible(member, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             return new BoundMemberAccessExpression(typeExpr, member);
         }
@@ -1927,7 +1927,7 @@ partial class BlockBinder : Binder
             if (nonMethodMember is not null)
             {
                 if (!EnsureMemberAccessible(nonMethodMember, nameLocation, GetSymbolKindForDiagnostic(nonMethodMember)))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 return new BoundMemberAccessExpression(receiver, nonMethodMember);
             }
@@ -1975,7 +1975,7 @@ partial class BlockBinder : Binder
             if (instanceMember is not null)
             {
                 if (!EnsureMemberAccessible(instanceMember, nameLocation, GetSymbolKindForDiagnostic(instanceMember)))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 return new BoundMemberAccessExpression(receiver, instanceMember);
             }
@@ -2002,17 +2002,17 @@ partial class BlockBinder : Binder
                         if (!ambiguousMethods.IsDefaultOrEmpty)
                             _diagnostics.ReportCallIsAmbiguous(name, ambiguousMethods, nameLocation);
 
-                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                        return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                     }
 
                     EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
                 }
             }
         }
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation);
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindMemberBindingExpression(MemberBindingExpressionSyntax memberBinding)
@@ -2026,7 +2026,7 @@ partial class BlockBinder : Binder
         {
             var typeArgs = TryBindTypeArguments(genericName);
             if (typeArgs is null)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             explicitTypeArguments = typeArgs;
             genericTypeSyntax = genericName;
@@ -2063,17 +2063,17 @@ partial class BlockBinder : Binder
             if (member is null)
             {
                 _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, nameLocation);
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             if (!EnsureMemberAccessible(member, nameLocation, GetSymbolKindForDiagnostic(member)))
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
 
         _diagnostics.ReportMemberAccessRequiresTargetType(memberName, nameLocation);
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)
@@ -2341,7 +2341,7 @@ partial class BlockBinder : Binder
         if (syntax is PointerTypeSyntax pointerTypeSyntax)
         {
             if (BindTypeSyntax(pointerTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             var elementType = elementTypeExpression.Type;
 
@@ -2355,7 +2355,7 @@ partial class BlockBinder : Binder
         if (syntax is ArrayTypeSyntax arrayTypeSyntax)
         {
             if (BindTypeSyntax(arrayTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             var elementType = elementTypeExpression.Type;
 
@@ -2378,7 +2378,7 @@ partial class BlockBinder : Binder
             foreach (var element in tupleTypeSyntax.Elements)
             {
                 if (BindTypeSyntax(element.Type) is not BoundTypeExpression bt)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
                 boundElements.Add((element.NameColon?.Name.ToString(), bt.Type));
             }
@@ -2396,7 +2396,7 @@ partial class BlockBinder : Binder
         if (syntax is GenericNameSyntax generic)
         {
             if (!TryBindTypeArguments(generic, out var typeArgs, out var requestedArity))
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             return BindTypeName(
                 generic.Identifier.ValueText,
@@ -2411,7 +2411,7 @@ partial class BlockBinder : Binder
             var left = BindTypeSyntax(qualified.Left);
 
             if (left is not BoundNamespaceExpression ns && left is not BoundTypeExpression leftType)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
             string name;
             ImmutableArray<ITypeSymbol> typeArgs = [];
@@ -2428,11 +2428,11 @@ partial class BlockBinder : Binder
                 name = generic2.Identifier.ValueText;
                 rightGeneric = generic2;
                 if (!TryBindTypeArguments(generic2, out typeArgs, out requestedArity))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
             }
             else
             {
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             if (rightGeneric is null)
@@ -2455,10 +2455,10 @@ partial class BlockBinder : Binder
             if (member is INamedTypeSymbol namedType)
             {
                 if (namedType.Arity != requestedArity)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
                 if (!typeArgs.IsEmpty && rightGeneric is not null && !ValidateTypeArgumentConstraints(namedType, typeArgs, i => GetTypeArgumentLocation(rightGeneric.TypeArgumentList.Arguments, rightGeneric.GetLocation(), i), namedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
                 var constructed = typeArgs.IsEmpty
                     ? namedType
@@ -2481,10 +2481,10 @@ partial class BlockBinder : Binder
                 }
             }
 
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments, SeparatedSyntaxList<TypeArgumentSyntax> typeArgumentSyntax = default, int? arityOverride = null)
@@ -2511,7 +2511,7 @@ partial class BlockBinder : Binder
                 if (!typeArguments.IsEmpty)
                 {
                     //_diagnostics.ReportTypeArityMismatch(name, named.Arity, typeArguments.Length, location);
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
                 }
 
                 return new BoundTypeExpression(named);
@@ -2523,7 +2523,7 @@ partial class BlockBinder : Binder
             {
                 var match = FindAccessibleNamedType(name, requestedArity);
                 if (match is null)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
                 definition = match;
             }
@@ -2532,7 +2532,7 @@ partial class BlockBinder : Binder
                 return new BoundTypeExpression(definition);
 
             if (!ValidateTypeArgumentConstraints(definition, typeArguments, i => GetTypeArgumentLocation(typeArgumentSyntax, location, i), definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             var constructed = TryConstructGeneric(definition, typeArguments, definition.Arity) ?? definition;
             return new BoundTypeExpression(constructed);
@@ -2545,14 +2545,14 @@ partial class BlockBinder : Binder
                 return new BoundTypeExpression(alternate);
 
             if (!ValidateTypeArgumentConstraints(alternate, typeArguments, i => GetTypeArgumentLocation(typeArgumentSyntax, location, i), alternate.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             var constructed = TryConstructGeneric(alternate, typeArguments, alternate.Arity) ?? alternate;
             return new BoundTypeExpression(constructed);
         }
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, location);
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private bool TryBindTypeArguments(GenericNameSyntax generic, out ImmutableArray<ITypeSymbol> boundArguments, out int requestedArity)
@@ -2634,7 +2634,7 @@ partial class BlockBinder : Binder
                     convertedType = targetType;
             }
 
-            return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol, convertedType);
+            return BoundFactory.NullLiteral(convertedType);
         }
 
         var value = syntax.Token.Value ?? syntax.Token.Text!;
@@ -2668,7 +2668,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindUnitExpression(UnitExpressionSyntax syntax)
     {
-        return new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+        return BoundFactory.UnitExpression();
     }
 
     private BoundExpression BindInterpolatedStringExpression(InterpolatedStringExpressionSyntax syntax)
@@ -2703,14 +2703,14 @@ partial class BlockBinder : Binder
 
             if (IsErrorOrNull(result) || IsErrorOrNull(expr))
             {
-                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+                result = ErrorExpression(reason: BoundExpressionReason.OtherError);
                 continue;
             }
 
             var concatMethod = ResolveStringConcatMethod(result, expr);
             if (concatMethod is null)
             {
-                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+                result = ErrorExpression(reason: BoundExpressionReason.OtherError);
                 continue;
             }
 
@@ -2744,7 +2744,7 @@ partial class BlockBinder : Binder
                 return new BoundNamespaceExpression(ns);
 
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (symbol is IMethodSymbol)
@@ -2754,7 +2754,7 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
 
             if (methods.IsDefaultOrEmpty)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
             var receiver = BindImplicitMethodGroupReceiver(methods);
 
@@ -2777,19 +2777,19 @@ partial class BlockBinder : Binder
             case IFieldSymbol field:
                 {
                     if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
-                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                        return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                     return new BoundFieldAccess(field);
                 }
             case IPropertySymbol prop:
                 {
                     if (!EnsureMemberAccessible(prop, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(prop)))
-                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                        return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                     return new BoundPropertyAccess(prop);
                 }
             default:
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
     }
 
@@ -2803,7 +2803,7 @@ partial class BlockBinder : Binder
             delegateFactory = () => Compilation.GetMethodReferenceDelegate(method);
         }
 
-        return new BoundMethodGroupExpression(receiver, methods, Compilation.ErrorTypeSymbol, delegateFactory);
+        return BoundFactory.MethodGroupExpression(receiver, methods, delegateFactory);
     }
 
     private BoundExpression? BindImplicitMethodGroupReceiver(ImmutableArray<IMethodSymbol> methods)
@@ -2817,7 +2817,7 @@ partial class BlockBinder : Binder
             return new BoundSelfExpression(containingType);
         }
 
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
@@ -2852,7 +2852,7 @@ partial class BlockBinder : Binder
             if (leftIsString || rightIsString)
             {
                 if (IsErrorOrNull(left) || IsErrorOrNull(right))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+                    return ErrorExpression(reason: BoundExpressionReason.OtherError);
 
                 var concatMethod = ResolveStringConcatMethod(left, right);
                 if (concatMethod is not null)
@@ -2880,7 +2880,7 @@ partial class BlockBinder : Binder
             right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             syntax.OperatorToken.GetLocation());
 
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindPipeExpression(BoundExpression left, BinaryExpressionSyntax syntax)
@@ -2892,7 +2892,7 @@ partial class BlockBinder : Binder
         {
             var boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var hasErrors);
             if (hasErrors)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+                return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
             var target = BindPipelineTargetExpression(invocation.Expression);
 
@@ -2909,7 +2909,7 @@ partial class BlockBinder : Binder
                 return delegateInvocation;
 
             _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         var propertyTarget = BindPipelineTargetExpression(syntax.Right);
@@ -2921,7 +2921,7 @@ partial class BlockBinder : Binder
             return BindPipelinePropertyAssignment(propertyTarget, syntax.Left, left, syntax.Right);
 
         _diagnostics.ReportPipeRequiresInvocation(syntax.OperatorToken.GetLocation());
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindPipelineTargetExpression(ExpressionSyntax expression)
@@ -2950,7 +2950,7 @@ partial class BlockBinder : Binder
         if (propertySymbol is null)
         {
             _diagnostics.ReportPipeRequiresInvocation(propertySyntax.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         SourceFieldSymbol? backingField = null;
@@ -2959,7 +2959,7 @@ partial class BlockBinder : Binder
             !TryGetWritableAutoPropertyBackingField(propertySymbol, target, out backingField))
         {
             _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, propertySyntax.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (pipelineValue.Type is { } pipelineType &&
@@ -2981,16 +2981,16 @@ partial class BlockBinder : Binder
         var receiver = GetReceiver(target);
 
         if (backingField is not null)
-            return new BoundFieldAssignmentExpression(receiver, backingField, pipelineValue);
+            return BoundFactory.CreateFieldAssignmentExpression(receiver, backingField, pipelineValue);
 
-        return new BoundPropertyAssignmentExpression(receiver, propertySymbol, pipelineValue);
+        return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, pipelineValue);
     }
 
     private BoundExpression BindGenericInvocationTarget(GenericNameSyntax generic)
     {
         var boundTypeArguments = TryBindTypeArguments(generic);
         if (boundTypeArguments is null)
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
         var symbolCandidates = LookupSymbols(generic.Identifier.ValueText)
             .OfType<IMethodSymbol>()
@@ -3039,7 +3039,7 @@ partial class BlockBinder : Binder
             if (resolution.IsAmbiguous)
             {
                 _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
             }
         }
 
@@ -3060,17 +3060,17 @@ partial class BlockBinder : Binder
             if (resolution.IsAmbiguous)
             {
                 _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
             }
 
             ReportSuppressedLambdaDiagnostics(totalArguments);
             _diagnostics.ReportNoOverloadForMethod(methodName, totalArguments.Length, invocation.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
         _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length + 1, invocation.GetLocation());
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+        return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 
     private BoundExpression BindPipelineInvocationOnBoundMethod(
@@ -3083,7 +3083,7 @@ partial class BlockBinder : Binder
         if (memberExpr.Member is not IMethodSymbol method)
         {
             _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (method.IsExtensionMethod && IsExtensionReceiver(pipelineValue))
@@ -3100,7 +3100,7 @@ partial class BlockBinder : Binder
         if (!method.IsStatic)
         {
             _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         var totalCount = boundArguments.Length + 1;
@@ -3108,7 +3108,7 @@ partial class BlockBinder : Binder
         {
             ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
             _diagnostics.ReportNoOverloadForMethod(method.Name, totalCount, invocation.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, invocation);
@@ -3132,18 +3132,18 @@ partial class BlockBinder : Binder
         if (invokeMethod is null)
         {
             _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (!EnsureMemberAccessible(invokeMethod, invocation.Expression.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
         var totalCount = boundArguments.Length + 1;
         if (!SupportsArgumentCount(invokeMethod.Parameters, totalCount))
         {
             ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
             _diagnostics.ReportNoOverloadForMethod(invokeMethod.Name, totalCount, invocation.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         var convertedArguments = ConvertPipelineStaticInvocationArguments(invokeMethod, pipelineValue, pipelineSyntax, boundArguments, invocation);
@@ -3328,7 +3328,7 @@ partial class BlockBinder : Binder
                 }
 
                 if (argErrors)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
                 var argArray = argExprs.ToArray();
 
@@ -3357,7 +3357,7 @@ partial class BlockBinder : Binder
                 }
 
                 if (argErrors)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
                 return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax);
             }
@@ -3393,7 +3393,7 @@ partial class BlockBinder : Binder
                 }
 
                 if (argErrors)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
                 var argArray = argExprs.ToArray();
 
@@ -3437,7 +3437,7 @@ partial class BlockBinder : Binder
         {
             var boundTypeArguments = TryBindTypeArguments(generic);
             if (boundTypeArguments is null)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             var symbolCandidates = LookupSymbols(generic.Identifier.ValueText)
                 .OfType<IMethodSymbol>()
@@ -3468,13 +3468,13 @@ partial class BlockBinder : Binder
             }
 
             if (genericHasErrors)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
             var typeExpr = BindTypeSyntax(generic);
             if (typeExpr is BoundTypeExpression type && type.Type is INamedTypeSymbol namedType)
                 return BindConstructorInvocation(namedType, genericBoundArguments, syntax);
 
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
         else
         {
@@ -3500,7 +3500,7 @@ partial class BlockBinder : Binder
         }
 
         if (hasErrors)
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
         var boundArguments = boundArgumentsList.ToArray();
 
@@ -3513,13 +3513,13 @@ partial class BlockBinder : Binder
                 delegateType.GetDelegateInvokeMethod() is { } invokeMethod)
             {
                 if (!EnsureMemberAccessible(invokeMethod, syntax.Expression.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver, boundArguments))
                 {
                     ReportSuppressedLambdaDiagnostics(boundArguments);
                     _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                    return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                 }
 
                 var converted = ConvertArguments(invokeMethod.Parameters, boundArguments);
@@ -3538,7 +3538,7 @@ partial class BlockBinder : Binder
             if (typeInNs is null)
             {
                 _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(methodName, nsReceiver.Namespace.Name, syntax.Expression.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             return BindConstructorInvocation(typeInNs, boundArguments, syntax, receiver);
@@ -3555,7 +3555,7 @@ partial class BlockBinder : Binder
                 var accessibleMethods = GetAccessibleMethods(candidateMethods, syntax.Expression.GetLocation());
 
                 if (accessibleMethods.IsDefaultOrEmpty)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
                 if (resolution.Success)
@@ -3568,7 +3568,7 @@ partial class BlockBinder : Binder
                 if (resolution.IsAmbiguous)
                 {
                     _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                    return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                 }
 
                 var nestedType = typeReceiver.Type
@@ -3581,7 +3581,7 @@ partial class BlockBinder : Binder
 
                 ReportSuppressedLambdaDiagnostics(boundArguments);
                 _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
             }
 
             var nested = typeReceiver.Type
@@ -3594,7 +3594,7 @@ partial class BlockBinder : Binder
 
             _diagnostics.ReportMemberDoesNotContainDefinition(typeReceiver.Type.Name, methodName, syntax.Expression.GetLocation());
 
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (receiver != null)
@@ -3610,13 +3610,13 @@ partial class BlockBinder : Binder
                 else
                     _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntax.Expression.GetLocation());
 
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             var accessibleCandidates = GetAccessibleMethods(candidates, syntax.Expression.GetLocation());
 
             if (accessibleCandidates.IsDefaultOrEmpty)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
             if (resolution.Success)
@@ -3629,11 +3629,11 @@ partial class BlockBinder : Binder
             if (resolution.IsAmbiguous)
             {
                 _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
             }
 
             _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         // No receiver -> try methods first, then constructors
@@ -3644,7 +3644,7 @@ partial class BlockBinder : Binder
             var accessibleMethods = GetAccessibleMethods(methodCandidates, syntax.Expression.GetLocation());
 
             if (accessibleMethods.IsDefaultOrEmpty)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
             if (resolution.Success)
@@ -3657,7 +3657,7 @@ partial class BlockBinder : Binder
             if (resolution.IsAmbiguous)
             {
                 _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
             }
 
             // Fall back to type if overload resolution failed
@@ -3667,7 +3667,7 @@ partial class BlockBinder : Binder
 
             ReportSuppressedLambdaDiagnostics(boundArguments);
             _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         var typeSymbol = LookupType(methodName) as INamedTypeSymbol;
@@ -3675,7 +3675,7 @@ partial class BlockBinder : Binder
             return BindConstructorInvocation(typeSymbol, boundArguments, syntax);
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntax.Expression.GetLocation());
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundArgument[] BindInvocationArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, out bool hasErrors)
@@ -3711,7 +3711,7 @@ partial class BlockBinder : Binder
     {
         var boundArguments = BindInvocationArguments(syntax.ArgumentList.Arguments, out var hasErrors);
         if (hasErrors)
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+            return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
         var methodName = methodGroup.Methods[0].Name;
         var selected = methodGroup.SelectedMethod;
@@ -3755,7 +3755,7 @@ partial class BlockBinder : Binder
         if (resolution.IsAmbiguous)
         {
             _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+            return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
         }
 
         if (LookupType(methodName) is INamedTypeSymbol typeFallback)
@@ -3765,7 +3765,7 @@ partial class BlockBinder : Binder
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+        return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 
     private BoundExpression BindConstructorInvocation(
@@ -3808,19 +3808,19 @@ partial class BlockBinder : Binder
         else
         {
             //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (typeSymbol == null)
         {
             //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (typeSymbol == null)
         {
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(syntax.Type.ToString(), syntax.Type.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
         if (typeSymbol.TypeKind != TypeKind.Error)
@@ -3894,13 +3894,13 @@ partial class BlockBinder : Binder
                     if (member is null)
                     {
                         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberBinding.Name.GetLocation());
-                        whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                        whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
                     }
                     else
                     {
                         if (!EnsureMemberAccessible(member, memberBinding.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
                         {
-                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                            whenNotNull = ErrorExpression(reason: BoundExpressionReason.Inaccessible);
                         }
                         else
                         {
@@ -3933,7 +3933,7 @@ partial class BlockBinder : Binder
                     if (candidates.IsDefaultOrEmpty)
                     {
                         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberBinding.Name.GetLocation());
-                        whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                        whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
                     }
                     else
                     {
@@ -3941,7 +3941,7 @@ partial class BlockBinder : Binder
 
                         if (accessibleCandidates.IsDefaultOrEmpty)
                         {
-                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                            whenNotNull = ErrorExpression(reason: BoundExpressionReason.Inaccessible);
                         }
                         else
                         {
@@ -3954,13 +3954,13 @@ partial class BlockBinder : Binder
                             else if (resolution.IsAmbiguous)
                             {
                                 _diagnostics.ReportCallIsAmbiguous(name, resolution.AmbiguousCandidates, invocation.GetLocation());
-                                whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                                whenNotNull = ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                             }
                             else
                             {
                                 ReportSuppressedLambdaDiagnostics(boundArguments);
                                 _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
-                                whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                                whenNotNull = ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                             }
                         }
                     }
@@ -3968,7 +3968,7 @@ partial class BlockBinder : Binder
                 }
 
             default:
-                whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
                 break;
         }
 
@@ -4030,7 +4030,7 @@ partial class BlockBinder : Binder
             var assignmentType = right.Type ?? Compilation.ErrorTypeSymbol;
             var discardType = assignmentType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : assignmentType;
             var pattern = new BoundDiscardPattern(discardType);
-            return new BoundPatternAssignmentExpression(assignmentType, pattern, right);
+            return BoundFactory.CreatePatternAssignmentExpression(assignmentType, pattern, right);
         }
 
         if (leftSyntax is ElementAccessExpressionSyntax elementAccess)
@@ -4057,7 +4057,7 @@ partial class BlockBinder : Binder
                     right = ApplyConversion(right, arrayType.ElementType, conversion, rightSyntax);
                 }
 
-                return new BoundArrayAssignmentExpression(
+                return BoundFactory.CreateArrayAssignmentExpression(
                     new BoundArrayAccessExpression(receiver, args, arrayType.ElementType),
                     right);
             }
@@ -4086,7 +4086,7 @@ partial class BlockBinder : Binder
                 right = ApplyConversion(right, indexer.Type, conversion, rightSyntax);
             }
 
-            return new BoundIndexerAssignmentExpression(access, right);
+            return BoundFactory.CreateIndexerAssignmentExpression(access, right);
         }
 
         // Fall back to normal variable/property assignment
@@ -4105,18 +4105,18 @@ partial class BlockBinder : Binder
                 if (converted is BoundErrorExpression)
                     return converted;
 
-                return new BoundByRefAssignmentExpression(localAccess, byRefLocalType.ElementType, converted);
+                return BoundFactory.CreateByRefAssignmentExpression(localAccess, byRefLocalType.ElementType, converted);
             }
 
             if (!localSymbol.IsMutable)
             {
                 _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             if (right2 is BoundEmptyCollectionExpression)
             {
-                return new BoundLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
+                return BoundFactory.CreateLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
             }
 
             if (localType.TypeKind != TypeKind.Error &&
@@ -4134,7 +4134,7 @@ partial class BlockBinder : Binder
                 right2 = ApplyConversion(right2, localType, conversion, rightSyntax);
             }
 
-            return new BoundLocalAssignmentExpression(localSymbol, right2);
+            return BoundFactory.CreateLocalAssignmentExpression(localSymbol, right2);
         }
         else if (left is BoundParameterAccess parameterAccess)
         {
@@ -4144,7 +4144,7 @@ partial class BlockBinder : Binder
             if (!parameterSymbol.IsMutable)
             {
                 _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             var right2 = BindExpression(rightSyntax);
@@ -4155,7 +4155,7 @@ partial class BlockBinder : Binder
                 if (converted is BoundErrorExpression)
                     return converted;
 
-                return new BoundByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, converted);
+                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, converted);
             }
 
             if (parameterType.TypeKind != TypeKind.Error &&
@@ -4173,7 +4173,7 @@ partial class BlockBinder : Binder
                 right2 = ApplyConversion(right2, parameterType, conversion, rightSyntax);
             }
 
-            return new BoundParameterAssignmentExpression(parameterSymbol, right2);
+            return BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, right2);
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
@@ -4187,7 +4187,7 @@ partial class BlockBinder : Binder
 
             if (right2 is BoundEmptyCollectionExpression)
             {
-                return new BoundFieldAssignmentExpression(right2, fieldSymbol, new BoundEmptyCollectionExpression(fieldSymbol.Type));
+                return BoundFactory.CreateFieldAssignmentExpression(right2, fieldSymbol, BoundFactory.CreateEmptyCollectionExpression(fieldSymbol.Type));
             }
 
             if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
@@ -4205,7 +4205,7 @@ partial class BlockBinder : Binder
                 right2 = ApplyConversion(right2, fieldSymbol.Type, conversion, rightSyntax);
             }
 
-            return new BoundFieldAssignmentExpression(GetReceiver(left), fieldSymbol, right2);
+            return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), fieldSymbol, right2);
         }
         else if (left.Symbol is IPropertySymbol propertySymbol)
         {
@@ -4216,7 +4216,7 @@ partial class BlockBinder : Binder
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
                     _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
                 }
             }
 
@@ -4228,10 +4228,10 @@ partial class BlockBinder : Binder
 
                 if (backingField is not null)
                 {
-                    return new BoundFieldAssignmentExpression(right2, backingField, empty);
+                    return BoundFactory.CreateFieldAssignmentExpression(right2, backingField, empty);
                 }
 
-                return new BoundPropertyAssignmentExpression(right2, propertySymbol, empty);
+                return BoundFactory.CreatePropertyAssignmentExpression(right2, propertySymbol, empty);
             }
 
             if (propertySymbol.Type.TypeKind != TypeKind.Error &&
@@ -4251,13 +4251,13 @@ partial class BlockBinder : Binder
 
             if (backingField is not null)
             {
-                return new BoundFieldAssignmentExpression(GetReceiver(left), backingField, right2);
+                return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), backingField, right2);
             }
 
-            return new BoundPropertyAssignmentExpression(GetReceiver(left), propertySymbol, right2);
+            return BoundFactory.CreatePropertyAssignmentExpression(GetReceiver(left), propertySymbol, right2);
         }
 
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
@@ -4298,7 +4298,7 @@ partial class BlockBinder : Binder
             return BindPatternAssignment(patternSyntax, right, node);
 
         _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
-        return new BoundErrorExpression(right.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        return ErrorExpression(right.Type, reason: BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindPatternAssignment(PatternSyntax patternSyntax, BoundExpression right, SyntaxNode node)
@@ -4308,11 +4308,11 @@ partial class BlockBinder : Binder
 
         if (boundPattern.Reason == BoundExpressionReason.UnsupportedOperation)
         {
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
         var assignmentType = right.Type ?? boundPattern.Type ?? Compilation.ErrorTypeSymbol;
-        return new BoundPatternAssignmentExpression(assignmentType, boundPattern, right);
+        return BoundFactory.CreatePatternAssignmentExpression(assignmentType, boundPattern, right);
     }
 
     private string GetPatternTypeDisplay(ITypeSymbol type)

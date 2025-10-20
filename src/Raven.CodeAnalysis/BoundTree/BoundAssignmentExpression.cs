@@ -3,11 +3,13 @@ namespace Raven.CodeAnalysis;
 abstract class BoundAssignmentExpression : BoundExpression
 {
     public BoundExpression Right { get; }
+    public ITypeSymbol UnitType { get; }
 
-    protected BoundAssignmentExpression(ITypeSymbol type, BoundExpression right)
-        : base(type, null, BoundExpressionReason.None)
+    protected BoundAssignmentExpression(ITypeSymbol unitType, BoundExpression right)
+        : base(unitType, null, BoundExpressionReason.None)
     {
         Right = right;
+        UnitType = unitType;
     }
 }
 
@@ -15,8 +17,8 @@ internal partial class BoundLocalAssignmentExpression : BoundAssignmentExpressio
 {
     public ILocalSymbol Local { get; }
 
-    public BoundLocalAssignmentExpression(ILocalSymbol local, BoundExpression right)
-        : base(local.Type, right)
+    public BoundLocalAssignmentExpression(ILocalSymbol local, BoundExpression right, ITypeSymbol unitType)
+        : base(unitType, right)
     {
         Local = local;
     }
@@ -27,8 +29,8 @@ internal partial class BoundPropertyAssignmentExpression : BoundAssignmentExpres
     public BoundExpression? Receiver { get; }
     public IPropertySymbol Property { get; }
 
-    public BoundPropertyAssignmentExpression(BoundExpression? receiver, IPropertySymbol property, BoundExpression right)
-        : base(property.Type, right)
+    public BoundPropertyAssignmentExpression(BoundExpression? receiver, IPropertySymbol property, BoundExpression right, ITypeSymbol unitType)
+        : base(unitType, right)
     {
         Receiver = receiver;
         Property = property;
@@ -41,8 +43,8 @@ internal partial class BoundFieldAssignmentExpression : BoundAssignmentExpressio
     public IFieldSymbol Field { get; }
     public bool RequiresReceiverAddress { get; }
 
-    public BoundFieldAssignmentExpression(BoundExpression? receiver, IFieldSymbol field, BoundExpression right, bool requiresReceiverAddress = false)
-        : base(field.Type, right)
+    public BoundFieldAssignmentExpression(BoundExpression? receiver, IFieldSymbol field, BoundExpression right, ITypeSymbol unitType, bool requiresReceiverAddress = false)
+        : base(unitType, right)
     {
         Receiver = receiver;
         Field = field;
@@ -54,8 +56,8 @@ internal partial class BoundArrayAssignmentExpression : BoundAssignmentExpressio
 {
     public BoundArrayAccessExpression Left { get; }
 
-    public BoundArrayAssignmentExpression(BoundArrayAccessExpression left, BoundExpression right)
-        : base(left.Type, right)
+    public BoundArrayAssignmentExpression(BoundArrayAccessExpression left, BoundExpression right, ITypeSymbol unitType)
+        : base(unitType, right)
     {
         Left = left;
     }
@@ -65,8 +67,8 @@ internal partial class BoundParameterAssignmentExpression : BoundAssignmentExpre
 {
     public IParameterSymbol Parameter { get; }
 
-    public BoundParameterAssignmentExpression(IParameterSymbol parameter, BoundExpression right)
-        : base(parameter.Type, right)
+    public BoundParameterAssignmentExpression(IParameterSymbol parameter, BoundExpression right, ITypeSymbol unitType)
+        : base(unitType, right)
     {
         Parameter = parameter;
     }
@@ -76,8 +78,8 @@ internal partial class BoundIndexerAssignmentExpression : BoundAssignmentExpress
 {
     public BoundIndexerAccessExpression Left { get; }
 
-    public BoundIndexerAssignmentExpression(BoundIndexerAccessExpression left, BoundExpression right)
-        : base(left.Type, right)
+    public BoundIndexerAssignmentExpression(BoundIndexerAccessExpression left, BoundExpression right, ITypeSymbol unitType)
+        : base(unitType, right)
     {
         Left = left;
     }
@@ -88,8 +90,8 @@ internal partial class BoundMemberAssignmentExpression : BoundAssignmentExpressi
     public ISymbol Member { get; }
     public BoundExpression Receiver { get; }
 
-    public BoundMemberAssignmentExpression(ISymbol member, BoundExpression receiver, BoundExpression right)
-        : base(((IPropertySymbol)member).Type, right) // or field type
+    public BoundMemberAssignmentExpression(ISymbol member, BoundExpression receiver, BoundExpression right, ITypeSymbol unitType)
+        : base(unitType, right)
     {
         Member = member;
         Receiver = receiver;
@@ -100,8 +102,8 @@ internal sealed partial class BoundPatternAssignmentExpression : BoundAssignment
 {
     public BoundPattern Pattern { get; }
 
-    public BoundPatternAssignmentExpression(ITypeSymbol type, BoundPattern pattern, BoundExpression right)
-        : base(type, right)
+    public BoundPatternAssignmentExpression(ITypeSymbol type, BoundPattern pattern, BoundExpression right, ITypeSymbol unitType)
+        : base(unitType, right)
     {
         Pattern = pattern;
     }
