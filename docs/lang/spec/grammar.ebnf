@@ -136,6 +136,7 @@ Statement                ::= LocalDeclaration
                            | WhileStatement
                            | ForStatement
                            | TryStatement
+                           | AssignmentStatement
                            | ExpressionStatement ;
 
 LocalDeclaration         ::= ('let' | 'var' | 'const') LocalVariableDeclarators ;
@@ -151,6 +152,8 @@ BreakStatement           ::= 'break' ;
 ContinueStatement        ::= 'continue' ;
 
 FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList? '(' ParameterList? ')' ReturnTypeClause? Block ;
+
+AssignmentStatement      ::= AssignmentTarget AssignmentOperator Expression ;
 
 ExpressionStatement      ::= Expression ;
 
@@ -181,12 +184,14 @@ Assignable               ::= Identifier
                            | MemberBindingExpression
                            | ElementAccessExpression ;
 
-Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern ;
+Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern | DiscardPattern ;
 
 VariablePattern          ::= ('let' | 'var') VariableDesignation ;
 DeclarationPattern       ::= Type VariableDesignation ;
 TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [Identifier ':'] Pattern ;
+
+DiscardPattern           ::= '_' | Type '_' ;
 
 VariableDesignation      ::= VariableDesignationCore [':' Type] ;
 VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;

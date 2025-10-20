@@ -79,6 +79,8 @@ deconstruction, or other declaration spells its designation as `_` (optionally
 with a type annotation), the compiler suppresses the binding and treats the
 designation as a discard instead. Longer identifiers may still contain
 underscores, and `$` is available for interop- or DSL-oriented naming schemes.
+Because `_` never produces a value, using it as an expression—for example
+in `_ + 2`—is rejected as an error.
 
 ```raven
 let $ffiResult = call()
@@ -1746,6 +1748,14 @@ Use `_` to discard unwanted elements. Nested tuples work the same way:
 ```raven
 var ((x, y), let magnitude, _) = samples()
 ```
+
+The discard identifier also appears in ordinary assignment statements. Writing
+`_ = Compute()` produces a discard assignment statement whose left-hand side is a
+dedicated discard expression. The assignment still evaluates the right-hand
+expression, but the result is ignored. Discard assignments follow the same rules
+as tuple assignment: they never declare a binding and may carry a type
+annotation when overload resolution needs guidance. `AssignmentStatementSyntax`
+exposes an `IsDiscard` helper when analyzers need to detect this pattern.
 
 ### Resource declarations (`using`)
 

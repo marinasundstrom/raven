@@ -298,6 +298,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.OpenParenToken => true,
             SyntaxKind.LetKeyword => true,
             SyntaxKind.VarKeyword => true,
+            SyntaxKind.UnderscoreToken => true,
             _ => false,
         };
     }
@@ -876,6 +877,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.NullKeyword:
                 ReadToken();
                 expr = LiteralExpression(SyntaxKind.NullLiteralExpression, token);
+                break;
+
+            case SyntaxKind.UnderscoreToken:
+                ReadToken();
+                expr = DiscardExpression(token);
                 break;
 
             case SyntaxKind.OpenParenToken:
