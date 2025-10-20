@@ -40,6 +40,14 @@ internal abstract class Binder
         }
     }
 
+    protected BoundNodeFactory BoundFactory => Compilation.BoundNodeFactory;
+
+    protected BoundErrorExpression ErrorExpression(
+        ITypeSymbol? type = null,
+        ISymbol? symbol = null,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        => BoundFactory.ErrorExpression(type, symbol, reason);
+
     protected internal bool IsSymbolAccessible(ISymbol symbol)
     {
         if (symbol is null)
@@ -699,7 +707,7 @@ internal abstract class Binder
             return cached;
 
         var result = ParentBinder?.BindExpression(expression)
-                     ?? new BoundErrorExpression(Compilation.ErrorTypeSymbol);
+                     ?? ErrorExpression();
 
         CacheBoundNode(expression, result);
 
@@ -712,7 +720,7 @@ internal abstract class Binder
             return cached;
 
         var result = ParentBinder?.BindStatement(statement)
-                     ?? new BoundExpressionStatement(new BoundErrorExpression(Compilation.ErrorTypeSymbol));
+                     ?? new BoundExpressionStatement(ErrorExpression());
 
         CacheBoundNode(statement, result);
 

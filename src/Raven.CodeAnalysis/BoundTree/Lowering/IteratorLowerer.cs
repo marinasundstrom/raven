@@ -99,7 +99,11 @@ internal static class IteratorLowerer
             BoundLiteralExpressionKind.NumericLiteral,
             -1,
             stateMachine.StateField.Type);
-        var assignment = new BoundFieldAssignmentExpression(null, stateMachine.StateField, literal);
+        var assignment = new BoundFieldAssignmentExpression(
+            null,
+            stateMachine.StateField,
+            literal,
+            stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
         statements.Add(new BoundAssignmentStatement(assignment));
 
         statements.Add(new BoundReturnStatement(null));
@@ -133,7 +137,11 @@ internal static class IteratorLowerer
             BoundLiteralExpressionKind.NumericLiteral,
             0,
             stateMachine.StateField.Type);
-        var assignment = new BoundFieldAssignmentExpression(null, stateMachine.StateField, literal);
+        var assignment = new BoundFieldAssignmentExpression(
+            null,
+            stateMachine.StateField,
+            literal,
+            compilation.GetSpecialType(SpecialType.System_Unit));
         statements.Add(new BoundAssignmentStatement(assignment));
 
         BoundExpression result = new BoundSelfExpression(stateMachine);
@@ -235,6 +243,7 @@ internal static class IteratorLowerer
         SynthesizedIteratorTypeSymbol stateMachine)
     {
         var statements = new List<BoundStatement>();
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
 
         var stateMachineLocal = new SourceLocalSymbol(
             "<>iter",
@@ -254,7 +263,7 @@ internal static class IteratorLowerer
         {
             var receiver = new BoundLocalAccess(stateMachineLocal);
             var value = new BoundSelfExpression(stateMachine.ThisField.Type);
-            var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.ThisField, value);
+            var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.ThisField, value, unitType);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
@@ -265,7 +274,7 @@ internal static class IteratorLowerer
 
             var receiver = new BoundLocalAccess(stateMachineLocal);
             var value = new BoundParameterAccess(parameter);
-            var assignment = new BoundFieldAssignmentExpression(receiver, field, value);
+            var assignment = new BoundFieldAssignmentExpression(receiver, field, value, unitType);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
@@ -274,7 +283,7 @@ internal static class IteratorLowerer
             BoundLiteralExpressionKind.NumericLiteral,
             0,
             stateMachine.StateField.Type);
-        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateMachine.StateField, initialState);
+        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateMachine.StateField, initialState, unitType);
         statements.Add(new BoundAssignmentStatement(stateAssignment));
 
         BoundExpression returnExpression = new BoundLocalAccess(stateMachineLocal);
@@ -414,6 +423,7 @@ internal static class IteratorLowerer
         private readonly Stack<FinallyFrame> _finallyStack = new();
         private readonly Dictionary<int, ImmutableArray<FinallyFrame>> _pendingFinallyStates = new();
         private readonly ITypeSymbol _boolType;
+        private readonly ITypeSymbol _unitType;
         private bool _isTopLevelBlock = true;
         private StateEntry _startState;
         private LabelSymbol? _returnLabel;
@@ -428,6 +438,7 @@ internal static class IteratorLowerer
             _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
             _moveNextMethod = stateMachine.MoveNextMethod ?? throw new ArgumentNullException(nameof(stateMachine.MoveNextMethod));
             _boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
+            _unitType = compilation.GetSpecialType(SpecialType.System_Unit);
         }
 
         public BoundBlockStatement Rewrite(BoundBlockStatement block)
@@ -481,7 +492,7 @@ internal static class IteratorLowerer
                 {
                     if (initializer is not null)
                     {
-                        var assignment = new BoundFieldAssignmentExpression(null, field, initializer);
+                        var assignment = new BoundFieldAssignmentExpression(null, field, initializer, _unitType);
                         hoistedStatements.Add(new BoundAssignmentStatement(assignment));
                     }
                 }
@@ -554,10 +565,10 @@ internal static class IteratorLowerer
             var right = VisitExpression(node.Right) ?? node.Right;
 
             if (_hoistedLocals.TryGetValue(node.Local, out var field))
-                return new BoundFieldAssignmentExpression(null, field, right);
+                return new BoundFieldAssignmentExpression(null, field, right, _unitType);
 
             if (!ReferenceEquals(right, node.Right))
-                return new BoundLocalAssignmentExpression(node.Local, right);
+                return new BoundLocalAssignmentExpression(node.Local, right, _unitType);
 
             return node;
         }
@@ -648,7 +659,7 @@ internal static class IteratorLowerer
             var currentValue = ApplyElementConversion(expression);
 
             var assignCurrent = new BoundAssignmentStatement(
-                new BoundFieldAssignmentExpression(null, _stateMachine.CurrentField, currentValue));
+                new BoundFieldAssignmentExpression(null, _stateMachine.CurrentField, currentValue, _unitType));
 
             var assignState = CreateStateAssignment(resumeState.Value);
 
@@ -732,7 +743,7 @@ internal static class IteratorLowerer
             var value = expression ?? CreateBoolLiteral(false);
             value = ConvertIfNeeded(_compilation, value, _boolType);
 
-            var assignment = new BoundLocalAssignmentExpression(_resultLocal, value);
+            var assignment = new BoundLocalAssignmentExpression(_resultLocal, value, _unitType);
             var assignStatement = new BoundAssignmentStatement(assignment);
             var gotoStatement = new BoundGotoStatement(_returnLabel);
 
@@ -786,7 +797,7 @@ internal static class IteratorLowerer
         private BoundAssignmentStatement CreateStateAssignment(int value)
         {
             var literal = CreateIntLiteral(value);
-            var assignment = new BoundFieldAssignmentExpression(null, _stateMachine.StateField, literal);
+            var assignment = new BoundFieldAssignmentExpression(null, _stateMachine.StateField, literal, _unitType);
             return new BoundAssignmentStatement(assignment);
         }
 

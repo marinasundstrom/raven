@@ -35,6 +35,7 @@ public partial class Compilation
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
+    private BoundNodeFactory? _boundNodeFactory;
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -87,6 +88,8 @@ public partial class Compilation
     internal DeclarationTable DeclarationTable { get; private set; }
 
     internal SymbolFactory SymbolFactory { get; } = new SymbolFactory();
+
+    internal BoundNodeFactory BoundNodeFactory => _boundNodeFactory ??= new BoundNodeFactory(this);
 
     public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
 

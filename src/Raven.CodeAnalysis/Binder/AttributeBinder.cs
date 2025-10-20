@@ -48,7 +48,7 @@ internal sealed class AttributeBinder : BlockBinder
             var typeExpression = BindTypeSyntax(attribute.Name);
 
             if (typeExpression is not BoundTypeExpression boundType || boundType.Type is not INamedTypeSymbol resolvedType)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
             attributeType = resolvedType;
         }

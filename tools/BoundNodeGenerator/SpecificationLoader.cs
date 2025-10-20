@@ -161,7 +161,8 @@ static class SpecificationLoader
             isNullable,
             kind,
             elementType,
-            elementNullable);
+            elementNullable,
+            parameter.Default?.Value.ToString());
     }
 
     private static ParameterKind DetermineParameterKind(string type, out string? elementType, out bool elementNullable)
