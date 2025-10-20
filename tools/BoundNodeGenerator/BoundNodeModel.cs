@@ -39,7 +39,6 @@ sealed record BoundNodeModel(
     public string VisitorMethodName => Name.StartsWith("Bound", StringComparison.Ordinal)
         ? Name["Bound".Length..]
         : Name;
-    public string FactoryMethodName => $"Create{VisitorMethodName}";
 }
 
 sealed record SymbolClassModel(

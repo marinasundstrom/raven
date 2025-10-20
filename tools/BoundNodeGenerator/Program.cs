@@ -45,9 +45,6 @@ foreach (var node in boundNodes.Where(static n => !n.IsAbstract))
     generatedBoundFiles++;
 }
 
-File.WriteAllText(Path.Combine(boundOutputDir, "BoundNodeFactory.g.cs"), BoundNodeFactoryGenerator.Generate(boundNodes));
-generatedBoundFiles++;
-
 File.WriteAllText(Path.Combine(boundOutputDir, "BoundTreeVisitor.g.cs"), BoundTreeVisitorGenerator.GenerateVisitor(boundNodes));
 generatedBoundFiles++;
 
