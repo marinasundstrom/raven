@@ -1,0 +1,7 @@
+let tuple = getTuple() //(a: 2, b: 3)
+
+System.Console.WriteLine(tuple)
+
+func getTuple() -> (a: int, b: string) {
+    return (2, "test")
+}
