@@ -149,8 +149,10 @@ internal class CodeGenerator
     public Type? TypeUnionAttributeType { get; private set; }
     public Type? NullType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
+    public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     ConstructorInfo? _nullableCtor;
+    ConstructorInfo? _tupleElementNamesCtor;
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
@@ -320,6 +322,19 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_nullableCtor!, new object[] { (byte)2 });
     }
 
+    internal CustomAttributeBuilder? CreateTupleElementNamesAttribute(ITypeSymbol type)
+    {
+        if (type is null)
+            return null;
+
+        var transformNames = new List<string?>();
+        if (!TryCollectTupleElementNames(type, transformNames))
+            return null;
+
+        EnsureTupleElementNamesAttributeType();
+        return new CustomAttributeBuilder(_tupleElementNamesCtor!, new object?[] { transformNames.ToArray() });
+    }
+
     static IEnumerable<ITypeSymbol> Flatten(IEnumerable<ITypeSymbol> types)
         => types.SelectMany(t => t is IUnionTypeSymbol u ? Flatten(u.Types) : new[] { t });
 
@@ -353,6 +368,85 @@ internal class CodeGenerator
 
         NullableAttributeType = attrBuilder.CreateType();
         _nullableCtor = NullableAttributeType.GetConstructor(new[] { typeof(byte) });
+    }
+
+    void EnsureTupleElementNamesAttributeType()
+    {
+        if (TupleElementNamesAttributeType is not null)
+            return;
+
+        TupleElementNamesAttributeType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TupleElementNamesAttribute")
+            ?? throw new InvalidOperationException("Type 'System.Runtime.CompilerServices.TupleElementNamesAttribute' not found in runtime assemblies.");
+
+        _tupleElementNamesCtor = TupleElementNamesAttributeType.GetConstructor(new[] { typeof(string[]) })
+            ?? throw new InvalidOperationException("Missing TupleElementNamesAttribute(string[]) constructor.");
+    }
+
+    bool TryCollectTupleElementNames(ITypeSymbol type, List<string?> transformNames)
+    {
+        if (type is null)
+            return false;
+
+        var start = transformNames.Count;
+        var hasAnyNames = false;
+
+        switch (type)
+        {
+            case INamedTypeSymbol named when named.TypeKind == TypeKind.Tuple:
+            {
+                var tupleElements = named.TupleElements;
+                if (tupleElements.IsDefaultOrEmpty)
+                    break;
+
+                for (var i = 0; i < tupleElements.Length; i++)
+                {
+                    var element = tupleElements[i];
+                    var elementName = element.Name;
+                    var isExplicit = !string.IsNullOrEmpty(elementName) && elementName != $"Item{i + 1}";
+                    transformNames.Add(isExplicit ? elementName : null);
+
+                    if (isExplicit)
+                        hasAnyNames = true;
+
+                    if (TryCollectTupleElementNames(element.Type, transformNames))
+                        hasAnyNames = true;
+                }
+
+                break;
+            }
+            case NullableTypeSymbol nullableType:
+                hasAnyNames |= TryCollectTupleElementNames(nullableType.UnderlyingType, transformNames);
+                break;
+            case IArrayTypeSymbol arrayType:
+                hasAnyNames |= TryCollectTupleElementNames(arrayType.ElementType, transformNames);
+                break;
+            case IPointerTypeSymbol pointerType:
+                hasAnyNames |= TryCollectTupleElementNames(pointerType.PointedAtType, transformNames);
+                break;
+            case IAddressTypeSymbol addressType:
+                hasAnyNames |= TryCollectTupleElementNames(addressType.ReferencedType, transformNames);
+                break;
+            case IUnionTypeSymbol unionType:
+                foreach (var member in unionType.Types)
+                    hasAnyNames |= TryCollectTupleElementNames(member, transformNames);
+                break;
+            case INamedTypeSymbol namedType:
+                if (!namedType.TypeArguments.IsDefaultOrEmpty)
+                {
+                    foreach (var typeArgument in namedType.TypeArguments)
+                        hasAnyNames |= TryCollectTupleElementNames(typeArgument, transformNames);
+                }
+                break;
+        }
+
+        if (!hasAnyNames)
+        {
+            var added = transformNames.Count - start;
+            if (added > 0)
+                transformNames.RemoveRange(start, added);
+        }
+
+        return hasAnyNames;
     }
 
     public CodeGenerator(Compilation compilation)
