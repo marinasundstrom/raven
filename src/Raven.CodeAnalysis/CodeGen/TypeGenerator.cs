@@ -272,6 +272,10 @@ internal class TypeGenerator
         if (nullableAttr is not null)
             fieldBuilder.SetCustomAttribute(nullableAttr);
 
+        var tupleNamesAttr = CodeGen.CreateTupleElementNamesAttribute(fieldSymbol.Type);
+        if (tupleNamesAttr is not null)
+            fieldBuilder.SetCustomAttribute(tupleNamesAttr);
+
         CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
 
         _fieldBuilders[fieldSymbol] = fieldBuilder;
@@ -572,9 +576,15 @@ internal class TypeGenerator
         var index = 0;
         foreach (var captured in lambdaSymbol.CapturedVariables)
         {
-            var fieldType = ResolveCapturedSymbolType(captured);
+            var capturedTypeSymbol = GetCapturedSymbolTypeSymbol(captured);
+            var fieldType = ResolveClrType(capturedTypeSymbol);
             var fieldName = CreateClosureFieldName(captured, index++);
             var fieldBuilder = closureBuilder.DefineField(fieldName, fieldType, FieldAttributes.Public);
+
+            var tupleAttr = CodeGen.CreateTupleElementNamesAttribute(capturedTypeSymbol);
+            if (tupleAttr is not null)
+                fieldBuilder.SetCustomAttribute(tupleAttr);
+
             fields[captured] = fieldBuilder;
         }
 
@@ -590,6 +600,11 @@ internal class TypeGenerator
 
     private Type ResolveCapturedSymbolType(ISymbol symbol)
     {
+        return ResolveClrType(GetCapturedSymbolTypeSymbol(symbol));
+    }
+
+    private ITypeSymbol GetCapturedSymbolTypeSymbol(ISymbol symbol)
+    {
         var typeSymbol = symbol switch
         {
             ILocalSymbol local when local.Type is not null => local.Type,
@@ -600,7 +615,7 @@ internal class TypeGenerator
             _ => Compilation.ErrorTypeSymbol
         };
 
-        return ResolveClrType(typeSymbol);
+        return typeSymbol;
     }
 
     private static string CreateClosureFieldName(ISymbol symbol, int ordinal)
