@@ -248,6 +248,9 @@ internal static class MethodSymbolExtensionsForCodeGen
             return false;
         }
 
+        if (symbolType is INamedTypeSymbol namedTuple && !namedTuple.TupleElements.IsDefaultOrEmpty && namedTuple.TupleElements.Length > 0)
+            return RuntimeTupleMatchesSymbol(runtimeType, namedTuple.TupleElements, codeGen);
+
         var expectedType = symbolType.GetClrType(codeGen);
         return TypesEquivalentCore(runtimeType, expectedType);
     }
@@ -386,5 +389,59 @@ internal static class MethodSymbolExtensionsForCodeGen
         }
 
         return left == right;
+    }
+
+    private static bool RuntimeTupleMatchesSymbol(Type runtimeType, ImmutableArray<IFieldSymbol> tupleElements, CodeGenerator codeGen)
+    {
+        var runtimeElementTypes = FlattenValueTupleElementTypes(runtimeType);
+        if (runtimeElementTypes is null)
+            return false;
+
+        if (runtimeElementTypes.Length != tupleElements.Length)
+            return false;
+
+        for (var i = 0; i < runtimeElementTypes.Length; i++)
+        {
+            if (!TypesEquivalent(runtimeElementTypes[i], tupleElements[i].Type, codeGen))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static Type[]? FlattenValueTupleElementTypes(Type runtimeType)
+    {
+        if (!IsValueTupleType(runtimeType))
+            return null;
+
+        if (!runtimeType.IsGenericType)
+            return Array.Empty<Type>();
+
+        var genericArguments = runtimeType.GetGenericArguments();
+
+        if (genericArguments.Length <= 7)
+            return genericArguments;
+
+        if (genericArguments.Length != 8)
+            return null;
+
+        var nested = FlattenValueTupleElementTypes(genericArguments[7]);
+        if (nested is null)
+            return null;
+
+        var result = new Type[7 + nested.Length];
+        Array.Copy(genericArguments, result, 7);
+        Array.Copy(nested, 0, result, 7, nested.Length);
+        return result;
+    }
+
+    private static bool IsValueTupleType(Type runtimeType)
+    {
+        var definition = runtimeType;
+        if (runtimeType.IsGenericType)
+            definition = runtimeType.GetGenericTypeDefinition();
+
+        var fullName = definition.FullName ?? definition.Name;
+        return fullName == "System.ValueTuple" || fullName.StartsWith("System.ValueTuple`", StringComparison.Ordinal);
     }
 }
