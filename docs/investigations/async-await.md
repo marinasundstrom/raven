@@ -135,6 +135,16 @@ has an uncreated `TypeBuilder`, enumerating `methodSearchType.GetMethods` inside
 The crash is therefore isolated to the substitution lookup rather than to the
 async builder handshake itself. 【5406d5†L65-L132】【d5ec68†L1-L36】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L201-L270】
 
+**Open generic requirement** – the async state machine must hand its
+`MethodBuilder` definitions back to the emitter (via
+`CodeGenerator.AddMemberBuilder`/`TryGetMemberBuilder`) so that substituted
+methods, local functions, accessors, and other function-like constructs can
+materialise `TypeBuilderInstantiation` handles without ever calling
+`TypeBuilder.GetMethods` on an open generic definition. Projecting the cached
+builder through `TypeBuilder.GetMethod` keeps the lookup on the Reflection.Emit
+surface even when the state machine itself is still generic, allowing
+instantiations such as `Test<T>` to load their async scaffolding safely.
+
 **Proposed fix** – teach `ConstructedMethodSymbol` (and callers such as
 `SubstitutedMethodSymbol`) to reuse the `MethodBuilder` handles recorded through
 `CodeGenerator.AddMemberBuilder` instead of reflecting over incomplete
@@ -143,32 +153,24 @@ lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/Code
 
 **Step-by-step plan**
 
-1. **Document the crash behaviour** – capture the failing stack trace and
-   diagnostics from the `test8.rav` sample and paste them into the investigation
-   log so regressions can be detected quickly. (Status: _Complete_.【03b865†L1-L64】)
-2. **Audit substitution call sites** – add temporary diagnostics in
-   `ConstructedMethodSymbol.GetMethodInfo` to log the constructed method symbol,
-   the containing definition, and whether a `MethodBuilder` entry already exists
-   in `CodeGenerator.AddMemberBuilder`. This verifies which lookup path misses the
-   cache. (Status: _Complete_.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L204-L217】)
-3. **Design the caching hand-off** – map the data flow from
-   `CodeGenerator.AddMemberBuilder` through `TypeGenerator` and confirm where the
-   constructed method should look up the original `MethodBuilder`. Ensure the plan
-   covers both generic methods and async lambdas lowered through substitution.
-   (Status: _Complete_.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L27-L52】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L342-L469】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L196-L285】)
-4. **Implement builder reuse** – thread the cached `MethodBuilder` through the
-   substitution path, updating `ConstructedMethodSymbol` and any helpers so they
-   return the cached handle without touching `TypeBuilder.GetMethods`. Keep the
-   Reflection.Emit path covered with targeted unit tests. (Status:
-   _Complete_.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L42-L67】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L196-L334】)
-5. **Add regression coverage** – extend the `samples/test8.rav` scenario (or add a
-   dedicated test) to assert that emitting a constructed async generic produces IL
-   successfully, and include a guard that fails if `TypeBuilder` reflection is
-   attempted before creation. (Status:
-   _Complete_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1056-L1126】)
-6. **Update documentation and tracking** – summarise the fix in this note, move
-   the completed steps into the "Completed steps" list above, and adjust the
-   upcoming focus to the next priority issue. (Status: _Complete_.)
+1. **Step 9 – Instrument the entry-point state machine** – log every `_builder`,
+   `_state`, and awaiter field access inside `Program.<Main>d__0.MoveNext`, patch
+   the emitted `async_entry.dll` to confirm the hooks sit after each
+   `ldarga.s`/`ldfld`, and capture a full execution trace from the CLI repro.
+   (Status: _In progress_.【0055cf†L1-L23】)
+2. **Step 10 – Diff Raven vs. Roslyn IL** – compare the instrumented
+   `async_entry.dll` against Roslyn's `async Task<int>` state machine so the
+   missing `ldfld`/`stfld` sequences and `_builder` mutations are isolated before
+   touching lowering. (Status: _Pending_.)
+3. **Step 11 – Fix lowering to share the receiver** – update the async lowering
+   pipeline so `_state`, `_builder`, and hoisted awaiters reuse a single
+   `ldarga.s` receiver across `AwaitUnsafeOnCompleted`, `SetResult`, and
+   `SetException`, eliminating the struct copies highlighted by the diff.
+   (Status: _Pending_.)
+4. **Step 12 – Promote runtime regression coverage** – remove the temporary
+   instrumentation once the IL matches Roslyn, add a runtime execution test that
+   asserts `AsyncTaskMethodBuilder<int>.SetResult` completes successfully, and
+   archive the instrumentation log beside the investigation. (Status: _Pending_.)
 
 #### Issue 1 resolution summary
 
