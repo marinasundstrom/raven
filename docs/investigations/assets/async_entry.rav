@@ -9,3 +9,4 @@ async func Test(value: int) -> Task<int> {
 let value = await Test(42)
 
 WriteLine(value)
+return value

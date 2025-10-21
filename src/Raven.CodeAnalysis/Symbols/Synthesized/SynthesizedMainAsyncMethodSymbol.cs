@@ -25,12 +25,15 @@ sealed class SynthesizedMainAsyncMethodSymbol : SourceMethodSymbol, IMethodSymbo
             methodKind: MethodKind.Ordinary,
             isAsync: true)
     {
+        ReturnsInt = returnsInt;
         SetParameters([new SourceParameterSymbol("args", CreateStringArrayType(type), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
 
     public override bool IsStatic => true;
 
     public override bool IsImplicitlyDeclared => true;
+
+    public bool ReturnsInt { get; }
 
     private static ITypeSymbol ResolveReturnType(SynthesizedProgramClassSymbol type, bool returnsInt)
     {

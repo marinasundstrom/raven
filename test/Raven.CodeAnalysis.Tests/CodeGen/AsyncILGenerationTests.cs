@@ -90,6 +90,7 @@ async func Test(value: int) -> Task<int> {
 let value = await Test(42)
 
 WriteLine(value)
+return value
 """;
 
 
@@ -764,15 +765,9 @@ class C {
         var builderType = Assert.IsAssignableFrom<Type>(createMethod.DeclaringType);
         Assert.Equal(builderType, createMethod.ReturnType);
 
-        if (builderType.IsGenericType)
-        {
-            Assert.Equal(typeof(AsyncTaskMethodBuilder<>), builderType.GetGenericTypeDefinition());
-            Assert.Equal(typeof(int), Assert.Single(builderType.GetGenericArguments()));
-        }
-        else
-        {
-            Assert.Equal(typeof(AsyncTaskMethodBuilder), builderType);
-        }
+        Assert.True(builderType.IsGenericType);
+        Assert.Equal(typeof(AsyncTaskMethodBuilder<>), builderType.GetGenericTypeDefinition());
+        Assert.Equal(typeof(int), Assert.Single(builderType.GetGenericArguments()));
     }
 
     [Fact]
@@ -798,19 +793,12 @@ class C {
         {
             var declaringType = Assert.IsAssignableFrom<Type>(setResult.DeclaringType);
 
-            if (declaringType.IsGenericType)
-            {
-                Assert.Equal(typeof(AsyncTaskMethodBuilder<>), declaringType.GetGenericTypeDefinition());
-                Assert.Equal(typeof(int), Assert.Single(declaringType.GetGenericArguments()));
+            Assert.True(declaringType.IsGenericType);
+            Assert.Equal(typeof(AsyncTaskMethodBuilder<>), declaringType.GetGenericTypeDefinition());
+            Assert.Equal(typeof(int), Assert.Single(declaringType.GetGenericArguments()));
 
-                var parameter = Assert.Single(setResult.GetParameters());
-                Assert.Equal(typeof(int), parameter.ParameterType);
-            }
-            else
-            {
-                Assert.Equal(typeof(AsyncTaskMethodBuilder), declaringType);
-                Assert.Empty(setResult.GetParameters());
-            }
+            var parameter = Assert.Single(setResult.GetParameters());
+            Assert.Equal(typeof(int), parameter.ParameterType);
         }
     }
 
@@ -829,15 +817,8 @@ class C {
 
         var getResult = Assert.IsAssignableFrom<MethodInfo>(instructions[getResultIndex].Operand.Value);
 
-        if (method.ReturnType.SpecialType == SpecialType.System_Unit)
-        {
-            Assert.Equal(typeof(void), getResult.ReturnType);
-        }
-        else
-        {
-            Assert.Equal(SpecialType.System_Int32, method.ReturnType.SpecialType);
-            Assert.NotEqual(typeof(void), getResult.ReturnType);
-        }
+        Assert.Equal(SpecialType.System_Int32, method.ReturnType.SpecialType);
+        Assert.NotEqual(typeof(void), getResult.ReturnType);
 
         var returnIndex = Array.FindLastIndex(instructions, instruction => instruction.Opcode == OpCodes.Ret);
         Assert.True(returnIndex >= 0, "ret instruction not found in Main bridge body.");
