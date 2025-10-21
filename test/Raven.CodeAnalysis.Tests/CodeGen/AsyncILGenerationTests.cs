@@ -536,6 +536,43 @@ class C {
     }
 
     [Fact]
+    public void ConstructedEntryPointStateMachine_ResolvesCachedMoveNextBuilder()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncTaskOfIntEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_entry_cache", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var probeFactory = new CachedConstructedMethodProbeFactory(
+            ReflectionEmitILBuilderFactory.Instance,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.AsyncMethod.Name == "MainAsync");
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = probeFactory
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        Assert.True(probeFactory.ProbeInvoked, "MoveNext method generation was not observed by the probe.");
+        Assert.True(probeFactory.ProbeSucceeded, "Constructed MoveNext method failed to resolve the cached MethodBuilder.");
+    }
+
+    [Fact]
     public void AsyncEntryPoint_WithTask_ExecutesSuccessfully()
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
@@ -1219,6 +1256,35 @@ class C {
         var instructions = recordingFactory.CapturedInstructions ?? throw new InvalidOperationException("Failed to capture IL.");
 
         return (method, instructions.ToArray());
+    }
+
+    private sealed class CachedConstructedMethodProbeFactory : IILBuilderFactory
+    {
+        private readonly IILBuilderFactory _inner;
+        private readonly Func<MethodGenerator, bool> _predicate;
+
+        public CachedConstructedMethodProbeFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate)
+        {
+            _inner = inner;
+            _predicate = predicate;
+        }
+
+        public bool ProbeInvoked { get; private set; }
+        public bool ProbeSucceeded { get; private set; }
+
+        public IILBuilder Create(MethodGenerator methodGenerator)
+        {
+            if (!ProbeInvoked && _predicate(methodGenerator))
+            {
+                ProbeInvoked = true;
+
+                var constructed = methodGenerator.MethodSymbol.Construct(Array.Empty<ITypeSymbol>());
+                var methodInfo = constructed.GetClrMethodInfo(methodGenerator.TypeGenerator.CodeGen);
+                ProbeSucceeded = methodInfo is MethodBuilder;
+            }
+
+            return _inner.Create(methodGenerator);
+        }
     }
 
     private static string EmitAsyncAssemblyToDisk(string source, out Compilation compilation)

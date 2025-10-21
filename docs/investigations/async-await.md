@@ -16,57 +16,24 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 11: Re-evaluate the lowering plan before changing IL
-  so the fix lands on the right seams.
-  * ✅ Confirmed that `SynthesizedAsyncStateMachineTypeSymbol.DetermineBuilderType`
-    recognises metadata-sourced `Task<int>` return types and added
-    `AsyncEntryPoint_BuilderFieldUsesGenericBuilder_WhenReturnTypeDerivedFromMetadata`
-    so a future `MainAsync` rewrite still selects
-    `AsyncTaskMethodBuilder<int>` instead of falling back to the non-generic
-    builder.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L235】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L200-L238】
-    The top-level entry point continues to emit the non-generic builder while
-    `MainAsync` returns `Task`, so the lowering and bridge investigations below
-    remain active.
-  * ✅ Audited the async state-machine lowering with
-    `AsyncEntryPoint_MainAsync_InitializesGenericBuilderViaCreate` and
-    `AsyncEntryPoint_MoveNext_CallsGenericBuilderSetResult`, confirming the
-    builder initialization and completion paths call
-    `AsyncTaskMethodBuilder<int>.Create()` and
-    `.SetResult(int)` when the field type is projected from metadata.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L712-L778】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】
-  * ✅ Confirmed the synthesized `Main` bridge returns the awaited `int` result
-    without additional conversions via
-    `AsyncEntryPoint_MainBridge_ReturnsAwaitedIntWithoutConversions`, so the
-    IL rewrite can focus on wiring the generic builder calls.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L781-L807】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】
-  * 🔄 Re-sequenced the rewrite plan so the caching fix lands before the IL
-    overhaul:
-    * `ConstructedMethodSymbol.GetMethodInfo` still walks the open
-      `TypeBuilder` when substituting async scaffolding, so Step 12 now focuses
-      on pulling the cached `MethodBuilder` handles from
-      `CodeGenerator.TryGetMemberBuilder` before touching `GetMethods`,
-      mirroring the stacks captured from the CLI repro.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L278】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L83】【539be5†L1-L42】
-    * Once the cache reuse is in place the lowering seams can switch the field
-      type to `AsyncTaskMethodBuilder<int>`, reuse the helper-based
-      initialization/reset sites, and reintroduce the Roslyn-style awaiter
-      zeroing without regressing other async bodies.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1813】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】
-    * The synthesized `Main` bridge already awaits and returns the entry-point
-      result, so it can stay unchanged once the state machine hands back the
-      generic builder task.【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】
+* **Active step** – Step 13: Rewrite the entry-point async lowering so the
+  state machine hoists `AsyncTaskMethodBuilder<int>` and commits the awaited
+  result through the generic builder.
+  * ✅ `ConstructedMethodSymbol.GetMethodInfo` now rehydrates cached
+    `MethodBuilder` handles for the entry-point state machine, and
+    `ConstructedEntryPointStateMachine_ResolvesCachedMoveNextBuilder` exercises
+    the CLI crash stack so the lowering work can focus on builder wiring instead
+    of reflection failures.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】
+  * 🔄 Thread the Roslyn-style awaiter reset and generic builder hand-offs
+    through the existing lowering helpers so `MainAsync` and the synthesized
+    bridge agree on the `AsyncTaskMethodBuilder<int>` flow before updating the
+    runtime regression coverage.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】
   * Re-run the Step 10 pointer log once the builder rewrite is staged to confirm
     `_state`, `_builder`, and awaiter addresses remain stable for regression
     logging.【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】
 
 ### Upcoming steps
 
-* Step 12: Teach `ConstructedMethodSymbol.GetMethodInfo` (and the
-  `CodeGenerator` cache callers that drive it) to reuse recorded
-  `MethodBuilder` handles for async scaffolding before consulting
-  `TypeBuilder.GetMethods`, so substituted entry-point members stop throwing
-  `TypeBuilderImpl.ThrowIfNotCreated` while the state machine type is still
-  open.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L278】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L83】
-* Step 13: Rewrite the entry-point async lowering to initialise the generic
-  builder, reset the cached awaiter, and call `SetResult(int)` through the
-  hoisted state machine field so the emitted IL matches Roslyn's baseline and
-  the IL regression tests pass without bridge changes.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1813】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】
 * Step 14: Promote the console repro into a runtime execution test once the IL
   rewrite lands, wiring the pointer trace into automation to ensure
   `AsyncTaskMethodBuilder<int>` completes without exceptions on future
@@ -122,6 +89,11 @@ blocking parity with C#, and the work required to resolve them.
   `SetResult(!0)` and `initobj` on the cached awaiter, and the Step 10 pointer
   log maps the `_state` and `<>awaiter0` mutations back to those IL offsets so
   the lowering delta is now concrete.【F:docs/investigations/snippets/async-entry-step10-raven.il†L1-L118】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】【F:docs/investigations/assets/RoslynAsyncEntry/Program.cs†L1-L18】【F:docs/investigations/assets/RoslynAsyncEntry/RoslynAsyncEntry.csproj†L1-L7】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】
+* Step 12: Reused cached `MethodBuilder` handles inside
+  `ConstructedMethodSymbol.GetMethodInfo` before the state machine type is
+  created and added `ConstructedEntryPointStateMachine_ResolvesCachedMoveNextBuilder`
+  to ensure the CLI repro keeps exercising the cache path instead of reflection
+  over an open `TypeBuilder`.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】
 
 ### Completed issues
 
@@ -199,13 +171,13 @@ lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/Code
    actually threads `AsyncTaskMethodBuilder<int>` through `Create`,
    `AwaitUnsafeOnCompleted`, and `SetResult(int)` before rewriting the IL, using
    the builder selection logic and substitution helpers as the checkpoints.
-   (Status: _In progress_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L212】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】)
+   (Status: _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L212】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L712-L807】)
 4. **Step 12 – Cache substituted async entry scaffolding** – update
    `ConstructedMethodSymbol.GetMethodInfo` and the `CodeGenerator`
    registration/lookup path so the entry-point state machine reuses the cached
    `MethodBuilder` handles before any `GetMethods` reflection, and add an IL
    regression test that exercises the CLI crash path. (Status:
-   _Pending_.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L278】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L83】【539be5†L1-L42】)
+   _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】)
 5. **Step 13 – Rewrite the entry-point lowering** – change the hoisted builder
    field to `AsyncTaskMethodBuilder<int>`, route initialization/completion
    through the existing helpers, and reinstate the Roslyn-style awaiter reset so

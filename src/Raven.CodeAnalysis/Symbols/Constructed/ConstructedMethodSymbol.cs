@@ -226,6 +226,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 
+        if (TryResolveFromCachedDefinition(
+                codeGen,
+                containingClrType,
+                isTypeBuilderInstantiation,
+                parameterSymbols,
+                returnTypeSymbol,
+                runtimeTypeArguments,
+                out var cached))
+        {
+            return cached;
+        }
+
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         foreach (var method in methodSearchType.GetMethods(Flags))
         {
@@ -279,6 +291,96 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+    }
+
+    private bool TryResolveFromCachedDefinition(
+        CodeGen.CodeGenerator codeGen,
+        Type containingClrType,
+        bool isTypeBuilderInstantiation,
+        ImmutableArray<IParameterSymbol> parameterSymbols,
+        ITypeSymbol returnTypeSymbol,
+        Type[] runtimeTypeArguments,
+        out MethodInfo methodInfo)
+    {
+        methodInfo = null!;
+
+        if (!TryGetSourceDefinitionSymbol(_definition, out var sourceDefinition))
+            return false;
+
+        if (!codeGen.TryGetMemberBuilder(sourceDefinition, out var member) || member is not MethodInfo definitionMethod)
+            return false;
+
+        var candidateDefinition = definitionMethod;
+
+        if (candidateDefinition.IsGenericMethod && !candidateDefinition.IsGenericMethodDefinition)
+            candidateDefinition = candidateDefinition.GetGenericMethodDefinition();
+
+        if (isTypeBuilderInstantiation)
+        {
+            var projected = TypeBuilder.GetMethod(containingClrType, candidateDefinition);
+            if (projected is null)
+                return false;
+            candidateDefinition = projected;
+        }
+
+        var candidate = candidateDefinition;
+
+        if (candidate.IsGenericMethodDefinition)
+        {
+            if (runtimeTypeArguments.Length != candidate.GetGenericArguments().Length)
+                return false;
+
+            candidate = candidate.MakeGenericMethod(runtimeTypeArguments);
+        }
+
+        var candidateParameters = candidate.GetParameters();
+        var methodRuntimeArguments = candidate.IsGenericMethod
+            ? candidate.GetGenericArguments()
+            : Array.Empty<Type>();
+        var typeRuntimeArguments = candidate.DeclaringType is not null && candidate.DeclaringType.IsGenericType
+            ? candidate.DeclaringType.GetGenericArguments()
+            : Array.Empty<Type>();
+
+        if (!ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen))
+            return false;
+
+        var normalizedReturnType = SubstituteRuntimeType(candidate.ReturnType, methodRuntimeArguments, typeRuntimeArguments);
+        if (!MethodSymbolExtensionsForCodeGen.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
+            return false;
+
+        methodInfo = candidate;
+        return true;
+    }
+
+    private static bool TryGetSourceDefinitionSymbol(IMethodSymbol methodSymbol, out SourceSymbol sourceSymbol)
+    {
+        switch (methodSymbol)
+        {
+            case SourceSymbol source:
+                sourceSymbol = source;
+                return true;
+            case IAliasSymbol alias when alias.UnderlyingSymbol is IMethodSymbol underlyingMethod:
+                return TryGetSourceDefinitionSymbol(underlyingMethod, out sourceSymbol);
+            default:
+                {
+                    var originalDefinition = methodSymbol.OriginalDefinition;
+                    if (originalDefinition is not null && !ReferenceEquals(originalDefinition, methodSymbol) &&
+                        TryGetSourceDefinitionSymbol(originalDefinition, out sourceSymbol))
+                    {
+                        return true;
+                    }
+
+                    var constructedFrom = methodSymbol.ConstructedFrom;
+                    if (constructedFrom is not null && !ReferenceEquals(constructedFrom, methodSymbol) &&
+                        TryGetSourceDefinitionSymbol(constructedFrom, out sourceSymbol))
+                    {
+                        return true;
+                    }
+
+                    sourceSymbol = null!;
+                    return false;
+                }
+        }
     }
 
     private bool ParametersMatch(
