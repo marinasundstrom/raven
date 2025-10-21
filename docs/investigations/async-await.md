@@ -16,22 +16,21 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 14: Promote the console repro into a runtime execution
-  test so the generic builder lowering stays exercised end-to-end.
-  * ✅ Updated the shared async entry sample to `return value`, allowing the CLI
-    regression to assert the exit code that flows through the generic builder.【F:docs/investigations/assets/async_entry.rav†L1-L12】
-  * 🔄 Port the pointer-stability instrumentation into an automated regression
-    that records `_state`, `_builder`, and awaiter transitions while executing
-    the CLI repro with the generic builder in place.【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L655-L724】
-  * 🔄 Decide how to retire or gate the manual logging hooks once the runtime
-    test asserts both the exit code and the pointer trace.【F:src/Raven.Compiler/Program.cs†L55-L142】
+* **Active step** – Step 15: Expand the async entry regression suite with
+  multi-await coverage so the pointer trace keeps validating resumptions beyond
+  the initial await.
+  * 🔄 Add a multi-await sample to the runtime pointer trace harness so the
+    `_state`, `_builder`, and awaiter records span multiple resumes.
+  * 🔄 Extend the IL fixtures to track additional awaiter slots and correlate
+    their address logs with the runtime pointer trace.
+  * 🔄 Document the expected pointer timeline for multi-await entry points to
+    keep future instrumentation work grounded in concrete traces.
 
 ### Upcoming steps
 
-* Step 15: Expand the async entry regression suite with multi-await scenarios so
-  the generic builder branch stays validated across multiple resumptions,
-  building on the existing IL probes that assert `Create` and `SetResult(int)`
-  usage.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L750-L806】
+* Step 16: Align the pointer-trace harness with Roslyn's entry-point behaviour
+  and feed the CLI flag into continuous regression runs once the multi-await
+  coverage lands.
 
 ### Completed steps
 
@@ -92,6 +91,10 @@ blocking parity with C#, and the work required to resolve them.
   `AsyncTaskMethodBuilder<int>`, awaiters reset between resumptions, and the
   synthesized `Main` bridge returns the awaited integer, with IL and CLI
   regressions covering the generic builder flow.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L173-L347】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L372】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L655-L845】
+* Step 14: Gated async pointer instrumentation behind `--async-investigation`
+  and added a runtime regression that executes the compiled entry point to
+  assert `_state`, `_builder`, and awaiter addresses stay stable throughout the
+  generic builder flow.【F:src/Raven.Compiler/Program.cs†L34-L195】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L733-L847】
 
 ### Completed issues
 

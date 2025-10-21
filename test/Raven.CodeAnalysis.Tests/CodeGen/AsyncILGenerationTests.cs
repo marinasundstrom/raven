@@ -9,6 +9,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
 using System.Threading.Tasks;
 
 using Raven;
@@ -730,6 +731,122 @@ class C {
     }
 
     [Fact]
+    public void AsyncEntryPoint_RuntimePointerTrace_RemainsStable()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncTaskOfIntEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithAsyncInvestigation(AsyncInvestigationOptions.Enable("Step14"));
+
+        var compilation = Compilation.Create("async-pointer", options)
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString())));
+
+        peStream.Position = 0;
+
+        var originalOut = Console.Out;
+        using var outputWriter = new StringWriter();
+        Console.SetOut(outputWriter);
+
+        int exitCode;
+        try
+        {
+            using var loadContext = new AssemblyLoadContext("async-pointer", isCollectible: true);
+            var assembly = loadContext.LoadFromStream(peStream);
+            var entryPoint = assembly.EntryPoint ?? throw new InvalidOperationException("Entry point not found.");
+
+            object? invocationResult;
+            if (entryPoint.GetParameters().Length == 0)
+            {
+                invocationResult = entryPoint.Invoke(null, null);
+            }
+            else
+            {
+                invocationResult = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+            }
+
+            if (entryPoint.ReturnType == typeof(int))
+            {
+                exitCode = (int)(invocationResult ?? 0);
+            }
+            else if (typeof(Task).IsAssignableFrom(entryPoint.ReturnType))
+            {
+                if (invocationResult is Task<int> intTask)
+                {
+                    exitCode = intTask.GetAwaiter().GetResult();
+                }
+                else if (invocationResult is Task task)
+                {
+                    task.GetAwaiter().GetResult();
+                    exitCode = 0;
+                }
+                else
+                {
+                    exitCode = 0;
+                }
+            }
+            else
+            {
+                exitCode = 0;
+            }
+
+            loadContext.Unload();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = outputWriter.ToString().Replace("\r\n", "\n").Trim();
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Contains("42", lines);
+        Assert.Equal(42, exitCode);
+
+        var pointerRecords = lines
+            .Where(line => line.StartsWith("Step14:", StringComparison.Ordinal))
+            .Select(ParsePointerRecord)
+            .ToArray();
+
+        Assert.NotEmpty(pointerRecords);
+
+        var grouped = pointerRecords.GroupBy(record => record.Field).ToArray();
+
+        Assert.Contains(grouped, group => group.Key == "_state");
+        Assert.Contains(grouped, group => group.Key == "_builder");
+        Assert.Contains(grouped, group => group.Key.StartsWith("<>awaiter", StringComparison.Ordinal));
+
+        foreach (var group in grouped)
+        {
+            var uniqueAddresses = group.Select(record => record.Address).Distinct().ToArray();
+            Assert.Single(uniqueAddresses);
+
+            var hasLoad = group.Any(record => record.Operation == "load");
+            var hasStore = group.Any(record => record.Operation == "store");
+            var hasAddress = group.Any(record => record.Operation == "addr");
+
+            Assert.True(hasLoad || hasStore || hasAddress, $"Missing operations for field '{group.Key}'.");
+
+            if (group.Key.StartsWith("<>awaiter", StringComparison.Ordinal))
+                Assert.True(hasAddress, "Awaiter fields should emit address traces.");
+        }
+    }
+    [Fact]
     public void AsyncEntryPoint_MainBridge_AwaitsMainAsync()
     {
         var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
@@ -1237,6 +1354,26 @@ class C {
         var instructions = recordingFactory.CapturedInstructions ?? throw new InvalidOperationException("Failed to capture IL.");
 
         return (method, instructions.ToArray());
+    }
+
+    private static (string Field, string Operation, ulong Address) ParsePointerRecord(string line)
+    {
+        var firstColon = line.IndexOf(':');
+        var secondColon = line.IndexOf(':', firstColon + 1);
+        var arrowIndex = line.IndexOf(" -> ", StringComparison.Ordinal);
+
+        if (firstColon < 0 || secondColon < 0 || arrowIndex < 0 || secondColon <= firstColon)
+            throw new FormatException($"Unexpected pointer trace format: '{line}'.");
+
+        var field = line.Substring(firstColon + 1, secondColon - firstColon - 1);
+        var operation = line.Substring(secondColon + 1, arrowIndex - secondColon - 1).Trim();
+        var addressText = line.Substring(arrowIndex + 4);
+
+        if (addressText.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            addressText = addressText[2..];
+
+        var address = Convert.ToUInt64(addressText, 16);
+        return (field, operation, address);
     }
 
     private sealed class CachedConstructedMethodProbeFactory : IILBuilderFactory

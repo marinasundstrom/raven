@@ -25,6 +25,10 @@ internal class ExpressionGenerator : Generator
         .GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(RuntimeTypeHandle) }, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Type.GetTypeFromHandle(RuntimeTypeHandle).");
 
+    private static readonly MethodInfo ConsoleWriteLineStringObject = typeof(Console)
+        .GetMethod(nameof(Console.WriteLine), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
+        ?? throw new InvalidOperationException("Failed to resolve Console.WriteLine(string, object).");
+
     public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true) : base(parent)
     {
         _expression = expression;
@@ -909,6 +913,8 @@ internal class ExpressionGenerator : Generator
 
             case IFieldSymbol field when field.IsStatic:
                 ILGenerator.Emit(OpCodes.Ldsflda, GetField(field));
+                if (TryGetAsyncInvestigationFieldLabel(field, out var staticFieldLabel))
+                    EmitAsyncInvestigationLog(staticFieldLabel, AsyncInvestigationOperation.Address);
                 break;
 
             case IFieldSymbol field:
@@ -938,6 +944,8 @@ internal class ExpressionGenerator : Generator
                 }
 
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
+                if (TryGetAsyncInvestigationFieldLabel(field, out var fieldLabel))
+                    EmitAsyncInvestigationLog(fieldLabel, AsyncInvestigationOperation.Address);
                 break;
 
             case ITypeSymbol:
@@ -1705,6 +1713,8 @@ internal class ExpressionGenerator : Generator
                         if (fieldSymbol.IsStatic)
                         {
                             ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
+                            if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var staticDefaultLabel))
+                                EmitAsyncInvestigationLog(staticDefaultLabel, AsyncInvestigationOperation.Address);
                         }
                         else
                         {
@@ -1730,9 +1740,12 @@ internal class ExpressionGenerator : Generator
                             }
 
                             ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+                            if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var defaultLabel))
+                                EmitAsyncInvestigationLog(defaultLabel, AsyncInvestigationOperation.Address);
                         }
 
                         ILGenerator.Emit(OpCodes.Initobj, ResolveClrType(fieldSymbol.Type));
+                        EmitAsyncInvestigationStore(fieldSymbol);
                         break;
                     }
 
@@ -1784,6 +1797,7 @@ internal class ExpressionGenerator : Generator
                                 ILGenerator.Emit(OpCodes.Dup);
 
                             ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+                            EmitAsyncInvestigationStore(fieldSymbol);
                             break;
                         }
 
@@ -1837,6 +1851,7 @@ internal class ExpressionGenerator : Generator
                     }
 
                     ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+                    EmitAsyncInvestigationStore(fieldSymbol);
                     break;
                 }
 
@@ -2518,6 +2533,8 @@ internal class ExpressionGenerator : Generator
             if (TryEmitValueTypeReceiverAddress(member.Receiver, member.Receiver?.Type, containingType))
             {
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+                if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var receiverLabel))
+                    EmitAsyncInvestigationLog(receiverLabel, AsyncInvestigationOperation.Address);
                 return true;
             }
         }
@@ -2588,6 +2605,8 @@ internal class ExpressionGenerator : Generator
                     if (fieldSymbol.IsStatic)
                     {
                         ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
+                        if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var staticLabel))
+                            EmitAsyncInvestigationLog(staticLabel, AsyncInvestigationOperation.Address);
                         return true;
                     }
 
@@ -2595,6 +2614,8 @@ internal class ExpressionGenerator : Generator
                         return false;
 
                     ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+                    if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var instanceLabel))
+                        EmitAsyncInvestigationLog(instanceLabel, AsyncInvestigationOperation.Address);
                     return true;
                 }
         }
@@ -2942,11 +2963,100 @@ internal class ExpressionGenerator : Generator
             or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T;
     }
 
+    private bool TryGetAsyncInvestigationFieldLabel(IFieldSymbol fieldSymbol, out string fieldLabel)
+    {
+        var options = Compilation.Options.AsyncInvestigation;
+        if (!options.IsEnabled)
+        {
+            fieldLabel = string.Empty;
+            return false;
+        }
+
+        if (fieldSymbol is not SourceFieldSymbol sourceField)
+        {
+            fieldLabel = string.Empty;
+            return false;
+        }
+
+        if (sourceField.ContainingType is not SynthesizedAsyncStateMachineTypeSymbol)
+        {
+            fieldLabel = string.Empty;
+            return false;
+        }
+
+        var name = sourceField.Name;
+        if (name == "_state" || name == "_builder" || name.StartsWith("<>awaiter", StringComparison.Ordinal))
+        {
+            fieldLabel = name;
+            return true;
+        }
+
+        fieldLabel = string.Empty;
+        return false;
+    }
+
+    private IILocal EnsureAsyncInvestigationPointerLocal()
+    {
+        return _asyncInvestigationPointerLocal ??= ILGenerator.DeclareLocal(typeof(UIntPtr));
+    }
+
+    private void EmitAsyncInvestigationLog(string fieldLabel, AsyncInvestigationOperation operation)
+    {
+        var options = Compilation.Options.AsyncInvestigation;
+        if (!options.IsEnabled)
+            return;
+
+        var pointerLocal = EnsureAsyncInvestigationPointerLocal();
+        ILGenerator.Emit(OpCodes.Conv_U);
+        ILGenerator.Emit(OpCodes.Stloc, pointerLocal);
+
+        var format = $"{options.StepLabel}:{fieldLabel}:{GetAsyncInvestigationOperationName(operation)} -> 0x{{0:x}}";
+        ILGenerator.Emit(OpCodes.Ldstr, format);
+        ILGenerator.Emit(OpCodes.Ldloc, pointerLocal);
+        ILGenerator.Emit(OpCodes.Conv_U8);
+        ILGenerator.Emit(OpCodes.Box, typeof(ulong));
+        ILGenerator.Emit(OpCodes.Call, ConsoleWriteLineStringObject);
+    }
+
+    private void EmitAsyncInvestigationStore(IFieldSymbol fieldSymbol)
+    {
+        if (!TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var label))
+            return;
+
+        if (fieldSymbol.IsStatic)
+        {
+            ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+        }
+
+        EmitAsyncInvestigationLog(label, AsyncInvestigationOperation.Store);
+    }
+
+    private static string GetAsyncInvestigationOperationName(AsyncInvestigationOperation operation)
+        => operation switch
+        {
+            AsyncInvestigationOperation.Load => "load",
+            AsyncInvestigationOperation.Store => "store",
+            AsyncInvestigationOperation.Address => "addr",
+            _ => operation.ToString().ToLowerInvariant()
+        };
+
+    private enum AsyncInvestigationOperation
+    {
+        Load,
+        Store,
+        Address
+    }
+
+    private IILocal? _asyncInvestigationPointerLocal;
+
     private void EmitFieldAccess(BoundFieldAccess fieldAccess)
     {
         var fieldSymbol = fieldAccess.Field;
-        var metadataFieldSymbol = fieldAccess.Field as PEFieldSymbol;
-
         if (fieldSymbol.IsLiteral)
         {
             var constant = fieldSymbol.GetConstantValue();
@@ -2964,40 +3074,41 @@ internal class ExpressionGenerator : Generator
                 default:
                     throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
             }
+            return;
+        }
+
+        if (fieldSymbol.IsStatic)
+        {
+            if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var staticLabel))
+            {
+                ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
+                EmitAsyncInvestigationLog(staticLabel, AsyncInvestigationOperation.Load);
+            }
+
+            ILGenerator.Emit(OpCodes.Ldsfld, GetField(fieldSymbol));
+            return;
+        }
+
+        if (fieldAccess.Receiver is not null)
+        {
+            EmitExpression(fieldAccess.Receiver);
+
+            if (fieldSymbol.ContainingType?.IsValueType == true)
+                EmitValueTypeAddressIfNeeded(fieldAccess.Receiver.Type, fieldSymbol.ContainingType);
         }
         else
         {
-            if (fieldSymbol.IsLiteral)
-            {
-                var constant = fieldSymbol.GetConstantValue();
-                switch (constant)
-                {
-                    case int i:
-                        ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                        break;
-                    case bool b:
-                        ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
-                        break;
-                    case null:
-                        ILGenerator.Emit(OpCodes.Ldnull);
-                        break;
-                    default:
-                        throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
-                }
-            }
-            else
-            {
-                if (fieldSymbol.IsStatic)
-                {
-                    ILGenerator.Emit(OpCodes.Ldsfld, GetField(fieldSymbol));
-                }
-                else
-                {
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
-                    ILGenerator.Emit(OpCodes.Ldfld, GetField(fieldSymbol));
-                }
-            }
+            ILGenerator.Emit(OpCodes.Ldarg_0);
         }
+
+        if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var label))
+        {
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+            EmitAsyncInvestigationLog(label, AsyncInvestigationOperation.Load);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldfld, GetField(fieldSymbol));
     }
 
     private void EmitPropertyAccess(BoundPropertyAccess propertyAccess)

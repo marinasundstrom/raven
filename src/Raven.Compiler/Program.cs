@@ -51,6 +51,8 @@ var hasInvalidOption = false;
 var highlightDiagnostics = false;
 var runIlVerify = false;
 string? ilVerifyPath = null;
+var enableAsyncInvestigation = false;
+string asyncInvestigationLabel = "Step14";
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -125,6 +127,11 @@ for (int i = 0; i < args.Length; i++)
             else
                 hasInvalidOption = true;
             break;
+        case "--async-investigation":
+            enableAsyncInvestigation = true;
+            if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                asyncInvestigationLabel = args[++i];
+            break;
         case "--ref":
         case "--refs":
             if (i + 1 < args.Length)
@@ -183,6 +190,8 @@ var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
 var options = new CompilationOptions(outputKind);
+if (enableAsyncInvestigation)
+    options = options.WithAsyncInvestigation(AsyncInvestigationOptions.Enable(asyncInvestigationLabel));
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
 var project = workspace.CurrentSolution.GetProject(projectId)!;
