@@ -24,10 +24,16 @@ blocking parity with C#, and the work required to resolve them.
     `ConstructedEntryPointStateMachine_ResolvesCachedMoveNextBuilder` exercises
     the CLI crash stack so the lowering work can focus on builder wiring instead
     of reflection failures.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】
-  * 🔄 Thread the Roslyn-style awaiter reset and generic builder hand-offs
-    through the existing lowering helpers so `MainAsync` and the synthesized
-    bridge agree on the `AsyncTaskMethodBuilder<int>` flow before updating the
-    runtime regression coverage.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】
+  * 🔄 Stage the builder rewrite inside `AsyncLowerer` so `_builder` hoists
+    `AsyncTaskMethodBuilder<int>`, `CreateBuilderInitializationStatement`,
+    `CreateBuilderStartStatement`, and `CreateBuilderSetResultStatement` target
+    the generic `Create`/`Start`/`SetResult(int)` flow, and the
+    `AwaitUnsafeOnCompleted` helper keeps threading the state-machine address the
+    way Roslyn’s baseline demonstrates.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L260-L344】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1390-L1445】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】
+  * 🔄 Align the synthesized `Main` bridge with the generic builder so
+    `EmitTopLevelMainBridge` loads the awaited result and returns it directly,
+    matching the existing IL probes that assert `GetAwaiter`/`GetResult`
+    sequencing without extra conversions.【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L732-L845】
   * Re-run the Step 10 pointer log once the builder rewrite is staged to confirm
     `_state`, `_builder`, and awaiter addresses remain stable for regression
     logging.【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】
@@ -178,11 +184,15 @@ lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/Code
    `MethodBuilder` handles before any `GetMethods` reflection, and add an IL
    regression test that exercises the CLI crash path. (Status:
    _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】)
-5. **Step 13 – Rewrite the entry-point lowering** – change the hoisted builder
-   field to `AsyncTaskMethodBuilder<int>`, route initialization/completion
-   through the existing helpers, and reinstate the Roslyn-style awaiter reset so
-   the emitted IL aligns with the Step 10 baseline. (Status:
-   _Pending_.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】)
+5. **Step 13 – Rewrite the entry-point lowering** – swap the `_builder` field to
+   `AsyncTaskMethodBuilder<int>`, update the initialization and completion
+   helpers so `CreateBuilderInitializationStatement`,
+   `CreateBuilderStartStatement`, and `CreateBuilderSetResultStatement` invoke
+   the generic `Create`/`Start`/`SetResult(int)` path, reset the hoisted
+   `TaskAwaiter<int>` between resume points, and keep `EmitTopLevelMainBridge`
+   returning the awaited integer without redundant conversions so the emitted IL
+   matches the Step 10 Roslyn baseline. (Status:
+   _Pending_.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L260-L344】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1390-L1445】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】)
 6. **Step 14 – Promote runtime regression coverage** – retire the temporary
    instrumentation once the IL matches Roslyn, add a runtime execution test that
    asserts `AsyncTaskMethodBuilder<int>.SetResult` completes successfully, and
