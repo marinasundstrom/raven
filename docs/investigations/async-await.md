@@ -16,21 +16,19 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 16: Align the pointer-trace harness with Roslyn's entry
-  point behaviour and promote the `--async-investigation` flag into automated
-  regression runs.
-  * 🔄 Diff the Step 15 multi-await trace against Roslyn's state machine so any
-    remaining instrumentation gaps surface before the harness is automated.
-  * 🔄 Pipe `--async-investigation` through the CI/runtime smoke tests once the
-    traces match to keep pointer coverage running continuously.
-  * 🔄 Document the automated invocation contract so future lowering changes
-    preserve the pointer diagnostics without manual intervention.
+* **Active step** – Step 17: Harden the async investigation tooling so pointer
+  traces can be diffed automatically alongside IL snapshots.
+  * 🔄 Automate Roslyn/Raven pointer comparisons by replaying the Step 15
+    timeline against the captured IL stream before refreshing the baseline.
+  * 🔄 Extend the pointer harness to emit paired IL and pointer artefacts for
+    the runtime smoke tests so coverage remains reproducible.
+  * 🔄 Document the baseline refresh procedure so future lowering work updates
+    the golden trace in lockstep with the recorded IL delta.
 
 ### Upcoming steps
 
-* Step 17: Harden the async investigation tooling so pointer traces can be
-  diffed automatically alongside IL snapshots, closing the loop between the
-  harness and Roslyn baselines.
+* Step 18: Promote the pointer/IL diff tooling into the CLI regression suite so
+  nightly smoke tests exercise the automated comparison without manual setup.
 
 ### Completed steps
 
@@ -99,6 +97,10 @@ blocking parity with C#, and the work required to resolve them.
   `_state`, `_builder`, and both awaiter slots log stable addresses across
   multiple resumptions, and captured the symbolic pointer timeline for future
   instrumentation work.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】
+* Step 16: Locked the Step 15 pointer timeline into the regression harness so
+  runtime execution asserts the ordered `_state`, `_builder`, and awaiter
+  operations before reporting address stability, preventing automation from
+  drifting away from Roslyn's state-machine flow.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】
 
 ### Completed issues
 
@@ -211,6 +213,12 @@ regressions enforce those events at runtime and in the emitted IL.【F:docs/inve
    awaiter slot, and capture the pointer timeline so future instrumentation
    changes can be diffed without rerunning the CLI. (Status:
    _Completed_.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】)
+8. **Step 16 – Automate pointer timeline verification** – treat the Step 15
+   timeline as a golden trace by asserting the ordered pointer events during the
+   runtime regression, wiring the investigation flag through the execution
+   helper so future IL rewrites cannot reorder `_state`, `_builder`, or awaiter
+   interactions without updating the baseline. (Status:
+   _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】)
 
 #### Issue 1 resolution summary
 

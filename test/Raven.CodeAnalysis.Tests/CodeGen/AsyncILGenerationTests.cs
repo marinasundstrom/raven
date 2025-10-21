@@ -112,6 +112,29 @@ WriteLine(result)
 return result
 """;
 
+    private static readonly (string Field, string Operation)[] Step15ExpectedPointerTimeline = new (string Field, string Operation)[]
+    {
+        ("_state", "store"),
+        ("_builder", "addr"),
+        ("_builder", "load"),
+        ("<>awaiter0", "store"),
+        ("_state", "store"),
+        ("<>awaiter0", "addr"),
+        ("_state", "load"),
+        ("<>awaiter0", "load"),
+        ("<>awaiter0", "store"),
+        ("<>awaiter1", "store"),
+        ("_state", "store"),
+        ("<>awaiter1", "addr"),
+        ("_state", "load"),
+        ("<>awaiter1", "load"),
+        ("<>awaiter1", "store"),
+        ("_state", "store"),
+        ("_builder", "addr"),
+        ("_builder", "load"),
+        ("_state", "store"),
+    };
+
 
     private const string TryAwaitAsyncCode = """
 import System.Threading.Tasks.*
@@ -818,6 +841,8 @@ class C {
                 Assert.True(hasStore, "Awaiter fields should record stores across resumes.");
             }
         }
+
+        AssertPointerTimeline("Step15", pointerRecords, Step15ExpectedPointerTimeline);
     }
 
     [Fact]
@@ -1408,48 +1433,53 @@ class C {
         int exitCode;
         try
         {
-            using var loadContext = new AssemblyLoadContext($"async-pointer-{Guid.NewGuid()}", isCollectible: true);
-            var assembly = loadContext.LoadFromStream(peStream);
-            var entryPoint = assembly.EntryPoint ?? throw new InvalidOperationException("Entry point not found.");
+            var loadContext = new AssemblyLoadContext($"async-pointer-{Guid.NewGuid()}", isCollectible: true);
+            try
+            {
+                var assembly = loadContext.LoadFromStream(peStream);
+                var entryPoint = assembly.EntryPoint ?? throw new InvalidOperationException("Entry point not found.");
 
-            object? invocationResult;
-            if (entryPoint.GetParameters().Length == 0)
-            {
-                invocationResult = entryPoint.Invoke(null, null);
-            }
-            else
-            {
-                invocationResult = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
-            }
-
-            if (entryPoint.ReturnType == typeof(int))
-            {
-                exitCode = (int)(invocationResult ?? 0);
-            }
-            else if (typeof(Task).IsAssignableFrom(entryPoint.ReturnType))
-            {
-                if (invocationResult is Task<int> intTask)
+                object? invocationResult;
+                if (entryPoint.GetParameters().Length == 0)
                 {
-                    exitCode = intTask.GetAwaiter().GetResult();
+                    invocationResult = entryPoint.Invoke(null, null);
                 }
-                else if (invocationResult is Task task)
+                else
                 {
-                    task.GetAwaiter().GetResult();
-                    exitCode = 0;
+                    invocationResult = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+                }
+
+                if (entryPoint.ReturnType == typeof(int))
+                {
+                    exitCode = (int)(invocationResult ?? 0);
+                }
+                else if (typeof(Task).IsAssignableFrom(entryPoint.ReturnType))
+                {
+                    if (invocationResult is Task<int> intTask)
+                    {
+                        exitCode = intTask.GetAwaiter().GetResult();
+                    }
+                    else if (invocationResult is Task task)
+                    {
+                        task.GetAwaiter().GetResult();
+                        exitCode = 0;
+                    }
+                    else
+                    {
+                        exitCode = 0;
+                    }
                 }
                 else
                 {
                     exitCode = 0;
                 }
             }
-            else
+            finally
             {
-                exitCode = 0;
+                loadContext.Unload();
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
             }
-
-            loadContext.Unload();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
         }
         finally
         {
@@ -1465,6 +1495,21 @@ class C {
             .ToArray();
 
         return (exitCode, lines, pointerRecords);
+    }
+
+    private static void AssertPointerTimeline(
+        string stepLabel,
+        (string Field, string Operation, ulong Address)[] pointerRecords,
+        (string Field, string Operation)[] expected)
+    {
+        Assert.True(pointerRecords.Length > 0, $"No pointer records captured for {stepLabel}.");
+
+        var actual = pointerRecords
+            .Select(record => (record.Field, record.Operation))
+            .ToArray();
+
+        Assert.Equal(expected.Length, actual.Length);
+        Assert.Equal(expected, actual);
     }
 
     private static (string Field, string Operation, ulong Address) ParsePointerRecord(string line)
