@@ -112,28 +112,24 @@ WriteLine(result)
 return result
 """;
 
-    private static readonly (string Field, string Operation)[] Step15ExpectedPointerTimeline = new (string Field, string Operation)[]
+    private static (string Field, string Operation)[] LoadStep15PointerTimeline()
     {
-        ("_state", "store"),
-        ("_builder", "addr"),
-        ("_builder", "load"),
-        ("<>awaiter0", "store"),
-        ("_state", "store"),
-        ("<>awaiter0", "addr"),
-        ("_state", "load"),
-        ("<>awaiter0", "load"),
-        ("<>awaiter0", "store"),
-        ("<>awaiter1", "store"),
-        ("_state", "store"),
-        ("<>awaiter1", "addr"),
-        ("_state", "load"),
-        ("<>awaiter1", "load"),
-        ("<>awaiter1", "store"),
-        ("_state", "store"),
-        ("_builder", "addr"),
-        ("_builder", "load"),
-        ("_state", "store"),
-    };
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var timelinePath = Path.Combine(repoRoot, "docs", "investigations", "snippets", "async-entry-step15.log");
+
+        Assert.True(File.Exists(timelinePath), $"Pointer timeline asset not found at '{timelinePath}'.");
+
+        var timeline = File.ReadLines(timelinePath)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Where(line => !line.StartsWith("#", StringComparison.Ordinal))
+            .Where(line => line.StartsWith("Step15:", StringComparison.Ordinal))
+            .Select(ParsePointerFormat)
+            .ToArray();
+
+        Assert.NotEmpty(timeline);
+        return timeline;
+    }
 
 
     private const string TryAwaitAsyncCode = """
@@ -774,16 +770,17 @@ class C {
     [Fact]
     public void AsyncEntryPoint_RuntimePointerTrace_RemainsStable()
     {
-        var (exitCode, lines, pointerRecords) = ExecuteAsyncEntryPointWithPointerTrace(
+        var artifacts = ExecuteAsyncEntryPointWithPointerTrace(
             AsyncTaskOfIntEntryPointCode,
             stepLabel: "Step14");
 
-        Assert.Contains("42", lines);
-        Assert.Equal(42, exitCode);
+        Assert.Contains("42", artifacts.Lines);
+        Assert.Equal(42, artifacts.ExitCode);
 
-        Assert.NotEmpty(pointerRecords);
+        Assert.NotEmpty(artifacts.PointerRecords);
+        Assert.NotEmpty(artifacts.ILPointerTimeline);
 
-        var grouped = pointerRecords.GroupBy(record => record.Field).ToArray();
+        var grouped = artifacts.PointerRecords.GroupBy(record => record.Field).ToArray();
 
         Assert.Contains(grouped, group => group.Key == "_state");
         Assert.Contains(grouped, group => group.Key == "_builder");
@@ -808,16 +805,16 @@ class C {
     [Fact]
     public void AsyncEntryPoint_RuntimePointerTrace_RemainsStableAcrossMultipleAwaits()
     {
-        var (exitCode, lines, pointerRecords) = ExecuteAsyncEntryPointWithPointerTrace(
+        var artifacts = ExecuteAsyncEntryPointWithPointerTrace(
             AsyncTaskOfIntEntryPointWithMultipleAwaitsCode,
             stepLabel: "Step15");
 
-        Assert.Contains("42", lines);
-        Assert.Equal(42, exitCode);
+        Assert.Contains("42", artifacts.Lines);
+        Assert.Equal(42, artifacts.ExitCode);
 
-        Assert.NotEmpty(pointerRecords);
+        Assert.NotEmpty(artifacts.PointerRecords);
 
-        var grouped = pointerRecords.GroupBy(record => record.Field).ToArray();
+        var grouped = artifacts.PointerRecords.GroupBy(record => record.Field).ToArray();
 
         Assert.Contains(grouped, group => group.Key == "_state");
         Assert.Contains(grouped, group => group.Key == "_builder");
@@ -842,7 +839,9 @@ class C {
             }
         }
 
-        AssertPointerTimeline("Step15", pointerRecords, Step15ExpectedPointerTimeline);
+        var expectedTimeline = LoadStep15PointerTimeline();
+        AssertPointerTimeline("Step15", artifacts.PointerRecords, expectedTimeline);
+        Assert.Equal(expectedTimeline, artifacts.ILPointerTimeline);
     }
 
     [Fact]
@@ -879,6 +878,9 @@ class C {
             Assert.Contains(group, record => record.Operation == "addr");
             Assert.Contains(group, record => record.Operation == "store");
         }
+
+        var expectedTimeline = LoadStep15PointerTimeline();
+        Assert.Equal(expectedTimeline, pointerFormats);
     }
     [Fact]
     public void AsyncEntryPoint_MainBridge_AwaitsMainAsync()
@@ -1399,8 +1401,13 @@ class C {
         return (method, instructions.ToArray());
     }
 
-    private (int ExitCode, string[] Lines, (string Field, string Operation, ulong Address)[] PointerRecords)
-        ExecuteAsyncEntryPointWithPointerTrace(string source, string stepLabel)
+    private readonly record struct PointerTraceArtifacts(
+        int ExitCode,
+        string[] Lines,
+        (string Field, string Operation, ulong Address)[] PointerRecords,
+        (string Field, string Operation)[] ILPointerTimeline);
+
+    private PointerTraceArtifacts ExecuteAsyncEntryPointWithPointerTrace(string source, string stepLabel)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
@@ -1420,9 +1427,24 @@ class C {
 
         _ = compilation.GetSpecialType(SpecialType.System_Object);
 
+        var diagnostics = compilation.GetDiagnostics();
+        var errors = diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.True(errors.Length == 0, string.Join(Environment.NewLine, errors.Select(d => d.ToString())));
+
+        var recordingFactory = new RecordingILBuilderFactory(
+            ReflectionEmitILBuilderFactory.Instance,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.AsyncMethod.Name == "MainAsync");
+
         using var peStream = new MemoryStream();
-        var emitResult = compilation.Emit(peStream);
-        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString())));
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = recordingFactory
+        };
+
+        codeGenerator.Emit(peStream, pdbStream: null);
 
         peStream.Position = 0;
 
@@ -1494,7 +1516,20 @@ class C {
             .Select(ParsePointerRecord)
             .ToArray();
 
-        return (exitCode, lines, pointerRecords);
+        var instructions = recordingFactory.CapturedInstructions?.ToArray()
+            ?? Array.Empty<RecordedInstruction>();
+
+        var ilPointerTimeline = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Ldstr &&
+                instruction.Operand.Kind == RecordedOperandKind.String &&
+                instruction.Operand.Value is string value &&
+                value.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
+            .Select(instruction => Assert.IsType<string>(instruction.Operand.Value))
+            .Select(ParsePointerFormat)
+            .ToArray();
+
+        return new PointerTraceArtifacts(exitCode, lines, pointerRecords, ilPointerTimeline);
     }
 
     private static void AssertPointerTimeline(

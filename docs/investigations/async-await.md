@@ -16,19 +16,22 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 17: Harden the async investigation tooling so pointer
-  traces can be diffed automatically alongside IL snapshots.
-  * 🔄 Automate Roslyn/Raven pointer comparisons by replaying the Step 15
-    timeline against the captured IL stream before refreshing the baseline.
-  * 🔄 Extend the pointer harness to emit paired IL and pointer artefacts for
-    the runtime smoke tests so coverage remains reproducible.
-  * 🔄 Document the baseline refresh procedure so future lowering work updates
-    the golden trace in lockstep with the recorded IL delta.
+* **Active step** – Step 18: Promote the pointer/IL diff tooling into the CLI
+  regression suite so nightly smoke tests exercise the automated comparison
+  without manual setup.
+  * 🔄 Teach the CLI regression harness to execute `ravenc` with
+    `--async-investigation`, collecting pointer and IL traces alongside the
+    existing exit-code assertions.
+  * 🔄 Reuse the baseline loader when validating CLI output so the Step 15
+    pointer timeline is checked before the runtime smoke test returns.
+  * 🔄 Capture follow-up documentation that explains how to refresh the CLI
+    baseline and update the shared artefacts when the lowering flow changes.
 
 ### Upcoming steps
 
-* Step 18: Promote the pointer/IL diff tooling into the CLI regression suite so
-  nightly smoke tests exercise the automated comparison without manual setup.
+* Step 19: Fold the automated pointer/IL comparisons into the nightly Roslyn
+  diff to confirm future rewrites preserve both lowering and instrumentation
+  behaviour across compilers.
 
 ### Completed steps
 
@@ -101,6 +104,11 @@ blocking parity with C#, and the work required to resolve them.
   runtime execution asserts the ordered `_state`, `_builder`, and awaiter
   operations before reporting address stability, preventing automation from
   drifting away from Roslyn's state-machine flow.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】
+* Step 17: Automated the pointer/IL diff harness by loading the Step 15 baseline
+  from the investigation assets, returning paired pointer and IL timelines from
+  the runtime execution helper, and comparing both sequences against the
+  recorded IL so the regression guards the golden trace without manual
+  duplication.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】
 
 ### Completed issues
 
@@ -172,6 +180,25 @@ shows how `_state`, `_builder`, and the two awaiter slots cycle through `store`,
 `addr`, and `load` operations without ever changing addresses, while the
 regressions enforce those events at runtime and in the emitted IL.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L857】
 
+### Step 17 pointer/IL diff automation
+
+The regression harness now reads the Step 15 timeline directly from the
+investigation assets, exposing paired pointer and IL sequences so the runtime
+and IL tests validate the same baseline without manual duplication.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】
+
+**Baseline refresh procedure**
+
+1. Update `docs/investigations/snippets/async-entry-step15.log` with the new
+   symbolic pointer trace captured from the runtime repro, preserving the
+   `Step15:` prefixes that encode the field and operation ordering.【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】
+2. Run `AsyncEntryPoint_RuntimePointerTrace_RemainsStableAcrossMultipleAwaits`
+   to confirm the runtime pointer records still align with the refreshed
+   baseline and to regenerate the paired IL sequence produced by the execution
+   helper.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L805-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】
+3. Re-run `AsyncEntryPoint_MoveNext_EmitsPointerLogsForEachAwaiterSlot` so the
+   recorded IL strings match the updated asset before promoting the change, and
+   commit the refreshed log alongside the passing regressions.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L848-L884】
+
 **Step-by-step plan**
 
 1. **Step 9 – Instrument the entry-point state machine** – log every `_builder`,
@@ -219,6 +246,13 @@ regressions enforce those events at runtime and in the emitted IL.【F:docs/inve
    helper so future IL rewrites cannot reorder `_state`, `_builder`, or awaiter
    interactions without updating the baseline. (Status:
    _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】)
+
+9. **Step 17 – Harden pointer/IL diff automation** – load the Step 15 pointer
+   timeline directly from the investigation assets, surface the paired pointer
+   and IL sequences from the runtime execution helper, and compare both streams
+   against the recorded IL so the regression enforces the golden trace before
+   refreshing the baseline. (Status:
+   _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】)
 
 #### Issue 1 resolution summary
 
