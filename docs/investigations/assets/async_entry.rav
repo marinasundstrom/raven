@@ -1,0 +1,11 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test(value: int) -> Task<int> {
+    await Task.Delay(10)
+    return value
+}
+
+let value = await Test(42)
+
+WriteLine(value)

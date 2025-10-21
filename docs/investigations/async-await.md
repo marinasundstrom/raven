@@ -16,42 +16,39 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 9: Instrument the entry-point state machine so
-  `_builder`, `_state`, and awaiter fields log their by-ref interactions and
-  isolate where `SetException` still observes a corrupted receiver.
-  * Emit temporary `Console.WriteLine` hooks in `Program.<Main>d__0.MoveNext`
-    covering every `_builder` and `_state` read/write so the log captures
-    whether the state machine fields share the same by-ref address across
-    await transitions.
-  * Patch the generated `async_entry.dll` with `ilspycmd` to confirm that each
-    instrumentation site sits immediately after the corresponding
-    `ldarga.s`/`ldfld` instruction pairs; this guards against the logger
-    accidentally reordering state-machine loads.
-  * Capture a full execution trace by running
-    `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- docs/investigations/assets/async_entry.rav -o async_entry.dll`
-    and archive the log beside the investigation so subsequent IL diffs can be
-    correlated with the observed corruption.
-  * Keep the binder/codegen pipeline projecting `BoundAddressOfExpression`
-    results as address handles that can convert to either pointer or by-ref
-    types so Step 9 instrumentation can record the exact storage location shared
-    across unsafe scheduler touchpoints.
+* **Active step** – Step 11: Re-evaluate the lowering plan before changing IL
+  so the fix lands on the right seams.
+  * ✅ Confirmed that `SynthesizedAsyncStateMachineTypeSymbol.DetermineBuilderType`
+    recognises metadata-sourced `Task<int>` return types and added
+    `AsyncEntryPoint_BuilderFieldUsesGenericBuilder_WhenReturnTypeDerivedFromMetadata`
+    so a future `MainAsync` rewrite still selects
+    `AsyncTaskMethodBuilder<int>` instead of falling back to the non-generic
+    builder.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L235】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L200-L238】
+    The top-level entry point continues to emit the non-generic builder while
+    `MainAsync` returns `Task`, so the lowering and bridge investigations below
+    remain active.
+  * ✅ Audited the async state-machine lowering with
+    `AsyncEntryPoint_MainAsync_InitializesGenericBuilderViaCreate` and
+    `AsyncEntryPoint_MoveNext_CallsGenericBuilderSetResult`, confirming the
+    builder initialization and completion paths call
+    `AsyncTaskMethodBuilder<int>.Create()` and
+    `.SetResult(int)` when the field type is projected from metadata.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L712-L778】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】
+  * ✅ Confirmed the synthesized `Main` bridge returns the awaited `int` result
+    without additional conversions via
+    `AsyncEntryPoint_MainBridge_ReturnsAwaitedIntWithoutConversions`, so the
+    IL rewrite can focus on wiring the generic builder calls.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L781-L807】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】
+  * Re-run the Step 10 pointer log against the refined plan to keep `_state` and
+    awaiter references stable after the rewrite.
 
 ### Upcoming steps
 
-* Step 10: Diff the Raven-generated IL against Roslyn's `async Task<int>`
-  entry point to pinpoint the missing `ldfld`/`stfld` sequences and update the
-  remediation plan with concrete deltas. The diff should include the
-  instrumentation hooks recorded during Step 9 so the log lines can be mapped to
-  the precise IL offsets that mutate `_builder`.
-* Step 11: Fix lowering to share a single `ldarga.s` receiver across `_state`,
-  builder, and awaiter interactions once instrumentation confirms the failure
-  site. Factor the rewrite so the `BoundAwaitExpression` lowering emits a helper
-  that threads the address through `SetException`/`SetResult` without cloning
-  the struct.
 * Step 12: Promote the console repro into a passing runtime execution test
   after IL verification succeeds. Automate the instrumentation removal and add
   an assertion that `AsyncTaskMethodBuilder<int>.SetResult` executes without
   exceptions.
+* Step 13: Fold the Roslyn diff into regression coverage so future refactors
+  lock down the generic builder usage and awaiter reset sequence for the entry
+  point state machine.
 
 ### Completed steps
 
@@ -89,6 +86,20 @@ blocking parity with C#, and the work required to resolve them.
   Runtime execution still trips an `AccessViolationException` inside
   `AsyncTaskMethodBuilder<int>.SetException`, so the next step is to trace the
   remaining corruption with the corrected IL in place.【0055cf†L1-L23】
+* Step 9: Introduced the `--async-investigation` compiler option and
+  instrumented async state machines to log pointer-stable `_state`, `_builder`,
+  and awaiter interactions across loads, stores, and by-ref hand-offs. The
+  resulting trace for the `async_entry.rav` repro is archived beside this
+  investigation for use in the Step 10 IL diff.【F:src/Raven.Compiler/Program.cs†L55-L142】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L16-L3095】【F:docs/investigations/snippets/async-entry-step9.log†L1-L23】
+* Step 10: Diffed Raven's `Program+<>c__AsyncStateMachine1.MoveNext` against
+  Roslyn's `Program.<Main>d__0.MoveNext`, confirming the entry-point state
+  machine still constructs the non-generic `AsyncTaskMethodBuilder`, calls the
+  parameterless `SetResult()`, and bypasses the Roslyn-style awaiter reset.
+  Roslyn's baseline, captured with the `docs/investigations/assets/RoslynAsyncEntry`
+  C# project, shows the expected `AsyncTaskMethodBuilder<int>` along with
+  `SetResult(!0)` and `initobj` on the cached awaiter, and the Step 10 pointer
+  log maps the `_state` and `<>awaiter0` mutations back to those IL offsets so
+  the lowering delta is now concrete.【F:docs/investigations/snippets/async-entry-step10-raven.il†L1-L118】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】【F:docs/investigations/assets/RoslynAsyncEntry/Program.cs†L1-L18】【F:docs/investigations/assets/RoslynAsyncEntry/RoslynAsyncEntry.csproj†L1-L7】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】
 
 ### Completed issues
 
@@ -157,16 +168,16 @@ lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/Code
    `_state`, and awaiter field access inside `Program.<Main>d__0.MoveNext`, patch
    the emitted `async_entry.dll` to confirm the hooks sit after each
    `ldarga.s`/`ldfld`, and capture a full execution trace from the CLI repro.
-   (Status: _In progress_.【0055cf†L1-L23】)
+   (Status: _Completed_.【F:docs/investigations/snippets/async-entry-step9.log†L1-L23】)
 2. **Step 10 – Diff Raven vs. Roslyn IL** – compare the instrumented
    `async_entry.dll` against Roslyn's `async Task<int>` state machine so the
    missing `ldfld`/`stfld` sequences and `_builder` mutations are isolated before
-   touching lowering. (Status: _Pending_.)
-3. **Step 11 – Fix lowering to share the receiver** – update the async lowering
-   pipeline so `_state`, `_builder`, and hoisted awaiters reuse a single
-   `ldarga.s` receiver across `AwaitUnsafeOnCompleted`, `SetResult`, and
-   `SetException`, eliminating the struct copies highlighted by the diff.
-   (Status: _Pending_.)
+   touching lowering. (Status: _Completed_.【F:docs/investigations/snippets/async-entry-step10-raven.il†L1-L118】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】)
+3. **Step 11 – Re-evaluate the lowering seam** – confirm the state machine
+   actually threads `AsyncTaskMethodBuilder<int>` through `Create`,
+   `AwaitUnsafeOnCompleted`, and `SetResult(int)` before rewriting the IL, using
+   the builder selection logic and substitution helpers as the checkpoints.
+   (Status: _In progress_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L212】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】)
 4. **Step 12 – Promote runtime regression coverage** – remove the temporary
    instrumentation once the IL matches Roslyn, add a runtime execution test that
    asserts `AsyncTaskMethodBuilder<int>.SetResult` completes successfully, and
@@ -357,10 +368,10 @@ that validates the awaited value flows through the entry point.
 
 * Instrument the synthesized `MainAsync` state machine so `_state`, `_builder`,
   and awaiter locals record their address-taking behaviour, confirming exactly
-  where the struct receiver is copied.
+  where the struct receiver is copied. (Completed in Step 9.)
 * Capture Roslyn's baseline IL for an `async Task<int>` entry point and diff it
   against Raven's emission to identify the missing `ldfld`/`stfld` sequences and
-  builder API usage.
+  builder API usage. (Completed in Step 10.)
 * Update `AsyncLowerer` and the synthesized entry-point lowering to reuse the
   state-machine address across `_state`, builder, and awaiter interactions while
   emitting `AsyncTaskMethodBuilder<T>` calls against constructed generics.

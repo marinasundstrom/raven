@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -90,6 +91,7 @@ let value = await Test(42)
 
 WriteLine(value)
 """;
+
 
     private const string TryAwaitAsyncCode = """
 import System.Threading.Tasks.*
@@ -194,6 +196,47 @@ class C {
         var argumentHandle = signatureReader.ReadTypeHandle();
         var argumentTypeName = GetTypeQualifiedName(reader, argumentHandle);
         Assert.Equal("System.Int32", argumentTypeName);
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_BuilderFieldUsesGenericBuilder_WhenReturnTypeDerivedFromMetadata()
+    {
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        var compilation = Compilation.Create("async_entry_builder_guard", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(MetadataReference.CreateFromFile(runtimePath));
+
+        compilation.EnsureSetup();
+
+        var assembly = compilation.Assembly;
+        var taskOfT = Assert.IsAssignableFrom<INamedTypeSymbol>(assembly.GetTypeByMetadataName("System.Threading.Tasks.Task`1"));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.NotEqual(TypeKind.Error, intType.TypeKind);
+
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(taskOfT.Construct(intType));
+        var asyncMethod = new SourceMethodSymbol(
+            "MainAsync",
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            compilation.GlobalNamespace,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            isStatic: true,
+            methodKind: MethodKind.Ordinary,
+            isAsync: true);
+
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(compilation, asyncMethod, "Program+<>c__AsyncStateMachine_Test");
+        asyncMethod.SetAsyncStateMachine(stateMachine);
+
+        var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(stateMachine.BuilderField.Type);
+        Assert.True(builderType.IsGenericType);
+
+        var builderDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(builderType.ConstructedFrom);
+        Assert.Equal(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T, builderDefinition.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(builderType.TypeArguments)));
     }
 
     [Fact]
@@ -663,6 +706,105 @@ class C {
 
         Assert.Contains(instructions, instruction =>
             instruction.Operand.Value is MethodInfo method && method.Name == "GetResult");
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MainAsync_InitializesGenericBuilderViaCreate()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
+            generator.MethodSymbol is SynthesizedMainAsyncMethodSymbol);
+
+        var createCall = Assert.Single(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name == "Create" &&
+            method.DeclaringType is Type declaringType &&
+            IsAsyncTaskMethodBuilderType(declaringType));
+
+        var createMethod = Assert.IsAssignableFrom<MethodInfo>(createCall.Operand.Value);
+        Assert.True(createMethod.IsStatic);
+
+        var builderType = Assert.IsAssignableFrom<Type>(createMethod.DeclaringType);
+        Assert.Equal(builderType, createMethod.ReturnType);
+
+        if (builderType.IsGenericType)
+        {
+            Assert.Equal(typeof(AsyncTaskMethodBuilder<>), builderType.GetGenericTypeDefinition());
+            Assert.Equal(typeof(int), Assert.Single(builderType.GetGenericArguments()));
+        }
+        else
+        {
+            Assert.Equal(typeof(AsyncTaskMethodBuilder), builderType);
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MoveNext_CallsGenericBuilderSetResult()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultCalls = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Call &&
+                instruction.Operand.Value is MethodInfo method &&
+                method.Name == "SetResult" &&
+                method.DeclaringType is Type declaringType &&
+                IsAsyncTaskMethodBuilderType(declaringType))
+            .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
+            .ToArray();
+
+        Assert.NotEmpty(setResultCalls);
+
+        foreach (var setResult in setResultCalls)
+        {
+            var declaringType = Assert.IsAssignableFrom<Type>(setResult.DeclaringType);
+
+            if (declaringType.IsGenericType)
+            {
+                Assert.Equal(typeof(AsyncTaskMethodBuilder<>), declaringType.GetGenericTypeDefinition());
+                Assert.Equal(typeof(int), Assert.Single(declaringType.GetGenericArguments()));
+
+                var parameter = Assert.Single(setResult.GetParameters());
+                Assert.Equal(typeof(int), parameter.ParameterType);
+            }
+            else
+            {
+                Assert.Equal(typeof(AsyncTaskMethodBuilder), declaringType);
+                Assert.Empty(setResult.GetParameters());
+            }
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MainBridge_ReturnsAwaitedIntWithoutConversions()
+    {
+        var (method, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
+            generator.MethodSymbol is SynthesizedMainMethodSymbol &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol type && type.Name == "Program");
+
+        var getResultIndex = Array.FindLastIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method && method.Name == "GetResult");
+
+        Assert.True(getResultIndex >= 0, "GetResult call not found in Main bridge body.");
+
+        var getResult = Assert.IsAssignableFrom<MethodInfo>(instructions[getResultIndex].Operand.Value);
+
+        if (method.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            Assert.Equal(typeof(void), getResult.ReturnType);
+        }
+        else
+        {
+            Assert.Equal(SpecialType.System_Int32, method.ReturnType.SpecialType);
+            Assert.NotEqual(typeof(void), getResult.ReturnType);
+        }
+
+        var returnIndex = Array.FindLastIndex(instructions, instruction => instruction.Opcode == OpCodes.Ret);
+        Assert.True(returnIndex >= 0, "ret instruction not found in Main bridge body.");
+        Assert.Equal(getResultIndex + 1, returnIndex);
     }
 
     [Fact]
@@ -1154,6 +1296,17 @@ class C {
             || opcode == OpCodes.Stloc_2
             || opcode == OpCodes.Stloc_3
             || opcode == OpCodes.Stloc_S;
+    }
+
+    private static bool IsAsyncTaskMethodBuilderType(Type type)
+    {
+        if (type == typeof(AsyncTaskMethodBuilder))
+            return true;
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(AsyncTaskMethodBuilder<>))
+            return true;
+
+        return false;
     }
 
     private static string FormatOperand(RecordedOperand operand)

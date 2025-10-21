@@ -193,8 +193,9 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
 
         if (returnType is INamedTypeSymbol named &&
-            named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-            named.TypeArguments.Length == 1)
+            named.TypeArguments.Length == 1 &&
+            named.ConstructedFrom is INamedTypeSymbol constructed &&
+            IsTaskOfT(constructed))
         {
             var awaitedType = named.TypeArguments[0];
 
@@ -210,6 +211,27 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         }
 
         return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
+    }
+
+    private static bool IsTaskOfT(INamedTypeSymbol definition)
+    {
+        if (definition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+            return true;
+
+        return definition.MetadataName == "Task`1" &&
+            definition.ContainingNamespace is
+            {
+                Name: "Tasks",
+                ContainingNamespace:
+                {
+                    Name: "Threading",
+                    ContainingNamespace:
+                    {
+                        Name: "System",
+                        ContainingNamespace.IsGlobalNamespace: true
+                    }
+                }
+            };
     }
 
     private SourceMethodSymbol CreateConstructor(Compilation compilation, SourceMethodSymbol asyncMethod)
