@@ -37,17 +37,17 @@ blocking parity with C#, and the work required to resolve them.
     without additional conversions via
     `AsyncEntryPoint_MainBridge_ReturnsAwaitedIntWithoutConversions`, so the
     IL rewrite can focus on wiring the generic builder calls.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L781-L807】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】
-  * 🔄 Sketched the rewrite plan so the entry-point state machine can swap in the
-    generic builder without regressing other async bodies:
-    * `AsyncLowerer` already funnels builder initialization, `Start`, and
-      `Task` materialisation through dedicated helpers, so the rewrite can focus
-      on changing those seams to emit `AsyncTaskMethodBuilder<int>` operations
-      and reintroduce the Roslyn-style awaiter reset.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1813】
-    * `ConstructedMethodSymbol.GetMethodInfo` still reflects over the open
-      `TypeBuilder` when substituting async scaffolding, so the rewrite must
-      short-circuit to cached `MethodBuilder` handles before that loop to avoid
-      the `TypeBuilderImpl.ThrowIfNotCreated` crash that blocks the console
-      repro from reaching the new IL.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L278】
+  * 🔄 Re-sequenced the rewrite plan so the caching fix lands before the IL
+    overhaul:
+    * `ConstructedMethodSymbol.GetMethodInfo` still walks the open
+      `TypeBuilder` when substituting async scaffolding, so Step 12 now focuses
+      on pulling the cached `MethodBuilder` handles from
+      `CodeGenerator.TryGetMemberBuilder` before touching `GetMethods`,
+      mirroring the stacks captured from the CLI repro.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L278】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L83】【539be5†L1-L42】
+    * Once the cache reuse is in place the lowering seams can switch the field
+      type to `AsyncTaskMethodBuilder<int>`, reuse the helper-based
+      initialization/reset sites, and reintroduce the Roslyn-style awaiter
+      zeroing without regressing other async bodies.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1813】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】
     * The synthesized `Main` bridge already awaits and returns the entry-point
       result, so it can stay unchanged once the state machine hands back the
       generic builder task.【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】
@@ -200,10 +200,22 @@ lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/Code
    `AwaitUnsafeOnCompleted`, and `SetResult(int)` before rewriting the IL, using
    the builder selection logic and substitution helpers as the checkpoints.
    (Status: _In progress_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L212】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】)
-4. **Step 12 – Promote runtime regression coverage** – remove the temporary
+4. **Step 12 – Cache substituted async entry scaffolding** – update
+   `ConstructedMethodSymbol.GetMethodInfo` and the `CodeGenerator`
+   registration/lookup path so the entry-point state machine reuses the cached
+   `MethodBuilder` handles before any `GetMethods` reflection, and add an IL
+   regression test that exercises the CLI crash path. (Status:
+   _Pending_.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L278】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L83】【539be5†L1-L42】)
+5. **Step 13 – Rewrite the entry-point lowering** – change the hoisted builder
+   field to `AsyncTaskMethodBuilder<int>`, route initialization/completion
+   through the existing helpers, and reinstate the Roslyn-style awaiter reset so
+   the emitted IL aligns with the Step 10 baseline. (Status:
+   _Pending_.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】)
+6. **Step 14 – Promote runtime regression coverage** – retire the temporary
    instrumentation once the IL matches Roslyn, add a runtime execution test that
    asserts `AsyncTaskMethodBuilder<int>.SetResult` completes successfully, and
-   archive the instrumentation log beside the investigation. (Status: _Pending_.)
+   archive the instrumentation log beside the investigation. (Status:
+   _Pending_.【F:docs/investigations/assets/async_entry.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】)
 
 #### Issue 1 resolution summary
 
