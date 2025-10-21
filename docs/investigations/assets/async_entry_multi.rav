@@ -1,0 +1,15 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func WaitAndReturn(value: int, delay: int) -> Task<int> {
+    await Task.Delay(delay)
+    return value
+}
+
+let first = await WaitAndReturn(21, 5)
+let second = await WaitAndReturn(21, 10)
+
+let result = first + second
+
+WriteLine(result)
+return result

@@ -16,21 +16,21 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 15: Expand the async entry regression suite with
-  multi-await coverage so the pointer trace keeps validating resumptions beyond
-  the initial await.
-  * 🔄 Add a multi-await sample to the runtime pointer trace harness so the
-    `_state`, `_builder`, and awaiter records span multiple resumes.
-  * 🔄 Extend the IL fixtures to track additional awaiter slots and correlate
-    their address logs with the runtime pointer trace.
-  * 🔄 Document the expected pointer timeline for multi-await entry points to
-    keep future instrumentation work grounded in concrete traces.
+* **Active step** – Step 16: Align the pointer-trace harness with Roslyn's entry
+  point behaviour and promote the `--async-investigation` flag into automated
+  regression runs.
+  * 🔄 Diff the Step 15 multi-await trace against Roslyn's state machine so any
+    remaining instrumentation gaps surface before the harness is automated.
+  * 🔄 Pipe `--async-investigation` through the CI/runtime smoke tests once the
+    traces match to keep pointer coverage running continuously.
+  * 🔄 Document the automated invocation contract so future lowering changes
+    preserve the pointer diagnostics without manual intervention.
 
 ### Upcoming steps
 
-* Step 16: Align the pointer-trace harness with Roslyn's entry-point behaviour
-  and feed the CLI flag into continuous regression runs once the multi-await
-  coverage lands.
+* Step 17: Harden the async investigation tooling so pointer traces can be
+  diffed automatically alongside IL snapshots, closing the loop between the
+  harness and Roslyn baselines.
 
 ### Completed steps
 
@@ -94,7 +94,11 @@ blocking parity with C#, and the work required to resolve them.
 * Step 14: Gated async pointer instrumentation behind `--async-investigation`
   and added a runtime regression that executes the compiled entry point to
   assert `_state`, `_builder`, and awaiter addresses stay stable throughout the
-  generic builder flow.【F:src/Raven.Compiler/Program.cs†L34-L195】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L733-L847】
+  generic builder flow.【F:src/Raven.Compiler/Program.cs†L34-L195】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L752-L783】
+* Step 15: Extended the runtime and IL regressions with a multi-await sample so
+  `_state`, `_builder`, and both awaiter slots log stable addresses across
+  multiple resumptions, and captured the symbolic pointer timeline for future
+  instrumentation work.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】
 
 ### Completed issues
 
@@ -157,6 +161,15 @@ instantiations such as `Test<T>` to load their async scaffolding safely.
 `TypeBuilder` instances. This keeps async emission on the Reflection.Emit path and
 lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L61】
 
+### Step 15 multi-await pointer timeline
+
+The multi-await repro (`docs/investigations/assets/async_entry_multi.rav`) now
+drives both the runtime pointer regression and the IL inspection tests. The
+symbolic log captured in `docs/investigations/snippets/async-entry-step15.log`
+shows how `_state`, `_builder`, and the two awaiter slots cycle through `store`,
+`addr`, and `load` operations without ever changing addresses, while the
+regressions enforce those events at runtime and in the emitted IL.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L857】
+
 **Step-by-step plan**
 
 1. **Step 9 – Instrument the entry-point state machine** – log every `_builder`,
@@ -192,7 +205,12 @@ lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/Code
    instrumentation once the IL matches Roslyn, add a runtime execution test that
    asserts `AsyncTaskMethodBuilder<int>.SetResult` completes successfully, and
    archive the instrumentation log beside the investigation. (Status:
-   _Pending_.【F:docs/investigations/assets/async_entry.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】)
+   _Completed_.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L752-L783】)
+7. **Step 15 – Expand multi-await pointer coverage** – drive the runtime pointer
+   harness with a multi-await sample, extend the IL recorder to validate each
+   awaiter slot, and capture the pointer timeline so future instrumentation
+   changes can be diffed without rerunning the CLI. (Status:
+   _Completed_.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】)
 
 #### Issue 1 resolution summary
 
