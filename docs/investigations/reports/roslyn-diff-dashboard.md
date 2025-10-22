@@ -8,6 +8,7 @@ _Last generated: pending first tool execution (UTC)_
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Generic entry (single await) | `docs/investigations/assets/async_entry_generic.rav` | `docs/investigations/snippets/async-entry-step21-generic.log` | Step21 | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ |
 | Multi-await entry | `docs/investigations/assets/async_entry_multi.rav` | `docs/investigations/snippets/async-entry-step15.log` | Step15 | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ |
+| Async lambda (single await) | `docs/investigations/assets/async_lambda.rav` | `docs/investigations/snippets/async-entry-step23-lambda.log` | Step23/lambda | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ | ❔ _(awaiting first run)_ |
 
 ### MoveNext IL diff
 

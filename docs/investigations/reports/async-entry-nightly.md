@@ -74,6 +74,36 @@ _Baseline source: `docs/investigations/snippets/async-entry-step15.log`_
 
 _Runtime pointer timeline and emitted IL pointer timeline will appear here after the first tool execution._
 
+### Async lambda (single await)
+
+- Source: `docs/investigations/assets/async_lambda.rav`
+- Baseline log: `docs/investigations/snippets/async-entry-step23-lambda.log` (Step23/lambda)
+- CLI arguments: `--async-investigation Step23 --async-investigation-scope method`
+- Compilation: ❔ _(awaiting first run)_
+- Execution: ❔ _(awaiting first run)_
+- Runtime pointer timeline: ❔ _(awaiting first run)_
+- Emitted IL pointer timeline: ❔ _(awaiting first run)_
+
+Baseline timeline:
+```
+Step23/lambda:_state:store -> 0xSTATE
+Step23/lambda:_builder:addr -> 0xBUILDER
+Step23/lambda:_builder:load -> 0xBUILDER
+Step23/lambda:<>awaiter0:store -> 0xAWAITER0
+Step23/lambda:_state:store -> 0xSTATE
+Step23/lambda:<>awaiter0:addr -> 0xAWAITER0
+Step23/lambda:_state:load -> 0xSTATE
+Step23/lambda:<>awaiter0:load -> 0xAWAITER0
+Step23/lambda:<>awaiter0:store -> 0xAWAITER0
+Step23/lambda:_state:store -> 0xSTATE
+Step23/lambda:_builder:addr -> 0xBUILDER
+Step23/lambda:_builder:load -> 0xBUILDER
+Step23/lambda:_state:store -> 0xSTATE
+```
+_Baseline source: `docs/investigations/snippets/async-entry-step23-lambda.log`_
+
+_Runtime pointer timeline and emitted IL pointer timeline will appear here after the first tool execution._
+
 ## Raven vs. Roslyn MoveNext IL
 
 - Raven asset: `docs/investigations/assets/async_entry.rav`

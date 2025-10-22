@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -3010,12 +3011,49 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Conv_U);
         ILGenerator.Emit(OpCodes.Stloc, pointerLocal);
 
-        var format = $"{options.StepLabel}:{fieldLabel}:{GetAsyncInvestigationOperationName(operation)} -> 0x{{0:x}}";
+        var stepLabel = GetAsyncInvestigationStepLabel(options);
+        var format = $"{stepLabel}:{fieldLabel}:{GetAsyncInvestigationOperationName(operation)} -> 0x{{0:x}}";
         ILGenerator.Emit(OpCodes.Ldstr, format);
         ILGenerator.Emit(OpCodes.Ldloc, pointerLocal);
         ILGenerator.Emit(OpCodes.Conv_U8);
         ILGenerator.Emit(OpCodes.Box, typeof(ulong));
         ILGenerator.Emit(OpCodes.Call, ConsoleWriteLineStringObject);
+    }
+
+    private string GetAsyncInvestigationStepLabel(AsyncInvestigationOptions options)
+    {
+        if (options.PointerLabelScope == AsyncInvestigationPointerLabelScope.IncludeAsyncMethodName &&
+            MethodSymbol.ContainingType is SourceNamedTypeSymbol { } containingType &&
+            containingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+            stateMachine.AsyncMethod is IMethodSymbol asyncMethod)
+        {
+            var qualifier = SanitizeAsyncInvestigationQualifier(asyncMethod.Name);
+            if (!string.IsNullOrEmpty(qualifier))
+                return $"{options.StepLabel}/{qualifier}";
+        }
+
+        return options.StepLabel;
+    }
+
+    private static string SanitizeAsyncInvestigationQualifier(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return string.Empty;
+
+        var builder = new StringBuilder(name.Length);
+        foreach (var ch in name)
+        {
+            if (char.IsLetterOrDigit(ch) || ch == '_' || ch == '.')
+            {
+                builder.Append(ch);
+            }
+            else
+            {
+                builder.Append('_');
+            }
+        }
+
+        return builder.ToString().Trim('_');
     }
 
     private void EmitAsyncInvestigationStore(IFieldSymbol fieldSymbol)

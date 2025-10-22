@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
@@ -53,6 +54,7 @@ var runIlVerify = false;
 string? ilVerifyPath = null;
 var enableAsyncInvestigation = false;
 string asyncInvestigationLabel = "Step14";
+var asyncInvestigationScope = AsyncInvestigationPointerLabelScope.FieldOnly;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -132,6 +134,24 @@ for (int i = 0; i < args.Length; i++)
             if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
                 asyncInvestigationLabel = args[++i];
             break;
+        case "--async-investigation-scope":
+            if (i + 1 < args.Length)
+            {
+                var scopeValue = args[++i];
+                if (string.Equals(scopeValue, "method", StringComparison.OrdinalIgnoreCase))
+                {
+                    asyncInvestigationScope = AsyncInvestigationPointerLabelScope.IncludeAsyncMethodName;
+                }
+                else if (!string.Equals(scopeValue, "field", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasInvalidOption = true;
+                }
+            }
+            else
+            {
+                hasInvalidOption = true;
+            }
+            break;
         case "--ref":
         case "--refs":
             if (i + 1 < args.Length)
@@ -191,7 +211,8 @@ var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
 var options = new CompilationOptions(outputKind);
 if (enableAsyncInvestigation)
-    options = options.WithAsyncInvestigation(AsyncInvestigationOptions.Enable(asyncInvestigationLabel));
+    options = options.WithAsyncInvestigation(
+        AsyncInvestigationOptions.Enable(asyncInvestigationLabel, asyncInvestigationScope));
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
 var project = workspace.CurrentSolution.GetProject(projectId)!;

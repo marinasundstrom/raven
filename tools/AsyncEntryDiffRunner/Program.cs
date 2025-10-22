@@ -10,6 +10,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text;
 
+using Raven.CodeAnalysis;
+
 namespace Raven.Tools.AsyncEntryDiffRunner;
 
 internal static class Program
@@ -91,7 +93,12 @@ internal static class Program
         CompilationArtifacts? artifacts = null;
         try
         {
-            var compileResult = CompileRavenSample(repoRoot, sourcePath, assemblyPath, permutation.Baseline.StepLabel);
+            var compileResult = CompileRavenSample(
+                repoRoot,
+                sourcePath,
+                assemblyPath,
+                permutation.Baseline.InvocationLabel,
+                permutation.LabelScope);
             var runtimeResult = compileResult.Process.ExitCode == 0
                 ? RunAssembly(assemblyPath)
                 : new ProcessResult(-1, string.Empty, string.Empty);
@@ -101,7 +108,7 @@ internal static class Program
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
             var pointerRecords = runtimeLines
-                .Where(line => line.StartsWith($"{permutation.Baseline.StepLabel}:", StringComparison.Ordinal))
+                .Where(line => line.StartsWith($"{permutation.Baseline.FilterLabel}:", StringComparison.Ordinal))
                 .Select(ParsePointerRecord)
                 .ToArray();
 
@@ -110,7 +117,7 @@ internal static class Program
                 .ToArray();
 
             var ilTimeline = compileResult.Process.ExitCode == 0
-                ? ReadPointerTimelineFromAssembly(assemblyPath, permutation.Baseline.StepLabel)
+                ? ReadPointerTimelineFromAssembly(assemblyPath, permutation.Baseline.FilterLabel)
                 : Array.Empty<(string Field, string Operation)>();
 
             var runtimeMatches = runtimeTimeline.SequenceEqual(permutation.Baseline.Timeline);
@@ -195,13 +202,14 @@ internal static class Program
         var genericBaseline = LoadPointerBaseline(
             repoRoot,
             Path.Combine(snippetsRoot, "async-entry-step21-generic.log"),
-            stepLabel: "Step21");
+            filterLabel: "Step21");
 
         permutations.Add(new PointerPermutation(
             Name: "Generic entry (single await)",
             SourcePath: genericSource,
             RelativeSourcePath: Path.GetRelativePath(repoRoot, genericSource),
-            Baseline: genericBaseline));
+            Baseline: genericBaseline,
+            LabelScope: AsyncInvestigationPointerLabelScope.FieldOnly));
 
         var multiSource = Path.Combine(assetsRoot, "async_entry_multi.rav");
         if (!File.Exists(multiSource))
@@ -210,18 +218,40 @@ internal static class Program
         var multiBaseline = LoadPointerBaseline(
             repoRoot,
             Path.Combine(snippetsRoot, "async-entry-step15.log"),
-            stepLabel: "Step15");
+            filterLabel: "Step15");
 
         permutations.Add(new PointerPermutation(
             Name: "Multi-await entry",
             SourcePath: multiSource,
             RelativeSourcePath: Path.GetRelativePath(repoRoot, multiSource),
-            Baseline: multiBaseline));
+            Baseline: multiBaseline,
+            LabelScope: AsyncInvestigationPointerLabelScope.FieldOnly));
+
+        var lambdaSource = Path.Combine(assetsRoot, "async_lambda.rav");
+        if (!File.Exists(lambdaSource))
+            throw new FileNotFoundException($"Async lambda asset not found: {lambdaSource}");
+
+        var lambdaBaseline = LoadPointerBaseline(
+            repoRoot,
+            Path.Combine(snippetsRoot, "async-entry-step23-lambda.log"),
+            filterLabel: "Step23/lambda",
+            invocationLabel: "Step23");
+
+        permutations.Add(new PointerPermutation(
+            Name: "Async lambda (single await)",
+            SourcePath: lambdaSource,
+            RelativeSourcePath: Path.GetRelativePath(repoRoot, lambdaSource),
+            Baseline: lambdaBaseline,
+            LabelScope: AsyncInvestigationPointerLabelScope.IncludeAsyncMethodName));
 
         return permutations;
     }
 
-    private static PointerBaseline LoadPointerBaseline(string repoRoot, string timelinePath, string stepLabel)
+    private static PointerBaseline LoadPointerBaseline(
+        string repoRoot,
+        string timelinePath,
+        string filterLabel,
+        string? invocationLabel = null)
     {
         if (!File.Exists(timelinePath))
             throw new FileNotFoundException($"Pointer timeline asset not found: {timelinePath}");
@@ -229,19 +259,20 @@ internal static class Program
         var lines = File.ReadLines(timelinePath)
             .Select(line => line.Trim())
             .Where(line => line.Length > 0 && !line.StartsWith("#", StringComparison.Ordinal))
-            .Where(line => line.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
+            .Where(line => line.StartsWith($"{filterLabel}:", StringComparison.Ordinal))
             .ToArray();
 
         var entries = lines.Select(ParsePointerFormat).ToArray();
         if (entries.Length == 0)
-            throw new InvalidOperationException($"Pointer timeline '{timelinePath}' does not contain any records for '{stepLabel}'.");
+            throw new InvalidOperationException($"Pointer timeline '{timelinePath}' does not contain any records for '{filterLabel}'.");
 
         var timeline = entries
             .Select(entry => (entry.Field, entry.Operation))
             .ToArray();
 
         return new PointerBaseline(
-            StepLabel: stepLabel,
+            InvocationLabel: invocationLabel ?? filterLabel,
+            FilterLabel: filterLabel,
             SourcePath: timelinePath,
             RelativeSourcePath: Path.GetRelativePath(repoRoot, timelinePath),
             Lines: lines,
@@ -253,12 +284,26 @@ internal static class Program
         string repoRoot,
         string sourcePath,
         string assemblyPath,
-        string? stepLabel)
+        string? stepLabel,
+        AsyncInvestigationPointerLabelScope labelScope = AsyncInvestigationPointerLabelScope.FieldOnly)
     {
         var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
-        var args = stepLabel is null
-            ? $"run --project \"{projectPath}\" -- \"{sourcePath}\" -o \"{assemblyPath}\""
-            : $"run --project \"{projectPath}\" -- --async-investigation {stepLabel} \"{sourcePath}\" -o \"{assemblyPath}\"";
+        var builder = new StringBuilder();
+        builder.Append($"run --project \"{projectPath}\" -- ");
+
+        if (stepLabel is not null)
+        {
+            builder.Append("--async-investigation ");
+            builder.Append(stepLabel);
+
+            if (labelScope == AsyncInvestigationPointerLabelScope.IncludeAsyncMethodName)
+                builder.Append(" --async-investigation-scope method");
+
+            builder.Append(' ');
+        }
+
+        builder.Append($"\"{sourcePath}\" -o \"{assemblyPath}\"");
+        var args = builder.ToString();
 
         var process = RunProcess(
             fileName: "dotnet",
@@ -333,18 +378,30 @@ internal static class Program
             using var peStream = new FileStream(assemblyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             var assembly = loadContext.LoadFromStream(peStream);
 
-            var stateMachineType = assembly
+            var stateMachineTypes = assembly
                 .GetTypes()
-                .First(type => typeof(IAsyncStateMachine).IsAssignableFrom(type) && type.Name.Contains("MainAsync", StringComparison.Ordinal));
-
-            var moveNext = stateMachineType.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                ?? throw new InvalidOperationException("MoveNext method not found on state machine.");
-
-            return ReadLdstrOperands(moveNext)
-                .Where(value => value.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
-                .Select(ParsePointerFormat)
-                .Select(entry => (entry.Field, entry.Operation))
+                .Where(type => typeof(IAsyncStateMachine).IsAssignableFrom(type))
                 .ToArray();
+
+            var timeline = new List<(string Field, string Operation)>();
+
+            foreach (var type in stateMachineTypes)
+            {
+                var moveNext = type.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (moveNext is null)
+                    continue;
+
+                var entries = ReadLdstrOperands(moveNext)
+                    .Where(value => value.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
+                    .Select(ParsePointerFormat)
+                    .Select(entry => (entry.Field, entry.Operation))
+                    .ToArray();
+
+                if (entries.Length > 0)
+                    timeline.AddRange(entries);
+            }
+
+            return timeline;
         }
         finally
         {
@@ -364,7 +421,7 @@ internal static class Program
 
             var stateMachineType = assembly
                 .GetTypes()
-                .First(type => typeof(IAsyncStateMachine).IsAssignableFrom(type) && type.Name.Contains("MainAsync", StringComparison.Ordinal));
+                .First(type => typeof(IAsyncStateMachine).IsAssignableFrom(type));
 
             var moveNext = stateMachineType.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 ?? throw new InvalidOperationException("MoveNext method not found on state machine.");
@@ -680,10 +737,17 @@ internal static class Program
             builder.AppendLine($"### {permutation.Name}");
             builder.AppendLine();
             builder.AppendLine($"- Source: `{permutation.RelativeSourcePath}`");
-            builder.AppendLine($"- Baseline log: `{permutation.Baseline.RelativeSourcePath}` ({permutation.Baseline.StepLabel})");
-            if (!string.IsNullOrWhiteSpace(permutation.Baseline.StepLabel))
+            builder.AppendLine($"- Baseline log: `{permutation.Baseline.RelativeSourcePath}` ({permutation.Baseline.FilterLabel})");
+            if (!string.IsNullOrWhiteSpace(permutation.Baseline.InvocationLabel))
             {
-                builder.AppendLine($"- CLI arguments: `--async-investigation {permutation.Baseline.StepLabel}`");
+                var cliArgs = new StringBuilder();
+                cliArgs.Append("--async-investigation ");
+                cliArgs.Append(permutation.Baseline.InvocationLabel);
+
+                if (permutation.LabelScope == AsyncInvestigationPointerLabelScope.IncludeAsyncMethodName)
+                    cliArgs.Append(" --async-investigation-scope method");
+
+                builder.AppendLine($"- CLI arguments: `{cliArgs}`");
             }
             builder.AppendLine($"- Compilation: {FormatStatus(result.Result.CompilationSucceeded)} (exit {result.Result.CompilationExitCode})");
             builder.AppendLine($"- Execution: {FormatStatus(result.Result.ExecutionSucceeded)} (exit {result.Result.ExecutionExitCode})");
@@ -702,14 +766,14 @@ internal static class Program
             builder.AppendLine("Runtime pointer timeline:");
             builder.AppendLine("```");
             foreach (var record in result.Result.RuntimeRecords)
-                builder.AppendLine($"{permutation.Baseline.StepLabel}:{record.Field}:{record.Operation} -> 0x{record.Address:X}");
+                builder.AppendLine($"{permutation.Baseline.FilterLabel}:{record.Field}:{record.Operation} -> 0x{record.Address:X}");
             builder.AppendLine("```");
             builder.AppendLine();
 
             builder.AppendLine("Emitted IL pointer timeline:");
             builder.AppendLine("```");
             foreach (var entry in result.Result.IlTimeline)
-                builder.AppendLine($"{permutation.Baseline.StepLabel}:{entry.Field}:{entry.Operation}");
+                builder.AppendLine($"{permutation.Baseline.FilterLabel}:{entry.Field}:{entry.Operation}");
             builder.AppendLine("```");
             builder.AppendLine();
 
@@ -805,7 +869,7 @@ internal static class Program
                 result.Permutation.Name,
                 result.Permutation.RelativeSourcePath,
                 result.Permutation.Baseline.RelativeSourcePath,
-                result.Permutation.Baseline.StepLabel,
+                result.Permutation.Baseline.FilterLabel,
                 result.Result.CompilationSucceeded,
                 result.Result.CompilationExitCode,
                 result.Result.ExecutionSucceeded,
@@ -872,10 +936,12 @@ internal static class Program
         string Name,
         string SourcePath,
         string RelativeSourcePath,
-        PointerBaseline Baseline);
+        PointerBaseline Baseline,
+        AsyncInvestigationPointerLabelScope LabelScope);
 
     private sealed record class PointerBaseline(
-        string StepLabel,
+        string InvocationLabel,
+        string FilterLabel,
         string SourcePath,
         string RelativeSourcePath,
         IReadOnlyList<string> Lines,

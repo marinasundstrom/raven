@@ -16,21 +16,21 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 23: Backfill regression coverage for async lambdas
-  now that the entry-point automation is stable.
-  * 🔄 Capture a Roslyn baseline and Raven repro that exercise a hoisted async
-    lambda so the pointer diff harness can compare lambda state machines against
-    the Step 15 baseline conventions.
-  * 🔄 Teach the CLI investigation flag to recognise async lambda permutations
-    and emit paired pointer/IL traces alongside the entry-point assets.
-  * 🔄 Add a nightly report section for async lambdas so the Roslyn diff
-    dashboard can display the new coverage beside the entry-point summaries.
+* **Active step** – Step 24: Promote the async lambda automation into the
+  Roslyn diff runner so nightly diffs correlate entry-point and nested state
+  machines.
+  * 🔄 Integrate the lambda permutation into the Roslyn diff CLI so pointer and
+    IL traces publish beside the entry-point artefacts without manual setup.
+  * 🔄 Extend the nightly dashboard summary to surface Roslyn lambda deltas and
+    highlight mismatches independently from the entry-point regressions.
+  * 🔄 Capture a first Roslyn/Raven IL comparison for the lambda state machine so
+    future diffs inherit a concrete baseline.
 
 ### Upcoming steps
 
-* Step 24: Promote the async lambda automation into the Roslyn diff runner and
-  extend the dashboard to highlight regressions across both entry points and
-  nested state machines.
+* Step 25: Use the combined entry/lambda coverage to script nightly pointer
+  baselines and refresh routines, ensuring CLI captures stay in sync with the
+  investigation assets when state-machine lowering evolves.
 
 ### Completed steps
 
@@ -132,6 +132,10 @@ blocking parity with C#, and the work required to resolve them.
 * Step 22: Surfaced the nightly pointer/IL results inside the Roslyn diff
   dashboard, enriched the report metadata with CLI arguments and baseline
   sources, and archived a sample dashboard export for future references.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:tools/AsyncEntryDiffRunner/DashboardTemplate.cs†L1-L75】【F:docs/investigations/reports/roslyn-diff-dashboard.md†L1-L16】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】【F:docs/investigations/snippets/async-entry-step22-dashboard-sample.md†L1-L15】
+* Step 23: Backfilled async lambda regression coverage by introducing dedicated
+  Raven and Roslyn assets, recording a symbolic pointer baseline, scoping the
+  investigation flag to label individual state machines, and wiring the lambda
+  permutation into the nightly CLI and dashboard exports.【F:docs/investigations/assets/async_lambda.rav†L1-L12】【F:docs/investigations/snippets/async-entry-step23-lambda.log†L1-L14】【F:docs/investigations/assets/RoslynAsyncLambda/Program.cs†L1-L17】【F:docs/investigations/assets/RoslynAsyncLambda/RoslynAsyncLambda.csproj†L1-L7】【F:src/Raven.CodeAnalysis/AsyncInvestigationOptions.cs†L1-L34】【F:src/Raven.Compiler/Program.cs†L1-L214】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2978-L3035】【F:tools/AsyncEntryDiffRunner/Program.cs†L1-L941】
 
 ### Completed issues
 

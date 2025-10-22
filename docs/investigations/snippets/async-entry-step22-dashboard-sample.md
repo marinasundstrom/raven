@@ -7,6 +7,7 @@ following:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Generic entry (single await) | `docs/investigations/assets/async_entry_generic.rav` | `docs/investigations/snippets/async-entry-step21-generic.log` | Step21 | ✅ (exit 0) | ✅ (exit 42) | ✅ | ✅ |
 | Multi-await entry | `docs/investigations/assets/async_entry_multi.rav` | `docs/investigations/snippets/async-entry-step15.log` | Step15 | ✅ (exit 0) | ✅ (exit 42) | ✅ | ✅ |
+| Async lambda (single await) | `docs/investigations/assets/async_lambda.rav` | `docs/investigations/snippets/async-entry-step23-lambda.log` | Step23/lambda | ✅ (exit 0) | ✅ (exit 42) | ✅ | ✅ |
 
 ### MoveNext IL diff summary
 
