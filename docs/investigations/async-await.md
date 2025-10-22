@@ -16,22 +16,21 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 22: Surface the nightly pointer/IL report inside the
-  Roslyn diff dashboard so future rewrites surface regressions across every
-  tracked async entry permutation.
-  * 🔄 Feed the diff runner’s per-permutation status into the Roslyn diff
-    harness so nightly automation publishes pointer and IL summaries alongside
-    existing diagnostics.
-  * 🔄 Extend the report scaffold to capture Roslyn-facing metadata (build
-    arguments, assets exercised, and baseline stamps) so dashboard readers can
-    trace failures back to individual async entry permutations.
-  * 🔄 Capture a sample Roslyn dashboard export after the integration lands and
-    archive it beside this investigation to document the new reporting flow.
+* **Active step** – Step 23: Backfill regression coverage for async lambdas
+  now that the entry-point automation is stable.
+  * 🔄 Capture a Roslyn baseline and Raven repro that exercise a hoisted async
+    lambda so the pointer diff harness can compare lambda state machines against
+    the Step 15 baseline conventions.
+  * 🔄 Teach the CLI investigation flag to recognise async lambda permutations
+    and emit paired pointer/IL traces alongside the entry-point assets.
+  * 🔄 Add a nightly report section for async lambdas so the Roslyn diff
+    dashboard can display the new coverage beside the entry-point summaries.
 
 ### Upcoming steps
 
-* Step 23: Backfill regression coverage for async lambdas once the entry-point
-  automation is stable.
+* Step 24: Promote the async lambda automation into the Roslyn diff runner and
+  extend the dashboard to highlight regressions across both entry points and
+  nested state machines.
 
 ### Completed steps
 
@@ -127,7 +126,10 @@ blocking parity with C#, and the work required to resolve them.
   generic and multi-await async entry assets, introduced a dedicated
   single-await generic sample with a symbolic baseline, and refreshed the
   nightly report scaffold so each permutation publishes its own pointer and IL
-  status.【F:tools/AsyncEntryDiffRunner/Program.cs†L18-L358】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L57】
+  status.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】
+* Step 22: Surfaced the nightly pointer/IL results inside the Roslyn diff
+  dashboard, enriched the report metadata with CLI arguments and baseline
+  sources, and archived a sample dashboard export for future references.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:tools/AsyncEntryDiffRunner/DashboardTemplate.cs†L1-L75】【F:docs/investigations/reports/roslyn-diff-dashboard.md†L1-L16】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】【F:docs/investigations/snippets/async-entry-step22-dashboard-sample.md†L1-L15】
 
 ### Completed issues
 
@@ -299,7 +301,12 @@ and IL tests validate the same baseline without manual duplication.【F:test/Rav
     single-await asset to the CLI harness, enumerate both async entry
     permutations inside the diff runner, and refresh the nightly report so each
     run publishes per-permutation pointer and IL timelines. (Status:
-    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L18-L358】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L57】)
+    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】)
+14. **Step 22 – Surface nightly pointer results in the Roslyn dashboard** –
+    mirror the diff runner output into the Roslyn dashboard summary, expand the
+    nightly report metadata with CLI arguments and baseline provenance, and
+    capture a golden dashboard export beside the investigation. (Status:
+    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:tools/AsyncEntryDiffRunner/DashboardTemplate.cs†L1-L75】【F:docs/investigations/reports/roslyn-diff-dashboard.md†L1-L16】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】【F:docs/investigations/snippets/async-entry-step22-dashboard-sample.md†L1-L15】)
 
 #### Issue 1 resolution summary
 

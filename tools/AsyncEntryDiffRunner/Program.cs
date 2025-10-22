@@ -64,9 +64,14 @@ internal static class Program
                 .ToArray();
             var ilResult = RunIlDiff(repoRoot);
 
-            WriteReport(outputPath, pointerResults, ilResult);
+            var generatedAtUtc = DateTime.UtcNow;
+            WriteReport(outputPath, pointerResults, ilResult, generatedAtUtc);
+
+            var dashboardPath = Path.Combine(repoRoot, "docs", "investigations", "reports", "roslyn-diff-dashboard.md");
+            WriteDashboard(dashboardPath, generatedAtUtc, pointerResults, ilResult);
 
             Console.WriteLine($"Async entry nightly diff written to {outputPath}");
+            Console.WriteLine($"Roslyn diff dashboard updated at {dashboardPath}");
             return pointerResults.All(result => result.Result.Passed) && ilResult.Passed ? 0 : 1;
         }
         catch (Exception ex)
@@ -658,12 +663,13 @@ internal static class Program
     private static void WriteReport(
         string outputPath,
         IReadOnlyList<PointerPermutationResult> pointerResults,
-        IlDiffResult ilResult)
+        IlDiffResult ilResult,
+        DateTime generatedAtUtc)
     {
         var builder = new StringBuilder();
         builder.AppendLine("# Async entry nightly diff");
         builder.AppendLine();
-        builder.AppendLine($"_Last generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC_");
+        builder.AppendLine($"_Last generated: {generatedAtUtc:yyyy-MM-dd HH:mm:ss} UTC_");
         builder.AppendLine();
 
         builder.AppendLine("## Pointer trace regression");
@@ -674,6 +680,11 @@ internal static class Program
             builder.AppendLine($"### {permutation.Name}");
             builder.AppendLine();
             builder.AppendLine($"- Source: `{permutation.RelativeSourcePath}`");
+            builder.AppendLine($"- Baseline log: `{permutation.Baseline.RelativeSourcePath}` ({permutation.Baseline.StepLabel})");
+            if (!string.IsNullOrWhiteSpace(permutation.Baseline.StepLabel))
+            {
+                builder.AppendLine($"- CLI arguments: `--async-investigation {permutation.Baseline.StepLabel}`");
+            }
             builder.AppendLine($"- Compilation: {FormatStatus(result.Result.CompilationSucceeded)} (exit {result.Result.CompilationExitCode})");
             builder.AppendLine($"- Execution: {FormatStatus(result.Result.ExecutionSucceeded)} (exit {result.Result.ExecutionExitCode})");
             builder.AppendLine($"- Runtime pointer timeline: {FormatStatus(result.Result.RuntimeMatchesBaseline)} ({result.Result.RuntimeTimeline.Count} records)");
@@ -723,6 +734,10 @@ internal static class Program
 
         builder.AppendLine("## Raven vs. Roslyn MoveNext IL");
         builder.AppendLine();
+        builder.AppendLine("- Raven asset: `docs/investigations/assets/async_entry.rav`");
+        builder.AppendLine("- Roslyn project: `docs/investigations/assets/RoslynAsyncEntry/RoslynAsyncEntry.csproj`");
+        builder.AppendLine("- Baseline logs: Step 10 snippets (`async-entry-step10-raven.il`, `async-entry-step10-roslyn.il`)");
+        builder.AppendLine();
         builder.AppendLine($"- Raven compilation: {FormatStatus(ilResult.RavenCompilationSucceeded)} (exit {ilResult.RavenCompilation.ExitCode})");
         builder.AppendLine($"- Roslyn compilation: {FormatStatus(ilResult.RoslynCompilationSucceeded)} (exit {ilResult.RoslynCompilation.ExitCode})");
         builder.AppendLine($"- Instruction comparison: {FormatStatus(ilResult.Differences.Count == 0)} ({ilResult.RavenInstructions.Count} vs. {ilResult.RoslynInstructions.Count})");
@@ -771,7 +786,45 @@ internal static class Program
             builder.AppendLine();
         }
 
+        builder.AppendLine("_Roslyn diff dashboard summary: `docs/investigations/reports/roslyn-diff-dashboard.md`_");
+        builder.AppendLine();
+
         File.WriteAllText(outputPath, builder.ToString());
+    }
+
+    private static void WriteDashboard(
+        string dashboardPath,
+        DateTime generatedAtUtc,
+        IReadOnlyList<PointerPermutationResult> pointerResults,
+        IlDiffResult ilResult)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(dashboardPath)!);
+
+        var permutationStatuses = pointerResults
+            .Select(result => new AsyncEntryPermutationStatus(
+                result.Permutation.Name,
+                result.Permutation.RelativeSourcePath,
+                result.Permutation.Baseline.RelativeSourcePath,
+                result.Permutation.Baseline.StepLabel,
+                result.Result.CompilationSucceeded,
+                result.Result.CompilationExitCode,
+                result.Result.ExecutionSucceeded,
+                result.Result.ExecutionExitCode,
+                result.Result.RuntimeMatchesBaseline,
+                result.Result.IlMatchesBaseline))
+            .ToArray();
+
+        var ilStatus = new AsyncEntryIlDiffStatus(
+            ilResult.RavenCompilationSucceeded,
+            ilResult.RavenCompilation.ExitCode,
+            ilResult.RoslynCompilationSucceeded,
+            ilResult.RoslynCompilation.ExitCode,
+            ilResult.RavenInstructions.Count,
+            ilResult.RoslynInstructions.Count,
+            ilResult.Differences.Count);
+
+        var content = AsyncEntryDashboardTemplate.Build(generatedAtUtc, permutationStatuses, ilStatus);
+        File.WriteAllText(dashboardPath, content);
     }
 
     private static string FormatStatus(bool succeeded) => succeeded ? "✅" : "❌";

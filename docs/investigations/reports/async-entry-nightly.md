@@ -1,6 +1,6 @@
 # Async entry nightly diff
 
-_Last generated: pending first tool execution_
+_Last generated: pending first tool execution (UTC)_
 
 > **Note:** Run `dotnet run --project tools/AsyncEntryDiffRunner/AsyncEntryDiffRunner.csproj` from the repo root to refresh this
 > report after the Raven compiler has been built. The command emits the latest pointer trace and IL comparisons below and exits
@@ -11,6 +11,8 @@ _Last generated: pending first tool execution_
 ### Generic entry (single await)
 
 - Source: `docs/investigations/assets/async_entry_generic.rav`
+- Baseline log: `docs/investigations/snippets/async-entry-step21-generic.log` (Step21)
+- CLI arguments: `--async-investigation Step21`
 - Compilation: ❔ _(awaiting first run)_
 - Execution: ❔ _(awaiting first run)_
 - Runtime pointer timeline: ❔ _(awaiting first run)_
@@ -39,6 +41,8 @@ _Runtime pointer timeline and emitted IL pointer timeline will appear here after
 ### Multi-await entry
 
 - Source: `docs/investigations/assets/async_entry_multi.rav`
+- Baseline log: `docs/investigations/snippets/async-entry-step15.log` (Step15)
+- CLI arguments: `--async-investigation Step15`
 - Compilation: ❔ _(awaiting first run)_
 - Execution: ❔ _(awaiting first run)_
 - Runtime pointer timeline: ❔ _(awaiting first run)_
@@ -72,6 +76,10 @@ _Runtime pointer timeline and emitted IL pointer timeline will appear here after
 
 ## Raven vs. Roslyn MoveNext IL
 
+- Raven asset: `docs/investigations/assets/async_entry.rav`
+- Roslyn project: `docs/investigations/assets/RoslynAsyncEntry/RoslynAsyncEntry.csproj`
+- Baseline logs: Step 10 snippets (`async-entry-step10-raven.il`, `async-entry-step10-roslyn.il`)
+
 - Raven compilation: ❔ _(awaiting first run)_
 - Roslyn compilation: ❔ _(awaiting first run)_
 - Instruction comparison: ❔ _(awaiting first run)_
@@ -79,3 +87,5 @@ _Runtime pointer timeline and emitted IL pointer timeline will appear here after
 Run the tool to capture the latest IL for Raven’s `Program.<MainAsync>d__0.MoveNext` and Roslyn’s `Program.<Main>d__0.MoveNext`.
 The generated sections will embed both instruction streams and highlight the first mismatched instructions so nightly automation
 can flag regressions immediately.
+
+_Roslyn diff dashboard summary: `docs/investigations/reports/roslyn-diff-dashboard.md`_
