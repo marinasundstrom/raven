@@ -56,15 +56,18 @@ internal static class Program
 
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-            const string stepLabel = "Step15";
-            var pointerBaseline = LoadPointerBaseline(repoRoot, stepLabel);
-            var pointerResult = RunPointerRegression(repoRoot, pointerBaseline, stepLabel);
+            var pointerPermutations = EnumeratePointerPermutations(repoRoot);
+            var pointerResults = pointerPermutations
+                .Select(permutation => new PointerPermutationResult(
+                    permutation,
+                    RunPointerRegression(repoRoot, permutation)))
+                .ToArray();
             var ilResult = RunIlDiff(repoRoot);
 
-            WriteReport(outputPath, pointerResult, ilResult, pointerBaseline, stepLabel);
+            WriteReport(outputPath, pointerResults, ilResult);
 
             Console.WriteLine($"Async entry nightly diff written to {outputPath}");
-            return pointerResult.Passed && ilResult.Passed ? 0 : 1;
+            return pointerResults.All(result => result.Result.Passed) && ilResult.Passed ? 0 : 1;
         }
         catch (Exception ex)
         {
@@ -75,16 +78,15 @@ internal static class Program
 
     private static PointerRegressionResult RunPointerRegression(
         string repoRoot,
-        IReadOnlyList<(string Field, string Operation)> baseline,
-        string stepLabel)
+        PointerPermutation permutation)
     {
-        var sourcePath = Path.Combine(repoRoot, "docs", "investigations", "assets", "async_entry_multi.rav");
+        var sourcePath = permutation.SourcePath;
         var assemblyPath = Path.Combine(Path.GetTempPath(), $"async-pointer-{Guid.NewGuid():N}.dll");
 
         CompilationArtifacts? artifacts = null;
         try
         {
-            var compileResult = CompileRavenSample(repoRoot, sourcePath, assemblyPath, stepLabel);
+            var compileResult = CompileRavenSample(repoRoot, sourcePath, assemblyPath, permutation.Baseline.StepLabel);
             var runtimeResult = compileResult.Process.ExitCode == 0
                 ? RunAssembly(assemblyPath)
                 : new ProcessResult(-1, string.Empty, string.Empty);
@@ -94,7 +96,7 @@ internal static class Program
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
             var pointerRecords = runtimeLines
-                .Where(line => line.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
+                .Where(line => line.StartsWith($"{permutation.Baseline.StepLabel}:", StringComparison.Ordinal))
                 .Select(ParsePointerRecord)
                 .ToArray();
 
@@ -103,11 +105,11 @@ internal static class Program
                 .ToArray();
 
             var ilTimeline = compileResult.Process.ExitCode == 0
-                ? ReadPointerTimelineFromAssembly(assemblyPath, stepLabel)
+                ? ReadPointerTimelineFromAssembly(assemblyPath, permutation.Baseline.StepLabel)
                 : Array.Empty<(string Field, string Operation)>();
 
-            var runtimeMatches = runtimeTimeline.SequenceEqual(baseline);
-            var ilMatches = ilTimeline.SequenceEqual(baseline);
+            var runtimeMatches = runtimeTimeline.SequenceEqual(permutation.Baseline.Timeline);
+            var ilMatches = ilTimeline.SequenceEqual(permutation.Baseline.Timeline);
             var executionSucceeded = runtimeResult.ExitCode == 42 && string.IsNullOrWhiteSpace(runtimeResult.StdErr);
 
             artifacts = compileResult.Artifacts;
@@ -173,18 +175,73 @@ internal static class Program
         }
     }
 
-    private static IReadOnlyList<(string Field, string Operation)> LoadPointerBaseline(string repoRoot, string stepLabel)
+    private static IReadOnlyList<PointerPermutation> EnumeratePointerPermutations(string repoRoot)
     {
-        var timelinePath = Path.Combine(repoRoot, "docs", "investigations", "snippets", "async-entry-step15.log");
+        var investigationsRoot = Path.Combine(repoRoot, "docs", "investigations");
+        var assetsRoot = Path.Combine(investigationsRoot, "assets");
+        var snippetsRoot = Path.Combine(investigationsRoot, "snippets");
+
+        var permutations = new List<PointerPermutation>();
+
+        var genericSource = Path.Combine(assetsRoot, "async_entry_generic.rav");
+        if (!File.Exists(genericSource))
+            throw new FileNotFoundException($"Generic async entry asset not found: {genericSource}");
+
+        var genericBaseline = LoadPointerBaseline(
+            repoRoot,
+            Path.Combine(snippetsRoot, "async-entry-step21-generic.log"),
+            stepLabel: "Step21");
+
+        permutations.Add(new PointerPermutation(
+            Name: "Generic entry (single await)",
+            SourcePath: genericSource,
+            RelativeSourcePath: Path.GetRelativePath(repoRoot, genericSource),
+            Baseline: genericBaseline));
+
+        var multiSource = Path.Combine(assetsRoot, "async_entry_multi.rav");
+        if (!File.Exists(multiSource))
+            throw new FileNotFoundException($"Multi-await async entry asset not found: {multiSource}");
+
+        var multiBaseline = LoadPointerBaseline(
+            repoRoot,
+            Path.Combine(snippetsRoot, "async-entry-step15.log"),
+            stepLabel: "Step15");
+
+        permutations.Add(new PointerPermutation(
+            Name: "Multi-await entry",
+            SourcePath: multiSource,
+            RelativeSourcePath: Path.GetRelativePath(repoRoot, multiSource),
+            Baseline: multiBaseline));
+
+        return permutations;
+    }
+
+    private static PointerBaseline LoadPointerBaseline(string repoRoot, string timelinePath, string stepLabel)
+    {
         if (!File.Exists(timelinePath))
             throw new FileNotFoundException($"Pointer timeline asset not found: {timelinePath}");
 
-        return File.ReadLines(timelinePath)
+        var lines = File.ReadLines(timelinePath)
             .Select(line => line.Trim())
             .Where(line => line.Length > 0 && !line.StartsWith("#", StringComparison.Ordinal))
             .Where(line => line.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
-            .Select(ParsePointerFormat)
             .ToArray();
+
+        var entries = lines.Select(ParsePointerFormat).ToArray();
+        if (entries.Length == 0)
+            throw new InvalidOperationException($"Pointer timeline '{timelinePath}' does not contain any records for '{stepLabel}'.");
+
+        var timeline = entries
+            .Select(entry => (entry.Field, entry.Operation))
+            .ToArray();
+
+        return new PointerBaseline(
+            StepLabel: stepLabel,
+            SourcePath: timelinePath,
+            RelativeSourcePath: Path.GetRelativePath(repoRoot, timelinePath),
+            Lines: lines,
+            Entries: entries,
+            Timeline: timeline);
     }
 
     private static CompilationResult CompileRavenSample(
@@ -281,6 +338,7 @@ internal static class Program
             return ReadLdstrOperands(moveNext)
                 .Where(value => value.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
                 .Select(ParsePointerFormat)
+                .Select(entry => (entry.Field, entry.Operation))
                 .ToArray();
         }
         finally
@@ -599,10 +657,8 @@ internal static class Program
 
     private static void WriteReport(
         string outputPath,
-        PointerRegressionResult pointerResult,
-        IlDiffResult ilResult,
-        IReadOnlyList<(string Field, string Operation)> baseline,
-        string stepLabel)
+        IReadOnlyList<PointerPermutationResult> pointerResults,
+        IlDiffResult ilResult)
     {
         var builder = new StringBuilder();
         builder.AppendLine("# Async entry nightly diff");
@@ -612,49 +668,57 @@ internal static class Program
 
         builder.AppendLine("## Pointer trace regression");
         builder.AppendLine();
-        builder.AppendLine($"- Compilation: {FormatStatus(pointerResult.CompilationSucceeded)} (exit {pointerResult.Compilation.ExitCode})");
-        builder.AppendLine($"- Execution: {FormatStatus(pointerResult.ExecutionSucceeded)} (exit {pointerResult.Execution.ExitCode})");
-        builder.AppendLine($"- Runtime pointer timeline: {FormatStatus(pointerResult.RuntimeMatchesBaseline)} ({pointerResult.RuntimeTimeline.Count} records)");
-        builder.AppendLine($"- Emitted IL pointer timeline: {FormatStatus(pointerResult.IlMatchesBaseline)} ({pointerResult.IlTimeline.Count} records)");
-        builder.AppendLine();
-
-        builder.AppendLine("Baseline timeline:");
-        builder.AppendLine("```");
-        foreach (var entry in baseline)
-            builder.AppendLine($"{stepLabel}:{entry.Field}:{entry.Operation}");
-        builder.AppendLine("```");
-        builder.AppendLine();
-
-        builder.AppendLine("Runtime pointer timeline:");
-        builder.AppendLine("```");
-        foreach (var record in pointerResult.RuntimeRecords)
-            builder.AppendLine($"{stepLabel}:{record.Field}:{record.Operation} -> 0x{record.Address:X}");
-        builder.AppendLine("```");
-        builder.AppendLine();
-
-        builder.AppendLine("Emitted IL pointer timeline:");
-        builder.AppendLine("```");
-        foreach (var entry in pointerResult.IlTimeline)
-            builder.AppendLine($"{stepLabel}:{entry.Field}:{entry.Operation}");
-        builder.AppendLine("```");
-        builder.AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(pointerResult.Compilation.StdErr))
+        foreach (var result in pointerResults)
         {
-            builder.AppendLine("Compiler stderr:");
+            var permutation = result.Permutation;
+            builder.AppendLine($"### {permutation.Name}");
+            builder.AppendLine();
+            builder.AppendLine($"- Source: `{permutation.RelativeSourcePath}`");
+            builder.AppendLine($"- Compilation: {FormatStatus(result.Result.CompilationSucceeded)} (exit {result.Result.CompilationExitCode})");
+            builder.AppendLine($"- Execution: {FormatStatus(result.Result.ExecutionSucceeded)} (exit {result.Result.ExecutionExitCode})");
+            builder.AppendLine($"- Runtime pointer timeline: {FormatStatus(result.Result.RuntimeMatchesBaseline)} ({result.Result.RuntimeTimeline.Count} records)");
+            builder.AppendLine($"- Emitted IL pointer timeline: {FormatStatus(result.Result.IlMatchesBaseline)} ({result.Result.IlTimeline.Count} records)");
+            builder.AppendLine();
+
+            builder.AppendLine("Baseline timeline:");
             builder.AppendLine("```");
-            builder.AppendLine(pointerResult.Compilation.StdErr.Trim());
+            foreach (var line in permutation.Baseline.Lines)
+                builder.AppendLine(line);
+            builder.AppendLine("```");
+            builder.AppendLine($"_Baseline source: `{permutation.Baseline.RelativeSourcePath}`_");
+            builder.AppendLine();
+
+            builder.AppendLine("Runtime pointer timeline:");
+            builder.AppendLine("```");
+            foreach (var record in result.Result.RuntimeRecords)
+                builder.AppendLine($"{permutation.Baseline.StepLabel}:{record.Field}:{record.Operation} -> 0x{record.Address:X}");
             builder.AppendLine("```");
             builder.AppendLine();
-        }
 
-        if (!string.IsNullOrWhiteSpace(pointerResult.Execution.StdErr))
-        {
-            builder.AppendLine("Execution stderr:");
+            builder.AppendLine("Emitted IL pointer timeline:");
             builder.AppendLine("```");
-            builder.AppendLine(pointerResult.Execution.StdErr.Trim());
+            foreach (var entry in result.Result.IlTimeline)
+                builder.AppendLine($"{permutation.Baseline.StepLabel}:{entry.Field}:{entry.Operation}");
             builder.AppendLine("```");
             builder.AppendLine();
+
+            if (!string.IsNullOrWhiteSpace(result.Result.Compilation.StdErr))
+            {
+                builder.AppendLine("Compiler stderr:");
+                builder.AppendLine("```");
+                builder.AppendLine(result.Result.Compilation.StdErr.Trim());
+                builder.AppendLine("```");
+                builder.AppendLine();
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Result.Execution.StdErr))
+            {
+                builder.AppendLine("Execution stderr:");
+                builder.AppendLine("```");
+                builder.AppendLine(result.Result.Execution.StdErr.Trim());
+                builder.AppendLine("```");
+                builder.AppendLine();
+            }
         }
 
         builder.AppendLine("## Raven vs. Roslyn MoveNext IL");
@@ -736,7 +800,7 @@ internal static class Program
         return (field, operation, address);
     }
 
-    private static (string Field, string Operation) ParsePointerFormat(string value)
+    private static PointerBaselineEntry ParsePointerFormat(string value)
     {
         var firstColon = value.IndexOf(':');
         var secondColon = value.IndexOf(':', firstColon + 1);
@@ -747,8 +811,27 @@ internal static class Program
 
         var field = value[(firstColon + 1)..secondColon];
         var operation = value[(secondColon + 1)..arrowIndex].Trim();
-        return (field, operation);
+        var address = value[(arrowIndex + 4)..].Trim();
+        return new PointerBaselineEntry(field, operation, address);
     }
+
+    private sealed record class PointerPermutation(
+        string Name,
+        string SourcePath,
+        string RelativeSourcePath,
+        PointerBaseline Baseline);
+
+    private sealed record class PointerBaseline(
+        string StepLabel,
+        string SourcePath,
+        string RelativeSourcePath,
+        IReadOnlyList<string> Lines,
+        IReadOnlyList<PointerBaselineEntry> Entries,
+        IReadOnlyList<(string Field, string Operation)> Timeline);
+
+    private readonly record struct PointerBaselineEntry(string Field, string Operation, string Address);
+
+    private readonly record struct PointerPermutationResult(PointerPermutation Permutation, PointerRegressionResult Result);
 
     private readonly record struct CompilationArtifacts(
         string AssemblyPath,

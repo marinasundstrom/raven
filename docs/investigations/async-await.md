@@ -16,20 +16,20 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 21: Extend the CLI automation to cover additional
-  async entry permutations now that the generic state machine fix has landed.
-  * 🔄 Fold the generic entry sample into the pointer trace harness so the
-    nightly runner executes both the single-await and multi-await baselines.
-  * 🔄 Factor a reusable enumerator for async entry assets so new permutations
-    can be added to the diff runner without duplicating CLI wiring.
-  * 🔄 Refresh the nightly report once the expanded suite emits stable pointer
-    and IL timelines across every tracked permutation.
+* **Active step** – Step 22: Surface the nightly pointer/IL report inside the
+  Roslyn diff dashboard so future rewrites surface regressions across every
+  tracked async entry permutation.
+  * 🔄 Feed the diff runner’s per-permutation status into the Roslyn diff
+    harness so nightly automation publishes pointer and IL summaries alongside
+    existing diagnostics.
+  * 🔄 Extend the report scaffold to capture Roslyn-facing metadata (build
+    arguments, assets exercised, and baseline stamps) so dashboard readers can
+    trace failures back to individual async entry permutations.
+  * 🔄 Capture a sample Roslyn dashboard export after the integration lands and
+    archive it beside this investigation to document the new reporting flow.
 
 ### Upcoming steps
 
-* Step 22: Surface the nightly pointer/IL report inside the Roslyn diff
-  dashboard so future rewrites surface regressions across every tracked async
-  entry permutation.
 * Step 23: Backfill regression coverage for async lambdas once the entry-point
   automation is stable.
 
@@ -123,6 +123,11 @@ blocking parity with C#, and the work required to resolve them.
   added `AsyncGenericEntryPoint_ExecutesSuccessfully` to prove the CLI sample
   runs without a `TypeLoadException`, and refreshed the Step 20 log with the
   successful execution trace.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】
+* Step 21: Expanded the nightly pointer diff automation to enumerate the
+  generic and multi-await async entry assets, introduced a dedicated
+  single-await generic sample with a symbolic baseline, and refreshed the
+  nightly report scaffold so each permutation publishes its own pointer and IL
+  status.【F:tools/AsyncEntryDiffRunner/Program.cs†L18-L358】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L57】
 
 ### Completed issues
 
@@ -286,9 +291,15 @@ and IL tests validate the same baseline without manual duplication.【F:test/Rav
 12. **Step 20 – Unblock pointer instrumentation for generic async helpers** –
     reproduce the `TypeLoadException` raised by `samples/test8.rav`, inspect the
     generated `Program+<>c__AsyncStateMachine0` fields to determine which
-    pointer log or awaiter slot now violates Reflection.Emit rules, and adjust
-    the instrumentation helpers so substituted async methods hoist legal field
-    types before regenerating the CLI baseline. (Status: _In progress_.【F:docs/investigations/snippets/async-entry-step20.log†L1-L8】)
+    pointer log or awaiter slot violates Reflection.Emit rules, and adjust the
+    synthesized state machine so hoisted fields and the builder substitute the
+    method type parameters before regenerating the CLI baseline. (Status:
+    _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】)
+13. **Step 21 – Extend nightly pointer permutations** – add a generic
+    single-await asset to the CLI harness, enumerate both async entry
+    permutations inside the diff runner, and refresh the nightly report so each
+    run publishes per-permutation pointer and IL timelines. (Status:
+    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L18-L358】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L57】)
 
 #### Issue 1 resolution summary
 
