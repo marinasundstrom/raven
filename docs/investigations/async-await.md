@@ -120,8 +120,10 @@ blocking parity with C#, and the work required to resolve them.
 * Step 20: Rehydrated the generic async entry state machine with the method
   type parameters so hoisted fields and the builder use legal instantiations,
   added `AsyncGenericEntryPoint_ExecutesSuccessfully` to prove the CLI sample
-  runs without a `TypeLoadException`, and refreshed the Step 20 log with the
-  successful execution trace.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】
+  runs without a `TypeLoadException`, refreshed the Step 20 log with the
+  successful execution trace, and patched `TypeGenerator.DefineTypeBuilder`
+  so synthesized async state machines register their generic parameters before
+  emission, unblocking the runtime type lookup for nested builders.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L152-L215】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】
 * Step 21: Expanded the nightly pointer diff automation to enumerate the
   generic and multi-await async entry assets, introduced a dedicated
   single-await generic sample with a symbolic baseline, and refreshed the

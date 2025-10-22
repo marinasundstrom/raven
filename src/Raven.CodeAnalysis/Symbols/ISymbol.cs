@@ -503,6 +503,8 @@ public interface IUnionTypeSymbol : ITypeSymbol
 
 public interface ITypeParameterSymbol : ITypeSymbol
 {
+    int Ordinal { get; }
+
     TypeParameterConstraintKind ConstraintKind { get; }
 
     ImmutableArray<ITypeSymbol> ConstraintTypes { get; }
