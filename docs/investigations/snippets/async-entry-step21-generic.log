@@ -1,0 +1,15 @@
+# Symbolic pointer timeline for the generic single-await async entry point.
+# Addresses are placeholders that remain constant per field during execution.
+Step21:_state:store -> 0xSTATE
+Step21:_builder:addr -> 0xBUILDER
+Step21:_builder:load -> 0xBUILDER
+Step21:<>awaiter0:store -> 0xAWAITER0
+Step21:_state:store -> 0xSTATE
+Step21:<>awaiter0:addr -> 0xAWAITER0
+Step21:_state:load -> 0xSTATE
+Step21:<>awaiter0:load -> 0xAWAITER0
+Step21:<>awaiter0:store -> 0xAWAITER0
+Step21:_state:store -> 0xSTATE
+Step21:_builder:addr -> 0xBUILDER
+Step21:_builder:load -> 0xBUILDER
+Step21:_state:store -> 0xSTATE
