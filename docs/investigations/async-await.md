@@ -16,21 +16,20 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 19: Fold the automated pointer/IL comparisons into the
-  nightly Roslyn diff so future rewrites preserve both lowering and
-  instrumentation behaviour across compilers.
-  * 🔄 Teach the Roslyn diff harness to execute the CLI pointer regression
-    alongside the existing IL comparisons.
-  * 🔄 Publish the pointer/IL delta in the nightly report so regressions surface
-    automatically.
-  * 🔄 Document how to refresh the diff baselines when the async lowering
-    changes.
+* **Active step** – Step 20: Extend the CLI automation to cover additional async
+  entry permutations so the pointer trace guard exercises more lowering paths.
+  * 🔄 Add library-hosted entry points to the CLI regression so pointer logging
+    validates non-top-level hosts.
+  * 🔄 Capture nested await scenarios beyond the Step 15 multi-await baseline
+    and assert their pointer timelines in nightly runs.
+  * 🔄 Update the investigation log and nightly report with the new permutations
+    and refresh workflow.
 
 ### Upcoming steps
 
-* Step 20: Extend the CLI automation to cover additional async entry
-  permutations (for example library hosts and nested awaits) so the pointer
-  trace guard exercises more lowering paths.
+* Step 21: Surface the nightly pointer/IL report inside the Roslyn diff
+  dashboard so future rewrites surface regressions across every tracked async
+  entry permutation.
 
 ### Completed steps
 
@@ -113,6 +112,10 @@ blocking parity with C#, and the work required to resolve them.
   runtime pointer trace against the Step 15 baseline, and decoding the emitted
   `MoveNext` IL to ensure the string literals mirror the recorded timeline.
   【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】
+* Step 19: Folded the automated pointer/IL comparisons into the nightly Roslyn
+  diff by introducing the `AsyncEntryDiffRunner` tool and a dedicated report
+  skeleton so nightly automation can capture CLI pointer traces and MoveNext IL
+  deltas from the Step 15 baseline.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】
 
 ### Completed issues
 
@@ -261,6 +264,18 @@ and IL tests validate the same baseline without manual duplication.【F:test/Rav
    against the recorded IL so the regression enforces the golden trace before
    refreshing the baseline. (Status:
    _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】)
+10. **Step 18 – Promote CLI pointer coverage** – compile the multi-await repro
+    through the CLI with `--async-investigation`, verify the runtime pointer log
+    against the Step 15 baseline, and decode the emitted `MoveNext` IL to ensure
+    the pointer literals match the recorded timeline before promoting the
+    regression to nightly automation. (Status:
+    _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】)
+11. **Step 19 – Fold nightly pointer/IL diffs into the Roslyn harness** – add
+    the `AsyncEntryDiffRunner` tool and nightly report skeleton so the Roslyn
+    diff pipeline can execute the CLI pointer regression, persist the Step 15
+    baseline comparison, and publish the MoveNext deltas beside the pointer
+    timeline. (Status:
+    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】)
 
 #### Issue 1 resolution summary
 
