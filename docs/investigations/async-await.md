@@ -16,18 +16,23 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 20: Extend the CLI automation to cover additional async
-  entry permutations so the pointer trace guard exercises more lowering paths.
-  * 🔄 Add library-hosted entry points to the CLI regression so pointer logging
-    validates non-top-level hosts.
-  * 🔄 Capture nested await scenarios beyond the Step 15 multi-await baseline
-    and assert their pointer timelines in nightly runs.
-  * 🔄 Update the investigation log and nightly report with the new permutations
-    and refresh workflow.
+* **Active step** – Step 20: Diagnose the `TypeLoadException` raised by
+  `samples/test8.rav` so pointer tracing can instrument generic async helpers
+  without projecting illegal state-machine fields.【F:docs/investigations/snippets/async-entry-step20.log†L1-L8】
+  * 🔄 Diff the emitted `Program+<>c__AsyncStateMachine0` metadata to identify
+    which hoisted field now uses an unsupported pointer or generic instantiation.
+  * 🔄 Audit the pointer instrumentation helpers to ensure substituted async
+    methods reuse legal builder and awaiter field types when materialising
+    nested state machines.
+  * 🔄 Refresh the investigation log and nightly report with the corrected
+    instrumentation flow once the crash is resolved.
 
 ### Upcoming steps
 
-* Step 21: Surface the nightly pointer/IL report inside the Roslyn diff
+* Step 21: Extend the CLI automation to cover additional async entry
+  permutations so the pointer trace guard exercises more lowering paths once the
+  `TypeLoadException` is resolved.
+* Step 22: Surface the nightly pointer/IL report inside the Roslyn diff
   dashboard so future rewrites surface regressions across every tracked async
   entry permutation.
 
@@ -276,6 +281,12 @@ and IL tests validate the same baseline without manual duplication.【F:test/Rav
     baseline comparison, and publish the MoveNext deltas beside the pointer
     timeline. (Status:
     _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】)
+12. **Step 20 – Unblock pointer instrumentation for generic async helpers** –
+    reproduce the `TypeLoadException` raised by `samples/test8.rav`, inspect the
+    generated `Program+<>c__AsyncStateMachine0` fields to determine which
+    pointer log or awaiter slot now violates Reflection.Emit rules, and adjust
+    the instrumentation helpers so substituted async methods hoist legal field
+    types before regenerating the CLI baseline. (Status: _In progress_.【F:docs/investigations/snippets/async-entry-step20.log†L1-L8】)
 
 #### Issue 1 resolution summary
 
