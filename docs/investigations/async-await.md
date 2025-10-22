@@ -16,25 +16,22 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 20: Diagnose the `TypeLoadException` raised by
-  `samples/test8.rav` so pointer tracing can instrument generic async helpers
-  without projecting illegal state-machine fields.【F:docs/investigations/snippets/async-entry-step20.log†L1-L8】
-  * 🔄 Diff the emitted `Program+<>c__AsyncStateMachine0` metadata to identify
-    which hoisted field now uses an unsupported pointer or generic instantiation.
-  * 🔄 Audit the pointer instrumentation helpers to ensure substituted async
-    methods reuse legal builder and awaiter field types when materialising
-    nested state machines.
-  * 🔄 Refresh the investigation log and nightly report with the corrected
-    instrumentation flow once the crash is resolved.
+* **Active step** – Step 21: Extend the CLI automation to cover additional
+  async entry permutations now that the generic state machine fix has landed.
+  * 🔄 Fold the generic entry sample into the pointer trace harness so the
+    nightly runner executes both the single-await and multi-await baselines.
+  * 🔄 Factor a reusable enumerator for async entry assets so new permutations
+    can be added to the diff runner without duplicating CLI wiring.
+  * 🔄 Refresh the nightly report once the expanded suite emits stable pointer
+    and IL timelines across every tracked permutation.
 
 ### Upcoming steps
 
-* Step 21: Extend the CLI automation to cover additional async entry
-  permutations so the pointer trace guard exercises more lowering paths once the
-  `TypeLoadException` is resolved.
 * Step 22: Surface the nightly pointer/IL report inside the Roslyn diff
   dashboard so future rewrites surface regressions across every tracked async
   entry permutation.
+* Step 23: Backfill regression coverage for async lambdas once the entry-point
+  automation is stable.
 
 ### Completed steps
 
@@ -121,6 +118,11 @@ blocking parity with C#, and the work required to resolve them.
   diff by introducing the `AsyncEntryDiffRunner` tool and a dedicated report
   skeleton so nightly automation can capture CLI pointer traces and MoveNext IL
   deltas from the Step 15 baseline.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】
+* Step 20: Rehydrated the generic async entry state machine with the method
+  type parameters so hoisted fields and the builder use legal instantiations,
+  added `AsyncGenericEntryPoint_ExecutesSuccessfully` to prove the CLI sample
+  runs without a `TypeLoadException`, and refreshed the Step 20 log with the
+  successful execution trace.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】
 
 ### Completed issues
 

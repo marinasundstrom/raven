@@ -120,6 +120,21 @@ WriteLine(value)
 return value
 """;
 
+    private const string AsyncGenericTaskEntryPointCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+let value = await Test(42)
+
+WriteLine(value)
+return value
+""";
+
     private const string AsyncTaskOfIntEntryPointWithMultipleAwaitsCode = """
 import System.Console.*
 import System.Threading.Tasks.*
@@ -562,6 +577,87 @@ class C {
             .AddReferences(references);
 
         _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+        var assembly = Assembly.Load(peStream.ToArray());
+
+        var programType = assembly.GetType("Program", throwOnError: true, ignoreCase: false);
+        Assert.NotNull(programType);
+
+        var main = programType!.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(main);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+
+            var returnValue = main!.Invoke(null, new object?[] { Array.Empty<string>() });
+            var awaitedResult = Assert.IsType<int>(returnValue);
+            Assert.Equal(42, awaitedResult);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString().Replace("\r\n", "\n").Trim();
+        Assert.Equal("42", output);
+    }
+
+    [Fact]
+    public void AsyncGenericEntryPoint_ExecutesSuccessfully()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericTaskEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_generic_entry", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var functionSyntax = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+
+        Assert.Equal(methodSymbol.TypeParameters.Length, stateMachine.TypeParameters.Length);
+        Assert.NotEmpty(stateMachine.TypeParameters);
+
+        for (var i = 0; i < methodSymbol.TypeParameters.Length; i++)
+        {
+            Assert.Equal(methodSymbol.TypeParameters[i].Name, stateMachine.TypeParameters[i].Name);
+        }
+
+        var builderFieldType = Assert.IsAssignableFrom<INamedTypeSymbol>(stateMachine.BuilderField.Type);
+        Assert.True(builderFieldType.IsGenericType);
+
+        var builderTypeArgument = Assert.Single(builderFieldType.TypeArguments);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderTypeArgument, stateMachine.TypeParameters[0]));
+
+        var parameterField = Assert.Single(stateMachine.ParameterFields, field => field.Name == "_value");
+        Assert.True(SymbolEqualityComparer.Default.Equals(parameterField.Type, stateMachine.TypeParameters[0]));
 
         var codeGenerator = new CodeGenerator(compilation)
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -14,6 +15,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
     private ImmutableArray<SourceFieldSymbol> _hoistedLocalsToDispose;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
+    private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _typeParameterMap;
 
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
@@ -38,6 +40,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         Compilation = compilation;
         AsyncMethod = asyncMethod;
+
+        _typeParameterMap = InitializeTypeParameters(asyncMethod);
 
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
 
@@ -159,9 +163,11 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     private SourceFieldSymbol CreateField(string name, ITypeSymbol type)
     {
+        var substitutedType = SubstituteAsyncMethodTypeParameters(type);
+
         var field = new SourceFieldSymbol(
             name,
-            type,
+            substitutedType,
             isStatic: false,
             isLiteral: false,
             constantValue: null,
@@ -180,6 +186,159 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     {
         var builderType = DetermineBuilderType(compilation, asyncMethod);
         return CreateField("_builder", builderType);
+    }
+
+    private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> InitializeTypeParameters(SourceMethodSymbol asyncMethod)
+    {
+        if (asyncMethod.TypeParameters.IsDefaultOrEmpty || asyncMethod.TypeParameters.Length == 0)
+        {
+            return ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(asyncMethod.TypeParameters.Length);
+        var mapBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var typeParameter in asyncMethod.TypeParameters)
+        {
+            var constraintKind = typeParameter is SourceTypeParameterSymbol sourceParameter
+                ? sourceParameter.ConstraintKind
+                : TypeParameterConstraintKind.None;
+            var constraintTypeReferences = typeParameter is SourceTypeParameterSymbol sourceConstraintProvider
+                ? sourceConstraintProvider.ConstraintTypeReferences
+                : ImmutableArray<SyntaxReference>.Empty;
+
+            var synthesized = new SourceTypeParameterSymbol(
+                typeParameter.Name,
+                this,
+                this,
+                ContainingNamespace,
+                s_emptyLocations,
+                s_emptySyntax,
+                typeParameter.Ordinal,
+                constraintKind,
+                constraintTypeReferences,
+                typeParameter.Variance);
+
+            builder.Add(synthesized);
+            mapBuilder.Add(typeParameter, synthesized);
+        }
+
+        var mapped = mapBuilder.ToImmutable();
+        SetTypeParameters(builder.MoveToImmutable());
+
+        foreach (var typeParameter in asyncMethod.TypeParameters)
+        {
+            if (typeParameter is not SourceTypeParameterSymbol sourceParameter ||
+                !sourceParameter.HasResolvedConstraintTypes ||
+                !mapped.TryGetValue(typeParameter, out var mappedParameter) ||
+                mappedParameter is not SourceTypeParameterSymbol synthesized)
+            {
+                continue;
+            }
+
+            var substitutedConstraints = SubstituteConstraintTypes(mapped, sourceParameter.ConstraintTypes);
+            synthesized.SetConstraintTypes(substitutedConstraints);
+        }
+
+        return mapped;
+    }
+
+    private ImmutableArray<ITypeSymbol> SubstituteConstraintTypes(
+        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> substitutionMap,
+        ImmutableArray<ITypeSymbol> constraintTypes)
+    {
+        if (constraintTypes.IsDefaultOrEmpty)
+            return constraintTypes;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(constraintTypes.Length);
+
+        foreach (var constraintType in constraintTypes)
+        {
+            builder.Add(SubstituteAsyncMethodTypeParameters(constraintType, substitutionMap));
+        }
+
+        return builder.MoveToImmutable();
+    }
+
+    private ITypeSymbol SubstituteAsyncMethodTypeParameters(
+        ITypeSymbol type,
+        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>? substitutionMap = null)
+    {
+        var map = substitutionMap ?? _typeParameterMap;
+
+        if (map.Count == 0)
+            return type;
+
+        return Substitute(type);
+
+        ITypeSymbol Substitute(ITypeSymbol symbol)
+        {
+            if (symbol is ITypeParameterSymbol typeParameter &&
+                map.TryGetValue(typeParameter, out var replacement))
+            {
+                return replacement;
+            }
+
+            if (symbol is ByRefTypeSymbol byRef)
+            {
+                var substitutedElement = Substitute(byRef.ElementType);
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                    return new ByRefTypeSymbol(substitutedElement);
+
+                return symbol;
+            }
+
+            if (symbol is IAddressTypeSymbol address)
+            {
+                var substitutedElement = Substitute(address.ReferencedType);
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                    return new AddressTypeSymbol(substitutedElement);
+
+                return symbol;
+            }
+
+            if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            {
+                var typeArguments = named.TypeArguments;
+                var substitutedArguments = new ITypeSymbol[typeArguments.Length];
+                var changed = false;
+
+                for (int i = 0; i < typeArguments.Length; i++)
+                {
+                    substitutedArguments[i] = Substitute(typeArguments[i]);
+                    if (!SymbolEqualityComparer.Default.Equals(substitutedArguments[i], typeArguments[i]))
+                        changed = true;
+                }
+
+                if (changed)
+                {
+                    var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+                    return definition.Construct(substitutedArguments);
+                }
+
+                return named;
+            }
+
+            if (symbol is IArrayTypeSymbol array)
+            {
+                var substitutedElement = Substitute(array.ElementType);
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, array.ElementType))
+                    return Compilation.CreateArrayTypeSymbol(substitutedElement, array.Rank);
+
+                return symbol;
+            }
+
+            if (symbol is IPointerTypeSymbol pointer)
+            {
+                var substitutedElement = Substitute(pointer.PointedAtType);
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, pointer.PointedAtType))
+                    return Compilation.CreatePointerTypeSymbol(substitutedElement);
+
+                return symbol;
+            }
+
+            return symbol;
+        }
     }
 
     private static ITypeSymbol DetermineBuilderType(Compilation compilation, SourceMethodSymbol asyncMethod)

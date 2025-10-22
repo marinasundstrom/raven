@@ -1,7 +1,3 @@
-Step20: dotnet run --property WarningLevel=0 -- samples/test8.rav -o test.dll -d pretty && dotnet test.dll
-Unhandled exception. System.TypeLoadException: Type 'Program+<>c__AsyncStateMachine0' from assembly 'test8, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null' has a field of an illegal type.
-   at Program.Test[T](T value)
-   at Program.Program\.<>c__AsyncStateMachine1.MoveNext()
---- End of stack trace from previous location ---
-   at Program.Main(String[] args)
-zsh: abort      dotnet test.dll
+Step20: dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0 -- src/Raven.Compiler/samples/test8.rav -o test.dll -d pretty
+Step20: dotnet exec test.dll
+# Completed without TypeLoadException; generic async entry returned successfully.
