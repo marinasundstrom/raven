@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
@@ -27,7 +28,32 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public sealed class AsyncILGenerationTests
 {
+    private static readonly OpCode[] s_singleByteOpCodes;
+    private static readonly OpCode[] s_multiByteOpCodes;
+
     private readonly ITestOutputHelper _output;
+
+    static AsyncILGenerationTests()
+    {
+        s_singleByteOpCodes = new OpCode[0x100];
+        s_multiByteOpCodes = new OpCode[0x100];
+
+        foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            if (field.GetValue(null) is not OpCode opcode)
+                continue;
+
+            var value = (ushort)opcode.Value;
+            if (value < 0x100)
+            {
+                s_singleByteOpCodes[value] = opcode;
+            }
+            else if ((value & 0xFF00) == 0xFE00)
+            {
+                s_multiByteOpCodes[value & 0xFF] = opcode;
+            }
+        }
+    }
 
     public AsyncILGenerationTests(ITestOutputHelper output)
     {
@@ -764,6 +790,99 @@ class C {
                 File.Delete(assemblyPath);
             if (File.Exists(runtimeConfigPath))
                 File.Delete(runtimeConfigPath);
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_CliPointerTrace_MatchesBaseline()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.rav");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, ".runtimeconfig.json");
+        var depsPath = Path.ChangeExtension(assemblyPath, ".deps.json");
+        var pdbPath = Path.ChangeExtension(assemblyPath, ".pdb");
+
+        File.WriteAllText(sourcePath, AsyncTaskOfIntEntryPointWithMultipleAwaitsCode);
+
+        var expectedTimeline = LoadStep15PointerTimeline();
+
+        try
+        {
+            var compilerArgs = $"run --project \"{projectPath}\" -- --async-investigation Step15 \"{sourcePath}\" -o \"{assemblyPath}\"";
+            var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            {
+                var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
+                var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
+                compilerProcess.WaitForExit();
+
+                if (compilerProcess.ExitCode != 0)
+                {
+                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine(compilerStdOut);
+                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine(compilerStdErr);
+                }
+
+                Assert.Equal(0, compilerProcess.ExitCode);
+            }
+
+            var runInfo = new ProcessStartInfo("dotnet", assemblyPath)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(assemblyPath)
+            };
+
+            using var runProcess = Process.Start(runInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
+            var runStdOut = runProcess.StandardOutput.ReadToEnd();
+            var runStdErr = runProcess.StandardError.ReadToEnd();
+            runProcess.WaitForExit();
+
+            if (runProcess.ExitCode != 42 || !string.IsNullOrWhiteSpace(runStdErr))
+            {
+                _output.WriteLine("dotnet stdout:");
+                _output.WriteLine(runStdOut);
+                _output.WriteLine("dotnet stderr:");
+                _output.WriteLine(runStdErr);
+            }
+
+            Assert.Equal(42, runProcess.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(runStdErr), "dotnet emitted unexpected stderr output.");
+
+            var normalizedOutput = runStdOut.Replace("\r\n", "\n").Trim();
+            var lines = normalizedOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            Assert.Contains("42", lines);
+
+            var pointerRecords = lines
+                .Where(line => line.StartsWith("Step15:", StringComparison.Ordinal))
+                .Select(ParsePointerRecord)
+                .ToArray();
+
+            AssertPointerTimeline("Step15", pointerRecords, expectedTimeline);
+
+            var ilPointerTimeline = ReadCliPointerTimeline(assemblyPath);
+            Assert.Equal(expectedTimeline, ilPointerTimeline);
+        }
+        finally
+        {
+            foreach (var path in new[] { sourcePath, assemblyPath, runtimeConfigPath, depsPath, pdbPath })
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                    File.Delete(path);
+            }
         }
     }
 
@@ -1532,6 +1651,37 @@ class C {
         return new PointerTraceArtifacts(exitCode, lines, pointerRecords, ilPointerTimeline);
     }
 
+    private static (string Field, string Operation)[] ReadCliPointerTimeline(string assemblyPath)
+    {
+        var loadContext = new AssemblyLoadContext($"cli-pointer-{Guid.NewGuid()}", isCollectible: true);
+
+        try
+        {
+            using var peStream = new FileStream(assemblyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var assembly = loadContext.LoadFromStream(peStream);
+
+            var stateMachineType = assembly
+                .GetTypes()
+                .First(type =>
+                    typeof(IAsyncStateMachine).IsAssignableFrom(type) &&
+                    type.Name.Contains("MainAsync", StringComparison.Ordinal));
+
+            var moveNext = stateMachineType.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("MoveNext method not found on CLI state machine.");
+
+            return ReadLdstrOperands(moveNext)
+                .Where(value => value.StartsWith("Step15:", StringComparison.Ordinal))
+                .Select(ParsePointerFormat)
+                .ToArray();
+        }
+        finally
+        {
+            loadContext.Unload();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+    }
+
     private static void AssertPointerTimeline(
         string stepLabel,
         (string Field, string Operation, ulong Address)[] pointerRecords,
@@ -1545,6 +1695,75 @@ class C {
 
         Assert.Equal(expected.Length, actual.Length);
         Assert.Equal(expected, actual);
+    }
+
+    private static IEnumerable<string> ReadLdstrOperands(MethodInfo method)
+    {
+        var body = method.GetMethodBody() ?? throw new InvalidOperationException("Method has no body.");
+        var il = body.GetILAsByteArray() ?? throw new InvalidOperationException("Method body has no IL.");
+        var module = method.Module;
+
+        for (var i = 0; i < il.Length;)
+        {
+            OpCode opcode;
+            var code = il[i++];
+            if (code == 0xFE)
+            {
+                if (i >= il.Length)
+                    throw new InvalidOperationException("Unexpected end of IL stream when decoding multi-byte opcode.");
+
+                var second = il[i++];
+                opcode = s_multiByteOpCodes[second];
+            }
+            else
+            {
+                opcode = s_singleByteOpCodes[code];
+            }
+
+            if (opcode.Value == 0 && opcode != OpCodes.Nop)
+                throw new InvalidOperationException($"Unknown opcode: 0x{code:X2}");
+
+            switch (opcode.OperandType)
+            {
+                case OperandType.InlineNone:
+                    break;
+                case OperandType.InlineString:
+                    var metadataToken = BitConverter.ToInt32(il, i);
+                    i += 4;
+                    yield return module.ResolveString(metadataToken);
+                    break;
+                case OperandType.ShortInlineBrTarget:
+                case OperandType.ShortInlineI:
+                case OperandType.ShortInlineVar:
+                    i += 1;
+                    break;
+                case OperandType.InlineVar:
+                    i += 2;
+                    break;
+                case OperandType.InlineI:
+                case OperandType.InlineBrTarget:
+                case OperandType.InlineField:
+                case OperandType.InlineMethod:
+                case OperandType.InlineSig:
+                case OperandType.InlineTok:
+                case OperandType.InlineType:
+                    i += 4;
+                    break;
+                case OperandType.InlineI8:
+                case OperandType.InlineR:
+                    i += 8;
+                    break;
+                case OperandType.ShortInlineR:
+                    i += 4;
+                    break;
+                case OperandType.InlineSwitch:
+                    var count = BitConverter.ToInt32(il, i);
+                    i += 4 + (count * 4);
+                    break;
+                default:
+                    throw new NotSupportedException($"Unsupported operand type: {opcode.OperandType}");
+            }
+        }
     }
 
     private static (string Field, string Operation, ulong Address) ParsePointerRecord(string line)

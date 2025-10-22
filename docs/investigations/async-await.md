@@ -16,22 +16,21 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 18: Promote the pointer/IL diff tooling into the CLI
-  regression suite so nightly smoke tests exercise the automated comparison
-  without manual setup.
-  * 🔄 Teach the CLI regression harness to execute `ravenc` with
-    `--async-investigation`, collecting pointer and IL traces alongside the
-    existing exit-code assertions.
-  * 🔄 Reuse the baseline loader when validating CLI output so the Step 15
-    pointer timeline is checked before the runtime smoke test returns.
-  * 🔄 Capture follow-up documentation that explains how to refresh the CLI
-    baseline and update the shared artefacts when the lowering flow changes.
+* **Active step** – Step 19: Fold the automated pointer/IL comparisons into the
+  nightly Roslyn diff so future rewrites preserve both lowering and
+  instrumentation behaviour across compilers.
+  * 🔄 Teach the Roslyn diff harness to execute the CLI pointer regression
+    alongside the existing IL comparisons.
+  * 🔄 Publish the pointer/IL delta in the nightly report so regressions surface
+    automatically.
+  * 🔄 Document how to refresh the diff baselines when the async lowering
+    changes.
 
 ### Upcoming steps
 
-* Step 19: Fold the automated pointer/IL comparisons into the nightly Roslyn
-  diff to confirm future rewrites preserve both lowering and instrumentation
-  behaviour across compilers.
+* Step 20: Extend the CLI automation to cover additional async entry
+  permutations (for example library hosts and nested awaits) so the pointer
+  trace guard exercises more lowering paths.
 
 ### Completed steps
 
@@ -109,6 +108,11 @@ blocking parity with C#, and the work required to resolve them.
   the runtime execution helper, and comparing both sequences against the
   recorded IL so the regression guards the golden trace without manual
   duplication.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】
+* Step 18: Promoted the pointer/IL diff tooling into the CLI regression suite by
+  compiling the multi-await repro with `--async-investigation`, comparing the
+  runtime pointer trace against the Step 15 baseline, and decoding the emitted
+  `MoveNext` IL to ensure the string literals mirror the recorded timeline.
+  【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】
 
 ### Completed issues
 
@@ -198,6 +202,10 @@ and IL tests validate the same baseline without manual duplication.【F:test/Rav
 3. Re-run `AsyncEntryPoint_MoveNext_EmitsPointerLogsForEachAwaiterSlot` so the
    recorded IL strings match the updated asset before promoting the change, and
    commit the refreshed log alongside the passing regressions.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L848-L884】
+4. Execute `AsyncEntryPoint_CliPointerTrace_MatchesBaseline` to rebuild the CLI
+   repro with pointer tracing, validate the runtime output against the shared
+   baseline, and confirm the emitted `MoveNext` IL still embeds the expected
+   `Step15:` string literals.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】
 
 **Step-by-step plan**
 

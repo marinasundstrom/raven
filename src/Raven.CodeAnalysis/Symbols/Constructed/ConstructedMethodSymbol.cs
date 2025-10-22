@@ -333,6 +333,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             candidate = candidate.MakeGenericMethod(runtimeTypeArguments);
         }
 
+        if (candidate is MethodBuilder ||
+            string.Equals(candidate.GetType().FullName, "System.Reflection.Emit.MethodBuilderInstantiation", StringComparison.Ordinal))
+        {
+            methodInfo = candidate;
+            return true;
+        }
+
         var candidateParameters = candidate.GetParameters();
         var methodRuntimeArguments = candidate.IsGenericMethod
             ? candidate.GetGenericArguments()
