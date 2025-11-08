@@ -1,19 +1,73 @@
-# Run command from Raven.Compiler directory
+#!/usr/bin/env bash
+# Compile all .rav files in samples/ except an exclude list.
+# Failing one won't stop the others.
 
-set -euo pipefail
+set -Euo pipefail
+shopt -s nullglob
 
 OUTPUT_DIR="output"
 mkdir -p "$OUTPUT_DIR"
 
-dotnet run -- samples/arrays.rav -o "$OUTPUT_DIR"/arrays.dll
-dotnet run -- samples/enums.rav -o "$OUTPUT_DIR"/enums.dll
-dotnet run -- samples/general.rav -o "$OUTPUT_DIR"/general.dll
-dotnet run -- samples/generics.rav -o "$OUTPUT_DIR"/generics.dll
-dotnet run -- samples/io.rav -o "$OUTPUT_DIR"/io.dll
-dotnet run -- samples/test.rav -o "$OUTPUT_DIR"/test.dll
-dotnet run -- samples/test2.rav -o "$OUTPUT_DIR"/test2.dll
-dotnet run -- samples/type-unions.rav -o "$OUTPUT_DIR"/type-unions.dll
-dotnet run -- samples/tuples.rav -o "$OUTPUT_DIR"/tuples.dll
-dotnet run -- samples/main.rav -o "$OUTPUT_DIR"/main.dll
-dotnet run -- samples/classes.rav -o "$OUTPUT_DIR"/classes.dll
-cp ../TestDep/bin/Debug/net9.0/TestDep.dll "$OUTPUT_DIR"/TestDep.dll
+# List of sample files (filenames only) to exclude
+EXCLUDE=(
+  "test.rav"
+  "tokenizer.rav"
+  "test8.rav"
+  # add others here if needed
+)
+
+is_excluded() {
+  local file="$1"
+  for ex in "${EXCLUDE[@]}"; do
+    if [[ "$file" == "$ex" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+rav_files=( samples/*.rav )
+
+if (( ${#rav_files[@]} == 0 )); then
+  echo "No .rav files found under samples/."
+  exit 0
+fi
+
+failures=()
+successes=()
+
+for file in "${rav_files[@]}"; do
+  filename=$(basename "$file")
+
+  if is_excluded "$filename"; then
+    echo "Skipping excluded: $filename"
+    continue
+  fi
+
+  base="${filename%.rav}"
+  output="$OUTPUT_DIR/$base.dll"
+
+  echo "Compiling: $file -> $output"
+  if ! dotnet run -- "$file" -o "$output"; then
+    rc=$?
+    echo "❌ Compile failed ($rc): $filename"
+    failures+=("$filename (exit $rc)")
+  else
+    echo "✅ Compile succeeded: $filename"
+    successes+=("$filename")
+  fi
+  echo
+done
+
+# Copy dependency (this should not stop script if missing)
+cp ../TestDep/bin/Debug/net9.0/TestDep.dll "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
+  echo "Warning: Could not copy TestDep.dll"
+
+echo "===== Compile Summary ====="
+echo "Succeeded: ${#successes[@]}"
+for s in "${successes[@]}"; do echo "  - $s"; done
+echo "Failed:    ${#failures[@]}"
+for f in "${failures[@]}"; do echo "  - $f"; done
+
+# Exit non-zero if any failed; still compiled all files.
+(( ${#failures[@]} > 0 )) && exit 1 || exit 0
