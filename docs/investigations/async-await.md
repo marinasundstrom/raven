@@ -19,6 +19,9 @@ blocking parity with C#, and the work required to resolve them.
 * **Active step** – Step 24: Promote the async lambda automation into the
   Roslyn diff runner so nightly diffs correlate entry-point and nested state
   machines.
+  * ✅ Captured the invalid `SetResult()` site where the pointer log consumed the
+    builder receiver, leaving the call without `this` and reproducing the
+    runtime `BadImageFormatException`.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】
   * 🔄 Integrate the lambda permutation into the Roslyn diff CLI so pointer and
     IL traces publish beside the entry-point artefacts without manual setup.
   * 🔄 Extend the nightly dashboard summary to surface Roslyn lambda deltas and
@@ -136,6 +139,12 @@ blocking parity with C#, and the work required to resolve them.
   Raven and Roslyn assets, recording a symbolic pointer baseline, scoping the
   investigation flag to label individual state machines, and wiring the lambda
   permutation into the nightly CLI and dashboard exports.【F:docs/investigations/assets/async_lambda.rav†L1-L12】【F:docs/investigations/snippets/async-entry-step23-lambda.log†L1-L14】【F:docs/investigations/assets/RoslynAsyncLambda/Program.cs†L1-L17】【F:docs/investigations/assets/RoslynAsyncLambda/RoslynAsyncLambda.csproj†L1-L7】【F:src/Raven.CodeAnalysis/AsyncInvestigationOptions.cs†L1-L34】【F:src/Raven.Compiler/Program.cs†L1-L214】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2978-L3035】【F:tools/AsyncEntryDiffRunner/Program.cs†L1-L941】
+* Step 24: Logging the failing CLI repro highlighted that the async
+  investigation instrumentation removed the builder receiver before calling
+  `AsyncTaskMethodBuilder.SetResult()`, triggering the runtime `BadImageFormat`
+  crash. The pointer logger now duplicates the managed pointer before storing
+  it, formats the message via `string.Format`, and preserves the stack depth
+  required by the builder APIs.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L15-L43】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3004-L3061】
 
 ### Completed issues
 

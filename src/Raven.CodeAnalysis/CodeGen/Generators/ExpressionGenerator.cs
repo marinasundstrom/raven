@@ -26,9 +26,17 @@ internal class ExpressionGenerator : Generator
         .GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(RuntimeTypeHandle) }, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Type.GetTypeFromHandle(RuntimeTypeHandle).");
 
+    private static readonly MethodInfo ConsoleWriteLineString = typeof(Console)
+        .GetMethod(nameof(Console.WriteLine), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string) })
+        ?? throw new InvalidOperationException("Failed to resolve Console.WriteLine(string).");
+
     private static readonly MethodInfo ConsoleWriteLineStringObject = typeof(Console)
         .GetMethod(nameof(Console.WriteLine), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
         ?? throw new InvalidOperationException("Failed to resolve Console.WriteLine(string, object).");
+
+    private static readonly MethodInfo StringFormatStringObject = typeof(string)
+        .GetMethod(nameof(string.Format), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
+        ?? throw new InvalidOperationException("Failed to resolve string.Format(string, object).");
 
     public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true) : base(parent)
     {
@@ -915,7 +923,7 @@ internal class ExpressionGenerator : Generator
             case IFieldSymbol field when field.IsStatic:
                 ILGenerator.Emit(OpCodes.Ldsflda, GetField(field));
                 if (TryGetAsyncInvestigationFieldLabel(field, out var staticFieldLabel))
-                    EmitAsyncInvestigationLog(staticFieldLabel, AsyncInvestigationOperation.Address);
+                    EmitAsyncInvestigationAddressLogPreservingPointer(staticFieldLabel);
                 break;
 
             case IFieldSymbol field:
@@ -946,7 +954,7 @@ internal class ExpressionGenerator : Generator
 
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
                 if (TryGetAsyncInvestigationFieldLabel(field, out var fieldLabel))
-                    EmitAsyncInvestigationLog(fieldLabel, AsyncInvestigationOperation.Address);
+                    EmitAsyncInvestigationAddressLogPreservingPointer(fieldLabel);
                 break;
 
             case ITypeSymbol:
@@ -1715,7 +1723,7 @@ internal class ExpressionGenerator : Generator
                         {
                             ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
                             if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var staticDefaultLabel))
-                                EmitAsyncInvestigationLog(staticDefaultLabel, AsyncInvestigationOperation.Address);
+                                EmitAsyncInvestigationAddressLogPreservingPointer(staticDefaultLabel);
                         }
                         else
                         {
@@ -1742,7 +1750,7 @@ internal class ExpressionGenerator : Generator
 
                             ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
                             if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var defaultLabel))
-                                EmitAsyncInvestigationLog(defaultLabel, AsyncInvestigationOperation.Address);
+                                EmitAsyncInvestigationAddressLogPreservingPointer(defaultLabel);
                         }
 
                         ILGenerator.Emit(OpCodes.Initobj, ResolveClrType(fieldSymbol.Type));
@@ -2535,7 +2543,7 @@ internal class ExpressionGenerator : Generator
             {
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
                 if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var receiverLabel))
-                    EmitAsyncInvestigationLog(receiverLabel, AsyncInvestigationOperation.Address);
+                    EmitAsyncInvestigationAddressLogPreservingPointer(receiverLabel);
                 return true;
             }
         }
@@ -2607,7 +2615,7 @@ internal class ExpressionGenerator : Generator
                     {
                         ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
                         if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var staticLabel))
-                            EmitAsyncInvestigationLog(staticLabel, AsyncInvestigationOperation.Address);
+                            EmitAsyncInvestigationAddressLogPreservingPointer(staticLabel);
                         return true;
                     }
 
@@ -2616,7 +2624,7 @@ internal class ExpressionGenerator : Generator
 
                     ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
                     if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var instanceLabel))
-                        EmitAsyncInvestigationLog(instanceLabel, AsyncInvestigationOperation.Address);
+                        EmitAsyncInvestigationAddressLogPreservingPointer(instanceLabel);
                     return true;
                 }
         }
@@ -3017,7 +3025,17 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, pointerLocal);
         ILGenerator.Emit(OpCodes.Conv_U8);
         ILGenerator.Emit(OpCodes.Box, typeof(ulong));
-        ILGenerator.Emit(OpCodes.Call, ConsoleWriteLineStringObject);
+        ILGenerator.Emit(OpCodes.Call, StringFormatStringObject);
+        ILGenerator.Emit(OpCodes.Call, ConsoleWriteLineString);
+    }
+
+    private void EmitAsyncInvestigationAddressLogPreservingPointer(string fieldLabel)
+    {
+        if (!Compilation.Options.AsyncInvestigation.IsEnabled)
+            return;
+
+        ILGenerator.Emit(OpCodes.Dup);
+        EmitAsyncInvestigationLog(fieldLabel, AsyncInvestigationOperation.Address);
     }
 
     private string GetAsyncInvestigationStepLabel(AsyncInvestigationOptions options)
