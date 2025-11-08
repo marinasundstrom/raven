@@ -1,0 +1,21 @@
+# Symbolic pointer timeline for Step15 multi-await entry point.
+# Addresses are placeholders that remain constant per field during execution.
+Step15:_state:store -> 0xSTATE
+Step15:_builder:addr -> 0xBUILDER
+Step15:_builder:load -> 0xBUILDER
+Step15:<>awaiter0:store -> 0xAWAITER0
+Step15:_state:store -> 0xSTATE
+Step15:<>awaiter0:addr -> 0xAWAITER0
+Step15:_state:load -> 0xSTATE
+Step15:<>awaiter0:load -> 0xAWAITER0
+Step15:<>awaiter0:store -> 0xAWAITER0
+Step15:<>awaiter1:store -> 0xAWAITER1
+Step15:_state:store -> 0xSTATE
+Step15:<>awaiter1:addr -> 0xAWAITER1
+Step15:_state:load -> 0xSTATE
+Step15:<>awaiter1:load -> 0xAWAITER1
+Step15:<>awaiter1:store -> 0xAWAITER1
+Step15:_state:store -> 0xSTATE
+Step15:_builder:addr -> 0xBUILDER
+Step15:_builder:load -> 0xBUILDER
+Step15:_state:store -> 0xSTATE

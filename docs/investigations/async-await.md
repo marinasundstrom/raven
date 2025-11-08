@@ -16,42 +16,24 @@ blocking parity with C#, and the work required to resolve them.
 ### Current focus
 
 * **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 9: Instrument the entry-point state machine so
-  `_builder`, `_state`, and awaiter fields log their by-ref interactions and
-  isolate where `SetException` still observes a corrupted receiver.
-  * Emit temporary `Console.WriteLine` hooks in `Program.<Main>d__0.MoveNext`
-    covering every `_builder` and `_state` read/write so the log captures
-    whether the state machine fields share the same by-ref address across
-    await transitions.
-  * Patch the generated `async_entry.dll` with `ilspycmd` to confirm that each
-    instrumentation site sits immediately after the corresponding
-    `ldarga.s`/`ldfld` instruction pairs; this guards against the logger
-    accidentally reordering state-machine loads.
-  * Capture a full execution trace by running
-    `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- docs/investigations/assets/async_entry.rav -o async_entry.dll`
-    and archive the log beside the investigation so subsequent IL diffs can be
-    correlated with the observed corruption.
-  * Keep the binder/codegen pipeline projecting `BoundAddressOfExpression`
-    results as address handles that can convert to either pointer or by-ref
-    types so Step 9 instrumentation can record the exact storage location shared
-    across unsafe scheduler touchpoints.
+* **Active step** – Step 24: Promote the async lambda automation into the
+  Roslyn diff runner so nightly diffs correlate entry-point and nested state
+  machines.
+  * ✅ Captured the invalid `SetResult()` site where the pointer log consumed the
+    builder receiver, leaving the call without `this` and reproducing the
+    runtime `BadImageFormatException`.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】
+  * 🔄 Integrate the lambda permutation into the Roslyn diff CLI so pointer and
+    IL traces publish beside the entry-point artefacts without manual setup.
+  * 🔄 Extend the nightly dashboard summary to surface Roslyn lambda deltas and
+    highlight mismatches independently from the entry-point regressions.
+  * 🔄 Capture a first Roslyn/Raven IL comparison for the lambda state machine so
+    future diffs inherit a concrete baseline.
 
 ### Upcoming steps
 
-* Step 10: Diff the Raven-generated IL against Roslyn's `async Task<int>`
-  entry point to pinpoint the missing `ldfld`/`stfld` sequences and update the
-  remediation plan with concrete deltas. The diff should include the
-  instrumentation hooks recorded during Step 9 so the log lines can be mapped to
-  the precise IL offsets that mutate `_builder`.
-* Step 11: Fix lowering to share a single `ldarga.s` receiver across `_state`,
-  builder, and awaiter interactions once instrumentation confirms the failure
-  site. Factor the rewrite so the `BoundAwaitExpression` lowering emits a helper
-  that threads the address through `SetException`/`SetResult` without cloning
-  the struct.
-* Step 12: Promote the console repro into a passing runtime execution test
-  after IL verification succeeds. Automate the instrumentation removal and add
-  an assertion that `AsyncTaskMethodBuilder<int>.SetResult` executes without
-  exceptions.
+* Step 25: Use the combined entry/lambda coverage to script nightly pointer
+  baselines and refresh routines, ensuring CLI captures stay in sync with the
+  investigation assets when state-machine lowering evolves.
 
 ### Completed steps
 
@@ -89,6 +71,87 @@ blocking parity with C#, and the work required to resolve them.
   Runtime execution still trips an `AccessViolationException` inside
   `AsyncTaskMethodBuilder<int>.SetException`, so the next step is to trace the
   remaining corruption with the corrected IL in place.【0055cf†L1-L23】
+* Step 9: Introduced the `--async-investigation` compiler option and
+  instrumented async state machines to log pointer-stable `_state`, `_builder`,
+  and awaiter interactions across loads, stores, and by-ref hand-offs. The
+  resulting trace for the `async_entry.rav` repro is archived beside this
+  investigation for use in the Step 10 IL diff.【F:src/Raven.Compiler/Program.cs†L55-L142】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L16-L3095】【F:docs/investigations/snippets/async-entry-step9.log†L1-L23】
+* Step 10: Diffed Raven's `Program+<>c__AsyncStateMachine1.MoveNext` against
+  Roslyn's `Program.<Main>d__0.MoveNext`, confirming the entry-point state
+  machine still constructs the non-generic `AsyncTaskMethodBuilder`, calls the
+  parameterless `SetResult()`, and bypasses the Roslyn-style awaiter reset.
+  Roslyn's baseline, captured with the `docs/investigations/assets/RoslynAsyncEntry`
+  C# project, shows the expected `AsyncTaskMethodBuilder<int>` along with
+  `SetResult(!0)` and `initobj` on the cached awaiter, and the Step 10 pointer
+  log maps the `_state` and `<>awaiter0` mutations back to those IL offsets so
+  the lowering delta is now concrete.【F:docs/investigations/snippets/async-entry-step10-raven.il†L1-L118】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】【F:docs/investigations/assets/RoslynAsyncEntry/Program.cs†L1-L18】【F:docs/investigations/assets/RoslynAsyncEntry/RoslynAsyncEntry.csproj†L1-L7】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】
+* Step 12: Reused cached `MethodBuilder` handles inside
+  `ConstructedMethodSymbol.GetMethodInfo` before the state machine type is
+  created and added `ConstructedEntryPointStateMachine_ResolvesCachedMoveNextBuilder`
+  to ensure the CLI repro keeps exercising the cache path instead of reflection
+  over an open `TypeBuilder`.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】
+* Step 13: Rewrote the async entry-point lowering so `_builder` hoists
+  `AsyncTaskMethodBuilder<int>`, awaiters reset between resumptions, and the
+  synthesized `Main` bridge returns the awaited integer, with IL and CLI
+  regressions covering the generic builder flow.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L173-L347】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L372】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L655-L845】
+* Step 14: Gated async pointer instrumentation behind `--async-investigation`
+  and added a runtime regression that executes the compiled entry point to
+  assert `_state`, `_builder`, and awaiter addresses stay stable throughout the
+  generic builder flow.【F:src/Raven.Compiler/Program.cs†L34-L195】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L752-L783】
+* Step 15: Extended the runtime and IL regressions with a multi-await sample so
+  `_state`, `_builder`, and both awaiter slots log stable addresses across
+  multiple resumptions, and captured the symbolic pointer timeline for future
+  instrumentation work.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】
+* Step 16: Locked the Step 15 pointer timeline into the regression harness so
+  runtime execution asserts the ordered `_state`, `_builder`, and awaiter
+  operations before reporting address stability, preventing automation from
+  drifting away from Roslyn's state-machine flow.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】
+* Step 17: Automated the pointer/IL diff harness by loading the Step 15 baseline
+  from the investigation assets, returning paired pointer and IL timelines from
+  the runtime execution helper, and comparing both sequences against the
+  recorded IL so the regression guards the golden trace without manual
+  duplication.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】
+* Step 18: Promoted the pointer/IL diff tooling into the CLI regression suite by
+  compiling the multi-await repro with `--async-investigation`, comparing the
+  runtime pointer trace against the Step 15 baseline, and decoding the emitted
+  `MoveNext` IL to ensure the string literals mirror the recorded timeline.
+  【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】
+* Step 19: Folded the automated pointer/IL comparisons into the nightly Roslyn
+  diff by introducing the `AsyncEntryDiffRunner` tool and a dedicated report
+  skeleton so nightly automation can capture CLI pointer traces and MoveNext IL
+  deltas from the Step 15 baseline.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】
+* Step 20: Rehydrated the generic async entry state machine with the method
+  type parameters so hoisted fields and the builder use legal instantiations,
+  added `AsyncGenericEntryPoint_ExecutesSuccessfully` to prove the CLI sample
+  runs without a `TypeLoadException`, refreshed the Step 20 log with the
+  successful execution trace, and patched `TypeGenerator.DefineTypeBuilder`
+  so synthesized async state machines register their generic parameters before
+  emission, unblocking the runtime type lookup for nested builders.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L152-L215】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】
+* Step 21: Expanded the nightly pointer diff automation to enumerate the
+  generic and multi-await async entry assets, introduced a dedicated
+  single-await generic sample with a symbolic baseline, and refreshed the
+  nightly report scaffold so each permutation publishes its own pointer and IL
+  status.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】
+* Step 22: Surfaced the nightly pointer/IL results inside the Roslyn diff
+  dashboard, enriched the report metadata with CLI arguments and baseline
+  sources, and archived a sample dashboard export for future references.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:tools/AsyncEntryDiffRunner/DashboardTemplate.cs†L1-L75】【F:docs/investigations/reports/roslyn-diff-dashboard.md†L1-L16】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】【F:docs/investigations/snippets/async-entry-step22-dashboard-sample.md†L1-L15】
+* Step 23: Backfilled async lambda regression coverage by introducing dedicated
+  Raven and Roslyn assets, recording a symbolic pointer baseline, scoping the
+  investigation flag to label individual state machines, and wiring the lambda
+  permutation into the nightly CLI and dashboard exports.【F:docs/investigations/assets/async_lambda.rav†L1-L12】【F:docs/investigations/snippets/async-entry-step23-lambda.log†L1-L14】【F:docs/investigations/assets/RoslynAsyncLambda/Program.cs†L1-L17】【F:docs/investigations/assets/RoslynAsyncLambda/RoslynAsyncLambda.csproj†L1-L7】【F:src/Raven.CodeAnalysis/AsyncInvestigationOptions.cs†L1-L34】【F:src/Raven.Compiler/Program.cs†L1-L214】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2978-L3035】【F:tools/AsyncEntryDiffRunner/Program.cs†L1-L941】
+* Step 24: Logging the failing CLI repro highlighted that the async
+  investigation instrumentation removed the builder receiver before calling
+  `AsyncTaskMethodBuilder.SetResult()`, triggering the runtime `BadImageFormat`
+  crash. The pointer logger now duplicates the managed pointer before storing
+  it, formats the message via `string.Format`, and preserves the stack depth
+  required by the builder APIs. The emitter also reuses the state-machine
+  address whenever builder and awaiter fields are read so `MoveNext` now emits
+  `ldarg.0`/`ldflda _builder` rather than spilling the struct to a temporary,
+  with the regression suite guarding the corrected sequence.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L15-L43】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3023-L3085】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1241-L1259】
+  * ✅ Locked in the generic builder pipeline by asserting the entry-point state
+    machine hoists `AsyncTaskMethodBuilder<int>`, awaiter stores occur across
+    resumptions, and the synthesized `Main` bridge returns the awaited integer
+    without popping it from the evaluation stack.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L282-L349】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1446-L1461】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1204-L1229】
 
 ### Completed issues
 
@@ -151,26 +214,121 @@ instantiations such as `Test<T>` to load their async scaffolding safely.
 `TypeBuilder` instances. This keeps async emission on the Reflection.Emit path and
 lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L61】
 
+### Step 15 multi-await pointer timeline
+
+The multi-await repro (`docs/investigations/assets/async_entry_multi.rav`) now
+drives both the runtime pointer regression and the IL inspection tests. The
+symbolic log captured in `docs/investigations/snippets/async-entry-step15.log`
+shows how `_state`, `_builder`, and the two awaiter slots cycle through `store`,
+`addr`, and `load` operations without ever changing addresses, while the
+regressions enforce those events at runtime and in the emitted IL.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L857】
+
+### Step 17 pointer/IL diff automation
+
+The regression harness now reads the Step 15 timeline directly from the
+investigation assets, exposing paired pointer and IL sequences so the runtime
+and IL tests validate the same baseline without manual duplication.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】
+
+**Baseline refresh procedure**
+
+1. Update `docs/investigations/snippets/async-entry-step15.log` with the new
+   symbolic pointer trace captured from the runtime repro, preserving the
+   `Step15:` prefixes that encode the field and operation ordering.【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】
+2. Run `AsyncEntryPoint_RuntimePointerTrace_RemainsStableAcrossMultipleAwaits`
+   to confirm the runtime pointer records still align with the refreshed
+   baseline and to regenerate the paired IL sequence produced by the execution
+   helper.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L805-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】
+3. Re-run `AsyncEntryPoint_MoveNext_EmitsPointerLogsForEachAwaiterSlot` so the
+   recorded IL strings match the updated asset before promoting the change, and
+   commit the refreshed log alongside the passing regressions.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L848-L884】
+4. Execute `AsyncEntryPoint_CliPointerTrace_MatchesBaseline` to rebuild the CLI
+   repro with pointer tracing, validate the runtime output against the shared
+   baseline, and confirm the emitted `MoveNext` IL still embeds the expected
+   `Step15:` string literals.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】
+
 **Step-by-step plan**
 
 1. **Step 9 – Instrument the entry-point state machine** – log every `_builder`,
    `_state`, and awaiter field access inside `Program.<Main>d__0.MoveNext`, patch
    the emitted `async_entry.dll` to confirm the hooks sit after each
    `ldarga.s`/`ldfld`, and capture a full execution trace from the CLI repro.
-   (Status: _In progress_.【0055cf†L1-L23】)
+   (Status: _Completed_.【F:docs/investigations/snippets/async-entry-step9.log†L1-L23】)
 2. **Step 10 – Diff Raven vs. Roslyn IL** – compare the instrumented
    `async_entry.dll` against Roslyn's `async Task<int>` state machine so the
    missing `ldfld`/`stfld` sequences and `_builder` mutations are isolated before
-   touching lowering. (Status: _Pending_.)
-3. **Step 11 – Fix lowering to share the receiver** – update the async lowering
-   pipeline so `_state`, `_builder`, and hoisted awaiters reuse a single
-   `ldarga.s` receiver across `AwaitUnsafeOnCompleted`, `SetResult`, and
-   `SetException`, eliminating the struct copies highlighted by the diff.
-   (Status: _Pending_.)
-4. **Step 12 – Promote runtime regression coverage** – remove the temporary
+   touching lowering. (Status: _Completed_.【F:docs/investigations/snippets/async-entry-step10-raven.il†L1-L118】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】)
+3. **Step 11 – Re-evaluate the lowering seam** – confirm the state machine
+   actually threads `AsyncTaskMethodBuilder<int>` through `Create`,
+   `AwaitUnsafeOnCompleted`, and `SetResult(int)` before rewriting the IL, using
+   the builder selection logic and substitution helpers as the checkpoints.
+   (Status: _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L212】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L712-L807】)
+4. **Step 12 – Cache substituted async entry scaffolding** – update
+   `ConstructedMethodSymbol.GetMethodInfo` and the `CodeGenerator`
+   registration/lookup path so the entry-point state machine reuses the cached
+   `MethodBuilder` handles before any `GetMethods` reflection, and add an IL
+   regression test that exercises the CLI crash path. (Status:
+   _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】)
+5. **Step 13 – Rewrite the entry-point lowering** – swapped the `_builder`
+   field to `AsyncTaskMethodBuilder<int>`, updated the initialization and
+   completion helpers so `CreateBuilderInitializationStatement`,
+   `CreateBuilderStartStatement`, and `CreateBuilderSetResultStatement` invoke
+   the generic `Create`/`Start`/`SetResult(int)` path, reset the hoisted
+   `TaskAwaiter<int>` between resume points, and kept `EmitTopLevelMainBridge`
+   returning the awaited integer without redundant conversions so the emitted IL
+   matches the Step 10 Roslyn baseline. (Status:
+   _Completed_.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L173-L347】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L372】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L750-L845】)
+6. **Step 14 – Promote runtime regression coverage** – retire the temporary
    instrumentation once the IL matches Roslyn, add a runtime execution test that
    asserts `AsyncTaskMethodBuilder<int>.SetResult` completes successfully, and
-   archive the instrumentation log beside the investigation. (Status: _Pending_.)
+   archive the instrumentation log beside the investigation. (Status:
+   _Completed_.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L752-L783】)
+7. **Step 15 – Expand multi-await pointer coverage** – drive the runtime pointer
+   harness with a multi-await sample, extend the IL recorder to validate each
+   awaiter slot, and capture the pointer timeline so future instrumentation
+   changes can be diffed without rerunning the CLI. (Status:
+   _Completed_.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】)
+8. **Step 16 – Automate pointer timeline verification** – treat the Step 15
+   timeline as a golden trace by asserting the ordered pointer events during the
+   runtime regression, wiring the investigation flag through the execution
+   helper so future IL rewrites cannot reorder `_state`, `_builder`, or awaiter
+   interactions without updating the baseline. (Status:
+   _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】)
+
+9. **Step 17 – Harden pointer/IL diff automation** – load the Step 15 pointer
+   timeline directly from the investigation assets, surface the paired pointer
+   and IL sequences from the runtime execution helper, and compare both streams
+   against the recorded IL so the regression enforces the golden trace before
+   refreshing the baseline. (Status:
+   _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】)
+10. **Step 18 – Promote CLI pointer coverage** – compile the multi-await repro
+    through the CLI with `--async-investigation`, verify the runtime pointer log
+    against the Step 15 baseline, and decode the emitted `MoveNext` IL to ensure
+    the pointer literals match the recorded timeline before promoting the
+    regression to nightly automation. (Status:
+    _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】)
+11. **Step 19 – Fold nightly pointer/IL diffs into the Roslyn harness** – add
+    the `AsyncEntryDiffRunner` tool and nightly report skeleton so the Roslyn
+    diff pipeline can execute the CLI pointer regression, persist the Step 15
+    baseline comparison, and publish the MoveNext deltas beside the pointer
+    timeline. (Status:
+    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】)
+12. **Step 20 – Unblock pointer instrumentation for generic async helpers** –
+    reproduce the `TypeLoadException` raised by `samples/test8.rav`, inspect the
+    generated `Program+<>c__AsyncStateMachine0` fields to determine which
+    pointer log or awaiter slot violates Reflection.Emit rules, and adjust the
+    synthesized state machine so hoisted fields and the builder substitute the
+    method type parameters before regenerating the CLI baseline. (Status:
+    _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】)
+13. **Step 21 – Extend nightly pointer permutations** – add a generic
+    single-await asset to the CLI harness, enumerate both async entry
+    permutations inside the diff runner, and refresh the nightly report so each
+    run publishes per-permutation pointer and IL timelines. (Status:
+    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】)
+14. **Step 22 – Surface nightly pointer results in the Roslyn dashboard** –
+    mirror the diff runner output into the Roslyn dashboard summary, expand the
+    nightly report metadata with CLI arguments and baseline provenance, and
+    capture a golden dashboard export beside the investigation. (Status:
+    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:tools/AsyncEntryDiffRunner/DashboardTemplate.cs†L1-L75】【F:docs/investigations/reports/roslyn-diff-dashboard.md†L1-L16】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】【F:docs/investigations/snippets/async-entry-step22-dashboard-sample.md†L1-L15】)
 
 #### Issue 1 resolution summary
 
@@ -357,10 +515,10 @@ that validates the awaited value flows through the entry point.
 
 * Instrument the synthesized `MainAsync` state machine so `_state`, `_builder`,
   and awaiter locals record their address-taking behaviour, confirming exactly
-  where the struct receiver is copied.
+  where the struct receiver is copied. (Completed in Step 9.)
 * Capture Roslyn's baseline IL for an `async Task<int>` entry point and diff it
   against Raven's emission to identify the missing `ldfld`/`stfld` sequences and
-  builder API usage.
+  builder API usage. (Completed in Step 10.)
 * Update `AsyncLowerer` and the synthesized entry-point lowering to reuse the
   state-machine address across `_state`, builder, and awaiter interactions while
   emitting `AsyncTaskMethodBuilder<T>` calls against constructed generics.
