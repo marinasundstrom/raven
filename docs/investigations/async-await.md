@@ -22,6 +22,14 @@ blocking parity with C#, and the work required to resolve them.
   * ✅ Captured the invalid `SetResult()` site where the pointer log consumed the
     builder receiver, leaving the call without `this` and reproducing the
     runtime `BadImageFormatException`.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】
+  * ✅ Re-ran the generic builder regression suite to confirm the state machine
+    still hoists `AsyncTaskMethodBuilder<int>`, clears awaiters after each
+    resume, and has the synthesized `Main` bridge return the awaited integer.
+    Coverage comes from `AsyncEntryPoint_MainAsync_InitializesGenericBuilderViaCreate`,
+    `AsyncEntryPoint_MoveNext_CallsGenericBuilderSetResult`,
+    `MoveNext_ClearsAwaiterFieldsOnResume`, and
+    `AsyncEntryPoint_MainBridge_ReturnsAwaitedIntWithoutConversions`, which lock
+    the Create/Start/SetResult path against regressions.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1100-L1277】
   * 🔄 Integrate the lambda permutation into the Roslyn diff CLI so pointer and
     IL traces publish beside the entry-point artefacts without manual setup.
   * 🔄 Extend the nightly dashboard summary to surface Roslyn lambda deltas and
