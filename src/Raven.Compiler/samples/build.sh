@@ -12,7 +12,7 @@ mkdir -p "$OUTPUT_DIR"
 EXCLUDE=(
   "test.rav"
   "tokenizer.rav"
-  "test8.rav"
+  #"test8.rav"
   # add others here if needed
 )
 
