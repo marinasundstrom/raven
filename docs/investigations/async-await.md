@@ -1,678 +1,79 @@
-# Async/await investigation
+# Async/await investigation – test8 reboot
 
-This note tracks the state of Raven's async/await pipeline, the issues currently
-blocking parity with C#, and the work required to resolve them.
+The previous async/await notes drifted away from the current goal, so this
+investigation restarts with a single objective: **make `samples/test8.rav`
+compile and run successfully**. The script exercises a generic async function
+that awaits `Task.Delay` and returns the awaited value:
 
-## Tracking instructions
+```swift
+import System.Console.*
+import System.Threading.Tasks.*
 
-* Always update the tracking dashboard below so it reflects the current issue
-  under active investigation, the upcoming planned step, and any work that has
-  been completed.
-* When a step or issue finishes, move it to the corresponding "Completed" list
-  and promote the next item into the "Current focus" slot.
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
 
-## Tracking dashboard
+let x = await Test(42)
 
-### Current focus
-
-* **Issue** – 2. Fix `async Task<T>` entry-point IL (Priority 1)
-* **Active step** – Step 24: Promote the async lambda automation into the
-  Roslyn diff runner so nightly diffs correlate entry-point and nested state
-  machines.
-  * ✅ Captured the invalid `SetResult()` site where the pointer log consumed the
-    builder receiver, leaving the call without `this` and reproducing the
-    runtime `BadImageFormatException`.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】
-  * 🔄 Integrate the lambda permutation into the Roslyn diff CLI so pointer and
-    IL traces publish beside the entry-point artefacts without manual setup.
-  * 🔄 Extend the nightly dashboard summary to surface Roslyn lambda deltas and
-    highlight mismatches independently from the entry-point regressions.
-  * 🔄 Capture a first Roslyn/Raven IL comparison for the lambda state machine so
-    future diffs inherit a concrete baseline.
-
-### Upcoming steps
-
-* Step 25: Use the combined entry/lambda coverage to script nightly pointer
-  baselines and refresh routines, ensuring CLI captures stay in sync with the
-  investigation assets when state-machine lowering evolves.
-
-### Completed steps
-
-* Step 1: Captured the crash stack trace and diagnostics from
-  `samples/test8.rav`, confirming that substituted async members crash while
-  reflecting against an uncreated `TypeBuilder` instance.【03b865†L1-L64】
-* Step 2: Emitted diagnostic trace `RAV9010` for every constructed method
-  lookup, recording the definition, containing type, and builder cache status to
-  pinpoint which substitutions bypass the cached `MethodBuilder` entries.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L204-L217】【F:src/Raven.CodeAnalysis/Compilation.Emit.cs†L1-L33】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L391-L394】
-* Step 3: Designed the builder hand-off so constructed methods first consult
-  the `CodeGenerator` cache and project the saved `MethodBuilder` onto the
-  substituted `TypeBuilder` before falling back to reflection, covering both
-  generic definitions and async state-machine scaffolding.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L27-L52】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L342-L469】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L196-L285】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L360-L470】
-* Step 4: Threaded cached `MethodBuilder` handles through
-  `ConstructedMethodSymbol.GetMethodInfo`, reusing `TypeBuilder.GetMethod` when
-  projecting onto constructed receivers so async substitutions no longer reflect
-  over incomplete types.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L42-L67】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L196-L334】
-* Step 5: Added `ConstructedAsyncGeneric_EmitsUsingCachedBuilder` to emit a
-  constructed async generic end-to-end, asserting the emitted module bytes and
-  guarding the instrumentation log so the cached `MethodBuilder` path remains in
-  use.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1056-L1126】
-* Step 6: Summarised the substituted async builder fix, promoted the entry-point
-  IL failure as the next focus, and moved Issue 1 into the completed queue so
-  ongoing work tracks the remaining async gaps.
-* Step 7: Captured the failing `async Task<int>` entry-point behaviour,
-  recorded the CLI crash triggered while printing diagnostics, and mapped the
-  lowering work needed to reuse the state-machine address for `_state`,
-  builder, and awaiter operations.
-* Step 8: Updated `ExpressionGenerator.EmitAddressOfExpression` so value-type
-  receivers load `ldarga` when projecting hoisted fields, ensuring
-  `AwaitUnsafeOnCompleted`, `SetResult`, and `SetException` receive the
-  state-machine by reference rather than by value. The regenerated
-  `async_entry.dll` now emits `ldarga.s 0` before the awaiter and builder
-  loads.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L880-L915】
-  Runtime execution still trips an `AccessViolationException` inside
-  `AsyncTaskMethodBuilder<int>.SetException`, so the next step is to trace the
-  remaining corruption with the corrected IL in place.【0055cf†L1-L23】
-* Step 9: Introduced the `--async-investigation` compiler option and
-  instrumented async state machines to log pointer-stable `_state`, `_builder`,
-  and awaiter interactions across loads, stores, and by-ref hand-offs. The
-  resulting trace for the `async_entry.rav` repro is archived beside this
-  investigation for use in the Step 10 IL diff.【F:src/Raven.Compiler/Program.cs†L55-L142】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L16-L3095】【F:docs/investigations/snippets/async-entry-step9.log†L1-L23】
-* Step 10: Diffed Raven's `Program+<>c__AsyncStateMachine1.MoveNext` against
-  Roslyn's `Program.<Main>d__0.MoveNext`, confirming the entry-point state
-  machine still constructs the non-generic `AsyncTaskMethodBuilder`, calls the
-  parameterless `SetResult()`, and bypasses the Roslyn-style awaiter reset.
-  Roslyn's baseline, captured with the `docs/investigations/assets/RoslynAsyncEntry`
-  C# project, shows the expected `AsyncTaskMethodBuilder<int>` along with
-  `SetResult(!0)` and `initobj` on the cached awaiter, and the Step 10 pointer
-  log maps the `_state` and `<>awaiter0` mutations back to those IL offsets so
-  the lowering delta is now concrete.【F:docs/investigations/snippets/async-entry-step10-raven.il†L1-L118】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】【F:docs/investigations/assets/RoslynAsyncEntry/Program.cs†L1-L18】【F:docs/investigations/assets/RoslynAsyncEntry/RoslynAsyncEntry.csproj†L1-L7】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】
-* Step 12: Reused cached `MethodBuilder` handles inside
-  `ConstructedMethodSymbol.GetMethodInfo` before the state machine type is
-  created and added `ConstructedEntryPointStateMachine_ResolvesCachedMoveNextBuilder`
-  to ensure the CLI repro keeps exercising the cache path instead of reflection
-  over an open `TypeBuilder`.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】
-* Step 13: Rewrote the async entry-point lowering so `_builder` hoists
-  `AsyncTaskMethodBuilder<int>`, awaiters reset between resumptions, and the
-  synthesized `Main` bridge returns the awaited integer, with IL and CLI
-  regressions covering the generic builder flow.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L173-L347】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L372】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L655-L845】
-* Step 14: Gated async pointer instrumentation behind `--async-investigation`
-  and added a runtime regression that executes the compiled entry point to
-  assert `_state`, `_builder`, and awaiter addresses stay stable throughout the
-  generic builder flow.【F:src/Raven.Compiler/Program.cs†L34-L195】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L752-L783】
-* Step 15: Extended the runtime and IL regressions with a multi-await sample so
-  `_state`, `_builder`, and both awaiter slots log stable addresses across
-  multiple resumptions, and captured the symbolic pointer timeline for future
-  instrumentation work.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】
-* Step 16: Locked the Step 15 pointer timeline into the regression harness so
-  runtime execution asserts the ordered `_state`, `_builder`, and awaiter
-  operations before reporting address stability, preventing automation from
-  drifting away from Roslyn's state-machine flow.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】
-* Step 17: Automated the pointer/IL diff harness by loading the Step 15 baseline
-  from the investigation assets, returning paired pointer and IL timelines from
-  the runtime execution helper, and comparing both sequences against the
-  recorded IL so the regression guards the golden trace without manual
-  duplication.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】
-* Step 18: Promoted the pointer/IL diff tooling into the CLI regression suite by
-  compiling the multi-await repro with `--async-investigation`, comparing the
-  runtime pointer trace against the Step 15 baseline, and decoding the emitted
-  `MoveNext` IL to ensure the string literals mirror the recorded timeline.
-  【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】
-* Step 19: Folded the automated pointer/IL comparisons into the nightly Roslyn
-  diff by introducing the `AsyncEntryDiffRunner` tool and a dedicated report
-  skeleton so nightly automation can capture CLI pointer traces and MoveNext IL
-  deltas from the Step 15 baseline.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】
-* Step 20: Rehydrated the generic async entry state machine with the method
-  type parameters so hoisted fields and the builder use legal instantiations,
-  added `AsyncGenericEntryPoint_ExecutesSuccessfully` to prove the CLI sample
-  runs without a `TypeLoadException`, refreshed the Step 20 log with the
-  successful execution trace, and patched `TypeGenerator.DefineTypeBuilder`
-  so synthesized async state machines register their generic parameters before
-  emission, unblocking the runtime type lookup for nested builders.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L152-L215】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】
-* Step 21: Expanded the nightly pointer diff automation to enumerate the
-  generic and multi-await async entry assets, introduced a dedicated
-  single-await generic sample with a symbolic baseline, and refreshed the
-  nightly report scaffold so each permutation publishes its own pointer and IL
-  status.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】
-* Step 22: Surfaced the nightly pointer/IL results inside the Roslyn diff
-  dashboard, enriched the report metadata with CLI arguments and baseline
-  sources, and archived a sample dashboard export for future references.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:tools/AsyncEntryDiffRunner/DashboardTemplate.cs†L1-L75】【F:docs/investigations/reports/roslyn-diff-dashboard.md†L1-L16】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】【F:docs/investigations/snippets/async-entry-step22-dashboard-sample.md†L1-L15】
-* Step 23: Backfilled async lambda regression coverage by introducing dedicated
-  Raven and Roslyn assets, recording a symbolic pointer baseline, scoping the
-  investigation flag to label individual state machines, and wiring the lambda
-  permutation into the nightly CLI and dashboard exports.【F:docs/investigations/assets/async_lambda.rav†L1-L12】【F:docs/investigations/snippets/async-entry-step23-lambda.log†L1-L14】【F:docs/investigations/assets/RoslynAsyncLambda/Program.cs†L1-L17】【F:docs/investigations/assets/RoslynAsyncLambda/RoslynAsyncLambda.csproj†L1-L7】【F:src/Raven.CodeAnalysis/AsyncInvestigationOptions.cs†L1-L34】【F:src/Raven.Compiler/Program.cs†L1-L214】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2978-L3035】【F:tools/AsyncEntryDiffRunner/Program.cs†L1-L941】
-* Step 24: Logging the failing CLI repro highlighted that the async
-  investigation instrumentation removed the builder receiver before calling
-  `AsyncTaskMethodBuilder.SetResult()`, triggering the runtime `BadImageFormat`
-  crash. The pointer logger now duplicates the managed pointer before storing
-  it, formats the message via `string.Format`, and preserves the stack depth
-  required by the builder APIs. The emitter also reuses the state-machine
-  address whenever builder and awaiter fields are read so `MoveNext` now emits
-  `ldarg.0`/`ldflda _builder` rather than spilling the struct to a temporary,
-  with the regression suite guarding the corrected sequence.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L15-L43】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3023-L3085】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1241-L1259】
-  * ✅ Locked in the generic builder pipeline by asserting the entry-point state
-    machine hoists `AsyncTaskMethodBuilder<int>`, awaiter stores occur across
-    resumptions, and the synthesized `Main` bridge returns the awaited integer
-    without popping it from the evaluation stack.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L282-L349】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1446-L1461】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1204-L1229】
-
-### Completed issues
-
-* **Issue 1 – Unblock substituted async method emission**: Builder reuse now
-  projects cached `MethodBuilder` handles onto constructed receivers so async
-  substitutions emit without reflecting over uncreated types, and regression
-  coverage guards the new lookup path.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L196-L334】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L42-L67】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1056-L1126】
-
-## Prioritized issues
-
-1. **Unblock substituted async method emission** – `ConstructedMethodSymbol.GetMethodInfo`
-   reflects over uncreated `TypeBuilder` instances when emitting instantiated async
-   members such as `Program.Test(int)`, crashing the compiler before generic async
-   methods can be materialised.
-2. **Fix `async Task<T>` entry-point IL** – the generated state machine passes the
-   struct receiver by value to `AsyncTaskMethodBuilder<T>.AwaitUnsafeOnCompleted`,
-   producing unverifiable IL and a `BadImageFormatException` at runtime.
-3. **Register async lambda metadata** – nested async state machines still miss
-   `CodeGenerator.AddMemberBuilder` registrations for hoisted awaiter fields,
-   preventing IL emission for coverage such as
-   `AsyncLambda_EmitsStateMachineMetadata`.
-4. **Harden lowering and regression coverage** – redundant receiver loads remain
-   in complex await scheduling paths, runtime smoke tests are disabled, and the
-   documentation/tooling pipeline lacks automated IL verification.
-
-### 1. Unblock substituted async method emission (Priority 0)
-
-**Impact** – `samples/test8.rav` and any async method that materialises a
-constructed generic currently fail to emit because the compiler crashes before it
-can hand out `MethodInfo` handles for instantiated members.
-
-**Current behaviour** – running
-`dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- src/Raven.Compiler/samples/test8.rav -o test.dll -d pretty`
-throws `System.NotSupportedException: The invoked member is not supported before
-the type is created.` while lowering the async state machine, leaving `test.dll`
-unproduced. 【c6da48†L1-L11】【2b0969†L1-L47】
-
-**Investigation summary** – instrumentation confirms the emitter successfully
-resolves `Create`, `Start`, `AwaitUnsafeOnCompleted`, and `SetResult` on
-`AsyncTaskMethodBuilder<T>` before attempting to instantiate the substituted
-`Program.Test(int)` backing method. Because the containing `Program` type still
-has an uncreated `TypeBuilder`, enumerating `methodSearchType.GetMethods` inside
-`ConstructedMethodSymbol.GetMethodInfo` throws `TypeBuilderImpl.ThrowIfNotCreated`.
-The crash is therefore isolated to the substitution lookup rather than to the
-async builder handshake itself. 【5406d5†L65-L132】【d5ec68†L1-L36】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L201-L270】
-
-**Open generic requirement** – the async state machine must hand its
-`MethodBuilder` definitions back to the emitter (via
-`CodeGenerator.AddMemberBuilder`/`TryGetMemberBuilder`) so that substituted
-methods, local functions, accessors, and other function-like constructs can
-materialise `TypeBuilderInstantiation` handles without ever calling
-`TypeBuilder.GetMethods` on an open generic definition. Projecting the cached
-builder through `TypeBuilder.GetMethod` keeps the lookup on the Reflection.Emit
-surface even when the state machine itself is still generic, allowing
-instantiations such as `Test<T>` to load their async scaffolding safely.
-
-**Proposed fix** – teach `ConstructedMethodSymbol` (and callers such as
-`SubstitutedMethodSymbol`) to reuse the `MethodBuilder` handles recorded through
-`CodeGenerator.AddMemberBuilder` instead of reflecting over incomplete
-`TypeBuilder` instances. This keeps async emission on the Reflection.Emit path and
-lets `samples/test8.rav` complete successfully. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L18-L61】
-
-### Step 15 multi-await pointer timeline
-
-The multi-await repro (`docs/investigations/assets/async_entry_multi.rav`) now
-drives both the runtime pointer regression and the IL inspection tests. The
-symbolic log captured in `docs/investigations/snippets/async-entry-step15.log`
-shows how `_state`, `_builder`, and the two awaiter slots cycle through `store`,
-`addr`, and `load` operations without ever changing addresses, while the
-regressions enforce those events at runtime and in the emitted IL.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L857】
-
-### Step 17 pointer/IL diff automation
-
-The regression harness now reads the Step 15 timeline directly from the
-investigation assets, exposing paired pointer and IL sequences so the runtime
-and IL tests validate the same baseline without manual duplication.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】
-
-**Baseline refresh procedure**
-
-1. Update `docs/investigations/snippets/async-entry-step15.log` with the new
-   symbolic pointer trace captured from the runtime repro, preserving the
-   `Step15:` prefixes that encode the field and operation ordering.【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】
-2. Run `AsyncEntryPoint_RuntimePointerTrace_RemainsStableAcrossMultipleAwaits`
-   to confirm the runtime pointer records still align with the refreshed
-   baseline and to regenerate the paired IL sequence produced by the execution
-   helper.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L805-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】
-3. Re-run `AsyncEntryPoint_MoveNext_EmitsPointerLogsForEachAwaiterSlot` so the
-   recorded IL strings match the updated asset before promoting the change, and
-   commit the refreshed log alongside the passing regressions.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L848-L884】
-4. Execute `AsyncEntryPoint_CliPointerTrace_MatchesBaseline` to rebuild the CLI
-   repro with pointer tracing, validate the runtime output against the shared
-   baseline, and confirm the emitted `MoveNext` IL still embeds the expected
-   `Step15:` string literals.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】
-
-**Step-by-step plan**
-
-1. **Step 9 – Instrument the entry-point state machine** – log every `_builder`,
-   `_state`, and awaiter field access inside `Program.<Main>d__0.MoveNext`, patch
-   the emitted `async_entry.dll` to confirm the hooks sit after each
-   `ldarga.s`/`ldfld`, and capture a full execution trace from the CLI repro.
-   (Status: _Completed_.【F:docs/investigations/snippets/async-entry-step9.log†L1-L23】)
-2. **Step 10 – Diff Raven vs. Roslyn IL** – compare the instrumented
-   `async_entry.dll` against Roslyn's `async Task<int>` state machine so the
-   missing `ldfld`/`stfld` sequences and `_builder` mutations are isolated before
-   touching lowering. (Status: _Completed_.【F:docs/investigations/snippets/async-entry-step10-raven.il†L1-L118】【F:docs/investigations/snippets/async-entry-step10-roslyn.il†L1-L73】【F:docs/investigations/snippets/async-entry-step10.log†L1-L21】)
-3. **Step 11 – Re-evaluate the lowering seam** – confirm the state machine
-   actually threads `AsyncTaskMethodBuilder<int>` through `Create`,
-   `AwaitUnsafeOnCompleted`, and `SetResult(int)` before rewriting the IL, using
-   the builder selection logic and substitution helpers as the checkpoints.
-   (Status: _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L185-L212】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L712-L807】)
-4. **Step 12 – Cache substituted async entry scaffolding** – update
-   `ConstructedMethodSymbol.GetMethodInfo` and the `CodeGenerator`
-   registration/lookup path so the entry-point state machine reuses the cached
-   `MethodBuilder` handles before any `GetMethods` reflection, and add an IL
-   regression test that exercises the CLI crash path. (Status:
-   _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L207-L333】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L521-L571】)
-5. **Step 13 – Rewrite the entry-point lowering** – swapped the `_builder`
-   field to `AsyncTaskMethodBuilder<int>`, updated the initialization and
-   completion helpers so `CreateBuilderInitializationStatement`,
-   `CreateBuilderStartStatement`, and `CreateBuilderSetResultStatement` invoke
-   the generic `Create`/`Start`/`SetResult(int)` path, reset the hoisted
-   `TaskAwaiter<int>` between resume points, and kept `EmitTopLevelMainBridge`
-   returning the awaited integer without redundant conversions so the emitted IL
-   matches the Step 10 Roslyn baseline. (Status:
-   _Completed_.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L173-L347】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1714-L1856】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L372】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L750-L845】)
-6. **Step 14 – Promote runtime regression coverage** – retire the temporary
-   instrumentation once the IL matches Roslyn, add a runtime execution test that
-   asserts `AsyncTaskMethodBuilder<int>.SetResult` completes successfully, and
-   archive the instrumentation log beside the investigation. (Status:
-   _Completed_.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2966-L3046】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L752-L783】)
-7. **Step 15 – Expand multi-await pointer coverage** – drive the runtime pointer
-   harness with a multi-await sample, extend the IL recorder to validate each
-   awaiter slot, and capture the pointer timeline so future instrumentation
-   changes can be diffed without rerunning the CLI. (Status:
-   _Completed_.【F:docs/investigations/assets/async_entry_multi.rav†L1-L15】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L786-L821】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L824-L857】【F:docs/investigations/snippets/async-entry-step15.log†L1-L18】)
-8. **Step 16 – Automate pointer timeline verification** – treat the Step 15
-   timeline as a golden trace by asserting the ordered pointer events during the
-   runtime regression, wiring the investigation flag through the execution
-   helper so future IL rewrites cannot reorder `_state`, `_builder`, or awaiter
-   interactions without updating the baseline. (Status:
-   _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L807-L841】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1387-L1504】)
-
-9. **Step 17 – Harden pointer/IL diff automation** – load the Step 15 pointer
-   timeline directly from the investigation assets, surface the paired pointer
-   and IL sequences from the runtime execution helper, and compare both streams
-   against the recorded IL so the regression enforces the golden trace before
-   refreshing the baseline. (Status:
-   _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L115-L132】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1404-L1532】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L842-L845】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L882-L884】)
-10. **Step 18 – Promote CLI pointer coverage** – compile the multi-await repro
-    through the CLI with `--async-investigation`, verify the runtime pointer log
-    against the Step 15 baseline, and decode the emitted `MoveNext` IL to ensure
-    the pointer literals match the recorded timeline before promoting the
-    regression to nightly automation. (Status:
-    _Completed_.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L702-L808】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1529-L1554】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1680-L1732】)
-11. **Step 19 – Fold nightly pointer/IL diffs into the Roslyn harness** – add
-    the `AsyncEntryDiffRunner` tool and nightly report skeleton so the Roslyn
-    diff pipeline can execute the CLI pointer regression, persist the Step 15
-    baseline comparison, and publish the MoveNext deltas beside the pointer
-    timeline. (Status:
-    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L15-L710】【F:docs/investigations/reports/async-entry-nightly.md†L1-L40】)
-12. **Step 20 – Unblock pointer instrumentation for generic async helpers** –
-    reproduce the `TypeLoadException` raised by `samples/test8.rav`, inspect the
-    generated `Program+<>c__AsyncStateMachine0` fields to determine which
-    pointer log or awaiter slot violates Reflection.Emit rules, and adjust the
-    synthesized state machine so hoisted fields and the builder substitute the
-    method type parameters before regenerating the CLI baseline. (Status:
-    _Completed_.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1-L356】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L108-L210】【F:docs/investigations/snippets/async-entry-step20.log†L1-L9】)
-13. **Step 21 – Extend nightly pointer permutations** – add a generic
-    single-await asset to the CLI harness, enumerate both async entry
-    permutations inside the diff runner, and refresh the nightly report so each
-    run publishes per-permutation pointer and IL timelines. (Status:
-    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:docs/investigations/assets/async_entry_generic.rav†L1-L11】【F:docs/investigations/snippets/async-entry-step21-generic.log†L1-L13】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】)
-14. **Step 22 – Surface nightly pointer results in the Roslyn dashboard** –
-    mirror the diff runner output into the Roslyn dashboard summary, expand the
-    nightly report metadata with CLI arguments and baseline provenance, and
-    capture a golden dashboard export beside the investigation. (Status:
-    _Completed_.【F:tools/AsyncEntryDiffRunner/Program.cs†L52-L804】【F:tools/AsyncEntryDiffRunner/DashboardTemplate.cs†L1-L75】【F:docs/investigations/reports/roslyn-diff-dashboard.md†L1-L16】【F:docs/investigations/reports/async-entry-nightly.md†L1-L66】【F:docs/investigations/snippets/async-entry-step22-dashboard-sample.md†L1-L15】)
-
-#### Issue 1 resolution summary
-
-* `ConstructedMethodSymbol.GetMethodInfo` now rehydrates cached builders for
-  substituted async members before instantiating generics, so emission never
-  reflects over incomplete `TypeBuilder` instances.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L19
-6-L334】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L42-L67】
-* `ConstructedAsyncGeneric_EmitsUsingCachedBuilder` keeps the regression
-  reproducible by asserting the cached `MethodBuilder` path and the emitted
-  module bytes for the `samples/test8.rav` scenario.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1056-L11
-26】
-
-#### Step 1 crash log
-
-```
-Unhandled exception. System.NotSupportedException: The invoked member is not
-supported before the type is created.
-   at System.Reflection.Emit.TypeBuilderImpl.ThrowIfNotCreated()
-   at System.Reflection.Emit.TypeBuilderImpl.GetMethods(BindingFlags bindingAttr)
-   at Raven.CodeAnalysis.Symbols.ConstructedMethodSymbol.GetMethodInfo(CodeGenerator codeGen) in
-       /workspace/raven/src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs:line 219
-   at Raven.CodeAnalysis.MethodSymbolExtensionsForCodeGen.GetClrMethodInfo(IMethodSymbol methodSymbol, CodeGenerator codeGen) in
-       /workspace/raven/src/Raven.CodeAnalysis/MethodSymbolExtensionsForCodeGen.cs:line 34
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.GetMethodInfo(IMethodSymbol methodSymbol) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 3243
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitInvocationExpressionBase(BoundInvocationExpression invocationExpression,
-       Boolean receiverAlreadyLoaded) in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 2651
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitInvocationExpression(BoundInvocationExpression invocationExpression,
-       Boolean receiverAlreadyLoaded) in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 2533
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitExpression(BoundExpression expression) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 85
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitInvocationExpressionBase(BoundInvocationExpression invocationExpression,
-       Boolean receiverAlreadyLoaded) in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 2570
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitInvocationExpression(BoundInvocationExpression invocationExpression,
-       Boolean receiverAlreadyLoaded) in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 2533
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitExpression(BoundExpression expression) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 85
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitAssignmentExpression(BoundAssignmentExpression node, Boolean preserveResult)
-       in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 1707
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 38
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 245
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 40
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitStatement(BoundStatement statement, Scope scope) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 3233
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitBlock(BoundBlockExpression block) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 3095
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.EmitExpression(BoundExpression expression) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 114
-   at Raven.CodeAnalysis.CodeGen.ExpressionGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs:line 42
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.EmitDeclarator(BoundLocalDeclarationStatement localDeclarationStatement,
-       BoundVariableDeclarator declarator) in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 615
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.EmitDeclarationStatement(BoundLocalDeclarationStatement localDeclarationStatement) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 604
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 44
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.EmitBlockStatement(BoundBlockStatement blockStatement) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 527
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 60
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.EmitLabeledStatement(BoundLabeledStatement labeledStatement) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 542
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 64
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.EmitBlockStatement(BoundBlockStatement blockStatement) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 527
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 60
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.EmitTryStatement(BoundTryStatement tryStatement) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 481
-   at Raven.CodeAnalysis.CodeGen.StatementGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs:line 56
-   at Raven.CodeAnalysis.CodeGen.MethodBodyGenerator.EmitBlock(BoundBlockStatement block, Boolean treatAsMethodBody, Boolean includeImplicitReturn) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs:line 689
-   at Raven.CodeAnalysis.CodeGen.MethodBodyGenerator.EmitMethodBlock(BoundBlockStatement block, Boolean includeImplicitReturn) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs:line 651
-   at Raven.CodeAnalysis.CodeGen.MethodBodyGenerator.EmitAsyncStateMachineMethod(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine) in
-       /workspace/raven/src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs:line 407
-   at Raven.CodeAnalysis.CodeGen.MethodBodyGenerator.Emit() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs:line 124
-   at Raven.CodeAnalysis.CodeGen.MethodGenerator.EmitBody() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs:line 438
-   at Raven.CodeAnalysis.CodeGen.TypeGenerator.EmitMemberILBodies() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs:line 518
-   at Raven.CodeAnalysis.CodeGen.CodeGenerator.EmitMemberILBodies() in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs:line 1032
-   at Raven.CodeAnalysis.CodeGen.CodeGenerator.Emit(Stream peStream, Stream pdbStream) in /workspace/raven/src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs:line 386
-   at Raven.CodeAnalysis.Compilation.Emit(Stream peStream, Stream pdbStream) in /workspace/raven/src/Raven.CodeAnalysis/Compilation.Emit.cs:line 19
-   at Program.<Main>$(String[] args) in /workspace/raven/src/Raven.Compiler/Program.cs:line 234
+WriteLine(x)
 ```
 
-The stack trace above was captured by running
-`ravenc` against `samples/test8.rav` with pretty diagnostics enabled, matching
-the repro described in the step plan.【03b865†L1-L64】
+## Failing behaviour today
 
-#### Step 3 caching hand-off design
+* Compilation succeeds, but running the emitted assembly crashes while the async
+  state machine reflects over its generic `Program` container before the backing
+  `TypeBuilder` has been finalized. `ConstructedMethodSymbol.GetMethodInfo`
+  escalates to `TypeBuilderImpl.ThrowIfNotCreated`, tearing down the runtime
+  before the awaited value is printed.
 
-1. **Surface the cached builders before reflection** – expose a
-   `CodeGenerator.TryGetMemberBuilder` helper so constructed methods can query the
-    `SourceSymbol → MemberInfo` map without throwing. The map already tracks every
-    source method, property accessor, and synthesized async member when
-    `TypeGenerator.DefineMemberBuilders` runs, so the constructed lookup can reuse
-   the matching `MethodBuilder` or `MethodInfo` instead of enumerating
-   `TypeBuilder.GetMethods` prematurely.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L27-L52】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L342-L469】
-2. **Project builders onto substituted types** – teach
-   `ConstructedMethodSymbol.GetMethodInfo` to request the cached builder by
-   walking back to the source definition via `TryGetSourceDefinitionSymbol`, then
-   use `TypeBuilder.GetMethod` to materialise the instantiated handle when the
-   containing runtime type is a `TypeBuilder` or a `TypeBuilderInstantiation` for a
-   generic async method. This mirrors the existing substituted-type logic and
-   keeps the Reflection.Emit path alive even before the type is created.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L196-L285】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L360-L470】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L360-L365】
-3. **Fallback for external metadata** – retain the current reflection search
-   when the definition originates from metadata (`PEMethodSymbol`) or when no
-   builder was registered (e.g., unsupported synthesized shapes), ensuring the new
-   path is additive and debuggable via the existing `RAV9010` diagnostics.
-4. **Verification plan** – rerun `ravenc` on `samples/test8.rav` to confirm the
-   crash disappears once builder reuse is active and extend coverage so a failing
-   test asserts that the substitution path no longer touches `TypeBuilder.GetMethods`.
-   The current failure reproduces consistently and keeps the need for the change
-   visible during development.【e3a4ac†L1-L47】
+## Investigation goals
 
-#### Step 4 builder reuse implementation
+1. **Keep constructed async builders on the Reflection.Emit surface.** Reuse the
+   `MethodBuilder` handles recorded during emission instead of asking
+   `TypeBuilder.GetMethods()` for instantiated async members.
+2. **Prevent constructed async state machines from materializing early.** Delay
+   `GetMethodInfo` requests until after the owning `TypeBuilder` is created or
+   redirect them through cached builders when the type is still open.
+3. **Exercise the generic async entry point end to end.** Add regression tests
+   that compile `test8.rav`, execute it, and confirm the awaited value flows back
+   to the top-level script without null builders or reflection crashes.
 
-* **Cache lookup helper** – Added `CodeGenerator.TryGetMemberBuilder` so
-  constructed methods can detect whether a cached `MemberInfo` exists without
-  triggering exception paths when the cache misses.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L42-L67】
-* **Projection without reflection** – Updated
-  `ConstructedMethodSymbol.GetMethodInfo` to fetch the cached `MethodInfo`,
-  project it onto substituted receivers with `TypeBuilder.GetMethod`, and
-  instantiate generic method arguments before falling back to reflection.
-  This keeps async substitutions on the cached Reflection.Emit path and avoids
-  premature `TypeBuilder.GetMethods` calls that previously crashed the build.
-  【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L196-L334】
+## Immediate plan of record
 
-#### Step 5 regression coverage
+### Step 1 – Cache async state-machine builders for generic substitutions
+* Extend `CodeGenerator.AddMemberBuilder`/`TryGetMemberBuilder` so the async
+  state-machine creation path records `MoveNext`, hoisted-field, and constructor
+  builders keyed by their owning definition plus substitution map.
+* Teach `ConstructedMethodSymbol` and `SubstitutedMethodSymbol` to consult this
+  cache before invoking `GetMethods()`, returning the cached `MethodBuilder`
+  whenever the constructed receiver still lives on an open `TypeBuilder`.
+* Verify the emitter reuses cached builders by logging a diagnostic (or unit
+  test assertion) that the constructed async generic no longer touches
+  `TypeBuilder.GetMethods`.
 
-* **Constructed generics emit successfully** –
-  `ConstructedAsyncGeneric_EmitsUsingCachedBuilder` compiles the core of
-  `samples/test8.rav` through `CodeGenerator.Emit` and asserts both a non-empty
-  PE stream and the availability of the cached definition `MethodBuilder`,
-  keeping the async substitution path on the Reflection.Emit surface before type
-  creation.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1056-L1109】
-* **Guard against premature reflection** – the regression test invokes
-  `ConstructedMethodSymbol.GetMethodInfo` directly and inspects the `RAV9010`
-  instrumentation, failing if the `Program.Test` lookup reports a cache miss so
-  future changes cannot regress to `TypeBuilder.GetMethods` before creation.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1100-L1126】
+### Step 2 – Guard builder lookup against premature type creation
+* Audit every async lowering and emission site that calls
+  `GetMethodInfo(invokeConstructed, substitution)` while the state machine or its
+  containing type is still under construction.
+* Route these call sites through the cached builder path, or defer the lookup
+  until `TypeGenerator.GetCompletedType` finalizes the type, so no constructed
+  async member triggers `ThrowIfNotCreated`.
+* Add unit tests around `ConstructedMethodSymbol.GetMethodInfo` to prove the
+  fallback never executes when a cached builder exists.
 
-#### Step 7 entry-point remediation plan
+### Step 3 – Runtime regression for `samples/test8.rav`
+* Promote the script into the regression suite, compile it with the async
+  investigation flags enabled, and execute the resulting assembly within the
+  runtime harness.
+* Assert that the program prints `42`, the awaited value survives the state
+  machine, and no exceptions or pointer-instability logs appear.
+* Capture the emitted IL (and, if helpful, pointer traces) as golden files so
+  future changes can diff against the working baseline.
 
-1. **Reproduce the failing entry-point** – target
-   `AsyncEntryPoint_WithTaskOfInt_ExecutesSuccessfully` so the compiled
-   `Program.Main` bridge runs inside the test harness, capturing the null return
-   value that proves the awaited result never flows back to the caller.【ef929a†L10-L23】
-2. **Unblock CLI-driven validation** – harden `ConsoleEx.PrintDiagnosticList`
-   so diagnostics with unresolved paths render without throwing, allowing the
-   CLI repro to execute end-to-end and surface the current runtime failure in a
-   controllable environment.【959dee†L1-L23】【F:src/Raven.Compiler/ConsoleEx.cs†L110-L139】
-3. **Audit `MainAsync` lowering** – extend `CaptureAsyncInstructions` coverage to
-   read the `Program.MainAsync` state machine, confirming where `_state`,
-   `_builder`, and awaiter locals lose the struct address before awaiting. This
-   informs the precise rewrites required in `AsyncLowerer` and
-   `SynthesizedMainAsyncMethodSymbol` to preserve by-ref receivers.
-4. **Define verification guardrails** – once lowering is corrected, promote the
-   CLI scenario into a runtime execution test alongside the in-memory harness so
-   both the synchronous bridge and the emitted assembly return the awaited
-   `int`, and extend IL assertions to ensure `AwaitUnsafeOnCompleted` consumes a
-   managed pointer to the state machine.
+## Done when
 
-### 2. Fix `async Task<T>` entry-point IL (Priority 1)
-
-**Impact** – the runtime rejects the generated assembly for `async Task<T>` entry
-points, so even simple `await Task.FromResult(42)` programs fail to execute.
-
-**Current behaviour** –
-`AsyncEntryPoint_WithTaskOfInt_ExecutesSuccessfully` currently fails because the
-generated `Program.Main` reflection bridge returns `null` instead of the awaited
-`int` result, showing that the state machine never commits the value produced by
-`MainAsync`. 【ef929a†L10-L23】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L452-L520】
-
-**Evidence** – attempting to execute the emitted assembly through the CLI exits
-with code 134 after `ravenc` crashes while formatting diagnostics for the
-`async Task<int>` sample, revealing that the harness cannot currently promote
-the repro into a runnable scenario. This blocks runtime validation until the
-diagnostic printer tolerates source-less locations. 【959dee†L1-L23】【F:src/Raven.Compiler/ConsoleEx.cs†L110-L139】
-
-**Proposed fix** – update async lowering so `_state`, `_builder`, and hoisted
-awaiters share a single receiver load (`ldarg.0`/`ldarga`) and ensure every
-`AsyncTaskMethodBuilder<T>` call honours `RequiresReceiverAddress`. Once the IL
-matches Roslyn’s pattern, convert the console repro into a passing runtime test
-that validates the awaited value flows through the entry point.
-
-**Next steps**
-
-* Instrument the synthesized `MainAsync` state machine so `_state`, `_builder`,
-  and awaiter locals record their address-taking behaviour, confirming exactly
-  where the struct receiver is copied. (Completed in Step 9.)
-* Capture Roslyn's baseline IL for an `async Task<int>` entry point and diff it
-  against Raven's emission to identify the missing `ldfld`/`stfld` sequences and
-  builder API usage. (Completed in Step 10.)
-* Update `AsyncLowerer` and the synthesized entry-point lowering to reuse the
-  state-machine address across `_state`, builder, and awaiter interactions while
-  emitting `AsyncTaskMethodBuilder<T>` calls against constructed generics.
-* Promote the console repro into a runtime execution test once IL verification
-  and the runtime execution path both succeed.
-
-**Latest progress**
-
-* Added `ContainsAwaitInitializerOutsideNestedFunctions` so top-level locals that
-  assign the result of an `await` expression force the synthesized `MainAsync` to
-  return `Task<int>`, matching Roslyn's entry-point heuristics.
-  【F:src/Raven.CodeAnalysis/Compilation.cs†L247-L355】
-* Hardened `Compilation.EnsureSetup` with an `_setupInProgress` guard so the new
-  syntax walk does not recurse into `Setup()` while metadata is still loading;
-  the stack overflow observed by the test harness no longer reproduces.
-  【F:src/Raven.CodeAnalysis/Compilation.cs†L148-L203】
-* `AsyncEntryPoint_WithTaskOfInt_ExecutesSuccessfully` now reaches IL emission
-  but still fails at runtime with a `NullReferenceException`, showing the awaited
-  value is not yet committed back through `Program.Main`.
-  【8ac73e†L5-L17】
-* Regression surfaced: the `_setupInProgress` short-circuit means `DetermineBuilderType`
-  observes `ErrorTypeSymbol` while `Setup()` is still loading metadata, so
-  `CreateReturnExpression` synthesizes a `null` task and the generated `Main` bridge
-  throws `NullReferenceException` when it awaits the entry point.
-  【F:src/Raven.CodeAnalysis/Compilation.cs†L148-L203】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L179-L213】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1771-L1794】【92a067†L1-L17】
-
-### 3. Register async lambda metadata (Priority 2)
-
-**Impact** – nested async state machines cannot be emitted reliably, blocking
-coverage that asserts metadata for hoisted awaiters and nested `MoveNext`
-implementations. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L667-L711】
-
-**Current behaviour** – lambda state machines miss `CodeGenerator.AddMemberBuilder`
-registrations for hoisted awaiter fields, so emission fails when IL generation
-tries to resolve the missing handles. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L17-L47】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L560-L623】
-
-**Proposed fix** – mirror the method-level registration path by recording each
-lambda state machine’s `_state`, `_builder`, and hoisted awaiter fields before IL
-emission. Extend the closure factory so nested `MoveNext` bodies know about the
-awaiter and hoisted-local fields they need to access.
-
-**Next steps**
-
-* Register lambda field builders alongside captured variables.
-* Extend regression coverage to assert metadata exists for async lambdas and
-  nested functions once registration succeeds.
-
-### 4. Harden lowering and regression coverage (Priority 3)
-
-**Impact** – even after the primary crashes are fixed, the remaining gaps in
-lowering and tooling leave the async pipeline brittle and difficult to verify.
-
-**Current behaviour** – redundant receiver loads still appear in complex await
-scheduling paths, runtime smoke tests such as the minimal
-`await Task.CompletedTask` program remain disabled, and developers must run
-`ilverify`/`peverify` manually to validate IL. The current workflow also requires
-manual generator refreshes before the compiler builds.
-
-**Proposed fix** –
-
-* Consolidate await scheduling so receiver loads are shared across `_state` and
-  awaiter stores, mirroring Roslyn’s `ldarg.0`, `dup`, `stfld` sequence.
-* Restore runtime execution coverage for minimal async programs and
-  `samples/async-await.rav` once the IL is fixed.
-* Integrate IL verification into the CLI (e.g. `ravenc --ilverify`) and wire it
-  into CI to catch regressions automatically.
-* Document the generator prerequisites so contributors can run async tests without
-  missing codegen steps.
-
-## Supporting context
-
-### Current implementation snapshot
-
-**Language surface area**
-
-* `async` is accepted on top-level functions, members, lambdas, and accessors;
-  parsing keeps the modifier attached so the binder can flow `IsAsync` through the
-  pipeline.
-* Async declarations without an explicit return type default to
-  `System.Threading.Tasks.Task`, and `async func Do() -> Task<Unit>` is treated as
-  sugar for `async func Do() -> Task` so entry-point expectations continue to
-  mirror C# while still emitting `System.Threading.Tasks.Task` metadata.
-* The non-generic `System.Threading.Tasks.Task` surface is projected as
-  `Task<Unit>` in Raven to mirror the language's explicit `Unit` value; the
-  emitter erases that projection back to the CLR `Task` so runtime metadata
-  remains source-compatible with existing async consumers.
-* Global statements lower to an async `Program.MainAsync` that returns `Task` or
-  `Task<int>` while `Program.Main` synchronously bridges to the awaited result.
-
-**Binding and lowering**
-
-* `BoundAwaitExpression` validates the awaited pattern and captures awaiter and
-  result types; async binders mark rewritten bodies so the lowerer can generate
-  state machines.
-* `AsyncLowerer` hoists locals that survive across awaits, rewrites control-flow
-  constructs, and produces a `SynthesizedAsyncStateMachineTypeSymbol` whose
-  `MoveNext` implements the expected `_state` dispatch and resume paths.
-* Disposal and expression-bodied members flow through the same rewriter, keeping
-  async `using` patterns and lambda lowering aligned with synchronous code paths.
-
-**Emission**
-
-* Code generation creates the synthesized struct, emits `MoveNext`/`SetStateMachine`,
-  and annotates async methods with the appropriate builder attributes so the CLR
-  observes the async metadata.
-* The bootstrap path instantiates the struct, seeds `_state = -1`, initializes the
-  builder, and returns the builder task, matching the Roslyn handshake for both
-  declaration bodies and global statements.
-* Builders and hoisted awaiters now use `TryEmitValueTypeReceiverAddress`, keeping
-  `_state`, `_builder`, and awaiter fields operating on the in-place struct so
-  mutations do not spill through temporaries.
-* Synthesized async state machines reuse `EnsureFieldBuilder` when materialising
-  `_state`, `_builder`, and hoisted-awaiters so emission no longer defines the
-  same field twice before IL generation resolves the handle.
-  【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L243-L399】
-* Taking the address of the state machine now always pushes `ldarg.0`, ensuring
-  builder calls receive a managed pointer to the struct rather than a by-value
-  copy when the receiver is omitted.
-  【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L905-L926】
-
-### Backlog aligned with the priority list
-
-1. **Codify desired semantics for `Task<T>` async methods** – document runtime
-   expectations (exception flow, return propagation, synchronization context) and
-   align Raven's specification with Roslyn’s lowering strategy.
-2. **Extend binder and symbol shape** – track constructed `Task<T>` return types
-   on async methods and lambdas, including default inference and diagnostic
-   coverage for mismatches.
-3. **Refine async lowering** – share receiver loads across `_state` and hoisted
-   awaiters, emit constructed generic builders, and honour `RequiresReceiverAddress`
-   for every builder call.
-4. **Adjust code generation** – produce correctly constructed generic builder
-   fields and metadata handles, and reuse cached `MethodBuilder` instances for
-   substituted methods so emission no longer reflects over uncreated types.
-5. **Regression and conformance testing** – flip existing failing tests to assert
-   successful execution, add IL baselines covering builder construction and
-   awaited value flow, and promote runtime smoke tests that await `Task<T>` entry
-   points.
-6. **Tooling and documentation** – wire IL verification into the CLI/CI workflow,
-   capture generator prerequisites, and document async debugging guidance.
-7. **Harden nested async state machines** – register lambda field builders before
-   IL generation, describe hoisted awaiters in the closure factory, and extend
-   regression coverage accordingly.
-
-## Open items
-
-* Fix async lambda emission so hoisted awaiters register their field builders
-  before IL generation; this unblocks
-  `AsyncLambda_EmitsStateMachineMetadata` and exercises the nested-state-machine
-  coverage described in Priority 2. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L17-L47】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L560-L623】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L667-L711】
-* Revisit await scheduling heuristics to eliminate the redundant receiver loads
-  that still show up in IL when lowering complex control-flow (Priority 3).
-* Restore runtime execution coverage by fixing the minimal `await Task.CompletedTask`
-  program and the `samples/async-await.rav` regression so smoke tests can assert
-  the generated state machines reach completion.
-* Integrate the new `ravenc --ilverify` switch (or `peverify`) into CI once the
-  verification tooling is stable.
+* `samples/test8.rav` builds and runs via the CLI without hitting
+  `TypeBuilderImpl.ThrowIfNotCreated` or dropping the awaited integer.
+* Regression coverage locks in the cached-builder lookup and end-to-end runtime
+  behaviour, preventing the crash from resurfacing.
