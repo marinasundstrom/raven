@@ -42,7 +42,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         var compilation = type.Compilation;
 
         if (returnsInt)
-            return compilation.GetSpecialType(SpecialType.System_Int32);
+            return type.Compilation.GetSpecialType(SpecialType.System_Int32);
 
         return compilation.GetSpecialType(SpecialType.System_Unit);
     }

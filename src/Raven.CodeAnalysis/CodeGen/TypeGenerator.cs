@@ -175,6 +175,8 @@ internal class TypeGenerator
                 if (baseClrType is not null)
                     TypeBuilder.SetParent(baseClrType);
             }
+
+            DefineTypeGenericParameters(synthesizedType);
         }
 
         if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -8,6 +10,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
 using System.Threading.Tasks;
 
 using Raven;
@@ -25,7 +28,32 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public sealed class AsyncILGenerationTests
 {
+    private static readonly OpCode[] s_singleByteOpCodes;
+    private static readonly OpCode[] s_multiByteOpCodes;
+
     private readonly ITestOutputHelper _output;
+
+    static AsyncILGenerationTests()
+    {
+        s_singleByteOpCodes = new OpCode[0x100];
+        s_multiByteOpCodes = new OpCode[0x100];
+
+        foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            if (field.GetValue(null) is not OpCode opcode)
+                continue;
+
+            var value = (ushort)opcode.Value;
+            if (value < 0x100)
+            {
+                s_singleByteOpCodes[value] = opcode;
+            }
+            else if ((value & 0xFF00) == 0xFE00)
+            {
+                s_multiByteOpCodes[value & 0xFF] = opcode;
+            }
+        }
+    }
 
     public AsyncILGenerationTests(ITestOutputHelper output)
     {
@@ -89,7 +117,61 @@ async func Test(value: int) -> Task<int> {
 let value = await Test(42)
 
 WriteLine(value)
+return value
 """;
+
+    private const string AsyncGenericTaskEntryPointCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+let value = await Test(42)
+
+WriteLine(value)
+return value
+""";
+
+    private const string AsyncTaskOfIntEntryPointWithMultipleAwaitsCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func WaitAndReturn(value: int, delay: int) -> Task<int> {
+    await Task.Delay(delay)
+    return value
+}
+
+let first = await WaitAndReturn(21, 5)
+let second = await WaitAndReturn(21, 10)
+
+let result = first + second
+
+WriteLine(result)
+return result
+""";
+
+    private static (string Field, string Operation)[] LoadStep15PointerTimeline()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var timelinePath = Path.Combine(repoRoot, "docs", "investigations", "snippets", "async-entry-step15.log");
+
+        Assert.True(File.Exists(timelinePath), $"Pointer timeline asset not found at '{timelinePath}'.");
+
+        var timeline = File.ReadLines(timelinePath)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Where(line => !line.StartsWith("#", StringComparison.Ordinal))
+            .Where(line => line.StartsWith("Step15:", StringComparison.Ordinal))
+            .Select(ParsePointerFormat)
+            .ToArray();
+
+        Assert.NotEmpty(timeline);
+        return timeline;
+    }
+
 
     private const string TryAwaitAsyncCode = """
 import System.Threading.Tasks.*
@@ -194,6 +276,77 @@ class C {
         var argumentHandle = signatureReader.ReadTypeHandle();
         var argumentTypeName = GetTypeQualifiedName(reader, argumentHandle);
         Assert.Equal("System.Int32", argumentTypeName);
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_BuilderFieldUsesGenericBuilder_WhenReturnTypeDerivedFromMetadata()
+    {
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        var compilation = Compilation.Create("async_entry_builder_guard", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(MetadataReference.CreateFromFile(runtimePath));
+
+        compilation.EnsureSetup();
+
+        var assembly = compilation.Assembly;
+        var taskOfT = Assert.IsAssignableFrom<INamedTypeSymbol>(assembly.GetTypeByMetadataName("System.Threading.Tasks.Task`1"));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.NotEqual(TypeKind.Error, intType.TypeKind);
+
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(taskOfT.Construct(intType));
+        var asyncMethod = new SourceMethodSymbol(
+            "MainAsync",
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            compilation.GlobalNamespace,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            isStatic: true,
+            methodKind: MethodKind.Ordinary,
+            isAsync: true);
+
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(compilation, asyncMethod, "Program+<>c__AsyncStateMachine_Test");
+        asyncMethod.SetAsyncStateMachine(stateMachine);
+
+        var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(stateMachine.BuilderField.Type);
+        Assert.True(builderType.IsGenericType);
+
+        var builderDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(builderType.ConstructedFrom);
+        Assert.Equal(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T, builderDefinition.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(builderType.TypeArguments)));
+
+        var program = new SynthesizedProgramClassSymbol(
+            compilation,
+            compilation.SourceGlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>());
+
+        var mainAsync = new SynthesizedMainAsyncMethodSymbol(
+            program,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            returnsInt: true);
+
+        var entryStateMachine = new SynthesizedAsyncStateMachineTypeSymbol(
+            compilation,
+            mainAsync,
+            "Program+<>c__AsyncStateMachine_EntryGuard");
+
+        mainAsync.SetAsyncStateMachine(entryStateMachine);
+
+        var entryBuilderType = Assert.IsAssignableFrom<INamedTypeSymbol>(entryStateMachine.BuilderField.Type);
+        Assert.True(entryBuilderType.IsGenericType);
+
+        var entryBuilderDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(entryBuilderType.ConstructedFrom);
+        Assert.Equal(
+            SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
+            entryBuilderDefinition.SpecialType);
+
+        var entryAwaitedType = Assert.Single(entryBuilderType.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, entryAwaitedType.SpecialType);
     }
 
     [Fact]
@@ -493,6 +646,124 @@ class C {
     }
 
     [Fact]
+    public void AsyncGenericEntryPoint_ExecutesSuccessfully()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericTaskEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_generic_entry", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var functionSyntax = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+
+        Assert.Equal(methodSymbol.TypeParameters.Length, stateMachine.TypeParameters.Length);
+        Assert.NotEmpty(stateMachine.TypeParameters);
+
+        for (var i = 0; i < methodSymbol.TypeParameters.Length; i++)
+        {
+            Assert.Equal(methodSymbol.TypeParameters[i].Name, stateMachine.TypeParameters[i].Name);
+        }
+
+        var builderFieldType = Assert.IsAssignableFrom<INamedTypeSymbol>(stateMachine.BuilderField.Type);
+        Assert.True(builderFieldType.IsGenericType);
+
+        var builderTypeArgument = Assert.Single(builderFieldType.TypeArguments);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderTypeArgument, stateMachine.TypeParameters[0]));
+
+        var parameterField = Assert.Single(stateMachine.ParameterFields, field => field.Name == "_value");
+        Assert.True(SymbolEqualityComparer.Default.Equals(parameterField.Type, stateMachine.TypeParameters[0]));
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+        var assembly = Assembly.Load(peStream.ToArray());
+
+        var programType = assembly.GetType("Program", throwOnError: true, ignoreCase: false);
+        Assert.NotNull(programType);
+
+        var main = programType!.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(main);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+
+            var returnValue = main!.Invoke(null, new object?[] { Array.Empty<string>() });
+            var awaitedResult = Assert.IsType<int>(returnValue);
+            Assert.Equal(42, awaitedResult);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString().Replace("\r\n", "\n").Trim();
+        Assert.Equal("42", output);
+    }
+
+    [Fact]
+    public void ConstructedEntryPointStateMachine_ResolvesCachedMoveNextBuilder()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncTaskOfIntEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_entry_cache", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var probeFactory = new CachedConstructedMethodProbeFactory(
+            ReflectionEmitILBuilderFactory.Instance,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.AsyncMethod.Name == "MainAsync");
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = probeFactory
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        Assert.True(probeFactory.ProbeInvoked, "MoveNext method generation was not observed by the probe.");
+        Assert.True(probeFactory.ProbeSucceeded, "Constructed MoveNext method failed to resolve the cached MethodBuilder.");
+    }
+
+    [Fact]
     public void AsyncEntryPoint_WithTask_ExecutesSuccessfully()
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
@@ -649,6 +920,214 @@ class C {
     }
 
     [Fact]
+    public void AsyncEntryPoint_CliPointerTrace_MatchesBaseline()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.rav");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, ".runtimeconfig.json");
+        var depsPath = Path.ChangeExtension(assemblyPath, ".deps.json");
+        var pdbPath = Path.ChangeExtension(assemblyPath, ".pdb");
+
+        File.WriteAllText(sourcePath, AsyncTaskOfIntEntryPointWithMultipleAwaitsCode);
+
+        var expectedTimeline = LoadStep15PointerTimeline();
+
+        try
+        {
+            var compilerArgs = $"run --project \"{projectPath}\" -- --async-investigation Step15 \"{sourcePath}\" -o \"{assemblyPath}\"";
+            var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            {
+                var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
+                var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
+                compilerProcess.WaitForExit();
+
+                if (compilerProcess.ExitCode != 0)
+                {
+                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine(compilerStdOut);
+                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine(compilerStdErr);
+                }
+
+                Assert.Equal(0, compilerProcess.ExitCode);
+            }
+
+            var runInfo = new ProcessStartInfo("dotnet", assemblyPath)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(assemblyPath)
+            };
+
+            using var runProcess = Process.Start(runInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
+            var runStdOut = runProcess.StandardOutput.ReadToEnd();
+            var runStdErr = runProcess.StandardError.ReadToEnd();
+            runProcess.WaitForExit();
+
+            if (runProcess.ExitCode != 42 || !string.IsNullOrWhiteSpace(runStdErr))
+            {
+                _output.WriteLine("dotnet stdout:");
+                _output.WriteLine(runStdOut);
+                _output.WriteLine("dotnet stderr:");
+                _output.WriteLine(runStdErr);
+            }
+
+            Assert.Equal(42, runProcess.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(runStdErr), "dotnet emitted unexpected stderr output.");
+
+            var normalizedOutput = runStdOut.Replace("\r\n", "\n").Trim();
+            var lines = normalizedOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            Assert.Contains("42", lines);
+
+            var pointerRecords = lines
+                .Where(line => line.StartsWith("Step15:", StringComparison.Ordinal))
+                .Select(ParsePointerRecord)
+                .ToArray();
+
+            AssertPointerTimeline("Step15", pointerRecords, expectedTimeline);
+
+            var ilPointerTimeline = ReadCliPointerTimeline(assemblyPath);
+            Assert.Equal(expectedTimeline, ilPointerTimeline);
+        }
+        finally
+        {
+            foreach (var path in new[] { sourcePath, assemblyPath, runtimeConfigPath, depsPath, pdbPath })
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_RuntimePointerTrace_RemainsStable()
+    {
+        var artifacts = ExecuteAsyncEntryPointWithPointerTrace(
+            AsyncTaskOfIntEntryPointCode,
+            stepLabel: "Step14");
+
+        Assert.Contains("42", artifacts.Lines);
+        Assert.Equal(42, artifacts.ExitCode);
+
+        Assert.NotEmpty(artifacts.PointerRecords);
+        Assert.NotEmpty(artifacts.ILPointerTimeline);
+
+        var grouped = artifacts.PointerRecords.GroupBy(record => record.Field).ToArray();
+
+        Assert.Contains(grouped, group => group.Key == "_state");
+        Assert.Contains(grouped, group => group.Key == "_builder");
+        Assert.Contains(grouped, group => group.Key.StartsWith("<>awaiter", StringComparison.Ordinal));
+
+        foreach (var group in grouped)
+        {
+            var uniqueAddresses = group.Select(record => record.Address).Distinct().ToArray();
+            Assert.Single(uniqueAddresses);
+
+            var hasLoad = group.Any(record => record.Operation == "load");
+            var hasStore = group.Any(record => record.Operation == "store");
+            var hasAddress = group.Any(record => record.Operation == "addr");
+
+            Assert.True(hasLoad || hasStore || hasAddress, $"Missing operations for field '{group.Key}'.");
+
+            if (group.Key.StartsWith("<>awaiter", StringComparison.Ordinal))
+                Assert.True(hasAddress, "Awaiter fields should emit address traces.");
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_RuntimePointerTrace_RemainsStableAcrossMultipleAwaits()
+    {
+        var artifacts = ExecuteAsyncEntryPointWithPointerTrace(
+            AsyncTaskOfIntEntryPointWithMultipleAwaitsCode,
+            stepLabel: "Step15");
+
+        Assert.Contains("42", artifacts.Lines);
+        Assert.Equal(42, artifacts.ExitCode);
+
+        Assert.NotEmpty(artifacts.PointerRecords);
+
+        var grouped = artifacts.PointerRecords.GroupBy(record => record.Field).ToArray();
+
+        Assert.Contains(grouped, group => group.Key == "_state");
+        Assert.Contains(grouped, group => group.Key == "_builder");
+
+        var awaiterGroups = grouped.Where(group => group.Key.StartsWith("<>awaiter", StringComparison.Ordinal)).ToArray();
+        Assert.True(awaiterGroups.Length >= 2, "Expected at least two awaiter fields in multi-await pointer trace.");
+
+        foreach (var group in grouped)
+        {
+            var uniqueAddresses = group.Select(record => record.Address).Distinct().ToArray();
+            Assert.Single(uniqueAddresses);
+
+            var hasLoad = group.Any(record => record.Operation == "load");
+            var hasStore = group.Any(record => record.Operation == "store");
+            var hasAddress = group.Any(record => record.Operation == "addr");
+
+            Assert.True(hasLoad || hasStore || hasAddress, $"Missing operations for field '{group.Key}'.");
+            if (group.Key.StartsWith("<>awaiter", StringComparison.Ordinal))
+            {
+                Assert.True(hasAddress, "Awaiter fields should emit address traces.");
+                Assert.True(hasStore, "Awaiter fields should record stores across resumes.");
+            }
+        }
+
+        var expectedTimeline = LoadStep15PointerTimeline();
+        AssertPointerTimeline("Step15", artifacts.PointerRecords, expectedTimeline);
+        Assert.Equal(expectedTimeline, artifacts.ILPointerTimeline);
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MoveNext_EmitsPointerLogsForEachAwaiterSlot()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(
+            AsyncTaskOfIntEntryPointWithMultipleAwaitsCode,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol,
+            options => options.WithAsyncInvestigation(AsyncInvestigationOptions.Enable("Step15")));
+
+        var pointerFormats = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Ldstr &&
+                instruction.Operand.Kind == RecordedOperandKind.String)
+            .Select(instruction => Assert.IsType<string>(instruction.Operand.Value))
+            .Where(value => value.StartsWith("Step15:", StringComparison.Ordinal))
+            .Select(ParsePointerFormat)
+            .ToArray();
+
+        Assert.NotEmpty(pointerFormats);
+
+        var grouped = pointerFormats.GroupBy(record => record.Field).ToArray();
+
+        Assert.Contains(grouped, group => group.Key == "_state");
+        Assert.Contains(grouped, group => group.Key == "_builder");
+
+        var awaiterGroups = grouped.Where(group => group.Key.StartsWith("<>awaiter", StringComparison.Ordinal)).ToArray();
+        Assert.True(awaiterGroups.Length >= 2, "Expected pointer logs for each awaiter slot.");
+
+        foreach (var group in awaiterGroups)
+        {
+            Assert.Contains(group, record => record.Operation == "addr");
+            Assert.Contains(group, record => record.Operation == "store");
+        }
+
+        var expectedTimeline = LoadStep15PointerTimeline();
+        Assert.Equal(expectedTimeline, pointerFormats);
+    }
+    [Fact]
     public void AsyncEntryPoint_MainBridge_AwaitsMainAsync()
     {
         var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
@@ -663,6 +1142,91 @@ class C {
 
         Assert.Contains(instructions, instruction =>
             instruction.Operand.Value is MethodInfo method && method.Name == "GetResult");
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MainAsync_InitializesGenericBuilderViaCreate()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
+            generator.MethodSymbol is SynthesizedMainAsyncMethodSymbol);
+
+        var createCall = Assert.Single(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name == "Create" &&
+            method.DeclaringType is Type declaringType &&
+            IsAsyncTaskMethodBuilderType(declaringType));
+
+        var createMethod = Assert.IsAssignableFrom<MethodInfo>(createCall.Operand.Value);
+        Assert.True(createMethod.IsStatic);
+
+        var builderType = Assert.IsAssignableFrom<Type>(createMethod.DeclaringType);
+        Assert.Equal(builderType, createMethod.ReturnType);
+
+        Assert.True(builderType.IsGenericType);
+        Assert.Equal(typeof(AsyncTaskMethodBuilder<>), builderType.GetGenericTypeDefinition());
+        Assert.Equal(typeof(int), Assert.Single(builderType.GetGenericArguments()));
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MoveNext_CallsGenericBuilderSetResult()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultCalls = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Call &&
+                instruction.Operand.Value is MethodInfo method &&
+                method.Name == "SetResult" &&
+                method.DeclaringType is Type declaringType &&
+                IsAsyncTaskMethodBuilderType(declaringType))
+            .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
+            .ToArray();
+
+        Assert.NotEmpty(setResultCalls);
+
+        foreach (var setResult in setResultCalls)
+        {
+            var declaringType = Assert.IsAssignableFrom<Type>(setResult.DeclaringType);
+
+            Assert.True(declaringType.IsGenericType);
+            Assert.Equal(typeof(AsyncTaskMethodBuilder<>), declaringType.GetGenericTypeDefinition());
+            Assert.Equal(typeof(int), Assert.Single(declaringType.GetGenericArguments()));
+
+            var parameter = Assert.Single(setResult.GetParameters());
+            Assert.Equal(typeof(int), parameter.ParameterType);
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MainBridge_ReturnsAwaitedIntWithoutConversions()
+    {
+        var (method, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
+            generator.MethodSymbol is SynthesizedMainMethodSymbol &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol type && type.Name == "Program");
+
+        var getResultIndex = Array.FindLastIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method && method.Name == "GetResult");
+
+        Assert.True(getResultIndex >= 0, "GetResult call not found in Main bridge body.");
+
+        var getResult = Assert.IsAssignableFrom<MethodInfo>(instructions[getResultIndex].Operand.Value);
+
+        Assert.Equal(SpecialType.System_Int32, method.ReturnType.SpecialType);
+        Assert.NotEqual(typeof(void), getResult.ReturnType);
+
+        var returnIndex = Array.FindLastIndex(instructions, instruction => instruction.Opcode == OpCodes.Ret);
+        Assert.True(returnIndex >= 0, "ret instruction not found in Main bridge body.");
+        Assert.Equal(getResultIndex + 1, returnIndex);
+
+        var popAfterGetResult = instructions
+            .Skip(getResultIndex + 1)
+            .Any(instruction => instruction.Opcode == OpCodes.Pop);
+
+        Assert.False(popAfterGetResult, "Main bridge should return the awaited value instead of popping it.");
     }
 
     [Fact]
@@ -736,9 +1300,21 @@ class C {
 
         Assert.True(setResultCallIndex >= 0, "Builder.SetResult call not found in MoveNext body.");
 
-        Assert.Contains(instructions.Take(setResultCallIndex), instruction =>
+        var builderAddressIndex = Array.FindLastIndex(instructions, setResultCallIndex, instruction =>
             instruction.Opcode == OpCodes.Ldflda &&
             FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex >= 0, "Builder field address not loaded before SetResult call.");
+
+        var stateMachineLoadIndex = Array.FindLastIndex(instructions, builderAddressIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldarg_0);
+
+        Assert.True(stateMachineLoadIndex >= 0, "State machine receiver not loaded before builder field access.");
+
+        for (var i = stateMachineLoadIndex + 1; i < builderAddressIndex; i++)
+        {
+            Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
+        }
     }
 
     [Fact]
@@ -1041,12 +1617,17 @@ class C {
         Assert.NotNull(methodSymbol.AsyncStateMachine);
     }
 
-    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(Func<MethodGenerator, bool> predicate)
+    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(
+        Func<MethodGenerator, bool> predicate,
+        Func<CompilationOptions, CompilationOptions>? configureOptions = null)
     {
-        return CaptureAsyncInstructions(AsyncCode, predicate);
+        return CaptureAsyncInstructions(AsyncCode, predicate, configureOptions);
     }
 
-    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(string source, Func<MethodGenerator, bool> predicate)
+    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(
+        string source,
+        Func<MethodGenerator, bool> predicate,
+        Func<CompilationOptions, CompilationOptions>? configureOptions = null)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
@@ -1057,7 +1638,11 @@ class C {
             MetadataReference.CreateFromFile(runtimePath)
         ];
 
-        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (configureOptions is not null)
+            options = configureOptions(options);
+
+        var compilation = Compilation.Create("async", options)
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -1077,6 +1662,315 @@ class C {
         var instructions = recordingFactory.CapturedInstructions ?? throw new InvalidOperationException("Failed to capture IL.");
 
         return (method, instructions.ToArray());
+    }
+
+    private readonly record struct PointerTraceArtifacts(
+        int ExitCode,
+        string[] Lines,
+        (string Field, string Operation, ulong Address)[] PointerRecords,
+        (string Field, string Operation)[] ILPointerTimeline);
+
+    private PointerTraceArtifacts ExecuteAsyncEntryPointWithPointerTrace(string source, string stepLabel)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithAsyncInvestigation(AsyncInvestigationOptions.Enable(stepLabel));
+
+        var compilation = Compilation.Create("async-pointer", options)
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var errors = diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.True(errors.Length == 0, string.Join(Environment.NewLine, errors.Select(d => d.ToString())));
+
+        var recordingFactory = new RecordingILBuilderFactory(
+            ReflectionEmitILBuilderFactory.Instance,
+            static generator =>
+                generator.MethodSymbol.Name == "MoveNext" &&
+                generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.AsyncMethod.Name == "MainAsync");
+
+        using var peStream = new MemoryStream();
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = recordingFactory
+        };
+
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+
+        var originalOut = Console.Out;
+        using var outputWriter = new StringWriter();
+        Console.SetOut(outputWriter);
+
+        int exitCode;
+        try
+        {
+            var loadContext = new AssemblyLoadContext($"async-pointer-{Guid.NewGuid()}", isCollectible: true);
+            try
+            {
+                var assembly = loadContext.LoadFromStream(peStream);
+                var entryPoint = assembly.EntryPoint ?? throw new InvalidOperationException("Entry point not found.");
+
+                object? invocationResult;
+                if (entryPoint.GetParameters().Length == 0)
+                {
+                    invocationResult = entryPoint.Invoke(null, null);
+                }
+                else
+                {
+                    invocationResult = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+                }
+
+                if (entryPoint.ReturnType == typeof(int))
+                {
+                    exitCode = (int)(invocationResult ?? 0);
+                }
+                else if (typeof(Task).IsAssignableFrom(entryPoint.ReturnType))
+                {
+                    if (invocationResult is Task<int> intTask)
+                    {
+                        exitCode = intTask.GetAwaiter().GetResult();
+                    }
+                    else if (invocationResult is Task task)
+                    {
+                        task.GetAwaiter().GetResult();
+                        exitCode = 0;
+                    }
+                    else
+                    {
+                        exitCode = 0;
+                    }
+                }
+                else
+                {
+                    exitCode = 0;
+                }
+            }
+            finally
+            {
+                loadContext.Unload();
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = outputWriter.ToString().Replace("\r\n", "\n").Trim();
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        var pointerRecords = lines
+            .Where(line => line.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
+            .Select(ParsePointerRecord)
+            .ToArray();
+
+        var instructions = recordingFactory.CapturedInstructions?.ToArray()
+            ?? Array.Empty<RecordedInstruction>();
+
+        var ilPointerTimeline = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Ldstr &&
+                instruction.Operand.Kind == RecordedOperandKind.String &&
+                instruction.Operand.Value is string value &&
+                value.StartsWith($"{stepLabel}:", StringComparison.Ordinal))
+            .Select(instruction => Assert.IsType<string>(instruction.Operand.Value))
+            .Select(ParsePointerFormat)
+            .ToArray();
+
+        return new PointerTraceArtifacts(exitCode, lines, pointerRecords, ilPointerTimeline);
+    }
+
+    private static (string Field, string Operation)[] ReadCliPointerTimeline(string assemblyPath)
+    {
+        var loadContext = new AssemblyLoadContext($"cli-pointer-{Guid.NewGuid()}", isCollectible: true);
+
+        try
+        {
+            using var peStream = new FileStream(assemblyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var assembly = loadContext.LoadFromStream(peStream);
+
+            var stateMachineType = assembly
+                .GetTypes()
+                .First(type =>
+                    typeof(IAsyncStateMachine).IsAssignableFrom(type) &&
+                    type.Name.Contains("MainAsync", StringComparison.Ordinal));
+
+            var moveNext = stateMachineType.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("MoveNext method not found on CLI state machine.");
+
+            return ReadLdstrOperands(moveNext)
+                .Where(value => value.StartsWith("Step15:", StringComparison.Ordinal))
+                .Select(ParsePointerFormat)
+                .ToArray();
+        }
+        finally
+        {
+            loadContext.Unload();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+    }
+
+    private static void AssertPointerTimeline(
+        string stepLabel,
+        (string Field, string Operation, ulong Address)[] pointerRecords,
+        (string Field, string Operation)[] expected)
+    {
+        Assert.True(pointerRecords.Length > 0, $"No pointer records captured for {stepLabel}.");
+
+        var actual = pointerRecords
+            .Select(record => (record.Field, record.Operation))
+            .ToArray();
+
+        Assert.Equal(expected.Length, actual.Length);
+        Assert.Equal(expected, actual);
+    }
+
+    private static IEnumerable<string> ReadLdstrOperands(MethodInfo method)
+    {
+        var body = method.GetMethodBody() ?? throw new InvalidOperationException("Method has no body.");
+        var il = body.GetILAsByteArray() ?? throw new InvalidOperationException("Method body has no IL.");
+        var module = method.Module;
+
+        for (var i = 0; i < il.Length;)
+        {
+            OpCode opcode;
+            var code = il[i++];
+            if (code == 0xFE)
+            {
+                if (i >= il.Length)
+                    throw new InvalidOperationException("Unexpected end of IL stream when decoding multi-byte opcode.");
+
+                var second = il[i++];
+                opcode = s_multiByteOpCodes[second];
+            }
+            else
+            {
+                opcode = s_singleByteOpCodes[code];
+            }
+
+            if (opcode.Value == 0 && opcode != OpCodes.Nop)
+                throw new InvalidOperationException($"Unknown opcode: 0x{code:X2}");
+
+            switch (opcode.OperandType)
+            {
+                case OperandType.InlineNone:
+                    break;
+                case OperandType.InlineString:
+                    var metadataToken = BitConverter.ToInt32(il, i);
+                    i += 4;
+                    yield return module.ResolveString(metadataToken);
+                    break;
+                case OperandType.ShortInlineBrTarget:
+                case OperandType.ShortInlineI:
+                case OperandType.ShortInlineVar:
+                    i += 1;
+                    break;
+                case OperandType.InlineVar:
+                    i += 2;
+                    break;
+                case OperandType.InlineI:
+                case OperandType.InlineBrTarget:
+                case OperandType.InlineField:
+                case OperandType.InlineMethod:
+                case OperandType.InlineSig:
+                case OperandType.InlineTok:
+                case OperandType.InlineType:
+                    i += 4;
+                    break;
+                case OperandType.InlineI8:
+                case OperandType.InlineR:
+                    i += 8;
+                    break;
+                case OperandType.ShortInlineR:
+                    i += 4;
+                    break;
+                case OperandType.InlineSwitch:
+                    var count = BitConverter.ToInt32(il, i);
+                    i += 4 + (count * 4);
+                    break;
+                default:
+                    throw new NotSupportedException($"Unsupported operand type: {opcode.OperandType}");
+            }
+        }
+    }
+
+    private static (string Field, string Operation, ulong Address) ParsePointerRecord(string line)
+    {
+        var firstColon = line.IndexOf(':');
+        var secondColon = line.IndexOf(':', firstColon + 1);
+        var arrowIndex = line.IndexOf(" -> ", StringComparison.Ordinal);
+
+        if (firstColon < 0 || secondColon < 0 || arrowIndex < 0 || secondColon <= firstColon)
+            throw new FormatException($"Unexpected pointer trace format: '{line}'.");
+
+        var field = line.Substring(firstColon + 1, secondColon - firstColon - 1);
+        var operation = line.Substring(secondColon + 1, arrowIndex - secondColon - 1).Trim();
+        var addressText = line.Substring(arrowIndex + 4);
+
+        if (addressText.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            addressText = addressText[2..];
+
+        var address = Convert.ToUInt64(addressText, 16);
+        return (field, operation, address);
+    }
+
+    private static (string Field, string Operation) ParsePointerFormat(string value)
+    {
+        var firstColon = value.IndexOf(':');
+        var secondColon = value.IndexOf(':', firstColon + 1);
+        var arrowIndex = value.IndexOf(" -> ", StringComparison.Ordinal);
+
+        if (firstColon < 0 || secondColon < 0 || arrowIndex < 0 || secondColon <= firstColon)
+            throw new FormatException($"Unexpected pointer format: '{value}'.");
+
+        var field = value.Substring(firstColon + 1, secondColon - firstColon - 1);
+        var operation = value.Substring(secondColon + 1, arrowIndex - secondColon - 1).Trim();
+        return (field, operation);
+    }
+
+    private sealed class CachedConstructedMethodProbeFactory : IILBuilderFactory
+    {
+        private readonly IILBuilderFactory _inner;
+        private readonly Func<MethodGenerator, bool> _predicate;
+
+        public CachedConstructedMethodProbeFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate)
+        {
+            _inner = inner;
+            _predicate = predicate;
+        }
+
+        public bool ProbeInvoked { get; private set; }
+        public bool ProbeSucceeded { get; private set; }
+
+        public IILBuilder Create(MethodGenerator methodGenerator)
+        {
+            if (!ProbeInvoked && _predicate(methodGenerator))
+            {
+                ProbeInvoked = true;
+
+                var constructed = methodGenerator.MethodSymbol.Construct(Array.Empty<ITypeSymbol>());
+                var methodInfo = constructed.GetClrMethodInfo(methodGenerator.TypeGenerator.CodeGen);
+                ProbeSucceeded = methodInfo is MethodBuilder;
+            }
+
+            return _inner.Create(methodGenerator);
+        }
     }
 
     private static string EmitAsyncAssemblyToDisk(string source, out Compilation compilation)
@@ -1154,6 +2048,17 @@ class C {
             || opcode == OpCodes.Stloc_2
             || opcode == OpCodes.Stloc_3
             || opcode == OpCodes.Stloc_S;
+    }
+
+    private static bool IsAsyncTaskMethodBuilderType(Type type)
+    {
+        if (type == typeof(AsyncTaskMethodBuilder))
+            return true;
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(AsyncTaskMethodBuilder<>))
+            return true;
+
+        return false;
     }
 
     private static string FormatOperand(RecordedOperand operand)

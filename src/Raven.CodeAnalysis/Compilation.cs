@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -215,12 +216,22 @@ public partial class Compilation
             IReadOnlyList<GlobalStatementSyntax> bindableGlobals)
     {
         if (_topLevelProgramMembers.TryGetValue(compilationUnit.SyntaxTree, out var existing))
-            return (existing.ProgramClass, existing.MainMethod, existing.AsyncMainMethod);
+        {
+            if (existing.MainMethod is null)
+            {
+                SpinWait.SpinUntil(() => existing.MainMethod is not null);
+            }
+
+            return (existing.ProgramClass, existing.MainMethod!, existing.AsyncMainMethod);
+        }
 
         var returnsInt = bindableGlobals.Any(static g => ContainsReturnWithExpressionOutsideNestedFunctions(g.Statement));
         var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
 
         var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
+
+        var members = new TopLevelProgramMembers(programClass);
+        _topLevelProgramMembers[compilationUnit.SyntaxTree] = members;
 
         SynthesizedMainAsyncMethodSymbol? asyncImplementation = null;
         if (requiresAsync)
@@ -239,7 +250,8 @@ public partial class Compilation
             returnsInt,
             asyncImplementation);
 
-        _topLevelProgramMembers[compilationUnit.SyntaxTree] = new TopLevelProgramMembers(programClass, mainMethod, asyncImplementation);
+        members.MainMethod = mainMethod;
+        members.AsyncMainMethod = asyncImplementation;
 
         return (programClass, mainMethod, asyncImplementation);
     }
@@ -307,10 +319,17 @@ public partial class Compilation
         }
     }
 
-    private sealed record TopLevelProgramMembers(
-        SynthesizedProgramClassSymbol ProgramClass,
-        SynthesizedMainMethodSymbol MainMethod,
-        SynthesizedMainAsyncMethodSymbol? AsyncMainMethod);
+    private sealed class TopLevelProgramMembers
+    {
+        public TopLevelProgramMembers(SynthesizedProgramClassSymbol programClass)
+        {
+            ProgramClass = programClass;
+        }
+
+        public SynthesizedProgramClassSymbol ProgramClass { get; }
+        public SynthesizedMainMethodSymbol? MainMethod { get; set; }
+        public SynthesizedMainAsyncMethodSymbol? AsyncMainMethod { get; set; }
+    }
 
     private UnitTypeSymbol CreateUnitTypeSymbol()
     {
