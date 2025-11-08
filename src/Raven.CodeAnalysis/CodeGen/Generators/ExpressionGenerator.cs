@@ -3145,16 +3145,34 @@ internal class ExpressionGenerator : Generator
             return;
         }
 
-        if (fieldAccess.Receiver is not null)
-        {
-            EmitExpression(fieldAccess.Receiver);
+        var containingType = fieldSymbol.ContainingType;
+        var requiresReceiverAddress = containingType?.IsValueType == true;
+        var loadedByReference = false;
 
-            if (fieldSymbol.ContainingType?.IsValueType == true)
-                EmitValueTypeAddressIfNeeded(fieldAccess.Receiver.Type, fieldSymbol.ContainingType);
-        }
-        else
+        if (requiresReceiverAddress)
         {
-            ILGenerator.Emit(OpCodes.Ldarg_0);
+            loadedByReference = TryEmitValueTypeReceiverAddress(
+                fieldAccess.Receiver,
+                fieldAccess.Receiver?.Type,
+                containingType);
+        }
+
+        if (!loadedByReference)
+        {
+            if (fieldAccess.Receiver is not null)
+            {
+                EmitExpression(fieldAccess.Receiver);
+
+                if (requiresReceiverAddress)
+                    EmitValueTypeAddressIfNeeded(fieldAccess.Receiver.Type, containingType);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                if (requiresReceiverAddress)
+                    EmitValueTypeAddressIfNeeded(null, containingType);
+            }
         }
 
         if (TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var label))

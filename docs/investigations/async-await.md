@@ -144,7 +144,10 @@ blocking parity with C#, and the work required to resolve them.
   `AsyncTaskMethodBuilder.SetResult()`, triggering the runtime `BadImageFormat`
   crash. The pointer logger now duplicates the managed pointer before storing
   it, formats the message via `string.Format`, and preserves the stack depth
-  required by the builder APIs.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L15-L43】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3004-L3061】
+  required by the builder APIs. The emitter also reuses the state-machine
+  address whenever builder and awaiter fields are read so `MoveNext` now emits
+  `ldarg.0`/`ldflda _builder` rather than spilling the struct to a temporary,
+  with the regression suite guarding the corrected sequence.【F:docs/investigations/snippets/async-entry-step24-invalid.il†L1-L9】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L15-L43】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3023-L3085】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1241-L1259】
 
 ### Completed issues
 

@@ -1264,9 +1264,21 @@ class C {
 
         Assert.True(setResultCallIndex >= 0, "Builder.SetResult call not found in MoveNext body.");
 
-        Assert.Contains(instructions.Take(setResultCallIndex), instruction =>
+        var builderAddressIndex = Array.FindLastIndex(instructions, setResultCallIndex, instruction =>
             instruction.Opcode == OpCodes.Ldflda &&
             FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex >= 0, "Builder field address not loaded before SetResult call.");
+
+        var stateMachineLoadIndex = Array.FindLastIndex(instructions, builderAddressIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldarg_0);
+
+        Assert.True(stateMachineLoadIndex >= 0, "State machine receiver not loaded before builder field access.");
+
+        for (var i = stateMachineLoadIndex + 1; i < builderAddressIndex; i++)
+        {
+            Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
+        }
     }
 
     [Fact]
