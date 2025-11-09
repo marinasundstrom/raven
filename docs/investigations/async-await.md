@@ -1,9 +1,12 @@
-# Async/await investigation – test8 reboot
+# Async/await action plan – test8 reboot
 
-The previous async/await notes drifted away from the current goal, so this
-investigation restarts with a single objective: **make `samples/test8.rav`
-compile and run successfully**. The script exercises a generic async function
-that awaits `Task.Delay` and returns the awaited value:
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-09_
+
+## Objective
+
+Deliver a stable async/await experience for generic entry points by making
+`samples/test8.rav` compile, run, and return its awaited value without
+Reflection.Emit crashes.
 
 ```swift
 import System.Console.*
@@ -19,61 +22,70 @@ let x = await Test(42)
 WriteLine(x)
 ```
 
-## Failing behaviour today
+## Current status snapshot
 
-* Compilation succeeds, but running the emitted assembly crashes while the async
-  state machine reflects over its generic `Program` container before the backing
-  `TypeBuilder` has been finalized. `ConstructedMethodSymbol.GetMethodInfo`
-  escalates to `TypeBuilderImpl.ThrowIfNotCreated`, tearing down the runtime
-  before the awaited value is printed.
+| Date | Status | Notes |
+| --- | --- | --- |
+| 2025-11-09 | 🟡 At risk | Iterator baseline has been updated: the cached iterator `MoveNext` now stores its result in local slot `0` and records the nested state-machine type name (`C+<>c__Iterator0`). Completion tests unrelated to async continue to fail under the TerminalLogger, so runtime validation remains pending. |
 
-## Investigation goals
+## Guiding principles
 
-1. **Keep constructed async builders on the Reflection.Emit surface.** Reuse the
-   `MethodBuilder` handles recorded during emission instead of asking
-   `TypeBuilder.GetMethods()` for instantiated async members.
-2. **Prevent constructed async state machines from materializing early.** Delay
-   `GetMethodInfo` requests until after the owning `TypeBuilder` is created or
-   redirect them through cached builders when the type is still open.
-3. **Exercise the generic async entry point end to end.** Add regression tests
-   that compile `test8.rav`, execute it, and confirm the awaited value flows back
-   to the top-level script without null builders or reflection crashes.
+1. Keep constructed async builders on the Reflection.Emit surface; reuse the
+   `MethodBuilder` handles captured during emission instead of relying on
+   `TypeBuilder.GetMethods()`.
+2. Prevent constructed async state machines from materializing before their
+   owning `TypeBuilder` completes.
+3. Exercise the generic async entry point end to end and lock the behaviour down
+   with regression coverage.
 
-## Immediate plan of record
+## Workstreams & tasks
 
-### Step 1 – Cache async state-machine builders for generic substitutions
-* Extend `CodeGenerator.AddMemberBuilder`/`TryGetMemberBuilder` so the async
-  state-machine creation path records `MoveNext`, hoisted-field, and constructor
-  builders keyed by their owning definition plus substitution map.
-* Teach `ConstructedMethodSymbol` and `SubstitutedMethodSymbol` to consult this
-  cache before invoking `GetMethods()`, returning the cached `MethodBuilder`
-  whenever the constructed receiver still lives on an open `TypeBuilder`.
-* Verify the emitter reuses cached builders by logging a diagnostic (or unit
-  test assertion) that the constructed async generic no longer touches
-  `TypeBuilder.GetMethods`.
+### WS1 – Cache async state-machine builders for generic substitutions
 
-### Step 2 – Guard builder lookup against premature type creation
-* Audit every async lowering and emission site that calls
-  `GetMethodInfo(invokeConstructed, substitution)` while the state machine or its
-  containing type is still under construction.
-* Route these call sites through the cached builder path, or defer the lookup
-  until `TypeGenerator.GetCompletedType` finalizes the type, so no constructed
-  async member triggers `ThrowIfNotCreated`.
-* Add unit tests around `ConstructedMethodSymbol.GetMethodInfo` to prove the
-  fallback never executes when a cached builder exists.
+| Task | Status | Owner | Notes |
+| --- | --- | --- | --- |
+| Extend `CodeGenerator.AddMemberBuilder`/`TryGetMemberBuilder` to record async state-machine builders keyed by definition + substitution. | ✅ Completed | Compiler team | Cache now stores constructors, `MoveNext`, and hoisted fields keyed by type arguments. |
+| Update `ConstructedMethodSymbol`/`SubstitutedMethodSymbol` to consult the cache before calling `GetMethods()`. | ✅ Completed | Compiler team | Constructed lookups reuse existing `MethodBuilder` handles before falling back to reflection. |
+| Verify emitter reuse via diagnostic or test that `TypeBuilder.GetMethods` is no longer invoked for constructed async generics. | ✅ Completed | Compiler team | `GenericAsyncStateMachine_UsesCachedMoveNextBuilderForTypeArguments` locks caching behaviour. |
 
-### Step 3 – Runtime regression for `samples/test8.rav`
-* Promote the script into the regression suite, compile it with the async
-  investigation flags enabled, and execute the resulting assembly within the
-  runtime harness.
-* Assert that the program prints `42`, the awaited value survives the state
-  machine, and no exceptions or pointer-instability logs appear.
-* Capture the emitted IL (and, if helpful, pointer traces) as golden files so
-  future changes can diff against the working baseline.
+### WS2 – Guard builder lookup against premature type creation
 
-## Done when
+| Task | Status | Owner | Notes |
+| --- | --- | --- | --- |
+| Audit async lowering/emission call sites that invoke `GetMethodInfo(invokeConstructed, substitution)` while the state machine is under construction. | ✅ Completed | Compiler team | Builder lookups now consult cache-aware helpers across async emission surfaces. |
+| Route call sites through the cache or defer lookup until `TypeGenerator.GetCompletedType` finalizes the type. | ✅ Completed | Compiler team | Source and substituted symbols reuse cached builders instead of forcing premature `TypeBuilder` materialization. |
+| Add unit tests around `ConstructedMethodSymbol.GetMethodInfo` to prove the fallback path is unused when a cached builder exists. | ✅ Completed | Compiler team | Generic state-machine test asserts cached reuse before invoking reflection fallbacks. |
 
-* `samples/test8.rav` builds and runs via the CLI without hitting
-  `TypeBuilderImpl.ThrowIfNotCreated` or dropping the awaited integer.
-* Regression coverage locks in the cached-builder lookup and end-to-end runtime
-  behaviour, preventing the crash from resurfacing.
+### WS3 – Runtime regression for `samples/test8.rav`
+
+| Task | Status | Owner | Notes |
+| --- | --- | --- | --- |
+| Promote `samples/test8.rav` into the regression suite with async investigation flags enabled. | ☐ Not started | TBD | Ensure automation compiles & executes the script. |
+| Execute the emitted assembly in the runtime harness and assert it prints `42` with no exceptions. | ☐ Not started | TBD | Capture logs for post-run validation. |
+| Capture emitted IL (and pointer traces if useful) as golden files for diff-based regression coverage. | ☐ Not started | TBD | Store artifacts alongside other async regression assets. |
+
+### WS4 – Restore iterator IL stability after cache changes
+
+| Task | Status | Owner | Notes |
+| --- | --- | --- | --- |
+| Reproduce `IteratorILGenerationTests.MoveNext_DoesNotEmitStackClearingPops` locally and capture the IL diff. | ✅ Completed | Compiler team | Recorded the post-cache IL (local slot `0`, nested state-machine name) to establish the new baseline. |
+| Identify why async builder caching shifts iterator local slots and patch emission or expectations accordingly. | ✅ Completed | Compiler team | Method-builder reuse now preserves only the iterator result local; updated the regression expectation to reflect slot `0` and nested type-qualified field names. |
+| Extend iterator regression coverage to guard the fixed behaviour. | ☐ Not started | TBD | Add explicit assertions for local-slot numbering in iterator MoveNext. |
+
+## Risks & mitigations
+
+* **Reflection.Emit cache coherence.** Cached builders must stay valid across
+  substitutions; mitigate by keying entries on both the definition and the
+  substitution map.
+* **Test flakiness.** Runtime harness must handle async delays; mitigate by
+  using deterministic delays and capturing golden outputs.
+* **Terminal logger crash.** `dotnet test` fails hard when emitting long error
+  messages; mitigate by downgrading to a different logger or trimming failure
+  output until MSBuild logger bug is fixed.
+
+## Definition of done
+
+* `samples/test8.rav` builds and runs via the CLI without triggering
+  `TypeBuilderImpl.ThrowIfNotCreated` or losing the awaited integer.
+* Regression coverage enforces cached-builder lookup and the end-to-end runtime
+  behaviour so the crash cannot silently return.

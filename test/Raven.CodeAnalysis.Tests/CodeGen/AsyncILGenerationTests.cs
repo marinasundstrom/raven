@@ -764,6 +764,64 @@ class C {
     }
 
     [Fact]
+    public void GenericAsyncStateMachine_UsesCachedMoveNextBuilderForTypeArguments()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericTaskEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_generic_state_machine_cache", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var testFunction = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(node => node.Identifier.ValueText == "Test");
+
+        var testSymbol = Assert.IsType<SourceMethodSymbol>(semanticModel.GetDeclaredSymbol(testFunction));
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(testSymbol.AsyncStateMachine);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var constructedStateMachine = Assert.IsType<ConstructedNamedTypeSymbol>(stateMachine.Construct(intType));
+        var moveNext = Assert.IsType<SubstitutedMethodSymbol>(
+            constructedStateMachine
+                .GetMembers(nameof(IAsyncStateMachine.MoveNext))
+                .OfType<IMethodSymbol>()
+                .Single());
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        var moveNextInfo = moveNext.GetMethodInfo(codeGenerator);
+        Assert.NotNull(moveNextInfo);
+
+        Assert.True(codeGenerator.TryGetMemberBuilder(
+            stateMachine.MoveNextMethod,
+            constructedStateMachine.TypeArguments,
+            out var cachedMember));
+
+        var cachedInfo = Assert.IsAssignableFrom<MethodInfo>(cachedMember);
+        Assert.Same(moveNextInfo, cachedInfo);
+
+        var secondLookup = moveNext.GetMethodInfo(codeGenerator);
+        Assert.Same(moveNextInfo, secondLookup);
+    }
+
+    [Fact]
     public void AsyncEntryPoint_WithTask_ExecutesSuccessfully()
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));

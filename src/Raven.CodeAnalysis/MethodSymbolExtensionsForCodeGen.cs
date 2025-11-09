@@ -285,6 +285,13 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (constructedConstructor is null)
             throw new ArgumentNullException(nameof(constructedConstructor));
 
+        if (constructedConstructor.Definition is SourceMethodSymbol sourceDefinition &&
+            codeGen.TryGetMemberBuilder(sourceDefinition, constructedConstructor.TypeArguments, out var cachedMember) &&
+            cachedMember is ConstructorInfo cachedConstructor)
+        {
+            return cachedConstructor;
+        }
+
         var definitionInfo = constructedConstructor.Definition.GetClrConstructorInfo(codeGen);
         var declaringType = definitionInfo.DeclaringType;
 
@@ -306,8 +313,15 @@ internal static class MethodSymbolExtensionsForCodeGen
             : declaringType;
 
         if (constructedRuntimeType is TypeBuilder typeBuilder)
-            return TypeBuilder.GetConstructor(typeBuilder, definitionInfo)
+        {
+            var constructed = TypeBuilder.GetConstructor(typeBuilder, definitionInfo)
                 ?? throw new InvalidOperationException($"Unable to map constructed constructor '{constructedConstructor}' to runtime info.");
+
+            if (constructedConstructor.Definition is SourceMethodSymbol sourceConstructor)
+                codeGen.AddMemberBuilder(sourceConstructor, constructed, constructedConstructor.TypeArguments);
+
+            return constructed;
+        }
 
         var parameterTypes = constructedConstructor.Parameters
             .Select(p => p.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
@@ -320,7 +334,11 @@ internal static class MethodSymbolExtensionsForCodeGen
             modifiers: null);
 
         if (resolved is not null)
+        {
+            if (constructedConstructor.Definition is SourceMethodSymbol sourceConstructor)
+                codeGen.AddMemberBuilder(sourceConstructor, resolved, constructedConstructor.TypeArguments);
             return resolved;
+        }
 
         return definitionInfo;
     }

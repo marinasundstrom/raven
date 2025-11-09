@@ -343,6 +343,13 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     internal ConstructorInfo GetConstructorInfo(CodeGenerator codeGen)
     {
+        if (_original is SourceMethodSymbol cachedSource &&
+            codeGen.TryGetMemberBuilder(cachedSource, _constructed.TypeArguments, out var cachedMember) &&
+            cachedMember is ConstructorInfo cachedConstructor)
+        {
+            return cachedConstructor;
+        }
+
         if (_original is PEMethodSymbol peMethod)
         {
             var baseCtor = peMethod.GetClrConstructorInfo(codeGen);
@@ -362,7 +369,12 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
             if (codeGen.GetMemberBuilder(sourceMethod) is ConstructorInfo definitionCtor)
             {
-                return TypeBuilder.GetConstructor(constructedType, definitionCtor);
+                var constructedCtor = TypeBuilder.GetConstructor(constructedType, definitionCtor);
+                if (constructedCtor is not null)
+                {
+                    codeGen.AddMemberBuilder(sourceMethod, constructedCtor, _constructed.TypeArguments);
+                    return constructedCtor;
+                }
             }
 
             throw new InvalidOperationException("Constructor builder not found for source method.");
@@ -373,6 +385,13 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     internal MethodInfo GetMethodInfo(CodeGenerator codeGen)
     {
+        if (_original is SourceMethodSymbol cachedSource &&
+            codeGen.TryGetMemberBuilder(cachedSource, _constructed.TypeArguments, out var cachedMember) &&
+            cachedMember is MethodInfo cachedMethod)
+        {
+            return cachedMethod;
+        }
+
         if (_original is PEMethodSymbol peMethod)
         {
             var baseMethod = peMethod.GetClrMethodInfo(codeGen);
@@ -416,7 +435,10 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             {
                 var constructedMethod = TypeBuilder.GetMethod(constructedType, definitionMethod);
                 if (constructedMethod is not null)
+                {
+                    codeGen.AddMemberBuilder(sourceMethod, constructedMethod, _constructed.TypeArguments);
                     return constructedMethod;
+                }
             }
 
             if (ReferenceEquals(constructedType, definitionMethod.DeclaringType))
@@ -429,7 +451,10 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
             var resolved = constructedType.GetMethod(definitionMethod.Name, bindingFlags, null, parameterTypes, null);
             if (resolved is not null)
+            {
+                codeGen.AddMemberBuilder(sourceMethod, resolved, _constructed.TypeArguments);
                 return resolved;
+            }
 
             throw new MissingMethodException($"Method '{definitionMethod.Name}' with specified parameters not found on constructed type '{constructedType}'.");
         }
@@ -478,6 +503,13 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
 
     internal FieldInfo GetFieldInfo(CodeGenerator codeGen)
     {
+        if (_original is SourceFieldSymbol cachedSource &&
+            codeGen.TryGetMemberBuilder(cachedSource, _constructed.TypeArguments, out var cachedMember) &&
+            cachedMember is FieldInfo cachedField)
+        {
+            return cachedField;
+        }
+
         if (_original is PEFieldSymbol peField)
         {
             var field = peField.GetFieldInfo();
@@ -496,7 +528,10 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
             {
                 var constructedField = TypeBuilder.GetField(constructedType, definitionField);
                 if (constructedField is not null)
+                {
+                    codeGen.AddMemberBuilder(sourceField, constructedField, _constructed.TypeArguments);
                     return constructedField;
+                }
             }
 
             if (ReferenceEquals(constructedType, definitionField.DeclaringType))
@@ -505,7 +540,10 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
             var resolved = constructedType.GetField(definitionField.Name, bindingFlags);
             if (resolved is not null)
+            {
+                codeGen.AddMemberBuilder(sourceField, resolved, _constructed.TypeArguments);
                 return resolved;
+            }
 
             throw new MissingFieldException(constructedType.FullName, definitionField.Name);
         }
