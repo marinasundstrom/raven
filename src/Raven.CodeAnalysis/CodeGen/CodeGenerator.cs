@@ -18,13 +18,26 @@ internal class CodeGenerator
 {
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
+    readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
     readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(SymbolEqualityComparer.Default);
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
 
-    public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
+    public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo)
+        => AddMemberBuilder(symbol, memberInfo, substitution: default);
+
+    public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo, ImmutableArray<ITypeSymbol> substitution)
+    {
+        if (!substitution.IsDefaultOrEmpty)
+        {
+            _constructedMappings[new MemberBuilderCacheKey(symbol, substitution)] = memberInfo;
+            return;
+        }
+
+        _mappings[symbol] = memberInfo;
+    }
 
     public MemberInfo? GetMemberBuilder(SourceSymbol symbol)
     {
@@ -50,8 +63,19 @@ internal class CodeGenerator
     internal bool HasMemberBuilder(SourceSymbol symbol)
         => _mappings.ContainsKey(symbol);
 
+    internal bool TryGetMemberBuilder(SourceSymbol symbol, ImmutableArray<ITypeSymbol> substitution, out MemberInfo memberInfo)
+    {
+        if (!substitution.IsDefaultOrEmpty &&
+            _constructedMappings.TryGetValue(new MemberBuilderCacheKey(symbol, substitution), out memberInfo!))
+        {
+            return true;
+        }
+
+        return _mappings.TryGetValue(symbol, out memberInfo!);
+    }
+
     internal bool TryGetMemberBuilder(SourceSymbol symbol, out MemberInfo memberInfo)
-        => _mappings.TryGetValue(symbol, out memberInfo!);
+        => TryGetMemberBuilder(symbol, substitution: default, out memberInfo!);
 
     internal bool TryGetRuntimeMethod(IMethodSymbol symbol, out MethodInfo methodInfo)
         => _runtimeMethodCache.TryGetValue(symbol, out methodInfo);
@@ -1215,4 +1239,55 @@ internal class CodeGenerator
         return false;
     }
 
+}
+
+internal readonly struct MemberBuilderCacheKey : IEquatable<MemberBuilderCacheKey>
+{
+    public MemberBuilderCacheKey(SourceSymbol symbol, ImmutableArray<ITypeSymbol> substitution)
+    {
+        Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
+        Substitution = substitution;
+    }
+
+    public SourceSymbol Symbol { get; }
+
+    public ImmutableArray<ITypeSymbol> Substitution { get; }
+
+    public bool Equals(MemberBuilderCacheKey other)
+    {
+        if (!SymbolEqualityComparer.Default.Equals(Symbol, other.Symbol))
+            return false;
+
+        if (Substitution.IsDefaultOrEmpty && other.Substitution.IsDefaultOrEmpty)
+            return true;
+
+        if (Substitution.Length != other.Substitution.Length)
+            return false;
+
+        for (var i = 0; i < Substitution.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(Substitution[i], other.Substitution[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    public override bool Equals(object? obj)
+        => obj is MemberBuilderCacheKey other && Equals(other);
+
+    public override int GetHashCode()
+    {
+        var hash = SymbolEqualityComparer.Default.GetHashCode(Symbol);
+
+        if (!Substitution.IsDefaultOrEmpty)
+        {
+            for (var i = 0; i < Substitution.Length; i++)
+            {
+                hash = HashCode.Combine(hash, SymbolEqualityComparer.Default.GetHashCode(Substitution[i]));
+            }
+        }
+
+        return hash;
+    }
 }
