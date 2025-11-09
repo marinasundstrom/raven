@@ -307,7 +307,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (!TryGetSourceDefinitionSymbol(_definition, out var sourceDefinition))
             return false;
 
-        if (!codeGen.TryGetMemberBuilder(sourceDefinition, out var member) || member is not MethodInfo definitionMethod)
+        if (!codeGen.TryGetMemberBuilder(sourceDefinition, TypeArguments, out var member) || member is not MethodInfo definitionMethod)
             return false;
 
         var candidateDefinition = definitionMethod;
@@ -336,6 +336,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (candidate is MethodBuilder ||
             string.Equals(candidate.GetType().FullName, "System.Reflection.Emit.MethodBuilderInstantiation", StringComparison.Ordinal))
         {
+            codeGen.AddMemberBuilder(sourceDefinition, candidate, TypeArguments);
             methodInfo = candidate;
             return true;
         }
@@ -356,6 +357,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             return false;
 
         methodInfo = candidate;
+        codeGen.AddMemberBuilder(sourceDefinition, candidate, TypeArguments);
         return true;
     }
 

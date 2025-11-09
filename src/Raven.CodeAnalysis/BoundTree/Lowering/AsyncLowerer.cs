@@ -1338,23 +1338,17 @@ internal static class AsyncLowerer
             var captureAwaiter = new BoundLocalAssignmentExpression(awaiterLocal, awaiterFieldAccess, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
             resumeStatements.Add(new BoundExpressionStatement(captureAwaiter));
 
-            var awaiterDefaultLocal = CreateAwaiterLocal(awaitExpression.AwaiterType);
-            var awaiterDefaultDeclarator = new BoundVariableDeclarator(
-                awaiterDefaultLocal,
-                new BoundDefaultValueExpression(awaiterField.Type));
-            resumeStatements.Add(new BoundLocalDeclarationStatement(new[] { awaiterDefaultDeclarator }));
-
-            var clearAssignment = new BoundFieldAssignmentExpression(
-                new BoundSelfExpression(_stateMachine),
-                awaiterField,
-                new BoundLocalAccess(awaiterDefaultLocal),
-                _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit),
-                requiresReceiverAddress: true);
-            resumeStatements.Add(new BoundAssignmentStatement(clearAssignment));
-
             var awaiterAccess = new BoundLocalAccess(awaiterLocal);
             var getResult = CreateGetResultInvocation(awaitExpression, awaiterAccess);
             resumeStatements.AddRange(createResumeStatements(getResult));
+            var unitType = _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit);
+            var clearAwaiterField = new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(_stateMachine),
+                awaiterField,
+                new BoundDefaultValueExpression(awaiterField.Type),
+                unitType,
+                requiresReceiverAddress: true);
+            resumeStatements.Add(new BoundAssignmentStatement(clearAwaiterField));
 
             yield return new BoundLabeledStatement(resumeLabel, new BoundBlockStatement(resumeStatements));
         }

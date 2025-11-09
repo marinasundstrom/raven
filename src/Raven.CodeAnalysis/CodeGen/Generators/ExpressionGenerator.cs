@@ -1710,7 +1710,8 @@ internal class ExpressionGenerator : Generator
             case BoundFieldAssignmentExpression fieldAssignmentExpression:
                 {
                     var fieldSymbol = fieldAssignmentExpression.Field;
-                    var right = fieldAssignmentExpression.Right;
+                    var right = fieldAssignmentExpression.Right
+                        ?? new BoundDefaultValueExpression(fieldSymbol.Type);
                     var receiver = fieldAssignmentExpression.Receiver;
                     var requiresAddress = fieldAssignmentExpression.RequiresReceiverAddress;
                     var containingType = fieldSymbol.ContainingType;
