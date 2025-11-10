@@ -92,8 +92,10 @@ internal static class AsyncLowerer
         var tryStatements = new List<BoundStatement>();
         tryStatements.AddRange(CreateStateDispatchStatements(compilation, stateMachine, entryLabel, awaitRewriter.Dispatches));
 
+        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
-        entryStatements.AddRange(CreateCompletionStatements(stateMachine));
+        entryStatements.AddRange(CreateCompletionStatements(stateMachine, builderMembers));
         var entryBlock = new BoundBlockStatement(entryStatements, rewrittenBody.LocalsToDispose);
 
         tryStatements.Add(new BoundLabeledStatement(entryLabel, entryBlock));
@@ -117,14 +119,15 @@ internal static class AsyncLowerer
         var statements = new List<BoundStatement>();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
 
-        var stateMachineType = stateMachine.GetConstructedStateMachine(method);
-        var constructor = GetMethodForOuterScope(stateMachine.Constructor, stateMachineType);
-        var moveNextMethod = GetMethodForOuterScope(stateMachine.MoveNextMethod, stateMachineType);
-        var stateField = GetFieldForOuterScope(stateMachine.StateField, stateMachineType);
-        var builderField = GetFieldForOuterScope(stateMachine.BuilderField, stateMachineType);
-        var thisField = stateMachine.ThisField is null
-            ? null
-            : GetFieldForOuterScope(stateMachine.ThisField, stateMachineType);
+        var constructed = stateMachine.GetConstructedMembers(method);
+        var stateMachineType = constructed.StateMachineType;
+        var constructor = constructed.Constructor;
+        var moveNextMethod = constructed.MoveNext;
+        var stateField = constructed.StateField;
+        var builderMembers = constructed.BuilderMembers;
+        var builderField = builderMembers.BuilderField;
+        var thisField = constructed.ThisField;
+        var parameterFieldMap = constructed.ParameterFields;
 
         var asyncLocal = new SourceLocalSymbol(
             "<>async",
@@ -152,13 +155,12 @@ internal static class AsyncLowerer
 
         foreach (var parameter in method.Parameters)
         {
-            if (!stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field))
+            if (!parameterFieldMap.TryGetValue(parameter, out var field))
                 continue;
 
             var receiver = new BoundLocalAccess(asyncLocal);
             var value = new BoundParameterAccess(parameter);
-            var substitutedField = GetFieldForOuterScope(field, stateMachineType);
-            var assignment = new BoundFieldAssignmentExpression(receiver, substitutedField, value, unitType, requiresReceiverAddress: true);
+            var assignment = new BoundFieldAssignmentExpression(receiver, field, value, unitType, requiresReceiverAddress: true);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
@@ -170,11 +172,11 @@ internal static class AsyncLowerer
         var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateField, initialState, unitType, requiresReceiverAddress: true);
         statements.Add(new BoundAssignmentStatement(stateAssignment));
 
-        var builderInitialization = CreateBuilderInitializationStatement(asyncLocal, builderField, unitType);
+        var builderInitialization = CreateBuilderInitializationStatement(asyncLocal, builderMembers, unitType);
         if (builderInitialization is not null)
             statements.Add(builderInitialization);
 
-        var builderStartStatement = CreateBuilderStartStatement(asyncLocal, builderField, stateMachineType);
+        var builderStartStatement = CreateBuilderStartStatement(asyncLocal, builderMembers, stateMachineType);
         if (builderStartStatement is not null)
         {
             statements.Add(builderStartStatement);
@@ -192,7 +194,7 @@ internal static class AsyncLowerer
         BoundExpression? returnExpression = null;
         if (method.ReturnType.SpecialType != SpecialType.System_Void)
         {
-            returnExpression = CreateReturnExpression(method, builderField, asyncLocal);
+            returnExpression = CreateReturnExpression(method, builderMembers, asyncLocal);
         }
 
         statements.Add(new BoundReturnStatement(returnExpression));
@@ -221,7 +223,8 @@ internal static class AsyncLowerer
 
         statements.AddRange(CreateDisposeStatements(stateMachine, EnumerateReverse(stateMachine.HoistedLocalsToDispose)));
 
-        var setException = CreateBuilderSetExceptionStatement(stateMachine, exceptionLocal);
+        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+        var setException = CreateBuilderSetExceptionStatement(stateMachine, builderMembers, exceptionLocal);
         if (setException is not null)
             statements.Add(setException);
 
@@ -277,11 +280,12 @@ internal static class AsyncLowerer
     }
 
     private static IEnumerable<BoundStatement> CreateCompletionStatements(
-        SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers)
     {
         yield return CreateStateAssignment(stateMachine, -2);
 
-        var setResult = CreateBuilderSetResultStatement(stateMachine, expression: null);
+        var setResult = CreateBuilderSetResultStatement(stateMachine, builderMembers, expression: null);
         if (setResult is not null)
             yield return setResult;
 
@@ -290,13 +294,10 @@ internal static class AsyncLowerer
 
     private static BoundStatement? CreateBuilderSetResultStatement(
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         BoundExpression? expression)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var setResultMethod = FindSetResultMethod(builderType);
+        var setResultMethod = builderMembers.SetResult;
         if (setResultMethod is null)
             return null;
 
@@ -326,7 +327,7 @@ internal static class AsyncLowerer
         if (setResultMethod.Parameters.Length == 0 && expression is not null && !IsEffectivelyVoidExpression(expression))
             return null;
 
-        var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderField);
+        var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var invocation = new BoundInvocationExpression(setResultMethod, arguments, receiver, requiresReceiverAddress: true);
         return new BoundExpressionStatement(invocation);
     }
@@ -461,17 +462,16 @@ internal static class AsyncLowerer
             requiresReceiverAddress: true);
     }
 
-    private static BoundStatement? CreateBuilderSetExceptionStatement(SynthesizedAsyncStateMachineTypeSymbol stateMachine, ILocalSymbol exceptionLocal)
+    private static BoundStatement? CreateBuilderSetExceptionStatement(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
+        ILocalSymbol exceptionLocal)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var setExceptionMethod = FindSetExceptionMethod(builderType);
+        var setExceptionMethod = builderMembers.SetException;
         if (setExceptionMethod is null)
             return null;
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderField);
+        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var exceptionAccess = new BoundLocalAccess(exceptionLocal);
 
         var invocation = new BoundInvocationExpression(
@@ -561,61 +561,10 @@ internal static class AsyncLowerer
         return new BoundBlockStatement(new BoundStatement[] { disposeCall, clearStatement });
     }
 
-    private static IMethodSymbol? FindSetExceptionMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("SetException"))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? FindAwaitOnCompletedMethod(INamedTypeSymbol builderType)
-    {
-        return FindAwaitMethod(builderType, "AwaitUnsafeOnCompleted")
-            ?? FindAwaitMethod(builderType, "AwaitOnCompleted");
-    }
-
-    private static IMethodSymbol? FindAwaitMethod(INamedTypeSymbol builderType, string name)
-    {
-        foreach (var member in builderType.GetMembers(name))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 2 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? SubstituteBuilderMethodIfNeeded(INamedTypeSymbol builderType, IMethodSymbol method)
-    {
-        if (builderType is ConstructedNamedTypeSymbol constructed &&
-            method is not SubstitutedMethodSymbol &&
-            !SymbolEqualityComparer.Default.Equals(method.ContainingType, constructed))
-        {
-            return new SubstitutedMethodSymbol(method, constructed);
-        }
-
-        return method;
-    }
-
-    private static IPropertySymbol? SubstituteBuilderPropertyIfNeeded(INamedTypeSymbol builderType, IPropertySymbol property)
-    {
-        if (builderType is ConstructedNamedTypeSymbol constructed &&
-            property is not SubstitutedPropertySymbol &&
-            !SymbolEqualityComparer.Default.Equals(property.ContainingType, constructed))
-        {
-            return new SubstitutedPropertySymbol(property, constructed);
-        }
-
-        return property;
-    }
-
     private sealed class AwaitLoweringRewriter : BoundTreeRewriter
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
+        private readonly SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers _builderMembers;
         private readonly List<StateDispatch> _dispatches = new();
         private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(SymbolEqualityComparer.Default);
         private ImmutableDictionary<ILocalSymbol, bool> _hoistableLocals = ImmutableDictionary<ILocalSymbol, bool>.Empty;
@@ -626,7 +575,11 @@ internal static class AsyncLowerer
 
         public AwaitLoweringRewriter(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
-            _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+            if (stateMachine is null)
+                throw new ArgumentNullException(nameof(stateMachine));
+
+            _stateMachine = stateMachine;
+            _builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
             _nextHoistedLocalId = DetermineInitialHoistedLocalId(stateMachine);
             _nextAwaitResultId = 0;
             _nextAwaiterLocalId = 0;
@@ -946,7 +899,7 @@ internal static class AsyncLowerer
 
             statements.Add(CreateStateAssignment(_stateMachine, -2));
 
-            var setResult = CreateBuilderSetResultStatement(_stateMachine, resultExpression);
+            var setResult = CreateBuilderSetResultStatement(_stateMachine, _builderMembers, resultExpression);
             if (setResult is not null)
                 statements.Add(setResult);
 
@@ -1403,17 +1356,13 @@ internal static class AsyncLowerer
 
         private BoundStatement CreateAwaitOnCompletedStatement(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)
         {
-            var builderField = _stateMachine.BuilderField;
-            if (builderField.Type is not INamedTypeSymbol builderType)
-                throw new InvalidOperationException("Async builder field must be a named type.");
-
-            var awaitMethod = FindAwaitOnCompletedMethod(builderType)
+            var awaitMethod = _builderMembers.AwaitOnCompleted
                 ?? throw new InvalidOperationException("Async builder is missing AwaitOnCompleted/AwaitUnsafeOnCompleted.");
 
             if (awaitMethod.IsGenericMethod)
                 awaitMethod = awaitMethod.Construct(awaitExpression.AwaiterType, _stateMachine);
 
-            var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), builderField);
+            var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _builderMembers.BuilderField);
             var awaiterAddress = new BoundAddressOfExpression(awaiterField, awaiterField.Type, new BoundSelfExpression(_stateMachine));
             var thisAddress = new BoundAddressOfExpression(_stateMachine, _stateMachine);
 
@@ -1693,28 +1642,12 @@ internal static class AsyncLowerer
         }
     }
 
-    private static IFieldSymbol GetFieldForOuterScope(SourceFieldSymbol field, INamedTypeSymbol stateMachineType)
+    private static BoundStatement? CreateBuilderInitializationStatement(
+        SourceLocalSymbol asyncLocal,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
+        ITypeSymbol unitType)
     {
-        if (stateMachineType is ConstructedNamedTypeSymbol constructed)
-            return new SubstitutedFieldSymbol(field, constructed);
-
-        return field;
-    }
-
-    private static IMethodSymbol GetMethodForOuterScope(SourceMethodSymbol method, INamedTypeSymbol stateMachineType)
-    {
-        if (stateMachineType is ConstructedNamedTypeSymbol constructed)
-            return new SubstitutedMethodSymbol(method, constructed);
-
-        return method;
-    }
-
-    private static BoundStatement? CreateBuilderInitializationStatement(SourceLocalSymbol asyncLocal, IFieldSymbol builderField, ITypeSymbol unitType)
-    {
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var createMethod = FindParameterlessStaticMethod(builderType, "Create");
+        var createMethod = builderMembers.Create;
         if (createMethod is null)
             return null;
 
@@ -1722,19 +1655,19 @@ internal static class AsyncLowerer
         var receiver = new BoundLocalAccess(asyncLocal);
         var assignment = new BoundFieldAssignmentExpression(
             receiver,
-            builderField,
+            builderMembers.BuilderField,
             invocation,
             unitType,
             requiresReceiverAddress: true);
         return new BoundAssignmentStatement(assignment);
     }
 
-    private static BoundStatement? CreateBuilderStartStatement(SourceLocalSymbol asyncLocal, IFieldSymbol builderField, INamedTypeSymbol stateMachineType)
+    private static BoundStatement? CreateBuilderStartStatement(
+        SourceLocalSymbol asyncLocal,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
+        INamedTypeSymbol stateMachineType)
     {
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var startMethod = FindStartMethod(builderType);
+        var startMethod = builderMembers.Start;
         if (startMethod is null)
             return null;
 
@@ -1742,7 +1675,7 @@ internal static class AsyncLowerer
             ? startMethod.Construct(stateMachineType)
             : startMethod;
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderField);
+        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderMembers.BuilderField);
         var stateMachineReference = new BoundAddressOfExpression(asyncLocal, stateMachineType);
 
         var invocation = new BoundInvocationExpression(
@@ -1756,15 +1689,12 @@ internal static class AsyncLowerer
 
     private static BoundBlockStatement? CreateSetStateMachineBody(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var setStateMachineMethod = FindSetStateMachineMethod(builderType);
+        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+        var setStateMachineMethod = builderMembers.SetStateMachine;
         if (setStateMachineMethod is null)
             return null;
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderField);
+        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var parameter = stateMachine.SetStateMachineMethod.Parameters.Length > 0
             ? stateMachine.SetStateMachineMethod.Parameters[0]
             : null;
@@ -1778,25 +1708,24 @@ internal static class AsyncLowerer
             builderAccess,
             requiresReceiverAddress: true);
 
-        var statement = new BoundExpressionStatement(invocation);
-        return new BoundBlockStatement(new BoundStatement[] { statement });
+        var assignment = CreateStateAssignment(stateMachine, -1);
+        return new BoundBlockStatement(new BoundStatement[]
+        {
+            assignment,
+            new BoundExpressionStatement(invocation)
+        });
     }
 
     private static BoundExpression CreateReturnExpression(
         SourceMethodSymbol method,
-        IFieldSymbol builderField,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         SourceLocalSymbol asyncLocal)
     {
-        if (builderField.Type is not INamedTypeSymbol builderType)
-        {
-            return CreateNullLiteral(method.ReturnType);
-        }
-
-        var taskProperty = FindTaskProperty(builderType);
+        var taskProperty = builderMembers.TaskProperty;
         if (taskProperty is null)
             return CreateNullLiteral(method.ReturnType);
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderField);
+        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderMembers.BuilderField);
         var taskAccess = new BoundMemberAccessExpression(builderAccess, taskProperty);
 
         if (!SymbolEqualityComparer.Default.Equals(taskProperty.Type, method.ReturnType))
@@ -1806,50 +1735,6 @@ internal static class AsyncLowerer
         }
 
         return taskAccess;
-    }
-
-    private static IMethodSymbol? FindParameterlessStaticMethod(INamedTypeSymbol type, string name)
-    {
-        foreach (var member in type.GetMembers(name))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 0, IsStatic: true } method)
-                return SubstituteBuilderMethodIfNeeded(type, method);
-        }
-
-        return null;
-    }
-
-    private static IPropertySymbol? FindTaskProperty(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers())
-        {
-            if (member is IPropertySymbol { Name: "Task" } property)
-                return SubstituteBuilderPropertyIfNeeded(builderType, property);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? FindStartMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("Start"))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? FindSetStateMachineMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("SetStateMachine"))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
     }
 
     private static BoundLiteralExpression CreateNullLiteral(ITypeSymbol type)

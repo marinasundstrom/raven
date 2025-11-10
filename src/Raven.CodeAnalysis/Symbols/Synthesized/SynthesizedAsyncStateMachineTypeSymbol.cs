@@ -17,6 +17,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _typeParameterMap;
     private ConstructedNamedTypeSymbol? _constructedFromAsyncMethod;
+    private readonly Dictionary<SourceMethodSymbol, ConstructedMembers> _constructedMembersCache = new(ReferenceEqualityComparer.Instance);
 
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
@@ -92,6 +93,49 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     public BoundBlockStatement? MoveNextBody { get; private set; }
 
     public BoundBlockStatement? SetStateMachineBody { get; private set; }
+
+    public ConstructedMembers GetConstructedMembers(SourceMethodSymbol method)
+    {
+        if (method is null)
+            throw new ArgumentNullException(nameof(method));
+
+        if (!ReferenceEquals(method, AsyncMethod))
+            throw new ArgumentException("State machine constructed for different method.", nameof(method));
+
+        if (_constructedMembersCache.TryGetValue(method, out var cached))
+            return cached;
+
+        var members = CreateConstructedMembers(method);
+        _constructedMembersCache[method] = members;
+        return members;
+    }
+
+    public BuilderMembers GetBuilderMembers(SourceMethodSymbol method)
+    {
+        return GetConstructedMembers(method).BuilderMembers;
+    }
+
+    private ConstructedMembers CreateConstructedMembers(SourceMethodSymbol method)
+    {
+        var stateMachineType = (INamedTypeSymbol)GetConstructedStateMachine(method);
+        var constructor = GetConstructedMethod(Constructor, stateMachineType);
+        var moveNext = GetConstructedMethod(MoveNextMethod, stateMachineType);
+        var stateField = GetConstructedField(StateField, stateMachineType);
+        var builderField = GetConstructedField(BuilderField, stateMachineType);
+        var thisField = ThisField is null ? null : GetConstructedField(ThisField, stateMachineType);
+        var parameterFields = ConstructParameterFieldMap(stateMachineType);
+        var builderMembers = CreateBuilderMembers(builderField);
+
+        return new ConstructedMembers(
+            stateMachineType,
+            constructor,
+            moveNext,
+            stateField,
+            builderField,
+            thisField,
+            parameterFields,
+            builderMembers);
+    }
 
     public INamedTypeSymbol GetConstructedStateMachine(SourceMethodSymbol method)
     {
@@ -205,6 +249,72 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     {
         var builderType = DetermineBuilderType(compilation, asyncMethod);
         return CreateField("_builder", builderType);
+    }
+
+    private IFieldSymbol GetConstructedField(SourceFieldSymbol field, INamedTypeSymbol stateMachineType)
+    {
+        if (ReferenceEquals(stateMachineType, this))
+            return field;
+
+        return stateMachineType
+            .GetMembers(field.Name)
+            .OfType<IFieldSymbol>()
+            .First();
+    }
+
+    private IMethodSymbol GetConstructedMethod(SourceMethodSymbol method, INamedTypeSymbol stateMachineType)
+    {
+        if (ReferenceEquals(stateMachineType, this))
+            return method;
+
+        foreach (var candidate in stateMachineType.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            var original = candidate.OriginalDefinition ?? candidate;
+            if (SymbolEqualityComparer.Default.Equals(original, method))
+                return candidate;
+
+            if (candidate.Parameters.Length == method.Parameters.Length && candidate.MethodKind == method.MethodKind)
+                return candidate;
+        }
+
+        return method;
+    }
+
+    private ImmutableDictionary<IParameterSymbol, IFieldSymbol> ConstructParameterFieldMap(INamedTypeSymbol stateMachineType)
+    {
+        if (_parameterFieldMap.IsEmpty)
+            return ImmutableDictionary<IParameterSymbol, IFieldSymbol>.Empty;
+
+        var builder = ImmutableDictionary.CreateBuilder<IParameterSymbol, IFieldSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var (parameter, field) in _parameterFieldMap)
+            builder[parameter] = GetConstructedField(field, stateMachineType);
+
+        return builder.ToImmutable();
+    }
+
+    private BuilderMembers CreateBuilderMembers(IFieldSymbol builderField)
+    {
+        if (builderField.Type is not INamedTypeSymbol builderType)
+            return new BuilderMembers(builderField, null, null, null, null, null, null, null);
+
+        var create = FindParameterlessStaticMethod(builderType, "Create");
+        var start = FindStartMethod(builderType);
+        var setStateMachine = FindSetStateMachineMethod(builderType);
+        var setResult = FindSetResultMethod(builderType);
+        var setException = FindSetExceptionMethod(builderType);
+        var awaitOnCompleted = FindAwaitOnCompletedMethod(builderType);
+        var taskProperty = FindTaskProperty(builderType);
+
+        return new BuilderMembers(
+            builderField,
+            create,
+            start,
+            setStateMachine,
+            setResult,
+            setException,
+            awaitOnCompleted,
+            taskProperty);
     }
 
     private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> InitializeTypeParameters(SourceMethodSymbol asyncMethod)
@@ -487,5 +597,152 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             isStatic: false,
             methodKind: MethodKind.Ordinary,
             declaredAccessibility: Accessibility.Internal);
+    }
+
+    private static IMethodSymbol? FindParameterlessStaticMethod(INamedTypeSymbol type, string name)
+    {
+        foreach (var member in type.GetMembers(name))
+        {
+            if (member is IMethodSymbol { Parameters.Length: 0, IsStatic: true } method)
+                return method;
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? FindStartMethod(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers("Start"))
+        {
+            if (member is IMethodSymbol { Parameters.Length: 1 } method)
+                return method;
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? FindSetStateMachineMethod(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers("SetStateMachine"))
+        {
+            if (member is IMethodSymbol { Parameters.Length: 1 } method)
+                return method;
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? FindSetResultMethod(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers("SetResult"))
+        {
+            if (member is IMethodSymbol method)
+                return method;
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? FindSetExceptionMethod(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers("SetException"))
+        {
+            if (member is IMethodSymbol { Parameters.Length: 1 } method)
+                return method;
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? FindAwaitOnCompletedMethod(INamedTypeSymbol builderType)
+    {
+        return FindAwaitMethod(builderType, "AwaitUnsafeOnCompleted")
+            ?? FindAwaitMethod(builderType, "AwaitOnCompleted");
+    }
+
+    private static IMethodSymbol? FindAwaitMethod(INamedTypeSymbol builderType, string name)
+    {
+        foreach (var member in builderType.GetMembers(name))
+        {
+            if (member is IMethodSymbol { Parameters.Length: 2 } method)
+                return method;
+        }
+
+        return null;
+    }
+
+    private static IPropertySymbol? FindTaskProperty(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers())
+        {
+            if (member is IPropertySymbol { Name: "Task" } property)
+                return property;
+        }
+
+        return null;
+    }
+
+    internal readonly struct ConstructedMembers
+    {
+        public ConstructedMembers(
+            INamedTypeSymbol stateMachineType,
+            IMethodSymbol constructor,
+            IMethodSymbol moveNext,
+            IFieldSymbol stateField,
+            IFieldSymbol builderField,
+            IFieldSymbol? thisField,
+            ImmutableDictionary<IParameterSymbol, IFieldSymbol> parameterFields,
+            BuilderMembers builderMembers)
+        {
+            StateMachineType = stateMachineType;
+            Constructor = constructor;
+            MoveNext = moveNext;
+            StateField = stateField;
+            BuilderField = builderField;
+            ThisField = thisField;
+            ParameterFields = parameterFields;
+            BuilderMembers = builderMembers;
+        }
+
+        public INamedTypeSymbol StateMachineType { get; }
+        public IMethodSymbol Constructor { get; }
+        public IMethodSymbol MoveNext { get; }
+        public IFieldSymbol StateField { get; }
+        public IFieldSymbol BuilderField { get; }
+        public IFieldSymbol? ThisField { get; }
+        public ImmutableDictionary<IParameterSymbol, IFieldSymbol> ParameterFields { get; }
+        public BuilderMembers BuilderMembers { get; }
+    }
+
+    internal readonly struct BuilderMembers
+    {
+        public BuilderMembers(
+            IFieldSymbol builderField,
+            IMethodSymbol? create,
+            IMethodSymbol? start,
+            IMethodSymbol? setStateMachine,
+            IMethodSymbol? setResult,
+            IMethodSymbol? setException,
+            IMethodSymbol? awaitOnCompleted,
+            IPropertySymbol? taskProperty)
+        {
+            BuilderField = builderField;
+            Create = create;
+            Start = start;
+            SetStateMachine = setStateMachine;
+            SetResult = setResult;
+            SetException = setException;
+            AwaitOnCompleted = awaitOnCompleted;
+            TaskProperty = taskProperty;
+        }
+
+        public IFieldSymbol BuilderField { get; }
+        public IMethodSymbol? Create { get; }
+        public IMethodSymbol? Start { get; }
+        public IMethodSymbol? SetStateMachine { get; }
+        public IMethodSymbol? SetResult { get; }
+        public IMethodSymbol? SetException { get; }
+        public IMethodSymbol? AwaitOnCompleted { get; }
+        public IPropertySymbol? TaskProperty { get; }
     }
 }
