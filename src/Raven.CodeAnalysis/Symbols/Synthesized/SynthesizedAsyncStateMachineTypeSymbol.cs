@@ -282,8 +282,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private SourceFieldSymbol CreateBuilderField(Compilation compilation, SourceMethodSymbol asyncMethod)
     {
         var builderType = DetermineBuilderType(compilation, asyncMethod);
-        var substitutedBuilderType = SubstituteAsyncMethodTypeParameters(builderType);
-        return CreateField("_builder", substitutedBuilderType);
+        return CreateField("_builder", builderType);
     }
 
     private IFieldSymbol GetConstructedField(SourceFieldSymbol field, INamedTypeSymbol stateMachineType)
@@ -519,7 +518,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         }
     }
 
-    private static ITypeSymbol DetermineBuilderType(Compilation compilation, SourceMethodSymbol asyncMethod)
+    private ITypeSymbol DetermineBuilderType(Compilation compilation, SourceMethodSymbol asyncMethod)
     {
         var returnType = asyncMethod.ReturnType;
 
@@ -548,7 +547,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             named.ConstructedFrom is INamedTypeSymbol constructed &&
             IsTaskOfT(constructed))
         {
-            var awaitedType = named.TypeArguments[0];
+            var awaitedType = SubstituteAsyncMethodTypeParameters(named.TypeArguments[0]);
 
             if (awaitedType.TypeKind == TypeKind.Error)
                 return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
