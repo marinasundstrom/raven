@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-12 | 🟡 At risk | Layered the generic-parameter cache so async methods retain the state machine's `!0` builder even after the original method re-registers its `T`; awaiting runtime validation and a fresh CLI run before closing the loop.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L24-L43】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L146】 |
 | 2025-11-11 | 🟡 At risk | Patched the emitter to map the async method's type parameters onto the synthesized state machine's generic parameter builders, so builder calls now instantiate over `!0`; a new IL regression proves the `MoveNext` builder invocations all see type-level generics, but the runtime fix still needs end-to-end validation.【025e9d†L1-L7】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L115-L139】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1495-L1520】 |
 | 2025-11-10 | 🔴 Blocked | CLI run still throws `BadImageFormatException` while JIT-compiling `Program.Test<T>` because the emitted state-machine `TypeSpec` injects the method's `T` via `ELEMENT_TYPE_VAR` rather than `ELEMENT_TYPE_MVAR`, so the verifier can't materialise the constructed type.【155a99†L1-L8】【d19e55†L6-L18】【eb2897†L1-L20】 |
 | 2025-11-09 | 🟡 At risk | Iterator baseline has been updated: the cached iterator `MoveNext` now stores its result in local slot `0` and records the nested state-machine type name (`C+<>c__Iterator0`). Completion tests unrelated to async continue to fail under the TerminalLogger, so runtime validation remains pending. |
@@ -46,7 +47,11 @@ WriteLine(x)
   for the original async method type parameters means the `AwaitUnsafeOnCompleted`
   and `SetResult` sites now materialise as `AsyncTaskMethodBuilder<!0>` instead
   of the verifier-breaking `!!0`; the new IL regression locks the behaviour
-  down.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L115-L139】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1495-L1520】
+  down.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L146】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1495-L1520】
+* **Generic parameter cache is now layered.** Reusing the async method after
+  the state machine is emitted no longer snaps builder calls back to `!!0`
+  because the runtime type map keeps a stack per type parameter and always
+  consults the most recent mapping.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L24-L43】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L146】
 
 ### Next steps
 

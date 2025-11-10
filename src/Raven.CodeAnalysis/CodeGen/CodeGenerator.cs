@@ -19,7 +19,7 @@ internal class CodeGenerator
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
-    readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
+    readonly Dictionary<ITypeParameterSymbol, Stack<Type>> _genericParameterMap = new(SymbolEqualityComparer.Default);
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(SymbolEqualityComparer.Default);
 
@@ -97,7 +97,9 @@ internal class CodeGenerator
 
     internal Type CacheRuntimeTypeParameter(ITypeParameterSymbol symbol, Type type)
     {
-        _genericParameterMap[symbol] = type;
+        var stack = GetOrCreateGenericParameterStack(symbol);
+        stack.Clear();
+        stack.Push(type);
         return type;
     }
 
@@ -112,15 +114,22 @@ internal class CodeGenerator
         {
             var parameter = parameters[i];
             var builder = builders[i];
-            _genericParameterMap[parameter] = builder;
+            var stack = GetOrCreateGenericParameterStack(parameter);
+            if (stack.Count == 0 || !ReferenceEquals(stack.Peek(), builder))
+                stack.Push(builder);
         }
 
         if (count > 0 && parameters[0].ContainingSymbol is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
             foreach (var (asyncParameter, synthesizedParameter) in stateMachine.AsyncMethodTypeParameterMap)
             {
-                if (_genericParameterMap.TryGetValue(synthesizedParameter, out var mapped))
-                    _genericParameterMap[asyncParameter] = mapped;
+                if (!_genericParameterMap.TryGetValue(synthesizedParameter, out var synthesizedStack) || synthesizedStack.Count == 0)
+                    continue;
+
+                var mapped = synthesizedStack.Peek();
+                var asyncStack = GetOrCreateGenericParameterStack(asyncParameter);
+                if (asyncStack.Count == 0 || !ReferenceEquals(asyncStack.Peek(), mapped))
+                    asyncStack.Push(mapped);
             }
         }
 
@@ -128,6 +137,17 @@ internal class CodeGenerator
         {
             ApplyGenericParameterConstraints(parameters[i], builders[i]);
         }
+    }
+
+    private Stack<Type> GetOrCreateGenericParameterStack(ITypeParameterSymbol parameter)
+    {
+        if (!_genericParameterMap.TryGetValue(parameter, out var stack))
+        {
+            stack = new Stack<Type>();
+            _genericParameterMap[parameter] = stack;
+        }
+
+        return stack;
     }
 
     private void ApplyGenericParameterConstraints(ITypeParameterSymbol parameter, GenericTypeParameterBuilder builder)
@@ -1198,8 +1218,11 @@ internal class CodeGenerator
 
     internal bool TryGetRuntimeTypeForTypeParameter(ITypeParameterSymbol symbol, out Type type)
     {
-        if (_genericParameterMap.TryGetValue(symbol, out type!))
+        if (_genericParameterMap.TryGetValue(symbol, out var stack) && stack.Count > 0)
+        {
+            type = stack.Peek();
             return true;
+        }
 
         if (symbol is PETypeParameterSymbol peTypeParameter && TryResolveMetadataTypeParameter(peTypeParameter, out var resolved))
         {
