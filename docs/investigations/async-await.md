@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-12_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-13_
 
 ## Objective
 
@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-13 | 🟢 On track | Hardened `Compilation.EnsureSetup` against re-entrancy so async return-type inference no longer loops while acquiring semantic models; `dotnet run --project src/Raven.Compiler -- src/Raven.Compiler/samples/test8.rav -o test.dll` now completes without setup recursion (emitting the sample's duplicate method diagnostic), though the TerminalLogger crash still blocks the full suite. |
 | 2025-11-12 | 🟢 On track | Broke the async-main metadata recursion with `TryGetTypeByMetadataNameAlreadySetup`, added a runtime regression that invokes `Program.MainAsync`, and confirmed the awaited value flows through the state machine; full suite still gated on the TerminalLogger issue. |
 | 2025-11-11 | 🟡 At risk | Cached async builder member discovery on the synthesized state machine and rewired lowering/tests to reuse the substituted methods and properties; still blocked on runtime validation while the TerminalLogger crash is outstanding. |
 | 2025-11-10 | 🟡 At risk | Removed bespoke async state-machine type-parameter substitution in favour of the constructed method template so generics reuse the common substitution pipeline; awaiting runtime coverage while TerminalLogger crash persists. |

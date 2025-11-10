@@ -141,8 +141,16 @@ public partial class Compilation
             if (!setup)
             {
                 Setup();
-                EnsureAsyncReturnTypes();
                 setup = true;
+                try
+                {
+                    EnsureAsyncReturnTypes();
+                }
+                catch
+                {
+                    setup = false;
+                    throw;
+                }
             }
         }
     }
