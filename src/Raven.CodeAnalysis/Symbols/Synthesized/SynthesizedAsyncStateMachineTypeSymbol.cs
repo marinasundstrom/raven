@@ -282,7 +282,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private SourceFieldSymbol CreateBuilderField(Compilation compilation, SourceMethodSymbol asyncMethod)
     {
         var builderType = DetermineBuilderType(compilation, asyncMethod);
-        return CreateField("_builder", builderType);
+        var substitutedBuilderType = SubstituteAsyncMethodTypeParameters(builderType);
+        return CreateField("_builder", substitutedBuilderType);
     }
 
     private IFieldSymbol GetConstructedField(SourceFieldSymbol field, INamedTypeSymbol stateMachineType)
