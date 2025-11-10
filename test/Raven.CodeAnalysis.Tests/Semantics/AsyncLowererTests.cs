@@ -1114,6 +1114,49 @@ class C {
         Assert.Same(stateMachine.MoveNextMethod, constructed.MoveNext);
     }
 
+    [Fact]
+    public void AsyncStateMachine_ProvidesTypeParameterMappings()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    static async Compute<T>(value: T) -> Task<T> {
+        await Task.FromResult(value)
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Compute");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        var methodParameter = Assert.Single(methodSymbol.TypeParameters);
+        var stateMachineParameter = Assert.Single(stateMachine.TypeParameters);
+
+        var mapping = Assert.Single(stateMachine.TypeParameterMappings);
+        Assert.Same(methodParameter, mapping.AsyncParameter);
+        Assert.Same(stateMachineParameter, mapping.StateMachineParameter);
+
+        Assert.True(stateMachine.TryMapToStateMachineTypeParameter(methodParameter, out var mappedToState));
+        Assert.Same(stateMachineParameter, mappedToState);
+
+        Assert.True(stateMachine.TryMapToAsyncMethodTypeParameter(stateMachineParameter, out var mappedToAsync));
+        Assert.Same(methodParameter, mappedToAsync);
+    }
+
     private static IReadOnlyList<BoundAwaitExpression> CollectAwaitExpressions(BoundNode node)
     {
         var collector = new AwaitCollector();

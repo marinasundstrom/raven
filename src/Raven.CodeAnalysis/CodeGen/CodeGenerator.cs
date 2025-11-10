@@ -121,13 +121,13 @@ internal class CodeGenerator
 
         if (count > 0 && parameters[0].ContainingSymbol is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
-            foreach (var (asyncParameter, synthesizedParameter) in stateMachine.AsyncMethodTypeParameterMap)
+            foreach (var mapping in stateMachine.TypeParameterMappings)
             {
-                if (!_genericParameterMap.TryGetValue(synthesizedParameter, out var synthesizedStack) || synthesizedStack.Count == 0)
+                if (!_genericParameterMap.TryGetValue(mapping.StateMachineParameter, out var synthesizedStack) || synthesizedStack.Count == 0)
                     continue;
 
                 var mapped = synthesizedStack.Peek();
-                var asyncStack = GetOrCreateGenericParameterStack(asyncParameter);
+                var asyncStack = GetOrCreateGenericParameterStack(mapping.AsyncParameter);
                 if (asyncStack.Count == 0 || !ReferenceEquals(asyncStack.Peek(), mapped))
                     asyncStack.Push(mapped);
             }

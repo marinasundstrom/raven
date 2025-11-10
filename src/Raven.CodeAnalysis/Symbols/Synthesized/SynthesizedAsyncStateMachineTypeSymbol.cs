@@ -15,7 +15,9 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
     private ImmutableArray<SourceFieldSymbol> _hoistedLocalsToDispose;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
-    private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _typeParameterMap;
+    private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _asyncToStateTypeParameterMap;
+    private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _stateToAsyncTypeParameterMap;
+    private readonly ImmutableArray<TypeParameterMapping> _typeParameterMappings;
     private ConstructedNamedTypeSymbol? _constructedFromAsyncMethod;
     private readonly Dictionary<SourceMethodSymbol, ConstructedMembers> _constructedMembersCache = new(ReferenceEqualityComparer.Instance);
 
@@ -43,7 +45,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod;
 
-        _typeParameterMap = InitializeTypeParameters(asyncMethod);
+        (
+            _asyncToStateTypeParameterMap,
+            _stateToAsyncTypeParameterMap,
+            _typeParameterMappings) = InitializeTypeParameters(asyncMethod);
 
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
 
@@ -75,7 +80,15 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     public ImmutableArray<SourceFieldSymbol> ParameterFields { get; }
 
     public ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> ParameterFieldMap => _parameterFieldMap;
-    internal ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> AsyncMethodTypeParameterMap => _typeParameterMap;
+    internal ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> AsyncMethodTypeParameterMap => _asyncToStateTypeParameterMap;
+
+    internal ImmutableArray<TypeParameterMapping> TypeParameterMappings => _typeParameterMappings;
+
+    internal bool TryMapToStateMachineTypeParameter(ITypeParameterSymbol asyncParameter, out ITypeParameterSymbol mapped)
+        => _asyncToStateTypeParameterMap.TryGetValue(asyncParameter, out mapped);
+
+    internal bool TryMapToAsyncMethodTypeParameter(ITypeParameterSymbol stateMachineParameter, out ITypeParameterSymbol mapped)
+        => _stateToAsyncTypeParameterMap.TryGetValue(stateMachineParameter, out mapped);
 
     public ImmutableArray<SourceFieldSymbol> HoistedLocals => _hoistedLocals;
 
@@ -338,15 +351,24 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             taskProperty);
     }
 
-    private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> InitializeTypeParameters(SourceMethodSymbol asyncMethod)
+    private (
+        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> AsyncToState,
+        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> StateToAsync,
+        ImmutableArray<TypeParameterMapping> Mappings) InitializeTypeParameters(SourceMethodSymbol asyncMethod)
     {
         if (asyncMethod.TypeParameters.IsDefaultOrEmpty || asyncMethod.TypeParameters.Length == 0)
         {
-            return ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty;
+            SetTypeParameters(ImmutableArray<SourceTypeParameterSymbol>.Empty);
+            return (
+                ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty,
+                ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty,
+                ImmutableArray<TypeParameterMapping>.Empty);
         }
 
         var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(asyncMethod.TypeParameters.Length);
-        var mapBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+        var asyncToStateBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+        var stateToAsyncBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+        var mappingBuilder = ImmutableArray.CreateBuilder<TypeParameterMapping>(asyncMethod.TypeParameters.Length);
 
         foreach (var typeParameter in asyncMethod.TypeParameters)
         {
@@ -370,10 +392,12 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 typeParameter.Variance);
 
             builder.Add(synthesized);
-            mapBuilder.Add(typeParameter, synthesized);
+            asyncToStateBuilder.Add(typeParameter, synthesized);
+            stateToAsyncBuilder.Add(synthesized, typeParameter);
+            mappingBuilder.Add(new TypeParameterMapping(typeParameter, synthesized));
         }
 
-        var mapped = mapBuilder.ToImmutable();
+        var mapped = asyncToStateBuilder.ToImmutable();
         SetTypeParameters(builder.MoveToImmutable());
 
         foreach (var typeParameter in asyncMethod.TypeParameters)
@@ -390,7 +414,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             synthesized.SetConstraintTypes(substitutedConstraints);
         }
 
-        return mapped;
+        return (
+            mapped,
+            stateToAsyncBuilder.ToImmutable(),
+            mappingBuilder.MoveToImmutable());
     }
 
     private ImmutableArray<ITypeSymbol> SubstituteConstraintTypes(
@@ -414,7 +441,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         ITypeSymbol type,
         ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>? substitutionMap = null)
     {
-        var map = substitutionMap ?? _typeParameterMap;
+        var map = substitutionMap ?? _asyncToStateTypeParameterMap;
 
         if (map.Count == 0)
             return type;
@@ -765,5 +792,18 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public IMethodSymbol? SetException { get; }
         public IMethodSymbol? AwaitOnCompleted { get; }
         public IPropertySymbol? TaskProperty { get; }
+    }
+
+    internal readonly struct TypeParameterMapping
+    {
+        public TypeParameterMapping(ITypeParameterSymbol asyncParameter, ITypeParameterSymbol stateMachineParameter)
+        {
+            AsyncParameter = asyncParameter ?? throw new ArgumentNullException(nameof(asyncParameter));
+            StateMachineParameter = stateMachineParameter ?? throw new ArgumentNullException(nameof(stateMachineParameter));
+        }
+
+        public ITypeParameterSymbol AsyncParameter { get; }
+
+        public ITypeParameterSymbol StateMachineParameter { get; }
     }
 }
