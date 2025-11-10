@@ -2232,14 +2232,7 @@ internal class ExpressionGenerator : Generator
         => type?.UnwrapLiteralType() ?? type;
 
     private FieldInfo GetField(IFieldSymbol fieldSymbol)
-    {
-        return fieldSymbol switch
-        {
-            SourceFieldSymbol sourceFieldSymbol => sourceFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            _ => throw new Exception("Unsupported field symbol")
-        };
-    }
+        => fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
 
     private void EmitStoreElement(ITypeSymbol elementType)
     {
