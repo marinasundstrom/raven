@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-10_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-11_
 
 ## Objective
 
@@ -26,37 +26,36 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-11 | 🔴 Blocked | `test.dll` still fails with `BadImageFormatException` when invoking `Program.Test<T>` even after switching the async state-machine instantiation to reuse the cloned type parameters; metadata now shows the hoisted builder field as `AsyncTaskMethodBuilder<!0>`, so the remaining verifier crash likely comes from the method body using `!!0` somewhere else.【025e9d†L1-L7】【1f8da4†L1-L16】 |
 | 2025-11-10 | 🔴 Blocked | CLI run still throws `BadImageFormatException` while JIT-compiling `Program.Test<T>` because the emitted state-machine `TypeSpec` injects the method's `T` via `ELEMENT_TYPE_VAR` rather than `ELEMENT_TYPE_MVAR`, so the verifier can't materialise the constructed type.【155a99†L1-L8】【d19e55†L6-L18】【eb2897†L1-L20】 |
 | 2025-11-09 | 🟡 At risk | Iterator baseline has been updated: the cached iterator `MoveNext` now stores its result in local slot `0` and records the nested state-machine type name (`C+<>c__Iterator0`). Completion tests unrelated to async continue to fail under the TerminalLogger, so runtime validation remains pending. |
 
 ## Latest findings – generic state machine encoding is invalid
 
 * **Runtime still rejects the sample.** Re-running the CLI against
-  `samples/test8.rav` yields a `BadImageFormatException` before any
-  user code executes, and the stack trace points directly at the open generic
-  entry point `Program.Test<T>` as it tries to spin up the async state machine.【155a99†L1-L8】
-* **TypeSpec encodes the wrong kind of generic argument.** Disassembling
-  the generated `test.dll` shows the `newobj` path and every `stfld` in the
-  entry point using a `TypeSpec` blob `15-11-10-01-13-00` for the state-machine
-  type. The trailing `0x13` represents `ELEMENT_TYPE_VAR`, which refers to a type
-  parameter on the enclosing type (`Program`) rather than the method, so the
-  instantiated state machine lacks a valid `T` argument at runtime.【d19e55†L6-L18】
-* **IL verification fails for the same reason.** Feeding the same assembly to
-  `ilverify` (with the .NET 9 reference pack) crashes the verifier while it tries
-  to instantiate the malformed `TypeSpec`, reporting an
-  `IndexOutOfRangeException` from `Instantiation.GenericParameters`. That
-  indicates the metadata encodes a generic argument that does not exist in the
-  current instantiation context.【eb2897†L1-L20】
+  `samples/test8.rav` yields the same `BadImageFormatException` before any
+  user code executes, and the stack trace points at the open generic entry
+  point `Program.Test<T>` when the runtime spins up the async state machine.【025e9d†L1-L7】
+* **State-machine fields now substitute the cloned type parameters.** Inspecting
+  the emitted metadata for the generic async state machine shows the hoisted
+  builder field materialising as `AsyncTaskMethodBuilder<!0>`, confirming the
+  new `ConstructedStateMachine` guard keeps method type parameters from leaking
+  into the TypeSpec.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L140-L167】【1f8da4†L1-L16】
+* **Verifier failure likely comes from other substitutions.** Because the
+  builder field and hoisted parameter now bind to the struct's own `!0`, the
+  lingering `BadImageFormatException` probably originates from method body
+  instructions (e.g. `Unsafe.As` call sites) still encoding the method `!!0`.
+  We need to disassemble `MoveNext` to identify which member references still
+  carry method-generic markers.【025e9d†L1-L7】
 
 ### Next steps
 
-* Update the emitter so that when it constructs the async state-machine
-  `TypeSpec` (locals and field references) for a generic method, it substitutes
-  the method type parameters via `ELEMENT_TYPE_MVAR` instead of `ELEMENT_TYPE_VAR`.
-  That keeps the instantiation within the verifier's method-generic context.
-* After rewriting the `TypeSpec` shape, re-run both the CLI sample and
+* Audit the `MoveNext` body for any calls (`AwaitUnsafeOnCompleted`, `SetResult`,
+  etc.) that still encode method-generic parameters (`!!0`) inside their
+  `MethodSpec` blobs; patch those substitutions to use the struct's `!0`.
+* After correcting the remaining substitutions, re-run both the CLI sample and
   `ilverify` to confirm the assembly loads and the verifier no longer crashes;
-  promote a regression to guard the `MVAR` encoding going forward.
+  promote a regression to guard the fixed encoding going forward.
 
 ## Async lowering findings
 
