@@ -15,7 +15,7 @@
 (cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/DiagnosticsGenerator -- -f)
 
 # Build and test
-dotnet build
+dotnet build --property WarningLevel=0
 dotnet test test/Raven.CodeAnalysis.Tests
 ```
 
@@ -23,7 +23,7 @@ If documentation-only changes don’t need verification, you may skip build/test
 
 **Coding guidelines:** follow idiomatic .NET style; treat compiler components as immutable; prefer diagnostics over exceptions; keep services loosely coupled via interfaces/DI.
 
-**Contribution checklist:** format code with `dotnet format <solution|project> --include <files>`; run build/test (unless docs-only); keep generated files up to date; add/update tests; write concise commit messages; summarize PRs with relevant diagnostics; update specs/grammar/docs alongside feature changes.
+**Contribution checklist:** format code with `dotnet format <solution|project> --include <files> --no-restore`; run build/test (unless docs-only); keep generated files up to date; add/update tests; write concise commit messages; summarize PRs with relevant diagnostics; update specs/grammar/docs alongside feature changes.
 
 **Additional notes:** focus on incremental, additive changes; review `docs/` before altering syntax/semantics; ask Codex to collapse large diffs; inspect `ravc` outputs with `ilspycmd` (install via `dotnet tool install --global ilspycmd`); prefer implementing new features via lowering where possible. Unit tests can request an `ITestOutputHelper` parameter to write diagnostics via `WriteLine`.
 
