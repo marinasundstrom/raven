@@ -115,6 +115,15 @@ internal class CodeGenerator
             _genericParameterMap[parameter] = builder;
         }
 
+        if (count > 0 && parameters[0].ContainingSymbol is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        {
+            foreach (var (asyncParameter, synthesizedParameter) in stateMachine.AsyncMethodTypeParameterMap)
+            {
+                if (_genericParameterMap.TryGetValue(synthesizedParameter, out var mapped))
+                    _genericParameterMap[asyncParameter] = mapped;
+            }
+        }
+
         for (var i = 0; i < count; i++)
         {
             ApplyGenericParameterConstraints(parameters[i], builders[i]);
