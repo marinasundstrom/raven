@@ -214,18 +214,59 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
         if (_originalDefinition is PENamedTypeSymbol pen)
         {
             var genericTypeDef = pen.GetClrType(codeGen);
-            return genericTypeDef.MakeGenericType(TypeArguments.Select(x => x.GetClrType(codeGen)).ToArray()).GetTypeInfo();
+            return genericTypeDef.MakeGenericType(TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray()).GetTypeInfo();
         }
 
         if (_originalDefinition is SourceNamedTypeSymbol source)
         {
             var definitionType = codeGen.GetTypeBuilder(source) ?? throw new InvalidOperationException("Missing type builder for generic definition.");
-            var runtimeArgs = TypeArguments.Select(x => x.GetClrType(codeGen)).ToArray();
+            var runtimeArgs = TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray();
             var constructed = definitionType.MakeGenericType(runtimeArgs);
             return constructed.GetTypeInfo();
         }
 
         throw new InvalidOperationException("ConstructedNamedTypeSymbol is not based on a supported symbol type.");
+    }
+
+    private static Type ResolveRuntimeTypeArgument(ITypeSymbol typeArgument, CodeGenerator codeGen)
+    {
+        if (typeArgument is ITypeParameterSymbol { ContainingSymbol: IMethodSymbol methodSymbol } methodTypeParameter)
+        {
+            if (codeGen.TryGetRuntimeTypeForTypeParameter(methodTypeParameter, out var resolved))
+            {
+                if (resolved is { IsGenericParameter: true, DeclaringMethod: not null })
+                    return resolved;
+
+                if (TryGetMethodGenericParameter(methodSymbol, methodTypeParameter.Ordinal, codeGen, out var methodParameter))
+                    return methodParameter;
+
+                return resolved;
+            }
+
+            if (TryGetMethodGenericParameter(methodSymbol, methodTypeParameter.Ordinal, codeGen, out var fallback))
+                return fallback;
+        }
+
+        return typeArgument.GetClrType(codeGen);
+    }
+
+    private static bool TryGetMethodGenericParameter(IMethodSymbol methodSymbol, int ordinal, CodeGenerator codeGen, out Type parameter)
+    {
+        parameter = null!;
+
+        if (methodSymbol is SourceMethodSymbol sourceMethod &&
+            codeGen.TryGetMemberBuilder(sourceMethod, out var member) &&
+            member is MethodInfo methodInfo)
+        {
+            var arguments = methodInfo.GetGenericArguments();
+            if ((uint)ordinal < (uint)arguments.Length)
+            {
+                parameter = arguments[ordinal];
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
