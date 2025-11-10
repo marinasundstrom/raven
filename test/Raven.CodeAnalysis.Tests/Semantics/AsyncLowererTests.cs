@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Microsoft.CodeAnalysis;
@@ -46,6 +47,8 @@ class C {
 
         Assert.True(analysis.ContainsAwait);
         Assert.True(analysis.RequiresStateMachine);
+        Assert.NotNull(analysis.BuilderType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, analysis.ReturnType));
         Assert.True(methodSymbol.ContainsAwait);
     }
 
@@ -80,6 +83,8 @@ class C {
 
         Assert.False(analysis.ContainsAwait);
         Assert.False(analysis.RequiresStateMachine);
+        Assert.Null(analysis.BuilderType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, analysis.ReturnType));
         Assert.False(methodSymbol.ContainsAwait);
     }
 
@@ -115,6 +120,8 @@ let result = await Test(42)
 
         Assert.True(analysis.ContainsAwait);
         Assert.True(analysis.RequiresStateMachine);
+        Assert.NotNull(analysis.BuilderType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, analysis.ReturnType));
         Assert.True(methodSymbol.ContainsAwait);
     }
 
@@ -146,11 +153,16 @@ let result = await Test(42)
         var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
         var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(functionSyntax.Body!));
 
+        var analysis = AsyncLowerer.Analyze(methodSymbol, boundBody);
         var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
         model.CacheBoundNode(functionSyntax.Body!, rewritten);
 
         var rebound = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(functionSyntax.Body!));
         Assert.Same(rewritten, rebound);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        Assert.NotNull(analysis.BuilderType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stateMachine.BuilderType, analysis.BuilderType));
     }
 
     [Fact]
@@ -219,6 +231,183 @@ class C {
 
         var returnStatement = Assert.IsType<BoundReturnStatement>(blockStatements[^1]);
         Assert.Null(returnStatement.Expression);
+    }
+
+    [Fact]
+    public void Rewrite_GenericAsyncMethod_UsesConstructedStateMachineFields()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Identity<T>(value: T) -> Task<T> {
+        await Task.Yield()
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Identity");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        var constructed = Assert.IsType<ConstructedNamedTypeSymbol>(stateMachine.GetConstructedStateMachine(methodSymbol.TypeArguments));
+
+        var localDeclaration = Assert.IsType<BoundLocalDeclarationStatement>(rewritten.Statements.First());
+        var asyncLocal = Assert.IsType<SourceLocalSymbol>(localDeclaration.Declarators.Single().Local);
+        Assert.Same(constructed, asyncLocal.Type);
+
+        var parameter = methodSymbol.Parameters.Single();
+        var parameterAssignment = rewritten.Statements
+            .OfType<BoundAssignmentStatement>()
+            .Select(stmt => stmt.Expression)
+            .OfType<BoundFieldAssignmentExpression>()
+            .First(expr => expr.Field.Name == "_value");
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(parameter.Type, parameterAssignment.Field.Type));
+    }
+
+    [Fact]
+    public void Rewrite_GenericAsyncMethod_PreservesTypeParameterConstraints()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Identity<T: struct, System.IDisposable>(value: T) -> Task<T> {
+        await Task.Yield()
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Identity");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+
+        var methodTypeParameter = Assert.Single(methodSymbol.TypeParameters);
+        var stateMachineTypeParameter = Assert.IsType<SourceTypeParameterSymbol>(Assert.Single(stateMachine.TypeParameters));
+
+        Assert.Equal(methodTypeParameter.ConstraintKind, stateMachineTypeParameter.ConstraintKind);
+
+        var methodConstraints = methodTypeParameter.ConstraintTypes;
+        var stateConstraints = stateMachineTypeParameter.ConstraintTypes;
+
+        Assert.Equal(methodConstraints.Length, stateConstraints.Length);
+
+        for (var i = 0; i < methodConstraints.Length; i++)
+        {
+            Assert.True(SymbolEqualityComparer.Default.Equals(methodConstraints[i], stateConstraints[i]));
+        }
+    }
+
+    [Fact]
+    public void AsyncBuilderMembers_CacheSubstitutedMembers()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Identity<T>(value: T) -> Task<T> {
+        await Task.Yield()
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Identity");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(stateMachine.BuilderField.Type);
+        var members = stateMachine.GetBuilderMembers(builderType);
+        Assert.Same(members, stateMachine.GetBuilderMembers(builderType));
+
+        Assert.NotNull(members.CreateMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderType, members.CreateMethod?.ContainingType));
+
+        Assert.NotNull(members.StartMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderType, members.StartMethod?.ContainingType));
+
+        Assert.NotNull(members.SetResultMethod);
+        var stateMachineTypeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(Assert.Single(stateMachine.TypeParameters));
+        if (members.SetResultMethod!.Parameters.Length == 1)
+            Assert.True(SymbolEqualityComparer.Default.Equals(stateMachineTypeParameter, members.SetResultMethod.Parameters[0].Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderType, members.SetResultMethod.ContainingType));
+
+        Assert.NotNull(members.AwaitOnCompletedMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderType, members.AwaitOnCompletedMethod?.ContainingType));
+
+        Assert.NotNull(members.SetExceptionMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderType, members.SetExceptionMethod?.ContainingType));
+
+        Assert.NotNull(members.TaskProperty);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, members.TaskProperty?.Type));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var constructedStateMachine = Assert.IsType<ConstructedNamedTypeSymbol>(stateMachine.GetConstructedStateMachine(ImmutableArray.Create<ITypeSymbol>(intType)));
+        var constructedBuilderField = constructedStateMachine
+            .GetMembers()
+            .OfType<IFieldSymbol>()
+            .Single(field => field.Name == "_builder");
+        var constructedBuilderType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedBuilderField.Type);
+        var constructedMembers = stateMachine.GetBuilderMembers(constructedBuilderType);
+        Assert.Same(constructedMembers, stateMachine.GetBuilderMembers(constructedBuilderType));
+
+        Assert.NotNull(constructedMembers.CreateMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedBuilderType, constructedMembers.CreateMethod?.ContainingType));
+
+        Assert.NotNull(constructedMembers.StartMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedBuilderType, constructedMembers.StartMethod?.ContainingType));
+
+        Assert.NotNull(constructedMembers.SetResultMethod);
+        if (constructedMembers.SetResultMethod!.Parameters.Length == 1)
+            Assert.True(SymbolEqualityComparer.Default.Equals(intType, constructedMembers.SetResultMethod.Parameters[0].Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedBuilderType, constructedMembers.SetResultMethod.ContainingType));
+
+        Assert.NotNull(constructedMembers.AwaitOnCompletedMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedBuilderType, constructedMembers.AwaitOnCompletedMethod?.ContainingType));
+
+        Assert.NotNull(constructedMembers.SetExceptionMethod);
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedBuilderType, constructedMembers.SetExceptionMethod?.ContainingType));
+
+        Assert.NotNull(constructedMembers.TaskProperty);
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(methodSymbol.ReturnType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(returnType.Construct(intType), constructedMembers.TaskProperty?.Type));
     }
 
     [Fact]
@@ -735,6 +924,17 @@ class C {
         var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
         Assert.Same(boundBody, stateMachine.OriginalBody);
 
+        var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(stateMachine.BuilderField.Type);
+        var builderMembers = stateMachine.GetBuilderMembers(builderType);
+        Assert.Same(builderMembers, stateMachine.GetBuilderMembers(builderType));
+        Assert.NotNull(builderMembers.CreateMethod);
+        Assert.NotNull(builderMembers.StartMethod);
+        Assert.NotNull(builderMembers.SetResultMethod);
+        Assert.NotNull(builderMembers.SetExceptionMethod);
+        Assert.NotNull(builderMembers.SetStateMachineMethod);
+        Assert.NotNull(builderMembers.AwaitOnCompletedMethod);
+        Assert.NotNull(builderMembers.TaskProperty);
+
         var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
         var outerStatements = moveNextBody.Statements.ToArray();
         var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(outerStatements));
@@ -792,6 +992,14 @@ class C {
         var scheduleStatement = Assert.IsType<BoundExpressionStatement>(awaitElseStatements[1]);
         var scheduleInvocation = Assert.IsType<BoundInvocationExpression>(scheduleStatement.Expression);
         Assert.True(scheduleInvocation.Method.Name is "AwaitUnsafeOnCompleted" or "AwaitOnCompleted");
+        if (scheduleInvocation.Method is ConstructedMethodSymbol constructedAwait)
+        {
+            Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.AwaitOnCompletedMethod, constructedAwait.ConstructedFrom));
+        }
+        else
+        {
+            Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.AwaitOnCompletedMethod, scheduleInvocation.Method));
+        }
         var scheduleArguments = scheduleInvocation.Arguments.ToArray();
         Assert.Equal(2, scheduleArguments.Length);
         Assert.IsType<BoundAddressOfExpression>(scheduleArguments[0]);
@@ -826,6 +1034,7 @@ class C {
         var completionSetResult = Assert.IsType<BoundExpressionStatement>(entryStatements[^2]);
         var setResultInvocation = Assert.IsType<BoundInvocationExpression>(completionSetResult.Expression);
         Assert.Equal("SetResult", setResultInvocation.Method.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.SetResultMethod, setResultInvocation.Method));
 
         var completionReturn = Assert.IsType<BoundReturnStatement>(entryStatements[^1]);
         Assert.Null(completionReturn.Expression);
@@ -846,6 +1055,7 @@ class C {
         var setExceptionStatement = Assert.IsType<BoundExpressionStatement>(catchStatements[1]);
         var setExceptionInvocation = Assert.IsType<BoundInvocationExpression>(setExceptionStatement.Expression);
         Assert.Equal("SetException", setExceptionInvocation.Method.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.SetExceptionMethod, setExceptionInvocation.Method));
         var setExceptionReceiver = Assert.IsType<BoundMemberAccessExpression>(setExceptionInvocation.Receiver);
         Assert.Same(stateMachine.BuilderField, Assert.IsAssignableFrom<IFieldSymbol>(setExceptionReceiver.Member));
 
@@ -884,10 +1094,19 @@ class C {
         Assert.IsType<BoundLocalAccess>(builderFieldAssignment.Receiver);
         var createCall = Assert.IsType<BoundInvocationExpression>(builderFieldAssignment.Right);
         Assert.Equal("Create", createCall.Method.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.CreateMethod, createCall.Method));
 
         var startCall = Assert.IsType<BoundExpressionStatement>(statements[^2]);
         var startInvocation = Assert.IsType<BoundInvocationExpression>(startCall.Expression);
         Assert.Equal("Start", startInvocation.Method.Name);
+        if (startInvocation.Method is ConstructedMethodSymbol constructedStart)
+        {
+            Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.StartMethod, constructedStart.ConstructedFrom));
+        }
+        else
+        {
+            Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.StartMethod, startInvocation.Method));
+        }
         var startReceiver = Assert.IsType<BoundMemberAccessExpression>(startInvocation.Receiver);
         Assert.Same(builderField, Assert.IsAssignableFrom<IFieldSymbol>(startReceiver.Member));
         var startReceiverLocal = Assert.IsType<BoundLocalAccess>(startReceiver.Receiver);
@@ -901,6 +1120,7 @@ class C {
         var returnAccess = Assert.IsType<BoundMemberAccessExpression>(returnStatement.Expression);
         var taskProperty = Assert.IsAssignableFrom<IPropertySymbol>(returnAccess.Member);
         Assert.Equal("Task", taskProperty.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.TaskProperty, taskProperty));
 
         var builderAccess = Assert.IsType<BoundMemberAccessExpression>(returnAccess.Receiver);
         Assert.Same(builderField, Assert.IsAssignableFrom<IFieldSymbol>(builderAccess.Member));
@@ -916,6 +1136,7 @@ class C {
         var setExpressionStatement = Assert.IsType<BoundExpressionStatement>(setStatements);
         var setInvocation = Assert.IsType<BoundInvocationExpression>(setExpressionStatement.Expression);
         Assert.Equal("SetStateMachine", setInvocation.Method.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(builderMembers.SetStateMachineMethod, setInvocation.Method));
         var setReceiver = Assert.IsType<BoundMemberAccessExpression>(setInvocation.Receiver);
         Assert.Same(stateMachine.BuilderField, Assert.IsAssignableFrom<IFieldSymbol>(setReceiver.Member));
         Assert.IsType<BoundSelfExpression>(setReceiver.Receiver);

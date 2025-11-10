@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Microsoft.CodeAnalysis;
 using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -15,12 +16,15 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
     private ImmutableArray<SourceFieldSymbol> _hoistedLocalsToDispose;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
-    private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _typeParameterMap;
+    private readonly ConstructedMethodSymbol? _asyncMethodTemplate;
+    private Dictionary<ImmutableArray<ITypeSymbol>, ConstructedNamedTypeSymbol>? _constructedCache;
+    private Dictionary<INamedTypeSymbol, AsyncBuilderMembers>? _builderMembersCache;
 
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
         SourceMethodSymbol asyncMethod,
-        string name)
+        string name,
+        ITypeSymbol builderType)
         : base(
             name,
             compilation.GetSpecialType(SpecialType.System_ValueType),
@@ -41,7 +45,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod;
 
-        _typeParameterMap = InitializeTypeParameters(asyncMethod);
+        _asyncMethodTemplate = InitializeTypeParameters(asyncMethod);
 
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
 
@@ -55,7 +59,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         var asyncStateMachineInterface = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine);
         SetInterfaces(new[] { asyncStateMachineInterface });
 
-        BuilderField = CreateBuilderField(compilation, asyncMethod);
+        BuilderType = builderType ?? throw new ArgumentNullException(nameof(builderType));
+        BuilderField = CreateBuilderField(builderType);
 
         Constructor = CreateConstructor(compilation, asyncMethod);
         MoveNextMethod = CreateMoveNextMethod(compilation, asyncMethod);
@@ -78,6 +83,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     public ImmutableArray<SourceFieldSymbol> HoistedLocalsToDispose => _hoistedLocalsToDispose;
 
+    public ITypeSymbol BuilderType { get; }
+
     public SourceFieldSymbol BuilderField { get; }
 
     public SourceMethodSymbol Constructor { get; }
@@ -91,6 +98,39 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     public BoundBlockStatement? MoveNextBody { get; private set; }
 
     public BoundBlockStatement? SetStateMachineBody { get; private set; }
+
+    public AsyncBuilderMembers GetBuilderMembers(INamedTypeSymbol builderType)
+    {
+        if (builderType is null)
+            throw new ArgumentNullException(nameof(builderType));
+
+        _builderMembersCache ??= new Dictionary<INamedTypeSymbol, AsyncBuilderMembers>(SymbolEqualityComparer.Default);
+
+        if (_builderMembersCache.TryGetValue(builderType, out var cached))
+            return cached;
+
+        var members = CreateBuilderMembers(builderType);
+        _builderMembersCache.Add(builderType, members);
+        return members;
+    }
+
+    public INamedTypeSymbol GetConstructedStateMachine(ImmutableArray<ITypeSymbol> typeArguments)
+    {
+        if (typeArguments.IsDefaultOrEmpty || typeArguments.Length == 0 || TypeParameters.IsDefaultOrEmpty || TypeParameters.Length == 0)
+            return this;
+
+        if (typeArguments.Length != TypeParameters.Length)
+            throw new ArgumentException("Type argument count must match state-machine arity.", nameof(typeArguments));
+
+        _constructedCache ??= new Dictionary<ImmutableArray<ITypeSymbol>, ConstructedNamedTypeSymbol>(TypeArgumentsEqualityComparer.Instance);
+
+        if (_constructedCache.TryGetValue(typeArguments, out var constructed))
+            return constructed;
+
+        var constructedType = (ConstructedNamedTypeSymbol)Construct(typeArguments.ToArray());
+        _constructedCache.Add(typeArguments, constructedType);
+        return constructedType;
+    }
 
     public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false)
     {
@@ -163,7 +203,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     private SourceFieldSymbol CreateField(string name, ITypeSymbol type)
     {
-        var substitutedType = SubstituteAsyncMethodTypeParameters(type);
+        var substitutedType = SubstituteMethodType(type);
 
         var field = new SourceFieldSymbol(
             name,
@@ -182,21 +222,38 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return field;
     }
 
-    private SourceFieldSymbol CreateBuilderField(Compilation compilation, SourceMethodSymbol asyncMethod)
+    private SourceFieldSymbol CreateBuilderField(ITypeSymbol builderType)
+        => CreateField("_builder", builderType);
+
+    private AsyncBuilderMembers CreateBuilderMembers(INamedTypeSymbol builderType)
     {
-        var builderType = DetermineBuilderType(compilation, asyncMethod);
-        return CreateField("_builder", builderType);
+        var createMethod = FindParameterlessStaticMethod(builderType, "Create");
+        var startMethod = FindInstanceMethod(builderType, "Start", parameterCount: 1);
+        var setStateMachineMethod = FindInstanceMethod(builderType, "SetStateMachine", parameterCount: 1);
+        var setResultMethod = FindSetResultMethod(builderType);
+        var setExceptionMethod = FindSetExceptionMethod(builderType);
+        var awaitMethod = FindAwaitMethod(builderType, "AwaitUnsafeOnCompleted")
+            ?? FindAwaitMethod(builderType, "AwaitOnCompleted");
+        var taskProperty = FindTaskProperty(builderType);
+
+        return new AsyncBuilderMembers(
+            createMethod,
+            startMethod,
+            setStateMachineMethod,
+            setResultMethod,
+            setExceptionMethod,
+            awaitMethod,
+            taskProperty);
     }
 
-    private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> InitializeTypeParameters(SourceMethodSymbol asyncMethod)
+    private ConstructedMethodSymbol? InitializeTypeParameters(SourceMethodSymbol asyncMethod)
     {
         if (asyncMethod.TypeParameters.IsDefaultOrEmpty || asyncMethod.TypeParameters.Length == 0)
         {
-            return ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty;
+            return null;
         }
 
         var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(asyncMethod.TypeParameters.Length);
-        var mapBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var typeParameter in asyncMethod.TypeParameters)
         {
@@ -220,31 +277,33 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 typeParameter.Variance);
 
             builder.Add(synthesized);
-            mapBuilder.Add(typeParameter, synthesized);
         }
 
-        var mapped = mapBuilder.ToImmutable();
-        SetTypeParameters(builder.MoveToImmutable());
+        var mappedParameters = builder.MoveToImmutable();
+        SetTypeParameters(mappedParameters);
+
+        var substitution = new ConstructedMethodSymbol(asyncMethod, TypeArguments);
 
         foreach (var typeParameter in asyncMethod.TypeParameters)
         {
             if (typeParameter is not SourceTypeParameterSymbol sourceParameter ||
-                !sourceParameter.HasResolvedConstraintTypes ||
-                !mapped.TryGetValue(typeParameter, out var mappedParameter) ||
-                mappedParameter is not SourceTypeParameterSymbol synthesized)
+                !sourceParameter.HasResolvedConstraintTypes)
             {
                 continue;
             }
 
-            var substitutedConstraints = SubstituteConstraintTypes(mapped, sourceParameter.ConstraintTypes);
-            synthesized.SetConstraintTypes(substitutedConstraints);
+            if (mappedParameters[typeParameter.Ordinal] is SourceTypeParameterSymbol synthesized)
+            {
+                var substitutedConstraints = SubstituteConstraintTypes(substitution, sourceParameter.ConstraintTypes);
+                synthesized.SetConstraintTypes(substitutedConstraints);
+            }
         }
 
-        return mapped;
+        return substitution;
     }
 
     private ImmutableArray<ITypeSymbol> SubstituteConstraintTypes(
-        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> substitutionMap,
+        ConstructedMethodSymbol substitution,
         ImmutableArray<ITypeSymbol> constraintTypes)
     {
         if (constraintTypes.IsDefaultOrEmpty)
@@ -254,157 +313,111 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         foreach (var constraintType in constraintTypes)
         {
-            builder.Add(SubstituteAsyncMethodTypeParameters(constraintType, substitutionMap));
+            builder.Add(SubstituteMethodType(constraintType, substitution));
         }
 
         return builder.MoveToImmutable();
     }
 
-    private ITypeSymbol SubstituteAsyncMethodTypeParameters(
-        ITypeSymbol type,
-        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>? substitutionMap = null)
-    {
-        var map = substitutionMap ?? _typeParameterMap;
+    private ITypeSymbol SubstituteMethodType(ITypeSymbol type) =>
+        SubstituteMethodType(type, _asyncMethodTemplate);
 
-        if (map.Count == 0)
+    private static ITypeSymbol SubstituteMethodType(ITypeSymbol type, ConstructedMethodSymbol? substitution)
+    {
+        if (substitution is null)
             return type;
 
-        return Substitute(type);
-
-        ITypeSymbol Substitute(ITypeSymbol symbol)
-        {
-            if (symbol is ITypeParameterSymbol typeParameter &&
-                map.TryGetValue(typeParameter, out var replacement))
-            {
-                return replacement;
-            }
-
-            if (symbol is ByRefTypeSymbol byRef)
-            {
-                var substitutedElement = Substitute(byRef.ElementType);
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                    return new ByRefTypeSymbol(substitutedElement);
-
-                return symbol;
-            }
-
-            if (symbol is IAddressTypeSymbol address)
-            {
-                var substitutedElement = Substitute(address.ReferencedType);
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
-                    return new AddressTypeSymbol(substitutedElement);
-
-                return symbol;
-            }
-
-            if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
-            {
-                var typeArguments = named.TypeArguments;
-                var substitutedArguments = new ITypeSymbol[typeArguments.Length];
-                var changed = false;
-
-                for (int i = 0; i < typeArguments.Length; i++)
-                {
-                    substitutedArguments[i] = Substitute(typeArguments[i]);
-                    if (!SymbolEqualityComparer.Default.Equals(substitutedArguments[i], typeArguments[i]))
-                        changed = true;
-                }
-
-                if (changed)
-                {
-                    var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
-                    return definition.Construct(substitutedArguments);
-                }
-
-                return named;
-            }
-
-            if (symbol is IArrayTypeSymbol array)
-            {
-                var substitutedElement = Substitute(array.ElementType);
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, array.ElementType))
-                    return Compilation.CreateArrayTypeSymbol(substitutedElement, array.Rank);
-
-                return symbol;
-            }
-
-            if (symbol is IPointerTypeSymbol pointer)
-            {
-                var substitutedElement = Substitute(pointer.PointedAtType);
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, pointer.PointedAtType))
-                    return Compilation.CreatePointerTypeSymbol(substitutedElement);
-
-                return symbol;
-            }
-
-            return symbol;
-        }
+        return substitution.Substitute(type);
     }
 
-    private static ITypeSymbol DetermineBuilderType(Compilation compilation, SourceMethodSymbol asyncMethod)
+    private static IMethodSymbol? FindParameterlessStaticMethod(INamedTypeSymbol type, string name)
     {
-        var returnType = asyncMethod.ReturnType;
-
-        if (asyncMethod is SynthesizedMainAsyncMethodSymbol { ReturnsInt: true } mainAsync)
+        foreach (var member in type.GetMembers(name))
         {
-            var intType = mainAsync.ContainingAssembly?.GetTypeByMetadataName("System.Int32")
-                ?? compilation.GetSpecialType(SpecialType.System_Int32);
-
-            if (intType is ITypeSymbol { TypeKind: not TypeKind.Error } awaitedType &&
-                compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
-                    is INamedTypeSymbol builderDefinition &&
-                builderDefinition.TypeKind != TypeKind.Error)
-            {
-                return builderDefinition.Construct(awaitedType);
-            }
+            if (member is IMethodSymbol { Parameters.Length: 0, IsStatic: true } method)
+                return SubstituteBuilderMethodIfNeeded(type, method);
         }
 
-        if (returnType.SpecialType == SpecialType.System_Void)
-            return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder);
-
-        if (returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
-            return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
-
-        if (returnType is INamedTypeSymbol named &&
-            named.TypeArguments.Length == 1 &&
-            named.ConstructedFrom is INamedTypeSymbol constructed &&
-            IsTaskOfT(constructed))
-        {
-            var awaitedType = named.TypeArguments[0];
-
-            if (awaitedType.TypeKind == TypeKind.Error)
-                return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
-
-            if (compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
-                is INamedTypeSymbol builderDefinition &&
-                builderDefinition.TypeKind != TypeKind.Error)
-            {
-                return builderDefinition.Construct(awaitedType);
-            }
-        }
-
-        return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
+        return null;
     }
 
-    private static bool IsTaskOfT(INamedTypeSymbol definition)
+    private static IMethodSymbol? FindInstanceMethod(INamedTypeSymbol type, string name, int parameterCount)
     {
-        if (definition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
-            return true;
+        foreach (var member in type.GetMembers(name))
+        {
+            if (member is IMethodSymbol { Parameters.Length: var length, IsStatic: false } method && length == parameterCount)
+                return SubstituteBuilderMethodIfNeeded(type, method);
+        }
 
-        return definition.MetadataName == "Task`1" &&
-            definition.ContainingNamespace is
-            {
-                Name: "Tasks",
-                ContainingNamespace:
-                {
-                    Name: "Threading",
-                    ContainingNamespace:
-                    {
-                        Name: "System",
-                        ContainingNamespace.IsGlobalNamespace: true
-                    }
-                }
-            };
+        return null;
+    }
+
+    private static IMethodSymbol? FindSetResultMethod(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers("SetResult"))
+        {
+            if (member is IMethodSymbol method)
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? FindSetExceptionMethod(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers("SetException"))
+        {
+            if (member is IMethodSymbol { Parameters.Length: 1 } method)
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? FindAwaitMethod(INamedTypeSymbol builderType, string name)
+    {
+        foreach (var member in builderType.GetMembers(name))
+        {
+            if (member is IMethodSymbol { Parameters.Length: 2 } method)
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
+        }
+
+        return null;
+    }
+
+    private static IPropertySymbol? FindTaskProperty(INamedTypeSymbol builderType)
+    {
+        foreach (var member in builderType.GetMembers())
+        {
+            if (member is IPropertySymbol { Name: "Task" } property)
+                return SubstituteBuilderPropertyIfNeeded(builderType, property);
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol? SubstituteBuilderMethodIfNeeded(INamedTypeSymbol builderType, IMethodSymbol method)
+    {
+        if (builderType is ConstructedNamedTypeSymbol constructed &&
+            method is not SubstitutedMethodSymbol &&
+            !SymbolEqualityComparer.Default.Equals(method.ContainingType, constructed))
+        {
+            return new SubstitutedMethodSymbol(method, constructed);
+        }
+
+        return method;
+    }
+
+    private static IPropertySymbol? SubstituteBuilderPropertyIfNeeded(INamedTypeSymbol builderType, IPropertySymbol property)
+    {
+        if (builderType is ConstructedNamedTypeSymbol constructed &&
+            property is not SubstitutedPropertySymbol &&
+            !SymbolEqualityComparer.Default.Equals(property.ContainingType, constructed))
+        {
+            return new SubstitutedPropertySymbol(property, constructed);
+        }
+
+        return property;
     }
 
     private SourceMethodSymbol CreateConstructor(Compilation compilation, SourceMethodSymbol asyncMethod)
@@ -468,5 +481,68 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             isStatic: false,
             methodKind: MethodKind.Ordinary,
             declaredAccessibility: Accessibility.Internal);
+    }
+
+    private sealed class TypeArgumentsEqualityComparer : IEqualityComparer<ImmutableArray<ITypeSymbol>>
+    {
+        public static readonly TypeArgumentsEqualityComparer Instance = new();
+
+        public bool Equals(ImmutableArray<ITypeSymbol> x, ImmutableArray<ITypeSymbol> y)
+        {
+            if (x.Length != y.Length)
+                return false;
+
+            for (var i = 0; i < x.Length; i++)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(x[i], y[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public int GetHashCode(ImmutableArray<ITypeSymbol> obj)
+        {
+            var hash = obj.Length;
+            for (var i = 0; i < obj.Length; i++)
+                hash = HashCode.Combine(hash, SymbolEqualityComparer.Default.GetHashCode(obj[i]));
+
+            return hash;
+        }
+    }
+
+    internal sealed class AsyncBuilderMembers
+    {
+        public AsyncBuilderMembers(
+            IMethodSymbol? createMethod,
+            IMethodSymbol? startMethod,
+            IMethodSymbol? setStateMachineMethod,
+            IMethodSymbol? setResultMethod,
+            IMethodSymbol? setExceptionMethod,
+            IMethodSymbol? awaitOnCompletedMethod,
+            IPropertySymbol? taskProperty)
+        {
+            CreateMethod = createMethod;
+            StartMethod = startMethod;
+            SetStateMachineMethod = setStateMachineMethod;
+            SetResultMethod = setResultMethod;
+            SetExceptionMethod = setExceptionMethod;
+            AwaitOnCompletedMethod = awaitOnCompletedMethod;
+            TaskProperty = taskProperty;
+        }
+
+        public IMethodSymbol? CreateMethod { get; }
+
+        public IMethodSymbol? StartMethod { get; }
+
+        public IMethodSymbol? SetStateMachineMethod { get; }
+
+        public IMethodSymbol? SetResultMethod { get; }
+
+        public IMethodSymbol? SetExceptionMethod { get; }
+
+        public IMethodSymbol? AwaitOnCompletedMethod { get; }
+
+        public IPropertySymbol? TaskProperty { get; }
     }
 }

@@ -118,7 +118,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return new ConstructedMethodSymbol(_definition, typeArguments.ToImmutableArray());
     }
 
-    private ITypeSymbol Substitute(ITypeSymbol type)
+    internal ITypeSymbol Substitute(ITypeSymbol type)
     {
         if (type is ITypeParameterSymbol tp && _substitutionMap.TryGetValue(tp, out var replacement))
             return replacement;

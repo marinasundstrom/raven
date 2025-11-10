@@ -141,7 +141,134 @@ public partial class Compilation
             if (!setup)
             {
                 Setup();
+                EnsureAsyncReturnTypes();
                 setup = true;
+            }
+        }
+    }
+
+    private bool _asyncReturnTypesEnsured;
+
+    private void EnsureAsyncReturnTypes()
+    {
+        if (_asyncReturnTypesEnsured)
+            return;
+
+        foreach (var tree in SyntaxTrees)
+        {
+            if (tree is null)
+                continue;
+
+            var semanticModel = GetSemanticModel(tree);
+            var root = tree.GetRoot();
+
+            foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(methodDeclaration) is not SourceMethodSymbol methodSymbol)
+                    continue;
+
+                EnsureAsyncReturnType(semanticModel, methodSymbol, methodDeclaration.Body, methodDeclaration.ExpressionBody);
+            }
+
+            foreach (var functionStatement in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(functionStatement) is not SourceMethodSymbol functionSymbol)
+                    continue;
+
+                EnsureAsyncReturnType(semanticModel, functionSymbol, functionStatement.Body, functionStatement.ExpressionBody);
+            }
+
+            foreach (var accessor in root.DescendantNodes().OfType<AccessorDeclarationSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(accessor) is not SourceMethodSymbol accessorSymbol)
+                    continue;
+
+                EnsureAsyncReturnType(semanticModel, accessorSymbol, accessor.Body, accessor.ExpressionBody);
+            }
+
+            if (root is CompilationUnitSyntax compilationUnit)
+                EnsureTopLevelAsyncReturnTypes(semanticModel, compilationUnit);
+        }
+
+        _asyncReturnTypesEnsured = true;
+    }
+
+    private void EnsureAsyncReturnType(
+        SemanticModel semanticModel,
+        SourceMethodSymbol methodSymbol,
+        BlockStatementSyntax? bodySyntax,
+        ArrowExpressionClauseSyntax? expressionBody)
+    {
+        if (!methodSymbol.IsAsync)
+            return;
+
+        if (!methodSymbol.RequiresAsyncReturnTypeInference || methodSymbol.AsyncReturnTypeInferenceComplete)
+            return;
+
+        TryBindAsyncBody(semanticModel, bodySyntax, expressionBody);
+    }
+
+    private void EnsureTopLevelAsyncReturnTypes(SemanticModel semanticModel, CompilationUnitSyntax compilationUnit)
+    {
+        var globalStatements = GetTopLevelGlobalStatements(compilationUnit).ToArray();
+        if (globalStatements.Length == 0)
+            return;
+
+        static TopLevelBinder? FindTopLevelBinder(Binder? binder)
+        {
+            for (var current = binder; current is not null; current = current.ParentBinder)
+            {
+                if (current is TopLevelBinder topLevel)
+                    return topLevel;
+            }
+
+            return null;
+        }
+
+        var binder = semanticModel.GetBinder(compilationUnit);
+        var topLevelBinder = FindTopLevelBinder(binder) ?? FindTopLevelBinder(semanticModel.GetBinder(globalStatements[0]));
+        if (topLevelBinder is null)
+            return;
+
+        if (topLevelBinder.MainMethod is not SourceMethodSymbol mainMethod)
+            return;
+
+        if (!mainMethod.IsAsync || mainMethod.AsyncReturnTypeInferenceComplete)
+            return;
+
+        topLevelBinder.BindGlobalStatements(globalStatements);
+    }
+
+    private void TryBindAsyncBody(
+        SemanticModel semanticModel,
+        BlockStatementSyntax? bodySyntax,
+        ArrowExpressionClauseSyntax? expressionBody)
+    {
+        if (bodySyntax is not null)
+        {
+            _ = semanticModel.GetBoundNode(bodySyntax);
+            return;
+        }
+
+        if (expressionBody is not null)
+        {
+            _ = semanticModel.GetBoundNode(expressionBody);
+        }
+    }
+
+    private static IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
+    {
+        foreach (var member in compilationUnit.Members)
+        {
+            switch (member)
+            {
+                case GlobalStatementSyntax global:
+                    yield return global;
+                    break;
+                case FileScopedNamespaceDeclarationSyntax fileScoped:
+                    foreach (var nested in fileScoped.Members.OfType<GlobalStatementSyntax>())
+                        yield return nested;
+                    break;
             }
         }
     }
@@ -1107,6 +1234,24 @@ public partial class Compilation
         }
 
         return Type.GetType(metadataName, throwOnError: false);
+    }
+
+    internal INamedTypeSymbol? TryGetTypeByMetadataNameAlreadySetup(string metadataName)
+    {
+        if (setup)
+            return GetTypeByMetadataName(metadataName);
+
+        if (Assembly is not null && Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
+            return sourceType;
+
+        foreach (var assembly in _metadataReferenceSymbols.Values)
+        {
+            var type = assembly.GetTypeByMetadataName(metadataName);
+            if (type is not null)
+                return type;
+        }
+
+        return null;
     }
 
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)

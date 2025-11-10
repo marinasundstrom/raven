@@ -308,14 +308,22 @@ class C {
             methodKind: MethodKind.Ordinary,
             isAsync: true);
 
-        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(compilation, asyncMethod, "Program+<>c__AsyncStateMachine_Test");
+        var builderDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T));
+        var builder = builderDefinition.Construct(intType);
+
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(
+            compilation,
+            asyncMethod,
+            "Program+<>c__AsyncStateMachine_Test",
+            builder);
         asyncMethod.SetAsyncStateMachine(stateMachine);
 
         var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(stateMachine.BuilderField.Type);
         Assert.True(builderType.IsGenericType);
 
-        var builderDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(builderType.ConstructedFrom);
-        Assert.Equal(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T, builderDefinition.SpecialType);
+        var builderConstructed = Assert.IsAssignableFrom<INamedTypeSymbol>(builderType.ConstructedFrom);
+        Assert.Equal(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T, builderConstructed.SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(builderType.TypeArguments)));
 
         var program = new SynthesizedProgramClassSymbol(
@@ -333,7 +341,8 @@ class C {
         var entryStateMachine = new SynthesizedAsyncStateMachineTypeSymbol(
             compilation,
             mainAsync,
-            "Program+<>c__AsyncStateMachine_EntryGuard");
+            "Program+<>c__AsyncStateMachine_EntryGuard",
+            builder);
 
         mainAsync.SetAsyncStateMachine(entryStateMachine);
 

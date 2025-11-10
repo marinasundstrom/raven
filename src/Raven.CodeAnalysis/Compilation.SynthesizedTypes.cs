@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Microsoft.CodeAnalysis;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -45,13 +47,21 @@ public partial class Compilation
     internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
         => _synthesizedDelegates.Values;
 
-    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(SourceMethodSymbol method)
+    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(SourceMethodSymbol method, ITypeSymbol builderType)
     {
+        if (builderType is null)
+            throw new ArgumentNullException(nameof(builderType));
+
         if (_synthesizedAsyncStateMachines.TryGetValue(method, out var existing))
+        {
+            if (!SymbolEqualityComparer.Default.Equals(existing.BuilderType, builderType))
+                throw new InvalidOperationException("Async builder type mismatch for synthesized state machine.");
+
             return existing;
+        }
 
         var name = $"<>c__AsyncStateMachine{_synthesizedAsyncStateMachineOrdinal++}";
-        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(this, method, name);
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(this, method, name, builderType);
         _synthesizedAsyncStateMachines[method] = stateMachine;
         return stateMachine;
     }

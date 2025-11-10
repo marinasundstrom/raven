@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-09_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-12_
 
 ## Objective
 
@@ -26,7 +26,48 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-12 | 🟢 On track | Broke the async-main metadata recursion with `TryGetTypeByMetadataNameAlreadySetup`, added a runtime regression that invokes `Program.MainAsync`, and confirmed the awaited value flows through the state machine; full suite still gated on the TerminalLogger issue. |
+| 2025-11-11 | 🟡 At risk | Cached async builder member discovery on the synthesized state machine and rewired lowering/tests to reuse the substituted methods and properties; still blocked on runtime validation while the TerminalLogger crash is outstanding. |
+| 2025-11-10 | 🟡 At risk | Removed bespoke async state-machine type-parameter substitution in favour of the constructed method template so generics reuse the common substitution pipeline; awaiting runtime coverage while TerminalLogger crash persists. |
 | 2025-11-09 | 🟡 At risk | Iterator baseline has been updated: the cached iterator `MoveNext` now stores its result in local slot `0` and records the nested state-machine type name (`C+<>c__Iterator0`). Completion tests unrelated to async continue to fail under the TerminalLogger, so runtime validation remains pending. |
+
+## Async lowering findings
+
+Recent spelunking through `AsyncLowerer` and the synthesized state-machine symbols surfaced a few blockers that explain why generic async members still fail and highlighted some opportunities to simplify the implementation:
+
+* **Lowering mutates the source method.** `RewriteMethodBody` patches the original method's return type so it lines up with whatever builder type we managed to synthesize.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L112-L137】 That mutation couples lowering to symbol construction and makes it harder to reason about generic instantiations. A cleaner approach is to hand the lowerer a fully inferred return type (or a constructed method symbol) and treat the builder choice as an input instead of rewriting the method symbol on the fly.
+* **State machine locals stay open generic.** The synthesized local that stores the state-machine instance is declared with the unconstructed `SynthesizedAsyncStateMachineTypeSymbol`, and every parameter assignment feeds method type-parameters directly into fields that already substituted them with synthesized equivalents.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L142-L175】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L142-L183】 Because the left- and right-hand sides use different symbols for the same `T`, the assignment is ill-typed once generics come into play. Constructing the state machine once (e.g. `stateMachine.Construct(method.TypeParameters)`) and threading that constructed type through the rewritten body would let both sides agree without bespoke conversions.
+* **Type-parameter substitution is reimplemented from scratch.** `SynthesizedAsyncStateMachineTypeSymbol` used to clone every method type parameter, rebuild constraint lists, and then walk all type shapes to swap them out via `SubstituteAsyncMethodTypeParameters`. The bespoke substitution made the file hard to follow and still left the lowerer juggling mismatched symbols. By materialising a constructed view of the method up front, we now reuse the existing substitution pipeline and delete the hand-written walker.
+* **Builder plumbing is spread across ad-hoc helpers.** Discovering `Create`, `Start`, `SetStateMachine`, `SetResult`, and `SetException` involves scanning the builder type each time and then retrofitting substitutions manually.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1708-L1851】 Hoisting that logic into the synthesized state-machine (e.g. cache the resolved builder members per constructed type) would shrink the lowerer and make it obvious how to specialise builder invocations for generics—the call sites could simply ask the state machine for the already-substituted symbols.
+
+Together these changes would let us lower against a constructed, type-safe state machine without mutating the original method symbol, clearing the path for generic async functions.
+
+## Step-by-step plan
+
+1. **Separate builder selection from method symbols.**
+   * Extend the async planning stage to compute the final return type and builder upfront, so `AsyncLowerer` receives a constructed method symbol that no longer needs mutation.
+   * Thread the chosen builder through the lowering pipeline as data instead of patching it onto the source method.
+   * Add assertions that the lowerer never rewrites `MethodSymbol.ReturnType` so regressions trip quickly.
+
+2. **Construct the state machine once per instantiation.**
+   * Introduce a helper that takes the synthesized state-machine definition plus the method's type arguments and returns a `ConstructedNamedTypeSymbol`.
+   * Replace all state-machine local declarations and field accesses with the constructed type to keep the left/right sides of assignments aligned for generics.
+   * Cover the change with a targeted lowering unit test that verifies the locals and fields agree on the substituted type parameters.
+
+3. **Delete bespoke type-parameter substitution.** _(Status: ✅ Completed – state machines reuse `ConstructedMethodSymbol` for substitution)_
+   * Remove `SubstituteAsyncMethodTypeParameters` and rely on the constructed state-machine view to provide the right substitutions.
+   * Simplify constraint replication by delegating to the existing substitution utilities used elsewhere in the compiler.
+   * Add a regression test that checks generic constraints survive the lowering round-trip without duplicating custom maps.
+
+4. **Centralise builder member discovery.** _(Status: ✅ Completed – async builder members are cached on the state machine and reused by lowering/tests)_
+   * Move the ad-hoc `Create`/`Start`/`SetStateMachine` lookup into a cache on the synthesized state-machine (keyed by constructed builder type).
+   * Rewrite the lowering call sites to request the prepared members instead of performing local reflection-based scans.
+   * Add validation that each async builder interaction uses a cached, fully substituted `MethodSymbol` to prevent future drift.
+
+5. **Lock down the end-to-end scenario.** _(Status: ✅ Completed – runtime regression drives `Program.MainAsync` and exercises the awaited flow; IL capture remains a follow-up)_
+   * ✅ Promote `samples/test8.rav` to an automated regression that exercises a generic async entry point end to end (`TopLevelAsyncProgramTests.TopLevelGenericAsyncProgram_AwaitsValue`).
+   * ✅ Extend the runtime harness to capture awaited console output so we can confirm the awaited result flows through the constructed state machine.
+   * ✅ Track remaining runtime or emission bugs surfaced by the regression in the risk log (TerminalLogger crash still noted under risks).
 
 ## Guiding principles
 
@@ -60,9 +101,9 @@ WriteLine(x)
 
 | Task | Status | Owner | Notes |
 | --- | --- | --- | --- |
-| Promote `samples/test8.rav` into the regression suite with async investigation flags enabled. | ☐ Not started | TBD | Ensure automation compiles & executes the script. |
-| Execute the emitted assembly in the runtime harness and assert it prints `42` with no exceptions. | ☐ Not started | TBD | Capture logs for post-run validation. |
-| Capture emitted IL (and pointer traces if useful) as golden files for diff-based regression coverage. | ☐ Not started | TBD | Store artifacts alongside other async regression assets. |
+| Promote `samples/test8.rav` into the regression suite with async investigation flags enabled. | ✅ Completed | Compiler team | `TopLevelAsyncProgramTests.TopLevelGenericAsyncProgram_AwaitsValue` compiles the sample and runs it via reflection. |
+| Execute the emitted assembly in the runtime harness and assert it prints `42` with no exceptions. | ✅ Completed | Compiler team | The regression awaits `Program.MainAsync` and validates the captured console output. |
+| Capture emitted IL (and pointer traces if useful) as golden files for diff-based regression coverage. | ☐ Not started | TBD | Keep on backlog; console output currently covers the awaited flow. |
 
 ### WS4 – Restore iterator IL stability after cache changes
 
