@@ -157,48 +157,59 @@ public partial class Compilation
 
     private bool _asyncReturnTypesEnsured;
 
+    private bool _ensuringAsyncReturnTypes;
+
     private void EnsureAsyncReturnTypes()
     {
-        if (_asyncReturnTypesEnsured)
+        if (_asyncReturnTypesEnsured || _ensuringAsyncReturnTypes)
             return;
 
-        foreach (var tree in SyntaxTrees)
+        try
         {
-            if (tree is null)
-                continue;
+            _ensuringAsyncReturnTypes = true;
 
-            var semanticModel = GetSemanticModel(tree);
-            var root = tree.GetRoot();
-
-            foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            foreach (var tree in SyntaxTrees)
             {
-                if (semanticModel.GetDeclaredSymbol(methodDeclaration) is not SourceMethodSymbol methodSymbol)
+                if (tree is null)
                     continue;
 
-                EnsureAsyncReturnType(semanticModel, methodSymbol, methodDeclaration.Body, methodDeclaration.ExpressionBody);
+                var semanticModel = GetSemanticModel(tree);
+                var root = tree.GetRoot();
+
+                foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+                {
+                    if (semanticModel.GetDeclaredSymbol(methodDeclaration) is not SourceMethodSymbol methodSymbol)
+                        continue;
+
+                    EnsureAsyncReturnType(semanticModel, methodSymbol, methodDeclaration.Body, methodDeclaration.ExpressionBody);
+                }
+
+                foreach (var functionStatement in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+                {
+                    if (semanticModel.GetDeclaredSymbol(functionStatement) is not SourceMethodSymbol functionSymbol)
+                        continue;
+
+                    EnsureAsyncReturnType(semanticModel, functionSymbol, functionStatement.Body, functionStatement.ExpressionBody);
+                }
+
+                foreach (var accessor in root.DescendantNodes().OfType<AccessorDeclarationSyntax>())
+                {
+                    if (semanticModel.GetDeclaredSymbol(accessor) is not SourceMethodSymbol accessorSymbol)
+                        continue;
+
+                    EnsureAsyncReturnType(semanticModel, accessorSymbol, accessor.Body, accessor.ExpressionBody);
+                }
+
+                if (root is CompilationUnitSyntax compilationUnit)
+                    EnsureTopLevelAsyncReturnTypes(semanticModel, compilationUnit);
             }
 
-            foreach (var functionStatement in root.DescendantNodes().OfType<FunctionStatementSyntax>())
-            {
-                if (semanticModel.GetDeclaredSymbol(functionStatement) is not SourceMethodSymbol functionSymbol)
-                    continue;
-
-                EnsureAsyncReturnType(semanticModel, functionSymbol, functionStatement.Body, functionStatement.ExpressionBody);
-            }
-
-            foreach (var accessor in root.DescendantNodes().OfType<AccessorDeclarationSyntax>())
-            {
-                if (semanticModel.GetDeclaredSymbol(accessor) is not SourceMethodSymbol accessorSymbol)
-                    continue;
-
-                EnsureAsyncReturnType(semanticModel, accessorSymbol, accessor.Body, accessor.ExpressionBody);
-            }
-
-            if (root is CompilationUnitSyntax compilationUnit)
-                EnsureTopLevelAsyncReturnTypes(semanticModel, compilationUnit);
+            _asyncReturnTypesEnsured = true;
         }
-
-        _asyncReturnTypesEnsured = true;
+        finally
+        {
+            _ensuringAsyncReturnTypes = false;
+        }
     }
 
     private void EnsureAsyncReturnType(
