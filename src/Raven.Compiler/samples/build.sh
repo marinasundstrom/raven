@@ -8,6 +8,10 @@ shopt -s nullglob
 OUTPUT_DIR="output"
 mkdir -p "$OUTPUT_DIR"
 
+DOTNET_VERSION="net9.0"
+BUILD_CONFIG="Debug"
+COMPILER_EXC="ravc"
+
 # List of sample files (filenames only) to exclude
 EXCLUDE=(
   "test.rav"
@@ -33,6 +37,9 @@ if (( ${#rav_files[@]} == 0 )); then
   exit 0
 fi
 
+# Make sure the compiler has been built
+dotnet build -c $BUILD_CONFIG
+
 failures=()
 successes=()
 
@@ -48,7 +55,8 @@ for file in "${rav_files[@]}"; do
   output="$OUTPUT_DIR/$base.dll"
 
   echo "Compiling: $file -> $output"
-  if ! dotnet run -- "$file" -o "$output"; then
+  
+  if ! "./bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC" -- "$file" -o "$output"; then
     rc=$?
     echo "❌ Compile failed ($rc): $filename"
     failures+=("$filename (exit $rc)")
@@ -60,7 +68,7 @@ for file in "${rav_files[@]}"; do
 done
 
 # Copy dependency (this should not stop script if missing)
-cp ../TestDep/bin/Debug/net9.0/TestDep.dll "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
+cp ../TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
   echo "Warning: Could not copy TestDep.dll"
 
 echo "===== Compile Summary ====="
