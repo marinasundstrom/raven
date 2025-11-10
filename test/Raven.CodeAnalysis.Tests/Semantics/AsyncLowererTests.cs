@@ -1089,27 +1089,29 @@ class C {
         var constructed = stateMachine.GetConstructedMembers(methodSymbol);
 
         var methodTypeParameter = Assert.Single(methodSymbol.TypeParameters);
+        var stateMachineTypeParameter = Assert.Single(stateMachine.TypeParameters);
 
         var constructedType = constructed.StateMachineType;
-        Assert.Equal(stateMachine.Name, constructedType.Name);
-        Assert.Equal(1, constructedType.Arity);
-        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, constructedType.TypeArguments[0]));
+        Assert.Same(stateMachine, constructedType);
 
         var builderField = constructed.BuilderField;
+        Assert.Same(stateMachine.BuilderField, builderField);
         Assert.Same(builderField, constructed.BuilderMembers.BuilderField);
 
         var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(builderField.Type);
-        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, builderType.TypeArguments[0]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(stateMachineTypeParameter, builderType.TypeArguments[0]));
+        Assert.False(SymbolEqualityComparer.Default.Equals(methodTypeParameter, builderType.TypeArguments[0]));
 
         var parameter = Assert.Single(methodSymbol.Parameters);
         Assert.True(constructed.ParameterFields.TryGetValue(parameter, out var parameterField));
         Assert.NotNull(parameterField);
 
-        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, parameterField!.Type));
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, parameterField.ContainingType));
+        Assert.Same(stateMachine.ParameterFieldMap[parameter], parameterField);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stateMachineTypeParameter, parameterField!.Type));
+        Assert.False(SymbolEqualityComparer.Default.Equals(methodTypeParameter, parameterField.Type));
 
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, constructed.Constructor.ContainingType));
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, constructed.MoveNext.ContainingType));
+        Assert.Same(stateMachine.Constructor, constructed.Constructor);
+        Assert.Same(stateMachine.MoveNextMethod, constructed.MoveNext);
     }
 
     private static IReadOnlyList<BoundAwaitExpression> CollectAwaitExpressions(BoundNode node)

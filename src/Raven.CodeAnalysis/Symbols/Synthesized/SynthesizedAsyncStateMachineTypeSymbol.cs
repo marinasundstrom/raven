@@ -152,7 +152,27 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         if (typeArguments.Length != TypeParameters.Length)
             return this;
 
+        if (!RequiresConstruction(typeArguments, method))
+            return this;
+
         return _constructedFromAsyncMethod ??= new ConstructedNamedTypeSymbol(this, typeArguments);
+    }
+
+    private static bool RequiresConstruction(ImmutableArray<ITypeSymbol> typeArguments, SourceMethodSymbol method)
+    {
+        foreach (var argument in typeArguments)
+        {
+            if (argument is ITypeParameterSymbol typeParameter)
+            {
+                var containingSymbol = typeParameter.ContainingSymbol as IMethodSymbol;
+                if (containingSymbol is not null && ReferenceEquals(containingSymbol, method))
+                    continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false)
