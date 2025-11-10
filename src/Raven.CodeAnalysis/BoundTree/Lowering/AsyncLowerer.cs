@@ -416,17 +416,6 @@ internal static class AsyncLowerer
         return null;
     }
 
-    private static IMethodSymbol? FindSetResultMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("SetResult"))
-        {
-            if (member is IMethodSymbol method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
     private static LabelSymbol CreateLabel(SynthesizedAsyncStateMachineTypeSymbol stateMachine, string name)
     {
         return new LabelSymbol(
@@ -958,192 +947,192 @@ internal static class AsyncLowerer
                     return (BoundExpression?)VisitAwaitExpression(awaitExpression);
 
                 case BoundBinaryExpression binaryExpression:
-                {
-                    var left = VisitExpression(binaryExpression.Left) ?? binaryExpression.Left;
-                    var right = VisitExpression(binaryExpression.Right) ?? binaryExpression.Right;
+                    {
+                        var left = VisitExpression(binaryExpression.Left) ?? binaryExpression.Left;
+                        var right = VisitExpression(binaryExpression.Right) ?? binaryExpression.Right;
 
-                    if (!ReferenceEquals(left, binaryExpression.Left) || !ReferenceEquals(right, binaryExpression.Right))
-                        return new BoundBinaryExpression(left, binaryExpression.Operator, right);
+                        if (!ReferenceEquals(left, binaryExpression.Left) || !ReferenceEquals(right, binaryExpression.Right))
+                            return new BoundBinaryExpression(left, binaryExpression.Operator, right);
 
-                    return binaryExpression;
-                }
+                        return binaryExpression;
+                    }
 
                 case BoundUnaryExpression unaryExpression:
-                {
-                    var operand = VisitExpression(unaryExpression.Operand) ?? unaryExpression.Operand;
-                    if (!ReferenceEquals(operand, unaryExpression.Operand))
-                        return new BoundUnaryExpression(unaryExpression.Operator, operand);
+                    {
+                        var operand = VisitExpression(unaryExpression.Operand) ?? unaryExpression.Operand;
+                        if (!ReferenceEquals(operand, unaryExpression.Operand))
+                            return new BoundUnaryExpression(unaryExpression.Operator, operand);
 
-                    return unaryExpression;
-                }
+                        return unaryExpression;
+                    }
 
                 case BoundInvocationExpression invocationExpression:
-                {
-                    var receiver = VisitExpression(invocationExpression.Receiver) ?? invocationExpression.Receiver;
-                    var extensionReceiver = invocationExpression.ExtensionReceiver is null
-                        ? null
-                        : VisitExpression(invocationExpression.ExtensionReceiver) ?? invocationExpression.ExtensionReceiver;
-
-                    var originalArguments = invocationExpression.Arguments.ToArray();
-                    var rewrittenArguments = new BoundExpression[originalArguments.Length];
-                    var changed = !ReferenceEquals(receiver, invocationExpression.Receiver) ||
-                        !ReferenceEquals(extensionReceiver, invocationExpression.ExtensionReceiver);
-
-                    for (var i = 0; i < originalArguments.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
-                        rewrittenArguments[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalArguments[i]))
-                            changed = true;
+                        var receiver = VisitExpression(invocationExpression.Receiver) ?? invocationExpression.Receiver;
+                        var extensionReceiver = invocationExpression.ExtensionReceiver is null
+                            ? null
+                            : VisitExpression(invocationExpression.ExtensionReceiver) ?? invocationExpression.ExtensionReceiver;
+
+                        var originalArguments = invocationExpression.Arguments.ToArray();
+                        var rewrittenArguments = new BoundExpression[originalArguments.Length];
+                        var changed = !ReferenceEquals(receiver, invocationExpression.Receiver) ||
+                            !ReferenceEquals(extensionReceiver, invocationExpression.ExtensionReceiver);
+
+                        for (var i = 0; i < originalArguments.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
+                            rewrittenArguments[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalArguments[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundInvocationExpression(
+                                invocationExpression.Method,
+                                rewrittenArguments,
+                                receiver,
+                                extensionReceiver,
+                                invocationExpression.RequiresReceiverAddress);
+
+                        return invocationExpression;
                     }
-
-                    if (changed)
-                        return new BoundInvocationExpression(
-                            invocationExpression.Method,
-                            rewrittenArguments,
-                            receiver,
-                            extensionReceiver,
-                            invocationExpression.RequiresReceiverAddress);
-
-                    return invocationExpression;
-                }
 
                 case BoundObjectCreationExpression objectCreationExpression:
-                {
-                    var receiver = VisitExpression(objectCreationExpression.Receiver) ?? objectCreationExpression.Receiver;
-                    var originalArguments = objectCreationExpression.Arguments.ToArray();
-                    var rewrittenArguments = new BoundExpression[originalArguments.Length];
-                    var changed = !ReferenceEquals(receiver, objectCreationExpression.Receiver);
-
-                    for (var i = 0; i < originalArguments.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
-                        rewrittenArguments[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalArguments[i]))
-                            changed = true;
+                        var receiver = VisitExpression(objectCreationExpression.Receiver) ?? objectCreationExpression.Receiver;
+                        var originalArguments = objectCreationExpression.Arguments.ToArray();
+                        var rewrittenArguments = new BoundExpression[originalArguments.Length];
+                        var changed = !ReferenceEquals(receiver, objectCreationExpression.Receiver);
+
+                        for (var i = 0; i < originalArguments.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
+                            rewrittenArguments[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalArguments[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundObjectCreationExpression(objectCreationExpression.Constructor, rewrittenArguments, receiver);
+
+                        return objectCreationExpression;
                     }
-
-                    if (changed)
-                        return new BoundObjectCreationExpression(objectCreationExpression.Constructor, rewrittenArguments, receiver);
-
-                    return objectCreationExpression;
-                }
 
                 case BoundCastExpression castExpression:
-                {
-                    var operand = VisitExpression(castExpression.Expression) ?? castExpression.Expression;
-                    if (!ReferenceEquals(operand, castExpression.Expression))
-                        return new BoundCastExpression(operand, castExpression.Type, castExpression.Conversion);
+                    {
+                        var operand = VisitExpression(castExpression.Expression) ?? castExpression.Expression;
+                        if (!ReferenceEquals(operand, castExpression.Expression))
+                            return new BoundCastExpression(operand, castExpression.Type, castExpression.Conversion);
 
-                    return castExpression;
-                }
+                        return castExpression;
+                    }
 
                 case BoundAsExpression asExpression:
-                {
-                    var operand = VisitExpression(asExpression.Expression) ?? asExpression.Expression;
-                    if (!ReferenceEquals(operand, asExpression.Expression))
-                        return new BoundAsExpression(operand, asExpression.Type, asExpression.Conversion);
+                    {
+                        var operand = VisitExpression(asExpression.Expression) ?? asExpression.Expression;
+                        if (!ReferenceEquals(operand, asExpression.Expression))
+                            return new BoundAsExpression(operand, asExpression.Type, asExpression.Conversion);
 
-                    return asExpression;
-                }
+                        return asExpression;
+                    }
 
                 case BoundParenthesizedExpression parenthesizedExpression:
-                {
-                    var inner = VisitExpression(parenthesizedExpression.Expression) ?? parenthesizedExpression.Expression;
-                    if (!ReferenceEquals(inner, parenthesizedExpression.Expression))
-                        return new BoundParenthesizedExpression(inner);
+                    {
+                        var inner = VisitExpression(parenthesizedExpression.Expression) ?? parenthesizedExpression.Expression;
+                        if (!ReferenceEquals(inner, parenthesizedExpression.Expression))
+                            return new BoundParenthesizedExpression(inner);
 
-                    return parenthesizedExpression;
-                }
+                        return parenthesizedExpression;
+                    }
 
                 case BoundConditionalAccessExpression conditionalAccessExpression:
-                {
-                    var receiver = VisitExpression(conditionalAccessExpression.Receiver) ?? conditionalAccessExpression.Receiver;
-                    var whenNotNull = VisitExpression(conditionalAccessExpression.WhenNotNull) ?? conditionalAccessExpression.WhenNotNull;
-
-                    if (!ReferenceEquals(receiver, conditionalAccessExpression.Receiver) ||
-                        !ReferenceEquals(whenNotNull, conditionalAccessExpression.WhenNotNull))
                     {
-                        return new BoundConditionalAccessExpression(receiver, whenNotNull, conditionalAccessExpression.Type);
-                    }
+                        var receiver = VisitExpression(conditionalAccessExpression.Receiver) ?? conditionalAccessExpression.Receiver;
+                        var whenNotNull = VisitExpression(conditionalAccessExpression.WhenNotNull) ?? conditionalAccessExpression.WhenNotNull;
 
-                    return conditionalAccessExpression;
-                }
+                        if (!ReferenceEquals(receiver, conditionalAccessExpression.Receiver) ||
+                            !ReferenceEquals(whenNotNull, conditionalAccessExpression.WhenNotNull))
+                        {
+                            return new BoundConditionalAccessExpression(receiver, whenNotNull, conditionalAccessExpression.Type);
+                        }
+
+                        return conditionalAccessExpression;
+                    }
 
                 case BoundIfExpression ifExpression:
-                {
-                    var condition = VisitExpression(ifExpression.Condition) ?? ifExpression.Condition;
-                    var thenBranch = VisitExpression(ifExpression.ThenBranch) ?? ifExpression.ThenBranch;
-                    var elseBranch = VisitExpression(ifExpression.ElseBranch) ?? ifExpression.ElseBranch;
-
-                    if (!ReferenceEquals(condition, ifExpression.Condition) ||
-                        !ReferenceEquals(thenBranch, ifExpression.ThenBranch) ||
-                        !ReferenceEquals(elseBranch, ifExpression.ElseBranch))
                     {
-                        return new BoundIfExpression(condition, thenBranch, elseBranch);
-                    }
+                        var condition = VisitExpression(ifExpression.Condition) ?? ifExpression.Condition;
+                        var thenBranch = VisitExpression(ifExpression.ThenBranch) ?? ifExpression.ThenBranch;
+                        var elseBranch = VisitExpression(ifExpression.ElseBranch) ?? ifExpression.ElseBranch;
 
-                    return ifExpression;
-                }
+                        if (!ReferenceEquals(condition, ifExpression.Condition) ||
+                            !ReferenceEquals(thenBranch, ifExpression.ThenBranch) ||
+                            !ReferenceEquals(elseBranch, ifExpression.ElseBranch))
+                        {
+                            return new BoundIfExpression(condition, thenBranch, elseBranch);
+                        }
+
+                        return ifExpression;
+                    }
 
                 case BoundTupleExpression tupleExpression:
-                {
-                    var originalElements = tupleExpression.Elements.ToArray();
-                    var rewrittenElements = new BoundExpression[originalElements.Length];
-                    var changed = false;
-
-                    for (var i = 0; i < originalElements.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
-                        rewrittenElements[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalElements[i]))
-                            changed = true;
+                        var originalElements = tupleExpression.Elements.ToArray();
+                        var rewrittenElements = new BoundExpression[originalElements.Length];
+                        var changed = false;
+
+                        for (var i = 0; i < originalElements.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
+                            rewrittenElements[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalElements[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundTupleExpression(rewrittenElements, tupleExpression.Type);
+
+                        return tupleExpression;
                     }
-
-                    if (changed)
-                        return new BoundTupleExpression(rewrittenElements, tupleExpression.Type);
-
-                    return tupleExpression;
-                }
 
                 case BoundCollectionExpression collectionExpression:
-                {
-                    var originalElements = collectionExpression.Elements.ToArray();
-                    var rewrittenElements = new BoundExpression[originalElements.Length];
-                    var changed = false;
-
-                    for (var i = 0; i < originalElements.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
-                        rewrittenElements[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalElements[i]))
-                            changed = true;
+                        var originalElements = collectionExpression.Elements.ToArray();
+                        var rewrittenElements = new BoundExpression[originalElements.Length];
+                        var changed = false;
+
+                        for (var i = 0; i < originalElements.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
+                            rewrittenElements[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalElements[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundCollectionExpression(collectionExpression.Type!, rewrittenElements, collectionExpression.CollectionSymbol, collectionExpression.Reason);
+
+                        return collectionExpression;
                     }
-
-                    if (changed)
-                        return new BoundCollectionExpression(collectionExpression.Type!, rewrittenElements, collectionExpression.CollectionSymbol, collectionExpression.Reason);
-
-                    return collectionExpression;
-                }
 
                 case BoundBlockExpression blockExpression:
-                {
-                    var statements = new List<BoundStatement>();
-                    var changed = false;
-
-                    foreach (var statement in blockExpression.Statements)
                     {
-                        var rewritten = VisitStatement(statement);
-                        statements.Add(rewritten);
-                        if (!ReferenceEquals(rewritten, statement))
-                            changed = true;
+                        var statements = new List<BoundStatement>();
+                        var changed = false;
+
+                        foreach (var statement in blockExpression.Statements)
+                        {
+                            var rewritten = VisitStatement(statement);
+                            statements.Add(rewritten);
+                            if (!ReferenceEquals(rewritten, statement))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundBlockExpression(statements, blockExpression.UnitType, blockExpression.LocalsToDispose);
+
+                        return blockExpression;
                     }
-
-                    if (changed)
-                        return new BoundBlockExpression(statements, blockExpression.UnitType, blockExpression.LocalsToDispose);
-
-                    return blockExpression;
-                }
             }
 
             return base.VisitExpression(node);
