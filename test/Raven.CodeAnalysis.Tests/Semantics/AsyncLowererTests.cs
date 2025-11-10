@@ -1057,6 +1057,61 @@ class C {
         Assert.Same(hoistedDisposable, Assert.IsAssignableFrom<IFieldSymbol>(catchReceiver.Member));
     }
 
+    [Fact]
+    public void GetConstructedMembers_GenericAsyncMethod_SubstitutesStateMachineMembers()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    static async Compute<T>(value: T) -> Task<T> {
+        await Task.FromResult(value)
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Compute");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        var constructed = stateMachine.GetConstructedMembers(methodSymbol);
+
+        var methodTypeParameter = Assert.Single(methodSymbol.TypeParameters);
+
+        var constructedType = constructed.StateMachineType;
+        Assert.Equal(stateMachine.Name, constructedType.Name);
+        Assert.Equal(1, constructedType.Arity);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, constructedType.TypeArguments[0]));
+
+        var builderField = constructed.BuilderField;
+        Assert.Same(builderField, constructed.BuilderMembers.BuilderField);
+
+        var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(builderField.Type);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, builderType.TypeArguments[0]));
+
+        var parameter = Assert.Single(methodSymbol.Parameters);
+        Assert.True(constructed.ParameterFields.TryGetValue(parameter, out var parameterField));
+        Assert.NotNull(parameterField);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, parameterField!.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, parameterField.ContainingType));
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, constructed.Constructor.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, constructed.MoveNext.ContainingType));
+    }
+
     private static IReadOnlyList<BoundAwaitExpression> CollectAwaitExpressions(BoundNode node)
     {
         var collector = new AwaitCollector();
