@@ -1526,6 +1526,39 @@ class C {
     }
 
     [Fact]
+    public void MoveNext_GenericBuilderCalls_UseStructTypeParameters()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericTaskEntryPointCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+            stateMachine.AsyncMethod.Name == "Test");
+
+        var builderCalls = instructions
+            .Select(instruction => instruction.Operand.Value as MethodInfo)
+            .Where(method => method is not null && method.DeclaringType is not null)
+            .Where(method => method!.DeclaringType!.IsGenericType &&
+                method.DeclaringType.Name.Contains("AsyncTaskMethodBuilder", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(builderCalls);
+
+        foreach (var method in builderCalls)
+        {
+            var declaringType = method!.DeclaringType!;
+            var typeArguments = declaringType.GetGenericArguments();
+            Assert.NotEmpty(typeArguments);
+
+            foreach (var argument in typeArguments)
+            {
+                if (!argument.IsGenericParameter)
+                    continue;
+
+                Assert.Null(argument.DeclaringMethod);
+            }
+        }
+    }
+
+    [Fact]
     public void MoveNext_StampsTerminalStateBeforeCompletion()
     {
         var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>

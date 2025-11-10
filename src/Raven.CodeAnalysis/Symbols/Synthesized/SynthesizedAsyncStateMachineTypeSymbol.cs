@@ -75,6 +75,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     public ImmutableArray<SourceFieldSymbol> ParameterFields { get; }
 
     public ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> ParameterFieldMap => _parameterFieldMap;
+    internal ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> AsyncMethodTypeParameterMap => _typeParameterMap;
 
     public ImmutableArray<SourceFieldSymbol> HoistedLocals => _hoistedLocals;
 

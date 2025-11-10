@@ -26,7 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
-| 2025-11-11 | 🔴 Blocked | `test.dll` still fails with `BadImageFormatException` when invoking `Program.Test<T>` even after switching the async state-machine instantiation to reuse the cloned type parameters; metadata now shows the hoisted builder field as `AsyncTaskMethodBuilder<!0>`, so the remaining verifier crash likely comes from the method body using `!!0` somewhere else.【025e9d†L1-L7】【1f8da4†L1-L16】 |
+| 2025-11-11 | 🟡 At risk | Patched the emitter to map the async method's type parameters onto the synthesized state machine's generic parameter builders, so builder calls now instantiate over `!0`; a new IL regression proves the `MoveNext` builder invocations all see type-level generics, but the runtime fix still needs end-to-end validation.【025e9d†L1-L7】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L115-L139】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1495-L1520】 |
 | 2025-11-10 | 🔴 Blocked | CLI run still throws `BadImageFormatException` while JIT-compiling `Program.Test<T>` because the emitted state-machine `TypeSpec` injects the method's `T` via `ELEMENT_TYPE_VAR` rather than `ELEMENT_TYPE_MVAR`, so the verifier can't materialise the constructed type.【155a99†L1-L8】【d19e55†L6-L18】【eb2897†L1-L20】 |
 | 2025-11-09 | 🟡 At risk | Iterator baseline has been updated: the cached iterator `MoveNext` now stores its result in local slot `0` and records the nested state-machine type name (`C+<>c__Iterator0`). Completion tests unrelated to async continue to fail under the TerminalLogger, so runtime validation remains pending. |
 
@@ -41,18 +41,17 @@ WriteLine(x)
   builder field materialising as `AsyncTaskMethodBuilder<!0>`, confirming the
   new `ConstructedStateMachine` guard keeps method type parameters from leaking
   into the TypeSpec.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L140-L167】【1f8da4†L1-L16】
-* **Verifier failure likely comes from other substitutions.** Because the
-  builder field and hoisted parameter now bind to the struct's own `!0`, the
-  lingering `BadImageFormatException` probably originates from method body
-  instructions (e.g. `Unsafe.As` call sites) still encoding the method `!!0`.
-  We need to disassemble `MoveNext` to identify which member references still
-  carry method-generic markers.【025e9d†L1-L7】
+* **Builder calls now encode state-machine generics.** Updating the
+  Reflection.Emit lookup to reuse the state machine's generic parameter builders
+  for the original async method type parameters means the `AwaitUnsafeOnCompleted`
+  and `SetResult` sites now materialise as `AsyncTaskMethodBuilder<!0>` instead
+  of the verifier-breaking `!!0`; the new IL regression locks the behaviour
+  down.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L115-L139】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1495-L1520】
 
 ### Next steps
 
-* Audit the `MoveNext` body for any calls (`AwaitUnsafeOnCompleted`, `SetResult`,
-  etc.) that still encode method-generic parameters (`!!0`) inside their
-  `MethodSpec` blobs; patch those substitutions to use the struct's `!0`.
+* Re-run the CLI sample (and `ilverify`) to confirm the `AsyncTaskMethodBuilder<!0>`
+  substitutions unblock the runtime and eliminate the `BadImageFormatException`.
 * After correcting the remaining substitutions, re-run both the CLI sample and
   `ilverify` to confirm the assembly loads and the verifier no longer crashes;
   promote a regression to guard the fixed encoding going forward.
