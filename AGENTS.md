@@ -16,7 +16,7 @@
 
 # Build and test
 dotnet build --property WarningLevel=0
-dotnet test test/Raven.CodeAnalysis.Tests
+dotnet test test/Raven.CodeAnalysis.Tests --property WarningLevel=0
 ```
 
 If documentation-only changes don’t need verification, you may skip build/test. Use `dotnet build --property WarningLevel=0` when warnings hide errors.
