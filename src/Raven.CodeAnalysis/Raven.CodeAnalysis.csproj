@@ -21,14 +21,6 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
   </ItemGroup>
 
-  <Target Name="RunNodeGenerator"
-    BeforeTargets="CoreCompile"
-    Inputs="Syntax/Model.xml;Syntax/Tokens.xml;Syntax/NodeKinds.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
-    Outputs="Syntax/generated/.stamp">
-    <Exec Command="dotnet run --project ../../../tools/NodeGenerator"
-      WorkingDirectory="Syntax" />
-  </Target>
-
   <ItemGroup>
     <BoundNodeGeneratorInput Include="BoundTree\**\*.cs" Exclude="BoundTree\Generated\**\*.*" />
     <BoundNodeGeneratorInput Include="Symbols\**\*.cs" Exclude="Symbols\Generated\**\*.*" />
@@ -36,18 +28,38 @@
     <BoundNodeGeneratorInput Include="..\..\tools\BoundNodeGenerator\BoundNodeGenerator.csproj" />
   </ItemGroup>
 
-  <Target Name="RunBoundNodeGenerator"
+  <!-- Single hook into CoreCompile; order is deterministic via DependsOnTargets -->
+  <Target Name="GenerateSources"
     BeforeTargets="CoreCompile"
+    DependsOnTargets="RunNodeGenerator;RunBoundNodeGenerator;RunDiagnosticsGenerator"
+    Condition="'$(DesignTimeBuild)' != 'true'" />
+
+  <Target Name="RunNodeGenerator"
+    Inputs="Syntax/Model.xml;Syntax/Tokens.xml;Syntax/NodeKinds.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
+    Outputs="Syntax/generated/.stamp"
+    Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="Syntax/generated" />
+    <!-- WorkingDirectory is Syntax, so the project path is relative to that folder -->
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator"
+      WorkingDirectory="Syntax" />
+    <Touch Files="Syntax/generated/.stamp" AlwaysCreate="true" />
+  </Target>
+
+  <Target Name="RunBoundNodeGenerator"
     Inputs="@(BoundNodeGeneratorInput)"
-    Outputs="BoundTree/Generated/.stamp">
+    Outputs="BoundTree/Generated/.stamp"
+    Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="BoundTree/Generated" />
     <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator" />
+    <Touch Files="BoundTree/Generated/.stamp" AlwaysCreate="true" />
   </Target>
 
   <Target Name="RunDiagnosticsGenerator"
-    BeforeTargets="CoreCompile"
     Inputs="DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
-    Outputs=".diagnostics.stamp">
+    Outputs=".diagnostics.stamp"
+    Condition="'$(DesignTimeBuild)' != 'true'">
     <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator" />
+    <Touch Files=".diagnostics.stamp" AlwaysCreate="true" />
   </Target>
 
 </Project>
