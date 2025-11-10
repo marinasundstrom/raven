@@ -255,7 +255,8 @@ public partial class Compilation
         if (!mainMethod.IsAsync || mainMethod.AsyncReturnTypeInferenceComplete)
             return;
 
-        topLevelBinder.BindGlobalStatements(globalStatements);
+        if (semanticModel.TryGetCachedBoundNode(compilationUnit) is null)
+            topLevelBinder.BindGlobalStatements(globalStatements);
     }
 
     private void TryBindAsyncBody(

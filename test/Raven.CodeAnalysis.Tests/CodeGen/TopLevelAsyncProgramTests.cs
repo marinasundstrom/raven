@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis;
 
+using Raven.CodeAnalysis;
 using RavenSyntaxTree = Raven.CodeAnalysis.Syntax.SyntaxTree;
 using Xunit;
 
@@ -63,6 +64,35 @@ WriteLine(result)
 
         var output = writer.ToString().ReplaceLineEndings("\n").TrimEnd('\n');
         Assert.Equal("42", output);
+    }
+
+    [Fact]
+    public void TopLevelGenericAsyncProgram_DoesNotReportDuplicateFunction()
+    {
+        const string code = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+let result = await Test(42)
+
+WriteLine(result)
+""";
+
+        var tree = RavenSyntaxTree.ParseText(code, path: "top_level_async_generic_duplicate_check.rav");
+        var compilation = Compilation.Create("top_level_async_generic_duplicate_check", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(RuntimeMetadataReferences);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.FunctionAlreadyDefined);
     }
 
     private static Assembly EmitAssembly(string code, string assemblyName)
