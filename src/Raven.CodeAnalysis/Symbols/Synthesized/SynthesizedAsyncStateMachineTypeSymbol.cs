@@ -16,6 +16,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private ImmutableArray<SourceFieldSymbol> _hoistedLocalsToDispose;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _typeParameterMap;
+    private ConstructedNamedTypeSymbol? _constructedFromAsyncMethod;
 
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
@@ -91,6 +92,24 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     public BoundBlockStatement? MoveNextBody { get; private set; }
 
     public BoundBlockStatement? SetStateMachineBody { get; private set; }
+
+    public INamedTypeSymbol GetConstructedStateMachine(SourceMethodSymbol method)
+    {
+        if (method is null)
+            throw new ArgumentNullException(nameof(method));
+
+        if (!ReferenceEquals(method, AsyncMethod))
+            throw new ArgumentException("State machine constructed for different method.", nameof(method));
+
+        if (TypeParameters.Length == 0)
+            return this;
+
+        var typeArguments = method.TypeArguments;
+        if (typeArguments.Length != TypeParameters.Length)
+            return this;
+
+        return _constructedFromAsyncMethod ??= new ConstructedNamedTypeSymbol(this, typeArguments);
+    }
 
     public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false)
     {
