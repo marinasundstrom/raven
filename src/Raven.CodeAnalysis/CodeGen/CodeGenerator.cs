@@ -65,10 +65,13 @@ internal class CodeGenerator
 
     internal bool TryGetMemberBuilder(SourceSymbol symbol, ImmutableArray<ITypeSymbol> substitution, out MemberInfo memberInfo)
     {
-        if (!substitution.IsDefaultOrEmpty &&
-            _constructedMappings.TryGetValue(new MemberBuilderCacheKey(symbol, substitution), out memberInfo!))
+        if (!substitution.IsDefaultOrEmpty)
         {
-            return true;
+            if (_constructedMappings.TryGetValue(new MemberBuilderCacheKey(symbol, substitution), out memberInfo!))
+                return true;
+
+            memberInfo = null!;
+            return false;
         }
 
         return _mappings.TryGetValue(symbol, out memberInfo!);
