@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-18_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-19_
 
 ## Objective
 
@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-19 | 🟡 At risk | The async method view now remaps the state-machine builder snapshot instead of rediscovering members, so both layers share the same `Create`/`AwaitUnsafeOnCompleted` definitions while we continue tracking the verifier break for `Program.Test<T>`.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L342-L390】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L393-L429】 |
 | 2025-11-18 | 🟡 At risk | `AwaitLoweringRewriter` now reuses the builder snapshot captured in `CreateMoveNextBody`, reducing duplication while we continue tracking the verifier break for `Program.Test<T>`.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L89-L109】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L552-L611】 |
 | 2025-11-17 | 🔴 Blocked | `ravc` now substitutes the async builder using the state-machine generic, so `MoveNext` and the method body agree on `AsyncTaskMethodBuilder<!0>` vs `AsyncTaskMethodBuilder<!!T>`; however the runtime still throws `BadImageFormatException` when materializing `Program.Test<T>` so the verifier is rejecting another TypeSpec in the generated image.【bef937†L1-L7】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L180】
 | 2025-11-16 | 🟡 At risk | Constructed async state-machine members now expose builder lookups remapped to the async method's generics, and a new lowering regression proves the `Create` site instantiates `AsyncTaskMethodBuilder<!!T>` for the method body; runtime validation is still pending.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L153】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1001-L1055】 |
@@ -57,6 +58,11 @@ WriteLine(x)
   returns a method-context view of the builder helpers so lowering wires up
   `AsyncTaskMethodBuilder<!!T>` for the local state-machine initialization; the
   new regression covers the substitution even though CLI execution still fails.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L153】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1001-L1055】
+* **Async method builder view now remaps the shared snapshot.** Constructed async
+  state machines substitute the `_builder` field and resolve their `Create`/
+  `AwaitUnsafeOnCompleted`/`Task` members by matching the state-machine snapshot's
+  definitions against the substituted builder type, keeping both views aligned
+  without rescanning metadata.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L342-L390】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L393-L429】
 * **Builder field construction pinned to struct generics.** The builder type is now
   substituted before `_builder` is synthesized, so every subsequent lookup observes
   `AsyncTaskMethodBuilder<!0>` and the `SetException`/`SetResult` MethodSpecs shed their
@@ -101,7 +107,7 @@ Recent spelunking through `AsyncLowerer` and the synthesized state-machine symbo
 
 **New issues – async builder substitution remains fragile**
 
-* **Parallel builder views drift apart.** We cache one builder snapshot on the synthesized state machine and manufacture a second, method-specific clone, so every fix has to be threaded through both paths without tests to ensure they match.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L130-L188】
+* **Parallel builder views drift apart.** We cache one builder snapshot on the synthesized state machine and manufacture a second, method-specific clone, so every fix has to be threaded through both paths without tests to ensure they match. The async method view now remaps those members from the shared snapshot, but we still expose two structs and need a single authority for lookups.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L130-L188】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L342-L390】
 * **Wrapper fields paper over substitution bugs.** `AsyncMethodStateMachineFieldSymbol` forwards almost every API to the underlying field solely to swap type arguments, signalling that the substitution should have happened when we constructed the state machine.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L822-L881】
 * **Lowering fetches builder metadata piecemeal.** Each helper pulls the builder members independently, increasing the surface area for mismatched substitutions and forcing repeated null-check boilerplate.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L87-L188】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L456-L742】
 * **Await rewriter re-resolves the builder.** `AwaitLoweringRewriter` used to repeat the same lookup that `CreateMoveNextBody` performed, forcing every substitution fix to be applied twice; the first clean-up passes the captured snapshot through so future refactors have a single touch point.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L89-L109】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L552-L742】
@@ -156,7 +162,7 @@ Together these changes would let us lower against a constructed, type-safe state
 
 | Task | Status | Owner | Notes |
 | --- | --- | --- | --- |
-| Create a single source of truth for async builder members so constructed and definition views always agree. | ☐ Not started | TBD | Consolidate `GetBuilderMembers`/`CreateBuilderMembersForAsyncMethod` into one substitution-aware path. |
+| Create a single source of truth for async builder members so constructed and definition views always agree. | 🟡 In progress | Compiler team | Constructed async methods now derive their builder members by remapping the state-machine snapshot; we still need a single surface that owns the data structure. 【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L342-L390】 |
 | Remove `AsyncMethodStateMachineFieldSymbol` by performing substitutions when constructing the state machine. | ☐ Not started | TBD | Building the constructed state machine up front should make wrapper fields redundant. |
 | Introduce a lowering context that carries builder metadata so the dispatch, completion, and await paths share one snapshot. | ☐ Not started | TBD | Centralise builder access to reduce the number of call sites that must guard missing members. |
 | Stop resolving builder members inside `AwaitLoweringRewriter`; pipe the snapshot captured in `CreateMoveNextBody` instead. | ✅ Completed | Compiler team | `CreateMoveNextBody` now hands the cached builder members to the rewriter so both layers share one substitution view.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L89-L109】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L552-L611】 |

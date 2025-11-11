@@ -343,17 +343,23 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         IFieldSymbol builderField,
         BuilderMembers stateMachineMembers)
     {
-        if (builderField.Type is not INamedTypeSymbol stateMachineBuilderType)
-            return stateMachineMembers;
-
         var asyncBuilderField = SubstituteFieldForAsyncMethod(builderField);
 
-        var substituted = SubstituteAsyncMethodTypeParameters(stateMachineBuilderType, _stateToAsyncTypeParameterMap);
-        if (substituted is not INamedTypeSymbol asyncBuilderType)
+        if (!ReferenceEquals(asyncBuilderField, builderField) && asyncBuilderField.Type is not null)
         {
-            if (ReferenceEquals(asyncBuilderField, builderField))
-                return stateMachineMembers;
+            return CreateAsyncMethodBuilderMembers(asyncBuilderField, stateMachineMembers);
+        }
 
+        return stateMachineMembers;
+    }
+
+    private BuilderMembers CreateAsyncMethodBuilderMembers(
+        IFieldSymbol asyncBuilderField,
+        BuilderMembers stateMachineMembers)
+    {
+        var asyncBuilderType = asyncBuilderField.Type as INamedTypeSymbol;
+        if (asyncBuilderType is null)
+        {
             return new BuilderMembers(
                 asyncBuilderField,
                 stateMachineMembers.Create,
@@ -365,23 +371,61 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 stateMachineMembers.TaskProperty);
         }
 
-        if (SymbolEqualityComparer.Default.Equals(asyncBuilderType, stateMachineBuilderType))
-        {
-            if (ReferenceEquals(asyncBuilderField, builderField))
-                return stateMachineMembers;
+        var create = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.Create, asyncBuilderType);
+        var start = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.Start, asyncBuilderType);
+        var setStateMachine = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.SetStateMachine, asyncBuilderType);
+        var setResult = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.SetResult, asyncBuilderType);
+        var setException = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.SetException, asyncBuilderType);
+        var awaitOnCompleted = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.AwaitOnCompleted, asyncBuilderType);
+        var taskProperty = SubstituteBuilderPropertyForAsyncMethod(stateMachineMembers.TaskProperty, asyncBuilderType);
 
-            return new BuilderMembers(
-                asyncBuilderField,
-                stateMachineMembers.Create,
-                stateMachineMembers.Start,
-                stateMachineMembers.SetStateMachine,
-                stateMachineMembers.SetResult,
-                stateMachineMembers.SetException,
-                stateMachineMembers.AwaitOnCompleted,
-                stateMachineMembers.TaskProperty);
+        return new BuilderMembers(
+            asyncBuilderField,
+            create,
+            start,
+            setStateMachine,
+            setResult,
+            setException,
+            awaitOnCompleted,
+            taskProperty);
+    }
+
+    private static IMethodSymbol? SubstituteBuilderMethodForAsyncMethod(
+        IMethodSymbol? method,
+        INamedTypeSymbol asyncBuilderType)
+    {
+        if (method is null)
+            return null;
+
+        if (SymbolEqualityComparer.Default.Equals(method.ContainingType, asyncBuilderType))
+            return method;
+
+        var targetDefinition = method.OriginalDefinition ?? method;
+
+        foreach (var candidate in asyncBuilderType.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            var candidateDefinition = candidate.OriginalDefinition ?? candidate;
+            if (SymbolEqualityComparer.Default.Equals(candidateDefinition, targetDefinition))
+                return candidate;
         }
 
-        return CreateBuilderMembers(asyncBuilderField, asyncBuilderType);
+        return method;
+    }
+
+    private static IPropertySymbol? SubstituteBuilderPropertyForAsyncMethod(
+        IPropertySymbol? property,
+        INamedTypeSymbol asyncBuilderType)
+    {
+        if (property is null)
+            return null;
+
+        if (SymbolEqualityComparer.Default.Equals(property.ContainingType, asyncBuilderType))
+            return property;
+
+        foreach (var candidate in asyncBuilderType.GetMembers(property.Name).OfType<IPropertySymbol>())
+            return candidate;
+
+        return property;
     }
 
     private IFieldSymbol SubstituteFieldForAsyncMethod(IFieldSymbol field)
