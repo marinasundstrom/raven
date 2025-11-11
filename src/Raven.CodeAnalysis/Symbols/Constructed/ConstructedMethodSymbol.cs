@@ -314,8 +314,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (!TryGetSourceDefinitionSymbol(_definition, out var sourceDefinition))
             return false;
 
-        if (!codeGen.TryGetMemberBuilder(sourceDefinition, TypeArguments, out var member) || member is not MethodInfo definitionMethod)
-            return false;
+        if (!codeGen.TryGetMemberBuilder(sourceDefinition, TypeArguments, out var member) ||
+            member is not MethodInfo definitionMethod)
+        {
+            if (!codeGen.TryGetMemberBuilder(sourceDefinition, out member) ||
+                member is not MethodInfo definitionMethodFromDefinition)
+            {
+                return false;
+            }
+
+            definitionMethod = definitionMethodFromDefinition;
+        }
 
         var candidateDefinition = definitionMethod;
 
