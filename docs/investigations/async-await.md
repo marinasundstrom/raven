@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-16_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-17_
 
 ## Objective
 
@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-17 | 🔴 Blocked | Recompiling `samples/test8.rav` with `ravc` still produces an image that dies with `BadImageFormatException` because the async state machine never constructs over the method's type arguments—`RequiresConstruction` bails out as soon as it sees `T`, so the emitted IL mixes `AsyncTaskMethodBuilder<!0>` fields with `AsyncTaskMethodBuilder<!!T>::Create()`/`get_Task()` and the runtime refuses the resulting `ELEMENT_TYPE_VAR` TypeSpec for `Program.Test<T>`.【bef937†L1-L7】【90b196†L33-L59】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L156-L190】
 | 2025-11-16 | 🟡 At risk | Constructed async state-machine members now expose builder lookups remapped to the async method's generics, and a new lowering regression proves the `Create` site instantiates `AsyncTaskMethodBuilder<!!T>` for the method body; runtime validation is still pending.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L153】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1001-L1055】 |
 | 2025-11-15 | 🟡 At risk | Substituting the awaited `Task<T>` result before instantiating the builder now hands `AsyncTaskMethodBuilder<!0>` the struct parameter instead of the method generic; still need CLI/`ilverify` confirmation that the runtime loads the image.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L521-L563】 |
 | 2025-11-14 | 🟡 At risk | Substituting the builder type before field synthesis keeps `AsyncTaskMethodBuilder<!0>` anchored to the struct parameter so `SetException`/`SetResult` no longer encode `!!0`; need a fresh CLI+`ilverify` pass to confirm the runtime accepts the image.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L261-L286】 |
@@ -40,7 +41,15 @@ WriteLine(x)
 * **Runtime still rejects the sample.** Re-running the CLI against
   `samples/test8.rav` yields the same `BadImageFormatException` before any
   user code executes, and the stack trace points at the open generic entry
-  point `Program.Test<T>` when the runtime spins up the async state machine.【025e9d†L1-L7】
+  point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】
+* **State machine never constructs over method generics.** `SynthesizedAsyncStateMachineTypeSymbol.RequiresConstruction`
+  skips creating a `ConstructedNamedTypeSymbol` whenever the async method's
+  type arguments are themselves method parameters, so `GetConstructedStateMachine`
+  hands the lowerer the open definition. The emitted IL then wires
+  `_builder : AsyncTaskMethodBuilder<!0>` and `_value : !0` to the struct's
+  synthesized parameter while the method body calls `AsyncTaskMethodBuilder<!!T>::Create()`
+  and `get_Task()`, reintroducing the verifier-breaking `ELEMENT_TYPE_VAR`
+  handle that crashes `Program.Test<T>`.【90b196†L33-L59】【78d749†L16-L44】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L156-L190】
 * **Awaited type now maps before builder construction.** When the async method returns
   `Task<T>`, the awaited `T` is substituted with the state machine's `!0` before
   we instantiate `AsyncTaskMethodBuilder<T>`, preventing Reflection.Emit from caching
@@ -62,8 +71,17 @@ WriteLine(x)
 * **Generic parameter cache is now layered.** Reusing the async method after
   the state machine is emitted no longer snaps builder calls back to `!!0`
   because the runtime type map keeps a stack per type parameter and always
-  consults the most recent mapping.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L24-L43】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L146】
+  consults the most recent mapping.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L19-L137】
 * **Type-parameter mapping is now explicit.** The synthesized state machine records the async method ↔ state-machine parameter pairs and surfaces helpers so emission and tests can reuse the mapping without bespoke substitutions.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L79-L118】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L124-L135】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L129-L165】
+
+* **Lowerer tests currently freeze the wrong substitution.** `Rewrite_AsyncGenericMethod_UsesAsyncMethodTypeParametersForBuilder`
+  insists that `_builder` initialization and `Create()` return values keep the async method's
+  `T`, so the suite enforces the broken `AsyncTaskMethodBuilder<!!T>` encoding instead of
+  validating a constructed state-machine view. We'll need to pivot these assertions once
+  the substitution bug is fixed.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1014-L1068】
+* **AsyncLowerer regression still red.** Filtering the unit tests to `AsyncLowerer`
+  fails fast in `Rewrite_AsyncMethodWithUsingAcrossAwait_DisposesHoistedLocal` before
+  the logger crashes, so we currently lack a green baseline to confirm fixes through the suite.【fa1f06†L1-L15】
 
 ### Next steps
 
