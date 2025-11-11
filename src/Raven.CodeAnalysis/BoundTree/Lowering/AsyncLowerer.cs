@@ -82,19 +82,19 @@ internal static class AsyncLowerer
         Compilation compilation,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
+        var context = new MoveNextLoweringContext(compilation, stateMachine);
         var originalBody = stateMachine.OriginalBody ?? new BoundBlockStatement(Array.Empty<BoundStatement>());
 
         var entryLabel = CreateLabel(stateMachine, "state");
 
-        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
-        var awaitRewriter = new AwaitLoweringRewriter(stateMachine, builderMembers);
+        var awaitRewriter = new AwaitLoweringRewriter(stateMachine, context.BuilderMembers);
         var rewrittenBody = awaitRewriter.Rewrite(originalBody);
 
         var tryStatements = new List<BoundStatement>();
-        tryStatements.AddRange(CreateStateDispatchStatements(compilation, stateMachine, entryLabel, awaitRewriter.Dispatches));
+        tryStatements.AddRange(CreateStateDispatchStatements(context, entryLabel, awaitRewriter.Dispatches));
 
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
-        entryStatements.AddRange(CreateCompletionStatements(stateMachine, builderMembers));
+        entryStatements.AddRange(CreateCompletionStatements(context));
         var entryBlock = new BoundBlockStatement(entryStatements, rewrittenBody.LocalsToDispose);
 
         tryStatements.Add(new BoundLabeledStatement(entryLabel, entryBlock));
@@ -102,7 +102,7 @@ internal static class AsyncLowerer
         var tryBlock = new BoundBlockStatement(tryStatements);
 
         var catchClauses = ImmutableArray<BoundCatchClause>.Empty;
-        var catchClause = CreateExceptionCatchClause(compilation, stateMachine);
+        var catchClause = CreateExceptionCatchClause(context);
         if (catchClause is not null)
             catchClauses = ImmutableArray.Create(catchClause);
 
@@ -201,29 +201,28 @@ internal static class AsyncLowerer
         return new BoundBlockStatement(statements);
     }
 
-    private static BoundCatchClause? CreateExceptionCatchClause(Compilation compilation, SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+    private static BoundCatchClause? CreateExceptionCatchClause(MoveNextLoweringContext context)
     {
-        var exceptionType = compilation.GetSpecialType(SpecialType.System_Exception);
+        var exceptionType = context.Compilation.GetSpecialType(SpecialType.System_Exception);
 
         var exceptionLocal = new SourceLocalSymbol(
             "<>ex",
             exceptionType,
             isMutable: true,
-            stateMachine.MoveNextMethod,
-            stateMachine,
-            stateMachine.ContainingNamespace,
+            context.StateMachine.MoveNextMethod,
+            context.StateMachine,
+            context.StateMachine.ContainingNamespace,
             Array.Empty<Location>(),
             Array.Empty<SyntaxReference>());
 
         var statements = new List<BoundStatement>
         {
-            CreateStateAssignment(stateMachine, -2)
+            CreateStateAssignment(context.StateMachine, -2)
         };
 
-        statements.AddRange(CreateDisposeStatements(stateMachine, EnumerateReverse(stateMachine.HoistedLocalsToDispose)));
+        statements.AddRange(CreateDisposeStatements(context.StateMachine, EnumerateReverse(context.StateMachine.HoistedLocalsToDispose)));
 
-        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
-        var setException = CreateBuilderSetExceptionStatement(stateMachine, builderMembers, exceptionLocal);
+        var setException = CreateBuilderSetExceptionStatement(context.StateMachine, context.BuilderMembers, exceptionLocal);
         if (setException is not null)
             statements.Add(setException);
 
@@ -234,20 +233,19 @@ internal static class AsyncLowerer
     }
 
     private static IEnumerable<BoundStatement> CreateStateDispatchStatements(
-        Compilation compilation,
-        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        MoveNextLoweringContext context,
         ILabelSymbol entryLabel,
         ImmutableArray<StateDispatch> dispatches)
     {
         var statements = new List<BoundStatement>();
 
-        var stateAccess = new BoundFieldAccess(stateMachine.StateField);
+        var stateAccess = new BoundFieldAccess(context.StateMachine.StateField);
         var initialState = new BoundLiteralExpression(
             BoundLiteralExpressionKind.NumericLiteral,
             -1,
             stateAccess.Type);
 
-        if (!BoundBinaryOperator.TryLookup(compilation, SyntaxKind.EqualsEqualsToken, stateAccess.Type, initialState.Type, out var equals))
+        if (!BoundBinaryOperator.TryLookup(context.Compilation, SyntaxKind.EqualsEqualsToken, stateAccess.Type, initialState.Type, out var equals))
             throw new InvalidOperationException("Async lowering requires integer equality operator.");
 
         var condition = new BoundBinaryExpression(stateAccess, equals, initialState);
@@ -263,10 +261,10 @@ internal static class AsyncLowerer
                 dispatch.State,
                 stateAccess.Type);
 
-            if (!BoundBinaryOperator.TryLookup(compilation, SyntaxKind.EqualsEqualsToken, stateAccess.Type, stateLiteral.Type, out var stateEquals))
+            if (!BoundBinaryOperator.TryLookup(context.Compilation, SyntaxKind.EqualsEqualsToken, stateAccess.Type, stateLiteral.Type, out var stateEquals))
                 throw new InvalidOperationException("Async lowering requires integer equality operator.");
 
-            var stateCondition = new BoundBinaryExpression(new BoundFieldAccess(stateMachine.StateField), stateEquals, stateLiteral);
+            var stateCondition = new BoundBinaryExpression(new BoundFieldAccess(context.StateMachine.StateField), stateEquals, stateLiteral);
             var gotoLabel = new BoundGotoStatement(dispatch.Label);
             var gotoBlock = new BoundBlockStatement(new BoundStatement[] { gotoLabel });
 
@@ -278,17 +276,31 @@ internal static class AsyncLowerer
         return statements;
     }
 
-    private static IEnumerable<BoundStatement> CreateCompletionStatements(
-        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
-        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers)
+    private static IEnumerable<BoundStatement> CreateCompletionStatements(MoveNextLoweringContext context)
     {
-        yield return CreateStateAssignment(stateMachine, -2);
+        yield return CreateStateAssignment(context.StateMachine, -2);
 
-        var setResult = CreateBuilderSetResultStatement(stateMachine, builderMembers, expression: null);
+        var setResult = CreateBuilderSetResultStatement(context.StateMachine, context.BuilderMembers, expression: null);
         if (setResult is not null)
             yield return setResult;
 
         yield return new BoundReturnStatement(null);
+    }
+
+    private readonly struct MoveNextLoweringContext
+    {
+        public MoveNextLoweringContext(
+            Compilation compilation,
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        {
+            Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
+            StateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+            BuilderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+        }
+
+        public Compilation Compilation { get; }
+        public SynthesizedAsyncStateMachineTypeSymbol StateMachine { get; }
+        public SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers BuilderMembers { get; }
     }
 
     private static BoundStatement? CreateBuilderSetResultStatement(
