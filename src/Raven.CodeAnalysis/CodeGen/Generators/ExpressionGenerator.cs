@@ -2233,13 +2233,7 @@ internal class ExpressionGenerator : Generator
 
     private FieldInfo GetField(IFieldSymbol fieldSymbol)
     {
-        return fieldSymbol switch
-        {
-            SourceFieldSymbol sourceFieldSymbol => sourceFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            SubstitutedFieldSymbol substitutedFieldSymbol => substitutedFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            _ => throw new Exception("Unsupported field symbol")
-        };
+        return fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
     }
 
     private void EmitStoreElement(ITypeSymbol elementType)
