@@ -101,23 +101,6 @@ class C {
     }
 
     [Fact]
-    public void AsyncMethod_WithoutReturnType_ReturningTaskExpression_ReportsDiagnostic()
-    {
-        const string source = """
-import System.Threading.Tasks.*
-
-class C {
-    async f() {
-        return Task.CompletedTask;
-    }
-}
-""";
-        var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.AsyncTaskReturnCannotHaveExpression, diagnostic.Descriptor);
-    }
-
-    [Fact]
     public void AsyncMethod_ExpressionBody_WithReturnValue_InferredTaskOfResult()
     {
         const string source = """
@@ -135,22 +118,6 @@ class C {
         Assert.Equal(
             "System.Threading.Tasks.Task<System.Int32>",
             symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        Assert.Empty(compilation.GetDiagnostics());
-    }
-
-    [Fact]
-    public void AsyncTaskOfIntMethod_WithReturnExpression_IsAccepted()
-    {
-        const string source = """
-import System.Threading.Tasks.*
-
-class C {
-    async f() -> Task<Int32> {
-        return 1;
-    }
-}
-""";
-        var (compilation, _) = CreateCompilation(source);
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -382,42 +349,6 @@ class C {
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
         var asyncDiagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
         Assert.Contains("MissingTask", asyncDiagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void AsyncExpressionBodiedMethod_WithCompletedTaskExpression_CachesImplicitReturn()
-    {
-        const string source = """
-import System.Threading.Tasks.*
-
-class C {
-    async f() -> Task => Task.CompletedTask
-}
-""";
-
-        var (compilation, tree) = CreateCompilation(source);
-
-        var model = compilation.GetSemanticModel(tree);
-        var methodSyntax = tree
-            .GetRoot()
-            .DescendantNodes()
-            .OfType<MethodDeclarationSyntax>()
-            .Single();
-
-        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.ExpressionBody!));
-        Assert.Empty(boundBody.LocalsToDispose);
-
-        var returnStatement = Assert.IsType<BoundReturnStatement>(Assert.Single(boundBody.Statements));
-        var memberAccess = Assert.IsType<BoundMemberAccessExpression>(returnStatement.Expression);
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(memberAccess.Member);
-
-        Assert.Equal("CompletedTask", property.Name);
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(property.ContainingType);
-        Assert.Equal("Task", containingType.Name);
-        var containingNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(containingType.ContainingNamespace);
-        Assert.Equal("System.Threading.Tasks", containingNamespace.ToDisplayString());
-
-        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]

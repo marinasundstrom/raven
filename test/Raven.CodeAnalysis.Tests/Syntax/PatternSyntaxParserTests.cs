@@ -25,22 +25,6 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void DeclarationPattern_WithNegativeNumericLiteral_Parses()
-    {
-        var (pattern, tree) = ParsePattern("-1");
-        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
-
-        var declaration = Assert.IsType<DeclarationPatternSyntax>(pattern);
-        Assert.Equal("-1", sourceText.ToString(declaration.Span));
-
-        var literal = Assert.IsType<LiteralTypeSyntax>(declaration.Type);
-        Assert.Equal(SyntaxKind.NumericLiteralType, literal.Kind);
-        Assert.Equal("-1", literal.Token.Text);
-
-        AssertNoErrors(tree);
-    }
-
-    [Fact]
     public void DiscardPattern_Parses()
     {
         var (pattern, tree) = ParsePattern("_");

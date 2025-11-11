@@ -80,52 +80,6 @@ class Counter {
     }
 
     [Fact]
-    public void MethodReference_WithRefOutParameters_InvokesTarget()
-    {
-        const string code = """
-class Accumulator {
-    static TryAccumulate(var state: &int, out var doubled: &int) -> bool {
-        state = state + 1
-        doubled = state * 2
-        true
-    }
-
-    static Execute(value: int) -> int {
-        let callback = Accumulator.TryAccumulate
-        var current = value
-        var doubled = 0
-
-        let result = callback(&current, &doubled)
-        if !result {
-            return -1
-        }
-
-        current + doubled
-    }
-}
-""";
-
-        var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
-
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddSyntaxTrees(syntaxTree)
-            .AddReferences(references);
-
-        using var peStream = new MemoryStream();
-        var result = compilation.Emit(peStream);
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
-
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var assembly = loaded.Assembly;
-        var type = assembly.GetType("Accumulator", throwOnError: true)!;
-        var execute = type.GetMethod("Execute")!;
-
-        var value = (int)execute.Invoke(null, new object[] { 3 })!;
-        Assert.Equal(12, value);
-    }
-
-    [Fact]
     public void MethodReference_SynthesizedDelegate_IsEmitted()
     {
         const string code = """

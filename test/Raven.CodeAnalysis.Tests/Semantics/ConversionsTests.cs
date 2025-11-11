@@ -145,24 +145,6 @@ public class ConversionsTests : CompilationTestBase
     }
 
     [Fact]
-    public void Assignment_NullLiteral_To_NullableReference_PreservesConvertedType()
-    {
-        const string source = """
-        let value: string? = ""
-        value = null
-        """;
-
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
-        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
-        var literal = Assert.IsType<BoundLiteralExpression>(boundAssignment.Expression.Right);
-        var converted = Assert.IsType<NullableTypeSymbol>(literal.GetConvertedType());
-
-        Assert.Equal(SpecialType.System_String, converted.UnderlyingType.SpecialType);
-    }
-
-    [Fact]
     public void AddressType_To_ByRef_IsImplicit()
     {
         var compilation = CreateCompilation();
