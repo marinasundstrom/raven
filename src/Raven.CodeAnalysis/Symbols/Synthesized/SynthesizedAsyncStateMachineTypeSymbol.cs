@@ -18,7 +18,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _asyncToStateTypeParameterMap;
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _stateToAsyncTypeParameterMap;
     private readonly ImmutableArray<TypeParameterMapping> _typeParameterMappings;
-    private readonly BuilderMembers _stateMachineBuilderMembers;
+    private readonly AsyncBuilderMemberMap _builderMemberMap;
     private readonly Dictionary<SourceMethodSymbol, ConstructedMembers> _constructedMembersCache = new(ReferenceEqualityComparer.Instance);
 
     public SynthesizedAsyncStateMachineTypeSymbol(
@@ -63,7 +63,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         SetInterfaces(new[] { asyncStateMachineInterface });
 
         BuilderField = CreateBuilderField(compilation, asyncMethod);
-        _stateMachineBuilderMembers = CreateBuilderMembers(BuilderField);
+        _builderMemberMap = new AsyncBuilderMemberMap(this, CreateBuilderMembers(BuilderField));
 
         Constructor = CreateConstructor(compilation, asyncMethod);
         MoveNextMethod = CreateMoveNextMethod(compilation, asyncMethod);
@@ -127,7 +127,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     public BuilderMembers GetBuilderMembers(SourceMethodSymbol method)
     {
-        return _stateMachineBuilderMembers;
+        return _builderMemberMap.StateMachineMembers;
     }
 
     private ConstructedMembers CreateConstructedMembers(SourceMethodSymbol method)
@@ -139,7 +139,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         var builderField = GetConstructedField(BuilderField, stateMachineType);
         var thisField = ThisField is null ? null : GetConstructedField(ThisField, stateMachineType);
         var parameterFields = ConstructParameterFieldMap(stateMachineType);
-        var asyncMethodBuilderMembers = CreateBuilderMembersForAsyncMethod(builderField, _stateMachineBuilderMembers);
+        var stateMachineBuilderMembers = _builderMemberMap.GetStateMachineMembers(builderField);
+        var asyncMethodBuilderMembers = _builderMemberMap.GetAsyncMethodMembers(builderField);
 
         return new ConstructedMembers(
             stateMachineType,
@@ -149,7 +150,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             builderField,
             thisField,
             parameterFields,
-            _stateMachineBuilderMembers,
+            stateMachineBuilderMembers,
             asyncMethodBuilderMembers);
     }
 
@@ -335,16 +336,6 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             setException,
             awaitOnCompleted,
             taskProperty);
-    }
-
-    private BuilderMembers CreateBuilderMembersForAsyncMethod(
-        IFieldSymbol builderField,
-        BuilderMembers stateMachineMembers)
-    {
-        if (SymbolEqualityComparer.Default.Equals(builderField, stateMachineMembers.BuilderField))
-            return stateMachineMembers;
-
-        return CreateAsyncMethodBuilderMembers(builderField, stateMachineMembers);
     }
 
     private BuilderMembers CreateAsyncMethodBuilderMembers(
@@ -869,6 +860,57 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public IMethodSymbol? SetException { get; }
         public IMethodSymbol? AwaitOnCompleted { get; }
         public IPropertySymbol? TaskProperty { get; }
+    }
+
+    private sealed class AsyncBuilderMemberMap
+    {
+        private readonly SynthesizedAsyncStateMachineTypeSymbol _owner;
+        private readonly Dictionary<IFieldSymbol, BuilderMembers> _stateMachineCache;
+        private readonly Dictionary<IFieldSymbol, BuilderMembers> _asyncMethodCache;
+
+        public AsyncBuilderMemberMap(
+            SynthesizedAsyncStateMachineTypeSymbol owner,
+            BuilderMembers stateMachineMembers)
+        {
+            _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            _stateMachineCache = new Dictionary<IFieldSymbol, BuilderMembers>(SymbolEqualityComparer.Default)
+            {
+                [stateMachineMembers.BuilderField] = stateMachineMembers
+            };
+            _asyncMethodCache = new Dictionary<IFieldSymbol, BuilderMembers>(SymbolEqualityComparer.Default)
+            {
+                [stateMachineMembers.BuilderField] = stateMachineMembers
+            };
+        }
+
+        public BuilderMembers StateMachineMembers
+            => _stateMachineCache[_owner.BuilderField];
+
+        public BuilderMembers GetStateMachineMembers(IFieldSymbol builderField)
+        {
+            if (builderField is null)
+                throw new ArgumentNullException(nameof(builderField));
+
+            if (_stateMachineCache.TryGetValue(builderField, out var members))
+                return members;
+
+            members = _owner.CreateBuilderMembers(builderField);
+            _stateMachineCache.Add(builderField, members);
+            return members;
+        }
+
+        public BuilderMembers GetAsyncMethodMembers(IFieldSymbol builderField)
+        {
+            if (builderField is null)
+                throw new ArgumentNullException(nameof(builderField));
+
+            if (_asyncMethodCache.TryGetValue(builderField, out var members))
+                return members;
+
+            members = _owner.CreateAsyncMethodBuilderMembers(builderField, StateMachineMembers);
+            _asyncMethodCache.Add(builderField, members);
+            return members;
+        }
     }
 
     internal readonly struct TypeParameterMapping
