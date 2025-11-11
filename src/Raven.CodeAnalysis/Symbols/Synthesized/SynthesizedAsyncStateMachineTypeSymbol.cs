@@ -499,7 +499,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return builder.MoveToImmutable();
     }
 
-    private ITypeSymbol SubstituteAsyncMethodTypeParameters(
+    internal ITypeSymbol SubstituteAsyncMethodTypeParameters(
         ITypeSymbol type,
         ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>? substitutionMap = null)
     {

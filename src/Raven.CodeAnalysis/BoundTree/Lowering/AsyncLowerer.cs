@@ -1221,6 +1221,7 @@ internal static class AsyncLowerer
             SourceLocalSymbol? resultLocal = null;
 
             var resultType = awaitExpression.ResultType ?? _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit);
+            resultType = SubstituteAsyncMethodTypeParameters(resultType);
 
             if (resultType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit)
             {
@@ -1260,7 +1261,8 @@ internal static class AsyncLowerer
             Func<BoundInvocationExpression, IEnumerable<BoundStatement>> createResumeStatements)
         {
             var state = _nextState++;
-            var awaiterField = _stateMachine.AddHoistedLocal($"<>awaiter{state}", awaitExpression.AwaiterType);
+            var awaiterType = SubstituteAsyncMethodTypeParameters(awaitExpression.AwaiterType);
+            var awaiterField = _stateMachine.AddHoistedLocal($"<>awaiter{state}", awaiterType);
             var resumeLabel = CreateLabel(_stateMachine, $"state{state}");
             _dispatches.Add(new StateDispatch(state, resumeLabel));
 
@@ -1288,7 +1290,7 @@ internal static class AsyncLowerer
                 CreateStateAssignment(_stateMachine, -1)
             };
 
-            var awaiterLocal = CreateAwaiterLocal(awaitExpression.AwaiterType);
+            var awaiterLocal = CreateAwaiterLocal(awaiterType);
             var awaiterDeclarator = new BoundVariableDeclarator(awaiterLocal, initializer: null);
             resumeStatements.Add(new BoundLocalDeclarationStatement(new[] { awaiterDeclarator }));
 
@@ -1314,6 +1316,7 @@ internal static class AsyncLowerer
         private SourceLocalSymbol CreateAwaitResultLocal(ITypeSymbol type)
         {
             var name = $"<>awaitResult{_nextAwaitResultId++}";
+            type = SubstituteAsyncMethodTypeParameters(type);
             return new SourceLocalSymbol(
                 name,
                 type,
@@ -1328,6 +1331,7 @@ internal static class AsyncLowerer
         private SourceLocalSymbol CreateAwaiterLocal(ITypeSymbol type)
         {
             var name = $"<>awaiterLocal{_nextAwaiterLocalId++}";
+            type = SubstituteAsyncMethodTypeParameters(type);
             return new SourceLocalSymbol(
                 name,
                 type,
@@ -1377,7 +1381,10 @@ internal static class AsyncLowerer
                 ?? throw new InvalidOperationException("Async builder is missing AwaitOnCompleted/AwaitUnsafeOnCompleted.");
 
             if (awaitMethod.IsGenericMethod)
-                awaitMethod = awaitMethod.Construct(awaitExpression.AwaiterType, _stateMachine);
+            {
+                var awaiterType = SubstituteAsyncMethodTypeParameters(awaitExpression.AwaiterType);
+                awaitMethod = awaitMethod.Construct(awaiterType, _stateMachine);
+            }
 
             var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _builderMembers.BuilderField);
             var awaiterAddress = new BoundAddressOfExpression(awaiterField, awaiterField.Type, new BoundSelfExpression(_stateMachine));
@@ -1398,11 +1405,20 @@ internal static class AsyncLowerer
                 return existing;
 
             var type = local.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
+            type = SubstituteAsyncMethodTypeParameters(type);
             var fieldName = $"<>local{_nextHoistedLocalId++}";
             var requiresDispose = _hoistableLocals.TryGetValue(local, out var dispose) && dispose;
             var field = _stateMachine.AddHoistedLocal(fieldName, type, requiresDispose);
             _hoistedLocals.Add(local, field);
             return field;
+        }
+
+        private ITypeSymbol SubstituteAsyncMethodTypeParameters(ITypeSymbol type)
+        {
+            if (type is null)
+                return _stateMachine.Compilation.ErrorTypeSymbol;
+
+            return _stateMachine.SubstituteAsyncMethodTypeParameters(type);
         }
 
         private ImmutableArray<ILocalSymbol> FilterLocalsToDispose(ImmutableArray<ILocalSymbol> locals)
