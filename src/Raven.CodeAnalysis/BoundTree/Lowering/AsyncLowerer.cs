@@ -84,15 +84,14 @@ internal static class AsyncLowerer
     {
         var originalBody = stateMachine.OriginalBody ?? new BoundBlockStatement(Array.Empty<BoundStatement>());
 
-        var awaitRewriter = new AwaitLoweringRewriter(stateMachine);
-        var rewrittenBody = awaitRewriter.Rewrite(originalBody);
-
         var entryLabel = CreateLabel(stateMachine, "state");
+
+        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+        var awaitRewriter = new AwaitLoweringRewriter(stateMachine, builderMembers);
+        var rewrittenBody = awaitRewriter.Rewrite(originalBody);
 
         var tryStatements = new List<BoundStatement>();
         tryStatements.AddRange(CreateStateDispatchStatements(compilation, stateMachine, entryLabel, awaitRewriter.Dispatches));
-
-        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
 
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
         entryStatements.AddRange(CreateCompletionStatements(stateMachine, builderMembers));
@@ -562,13 +561,15 @@ internal static class AsyncLowerer
         private int _nextAwaitResultId;
         private int _nextAwaiterLocalId;
 
-        public AwaitLoweringRewriter(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        public AwaitLoweringRewriter(
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+            SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers)
         {
             if (stateMachine is null)
                 throw new ArgumentNullException(nameof(stateMachine));
 
             _stateMachine = stateMachine;
-            _builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+            _builderMembers = builderMembers;
             _nextHoistedLocalId = DetermineInitialHoistedLocalId(stateMachine);
             _nextAwaitResultId = 0;
             _nextAwaiterLocalId = 0;
