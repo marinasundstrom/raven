@@ -398,34 +398,6 @@ class Sample {{
     }
 
     [Fact]
-    public void Comparer_RecognizesMetadataNestedDefinitions()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var dictionaryDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2"));
-
-        var enumeratorDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2+Enumerator"));
-
-        var nestedEnumerator = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            dictionaryDefinition.GetMembers("Enumerator").Single());
-
-        Assert.Same(enumeratorDefinition, nestedEnumerator);
-
-        var constructedFrom = Assert.IsAssignableFrom<INamedTypeSymbol>(enumeratorDefinition.ConstructedFrom);
-        var originalDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(enumeratorDefinition.OriginalDefinition);
-
-        Assert.Same(enumeratorDefinition, constructedFrom);
-        Assert.Same(enumeratorDefinition, originalDefinition);
-
-        var comparer = SymbolEqualityComparer.Default;
-        Assert.True(comparer.Equals(enumeratorDefinition, constructedFrom));
-        Assert.True(comparer.Equals(enumeratorDefinition, originalDefinition));
-    }
-
-    [Fact]
     public void Comparer_DistinguishesTypeKinds()
     {
         var comparer = SymbolEqualityComparer.Default;

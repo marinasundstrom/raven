@@ -92,8 +92,10 @@ internal static class AsyncLowerer
         var tryStatements = new List<BoundStatement>();
         tryStatements.AddRange(CreateStateDispatchStatements(compilation, stateMachine, entryLabel, awaitRewriter.Dispatches));
 
+        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
-        entryStatements.AddRange(CreateCompletionStatements(stateMachine));
+        entryStatements.AddRange(CreateCompletionStatements(stateMachine, builderMembers));
         var entryBlock = new BoundBlockStatement(entryStatements, rewrittenBody.LocalsToDispose);
 
         tryStatements.Add(new BoundLabeledStatement(entryLabel, entryBlock));
@@ -114,34 +116,22 @@ internal static class AsyncLowerer
         SourceMethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
-        if (method.ReturnType is INamedTypeSymbol methodReturn &&
-            methodReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-            methodReturn.TypeArguments.Length == 1 &&
-            stateMachine.BuilderField.Type is INamedTypeSymbol builderType &&
-            builderType.OriginalDefinition.SpecialType == SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
-        {
-            var awaitedType = builderType switch
-            {
-                ConstructedNamedTypeSymbol constructed when constructed.TypeArguments.Length == 1 => constructed.TypeArguments[0],
-                _ when builderType.TypeArguments.Length == 1 => builderType.TypeArguments[0],
-                _ => null
-            };
-
-            if (awaitedType is not null &&
-                !SymbolEqualityComparer.Default.Equals(methodReturn.TypeArguments[0], awaitedType) &&
-                methodReturn.OriginalDefinition is INamedTypeSymbol taskDefinition)
-            {
-                var closedTask = taskDefinition.Construct(awaitedType);
-                method.SetReturnType(closedTask);
-            }
-        }
-
         var statements = new List<BoundStatement>();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
 
+        var constructed = stateMachine.GetConstructedMembers(method);
+        var stateMachineType = constructed.StateMachineType;
+        var constructor = constructed.Constructor;
+        var moveNextMethod = constructed.MoveNext;
+        var stateField = constructed.StateField;
+        var builderMembers = constructed.AsyncMethodBuilderMembers;
+        var builderField = builderMembers.BuilderField;
+        var thisField = constructed.ThisField;
+        var parameterFieldMap = constructed.ParameterFields;
+
         var asyncLocal = new SourceLocalSymbol(
             "<>async",
-            stateMachine,
+            stateMachineType,
             isMutable: true,
             method,
             method.ContainingType,
@@ -150,22 +140,22 @@ internal static class AsyncLowerer
             Array.Empty<SyntaxReference>());
 
         var creation = new BoundObjectCreationExpression(
-            stateMachine.Constructor,
+            constructor,
             Array.Empty<BoundExpression>());
         var declarator = new BoundVariableDeclarator(asyncLocal, creation);
         statements.Add(new BoundLocalDeclarationStatement(new[] { declarator }));
 
-        if (stateMachine.ThisField is not null)
+        if (thisField is not null)
         {
             var receiver = new BoundLocalAccess(asyncLocal);
-            var value = new BoundSelfExpression(stateMachine.ThisField.Type);
-            var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.ThisField, value, unitType, requiresReceiverAddress: true);
+            var value = new BoundSelfExpression(thisField.Type);
+            var assignment = new BoundFieldAssignmentExpression(receiver, thisField, value, unitType, requiresReceiverAddress: true);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
         foreach (var parameter in method.Parameters)
         {
-            if (!stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field))
+            if (!parameterFieldMap.TryGetValue(parameter, out var field))
                 continue;
 
             var receiver = new BoundLocalAccess(asyncLocal);
@@ -178,15 +168,15 @@ internal static class AsyncLowerer
         var initialState = new BoundLiteralExpression(
             BoundLiteralExpressionKind.NumericLiteral,
             -1,
-            stateMachine.StateField.Type);
-        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateMachine.StateField, initialState, unitType, requiresReceiverAddress: true);
+            stateField.Type);
+        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateField, initialState, unitType, requiresReceiverAddress: true);
         statements.Add(new BoundAssignmentStatement(stateAssignment));
 
-        var builderInitialization = CreateBuilderInitializationStatement(asyncLocal, stateMachine);
+        var builderInitialization = CreateBuilderInitializationStatement(asyncLocal, builderMembers, unitType);
         if (builderInitialization is not null)
             statements.Add(builderInitialization);
 
-        var builderStartStatement = CreateBuilderStartStatement(asyncLocal, stateMachine);
+        var builderStartStatement = CreateBuilderStartStatement(asyncLocal, builderMembers, stateMachineType);
         if (builderStartStatement is not null)
         {
             statements.Add(builderStartStatement);
@@ -194,7 +184,7 @@ internal static class AsyncLowerer
         else
         {
             var moveNextInvocation = new BoundInvocationExpression(
-                stateMachine.MoveNextMethod,
+                moveNextMethod,
                 Array.Empty<BoundExpression>(),
                 receiver: new BoundLocalAccess(asyncLocal),
                 requiresReceiverAddress: true);
@@ -204,7 +194,7 @@ internal static class AsyncLowerer
         BoundExpression? returnExpression = null;
         if (method.ReturnType.SpecialType != SpecialType.System_Void)
         {
-            returnExpression = CreateReturnExpression(method, stateMachine, asyncLocal);
+            returnExpression = CreateReturnExpression(method, builderMembers, asyncLocal);
         }
 
         statements.Add(new BoundReturnStatement(returnExpression));
@@ -233,7 +223,8 @@ internal static class AsyncLowerer
 
         statements.AddRange(CreateDisposeStatements(stateMachine, EnumerateReverse(stateMachine.HoistedLocalsToDispose)));
 
-        var setException = CreateBuilderSetExceptionStatement(stateMachine, exceptionLocal);
+        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+        var setException = CreateBuilderSetExceptionStatement(stateMachine, builderMembers, exceptionLocal);
         if (setException is not null)
             statements.Add(setException);
 
@@ -289,11 +280,12 @@ internal static class AsyncLowerer
     }
 
     private static IEnumerable<BoundStatement> CreateCompletionStatements(
-        SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers)
     {
         yield return CreateStateAssignment(stateMachine, -2);
 
-        var setResult = CreateBuilderSetResultStatement(stateMachine, expression: null);
+        var setResult = CreateBuilderSetResultStatement(stateMachine, builderMembers, expression: null);
         if (setResult is not null)
             yield return setResult;
 
@@ -302,13 +294,10 @@ internal static class AsyncLowerer
 
     private static BoundStatement? CreateBuilderSetResultStatement(
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         BoundExpression? expression)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var setResultMethod = FindSetResultMethod(builderType);
+        var setResultMethod = builderMembers.SetResult;
         if (setResultMethod is null)
             return null;
 
@@ -338,7 +327,7 @@ internal static class AsyncLowerer
         if (setResultMethod.Parameters.Length == 0 && expression is not null && !IsEffectivelyVoidExpression(expression))
             return null;
 
-        var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderField);
+        var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var invocation = new BoundInvocationExpression(setResultMethod, arguments, receiver, requiresReceiverAddress: true);
         return new BoundExpressionStatement(invocation);
     }
@@ -427,17 +416,6 @@ internal static class AsyncLowerer
         return null;
     }
 
-    private static IMethodSymbol? FindSetResultMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("SetResult"))
-        {
-            if (member is IMethodSymbol method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
     private static LabelSymbol CreateLabel(SynthesizedAsyncStateMachineTypeSymbol stateMachine, string name)
     {
         return new LabelSymbol(
@@ -473,17 +451,16 @@ internal static class AsyncLowerer
             requiresReceiverAddress: true);
     }
 
-    private static BoundStatement? CreateBuilderSetExceptionStatement(SynthesizedAsyncStateMachineTypeSymbol stateMachine, ILocalSymbol exceptionLocal)
+    private static BoundStatement? CreateBuilderSetExceptionStatement(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
+        ILocalSymbol exceptionLocal)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var setExceptionMethod = FindSetExceptionMethod(builderType);
+        var setExceptionMethod = builderMembers.SetException;
         if (setExceptionMethod is null)
             return null;
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderField);
+        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var exceptionAccess = new BoundLocalAccess(exceptionLocal);
 
         var invocation = new BoundInvocationExpression(
@@ -573,61 +550,10 @@ internal static class AsyncLowerer
         return new BoundBlockStatement(new BoundStatement[] { disposeCall, clearStatement });
     }
 
-    private static IMethodSymbol? FindSetExceptionMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("SetException"))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? FindAwaitOnCompletedMethod(INamedTypeSymbol builderType)
-    {
-        return FindAwaitMethod(builderType, "AwaitUnsafeOnCompleted")
-            ?? FindAwaitMethod(builderType, "AwaitOnCompleted");
-    }
-
-    private static IMethodSymbol? FindAwaitMethod(INamedTypeSymbol builderType, string name)
-    {
-        foreach (var member in builderType.GetMembers(name))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 2 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? SubstituteBuilderMethodIfNeeded(INamedTypeSymbol builderType, IMethodSymbol method)
-    {
-        if (builderType is ConstructedNamedTypeSymbol constructed &&
-            method is not SubstitutedMethodSymbol &&
-            !SymbolEqualityComparer.Default.Equals(method.ContainingType, constructed))
-        {
-            return new SubstitutedMethodSymbol(method, constructed);
-        }
-
-        return method;
-    }
-
-    private static IPropertySymbol? SubstituteBuilderPropertyIfNeeded(INamedTypeSymbol builderType, IPropertySymbol property)
-    {
-        if (builderType is ConstructedNamedTypeSymbol constructed &&
-            property is not SubstitutedPropertySymbol &&
-            !SymbolEqualityComparer.Default.Equals(property.ContainingType, constructed))
-        {
-            return new SubstitutedPropertySymbol(property, constructed);
-        }
-
-        return property;
-    }
-
     private sealed class AwaitLoweringRewriter : BoundTreeRewriter
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
+        private readonly SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers _builderMembers;
         private readonly List<StateDispatch> _dispatches = new();
         private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(SymbolEqualityComparer.Default);
         private ImmutableDictionary<ILocalSymbol, bool> _hoistableLocals = ImmutableDictionary<ILocalSymbol, bool>.Empty;
@@ -638,7 +564,11 @@ internal static class AsyncLowerer
 
         public AwaitLoweringRewriter(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
-            _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+            if (stateMachine is null)
+                throw new ArgumentNullException(nameof(stateMachine));
+
+            _stateMachine = stateMachine;
+            _builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
             _nextHoistedLocalId = DetermineInitialHoistedLocalId(stateMachine);
             _nextAwaitResultId = 0;
             _nextAwaiterLocalId = 0;
@@ -958,7 +888,7 @@ internal static class AsyncLowerer
 
             statements.Add(CreateStateAssignment(_stateMachine, -2));
 
-            var setResult = CreateBuilderSetResultStatement(_stateMachine, resultExpression);
+            var setResult = CreateBuilderSetResultStatement(_stateMachine, _builderMembers, resultExpression);
             if (setResult is not null)
                 statements.Add(setResult);
 
@@ -1017,192 +947,192 @@ internal static class AsyncLowerer
                     return (BoundExpression?)VisitAwaitExpression(awaitExpression);
 
                 case BoundBinaryExpression binaryExpression:
-                {
-                    var left = VisitExpression(binaryExpression.Left) ?? binaryExpression.Left;
-                    var right = VisitExpression(binaryExpression.Right) ?? binaryExpression.Right;
+                    {
+                        var left = VisitExpression(binaryExpression.Left) ?? binaryExpression.Left;
+                        var right = VisitExpression(binaryExpression.Right) ?? binaryExpression.Right;
 
-                    if (!ReferenceEquals(left, binaryExpression.Left) || !ReferenceEquals(right, binaryExpression.Right))
-                        return new BoundBinaryExpression(left, binaryExpression.Operator, right);
+                        if (!ReferenceEquals(left, binaryExpression.Left) || !ReferenceEquals(right, binaryExpression.Right))
+                            return new BoundBinaryExpression(left, binaryExpression.Operator, right);
 
-                    return binaryExpression;
-                }
+                        return binaryExpression;
+                    }
 
                 case BoundUnaryExpression unaryExpression:
-                {
-                    var operand = VisitExpression(unaryExpression.Operand) ?? unaryExpression.Operand;
-                    if (!ReferenceEquals(operand, unaryExpression.Operand))
-                        return new BoundUnaryExpression(unaryExpression.Operator, operand);
+                    {
+                        var operand = VisitExpression(unaryExpression.Operand) ?? unaryExpression.Operand;
+                        if (!ReferenceEquals(operand, unaryExpression.Operand))
+                            return new BoundUnaryExpression(unaryExpression.Operator, operand);
 
-                    return unaryExpression;
-                }
+                        return unaryExpression;
+                    }
 
                 case BoundInvocationExpression invocationExpression:
-                {
-                    var receiver = VisitExpression(invocationExpression.Receiver) ?? invocationExpression.Receiver;
-                    var extensionReceiver = invocationExpression.ExtensionReceiver is null
-                        ? null
-                        : VisitExpression(invocationExpression.ExtensionReceiver) ?? invocationExpression.ExtensionReceiver;
-
-                    var originalArguments = invocationExpression.Arguments.ToArray();
-                    var rewrittenArguments = new BoundExpression[originalArguments.Length];
-                    var changed = !ReferenceEquals(receiver, invocationExpression.Receiver) ||
-                        !ReferenceEquals(extensionReceiver, invocationExpression.ExtensionReceiver);
-
-                    for (var i = 0; i < originalArguments.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
-                        rewrittenArguments[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalArguments[i]))
-                            changed = true;
+                        var receiver = VisitExpression(invocationExpression.Receiver) ?? invocationExpression.Receiver;
+                        var extensionReceiver = invocationExpression.ExtensionReceiver is null
+                            ? null
+                            : VisitExpression(invocationExpression.ExtensionReceiver) ?? invocationExpression.ExtensionReceiver;
+
+                        var originalArguments = invocationExpression.Arguments.ToArray();
+                        var rewrittenArguments = new BoundExpression[originalArguments.Length];
+                        var changed = !ReferenceEquals(receiver, invocationExpression.Receiver) ||
+                            !ReferenceEquals(extensionReceiver, invocationExpression.ExtensionReceiver);
+
+                        for (var i = 0; i < originalArguments.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
+                            rewrittenArguments[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalArguments[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundInvocationExpression(
+                                invocationExpression.Method,
+                                rewrittenArguments,
+                                receiver,
+                                extensionReceiver,
+                                invocationExpression.RequiresReceiverAddress);
+
+                        return invocationExpression;
                     }
-
-                    if (changed)
-                        return new BoundInvocationExpression(
-                            invocationExpression.Method,
-                            rewrittenArguments,
-                            receiver,
-                            extensionReceiver,
-                            invocationExpression.RequiresReceiverAddress);
-
-                    return invocationExpression;
-                }
 
                 case BoundObjectCreationExpression objectCreationExpression:
-                {
-                    var receiver = VisitExpression(objectCreationExpression.Receiver) ?? objectCreationExpression.Receiver;
-                    var originalArguments = objectCreationExpression.Arguments.ToArray();
-                    var rewrittenArguments = new BoundExpression[originalArguments.Length];
-                    var changed = !ReferenceEquals(receiver, objectCreationExpression.Receiver);
-
-                    for (var i = 0; i < originalArguments.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
-                        rewrittenArguments[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalArguments[i]))
-                            changed = true;
+                        var receiver = VisitExpression(objectCreationExpression.Receiver) ?? objectCreationExpression.Receiver;
+                        var originalArguments = objectCreationExpression.Arguments.ToArray();
+                        var rewrittenArguments = new BoundExpression[originalArguments.Length];
+                        var changed = !ReferenceEquals(receiver, objectCreationExpression.Receiver);
+
+                        for (var i = 0; i < originalArguments.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
+                            rewrittenArguments[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalArguments[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundObjectCreationExpression(objectCreationExpression.Constructor, rewrittenArguments, receiver);
+
+                        return objectCreationExpression;
                     }
-
-                    if (changed)
-                        return new BoundObjectCreationExpression(objectCreationExpression.Constructor, rewrittenArguments, receiver);
-
-                    return objectCreationExpression;
-                }
 
                 case BoundCastExpression castExpression:
-                {
-                    var operand = VisitExpression(castExpression.Expression) ?? castExpression.Expression;
-                    if (!ReferenceEquals(operand, castExpression.Expression))
-                        return new BoundCastExpression(operand, castExpression.Type, castExpression.Conversion);
+                    {
+                        var operand = VisitExpression(castExpression.Expression) ?? castExpression.Expression;
+                        if (!ReferenceEquals(operand, castExpression.Expression))
+                            return new BoundCastExpression(operand, castExpression.Type, castExpression.Conversion);
 
-                    return castExpression;
-                }
+                        return castExpression;
+                    }
 
                 case BoundAsExpression asExpression:
-                {
-                    var operand = VisitExpression(asExpression.Expression) ?? asExpression.Expression;
-                    if (!ReferenceEquals(operand, asExpression.Expression))
-                        return new BoundAsExpression(operand, asExpression.Type, asExpression.Conversion);
+                    {
+                        var operand = VisitExpression(asExpression.Expression) ?? asExpression.Expression;
+                        if (!ReferenceEquals(operand, asExpression.Expression))
+                            return new BoundAsExpression(operand, asExpression.Type, asExpression.Conversion);
 
-                    return asExpression;
-                }
+                        return asExpression;
+                    }
 
                 case BoundParenthesizedExpression parenthesizedExpression:
-                {
-                    var inner = VisitExpression(parenthesizedExpression.Expression) ?? parenthesizedExpression.Expression;
-                    if (!ReferenceEquals(inner, parenthesizedExpression.Expression))
-                        return new BoundParenthesizedExpression(inner);
+                    {
+                        var inner = VisitExpression(parenthesizedExpression.Expression) ?? parenthesizedExpression.Expression;
+                        if (!ReferenceEquals(inner, parenthesizedExpression.Expression))
+                            return new BoundParenthesizedExpression(inner);
 
-                    return parenthesizedExpression;
-                }
+                        return parenthesizedExpression;
+                    }
 
                 case BoundConditionalAccessExpression conditionalAccessExpression:
-                {
-                    var receiver = VisitExpression(conditionalAccessExpression.Receiver) ?? conditionalAccessExpression.Receiver;
-                    var whenNotNull = VisitExpression(conditionalAccessExpression.WhenNotNull) ?? conditionalAccessExpression.WhenNotNull;
-
-                    if (!ReferenceEquals(receiver, conditionalAccessExpression.Receiver) ||
-                        !ReferenceEquals(whenNotNull, conditionalAccessExpression.WhenNotNull))
                     {
-                        return new BoundConditionalAccessExpression(receiver, whenNotNull, conditionalAccessExpression.Type);
-                    }
+                        var receiver = VisitExpression(conditionalAccessExpression.Receiver) ?? conditionalAccessExpression.Receiver;
+                        var whenNotNull = VisitExpression(conditionalAccessExpression.WhenNotNull) ?? conditionalAccessExpression.WhenNotNull;
 
-                    return conditionalAccessExpression;
-                }
+                        if (!ReferenceEquals(receiver, conditionalAccessExpression.Receiver) ||
+                            !ReferenceEquals(whenNotNull, conditionalAccessExpression.WhenNotNull))
+                        {
+                            return new BoundConditionalAccessExpression(receiver, whenNotNull, conditionalAccessExpression.Type);
+                        }
+
+                        return conditionalAccessExpression;
+                    }
 
                 case BoundIfExpression ifExpression:
-                {
-                    var condition = VisitExpression(ifExpression.Condition) ?? ifExpression.Condition;
-                    var thenBranch = VisitExpression(ifExpression.ThenBranch) ?? ifExpression.ThenBranch;
-                    var elseBranch = VisitExpression(ifExpression.ElseBranch) ?? ifExpression.ElseBranch;
-
-                    if (!ReferenceEquals(condition, ifExpression.Condition) ||
-                        !ReferenceEquals(thenBranch, ifExpression.ThenBranch) ||
-                        !ReferenceEquals(elseBranch, ifExpression.ElseBranch))
                     {
-                        return new BoundIfExpression(condition, thenBranch, elseBranch);
-                    }
+                        var condition = VisitExpression(ifExpression.Condition) ?? ifExpression.Condition;
+                        var thenBranch = VisitExpression(ifExpression.ThenBranch) ?? ifExpression.ThenBranch;
+                        var elseBranch = VisitExpression(ifExpression.ElseBranch) ?? ifExpression.ElseBranch;
 
-                    return ifExpression;
-                }
+                        if (!ReferenceEquals(condition, ifExpression.Condition) ||
+                            !ReferenceEquals(thenBranch, ifExpression.ThenBranch) ||
+                            !ReferenceEquals(elseBranch, ifExpression.ElseBranch))
+                        {
+                            return new BoundIfExpression(condition, thenBranch, elseBranch);
+                        }
+
+                        return ifExpression;
+                    }
 
                 case BoundTupleExpression tupleExpression:
-                {
-                    var originalElements = tupleExpression.Elements.ToArray();
-                    var rewrittenElements = new BoundExpression[originalElements.Length];
-                    var changed = false;
-
-                    for (var i = 0; i < originalElements.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
-                        rewrittenElements[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalElements[i]))
-                            changed = true;
+                        var originalElements = tupleExpression.Elements.ToArray();
+                        var rewrittenElements = new BoundExpression[originalElements.Length];
+                        var changed = false;
+
+                        for (var i = 0; i < originalElements.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
+                            rewrittenElements[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalElements[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundTupleExpression(rewrittenElements, tupleExpression.Type);
+
+                        return tupleExpression;
                     }
-
-                    if (changed)
-                        return new BoundTupleExpression(rewrittenElements, tupleExpression.Type);
-
-                    return tupleExpression;
-                }
 
                 case BoundCollectionExpression collectionExpression:
-                {
-                    var originalElements = collectionExpression.Elements.ToArray();
-                    var rewrittenElements = new BoundExpression[originalElements.Length];
-                    var changed = false;
-
-                    for (var i = 0; i < originalElements.Length; i++)
                     {
-                        var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
-                        rewrittenElements[i] = rewritten;
-                        if (!ReferenceEquals(rewritten, originalElements[i]))
-                            changed = true;
+                        var originalElements = collectionExpression.Elements.ToArray();
+                        var rewrittenElements = new BoundExpression[originalElements.Length];
+                        var changed = false;
+
+                        for (var i = 0; i < originalElements.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalElements[i]) ?? originalElements[i];
+                            rewrittenElements[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalElements[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundCollectionExpression(collectionExpression.Type!, rewrittenElements, collectionExpression.CollectionSymbol, collectionExpression.Reason);
+
+                        return collectionExpression;
                     }
-
-                    if (changed)
-                        return new BoundCollectionExpression(collectionExpression.Type!, rewrittenElements, collectionExpression.CollectionSymbol, collectionExpression.Reason);
-
-                    return collectionExpression;
-                }
 
                 case BoundBlockExpression blockExpression:
-                {
-                    var statements = new List<BoundStatement>();
-                    var changed = false;
-
-                    foreach (var statement in blockExpression.Statements)
                     {
-                        var rewritten = VisitStatement(statement);
-                        statements.Add(rewritten);
-                        if (!ReferenceEquals(rewritten, statement))
-                            changed = true;
+                        var statements = new List<BoundStatement>();
+                        var changed = false;
+
+                        foreach (var statement in blockExpression.Statements)
+                        {
+                            var rewritten = VisitStatement(statement);
+                            statements.Add(rewritten);
+                            if (!ReferenceEquals(rewritten, statement))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundBlockExpression(statements, blockExpression.UnitType, blockExpression.LocalsToDispose);
+
+                        return blockExpression;
                     }
-
-                    if (changed)
-                        return new BoundBlockExpression(statements, blockExpression.UnitType, blockExpression.LocalsToDispose);
-
-                    return blockExpression;
-                }
             }
 
             return base.VisitExpression(node);
@@ -1415,17 +1345,13 @@ internal static class AsyncLowerer
 
         private BoundStatement CreateAwaitOnCompletedStatement(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)
         {
-            var builderField = _stateMachine.BuilderField;
-            if (builderField.Type is not INamedTypeSymbol builderType)
-                throw new InvalidOperationException("Async builder field must be a named type.");
-
-            var awaitMethod = FindAwaitOnCompletedMethod(builderType)
+            var awaitMethod = _builderMembers.AwaitOnCompleted
                 ?? throw new InvalidOperationException("Async builder is missing AwaitOnCompleted/AwaitUnsafeOnCompleted.");
 
             if (awaitMethod.IsGenericMethod)
                 awaitMethod = awaitMethod.Construct(awaitExpression.AwaiterType, _stateMachine);
 
-            var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), builderField);
+            var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _builderMembers.BuilderField);
             var awaiterAddress = new BoundAddressOfExpression(awaiterField, awaiterField.Type, new BoundSelfExpression(_stateMachine));
             var thisAddress = new BoundAddressOfExpression(_stateMachine, _stateMachine);
 
@@ -1705,13 +1631,12 @@ internal static class AsyncLowerer
         }
     }
 
-    private static BoundStatement? CreateBuilderInitializationStatement(SourceLocalSymbol asyncLocal, SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+    private static BoundStatement? CreateBuilderInitializationStatement(
+        SourceLocalSymbol asyncLocal,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
+        ITypeSymbol unitType)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var createMethod = FindParameterlessStaticMethod(builderType, "Create");
+        var createMethod = builderMembers.Create;
         if (createMethod is null)
             return null;
 
@@ -1719,29 +1644,28 @@ internal static class AsyncLowerer
         var receiver = new BoundLocalAccess(asyncLocal);
         var assignment = new BoundFieldAssignmentExpression(
             receiver,
-            builderField,
+            builderMembers.BuilderField,
             invocation,
-            stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit),
+            unitType,
             requiresReceiverAddress: true);
         return new BoundAssignmentStatement(assignment);
     }
 
-    private static BoundStatement? CreateBuilderStartStatement(SourceLocalSymbol asyncLocal, SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+    private static BoundStatement? CreateBuilderStartStatement(
+        SourceLocalSymbol asyncLocal,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
+        INamedTypeSymbol stateMachineType)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var startMethod = FindStartMethod(builderType);
+        var startMethod = builderMembers.Start;
         if (startMethod is null)
             return null;
 
         var constructedStart = startMethod.IsGenericMethod
-            ? startMethod.Construct(stateMachine)
+            ? startMethod.Construct(stateMachineType)
             : startMethod;
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderField);
-        var stateMachineReference = new BoundAddressOfExpression(asyncLocal, stateMachine);
+        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderMembers.BuilderField);
+        var stateMachineReference = new BoundAddressOfExpression(asyncLocal, stateMachineType);
 
         var invocation = new BoundInvocationExpression(
             constructedStart,
@@ -1754,15 +1678,12 @@ internal static class AsyncLowerer
 
     private static BoundBlockStatement? CreateSetStateMachineBody(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
-        var builderField = stateMachine.BuilderField;
-        if (builderField.Type is not INamedTypeSymbol builderType)
-            return null;
-
-        var setStateMachineMethod = FindSetStateMachineMethod(builderType);
+        var builderMembers = stateMachine.GetBuilderMembers(stateMachine.AsyncMethod);
+        var setStateMachineMethod = builderMembers.SetStateMachine;
         if (setStateMachineMethod is null)
             return null;
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderField);
+        var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var parameter = stateMachine.SetStateMachineMethod.Parameters.Length > 0
             ? stateMachine.SetStateMachineMethod.Parameters[0]
             : null;
@@ -1776,25 +1697,24 @@ internal static class AsyncLowerer
             builderAccess,
             requiresReceiverAddress: true);
 
-        var statement = new BoundExpressionStatement(invocation);
-        return new BoundBlockStatement(new BoundStatement[] { statement });
+        var assignment = CreateStateAssignment(stateMachine, -1);
+        return new BoundBlockStatement(new BoundStatement[]
+        {
+            assignment,
+            new BoundExpressionStatement(invocation)
+        });
     }
 
     private static BoundExpression CreateReturnExpression(
         SourceMethodSymbol method,
-        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         SourceLocalSymbol asyncLocal)
     {
-        if (stateMachine.BuilderField.Type is not INamedTypeSymbol builderType)
-        {
-            return CreateNullLiteral(method.ReturnType);
-        }
-
-        var taskProperty = FindTaskProperty(builderType);
+        var taskProperty = builderMembers.TaskProperty;
         if (taskProperty is null)
             return CreateNullLiteral(method.ReturnType);
 
-        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), stateMachine.BuilderField);
+        var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderMembers.BuilderField);
         var taskAccess = new BoundMemberAccessExpression(builderAccess, taskProperty);
 
         if (!SymbolEqualityComparer.Default.Equals(taskProperty.Type, method.ReturnType))
@@ -1804,50 +1724,6 @@ internal static class AsyncLowerer
         }
 
         return taskAccess;
-    }
-
-    private static IMethodSymbol? FindParameterlessStaticMethod(INamedTypeSymbol type, string name)
-    {
-        foreach (var member in type.GetMembers(name))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 0, IsStatic: true } method)
-                return SubstituteBuilderMethodIfNeeded(type, method);
-        }
-
-        return null;
-    }
-
-    private static IPropertySymbol? FindTaskProperty(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers())
-        {
-            if (member is IPropertySymbol { Name: "Task" } property)
-                return SubstituteBuilderPropertyIfNeeded(builderType, property);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? FindStartMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("Start"))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
-    }
-
-    private static IMethodSymbol? FindSetStateMachineMethod(INamedTypeSymbol builderType)
-    {
-        foreach (var member in builderType.GetMembers("SetStateMachine"))
-        {
-            if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return SubstituteBuilderMethodIfNeeded(builderType, method);
-        }
-
-        return null;
     }
 
     private static BoundLiteralExpression CreateNullLiteral(ITypeSymbol type)

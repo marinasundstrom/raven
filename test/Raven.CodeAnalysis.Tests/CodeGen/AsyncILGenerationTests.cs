@@ -135,6 +135,25 @@ WriteLine(value)
 return value
 """;
 
+    private const string AsyncGenericInstanceMethodCode = """
+import System.Threading.Tasks.*
+
+class Container {
+    async Identity<T>(value: T) -> Task<T> {
+        await Task.Delay(1)
+        return value
+    }
+}
+
+async func Run() -> Task<int> {
+    let instance = Container()
+    return await instance.Identity(123)
+}
+
+let result = await Run()
+return result
+""";
+
     private const string AsyncTaskOfIntEntryPointWithMultipleAwaitsCode = """
 import System.Console.*
 import System.Threading.Tasks.*
@@ -724,6 +743,46 @@ class C {
 
         var output = writer.ToString().Replace("\r\n", "\n").Trim();
         Assert.Equal("42", output);
+    }
+
+    [Fact]
+    public void AsyncGenericInstanceMethod_ExecutesSuccessfully()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericInstanceMethodCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_generic_instance", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+        var assembly = Assembly.Load(peStream.ToArray());
+
+        var programType = assembly.GetType("Program", throwOnError: true, ignoreCase: false);
+        Assert.NotNull(programType);
+
+        var main = programType!.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(main);
+
+        var returnValue = main!.Invoke(null, new object?[] { Array.Empty<string>() });
+        var awaitedResult = Assert.IsType<int>(returnValue);
+        Assert.Equal(123, awaitedResult);
     }
 
     [Fact]
@@ -1463,6 +1522,39 @@ class C {
         for (var i = stateMachineAddressIndex + 1; i < awaitUnsafeIndex; i++)
         {
             Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
+        }
+    }
+
+    [Fact]
+    public void MoveNext_GenericBuilderCalls_UseStructTypeParameters()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncGenericTaskEntryPointCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+            stateMachine.AsyncMethod.Name == "Test");
+
+        var builderCalls = instructions
+            .Select(instruction => instruction.Operand.Value as MethodInfo)
+            .Where(method => method is not null && method.DeclaringType is not null)
+            .Where(method => method!.DeclaringType!.IsGenericType &&
+                method.DeclaringType.Name.Contains("AsyncTaskMethodBuilder", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(builderCalls);
+
+        foreach (var method in builderCalls)
+        {
+            var declaringType = method!.DeclaringType!;
+            var typeArguments = declaringType.GetGenericArguments();
+            Assert.NotEmpty(typeArguments);
+
+            foreach (var argument in typeArguments)
+            {
+                if (!argument.IsGenericParameter)
+                    continue;
+
+                Assert.Null(argument.DeclaringMethod);
+            }
         }
     }
 

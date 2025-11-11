@@ -2237,6 +2237,7 @@ internal class ExpressionGenerator : Generator
         {
             SourceFieldSymbol sourceFieldSymbol => sourceFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
             PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
+            SubstitutedFieldSymbol substitutedFieldSymbol => substitutedFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
             _ => throw new Exception("Unsupported field symbol")
         };
     }

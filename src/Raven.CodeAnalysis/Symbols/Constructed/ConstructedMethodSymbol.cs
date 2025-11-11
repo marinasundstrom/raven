@@ -245,11 +245,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
             if (isTypeBuilderInstantiation)
             {
-                var instantiated = TypeBuilder.GetMethod(containingClrType, method);
-                if (instantiated is null)
-                    continue;
+                try
+                {
+                    var instantiated = TypeBuilder.GetMethod(containingClrType, method);
+                    if (instantiated is null)
+                        continue;
 
-                candidate = instantiated;
+                    candidate = instantiated;
+                }
+                catch (ArgumentException)
+                {
+                    continue;
+                }
             }
 
             if (!string.Equals(candidate.Name, _definition.Name, StringComparison.Ordinal))
@@ -307,8 +314,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (!TryGetSourceDefinitionSymbol(_definition, out var sourceDefinition))
             return false;
 
-        if (!codeGen.TryGetMemberBuilder(sourceDefinition, TypeArguments, out var member) || member is not MethodInfo definitionMethod)
-            return false;
+        if (!codeGen.TryGetMemberBuilder(sourceDefinition, TypeArguments, out var member) ||
+            member is not MethodInfo definitionMethod)
+        {
+            if (!codeGen.TryGetMemberBuilder(sourceDefinition, out member) ||
+                member is not MethodInfo definitionMethodFromDefinition)
+            {
+                return false;
+            }
+
+            definitionMethod = definitionMethodFromDefinition;
+        }
 
         var candidateDefinition = definitionMethod;
 
@@ -317,10 +333,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (isTypeBuilderInstantiation)
         {
-            var projected = TypeBuilder.GetMethod(containingClrType, candidateDefinition);
-            if (projected is null)
+            try
+            {
+                var projected = TypeBuilder.GetMethod(containingClrType, candidateDefinition);
+                if (projected is null)
+                    return false;
+                candidateDefinition = projected;
+            }
+            catch (ArgumentException)
+            {
                 return false;
-            candidateDefinition = projected;
+            }
         }
 
         var candidate = candidateDefinition;
@@ -428,7 +451,16 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             return false;
 
         var normalizedRuntimeType = SubstituteRuntimeType(runtimeParameter.ParameterType, methodRuntimeArguments, typeRuntimeArguments);
-        return MethodSymbolExtensionsForCodeGen.TypesEquivalent(normalizedRuntimeType, symbolParameter.Type, codeGen);
+        var equivalent = MethodSymbolExtensionsForCodeGen.TypesEquivalent(normalizedRuntimeType, symbolParameter.Type, codeGen);
+
+        if (!equivalent)
+        {
+            var symbolClrType = symbolParameter.Type.GetClrType(codeGen);
+            if (string.Equals(normalizedRuntimeType.ToString(), symbolClrType.ToString(), StringComparison.Ordinal))
+                equivalent = true;
+        }
+
+        return equivalent;
     }
 
     private static Type SubstituteRuntimeType(Type runtimeType, Type[] methodRuntimeArguments, Type[]? typeRuntimeArguments)
