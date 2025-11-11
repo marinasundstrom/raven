@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.CodeGen;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -308,7 +306,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         foreach (var (parameter, field) in _parameterFieldMap)
         {
             var constructedField = GetConstructedField(field, stateMachineType);
-            builder[parameter] = SubstituteFieldForAsyncMethod(constructedField);
+            builder[parameter] = constructedField;
         }
 
         return builder.ToImmutable();
@@ -343,14 +341,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         IFieldSymbol builderField,
         BuilderMembers stateMachineMembers)
     {
-        var asyncBuilderField = SubstituteFieldForAsyncMethod(builderField);
+        if (SymbolEqualityComparer.Default.Equals(builderField, stateMachineMembers.BuilderField))
+            return stateMachineMembers;
 
-        if (!ReferenceEquals(asyncBuilderField, builderField) && asyncBuilderField.Type is not null)
-        {
-            return CreateAsyncMethodBuilderMembers(asyncBuilderField, stateMachineMembers);
-        }
-
-        return stateMachineMembers;
+        return CreateAsyncMethodBuilderMembers(builderField, stateMachineMembers);
     }
 
     private BuilderMembers CreateAsyncMethodBuilderMembers(
@@ -426,24 +420,6 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             return candidate;
 
         return property;
-    }
-
-    private IFieldSymbol SubstituteFieldForAsyncMethod(IFieldSymbol field)
-    {
-        if (field is null)
-            throw new ArgumentNullException(nameof(field));
-
-        if (_stateToAsyncTypeParameterMap.Count == 0)
-            return field;
-
-        if (field is AsyncMethodStateMachineFieldSymbol asyncField)
-            return asyncField;
-
-        var substitutedType = SubstituteStateMachineTypeParameters(field.Type);
-        if (SymbolEqualityComparer.Default.Equals(substitutedType, field.Type))
-            return field;
-
-        return new AsyncMethodStateMachineFieldSymbol(field, this);
     }
 
     private (
@@ -909,65 +885,3 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     }
 }
 
-internal sealed class AsyncMethodStateMachineFieldSymbol : IFieldSymbol
-{
-    private readonly IFieldSymbol _underlying;
-    private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
-
-    public AsyncMethodStateMachineFieldSymbol(IFieldSymbol underlying, SynthesizedAsyncStateMachineTypeSymbol stateMachine)
-    {
-        _underlying = underlying ?? throw new ArgumentNullException(nameof(underlying));
-        _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
-    }
-
-    internal IFieldSymbol UnderlyingField => _underlying;
-
-    public string Name => _underlying.Name;
-
-    public ITypeSymbol Type => _stateMachine.SubstituteStateMachineTypeParameters(_underlying.Type);
-
-    public ISymbol ContainingSymbol => _underlying.ContainingSymbol;
-
-    public bool IsLiteral => _underlying.IsLiteral;
-
-    public SymbolKind Kind => _underlying.Kind;
-
-    public string MetadataName => _underlying.MetadataName;
-
-    public IAssemblySymbol? ContainingAssembly => _underlying.ContainingAssembly;
-
-    public IModuleSymbol? ContainingModule => _underlying.ContainingModule;
-
-    public INamedTypeSymbol? ContainingType => _underlying.ContainingType;
-
-    public INamespaceSymbol? ContainingNamespace => _underlying.ContainingNamespace;
-
-    public ImmutableArray<Location> Locations => _underlying.Locations;
-
-    public Accessibility DeclaredAccessibility => _underlying.DeclaredAccessibility;
-
-    public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _underlying.DeclaringSyntaxReferences;
-
-    public bool IsImplicitlyDeclared => _underlying.IsImplicitlyDeclared;
-
-    public bool IsStatic => _underlying.IsStatic;
-
-    public ISymbol UnderlyingSymbol => this;
-
-    public bool IsAlias => false;
-
-    public ImmutableArray<AttributeData> GetAttributes() => _underlying.GetAttributes();
-
-    public void Accept(SymbolVisitor visitor) => _underlying.Accept(visitor);
-
-    public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => _underlying.Accept(visitor);
-
-    public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => _underlying.Equals(other, comparer);
-
-    public bool Equals(ISymbol? other) => _underlying.Equals(other);
-
-    public object? GetConstantValue() => _underlying.GetConstantValue();
-
-    internal FieldInfo GetFieldInfo(CodeGenerator codeGen)
-        => _underlying.GetFieldInfo(codeGen);
-}

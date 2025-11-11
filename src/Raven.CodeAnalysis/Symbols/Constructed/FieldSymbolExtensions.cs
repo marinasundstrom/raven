@@ -15,7 +15,6 @@ internal static class FieldSymbolExtensions
             SourceFieldSymbol sourceField => (FieldInfo)codeGen.GetMemberBuilder(sourceField),
             PEFieldSymbol field => field.GetFieldInfo(),
             SubstitutedFieldSymbol field => field.GetFieldInfo(codeGen),
-            AsyncMethodStateMachineFieldSymbol asyncField => asyncField.GetFieldInfo(codeGen),
             _ => throw new NotSupportedException($"Unsupported field type: {fieldSymbol.GetType().Name}")
         };
     }
