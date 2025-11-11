@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-23 | 🟡 At risk | Hoisted-disposal guards now live at the end of `MoveNext` by skipping async rewriter cleanup for the root block and appending the state machine's `HoistedLocalsToDispose` during MoveNext assembly, restoring the expected guard order while keeping the builder substitutions intact.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L90-L112】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L607-L680】 |
 | 2025-11-22 | 🟡 At risk | The synthesized async state machine now owns an `AsyncBuilderMemberMap` so both MoveNext lowering and constructed method views query the same cached builder metadata keyed by the `_builder` field while we continue debugging the runtime verifier break for `Program.Test<T>`.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L21-L148】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L865-L914】 |
 | 2025-11-21 | 🟡 At risk | MoveNext lowering now threads a shared builder context through dispatch, completion, and catch handling so await lowering, state transitions, and exception paths all reuse the same substituted snapshot while we still chase the runtime verifier break for `Program.Test<T>`.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L85-L139】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L204-L312】 |
 | 2025-11-20 | 🟡 At risk | Constructed async methods now consume the state machine's hoisted parameter and builder fields directly, eliminating the wrapper substitution while we still chase the runtime verifier break for `Program.Test<T>`.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L304-L384】 |
@@ -57,6 +58,11 @@ WriteLine(x)
   instantiates a context that hands the same builder snapshot to await
   rewriting, state dispatch, completion, and exception handling so the state
   machine never re-fetches substituted members mid-lowering.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L85-L139】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L204-L312】
+* **Root block disposal now happens in MoveNext assembly.** The async rewriter
+  leaves the outer block untouched, and `CreateMoveNextBody` appends
+  `CreateDisposeStatements` after the rewritten body so the hoisted `using`
+  guard precedes completion logic, matching the regression expectations for
+  long-running disposables.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L90-L112】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L607-L680】
 * **Awaited type now maps before builder construction.** When the async method returns
   `Task<T>`, the awaited `T` is substituted with the state machine's `!0` before
   we instantiate `AsyncTaskMethodBuilder<T>`, preventing Reflection.Emit from caching
@@ -120,6 +126,19 @@ Recent spelunking through `AsyncLowerer` and the synthesized state-machine symbo
 
 Together these changes would let us lower against a constructed, type-safe state machine without mutating the original method symbol, clearing the path for generic async functions.
 
+### Refactoring opportunities
+
+* **Teach other lowerers to share the root-block hook.** The new
+  `RewriteBlockStatement` helper in the async rewriter separates inner block
+  cleanup from the outer frame. Threading similar hooks through iterator and
+  generator lowerers would let them plug custom completion logic without
+  duplicating hoist/dispose loops.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L607-L680】
+* **Move dispose scheduling behind a reusable service.** Now that hoisted
+  disposal happens during MoveNext assembly, extracting the guard construction
+  into a shared utility would let future refactors (e.g., pattern-based
+  asynchronous `using`) reuse the same cleanup staging without reaching into
+  the rewriter internals.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L90-L112】
+
 ## Guiding principles
 
 1. Keep constructed async builders on the Reflection.Emit surface; reuse the
@@ -172,6 +191,7 @@ Together these changes would let us lower against a constructed, type-safe state
 | Remove `AsyncMethodStateMachineFieldSymbol` by performing substitutions when constructing the state machine. | ✅ Completed | Compiler team | Constructed async methods now read the state machine's hoisted fields directly, so the bespoke wrapper symbol is gone.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L304-L384】 |
 | Introduce a lowering context that carries builder metadata so the dispatch, completion, and await paths share one snapshot. | ✅ Completed | Compiler team | `CreateMoveNextBody` now instantiates a shared context so dispatch, completion, and exception paths reuse the same substituted builder snapshot.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L85-L139】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L204-L312】 |
 | Stop resolving builder members inside `AwaitLoweringRewriter`; pipe the snapshot captured in `CreateMoveNextBody` instead. | ✅ Completed | Compiler team | `CreateMoveNextBody` now hands the cached builder members to the rewriter so both layers share one substitution view.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L89-L109】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L552-L611】 |
+| Rehome hoisted-disposal guards so the rewriter no longer duplicates cleanup and `MoveNext` anchors the guard before completion. | ✅ Completed | Compiler team | The rewriter's root block skips disposal injection and `CreateMoveNextBody` appends the hoisted field cleanup immediately before builder completion, matching the regression layout. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L90-L112】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L607-L680】 |
 
 ## Risks & mitigations
 

@@ -94,6 +94,14 @@ internal static class AsyncLowerer
         tryStatements.AddRange(CreateStateDispatchStatements(context, entryLabel, awaitRewriter.Dispatches));
 
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
+        if (!stateMachine.HoistedLocalsToDispose.IsDefaultOrEmpty)
+        {
+            var disposeStatements = CreateDisposeStatements(
+                stateMachine,
+                EnumerateReverse(stateMachine.HoistedLocalsToDispose));
+            entryStatements.AddRange(disposeStatements);
+        }
+
         entryStatements.AddRange(CreateCompletionStatements(context));
         var entryBlock = new BoundBlockStatement(entryStatements, rewrittenBody.LocalsToDispose);
 
@@ -599,7 +607,7 @@ internal static class AsyncLowerer
             foreach (var local in _hoistableLocals.Keys)
                 AddHoistedLocal(local);
 
-            return (BoundBlockStatement)VisitBlockStatement(body)!;
+            return RewriteBlockStatement(body, appendDisposeStatements: false);
         }
 
         private static int DetermineInitialHoistedLocalId(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
@@ -624,6 +632,13 @@ internal static class AsyncLowerer
             if (node is null)
                 return null;
 
+            return RewriteBlockStatement(node, appendDisposeStatements: true);
+        }
+
+        private BoundBlockStatement RewriteBlockStatement(
+            BoundBlockStatement node,
+            bool appendDisposeStatements)
+        {
             var statements = new List<BoundStatement>();
             var hoistedDisposables = CollectHoistedDisposables(node.LocalsToDispose);
 
@@ -641,7 +656,7 @@ internal static class AsyncLowerer
                 }
             }
 
-            if (hoistedDisposables.Count > 0)
+            if (appendDisposeStatements && hoistedDisposables.Count > 0)
             {
                 var disposeStatements = CreateDisposeStatements(
                     _stateMachine,
