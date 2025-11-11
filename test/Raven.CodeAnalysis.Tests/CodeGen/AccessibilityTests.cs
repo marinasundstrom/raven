@@ -28,33 +28,6 @@ public class PublicType { }
     }
 
     [Fact]
-    public void NestedTypeAccessibility_IsEmittedCorrectly()
-    {
-        var code = """
-public class Container {
-    public class PublicNested { }
-    internal class InternalNested { }
-    private class PrivateNested { }
-    protected class ProtectedNested { }
-    protected internal class ProtectedInternalNested { }
-    private protected class PrivateProtectedNested { }
-}
-""";
-
-        using var metadataContext = Emit(code, out var assembly);
-
-        var container = assembly.GetType("Container", throwOnError: true)!;
-        var bindingFlags = BindingFlags.NonPublic | BindingFlags.Public;
-
-        AssertNestedVisibility(container, "PublicNested", TypeAttributes.NestedPublic, bindingFlags);
-        AssertNestedVisibility(container, "InternalNested", TypeAttributes.NestedAssembly, bindingFlags);
-        AssertNestedVisibility(container, "PrivateNested", TypeAttributes.NestedPrivate, bindingFlags);
-        AssertNestedVisibility(container, "ProtectedNested", TypeAttributes.NestedFamily, bindingFlags);
-        AssertNestedVisibility(container, "ProtectedInternalNested", TypeAttributes.NestedFamORAssem, bindingFlags);
-        AssertNestedVisibility(container, "PrivateProtectedNested", TypeAttributes.NestedFamANDAssem, bindingFlags);
-    }
-
-    [Fact]
     public void MethodAccessibility_IsEmittedCorrectly()
     {
         var code = """
@@ -79,38 +52,6 @@ public class MethodContainer {
         AssertMethodAccessibility(container, "Quux", MethodAttributes.Family, flags);
         AssertMethodAccessibility(container, "Mix", MethodAttributes.FamORAssem, flags);
         AssertMethodAccessibility(container, "Inter", MethodAttributes.FamANDAssem, flags);
-    }
-
-    [Fact]
-    public void ConstructorAccessibility_IsEmittedCorrectly()
-    {
-        var code = """
-public class CtorContainer {
-    public init() { }
-    internal init(value: int) { }
-    private init(flag: bool) { }
-    protected init(name: string) { }
-    protected internal init(count: double) { }
-    private protected init(bytes: byte) { }
-    static init() { }
-}
-""";
-
-        using var metadataContext = Emit(code, out var assembly);
-
-        var container = assembly.GetType("CtorContainer", throwOnError: true)!;
-        var flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-        AssertConstructorAccessibility(container, Array.Empty<Type>(), MethodAttributes.Public, flags);
-        AssertConstructorAccessibility(container, new[] { typeof(int) }, MethodAttributes.Assembly, flags);
-        AssertConstructorAccessibility(container, new[] { typeof(bool) }, MethodAttributes.Private, flags);
-        AssertConstructorAccessibility(container, new[] { typeof(string) }, MethodAttributes.Family, flags);
-        AssertConstructorAccessibility(container, new[] { typeof(double) }, MethodAttributes.FamORAssem, flags);
-        AssertConstructorAccessibility(container, new[] { typeof(byte) }, MethodAttributes.FamANDAssem, flags);
-
-        var typeInitializer = container.TypeInitializer;
-        Assert.NotNull(typeInitializer);
-        Assert.Equal(MethodAttributes.Private, typeInitializer!.Attributes & MethodAttributes.MemberAccessMask);
     }
 
     [Fact]

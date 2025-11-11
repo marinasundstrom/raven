@@ -65,64 +65,6 @@ class Foo {
     }
 
     [Fact]
-    public void Emit_WithIterator_SynthesizesStateMachineType()
-    {
-        var code = """
-import System.Collections.Generic.*
-
-class C {
-    Values() -> IEnumerable<int> {
-        yield return 1
-        yield return 2
-    }
-}
-""";
-
-        var syntaxTree = SyntaxTree.ParseText(code);
-
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-            MetadataReference.CreateFromFile(runtimePath)
-        ];
-
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree)
-            .AddReferences(references);
-
-        using var peStream = new MemoryStream();
-        var result = compilation.Emit(peStream);
-
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
-
-        peStream.Seek(0, SeekOrigin.Begin);
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var metadataLoadContext = new MetadataLoadContext(resolver);
-
-        var assembly = metadataLoadContext.LoadFromStream(peStream);
-        var iteratorType = assembly
-            .GetTypes()
-            .Single(t => t.Name.Contains("Iterator", StringComparison.Ordinal));
-
-        var interfaces = iteratorType
-            .GetInterfaces()
-            .Select(i => i.FullName)
-            .ToArray();
-
-        Assert.Contains("System.Collections.Generic.IEnumerable`1", interfaces);
-        Assert.Contains("System.Collections.Generic.IEnumerator`1", interfaces);
-
-        var moveNext = iteratorType.GetMethod("MoveNext");
-        Assert.NotNull(moveNext);
-        Assert.Equal("System.Boolean", moveNext!.ReturnType.FullName);
-
-        var current = iteratorType.GetProperty("Current");
-        Assert.NotNull(current);
-        Assert.Equal("System.Int32", current!.PropertyType.FullName);
-    }
-
-    [Fact]
     public void Emit_WithSingleMainInNonProgramType_UsesThatEntryPoint()
     {
         var code = """

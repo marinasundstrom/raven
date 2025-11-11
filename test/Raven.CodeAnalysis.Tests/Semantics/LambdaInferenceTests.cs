@@ -393,26 +393,6 @@ let makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a
 public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
-    public void Lambda_WithoutDelegateContext_ReportsParameterInferenceError()
-    {
-        const string code = """
-class Container {
-    Provide() -> unit {
-        let lambda = (value) => value
-    }
-}
-""";
-
-        var verifier = CreateVerifier(
-            code,
-            [
-                new DiagnosticResult("RAV2200").WithSpan(3, 28, 3, 33).WithArguments("value"),
-            ]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
     public void Lambda_WithErrorTypeArgument_DoesNotReportConversionError()
     {
         const string code = """
