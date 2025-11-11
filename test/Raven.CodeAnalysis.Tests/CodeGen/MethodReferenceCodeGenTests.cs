@@ -143,4 +143,37 @@ class Accumulator {
         Assert.Equal(typeof(object), ctorParameters[0].ParameterType);
         Assert.Equal(typeof(IntPtr), ctorParameters[1].ParameterType);
     }
+
+    [Fact]
+    public void GenericMethod_InvocationWithinType_EmitsWithoutCreatingContainingType()
+    {
+        const string code = """
+class Calculator {
+    static Test<T>(value: T) -> T { value }
+
+    static Run() -> int {
+        Test(42)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Calculator", throwOnError: true)!;
+        var run = type.GetMethod("Run")!;
+
+        var value = (int)run.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(42, value);
+    }
 }
