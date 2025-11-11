@@ -126,7 +126,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     public BuilderMembers GetBuilderMembers(SourceMethodSymbol method)
     {
-        return GetConstructedMembers(method).BuilderMembers;
+        return GetConstructedMembers(method).StateMachineBuilderMembers;
     }
 
     private ConstructedMembers CreateConstructedMembers(SourceMethodSymbol method)
@@ -139,6 +139,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         var thisField = ThisField is null ? null : GetConstructedField(ThisField, stateMachineType);
         var parameterFields = ConstructParameterFieldMap(stateMachineType);
         var builderMembers = CreateBuilderMembers(builderField);
+        var asyncMethodBuilderMembers = CreateBuilderMembersForAsyncMethod(builderField, builderMembers);
 
         return new ConstructedMembers(
             stateMachineType,
@@ -148,7 +149,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             builderField,
             thisField,
             parameterFields,
-            builderMembers);
+            builderMembers,
+            asyncMethodBuilderMembers);
     }
 
     public INamedTypeSymbol GetConstructedStateMachine(SourceMethodSymbol method)
@@ -178,8 +180,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         {
             if (argument is ITypeParameterSymbol typeParameter)
             {
-                var containingSymbol = typeParameter.ContainingSymbol as IMethodSymbol;
-                if (containingSymbol is not null && ReferenceEquals(containingSymbol, method))
+                if (typeParameter.ContainingSymbol is IMethodSymbol containingMethod && ReferenceEquals(containingMethod, method))
                     continue;
             }
 
@@ -327,9 +328,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return builder.ToImmutable();
     }
 
-    private BuilderMembers CreateBuilderMembers(IFieldSymbol builderField)
+    private BuilderMembers CreateBuilderMembers(IFieldSymbol builderField, INamedTypeSymbol? builderTypeOverride = null)
     {
-        if (builderField.Type is not INamedTypeSymbol builderType)
+        var builderType = builderTypeOverride ?? builderField.Type as INamedTypeSymbol;
+        if (builderType is null)
             return new BuilderMembers(builderField, null, null, null, null, null, null, null);
 
         var create = FindParameterlessStaticMethod(builderType, "Create");
@@ -349,6 +351,23 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             setException,
             awaitOnCompleted,
             taskProperty);
+    }
+
+    private BuilderMembers CreateBuilderMembersForAsyncMethod(
+        IFieldSymbol builderField,
+        BuilderMembers stateMachineMembers)
+    {
+        if (builderField.Type is not INamedTypeSymbol stateMachineBuilderType)
+            return stateMachineMembers;
+
+        var substituted = SubstituteAsyncMethodTypeParameters(stateMachineBuilderType, _stateToAsyncTypeParameterMap);
+        if (substituted is not INamedTypeSymbol asyncBuilderType)
+            return stateMachineMembers;
+
+        if (SymbolEqualityComparer.Default.Equals(asyncBuilderType, stateMachineBuilderType))
+            return stateMachineMembers;
+
+        return CreateBuilderMembers(builderField, asyncBuilderType);
     }
 
     private (
@@ -517,6 +536,9 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             return symbol;
         }
     }
+
+    internal ITypeSymbol SubstituteStateMachineTypeParameters(ITypeSymbol type)
+        => SubstituteAsyncMethodTypeParameters(type, _stateToAsyncTypeParameterMap);
 
     private ITypeSymbol DetermineBuilderType(Compilation compilation, SourceMethodSymbol asyncMethod)
     {
@@ -740,7 +762,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             IFieldSymbol builderField,
             IFieldSymbol? thisField,
             ImmutableDictionary<IParameterSymbol, IFieldSymbol> parameterFields,
-            BuilderMembers builderMembers)
+            BuilderMembers stateMachineBuilderMembers,
+            BuilderMembers asyncMethodBuilderMembers)
         {
             StateMachineType = stateMachineType;
             Constructor = constructor;
@@ -749,7 +772,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             BuilderField = builderField;
             ThisField = thisField;
             ParameterFields = parameterFields;
-            BuilderMembers = builderMembers;
+            StateMachineBuilderMembers = stateMachineBuilderMembers;
+            AsyncMethodBuilderMembers = asyncMethodBuilderMembers;
         }
 
         public INamedTypeSymbol StateMachineType { get; }
@@ -759,7 +783,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public IFieldSymbol BuilderField { get; }
         public IFieldSymbol? ThisField { get; }
         public ImmutableDictionary<IParameterSymbol, IFieldSymbol> ParameterFields { get; }
-        public BuilderMembers BuilderMembers { get; }
+        public BuilderMembers StateMachineBuilderMembers { get; }
+        public BuilderMembers AsyncMethodBuilderMembers { get; }
     }
 
     internal readonly struct BuilderMembers

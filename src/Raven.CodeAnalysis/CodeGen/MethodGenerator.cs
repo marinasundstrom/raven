@@ -268,7 +268,8 @@ internal class MethodGenerator
             var builderCtor = attributeType.GetConstructor(new[] { systemType });
             if (builderCtor is not null)
             {
-                var builderTypeName = GetAssemblyQualifiedMetadataName(stateMachine.BuilderField.Type);
+                var builderTypeSymbol = stateMachine.SubstituteStateMachineTypeParameters(stateMachine.BuilderField.Type);
+                var builderTypeName = GetAssemblyQualifiedMetadataName(builderTypeSymbol);
                 ApplyMethodCustomAttribute(builderCtor, builderTypeName);
             }
         }
