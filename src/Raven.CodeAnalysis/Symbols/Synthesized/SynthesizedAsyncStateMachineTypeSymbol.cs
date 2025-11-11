@@ -20,7 +20,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _asyncToStateTypeParameterMap;
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _stateToAsyncTypeParameterMap;
     private readonly ImmutableArray<TypeParameterMapping> _typeParameterMappings;
-    private ConstructedNamedTypeSymbol? _constructedFromAsyncMethod;
+    private readonly BuilderMembers _stateMachineBuilderMembers;
     private readonly Dictionary<SourceMethodSymbol, ConstructedMembers> _constructedMembersCache = new(ReferenceEqualityComparer.Instance);
 
     public SynthesizedAsyncStateMachineTypeSymbol(
@@ -65,6 +65,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         SetInterfaces(new[] { asyncStateMachineInterface });
 
         BuilderField = CreateBuilderField(compilation, asyncMethod);
+        _stateMachineBuilderMembers = CreateBuilderMembers(BuilderField);
 
         Constructor = CreateConstructor(compilation, asyncMethod);
         MoveNextMethod = CreateMoveNextMethod(compilation, asyncMethod);
@@ -128,7 +129,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     public BuilderMembers GetBuilderMembers(SourceMethodSymbol method)
     {
-        return GetConstructedMembers(method).StateMachineBuilderMembers;
+        return _stateMachineBuilderMembers;
     }
 
     private ConstructedMembers CreateConstructedMembers(SourceMethodSymbol method)
@@ -140,8 +141,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         var builderField = GetConstructedField(BuilderField, stateMachineType);
         var thisField = ThisField is null ? null : GetConstructedField(ThisField, stateMachineType);
         var parameterFields = ConstructParameterFieldMap(stateMachineType);
-        var builderMembers = CreateBuilderMembers(builderField);
-        var asyncMethodBuilderMembers = CreateBuilderMembersForAsyncMethod(builderField, builderMembers);
+        var asyncMethodBuilderMembers = CreateBuilderMembersForAsyncMethod(builderField, _stateMachineBuilderMembers);
 
         return new ConstructedMembers(
             stateMachineType,
@@ -151,7 +151,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             builderField,
             thisField,
             parameterFields,
-            builderMembers,
+            _stateMachineBuilderMembers,
             asyncMethodBuilderMembers);
     }
 
@@ -170,26 +170,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         if (typeArguments.Length != TypeParameters.Length)
             return this;
 
-        if (!RequiresConstruction(typeArguments, method))
-            return this;
-
-        return _constructedFromAsyncMethod ??= new ConstructedNamedTypeSymbol(this, typeArguments);
-    }
-
-    private static bool RequiresConstruction(ImmutableArray<ITypeSymbol> typeArguments, SourceMethodSymbol method)
-    {
-        foreach (var argument in typeArguments)
-        {
-            if (argument is ITypeParameterSymbol typeParameter)
-            {
-                if (typeParameter.ContainingSymbol is IMethodSymbol containingMethod && ReferenceEquals(containingMethod, method))
-                    continue;
-            }
-
-            return true;
-        }
-
-        return false;
+        return new ConstructedNamedTypeSymbol(this, typeArguments);
     }
 
     public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false)

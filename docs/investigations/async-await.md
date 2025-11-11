@@ -26,7 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
-| 2025-11-17 | 🔴 Blocked | Recompiling `samples/test8.rav` with `ravc` still produces an image that dies with `BadImageFormatException` because the async state machine never constructs over the method's type arguments—`RequiresConstruction` bails out as soon as it sees `T`, so the emitted IL mixes `AsyncTaskMethodBuilder<!0>` fields with `AsyncTaskMethodBuilder<!!T>::Create()`/`get_Task()` and the runtime refuses the resulting `ELEMENT_TYPE_VAR` TypeSpec for `Program.Test<T>`.【bef937†L1-L7】【90b196†L33-L59】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L156-L190】
+| 2025-11-17 | 🔴 Blocked | `ravc` now substitutes the async builder using the state-machine generic, so `MoveNext` and the method body agree on `AsyncTaskMethodBuilder<!0>` vs `AsyncTaskMethodBuilder<!!T>`; however the runtime still throws `BadImageFormatException` when materializing `Program.Test<T>` so the verifier is rejecting another TypeSpec in the generated image.【bef937†L1-L7】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L180】
 | 2025-11-16 | 🟡 At risk | Constructed async state-machine members now expose builder lookups remapped to the async method's generics, and a new lowering regression proves the `Create` site instantiates `AsyncTaskMethodBuilder<!!T>` for the method body; runtime validation is still pending.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L153】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1001-L1055】 |
 | 2025-11-15 | 🟡 At risk | Substituting the awaited `Task<T>` result before instantiating the builder now hands `AsyncTaskMethodBuilder<!0>` the struct parameter instead of the method generic; still need CLI/`ilverify` confirmation that the runtime loads the image.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L521-L563】 |
 | 2025-11-14 | 🟡 At risk | Substituting the builder type before field synthesis keeps `AsyncTaskMethodBuilder<!0>` anchored to the struct parameter so `SetException`/`SetResult` no longer encode `!!0`; need a fresh CLI+`ilverify` pass to confirm the runtime accepts the image.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L261-L286】 |
@@ -42,14 +42,12 @@ WriteLine(x)
   `samples/test8.rav` yields the same `BadImageFormatException` before any
   user code executes, and the stack trace points at the open generic entry
   point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】
-* **State machine never constructs over method generics.** `SynthesizedAsyncStateMachineTypeSymbol.RequiresConstruction`
-  skips creating a `ConstructedNamedTypeSymbol` whenever the async method's
-  type arguments are themselves method parameters, so `GetConstructedStateMachine`
-  hands the lowerer the open definition. The emitted IL then wires
-  `_builder : AsyncTaskMethodBuilder<!0>` and `_value : !0` to the struct's
-  synthesized parameter while the method body calls `AsyncTaskMethodBuilder<!!T>::Create()`
-  and `get_Task()`, reintroducing the verifier-breaking `ELEMENT_TYPE_VAR`
-  handle that crashes `Program.Test<T>`.【90b196†L33-L59】【78d749†L16-L44】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L156-L190】
+* **State machine now substitutes before builder lookup.** `GetConstructedStateMachine`
+  always materialises a constructed view, and the builder members captured for
+  lowering now come directly from the synthesized struct so `MoveNext` emits
+  `AsyncTaskMethodBuilder<!0>` everywhere while the async method uses
+  `AsyncTaskMethodBuilder<!!T>`. The runtime still rejects the image, which
+  means another metadata edge-case remains. 【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L190】
 * **Awaited type now maps before builder construction.** When the async method returns
   `Task<T>`, the awaited `T` is substituted with the state machine's `!0` before
   we instantiate `AsyncTaskMethodBuilder<T>`, preventing Reflection.Emit from caching
