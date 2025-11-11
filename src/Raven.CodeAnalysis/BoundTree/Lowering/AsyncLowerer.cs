@@ -124,7 +124,7 @@ internal static class AsyncLowerer
         var constructor = constructed.Constructor;
         var moveNextMethod = constructed.MoveNext;
         var stateField = constructed.StateField;
-        var builderMembers = constructed.BuilderMembers;
+        var builderMembers = constructed.AsyncMethodBuilderMembers;
         var builderField = builderMembers.BuilderField;
         var thisField = constructed.ThisField;
         var parameterFieldMap = constructed.ParameterFields;
