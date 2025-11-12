@@ -969,10 +969,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             {
                 [stateMachineMembers.BuilderField] = stateMachineMembers
             };
-            _asyncMethodCache = new Dictionary<IFieldSymbol, BuilderMembers>(SymbolEqualityComparer.Default)
-            {
-                [stateMachineMembers.BuilderField] = stateMachineMembers
-            };
+            _asyncMethodCache = new Dictionary<IFieldSymbol, BuilderMembers>(SymbolEqualityComparer.Default);
         }
 
         public BuilderMembers StateMachineMembers
