@@ -2806,13 +2806,13 @@ internal class ExpressionGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
         }
-        else if (!target.ContainingType!.IsValueType && (target.IsVirtual || isInterfaceCall))
-        {
-            ILGenerator.Emit(OpCodes.Callvirt, targetMethodInfo);
-        }
         else
         {
-            ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
+            var callOpCode = target.ContainingType!.IsValueType
+                ? (target.IsVirtual || isInterfaceCall ? OpCodes.Callvirt : OpCodes.Call)
+                : OpCodes.Callvirt;
+
+            ILGenerator.Emit(callOpCode, targetMethodInfo);
         }
 
         // Special cast for Object.GetType() to MemberInfo
