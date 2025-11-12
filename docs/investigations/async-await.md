@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-12-01_
+> Living action plan owner: **Compiler team** · Last updated: _2025-12-02_
 
 ## Objective
 
@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-12-02 | 🔴 Blocked | Inspecting the disassembled `Program+<>c__AsyncStateMachine1.MoveNext` shows `Task<T>.GetAwaiter` still instantiates with the state-machine `!0` instead of the method's original `!!0`, so our substitution layer is swapping out the generic parameter the runtime expects. We need to undo that replacement before rerunning IL validation.【F:docs/investigations/async-await.md†L110-L117】|
 | 2025-12-01 | 🔴 Blocked | Collapsed `Program.Test<T>` to a single state-machine local and emit direct field stores that match the Roslyn baseline, but the runtime still throws `BadImageFormatException`, so further metadata diffs are needed.【afa998†L1-L27】【b638f0†L1-L8】|
 | 2025-11-30 | 🔴 Blocked | Comparing Raven and Roslyn assemblies shows `Program.Test<T>` now substitutes the builder correctly but still declares three extra locals (`!!T`, `Int32`, and `AsyncTaskMethodBuilder<!!T>`) in addition to the state machine. The Roslyn baseline only materialises the state-machine local, so the remaining verifier break likely stems from our method-body construction rather than the builder MethodSpecs.【bac137†L1-L9】【dcffbd†L1-L9】|
 | 2025-11-29 | 🔴 Blocked | Synthesized async state machines now define their nested types with the simple metadata name so the emitted IL spells `< >c__AsyncStateMachine0`1` instead of `Program+Program+<>c__AsyncStateMachine0`1`, eliminating the duplicated containing type that previously tripped ILVerify, but the CLI still throws `BadImageFormatException` and ILVerify continues to flag the `Start` call with `Unexpected type on the stack`, so runtime validation remains blocked.【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L160-L181】【b15d35†L13-L38】【958854†L1-L24】【b27cb9†L1-L8】
@@ -99,6 +100,21 @@ WriteLine(x)
   async method's `!!T`, confirming that the lowerer feeds the correct
   substitution into emission even though the runtime still fails to load the
   image.【F:docs/investigations/async-await.md†L113-L139】【f755b4†L1-L8】
+
+### IL snapshot – `MoveNext` still substitutes `!0`
+
+The latest disassembly highlights how the awaited call now mixes method and
+state-machine generics:
+
+```il
+IL_0035: ldc.i4.s 42
+IL_0037: call class [System.Private.CoreLib]System.Threading.Tasks.Task`1<!!0> Program::Test<int32>(!!0)
+IL_003c: call instance valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.TaskAwaiter`1<!0> class [System.Private.CoreLib]System.Threading.Tasks.Task`1<int32>::GetAwaiter()
+```
+
+`Task<T>.GetAwaiter` expects the async method's `!!0`, but the emitted IL feeds
+the constructed state-machine `!0`, which explains the verifier failure that
+still surfaces as `BadImageFormatException` when running the sample.【F:docs/investigations/async-await.md†L110-L117】
 * **C# baseline diverges only in state-machine representation.** Performing
   the same inspection on a Roslyn-built equivalent yields the same builder
   instantiations except the reference compiler emits a class-based state
@@ -120,7 +136,11 @@ WriteLine(x)
   async method type parameters to the state-machine generics before allocating
   awaiter locals, storing hoisted fields, or instantiating builder helpers, so
   the lowered bound nodes always refer to `!0` members instead of leaking
-  `!!T` handles into the state machine.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1207-L1398】
+  `!!T` handles into the state machine.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1207-L1398】 The latest
+  `MoveNext` disassembly confirms that we still substitute the awaited
+  `Task<T>.GetAwaiter` receiver with the struct's `!0`, and the runtime expects
+  the method's `!!0`, so the lowering pipeline needs a targeted escape hatch
+  for APIs that must retain the original method generics.【F:docs/investigations/async-await.md†L110-L117】
 * **Root block disposal now happens in MoveNext assembly.** The async rewriter
   leaves the outer block untouched, and `CreateMoveNextBody` appends
   `CreateDisposeStatements` after the rewritten body so the hoisted `using`
@@ -185,7 +205,11 @@ Recent spelunking through `AsyncLowerer` and the synthesized state-machine symbo
 
 **New issues – async builder substitution remains fragile**
 
-* **Lowering still targets the open state machine.** Even with the builder map, `RewriteMethodBody` and `GetBuilderMembers` operate on the unconstructed struct symbol, so parameter and field assignments keep pairing method generics with the synthesized equivalents manually; threading a constructed state-machine symbol through lowering would let both sides agree without ad-hoc substitution.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L112-L188】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L112-L189】
+* **Lowering still targets the open state machine.** Even with the builder map, `RewriteMethodBody` and `GetBuilderMembers` operate on the unconstructed struct symbol, so parameter and field assignments keep pairing method generics with the synthesized equivalents manually; threading a constructed state-machine symbol through lowering would let both sides agree without ad-hoc substitution.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L112-L188】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L112-L189】 The same
+  `MoveNext` IL diff shows how swapping in the struct's `!0` for the awaited
+  `Task<T>` receiver trips the verifier, so preserving the async method's `!!`
+  parameters for runtime-visible MethodSpecs must be part of the constructed
+  state-machine plan.【F:docs/investigations/async-await.md†L110-L117】
 * **Lowering fetches builder metadata piecemeal.** Each helper pulls the builder members independently, increasing the surface area for mismatched substitutions and forcing repeated null-check boilerplate.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L87-L188】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L456-L742】
 * **Await rewriter re-resolves the builder.** `AwaitLoweringRewriter` used to repeat the same lookup that `CreateMoveNextBody` performed, forcing every substitution fix to be applied twice; the first clean-up passes the captured snapshot through so future refactors have a single touch point.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L89-L109】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L552-L742】
 * **Verifier break likely sits outside builder substitution.** Since the
