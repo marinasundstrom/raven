@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-28_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-29_
 
 ## Objective
 
@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-29 | 🔴 Blocked | Synthesized async state machines now define their nested types with the simple metadata name so the emitted IL spells `< >c__AsyncStateMachine0`1` instead of `Program+Program+<>c__AsyncStateMachine0`1`, eliminating the duplicated containing type that previously tripped ILVerify, but the CLI still throws `BadImageFormatException` and ILVerify continues to flag the `Start` call with `Unexpected type on the stack`, so runtime validation remains blocked.【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L160-L181】【b15d35†L13-L38】【958854†L1-L24】【b27cb9†L1-L8】
 | 2025-11-28 | 🔴 Blocked | `MappedMethodSymbol.Construct` now substitutes type arguments before delegating to the underlying builder method and `CreateBuilderStartStatement` feeds the async-method view of the state machine into `Start<TStateMachine>`, but `samples/test8.rav` still produces invalid IL: `Start` encodes the struct instantiation with `!0`, `dotnet` continues to throw `BadImageFormatException`, and `ilverify` reproduces the same `IndexOutOfRangeException` while resolving the builder MethodSpec.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1178-L1201】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1719-L1735】【f50990†L1-L8】【a0c4e7†L1-L23】 |
 | 2025-11-27 | 🔴 Blocked | Remapped the async-method builder members through dedicated `MappedMethodSymbol`/`MappedPropertySymbol` wrappers so the method body always receives `AsyncTaskMethodBuilder<!!T>` helpers while `MoveNext` continues to target the state-machine generics, but both the CLI (`BadImageFormatException`) and `ilverify` (generic instantiation crash) still reject `Program.Test<T>`, leaving runtime validation blocked.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L343-L375】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1000-L1340】【4d3a13†L1-L8】【21c832†L1-L22】 |
 | 2025-11-26 | 🔴 Blocked | Unwrapped substituted async builder methods before emission and kept the async method's `Create`/`Start` calls on `AsyncTaskMethodBuilder<!!T>`, unblocking `ravc` past the Reflection.Emit crash, but both `dotnet` and `ilverify` still reject the image—the CLI reports `BadImageFormatException` for `Program.Test<T>` and ILVerify crashes while instantiating a generic parameter, so runtime validation remains blocked.【F:src/Raven.CodeAnalysis/MethodSymbolExtensionsForCodeGen.cs†L25-L66】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1688-L1732】【8bebfd†L1-L8】【fef3ba†L1-L23】 |
@@ -52,13 +53,20 @@ WriteLine(x)
 * **Runtime still rejects the sample.** Re-running the CLI against
   `samples/test8.rav` yields the same `BadImageFormatException` before any
   user code executes, and the stack trace points at the open generic entry
-  point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】【8bebfd†L1-L8】
-* **ILVerify crashes while instantiating generic parameters.** Executing the
-  restored local `ilverify` tool against `test.dll` still reproduces an
-  `IndexOutOfRangeException` inside the verifier when it resolves the `Create`
-  and `Start` method tokens, confirming that our metadata continues to encode an
-  invalid generic instantiation even after the latest builder-substitution
-  clean-up.【21c832†L1-L22】
+  point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】【b27cb9†L1-L8】
+* **ILVerify still reports stack mismatches for the builder calls.** The
+  restored `ilverify` tool now makes it past the duplicated nested-type name,
+  but it continues to flag the `Start` invocation in `Program.MainAsync`
+  because the verifier expects a managed `ref` while the emitted IL pushes the
+  address of the state machine and builder structs; the tool eventually bails
+  out with the same `IndexOutOfRangeException` when resolving the generic
+  MethodSpec.【958854†L1-L27】
+* **Nested async state machine names no longer duplicate the containing type.**
+  `TypeGenerator` now hands `DefineNestedType` the simple metadata name (plus
+  arity) for synthesized async structs, so the IL encodes
+  `Program/'<>c__AsyncStateMachine0`1'` instead of `Program/'Program+<>c__...`.
+  The runtime still rejects the image, but the duplicated `Program+Program+`
+  prefix has been eliminated.【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L160-L181】【b15d35†L13-L38】
 * **Async builder mapping is now symmetric.** The synthesized state machine
   remaps builder members for the async method through dedicated
   `MappedMethodSymbol`/`MappedPropertySymbol` wrappers so the method body sees

@@ -161,8 +161,9 @@ internal class TypeGenerator
 
             if (containingTypeBuilder is not null)
             {
+                var nestedName = GetNestedTypeMetadataName(synthesizedType);
                 TypeBuilder = containingTypeBuilder.DefineNestedType(
-                    synthesizedType.MetadataName,
+                    nestedName,
                     synthesizedAttributes,
                     baseClrType);
             }
@@ -186,6 +187,18 @@ internal class TypeGenerator
         }
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+    }
+
+    private static string GetNestedTypeMetadataName(INamedTypeSymbol type)
+    {
+        if (type is null)
+            throw new ArgumentNullException(nameof(type));
+
+        var name = type.Name;
+        if (type.Arity > 0)
+            name = $"{name}`{type.Arity}";
+
+        return name;
     }
 
     private void DefineTypeGenericParameters(INamedTypeSymbol namedType)
