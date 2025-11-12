@@ -179,11 +179,11 @@ internal static class AsyncLowerer
         var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateField, initialState, unitType, requiresReceiverAddress: true);
         statements.Add(new BoundAssignmentStatement(stateAssignment));
 
-        var builderInitialization = CreateBuilderInitializationStatement(asyncLocal, builderMembers, unitType);
+        var builderInitialization = CreateBuilderInitializationStatement(stateMachine, asyncLocal, builderMembers, unitType);
         if (builderInitialization is not null)
             statements.Add(builderInitialization);
 
-        var builderStartStatement = CreateBuilderStartStatement(asyncLocal, builderMembers, stateMachineType);
+        var builderStartStatement = CreateBuilderStartStatement(stateMachine, asyncLocal, builderMembers, stateMachineType);
         if (builderStartStatement is not null)
         {
             statements.Add(builderStartStatement);
@@ -319,6 +319,8 @@ internal static class AsyncLowerer
         var setResultMethod = builderMembers.SetResult;
         if (setResultMethod is null)
             return null;
+
+        setResultMethod = stateMachine.SubstituteAsyncMethodTypeParameters(setResultMethod);
 
         var arguments = Array.Empty<BoundExpression>();
 
@@ -478,6 +480,8 @@ internal static class AsyncLowerer
         var setExceptionMethod = builderMembers.SetException;
         if (setExceptionMethod is null)
             return null;
+
+        setExceptionMethod = stateMachine.SubstituteAsyncMethodTypeParameters(setExceptionMethod);
 
         var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var exceptionAccess = new BoundLocalAccess(exceptionLocal);
@@ -1345,8 +1349,10 @@ internal static class AsyncLowerer
 
         private BoundStatement CreateAwaiterStoreStatement(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)
         {
+            var getAwaiterMethod = _stateMachine.SubstituteAsyncMethodTypeParameters(awaitExpression.GetAwaiterMethod);
+
             var getAwaiter = new BoundInvocationExpression(
-                awaitExpression.GetAwaiterMethod,
+                getAwaiterMethod,
                 Array.Empty<BoundExpression>(),
                 awaitExpression.Expression);
 
@@ -1368,8 +1374,10 @@ internal static class AsyncLowerer
 
         private BoundInvocationExpression CreateGetResultInvocation(BoundAwaitExpression awaitExpression, BoundExpression awaiterReceiver)
         {
+            var getResultMethod = _stateMachine.SubstituteAsyncMethodTypeParameters(awaitExpression.GetResultMethod);
+
             return new BoundInvocationExpression(
-                awaitExpression.GetResultMethod,
+                getResultMethod,
                 Array.Empty<BoundExpression>(),
                 awaiterReceiver,
                 requiresReceiverAddress: true);
@@ -1385,6 +1393,8 @@ internal static class AsyncLowerer
                 var awaiterType = SubstituteAsyncMethodTypeParameters(awaitExpression.AwaiterType);
                 awaitMethod = awaitMethod.Construct(awaiterType, _stateMachine);
             }
+
+            awaitMethod = _stateMachine.SubstituteAsyncMethodTypeParameters(awaitMethod);
 
             var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _builderMembers.BuilderField);
             var awaiterAddress = new BoundAddressOfExpression(awaiterField, awaiterField.Type, new BoundSelfExpression(_stateMachine));
@@ -1676,6 +1686,7 @@ internal static class AsyncLowerer
     }
 
     private static BoundStatement? CreateBuilderInitializationStatement(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         SourceLocalSymbol asyncLocal,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         ITypeSymbol unitType)
@@ -1696,6 +1707,7 @@ internal static class AsyncLowerer
     }
 
     private static BoundStatement? CreateBuilderStartStatement(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         SourceLocalSymbol asyncLocal,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         INamedTypeSymbol stateMachineType)
@@ -1726,6 +1738,8 @@ internal static class AsyncLowerer
         var setStateMachineMethod = builderMembers.SetStateMachine;
         if (setStateMachineMethod is null)
             return null;
+
+        setStateMachineMethod = stateMachine.SubstituteAsyncMethodTypeParameters(setStateMachineMethod);
 
         var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
         var parameter = stateMachine.SetStateMachineMethod.Parameters.Length > 0

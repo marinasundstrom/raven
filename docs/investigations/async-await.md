@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-26 | 🔴 Blocked | Unwrapped substituted async builder methods before emission and kept the async method's `Create`/`Start` calls on `AsyncTaskMethodBuilder<!!T>`, unblocking `ravc` past the Reflection.Emit crash, but both `dotnet` and `ilverify` still reject the image—the CLI reports `BadImageFormatException` for `Program.Test<T>` and ILVerify crashes while instantiating a generic parameter, so runtime validation remains blocked.【F:src/Raven.CodeAnalysis/MethodSymbolExtensionsForCodeGen.cs†L25-L66】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1688-L1732】【8bebfd†L1-L8】【fef3ba†L1-L23】 |
 | 2025-11-25 | 🟡 At risk | Re-running `ravc` against `samples/test8.rav` still triggers `BadImageFormatException`, but the emitted IL now instantiates `AsyncTaskMethodBuilder::Start` and `AwaitUnsafeOnCompleted` with the constructed `Program+<>c__AsyncStateMachine0`1<!T>` so builder substitutions are flowing correctly; the remaining verifier break must come from another metadata edge case.【f755b4†L1-L8】 |
 | 2025-11-24 | 🟡 At risk | Await lowering now substitutes async method type parameters before hoisting awaiters, locals, and builder invocations so the generated bound nodes reference the state-machine generics instead of the async method's, eliminating the lingering `!!T`/`!0` mismatch ahead of runtime validation.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1207-L1398】 |
 | 2025-11-23 | 🟡 At risk | Hoisted-disposal guards now live at the end of `MoveNext` by skipping async rewriter cleanup for the root block and appending the state machine's `HoistedLocalsToDispose` during MoveNext assembly, restoring the expected guard order while keeping the builder substitutions intact.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L90-L112】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L607-L680】 |
@@ -49,7 +50,18 @@ WriteLine(x)
 * **Runtime still rejects the sample.** Re-running the CLI against
   `samples/test8.rav` yields the same `BadImageFormatException` before any
   user code executes, and the stack trace points at the open generic entry
-  point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】
+  point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】【8bebfd†L1-L8】
+* **ILVerify crashes while instantiating generic parameters.** Executing the
+  restored local `ilverify` tool against `test.dll` now reproduces an
+  `IndexOutOfRangeException` inside the verifier when it resolves the `Create`
+  and `Start` method tokens, confirming that our metadata still encodes an
+  invalid generic instantiation even after the builder-substitution fixes.【fef3ba†L1-L23】
+* **Codegen now unwraps substituted builder methods.** Emission recognises
+  `AsyncMethodSubstitutedMethodSymbol` wrappers and routes them back to their
+  underlying builders, while async method lowering keeps the `Create` and
+  `Start` invocations on the original `AsyncTaskMethodBuilder<!!T>` so the
+  state machine construction proceeds without rewriting the method generic to
+  the synthesized `!0` placeholder.【F:src/Raven.CodeAnalysis/MethodSymbolExtensionsForCodeGen.cs†L25-L66】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1688-L1732】
 * **Builder invocations now materialise the constructed state machine.**
   Disassembling `test.dll` shows the emitted `Start` and
   `AwaitUnsafeOnCompleted` method specs instantiating the generic builder with
@@ -124,11 +136,12 @@ WriteLine(x)
 
 ### Next steps
 
-* Re-run the CLI sample (and `ilverify`) to confirm the `AsyncTaskMethodBuilder<!0>`
-  substitutions unblock the runtime and eliminate the `BadImageFormatException`.
-* After correcting the remaining substitutions, re-run both the CLI sample and
-  `ilverify` to confirm the assembly loads and the verifier no longer crashes;
-  promote a regression to guard the fixed encoding going forward.
+* Diff the Raven and Roslyn metadata around `Program.Test<T>` and the builder
+  TypeSpecs to pinpoint the generic argument that triggers ILVerify's
+  `IndexOutOfRangeException` and the runtime `BadImageFormatException`.
+* Once the invalid instantiation is corrected, re-run both the CLI sample and
+  `ilverify` to confirm the assembly loads cleanly and promote a regression
+  that locks down the fixed encoding.
 
 ## Async lowering findings
 
