@@ -563,6 +563,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (symbol is ITypeParameterSymbol typeParameter)
         {
+            if (typeParameter.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.TryMapToAsyncMethodTypeParameter(typeParameter, out var asyncParameter) &&
+                codeGen.TryGetRuntimeTypeForTypeParameter(asyncParameter, out var asyncRuntimeType))
+            {
+                return asyncRuntimeType;
+            }
+
             if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
                 return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel);
 
