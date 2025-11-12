@@ -347,13 +347,13 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         {
             return new BuilderMembers(
                 asyncBuilderField,
-                stateMachineMembers.Create,
-                stateMachineMembers.Start,
-                stateMachineMembers.SetStateMachine,
-                stateMachineMembers.SetResult,
-                stateMachineMembers.SetException,
-                stateMachineMembers.AwaitOnCompleted,
-                stateMachineMembers.TaskProperty);
+                stateMachineMembers.Create is null ? null : SubstituteStateMachineTypeParameters(stateMachineMembers.Create),
+                stateMachineMembers.Start is null ? null : SubstituteStateMachineTypeParameters(stateMachineMembers.Start),
+                stateMachineMembers.SetStateMachine is null ? null : SubstituteStateMachineTypeParameters(stateMachineMembers.SetStateMachine),
+                stateMachineMembers.SetResult is null ? null : SubstituteStateMachineTypeParameters(stateMachineMembers.SetResult),
+                stateMachineMembers.SetException is null ? null : SubstituteStateMachineTypeParameters(stateMachineMembers.SetException),
+                stateMachineMembers.AwaitOnCompleted is null ? null : SubstituteStateMachineTypeParameters(stateMachineMembers.AwaitOnCompleted),
+                stateMachineMembers.TaskProperty is null ? null : SubstituteStateMachineTypeParameters(stateMachineMembers.TaskProperty));
         }
 
         var create = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.Create, asyncBuilderType);
@@ -366,13 +366,13 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         return new BuilderMembers(
             asyncBuilderField,
-            create,
-            start,
-            setStateMachine,
-            setResult,
-            setException,
-            awaitOnCompleted,
-            taskProperty);
+            create is null ? null : SubstituteStateMachineTypeParameters(create),
+            start is null ? null : SubstituteStateMachineTypeParameters(start),
+            setStateMachine is null ? null : SubstituteStateMachineTypeParameters(setStateMachine),
+            setResult is null ? null : SubstituteStateMachineTypeParameters(setResult),
+            setException is null ? null : SubstituteStateMachineTypeParameters(setException),
+            awaitOnCompleted is null ? null : SubstituteStateMachineTypeParameters(awaitOnCompleted),
+            taskProperty is null ? null : SubstituteStateMachineTypeParameters(taskProperty));
     }
 
     private static IMethodSymbol? SubstituteBuilderMethodForAsyncMethod(
@@ -582,6 +582,98 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     internal ITypeSymbol SubstituteStateMachineTypeParameters(ITypeSymbol type)
         => SubstituteAsyncMethodTypeParameters(type, _stateToAsyncTypeParameterMap);
+
+    internal IMethodSymbol SubstituteAsyncMethodTypeParameters(IMethodSymbol method)
+    {
+        if (method is null)
+            throw new ArgumentNullException(nameof(method));
+
+        if (_asyncToStateTypeParameterMap.Count == 0)
+            return method;
+
+        if (method is MappedMethodSymbol mapped && ReferenceEquals(mapped.Owner, this) && mapped.MappingKind == TypeParameterMappingKind.AsyncToStateMachine)
+            return method;
+
+        if (method.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, method))
+            method = underlying;
+
+        if (!RequiresSubstitution(method, type => SubstituteAsyncMethodTypeParameters(type)))
+            return method;
+
+        return new MappedMethodSymbol(this, method, TypeParameterMappingKind.AsyncToStateMachine);
+    }
+
+    internal IMethodSymbol SubstituteStateMachineTypeParameters(IMethodSymbol method)
+    {
+        if (method is null)
+            throw new ArgumentNullException(nameof(method));
+
+        if (_stateToAsyncTypeParameterMap.Count == 0)
+            return method;
+
+        if (method is MappedMethodSymbol mapped && ReferenceEquals(mapped.Owner, this) && mapped.MappingKind == TypeParameterMappingKind.StateMachineToAsyncMethod)
+            return method;
+
+        if (method.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, method))
+            method = underlying;
+
+        if (!RequiresSubstitution(method, type => SubstituteStateMachineTypeParameters(type)))
+            return method;
+
+        return new MappedMethodSymbol(this, method, TypeParameterMappingKind.StateMachineToAsyncMethod);
+    }
+
+    internal IPropertySymbol SubstituteStateMachineTypeParameters(IPropertySymbol property)
+    {
+        if (property is null)
+            throw new ArgumentNullException(nameof(property));
+
+        if (_stateToAsyncTypeParameterMap.Count == 0)
+            return property;
+
+        if (property is MappedPropertySymbol mapped && ReferenceEquals(mapped.Owner, this) && mapped.MappingKind == TypeParameterMappingKind.StateMachineToAsyncMethod)
+            return property;
+
+        if (property.UnderlyingSymbol is IPropertySymbol underlying && !ReferenceEquals(underlying, property))
+            property = underlying;
+
+        if (!TypeRequiresSubstitution(property.Type, type => SubstituteStateMachineTypeParameters(type)))
+            return property;
+
+        return new MappedPropertySymbol(this, property, TypeParameterMappingKind.StateMachineToAsyncMethod);
+    }
+
+    private bool RequiresSubstitution(IMethodSymbol method, Func<ITypeSymbol, ITypeSymbol> substituteType)
+    {
+        if (TypeRequiresSubstitution(method.ReturnType, substituteType))
+            return true;
+
+        if (method.ContainingType is ITypeSymbol containingType && TypeRequiresSubstitution(containingType, substituteType))
+            return true;
+
+        foreach (var parameter in method.Parameters)
+        {
+            if (TypeRequiresSubstitution(parameter.Type, substituteType))
+                return true;
+        }
+
+        foreach (var argument in method.TypeArguments)
+        {
+            if (TypeRequiresSubstitution(argument, substituteType))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TypeRequiresSubstitution(ITypeSymbol? type, Func<ITypeSymbol, ITypeSymbol> substituteType)
+    {
+        if (type is null)
+            return false;
+
+        var substituted = substituteType(type);
+        return !SymbolEqualityComparer.Default.Equals(substituted, type);
+    }
 
     private ITypeSymbol DetermineBuilderType(Compilation compilation, SourceMethodSymbol asyncMethod)
     {
@@ -911,6 +1003,378 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             _asyncMethodCache.Add(builderField, members);
             return members;
         }
+    }
+
+    private enum TypeParameterMappingKind
+    {
+        AsyncToStateMachine,
+        StateMachineToAsyncMethod
+    }
+
+    private sealed class MappedMethodSymbol : IMethodSymbol
+    {
+        private readonly SynthesizedAsyncStateMachineTypeSymbol _owner;
+        private readonly IMethodSymbol _original;
+        private readonly TypeParameterMappingKind _kind;
+        private readonly Func<ITypeSymbol, ITypeSymbol> _typeSubstitution;
+        private readonly Func<IMethodSymbol, IMethodSymbol> _methodSubstitution;
+        private ImmutableArray<IParameterSymbol>? _parameters;
+        private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
+        private ImmutableArray<ITypeSymbol>? _typeArguments;
+
+        public MappedMethodSymbol(
+            SynthesizedAsyncStateMachineTypeSymbol owner,
+            IMethodSymbol original,
+            TypeParameterMappingKind kind)
+        {
+            _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            _original = original ?? throw new ArgumentNullException(nameof(original));
+            _kind = kind;
+            _typeSubstitution = kind switch
+            {
+                TypeParameterMappingKind.AsyncToStateMachine => type => owner.SubstituteAsyncMethodTypeParameters(type),
+                TypeParameterMappingKind.StateMachineToAsyncMethod => type => owner.SubstituteStateMachineTypeParameters(type),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind))
+            };
+            _methodSubstitution = kind switch
+            {
+                TypeParameterMappingKind.AsyncToStateMachine => method => owner.SubstituteAsyncMethodTypeParameters(method),
+                TypeParameterMappingKind.StateMachineToAsyncMethod => method => owner.SubstituteStateMachineTypeParameters(method),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind))
+            };
+        }
+
+        public SynthesizedAsyncStateMachineTypeSymbol Owner => _owner;
+
+        public TypeParameterMappingKind MappingKind => _kind;
+
+        public string Name => _original.Name;
+
+        public ITypeSymbol ReturnType => _typeSubstitution(_original.ReturnType);
+
+        public ImmutableArray<IParameterSymbol> Parameters =>
+            _parameters ??= _original.Parameters
+                .Select(parameter => (IParameterSymbol)new MappedParameterSymbol(parameter, _typeSubstitution, this))
+                .ToImmutableArray();
+
+        public ImmutableArray<AttributeData> GetReturnTypeAttributes()
+            => _original.GetReturnTypeAttributes();
+
+        public MethodKind MethodKind => _original.MethodKind;
+
+        public bool IsConstructor => _original.IsConstructor;
+
+        public IMethodSymbol? OriginalDefinition => _original.OriginalDefinition;
+
+        public bool IsAbstract => _original.IsAbstract;
+
+        public bool IsAsync => _original.IsAsync;
+
+        public bool IsCheckedBuiltin => _original.IsCheckedBuiltin;
+
+        public bool IsDefinition => _original.IsDefinition;
+
+        public bool IsExtensionMethod => _original.IsExtensionMethod;
+
+        public bool IsExtern => _original.IsExtern;
+
+        public bool IsGenericMethod => _original.IsGenericMethod;
+
+        public bool IsOverride => _original.IsOverride;
+
+        public bool IsReadOnly => _original.IsReadOnly;
+
+        public bool IsSealed => _original.IsSealed;
+
+        public bool IsVirtual => _original.IsVirtual;
+
+        public bool IsIterator => _original.IsIterator;
+
+        public IteratorMethodKind IteratorKind => _original.IteratorKind;
+
+        public ITypeSymbol? IteratorElementType
+            => _original.IteratorElementType is { } iteratorType
+                ? _typeSubstitution(iteratorType)
+                : null;
+
+        public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations =>
+            _explicitInterfaceImplementations ??=
+                _original.ExplicitInterfaceImplementations
+                    .Select(method => _methodSubstitution(method))
+                    .ToImmutableArray();
+
+        public ImmutableArray<ITypeParameterSymbol> TypeParameters => _original.TypeParameters;
+
+        public ImmutableArray<ITypeSymbol> TypeArguments =>
+            _typeArguments ??=
+                _original.TypeArguments
+                    .Select(argument => _typeSubstitution(argument))
+                    .ToImmutableArray();
+
+        public IMethodSymbol? ConstructedFrom
+        {
+            get
+            {
+                var constructedFrom = _original.ConstructedFrom;
+                if (constructedFrom is null || ReferenceEquals(constructedFrom, _original))
+                    return constructedFrom;
+
+                return _methodSubstitution(constructedFrom);
+            }
+        }
+
+        public SymbolKind Kind => _original.Kind;
+
+        public string MetadataName => _original.MetadataName;
+
+        public ISymbol? ContainingSymbol
+            => _original.ContainingSymbol is INamedTypeSymbol containingType
+                ? _typeSubstitution(containingType) as ISymbol
+                : _original.ContainingSymbol;
+
+        public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
+
+        public IModuleSymbol? ContainingModule => _original.ContainingModule;
+
+        public INamedTypeSymbol? ContainingType
+            => _original.ContainingType is null
+                ? null
+                : _typeSubstitution(_original.ContainingType) as INamedTypeSymbol;
+
+        public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
+
+        public ImmutableArray<Location> Locations => _original.Locations;
+
+        public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
+
+        public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+
+        public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
+
+        public bool IsStatic => _original.IsStatic;
+
+        public ISymbol UnderlyingSymbol => _original;
+
+        public bool IsAlias => false;
+
+        public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+
+        public void Accept(SymbolVisitor visitor)
+        {
+            visitor.VisitMethod(this);
+        }
+
+        public TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
+        {
+            return visitor.VisitMethod(this);
+        }
+
+        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
+            => comparer.Equals(this, other);
+
+        public bool Equals(ISymbol? other)
+            => SymbolEqualityComparer.Default.Equals(this, other);
+
+        public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+        {
+            if (typeArguments is null)
+                throw new ArgumentNullException(nameof(typeArguments));
+
+            if (typeArguments.Length == 0)
+            {
+                var constructedWithoutArguments = _original.Construct(typeArguments);
+                return _methodSubstitution(constructedWithoutArguments);
+            }
+
+            var substitutedArguments = new ITypeSymbol[typeArguments.Length];
+            var changed = false;
+
+            for (var i = 0; i < typeArguments.Length; i++)
+            {
+                var substituted = _typeSubstitution(typeArguments[i]);
+                substitutedArguments[i] = substituted;
+                changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i]);
+            }
+
+            var argumentsToUse = changed ? substitutedArguments : typeArguments;
+            var constructed = _original.Construct(argumentsToUse);
+            return _methodSubstitution(constructed);
+        }
+    }
+
+    private sealed class MappedParameterSymbol : IParameterSymbol
+    {
+        private readonly IParameterSymbol _original;
+        private readonly Func<ITypeSymbol, ITypeSymbol> _typeSubstitution;
+        private readonly ISymbol _containingSymbol;
+
+        public MappedParameterSymbol(
+            IParameterSymbol original,
+            Func<ITypeSymbol, ITypeSymbol> typeSubstitution,
+            ISymbol containingSymbol)
+        {
+            _original = original ?? throw new ArgumentNullException(nameof(original));
+            _typeSubstitution = typeSubstitution ?? throw new ArgumentNullException(nameof(typeSubstitution));
+            _containingSymbol = containingSymbol ?? throw new ArgumentNullException(nameof(containingSymbol));
+        }
+
+        public string Name => _original.Name;
+
+        public ITypeSymbol Type => _typeSubstitution(_original.Type);
+
+        public SymbolKind Kind => _original.Kind;
+
+        public string MetadataName => _original.MetadataName;
+
+        public ISymbol? ContainingSymbol => _containingSymbol;
+
+        public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
+
+        public IModuleSymbol? ContainingModule => _original.ContainingModule;
+
+        public INamedTypeSymbol? ContainingType => _containingSymbol switch
+        {
+            INamedTypeSymbol namedType => namedType,
+            IMethodSymbol methodSymbol => methodSymbol.ContainingType,
+            _ => _original.ContainingType
+        };
+
+        public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
+
+        public ImmutableArray<Location> Locations => _original.Locations;
+
+        public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
+
+        public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+
+        public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
+
+        public bool IsStatic => false;
+
+        public ISymbol UnderlyingSymbol => _original;
+
+        public bool IsAlias => false;
+
+        public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+
+        public bool IsParams => _original.IsParams;
+
+        public RefKind RefKind => _original.RefKind;
+
+        public bool IsMutable => _original.IsMutable;
+
+        public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;
+
+        public object? ExplicitDefaultValue => _original.ExplicitDefaultValue;
+
+        public void Accept(SymbolVisitor visitor)
+        {
+            visitor.VisitParameter(this);
+        }
+
+        public TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
+        {
+            return visitor.VisitParameter(this);
+        }
+
+        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
+            => comparer.Equals(this, other);
+
+        public bool Equals(ISymbol? other)
+            => SymbolEqualityComparer.Default.Equals(this, other);
+    }
+
+    private sealed class MappedPropertySymbol : IPropertySymbol
+    {
+        private readonly SynthesizedAsyncStateMachineTypeSymbol _owner;
+        private readonly IPropertySymbol _original;
+        private readonly TypeParameterMappingKind _kind;
+        private readonly Func<ITypeSymbol, ITypeSymbol> _typeSubstitution;
+        private readonly Func<IMethodSymbol, IMethodSymbol> _methodSubstitution;
+
+        public MappedPropertySymbol(
+            SynthesizedAsyncStateMachineTypeSymbol owner,
+            IPropertySymbol original,
+            TypeParameterMappingKind kind)
+        {
+            _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            _original = original ?? throw new ArgumentNullException(nameof(original));
+            _kind = kind;
+            _typeSubstitution = kind switch
+            {
+                TypeParameterMappingKind.AsyncToStateMachine => type => owner.SubstituteAsyncMethodTypeParameters(type),
+                TypeParameterMappingKind.StateMachineToAsyncMethod => type => owner.SubstituteStateMachineTypeParameters(type),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind))
+            };
+            _methodSubstitution = kind switch
+            {
+                TypeParameterMappingKind.AsyncToStateMachine => method => owner.SubstituteAsyncMethodTypeParameters(method),
+                TypeParameterMappingKind.StateMachineToAsyncMethod => method => owner.SubstituteStateMachineTypeParameters(method),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind))
+            };
+        }
+
+        public SynthesizedAsyncStateMachineTypeSymbol Owner => _owner;
+
+        public TypeParameterMappingKind MappingKind => _kind;
+
+        public string Name => _original.Name;
+
+        public ITypeSymbol Type => _typeSubstitution(_original.Type);
+
+        public IMethodSymbol? GetMethod
+            => _original.GetMethod is null ? null : _methodSubstitution(_original.GetMethod);
+
+        public IMethodSymbol? SetMethod
+            => _original.SetMethod is null ? null : _methodSubstitution(_original.SetMethod);
+
+        public bool IsIndexer => _original.IsIndexer;
+
+        public SymbolKind Kind => _original.Kind;
+
+        public string MetadataName => _original.MetadataName;
+
+        public ISymbol? ContainingSymbol
+            => _original.ContainingSymbol is INamedTypeSymbol containingType
+                ? _typeSubstitution(containingType) as ISymbol
+                : _original.ContainingSymbol;
+
+        public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
+
+        public IModuleSymbol? ContainingModule => _original.ContainingModule;
+
+        public INamedTypeSymbol? ContainingType
+            => _original.ContainingType is null
+                ? null
+                : _typeSubstitution(_original.ContainingType) as INamedTypeSymbol;
+
+        public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
+
+        public ImmutableArray<Location> Locations => _original.Locations;
+
+        public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
+
+        public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+
+        public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
+
+        public bool IsStatic => _original.IsStatic;
+
+        public ISymbol UnderlyingSymbol => _original;
+
+        public bool IsAlias => false;
+
+        public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+
+        public void Accept(SymbolVisitor visitor) => visitor.VisitProperty(this);
+
+        public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitProperty(this);
+
+        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
+            => comparer.Equals(this, other);
+
+        public bool Equals(ISymbol? other)
+            => SymbolEqualityComparer.Default.Equals(this, other);
     }
 
     internal readonly struct TypeParameterMapping

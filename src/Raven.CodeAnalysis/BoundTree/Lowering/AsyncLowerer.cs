@@ -1716,8 +1716,11 @@ internal static class AsyncLowerer
         if (startMethod is null)
             return null;
 
+        var substitutedStateMachineType = stateMachine.SubstituteStateMachineTypeParameters(stateMachineType) as INamedTypeSymbol
+            ?? stateMachineType;
+
         var constructedStart = startMethod.IsGenericMethod
-            ? startMethod.Construct(stateMachineType)
+            ? startMethod.Construct(substitutedStateMachineType)
             : startMethod;
 
         var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderMembers.BuilderField);

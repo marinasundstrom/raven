@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-25_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-28_
 
 ## Objective
 
@@ -26,6 +26,8 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-28 | 🔴 Blocked | `MappedMethodSymbol.Construct` now substitutes type arguments before delegating to the underlying builder method and `CreateBuilderStartStatement` feeds the async-method view of the state machine into `Start<TStateMachine>`, but `samples/test8.rav` still produces invalid IL: `Start` encodes the struct instantiation with `!0`, `dotnet` continues to throw `BadImageFormatException`, and `ilverify` reproduces the same `IndexOutOfRangeException` while resolving the builder MethodSpec.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1178-L1201】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1719-L1735】【f50990†L1-L8】【a0c4e7†L1-L23】 |
+| 2025-11-27 | 🔴 Blocked | Remapped the async-method builder members through dedicated `MappedMethodSymbol`/`MappedPropertySymbol` wrappers so the method body always receives `AsyncTaskMethodBuilder<!!T>` helpers while `MoveNext` continues to target the state-machine generics, but both the CLI (`BadImageFormatException`) and `ilverify` (generic instantiation crash) still reject `Program.Test<T>`, leaving runtime validation blocked.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L343-L375】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1000-L1340】【4d3a13†L1-L8】【21c832†L1-L22】 |
 | 2025-11-26 | 🔴 Blocked | Unwrapped substituted async builder methods before emission and kept the async method's `Create`/`Start` calls on `AsyncTaskMethodBuilder<!!T>`, unblocking `ravc` past the Reflection.Emit crash, but both `dotnet` and `ilverify` still reject the image—the CLI reports `BadImageFormatException` for `Program.Test<T>` and ILVerify crashes while instantiating a generic parameter, so runtime validation remains blocked.【F:src/Raven.CodeAnalysis/MethodSymbolExtensionsForCodeGen.cs†L25-L66】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1688-L1732】【8bebfd†L1-L8】【fef3ba†L1-L23】 |
 | 2025-11-25 | 🟡 At risk | Re-running `ravc` against `samples/test8.rav` still triggers `BadImageFormatException`, but the emitted IL now instantiates `AsyncTaskMethodBuilder::Start` and `AwaitUnsafeOnCompleted` with the constructed `Program+<>c__AsyncStateMachine0`1<!T>` so builder substitutions are flowing correctly; the remaining verifier break must come from another metadata edge case.【f755b4†L1-L8】 |
 | 2025-11-24 | 🟡 At risk | Await lowering now substitutes async method type parameters before hoisting awaiters, locals, and builder invocations so the generated bound nodes reference the state-machine generics instead of the async method's, eliminating the lingering `!!T`/`!0` mismatch ahead of runtime validation.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1207-L1398】 |
@@ -52,10 +54,24 @@ WriteLine(x)
   user code executes, and the stack trace points at the open generic entry
   point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】【8bebfd†L1-L8】
 * **ILVerify crashes while instantiating generic parameters.** Executing the
-  restored local `ilverify` tool against `test.dll` now reproduces an
+  restored local `ilverify` tool against `test.dll` still reproduces an
   `IndexOutOfRangeException` inside the verifier when it resolves the `Create`
-  and `Start` method tokens, confirming that our metadata still encodes an
-  invalid generic instantiation even after the builder-substitution fixes.【fef3ba†L1-L23】
+  and `Start` method tokens, confirming that our metadata continues to encode an
+  invalid generic instantiation even after the latest builder-substitution
+  clean-up.【21c832†L1-L22】
+* **Async builder mapping is now symmetric.** The synthesized state machine
+  remaps builder members for the async method through dedicated
+  `MappedMethodSymbol`/`MappedPropertySymbol` wrappers so the method body sees
+  `AsyncTaskMethodBuilder<!!T>` helpers while `MoveNext` keeps the substituted
+  `AsyncTaskMethodBuilder<!0>` view; the runtime still fails with the same
+  `BadImageFormatException`/`ilverify` crash, so another metadata edge case must
+  be addressed.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L343-L375】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1000-L1340】【4d3a13†L1-L8】【21c832†L1-L22】
+* **Constructing builder calls now substitutes type arguments.** `MappedMethodSymbol.Construct`
+  rewrites each supplied type argument through the async↔state-machine map before
+  delegating to the underlying method, and `CreateBuilderStartStatement` applies the
+  async-method substitution before instantiating `Start<TStateMachine>`. The emitted IL
+  still prints `Program+<>c__AsyncStateMachine0`1'<!0>` for the builder MethodSpec, so the
+  fix was insufficient and the runtime continues to reject the image.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1178-L1201】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1719-L1735】
 * **Codegen now unwraps substituted builder methods.** Emission recognises
   `AsyncMethodSubstitutedMethodSymbol` wrappers and routes them back to their
   underlying builders, while async method lowering keeps the `Create` and
