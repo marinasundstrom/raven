@@ -128,7 +128,6 @@ internal static class AsyncLowerer
 
         var constructed = stateMachine.GetConstructedMembers(method);
         var stateMachineType = constructed.StateMachineType;
-        var constructor = constructed.Constructor;
         var moveNextMethod = constructed.MoveNext;
         var stateField = constructed.StateField;
         var builderMembers = constructed.AsyncMethodBuilderMembers;
@@ -146,10 +145,7 @@ internal static class AsyncLowerer
             Array.Empty<Location>(),
             Array.Empty<SyntaxReference>());
 
-        var creation = new BoundObjectCreationExpression(
-            constructor,
-            Array.Empty<BoundExpression>());
-        var declarator = new BoundVariableDeclarator(asyncLocal, creation);
+        var declarator = new BoundVariableDeclarator(asyncLocal, initializer: null);
         statements.Add(new BoundLocalDeclarationStatement(new[] { declarator }));
 
         if (thisField is not null)
