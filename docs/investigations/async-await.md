@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-30 | 🔴 Blocked | Comparing Raven and Roslyn assemblies shows `Program.Test<T>` now substitutes the builder correctly but still declares three extra locals (`!!T`, `Int32`, and `AsyncTaskMethodBuilder<!!T>`) in addition to the state machine. The Roslyn baseline only materialises the state-machine local, so the remaining verifier break likely stems from our method-body construction rather than the builder MethodSpecs.【bac137†L1-L9】【dcffbd†L1-L9】|
 | 2025-11-29 | 🔴 Blocked | Synthesized async state machines now define their nested types with the simple metadata name so the emitted IL spells `< >c__AsyncStateMachine0`1` instead of `Program+Program+<>c__AsyncStateMachine0`1`, eliminating the duplicated containing type that previously tripped ILVerify, but the CLI still throws `BadImageFormatException` and ILVerify continues to flag the `Start` call with `Unexpected type on the stack`, so runtime validation remains blocked.【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L160-L181】【b15d35†L13-L38】【958854†L1-L24】【b27cb9†L1-L8】
 | 2025-11-28 | 🔴 Blocked | `MappedMethodSymbol.Construct` now substitutes type arguments before delegating to the underlying builder method and `CreateBuilderStartStatement` feeds the async-method view of the state machine into `Start<TStateMachine>`, but `samples/test8.rav` still produces invalid IL: `Start` encodes the struct instantiation with `!0`, `dotnet` continues to throw `BadImageFormatException`, and `ilverify` reproduces the same `IndexOutOfRangeException` while resolving the builder MethodSpec.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1178-L1201】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1719-L1735】【f50990†L1-L8】【a0c4e7†L1-L23】 |
 | 2025-11-27 | 🔴 Blocked | Remapped the async-method builder members through dedicated `MappedMethodSymbol`/`MappedPropertySymbol` wrappers so the method body always receives `AsyncTaskMethodBuilder<!!T>` helpers while `MoveNext` continues to target the state-machine generics, but both the CLI (`BadImageFormatException`) and `ilverify` (generic instantiation crash) still reject `Program.Test<T>`, leaving runtime validation blocked.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L343-L375】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L1000-L1340】【4d3a13†L1-L8】【21c832†L1-L22】 |
@@ -54,6 +55,13 @@ WriteLine(x)
   `samples/test8.rav` yields the same `BadImageFormatException` before any
   user code executes, and the stack trace points at the open generic entry
   point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】【b27cb9†L1-L8】
+* **Our method body still materialises extra locals.** The Raven image now
+  substitutes builder calls correctly, but the local signature for
+  `Program.Test<T>` includes three additional slots (`!!T`, `Int32`, and
+  `AsyncTaskMethodBuilder<!!T>`) that the Roslyn baseline omits. The extra
+  locals come directly from our rewritten method body, so the lingering
+  verifier break likely stems from how we stage the state-machine
+  initialisation rather than from the builder MethodSpecs.【bac137†L1-L9】【dcffbd†L1-L9】
 * **ILVerify still reports stack mismatches for the builder calls.** The
   restored `ilverify` tool now makes it past the duplicated nested-type name,
   but it continues to flag the `Start` invocation in `Program.MainAsync`
@@ -160,9 +168,9 @@ WriteLine(x)
 
 ### Next steps
 
-* Diff the Raven and Roslyn metadata around `Program.Test<T>` and the builder
-  TypeSpecs to pinpoint the generic argument that triggers ILVerify's
-  `IndexOutOfRangeException` and the runtime `BadImageFormatException`.
+* Diff the Raven and Roslyn metadata around `Program.Test<T>` and collapse the
+  extra locals we introduce during state-machine construction so the method
+  body matches the Roslyn baseline before re-running `ilverify`.
 * Once the invalid instantiation is corrected, re-run both the CLI sample and
   `ilverify` to confirm the assembly loads cleanly and promote a regression
   that locks down the fixed encoding.
