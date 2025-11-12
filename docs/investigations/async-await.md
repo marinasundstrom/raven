@@ -1,6 +1,6 @@
 # Async/await action plan – test8 reboot
 
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-22_
+> Living action plan owner: **Compiler team** · Last updated: _2025-11-25_
 
 ## Objective
 
@@ -26,6 +26,7 @@ WriteLine(x)
 
 | Date | Status | Notes |
 | --- | --- | --- |
+| 2025-11-25 | 🟡 At risk | Re-running `ravc` against `samples/test8.rav` still triggers `BadImageFormatException`, but the emitted IL now instantiates `AsyncTaskMethodBuilder::Start` and `AwaitUnsafeOnCompleted` with the constructed `Program+<>c__AsyncStateMachine0`1<!T>` so builder substitutions are flowing correctly; the remaining verifier break must come from another metadata edge case.【f755b4†L1-L8】 |
 | 2025-11-24 | 🟡 At risk | Await lowering now substitutes async method type parameters before hoisting awaiters, locals, and builder invocations so the generated bound nodes reference the state-machine generics instead of the async method's, eliminating the lingering `!!T`/`!0` mismatch ahead of runtime validation.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1207-L1398】 |
 | 2025-11-23 | 🟡 At risk | Hoisted-disposal guards now live at the end of `MoveNext` by skipping async rewriter cleanup for the root block and appending the state machine's `HoistedLocalsToDispose` during MoveNext assembly, restoring the expected guard order while keeping the builder substitutions intact.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L90-L112】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L607-L680】 |
 | 2025-11-22 | 🟡 At risk | The synthesized async state machine now owns an `AsyncBuilderMemberMap` so both MoveNext lowering and constructed method views query the same cached builder metadata keyed by the `_builder` field while we continue debugging the runtime verifier break for `Program.Test<T>`.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L21-L148】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L865-L914】 |
@@ -49,6 +50,20 @@ WriteLine(x)
   `samples/test8.rav` yields the same `BadImageFormatException` before any
   user code executes, and the stack trace points at the open generic entry
   point `Program.Test<T>` when the runtime spins up the async state machine.【bef937†L1-L7】
+* **Builder invocations now materialise the constructed state machine.**
+  Disassembling `test.dll` shows the emitted `Start` and
+  `AwaitUnsafeOnCompleted` method specs instantiating the generic builder with
+  `valuetype Program/'Program+<>c__AsyncStateMachine0`1'<!T>` rather than the
+  async method's `!!T`, confirming that the lowerer feeds the correct
+  substitution into emission even though the runtime still fails to load the
+  image.【F:docs/investigations/async-await.md†L113-L139】【f755b4†L1-L8】
+* **C# baseline diverges only in state-machine representation.** Performing
+  the same inspection on a Roslyn-built equivalent yields the same builder
+  instantiations except the reference compiler emits a class-based state
+  machine (`class Program/'<Test>d__0`1'<!!T>`) where Raven still lowers to a
+  struct. The verifier break therefore appears unrelated to the generic
+  substitution fixes and likely stems from another metadata difference between
+  the two images.【9d2479†L1-L8】
 * **State machine now substitutes before builder lookup.** `GetConstructedStateMachine`
   always materialises a constructed view, and the builder members captured for
   lowering now come directly from the synthesized struct so `MoveNext` emits
@@ -129,6 +144,12 @@ Recent spelunking through `AsyncLowerer` and the synthesized state-machine symbo
 * **Lowering still targets the open state machine.** Even with the builder map, `RewriteMethodBody` and `GetBuilderMembers` operate on the unconstructed struct symbol, so parameter and field assignments keep pairing method generics with the synthesized equivalents manually; threading a constructed state-machine symbol through lowering would let both sides agree without ad-hoc substitution.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L112-L188】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L112-L189】
 * **Lowering fetches builder metadata piecemeal.** Each helper pulls the builder members independently, increasing the surface area for mismatched substitutions and forcing repeated null-check boilerplate.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L87-L188】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L456-L742】
 * **Await rewriter re-resolves the builder.** `AwaitLoweringRewriter` used to repeat the same lookup that `CreateMoveNextBody` performed, forcing every substitution fix to be applied twice; the first clean-up passes the captured snapshot through so future refactors have a single touch point.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L89-L109】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L552-L742】
+* **Verifier break likely sits outside builder substitution.** Since the
+  emitted builder method specs now mirror the Roslyn baseline, the remaining
+  `BadImageFormatException` probably originates from another metadata
+  difference (e.g. struct-vs-class state machine layout or ancillary
+  attributes). Narrowing the diff against the C# assembly should be the next
+  diagnostic step before touching the lowerer again.【f755b4†L1-L8】【9d2479†L1-L8】
 
 Together these changes would let us lower against a constructed, type-safe state machine without mutating the original method symbol, clearing the path for generic async functions.
 
@@ -178,7 +199,8 @@ Together these changes would let us lower against a constructed, type-safe state
 | Task | Status | Owner | Notes |
 | --- | --- | --- | --- |
 | Promote `samples/test8.rav` into the regression suite with async investigation flags enabled. | ☐ Not started | TBD | Ensure automation compiles & executes the script. |
-| Execute the emitted assembly in the runtime harness and assert it prints `42` with no exceptions. | ☐ Not started | TBD | Capture logs for post-run validation. |
+| Execute the emitted assembly in the runtime harness and assert it prints `42` with no exceptions. | 🚧 In progress | Compiler team | CLI still throws `BadImageFormatException`; captured IL now confirms builder instantiations line up with the constructed state machine, so the remaining verifier break must stem from another metadata divergence.【f755b4†L1-L8】 |
+| Diff Raven's emitted metadata against a Roslyn baseline to isolate the remaining verifier break. | ☐ Not started | TBD | Compare state-machine layout, attributes, and method specs after confirming builder substitutions match the constructed type arguments.【9d2479†L1-L8】 |
 | Capture emitted IL (and pointer traces if useful) as golden files for diff-based regression coverage. | ☐ Not started | TBD | Store artifacts alongside other async regression assets. |
 
 ### WS4 – Restore iterator IL stability after cache changes
