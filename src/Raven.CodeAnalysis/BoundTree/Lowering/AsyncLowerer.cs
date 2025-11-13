@@ -1431,9 +1431,8 @@ internal static class AsyncLowerer
 
         private BoundStatement CreateAwaiterStoreStatement(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)
         {
-            var getAwaiterMethod = _stateMachine.SubstituteStateMachineTypeParameters(awaitExpression.GetAwaiterMethod);
             var getAwaiter = new BoundInvocationExpression(
-                getAwaiterMethod,
+                awaitExpression.GetAwaiterMethod,
                 Array.Empty<BoundExpression>(),
                 awaitExpression.Expression);
 
@@ -1450,15 +1449,13 @@ internal static class AsyncLowerer
         private BoundExpression CreateIsCompletedAccess(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)
         {
             var awaiterAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), awaiterField);
-            var isCompletedProperty = _stateMachine.SubstituteStateMachineTypeParameters(awaitExpression.IsCompletedProperty);
-            return new BoundMemberAccessExpression(awaiterAccess, isCompletedProperty);
+            return new BoundMemberAccessExpression(awaiterAccess, awaitExpression.IsCompletedProperty);
         }
 
         private BoundInvocationExpression CreateGetResultInvocation(BoundAwaitExpression awaitExpression, BoundExpression awaiterReceiver)
         {
-            var getResultMethod = _stateMachine.SubstituteStateMachineTypeParameters(awaitExpression.GetResultMethod);
             return new BoundInvocationExpression(
-                getResultMethod,
+                awaitExpression.GetResultMethod,
                 Array.Empty<BoundExpression>(),
                 awaiterReceiver,
                 requiresReceiverAddress: true);
