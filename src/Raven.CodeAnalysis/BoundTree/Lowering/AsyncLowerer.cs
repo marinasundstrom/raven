@@ -1386,7 +1386,7 @@ internal static class AsyncLowerer
                 awaitMethod = awaitMethod.Construct(awaiterType, _stateMachine);
             }
 
-            awaitMethod = _stateMachine.SubstituteAsyncMethodTypeParameters(awaitMethod);
+            awaitMethod = _stateMachine.SubstituteStateMachineTypeParameters(awaitMethod);
 
             var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _builderMembers.BuilderField);
             var awaiterAddress = new BoundAddressOfExpression(awaiterField, awaiterField.Type, new BoundSelfExpression(_stateMachine));
