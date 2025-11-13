@@ -22,10 +22,11 @@ WriteLine(x)
 * Await lowering no longer substitutes `GetAwaiter`/`GetResult` with the state machine map, so the generated calls keep the async method’s own type parameters (`!!0`) when materializing the awaiter and its result.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1349-L1370】
 * Emission now prefers `callvirt` whenever an instance receiver is a reference type, eliminating the earlier `call` opcode on `Task<T>.GetAwaiter()` that diverged from Roslyn and was a likely verifier hazard.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2699-L2706】
 * Async method bodies now zero-initialize the synthesized state machine local instead of invoking its parameterless constructor, mirroring Roslyn’s pattern and removing the redundant `newobj` before the builder setup.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L121-L205】
+* `MoveNext` now instantiates `AwaitUnsafeOnCompleted` with the state machine struct’s `!T`, because runtime type resolution now favors the synthesized parameter before falling back to the async method map, closing the `!!0` MethodSpec leak that tripped ILVerify.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L566-L579】
 * Mono.Cecil diffs still show subtle gaps versus Roslyn: our async state machine locals remain wider (`System.Int32` temporaries for the awaited result), and the runtime continues to throw `BadImageFormatException`, so there is likely another metadata mismatch beyond the `callvirt` fix.【F:docs/investigations/async-await.md†L74-L76】【e61182†L1-L8】
 * Despite the constructor-free initialization, loading the sample assembly still fails with `BadImageFormatException`, so the remaining mismatch likely sits in the MethodSpec metadata rather than the state machine layout.【7eac73†L1-L8】
 * Builder `Start<TStateMachine>` now emits MethodSpecs over the async method’s own `!!0` after `ConstructedMethodSymbol` remaps state-machine type parameters before asking Reflection.Emit for runtime handles, bringing the `Start` call in line with Roslyn.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L564-L579】【40d716†L1-L4】
-* Roslyn’s IL keeps the awaited helper MethodSpecs on the original method’s `!!0`, while our `MoveNext` body still routes some constructed calls (e.g., builder `AwaitUnsafeOnCompleted`) through the state-machine substitution; the runtime-visible MethodSpecs must be verified to ensure every await helper references the method definition generics instead of the struct placeholder.【F:docs/investigations/async-await.md†L47-L60】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2699-L2706】
+* Roslyn’s IL keeps every builder helper instantiated over the async method’s generics; now that `AwaitUnsafeOnCompleted` matches, we still need to confirm the remaining helpers (`SetResult`, `SetException`, hoisted-field stores) follow the same pattern before rerunning IL validation.【F:docs/investigations/async-await.md†L47-L60】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2699-L2706】
 
 ### IL snapshot – async builder calls now preserve `!!0`
 
@@ -44,14 +45,24 @@ IL_003d: call instance valuetype [System.Private.CoreLib]System.Runtime.Compiler
            class [System.Private.CoreLib]System.Threading.Tasks.Task`1<int32>::GetAwaiter()
 ```
 
+### IL snapshot – `MoveNext` await uses the struct’s `!T`
+
+```il
+IL_0069: ldflda valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0>
+          valuetype Program/'<>c__AsyncStateMachine0`1'<!T>::_builder
+IL_0075: call instance void valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!T>::
+          AwaitUnsafeOnCompleted<valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.TaskAwaiter,
+          valuetype Program/'<>c__AsyncStateMachine0`1'<!T>>(!!0&, !!1&)
+```
+
 ## Task list
-* Diff Raven and Roslyn IL for `test8` to isolate the remaining structural differences (locals, generic instantiations, or metadata tables) now that `GetAwaiter` uses `callvirt`.
+* Diff Raven and Roslyn IL for `test8` to isolate the remaining structural differences (locals, generic instantiations, or metadata tables) now that both `Start` and `AwaitUnsafeOnCompleted` line up with Roslyn.
 * Bring up `ilverify` against both images so the verifier pinpoints the exact `BadImageFormatException` trigger instead of relying on the runtime failure.【e61182†L1-L8】
 * Collapse redundant temporaries in the async state machine (e.g., the extra `System.Int32` locals) to match Roslyn’s local signatures before rerunning the runtime/ILVerify checks.
 * Capture regression coverage that locks in the `callvirt` behaviour for reference-type instance calls so the async pipeline cannot regress to `call`.
 
 ## Strategy
 1. **Baseline the metadata** – Use Mono.Cecil (or `ilspycmd`) to diff Raven’s `test8` output against Roslyn’s, capturing every mismatch in generic instantiation, local signature, and async builder field layout. Feed the discrepancies back into the lowering/codegen steps that still substitute the state-machine `!0` in runtime-visible MethodSpecs.【F:docs/investigations/async-await.md†L47-L76】
-2. **Fix the remaining substitutions** – Audit builder- and await-related call sites (especially `AwaitUnsafeOnCompleted`, `Start`, and hoisted-field accesses) so they always instantiate with the async method’s generic parameters before emission. Add targeted tests that assert the constructed MethodSpecs carry `!!0` once the fix lands.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2678-L2706】
+2. **Fix the remaining substitutions** – Audit builder- and await-related call sites (now focusing on `SetResult`, `SetException`, and hoisted-field accesses) so they always instantiate with the async method’s generic parameters before emission. Add targeted tests that assert the constructed MethodSpecs carry the right generics once the fixes land.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2678-L2706】
 3. **Reconcile locals and temporaries** – Align the async state-machine locals with Roslyn by trimming redundant temporaries and ensuring disposal guards reuse existing hoisted locals, which prevents verifier-visible signature drift.【F:docs/investigations/async-await.md†L71-L76】
 4. **Verify end-to-end** – After metadata and locals match, rerun `ilverify` and the runtime sample to confirm the image loads without `BadImageFormatException`, then lock the behaviour down with regression coverage (unit tests plus IL snapshots where necessary).【e61182†L1-L8】

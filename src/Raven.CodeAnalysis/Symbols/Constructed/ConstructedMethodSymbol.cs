@@ -563,18 +563,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (symbol is ITypeParameterSymbol typeParameter)
         {
+            if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
+                return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel);
+
+            if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
+                return runtimeType;
+
             if (typeParameter.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
                 stateMachine.TryMapToAsyncMethodTypeParameter(typeParameter, out var asyncParameter) &&
                 codeGen.TryGetRuntimeTypeForTypeParameter(asyncParameter, out var asyncRuntimeType))
             {
                 return asyncRuntimeType;
             }
-
-            if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
-                return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel);
-
-            if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
-                return runtimeType;
 
             throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
         }
