@@ -569,6 +569,79 @@ internal static class AsyncLowerer
         return new BoundBlockStatement(new BoundStatement[] { disposeCall, clearStatement });
     }
 
+    private sealed class AsyncMethodExpressionSubstituter : BoundTreeRewriter
+    {
+        private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
+
+        private AsyncMethodExpressionSubstituter(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        {
+            _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+        }
+
+        public static BoundExpression Substitute(
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+            BoundExpression expression)
+        {
+            if (expression is null)
+                throw new ArgumentNullException(nameof(expression));
+
+            var substituter = new AsyncMethodExpressionSubstituter(stateMachine);
+            return (BoundExpression)(substituter.VisitExpression(expression) ?? expression);
+        }
+
+        public override ITypeSymbol VisitType(ITypeSymbol type)
+        {
+            if (type is null)
+                return type;
+
+            return _stateMachine.SubstituteStateMachineTypeParameters(type);
+        }
+
+        public override IMethodSymbol VisitMethod(IMethodSymbol method)
+        {
+            if (method is null)
+                return method;
+
+            return _stateMachine.SubstituteStateMachineTypeParameters(method);
+        }
+
+        public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)
+        {
+            if (node is null)
+                return null;
+
+            var originalArguments = node.Arguments.ToArray();
+            var rewrittenArguments = new BoundExpression[originalArguments.Length];
+            var changed = false;
+
+            for (var i = 0; i < originalArguments.Length; i++)
+            {
+                var rewritten = VisitExpression(originalArguments[i]) ?? originalArguments[i];
+                rewrittenArguments[i] = rewritten;
+                if (!ReferenceEquals(rewritten, originalArguments[i]))
+                    changed = true;
+            }
+
+            var receiver = VisitExpression(node.Receiver) ?? node.Receiver;
+            var extensionReceiver = VisitExpression(node.ExtensionReceiver) ?? node.ExtensionReceiver;
+            var method = VisitMethod(node.Method);
+
+            changed |= !ReferenceEquals(receiver, node.Receiver);
+            changed |= !ReferenceEquals(extensionReceiver, node.ExtensionReceiver);
+            changed |= !SymbolEqualityComparer.Default.Equals(method, node.Method);
+
+            if (!changed)
+                return node;
+
+            return new BoundInvocationExpression(
+                method,
+                rewrittenArguments,
+                receiver,
+                extensionReceiver,
+                node.RequiresReceiverAddress);
+        }
+    }
+
     private sealed class AwaitLoweringRewriter : BoundTreeRewriter
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
@@ -934,15 +1007,28 @@ internal static class AsyncLowerer
                 return null;
 
             var expression = VisitExpression(node.Expression) ?? node.Expression;
-            if (!ReferenceEquals(expression, node.Expression))
+            expression = AsyncMethodExpressionSubstituter.Substitute(_stateMachine, expression);
+
+            var resultType = SubstituteAsyncMethodTypeParameters(node.ResultType);
+            var awaiterType = SubstituteAsyncMethodTypeParameters(node.AwaiterType);
+            var getAwaiter = _stateMachine.SubstituteStateMachineTypeParameters(node.GetAwaiterMethod);
+            var getResult = _stateMachine.SubstituteStateMachineTypeParameters(node.GetResultMethod);
+            var isCompleted = _stateMachine.SubstituteStateMachineTypeParameters(node.IsCompletedProperty);
+
+            if (!ReferenceEquals(expression, node.Expression) ||
+                !SymbolEqualityComparer.Default.Equals(resultType, node.ResultType) ||
+                !SymbolEqualityComparer.Default.Equals(awaiterType, node.AwaiterType) ||
+                !SymbolEqualityComparer.Default.Equals(getAwaiter, node.GetAwaiterMethod) ||
+                !SymbolEqualityComparer.Default.Equals(getResult, node.GetResultMethod) ||
+                !SymbolEqualityComparer.Default.Equals(isCompleted, node.IsCompletedProperty))
             {
                 node = new BoundAwaitExpression(
                     expression,
-                    node.ResultType,
-                    node.AwaiterType,
-                    node.GetAwaiterMethod,
-                    node.GetResultMethod,
-                    node.IsCompletedProperty);
+                    resultType,
+                    awaiterType,
+                    getAwaiter,
+                    getResult,
+                    isCompleted);
             }
 
             return LowerAwaitExpressionToBlock(node);
