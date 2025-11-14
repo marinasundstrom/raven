@@ -24,6 +24,8 @@ internal static class MethodSymbolExtensionsForCodeGen
 
         return methodSymbol switch
         {
+            IMethodSymbol wrapper when wrapper.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, wrapper)
+                => codeGen.CacheRuntimeMethod(methodSymbol, underlying.GetClrMethodInfo(codeGen)),
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlyingMethod
                 => codeGen.CacheRuntimeMethod(methodSymbol, underlyingMethod.GetClrMethodInfo(codeGen)),
             SourceMethodSymbol sourceMethod
@@ -49,6 +51,8 @@ internal static class MethodSymbolExtensionsForCodeGen
 
         return constructorSymbol switch
         {
+            IMethodSymbol wrapper when wrapper.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, wrapper)
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, underlying.GetClrConstructorInfo(codeGen)),
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlying
                 => codeGen.CacheRuntimeConstructor(constructorSymbol, underlying.GetClrConstructorInfo(codeGen)),
             SourceMethodSymbol sourceConstructor

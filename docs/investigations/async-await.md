@@ -1,12 +1,7 @@
-# Async/await action plan – test8 reboot
-
-> Living action plan owner: **Compiler team** · Last updated: _2025-11-16_
+# Async/await test8 investigation
 
 ## Objective
-
-Deliver a stable async/await experience for generic entry points by making
-`samples/test8.rav` compile, run, and return its awaited value without
-Reflection.Emit crashes.
+Emit the async sample below through `ravc`, load the resulting `test.dll`, and match the IL that Roslyn produces for the equivalent C# code—particularly the constructed async state machine and its builder calls.
 
 ```swift
 import System.Console.*
@@ -22,126 +17,66 @@ let x = await Test(42)
 WriteLine(x)
 ```
 
-## Current status snapshot
+## Current findings
+* The async method lowered for `Test<T>` now reuses the builder helpers from the synthesized state machine without leaking `AsyncTaskMethodBuilder<!0>` into runtime-visible calls. The new builder cache hands the method body a fresh substitution so `Create`, `Start`, and `get_Task` retain the async method’s `!!0` instead of the struct’s `!0` placeholder.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L960-L1012】
+* Await lowering now routes awaited expressions back through the async-method view before emitting the rewritten blocks, so the bound tree no longer pins the helper invocations to the state-machine-only substitutions.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1005-L1035】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1504-L1537】 The awaiter field stores and hoisted locals still project through the state-machine substitution where needed, but the invocations of `GetAwaiter`, `get_IsCompleted`, and `GetResult` now flow through the async-method substitution helpers before lowering.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1380-L1412】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1422-L1446】 Even after the rewrite, the emitted IL for `Program/'<>c__AsyncStateMachine1'::MoveNext` continues to encode `TaskAwaiter<!0>` just like Roslyn’s baseline, so the remaining substitution leak must come from the metadata we hand to Reflection.Emit rather than the bound tree itself.【F:docs/investigations/async-await.md†L96-L112】
+* The await-expression substituter now recognises the async builder field and skips the state-machine substitution for its methods and containing types, keeping builder calls in the struct-generic context while awaited helpers still remap through the async-method view.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L568-L699】
+* The builder prologue now consults the async method’s original definition for its generic parameters before constructing the state machine view so the lowerer never materialises a cache based on the already-substituted state-machine type parameters.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1820-L1867】 After wiring the runtime substitution helpers to remap nested state-machine type arguments back through the async method’s generic parameter builders, the emitted `AsyncTaskMethodBuilder<T>.Start<TStateMachine>` MethodSpec now encodes `Program+<>c__AsyncStateMachine0`1<!!0>` with a `GenericMethodParameter`, matching Roslyn and unblocking the metadata regression test.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L231-L287】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L214-L332】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1140-L1188】
+* Builder completion now remaps `SetResult`/`SetException` through the async-method substitution before emission, keeping the MethodSpecs anchored to the method’s `!!0` placeholder while the receiver still targets the constructed state machine.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L310-L349】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L471-L492】 Runtime validation still fails with `BadImageFormatException`, so the remaining metadata mismatch sits elsewhere in the async pipeline.【6374d7†L1-L10】
+* The regression test `AsyncLowererTests.Emit_GenericAsyncMethod_UsesMethodGenericsInBuilderStart` now passes, confirming the builder start MethodSpec projects the async method’s `!!0` placeholder instead of leaking the state machine’s `!0`.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1140-L1188】【8e575e†L1-L3】
+* Emission now prefers `callvirt` whenever an instance receiver is a reference type, eliminating the earlier `call` opcode on `Task<T>.GetAwaiter()` that diverged from Roslyn and was a likely verifier hazard.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2699-L2706】
+* Async method bodies now zero-initialize the synthesized state machine local instead of invoking its parameterless constructor, mirroring Roslyn’s pattern and removing the redundant `newobj` before the builder setup.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L121-L205】
+* Dumped both Raven’s `test8.dll` and a Roslyn baseline with ILSpy: builder MethodSpecs, async state machine fields, and the `MoveNext` IL for both the async entry point and `Test<T>` now match byte-for-byte apart from attribute trivia, yet the runtime still raises `BadImageFormatException`. This points to a subtler metadata or verification quirk that IL equivalence alone doesn’t expose.【38fd66†L1-L24】【91a48f†L1-L6】
+* `MoveNext` now constructs `AwaitUnsafeOnCompleted` with the hoisted awaiter field but immediately rewraps the builder call through the async-method substitution so the resulting MethodSpec keeps the async method’s `!!0` while still scheduling the state machine receiver.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1380-L1399】
+* The async metadata formatter now emits nested type names one segment at a time, so attributes such as `AsyncStateMachineAttribute` reference ``Program+<>c__AsyncStateMachine0`1`` instead of the invalid ``Program+Program+<>c__AsyncStateMachine0`1`` string we previously generated.【F:src/Raven.CodeAnalysis/Symbols/ISymbol.cs†L371-L407】
+* A Roslyn baseline compiled from the equivalent C# sample also encodes the awaiter call as `TaskAwaiter<!0>`, which confirms that the opcode stream we emit already matches the reference compiler and that the outstanding verifier break sits in metadata rather than the instruction sequence.【F:docs/investigations/async-await.md†L96-L112】
+* Roslyn’s own `Program.<Main>d__1` IL also displays the awaiter call as `TaskAwaiter<!0>`, so the remaining `BadImageFormatException` is almost certainly a metadata problem (e.g., a MethodSpec or attribute instantiation) rather than the opcode stream itself.【cd58ba†L1-L3】
+* Mono.Cecil diffs still show subtle gaps versus Roslyn: our async state machine locals remain wider (`System.Int32` temporaries for the awaited result), and the runtime continues to throw `BadImageFormatException`, so there is likely another metadata mismatch beyond the `callvirt` fix.【F:docs/investigations/async-await.md†L74-L76】【e61182†L1-L8】
+* Despite the constructor-free initialization, loading the sample assembly still fails with `BadImageFormatException`, so the remaining mismatch likely sits in the MethodSpec metadata rather than the state machine layout.【00adbe†L1-L8】
+* Comparing the Roslyn baseline against Raven with a metadata inspector now shows matching `GenericMethodParameter` entries for `AsyncTaskMethodBuilder<T>.Start<TStateMachine>`, so the remaining verifier gap must come from other MethodSpecs (`SetResult`, `SetException`, or awaiter helpers) or from the broader metadata layout.【F:docs/investigations/async-await.md†L74-L112】
+* Roslyn’s IL keeps every builder helper instantiated over the async method’s generics; now that `AwaitUnsafeOnCompleted` matches, we still need to confirm the remaining helpers (`SetResult`, `SetException`, hoisted-field stores) follow the same pattern before rerunning IL validation.【F:docs/investigations/async-await.md†L47-L60】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2699-L2706】
+* `mreader` still reports the MemberRef for `AsyncTaskMethodBuilder<T>.SetResult` with the declaring type materialised as ``AsyncTaskMethodBuilder`1<!!0>`` while the parameter is `!0`, so the builder continues to borrow the async method’s generic placeholder instead of the state machine’s type parameter and the verifier break persists.【a10a83†L1-L15】
 
-| Date | Status | Notes |
-| --- | --- | --- |
-| 2025-11-16 | 🟡 At risk | Constructed async state-machine members now expose builder lookups remapped to the async method's generics, and a new lowering regression proves the `Create` site instantiates `AsyncTaskMethodBuilder<!!T>` for the method body; runtime validation is still pending.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L153】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1001-L1055】 |
-| 2025-11-15 | 🟡 At risk | Substituting the awaited `Task<T>` result before instantiating the builder now hands `AsyncTaskMethodBuilder<!0>` the struct parameter instead of the method generic; still need CLI/`ilverify` confirmation that the runtime loads the image.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L521-L563】 |
-| 2025-11-14 | 🟡 At risk | Substituting the builder type before field synthesis keeps `AsyncTaskMethodBuilder<!0>` anchored to the struct parameter so `SetException`/`SetResult` no longer encode `!!0`; need a fresh CLI+`ilverify` pass to confirm the runtime accepts the image.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L261-L286】 |
-| 2025-11-13 | 🟡 At risk | Exposed explicit async↔state-machine type-parameter mappings and taught the emitter to reuse them; new semantic coverage guards the round-trip ahead of runtime validation.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L79-L118】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L140】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L110-L165】 |
-| 2025-11-12 | 🟡 At risk | Layered the generic-parameter cache so async methods retain the state machine's `!0` builder even after the original method re-registers its `T`; awaiting runtime validation and a fresh CLI run before closing the loop.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L24-L43】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L146】 |
-| 2025-11-11 | 🟡 At risk | Patched the emitter to map the async method's type parameters onto the synthesized state machine's generic parameter builders, so builder calls now instantiate over `!0`; a new IL regression proves the `MoveNext` builder invocations all see type-level generics, but the runtime fix still needs end-to-end validation.【025e9d†L1-L7】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L115-L139】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1495-L1520】 |
-| 2025-11-10 | 🔴 Blocked | CLI run still throws `BadImageFormatException` while JIT-compiling `Program.Test<T>` because the emitted state-machine `TypeSpec` injects the method's `T` via `ELEMENT_TYPE_VAR` rather than `ELEMENT_TYPE_MVAR`, so the verifier can't materialise the constructed type.【155a99†L1-L8】【d19e55†L6-L18】【eb2897†L1-L20】 |
-| 2025-11-09 | 🟡 At risk | Iterator baseline has been updated: the cached iterator `MoveNext` now stores its result in local slot `0` and records the nested state-machine type name (`C+<>c__Iterator0`). Completion tests unrelated to async continue to fail under the TerminalLogger, so runtime validation remains pending. |
+### IL snapshot – async builder calls now preserve `!!0`
 
-## Latest findings – generic state machine encoding is invalid
+```il
+IL_0018: call valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0>
+           valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!!T>::Create()
+IL_002b: call instance void valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!!T>::Start
+           <valuetype Program/'<>c__AsyncStateMachine0`1'<!0>>(!!0&)
+```
 
-* **Runtime still rejects the sample.** Re-running the CLI against
-  `samples/test8.rav` yields the same `BadImageFormatException` before any
-  user code executes, and the stack trace points at the open generic entry
-  point `Program.Test<T>` when the runtime spins up the async state machine.【025e9d†L1-L7】
-* **Awaited type now maps before builder construction.** When the async method returns
-  `Task<T>`, the awaited `T` is substituted with the state machine's `!0` before
-  we instantiate `AsyncTaskMethodBuilder<T>`, preventing Reflection.Emit from caching
-  the method-generic handle that previously surfaced as `AsyncTaskMethodBuilder<!!0>`.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L521-L563】
-* **Method body builder lookups reuse async generics.** `GetConstructedMembers` now
-  returns a method-context view of the builder helpers so lowering wires up
-  `AsyncTaskMethodBuilder<!!T>` for the local state-machine initialization; the
-  new regression covers the substitution even though CLI execution still fails.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L132-L153】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1001-L1055】
-* **Builder field construction pinned to struct generics.** The builder type is now
-  substituted before `_builder` is synthesized, so every subsequent lookup observes
-  `AsyncTaskMethodBuilder<!0>` and the `SetException`/`SetResult` MethodSpecs shed their
-  stray `!!0` references.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L261-L286】
-* **Builder calls now encode state-machine generics.** Updating the
-  Reflection.Emit lookup to reuse the state machine's generic parameter builders
-  for the original async method type parameters means the `AwaitUnsafeOnCompleted`
-  and `SetResult` sites now materialise as `AsyncTaskMethodBuilder<!0>` instead
-  of the verifier-breaking `!!0`; the new IL regression locks the behaviour
-  down.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L146】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1495-L1520】
-* **Generic parameter cache is now layered.** Reusing the async method after
-  the state machine is emitted no longer snaps builder calls back to `!!0`
-  because the runtime type map keeps a stack per type parameter and always
-  consults the most recent mapping.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L24-L43】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L108-L146】
-* **Type-parameter mapping is now explicit.** The synthesized state machine records the async method ↔ state-machine parameter pairs and surfaces helpers so emission and tests can reuse the mapping without bespoke substitutions.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L79-L118】【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L124-L135】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L129-L165】
+### IL snapshot – `MainAsync` await matches Roslyn’s `TaskAwaiter<!0>`
 
-### Next steps
+```il
+IL_0038: call class [System.Private.CoreLib]System.Threading.Tasks.Task`1<!!0> Program::Test<int32>(!!0)
+IL_003d: callvirt instance valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.TaskAwaiter`1<!0>
+           class [System.Private.CoreLib]System.Threading.Tasks.Task`1<int32>::GetAwaiter()
+```
 
-* Re-run the CLI sample (and `ilverify`) to confirm the `AsyncTaskMethodBuilder<!0>`
-  substitutions unblock the runtime and eliminate the `BadImageFormatException`.
-* After correcting the remaining substitutions, re-run both the CLI sample and
-  `ilverify` to confirm the assembly loads and the verifier no longer crashes;
-  promote a regression to guard the fixed encoding going forward.
+### IL snapshot – `MoveNext` await still materialises `TaskAwaiter<!0>`
 
-## Async lowering findings
+```il
+IL_0069: ldflda valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0>
+          valuetype Program/'<>c__AsyncStateMachine0`1'<!T>::_builder
+IL_0075: call instance void valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!T>::
+          AwaitUnsafeOnCompleted<valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.TaskAwaiter`1<!0>,
+          valuetype Program/'<>c__AsyncStateMachine0`1'<!T>>(!!0&, !!1&)
+```
 
-Recent spelunking through `AsyncLowerer` and the synthesized state-machine symbols surfaced a few blockers that explain why generic async members still fail and highlighted some opportunities to simplify the implementation:
+## Task list
+* Diff Raven and Roslyn IL for `test8` to isolate the remaining structural differences (locals, generic instantiations, or metadata tables) now that both `Start` and `AwaitUnsafeOnCompleted` line up with Roslyn.
+* Inspect the MethodSpec table emitted for `test8` (via `System.Reflection.Metadata`) and compare it to Roslyn’s so we can confirm every awaiter and builder instantiation now points at the async method’s `!!0` placeholder instead of the state-machine `!0`.
+* Trace any remaining MethodSpec mismatches—`Start` and `AwaitUnsafeOnCompleted` now line up, but we still need to audit `SetResult`, `SetException`, and the awaiter helpers—to ensure Reflection.Emit never falls back to the state-machine generic parameter builders.
+* Verify the remaining MethodSpecs (`Program/'<>c__AsyncStateMachine1'::MoveNext` and async-builder completion helpers) after the start-method fix to ensure Roslyn parity across the entire async pipeline.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L572-L642】
+* Inspect the emitted MethodSpecs for `Program/'<>c__AsyncStateMachine1'::MoveNext` to confirm the awaiter call matches Roslyn’s `TaskAwaiter<!0>` MethodSpec and to identify any remaining metadata mismatches that could lead to the runtime verifier failure.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L572-L642】
+* Bring up `ilverify` against both images so the verifier pinpoints the exact `BadImageFormatException` trigger instead of relying on the runtime failure.【e61182†L1-L8】
+* Expand the IL diff to cover the entire state machine body—including stack behaviour around `System.Unit` bookkeeping—to rule out subtle evaluation-stack mismatches that could still irritate the verifier despite the broad opcode parity.
+* Collapse redundant temporaries in the async state machine (e.g., the extra `System.Int32` locals) to match Roslyn’s local signatures before rerunning the runtime/ILVerify checks.
+* Capture regression coverage that locks in the `callvirt` behaviour for reference-type instance calls so the async pipeline cannot regress to `call`.
 
-* **Lowering mutates the source method.** `RewriteMethodBody` patches the original method's return type so it lines up with whatever builder type we managed to synthesize.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L112-L137】 That mutation couples lowering to symbol construction and makes it harder to reason about generic instantiations. A cleaner approach is to hand the lowerer a fully inferred return type (or a constructed method symbol) and treat the builder choice as an input instead of rewriting the method symbol on the fly.
-* **State machine locals stay open generic.** The synthesized local that stores the state-machine instance is declared with the unconstructed `SynthesizedAsyncStateMachineTypeSymbol`, and every parameter assignment feeds method type-parameters directly into fields that already substituted them with synthesized equivalents.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L142-L175】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L142-L183】 Because the left- and right-hand sides use different symbols for the same `T`, the assignment is ill-typed once generics come into play. Constructing the state machine once (e.g. `stateMachine.Construct(method.TypeParameters)`) and threading that constructed type through the rewritten body would let both sides agree without bespoke conversions.
-* **Type-parameter substitution is reimplemented from scratch.** `SynthesizedAsyncStateMachineTypeSymbol` clones every method type parameter, rebuilds constraint lists, and then walks all type shapes to swap them out via `SubstituteAsyncMethodTypeParameters`.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L191-L342】 The bespoke substitution makes the file hard to follow and still leaves the lowerer juggling mismatched symbols. If we materialise a constructed view of the state machine up front, most of those maps fall away—we can rely on existing `ConstructedNamedTypeSymbol` plumbing instead of threading custom dictionaries through every helper.
-* **Builder plumbing is spread across ad-hoc helpers.** Discovering `Create`, `Start`, `SetStateMachine`, `SetResult`, and `SetException` involves scanning the builder type each time and then retrofitting substitutions manually.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1708-L1851】 Hoisting that logic into the synthesized state-machine (e.g. cache the resolved builder members per constructed type) would shrink the lowerer and make it obvious how to specialise builder invocations for generics—the call sites could simply ask the state machine for the already-substituted symbols.
-
-Together these changes would let us lower against a constructed, type-safe state machine without mutating the original method symbol, clearing the path for generic async functions.
-
-## Guiding principles
-
-1. Keep constructed async builders on the Reflection.Emit surface; reuse the
-   `MethodBuilder` handles captured during emission instead of relying on
-   `TypeBuilder.GetMethods()`.
-2. Prevent constructed async state machines from materializing before their
-   owning `TypeBuilder` completes.
-3. Exercise the generic async entry point end to end and lock the behaviour down
-   with regression coverage.
-
-## Workstreams & tasks
-
-### WS1 – Cache async state-machine builders for generic substitutions
-
-| Task | Status | Owner | Notes |
-| --- | --- | --- | --- |
-| Extend `CodeGenerator.AddMemberBuilder`/`TryGetMemberBuilder` to record async state-machine builders keyed by definition + substitution. | ✅ Completed | Compiler team | Cache now stores constructors, `MoveNext`, and hoisted fields keyed by type arguments. |
-| Update `ConstructedMethodSymbol`/`SubstitutedMethodSymbol` to consult the cache before calling `GetMethods()`. | ✅ Completed | Compiler team | Constructed lookups reuse existing `MethodBuilder` handles before falling back to reflection. |
-| Verify emitter reuse via diagnostic or test that `TypeBuilder.GetMethods` is no longer invoked for constructed async generics. | ✅ Completed | Compiler team | `GenericAsyncStateMachine_UsesCachedMoveNextBuilderForTypeArguments` locks caching behaviour. |
-
-### WS2 – Guard builder lookup against premature type creation
-
-| Task | Status | Owner | Notes |
-| --- | --- | --- | --- |
-| Audit async lowering/emission call sites that invoke `GetMethodInfo(invokeConstructed, substitution)` while the state machine is under construction. | ✅ Completed | Compiler team | Builder lookups now consult cache-aware helpers across async emission surfaces. |
-| Route call sites through the cache or defer lookup until `TypeGenerator.GetCompletedType` finalizes the type. | ✅ Completed | Compiler team | Source and substituted symbols reuse cached builders instead of forcing premature `TypeBuilder` materialization. |
-| Add unit tests around `ConstructedMethodSymbol.GetMethodInfo` to prove the fallback path is unused when a cached builder exists. | ✅ Completed | Compiler team | Generic state-machine test asserts cached reuse before invoking reflection fallbacks. |
-
-### WS3 – Runtime regression for `samples/test8.rav`
-
-| Task | Status | Owner | Notes |
-| --- | --- | --- | --- |
-| Promote `samples/test8.rav` into the regression suite with async investigation flags enabled. | ☐ Not started | TBD | Ensure automation compiles & executes the script. |
-| Execute the emitted assembly in the runtime harness and assert it prints `42` with no exceptions. | ☐ Not started | TBD | Capture logs for post-run validation. |
-| Capture emitted IL (and pointer traces if useful) as golden files for diff-based regression coverage. | ☐ Not started | TBD | Store artifacts alongside other async regression assets. |
-
-### WS4 – Restore iterator IL stability after cache changes
-
-| Task | Status | Owner | Notes |
-| --- | --- | --- | --- |
-| Reproduce `IteratorILGenerationTests.MoveNext_DoesNotEmitStackClearingPops` locally and capture the IL diff. | ✅ Completed | Compiler team | Recorded the post-cache IL (local slot `0`, nested state-machine name) to establish the new baseline. |
-| Identify why async builder caching shifts iterator local slots and patch emission or expectations accordingly. | ✅ Completed | Compiler team | Method-builder reuse now preserves only the iterator result local; updated the regression expectation to reflect slot `0` and nested type-qualified field names. |
-| Extend iterator regression coverage to guard the fixed behaviour. | ☐ Not started | TBD | Add explicit assertions for local-slot numbering in iterator MoveNext. |
-
-## Risks & mitigations
-
-* **Reflection.Emit cache coherence.** Cached builders must stay valid across
-  substitutions; mitigate by keying entries on both the definition and the
-  substitution map.
-* **Test flakiness.** Runtime harness must handle async delays; mitigate by
-  using deterministic delays and capturing golden outputs.
-* **Terminal logger crash.** `dotnet test` fails hard when emitting long error
-  messages; mitigate by downgrading to a different logger or trimming failure
-  output until MSBuild logger bug is fixed.
-
-## Definition of done
-
-* `samples/test8.rav` builds and runs via the CLI without triggering
-  `TypeBuilderImpl.ThrowIfNotCreated` or losing the awaited integer.
-* Regression coverage enforces cached-builder lookup and the end-to-end runtime
-  behaviour so the crash cannot silently return.
+## Strategy
+1. **Baseline the metadata** – Use Mono.Cecil (or `ilspycmd`) to diff Raven’s `test8` output against Roslyn’s, capturing every mismatch in generic instantiation, local signature, and async builder field layout. Feed the discrepancies back into the lowering/codegen steps so no runtime-visible MethodSpec falls back to the state-machine `!0` placeholder.【F:docs/investigations/async-await.md†L47-L76】
+2. **Fix the remaining substitutions** – Audit builder- and await-related call sites (now focusing on `SetResult`, `SetException`, and hoisted-field accesses) so they always instantiate with the async method’s generic parameters before emission. Add targeted tests that assert the constructed MethodSpecs carry the right generics once the fixes land.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2678-L2706】
+3. **Reconcile locals and temporaries** – Align the async state-machine locals with Roslyn by trimming redundant temporaries and ensuring disposal guards reuse existing hoisted locals, which prevents verifier-visible signature drift.【F:docs/investigations/async-await.md†L71-L76】
+4. **Verify end-to-end** – After metadata and locals match, rerun `ilverify` and the runtime sample to confirm the image loads without `BadImageFormatException`, then lock the behaviour down with regression coverage (unit tests plus IL snapshots where necessary).【e61182†L1-L8】

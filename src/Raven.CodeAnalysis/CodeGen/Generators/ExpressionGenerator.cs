@@ -1717,6 +1717,13 @@ internal class ExpressionGenerator : Generator
                     var containingType = fieldSymbol.ContainingType;
                     var needsReceiverAddress = containingType?.IsValueType == true;
                     var needsAddress = requiresAddress || needsReceiverAddress;
+                    var fieldResultType = node.Type;
+                    var fieldNeedsResult = preserveResult
+                        && fieldResultType is not null
+                        && fieldResultType.SpecialType is not SpecialType.System_Unit
+                        and not SpecialType.System_Void;
+                    var fieldNeedsBox = right.Type is { IsValueType: true }
+                        && !fieldSymbol.Type.IsValueType;
 
                     if (right is BoundDefaultValueExpression && fieldSymbol.Type.IsValueType)
                     {
@@ -1761,56 +1768,6 @@ internal class ExpressionGenerator : Generator
 
                     if (!fieldSymbol.IsStatic)
                     {
-                        var canDelayReceiver = needsAddress && CanReEmitInvocationReceiverAddress(receiver);
-
-                        if (needsAddress && canDelayReceiver)
-                        {
-                            var valueTypeSymbol = right.Type ?? fieldSymbol.Type;
-                            var valueClrType = ResolveClrType(valueTypeSymbol);
-                            var delayedResultType = node.Type;
-                            var delayedNeedsResult = preserveResult
-                                && delayedResultType is not null
-                                && delayedResultType.SpecialType is not SpecialType.System_Unit
-                                and not SpecialType.System_Void;
-                            var delayedNeedsBox = right.Type is { IsValueType: true }
-                                && !fieldSymbol.Type.IsValueType;
-
-                            EmitExpression(right);
-
-                            var valueLocal = ILGenerator.DeclareLocal(valueClrType);
-                            ILGenerator.Emit(OpCodes.Stloc, valueLocal);
-
-                            if (!TryEmitValueTypeReceiverAddress(receiver, receiver?.Type, containingType))
-                            {
-                                if (receiver is not null)
-                                {
-                                    EmitExpression(receiver);
-
-                                    if (needsReceiverAddress)
-                                        EmitValueTypeAddressIfNeeded(containingType!);
-                                }
-                                else
-                                {
-                                    ILGenerator.Emit(OpCodes.Ldarg_0);
-
-                                    if (needsReceiverAddress)
-                                        EmitValueTypeAddressIfNeeded(containingType!);
-                                }
-                            }
-
-                            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
-
-                            if (delayedNeedsBox)
-                                ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type ?? fieldSymbol.Type));
-
-                            if (delayedNeedsResult)
-                                ILGenerator.Emit(OpCodes.Dup);
-
-                            ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
-                            EmitAsyncInvestigationStore(fieldSymbol);
-                            break;
-                        }
-
                         if (needsAddress)
                         {
                             if (!TryEmitValueTypeReceiverAddress(receiver, receiver?.Type, containingType))
@@ -1855,9 +1812,14 @@ internal class ExpressionGenerator : Generator
                     EmitExpression(right);
 
                     // Box if assigning value type to reference type
-                    if (right.Type is { IsValueType: true } && !fieldSymbol.Type.IsValueType)
+                    if (fieldNeedsBox)
                     {
                         ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
+                    }
+
+                    if (fieldNeedsResult)
+                    {
+                        ILGenerator.Emit(OpCodes.Dup);
                     }
 
                     ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
@@ -2233,13 +2195,7 @@ internal class ExpressionGenerator : Generator
 
     private FieldInfo GetField(IFieldSymbol fieldSymbol)
     {
-        return fieldSymbol switch
-        {
-            SourceFieldSymbol sourceFieldSymbol => sourceFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            SubstitutedFieldSymbol substitutedFieldSymbol => substitutedFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
-            _ => throw new Exception("Unsupported field symbol")
-        };
+        return fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
     }
 
     private void EmitStoreElement(ITypeSymbol elementType)
@@ -2850,13 +2806,13 @@ internal class ExpressionGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
         }
-        else if (!target.ContainingType!.IsValueType && (target.IsVirtual || isInterfaceCall))
-        {
-            ILGenerator.Emit(OpCodes.Callvirt, targetMethodInfo);
-        }
         else
         {
-            ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
+            var callOpCode = target.ContainingType!.IsValueType
+                ? (target.IsVirtual || isInterfaceCall ? OpCodes.Callvirt : OpCodes.Call)
+                : OpCodes.Callvirt;
+
+            ILGenerator.Emit(callOpCode, targetMethodInfo);
         }
 
         // Special cast for Object.GetType() to MemberInfo
