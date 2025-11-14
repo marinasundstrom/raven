@@ -1192,6 +1192,66 @@ WriteLine(x)
         Assert.True(found, "Failed to locate AsyncTaskMethodBuilder<T>.Start<TStateMachine> MethodSpec");
     }
 
+    [Fact]
+    public void Emit_GenericAsyncMethod_UsesGenericTypeParameterInSetResultMemberRef()
+    {
+        const string source = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+let x = await Test(42)
+
+WriteLine(x)
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        using var peStream = new MemoryStream();
+        using var pdbStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream, pdbStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        peStream.Position = 0;
+        using var peReader = new PEReader(peStream);
+        var reader = peReader.GetMetadataReader();
+        var provider = new MetadataTypeProvider(reader);
+
+        var found = false;
+
+        foreach (var handle in reader.MemberReferences)
+        {
+            var target = MetadataHelpers.GetMethodDisplay(reader, handle);
+            if (target is null)
+                continue;
+
+            if (!target.EndsWith(".SetResult", StringComparison.Ordinal))
+                continue;
+
+            if (!target.Contains("System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1", StringComparison.Ordinal))
+                continue;
+
+            var member = reader.GetMemberReference(handle);
+            var blobReader = reader.GetBlobReader(member.Signature);
+            var decoder = new SignatureDecoder<TypeInfo, object>(provider, reader, genericContext: null);
+            var signature = decoder.DecodeMethodSignature(ref blobReader);
+
+            var parameter = Assert.Single(signature.ParameterTypes);
+            Assert.Equal(TypeInfoKind.GenericTypeParameter, parameter.Kind);
+            Assert.Equal(0, parameter.Index);
+
+            found = true;
+            break;
+        }
+
+        Assert.True(found, "Failed to locate AsyncTaskMethodBuilder<T>.SetResult MemberRef");
+    }
+
     private enum TypeInfoKind
     {
         Primitive,
