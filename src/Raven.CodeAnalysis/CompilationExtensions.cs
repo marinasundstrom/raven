@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -9,23 +11,37 @@ public static class CompilationExtensions
         if (ns is null)
             return compilation.GlobalNamespace;
 
-        // Split the namespace into parts
-        var namespaceParts = ns.Split('.');
+        var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (namespaceParts.Length == 0)
+            return compilation.GlobalNamespace;
 
-        // Start with the global namespace
-        var currentNamespace = compilation.GlobalNamespace;
+        var fromSource = TryResolve(compilation.GlobalNamespace, namespaceParts);
+        if (fromSource is not null)
+            return fromSource;
 
-        // Traverse the namespace hierarchy
-        foreach (var part in namespaceParts)
+        foreach (var referencedAssembly in compilation.ReferencedAssemblySymbols)
         {
-            currentNamespace = currentNamespace.GetMembers(part).FirstOrDefault() as INamespaceSymbol;
-
-            if (currentNamespace == null)
-            {
-                return null; // Namespace not found
-            }
+            var candidate = TryResolve(referencedAssembly.GlobalNamespace, namespaceParts);
+            if (candidate is not null)
+                return candidate;
         }
 
-        return currentNamespace;
+        return null;
+
+        static INamespaceSymbol? TryResolve(INamespaceSymbol root, string[] parts)
+        {
+            var current = root;
+            foreach (var part in parts)
+            {
+                current = current.GetMembers(part)
+                    .OfType<INamespaceSymbol>()
+                    .FirstOrDefault();
+
+                if (current is null)
+                    return null;
+            }
+
+            return current;
+        }
     }
 }

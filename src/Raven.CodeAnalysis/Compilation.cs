@@ -1133,8 +1133,38 @@ public partial class Compilation
         if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
             return sourceType;
 
+        INamedTypeSymbol? bestMatch = null;
+
         foreach (var assembly in _metadataReferenceSymbols.Values)
         {
+            var type = assembly.GetTypeByMetadataName(metadataName);
+            if (type is null)
+                continue;
+
+            if (bestMatch is null)
+            {
+                bestMatch = type;
+                continue;
+            }
+
+            var currentAssembly = bestMatch.ContainingAssembly?.Name;
+            if (!string.Equals(currentAssembly, "System.Runtime", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(assembly.Name, "System.Runtime", StringComparison.OrdinalIgnoreCase))
+            {
+                bestMatch = type;
+            }
+        }
+
+        return bestMatch;
+    }
+
+    private INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
+    {
+        foreach (var assembly in _metadataReferenceSymbols.Values)
+        {
+            if (!string.Equals(assembly.Name, preferredAssembly, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             var type = assembly.GetTypeByMetadataName(metadataName);
             if (type is not null)
                 return type;
@@ -1215,6 +1245,15 @@ public partial class Compilation
         };
 
         var type = GetTypeByMetadataName(metadataName);
+
+        if (type is INamedTypeSymbol { ContainingAssembly: { Name: var assemblyName } } &&
+            !string.Equals(assemblyName, "System.Runtime", StringComparison.OrdinalIgnoreCase))
+        {
+            var preferred = GetTypeByMetadataName(metadataName, "System.Runtime");
+            if (preferred is not null)
+                type = preferred;
+        }
+
         return type ?? (INamedTypeSymbol)ErrorTypeSymbol;
     }
 

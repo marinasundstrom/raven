@@ -207,7 +207,6 @@ var assemblyName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
 
 var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
-var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
 var options = new CompilationOptions(outputKind);
 if (enableAsyncInvestigation)
@@ -226,17 +225,17 @@ foreach (var filePath in sourceFiles)
     project = document.Project;
 }
 
-foreach (var reference in new[]
-{
-    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
-    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
-    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Linq.dll")),
-    MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-    MetadataReference.CreateFromFile(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll")))
-})
+var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
+    .Select(MetadataReference.CreateFromFile)
+    .ToArray();
+
+foreach (var reference in frameworkReferences)
 {
     project = project.AddMetadataReference(reference);
 }
+
+project = project.AddMetadataReference(
+    MetadataReference.CreateFromFile(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll"))));
 
 foreach (var r in additionalRefs)
 {
