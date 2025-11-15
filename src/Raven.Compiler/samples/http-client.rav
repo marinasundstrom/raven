@@ -1,0 +1,19 @@
+// https://learn.microsoft.com/en-us/dotnet/api/system.net.http.httpclient?view=net-9.0
+
+import System.Console.*
+import System.Net.Http.*
+
+using let client = HttpClient()
+
+try {
+    using let response = await client.GetAsync("http://www.contoso.com/")
+    response.EnsureSuccessStatusCode()
+    let responseBody = await response.Content.ReadAsStringAsync()
+    // Above three lines can be replaced with new helper method below
+    // string responseBody = await client.GetStringAsync(uri);
+
+    WriteLine(responseBody)
+} catch (HttpRequestException e) {
+    WriteLine("\nException Caught!")
+    WriteLine("Message :${e.Message} ")
+}
