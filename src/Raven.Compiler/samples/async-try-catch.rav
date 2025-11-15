@@ -1,3 +1,4 @@
+import System.*
 import System.Console.*
 import System.IO.*
 import System.Threading.Tasks.*
@@ -5,7 +6,7 @@ import System.Threading.Tasks.*
 try {
     using let stream = MemoryStream()
     let value = await Task.FromResult(42)
-    stream.WriteByte(value)
+    stream.WriteByte(Convert.ToByte(value))
     WriteLine("value:${value}")
 } catch (Exception e) {
     WriteLine("caught:${e.Message}")

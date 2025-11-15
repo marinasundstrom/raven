@@ -1,11 +1,9 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
-async func Test<T>(value: T) -> Task<T> {
-    await Task.Delay(2000)
-    return value
+func Compute<T>(value: T) -> Task<T> {
+    return Task.FromResult(value)
 }
 
-let x = await Test(42)
-
+let x = await Compute(42)
 WriteLine(x)
