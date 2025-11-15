@@ -2,7 +2,7 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 async func Test<T>(value: T) -> Task<T> {
-    await Task.Delay(10)
+    await Task.Delay(2000)
     return value
 }
 
