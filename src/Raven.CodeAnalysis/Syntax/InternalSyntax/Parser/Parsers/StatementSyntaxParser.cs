@@ -701,7 +701,15 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SyntaxToken identifier = MissingToken(SyntaxKind.IdentifierToken);
 
-        if (CanTokenBeIdentifier(PeekToken()))
+        var next = PeekToken();
+
+        if (next.Kind == SyntaxKind.UnderscoreToken)
+        {
+            var underscore = ReadToken();
+            identifier = ToIdentifierToken(underscore);
+            UpdateLastToken(identifier);
+        }
+        else if (CanTokenBeIdentifier(next))
         {
             identifier = ReadIdentifierToken();
         }

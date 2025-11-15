@@ -35,6 +35,12 @@ partial class BlockBinder : Binder
     {
         return node switch
         {
+            VariableDeclaratorSyntax
+            {
+                Identifier.ValueText: "_",
+                Identifier.IsMissing: false,
+                Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword }
+            } => null,
             VariableDeclaratorSyntax v => BindLocalDeclaration(v).Symbol,
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
             SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation).Local,
@@ -471,8 +477,8 @@ partial class BlockBinder : Binder
 
         BoundStatement boundNode = statement switch
         {
-            LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclaration(localDeclaration.Declaration.Declarators[0]),
-            UsingDeclarationStatementSyntax usingDeclaration => BindLocalDeclaration(usingDeclaration.Declaration.Declarators[0]),
+            LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclarationStatement(localDeclaration),
+            UsingDeclarationStatementSyntax usingDeclaration => BindUsingDeclarationStatement(usingDeclaration),
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
@@ -496,6 +502,86 @@ partial class BlockBinder : Binder
         CacheBoundNode(statement, boundNode);
 
         return boundNode;
+    }
+
+    private BoundStatement BindLocalDeclarationStatement(LocalDeclarationStatementSyntax localDeclaration)
+    {
+        var declaration = localDeclaration.Declaration;
+        var declarator = declaration.Declarators[0];
+
+        if (declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) &&
+            IsDiscardDeclarator(declarator))
+        {
+            return BindDiscardDeclarator(declarator, isUsingDeclaration: false);
+        }
+
+        return BindLocalDeclaration(declarator);
+    }
+
+    private BoundStatement BindUsingDeclarationStatement(UsingDeclarationStatementSyntax usingDeclaration)
+    {
+        var declaration = usingDeclaration.Declaration;
+        var declarator = declaration.Declarators[0];
+
+        if (declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) &&
+            IsDiscardDeclarator(declarator))
+        {
+            return BindDiscardDeclarator(declarator, isUsingDeclaration: true);
+        }
+
+        return BindLocalDeclaration(declarator);
+    }
+
+    private static bool IsDiscardDeclarator(VariableDeclaratorSyntax variableDeclarator)
+    {
+        return !variableDeclarator.Identifier.IsMissing &&
+               variableDeclarator.Identifier.ValueText == "_";
+    }
+
+    private BoundStatement BindDiscardDeclarator(
+        VariableDeclaratorSyntax variableDeclarator,
+        bool isUsingDeclaration)
+    {
+        var initializer = variableDeclarator.Initializer;
+
+        if (initializer is null)
+        {
+            _diagnostics.ReportLocalVariableMustBeInitialized("_", variableDeclarator.Identifier.GetLocation());
+            return new BoundExpressionStatement(BoundFactory.UnitExpression());
+        }
+
+        var boundInitializer = BindExpression(initializer.Value, allowReturn: false);
+
+        if (variableDeclarator.TypeAnnotation is not null)
+        {
+            var annotatedType = ResolveType(variableDeclarator.TypeAnnotation.Type);
+            annotatedType = EnsureTypeAccessible(annotatedType, variableDeclarator.TypeAnnotation.Type.GetLocation());
+
+            if (annotatedType.TypeKind != TypeKind.Error && ShouldAttemptConversion(boundInitializer))
+            {
+                if (!IsAssignable(annotatedType, boundInitializer.Type!, out var conversion))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        boundInitializer.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        annotatedType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        initializer.Value.GetLocation());
+                    boundInitializer = new BoundErrorExpression(annotatedType, null, BoundExpressionReason.TypeMismatch);
+                }
+                else
+                {
+                    boundInitializer = ApplyConversion(boundInitializer, annotatedType, conversion, initializer.Value);
+                }
+            }
+        }
+
+        CacheBoundNode(initializer.Value, boundInitializer);
+
+        if (isUsingDeclaration)
+        {
+            _diagnostics.ReportDiscardExpressionNotAllowed(variableDeclarator.Identifier.GetLocation());
+        }
+
+        return new BoundExpressionStatement(boundInitializer);
     }
 
     public BoundExpression BindExpression(ExpressionSyntax syntax, bool allowReturn)

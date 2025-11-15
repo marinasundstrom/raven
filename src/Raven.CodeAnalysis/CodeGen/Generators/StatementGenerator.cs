@@ -616,10 +616,19 @@ internal class StatementGenerator : Generator
 
             var expressionType = declarator.Initializer.Type;
 
-            // If the local wasn't declared (e.g., the initializer returns early),
+            // If the local wasn't declared (e.g., the initializer returns early or is a discard),
             // there's nothing to store.
             if (localBuilder is null)
+            {
+                if (expressionType is null ||
+                    expressionType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+                {
+                    return;
+                }
+
+                ILGenerator.Emit(OpCodes.Pop);
                 return;
+            }
 
             if (localSymbol.Type is NullableTypeSymbol nullableLocal && nullableLocal.UnderlyingType.IsValueType)
             {

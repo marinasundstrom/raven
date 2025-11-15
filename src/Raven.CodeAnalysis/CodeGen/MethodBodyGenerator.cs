@@ -737,9 +737,10 @@ internal class MethodBodyGenerator
 
         public override void VisitAssignmentStatement(BoundAssignmentStatement node)
         {
-            if (node.Expression is BoundPatternAssignmentExpression patternAssignment)
+            if (node.Expression is BoundPatternAssignmentExpression patternAssignment &&
+                patternAssignment.Pattern is { } pattern)
             {
-                foreach (var designator in patternAssignment.Pattern.GetDesignators())
+                foreach (var designator in pattern.GetDesignators())
                 {
                     if (designator is BoundSingleVariableDesignator single &&
                         !Locals.Any(l => SymbolEqualityComparer.Default.Equals(l, single.Local)))
