@@ -25,6 +25,7 @@ public class SampleProgramsTests
         ["main.rav", Array.Empty<string>()],
         ["classes.rav", Array.Empty<string>()],
         ["async-await.rav", Array.Empty<string>()],
+        ["async-try-catch.rav", Array.Empty<string>()],
     ];
 
     [Theory]
