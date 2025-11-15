@@ -89,9 +89,10 @@ internal static class AsyncLowerer
 
         var awaitRewriter = new AwaitLoweringRewriter(stateMachine, context.BuilderMembers);
         var rewrittenBody = awaitRewriter.Rewrite(originalBody);
+        rewrittenBody = StateDispatchInjector.Inject(rewrittenBody, stateMachine, awaitRewriter.Dispatches);
 
         var tryStatements = new List<BoundStatement>();
-        tryStatements.AddRange(CreateStateDispatchStatements(context, entryLabel, awaitRewriter.Dispatches));
+        tryStatements.AddRange(CreateStateDispatchStatements(context, entryLabel));
 
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
         if (!stateMachine.HoistedLocalsToDispose.IsDefaultOrEmpty)
@@ -238,8 +239,7 @@ internal static class AsyncLowerer
 
     private static IEnumerable<BoundStatement> CreateStateDispatchStatements(
         MoveNextLoweringContext context,
-        ILabelSymbol entryLabel,
-        ImmutableArray<StateDispatch> dispatches)
+        ILabelSymbol entryLabel)
     {
         var statements = new List<BoundStatement>();
 
@@ -257,23 +257,6 @@ internal static class AsyncLowerer
         var thenBlock = new BoundBlockStatement(new BoundStatement[] { gotoEntry });
 
         statements.Add(new BoundIfStatement(condition, thenBlock));
-
-        foreach (var dispatch in dispatches)
-        {
-            var stateLiteral = new BoundLiteralExpression(
-                BoundLiteralExpressionKind.NumericLiteral,
-                dispatch.State,
-                stateAccess.Type);
-
-            if (!BoundBinaryOperator.TryLookup(context.Compilation, SyntaxKind.EqualsEqualsToken, stateAccess.Type, stateLiteral.Type, out var stateEquals))
-                throw new InvalidOperationException("Async lowering requires integer equality operator.");
-
-            var stateCondition = new BoundBinaryExpression(new BoundFieldAccess(context.StateMachine.StateField), stateEquals, stateLiteral);
-            var gotoLabel = new BoundGotoStatement(dispatch.Label);
-            var gotoBlock = new BoundBlockStatement(new BoundStatement[] { gotoLabel });
-
-            statements.Add(new BoundIfStatement(stateCondition, gotoBlock));
-        }
 
         statements.Add(new BoundGotoStatement(entryLabel));
 
@@ -1613,6 +1596,138 @@ internal static class AsyncLowerer
                 return locals;
 
             return builder.ToImmutable();
+        }
+    }
+
+    private static class StateDispatchInjector
+    {
+        public static BoundBlockStatement Inject(
+            BoundBlockStatement body,
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+            ImmutableArray<StateDispatch> dispatches)
+        {
+            if (body is null)
+                throw new ArgumentNullException(nameof(body));
+
+            if (dispatches.IsDefaultOrEmpty)
+                return body;
+
+            var labelMap = dispatches.ToImmutableDictionary(
+                d => (ISymbol)d.Label,
+                d => d,
+                SymbolEqualityComparer.Default);
+            var collector = new DispatchCollector(labelMap);
+            var blockDispatches = collector.Collect(body);
+
+            if (blockDispatches.Count == 0)
+                return body;
+
+            var rewriter = new DispatchInsertionRewriter(stateMachine, blockDispatches);
+            return (BoundBlockStatement)rewriter.VisitBlockStatement(body)!;
+        }
+
+        private sealed class DispatchCollector : BoundTreeWalker
+        {
+            private readonly ImmutableDictionary<ISymbol, StateDispatch> _dispatches;
+            private readonly Dictionary<BoundBlockStatement, List<StateDispatch>> _blockDispatches = new();
+            private readonly Stack<BoundBlockStatement> _blocks = new();
+
+            public DispatchCollector(ImmutableDictionary<ISymbol, StateDispatch> dispatches)
+            {
+                _dispatches = dispatches;
+            }
+
+            public Dictionary<BoundBlockStatement, ImmutableArray<StateDispatch>> Collect(BoundBlockStatement root)
+            {
+                VisitBlockStatement(root);
+                return _blockDispatches.ToDictionary(
+                    pair => pair.Key,
+                    pair => pair.Value.OrderBy(d => d.State).ToImmutableArray());
+            }
+
+            public override void VisitBlockStatement(BoundBlockStatement node)
+            {
+                if (node is null)
+                    return;
+
+                _blocks.Push(node);
+                foreach (var statement in node.Statements)
+                    VisitStatement(statement);
+                _blocks.Pop();
+            }
+
+            public override void VisitLabeledStatement(BoundLabeledStatement node)
+            {
+                if (node is null)
+                    return;
+
+                if (_dispatches.TryGetValue(node.Label, out var dispatch) &&
+                    _blocks.TryPeek(out var block))
+                {
+                    if (!_blockDispatches.TryGetValue(block, out var list))
+                    {
+                        list = new List<StateDispatch>();
+                        _blockDispatches[block] = list;
+                    }
+
+                    list.Add(dispatch);
+                }
+
+                base.VisitLabeledStatement(node);
+            }
+        }
+
+        private sealed class DispatchInsertionRewriter : BoundTreeRewriter
+        {
+            private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
+            private readonly Dictionary<BoundBlockStatement, ImmutableArray<StateDispatch>> _blockDispatches;
+
+            public DispatchInsertionRewriter(
+                SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+                Dictionary<BoundBlockStatement, ImmutableArray<StateDispatch>> blockDispatches)
+            {
+                _stateMachine = stateMachine;
+                _blockDispatches = blockDispatches;
+            }
+
+            public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
+            {
+                if (node is null)
+                    return null;
+
+                var statements = new List<BoundStatement>();
+                foreach (var statement in node.Statements)
+                    statements.Add((BoundStatement)VisitStatement(statement));
+
+                if (_blockDispatches.TryGetValue(node, out var dispatches) && dispatches.Length > 0)
+                {
+                    var dispatchStatements = CreateDispatchStatements(dispatches);
+                    statements.InsertRange(0, dispatchStatements);
+                }
+
+                return new BoundBlockStatement(statements, node.LocalsToDispose);
+            }
+
+            private IEnumerable<BoundStatement> CreateDispatchStatements(ImmutableArray<StateDispatch> dispatches)
+            {
+                var stateType = _stateMachine.StateField.Type;
+                if (!BoundBinaryOperator.TryLookup(_stateMachine.Compilation, SyntaxKind.EqualsEqualsToken, stateType, stateType, out var equals))
+                    throw new InvalidOperationException("Async lowering requires integer equality operator.");
+
+                foreach (var dispatch in dispatches)
+                {
+                    var stateAccess = new BoundFieldAccess(_stateMachine.StateField);
+                    var stateLiteral = new BoundLiteralExpression(
+                        BoundLiteralExpressionKind.NumericLiteral,
+                        dispatch.State,
+                        stateType);
+
+                    var condition = new BoundBinaryExpression(stateAccess, equals, stateLiteral);
+                    var gotoStatement = new BoundGotoStatement(dispatch.Label);
+                    var gotoBlock = new BoundBlockStatement(new BoundStatement[] { gotoStatement });
+                    yield return new BoundIfStatement(condition, gotoBlock);
+                }
+            }
         }
     }
 
