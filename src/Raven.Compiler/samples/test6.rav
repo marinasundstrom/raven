@@ -1,11 +1,18 @@
+import System.*
 import System.Console.*
 import System.IO.*
 import System.Threading.Tasks.*
 
-let file = await File.ReadAllLinesAsync("samples/tuples.rav")
+let tempFile = Path.GetTempFileName()
+let sample = ["alpha", "beta", "gamma"]
+
+await File.WriteAllLinesAsync(tempFile, sample)
+let file = await File.ReadAllLinesAsync(tempFile)
 
 await Task.Delay(100)
 
 for each line in file {
     WriteLine(line)
 }
+
+File.Delete(tempFile)
