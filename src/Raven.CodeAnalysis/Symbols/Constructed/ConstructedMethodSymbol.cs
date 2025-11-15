@@ -226,6 +226,20 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 
+        for (var i = 0; i < TypeArguments.Length && i < runtimeTypeArguments.Length; i++)
+        {
+            if (TypeArguments[i] is ITypeParameterSymbol { ContainingSymbol: IMethodSymbol methodSymbol } methodTypeParameter &&
+                runtimeTypeArguments[i] is Type runtimeArgument &&
+                runtimeArgument.IsGenericParameter &&
+                runtimeArgument.DeclaringMethod is null &&
+                TryGetMethodGenericParameter(methodSymbol, methodTypeParameter.Ordinal, codeGen, out var remapped))
+            {
+                runtimeTypeArguments[i] = remapped;
+            }
+        }
+
+        runtimeTypeArguments = NormalizeStateMachineRuntimeTypes(runtimeTypeArguments, codeGen);
+
         if (TryResolveFromCachedDefinition(
                 codeGen,
                 containingClrType,
@@ -415,6 +429,157 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
     }
 
+    private static bool TryGetMethodGenericParameter(
+        IMethodSymbol methodSymbol,
+        int ordinal,
+        CodeGen.CodeGenerator codeGen,
+        out Type parameter)
+    {
+        parameter = null!;
+
+        if (TryGetSourceMethod(methodSymbol, out var sourceMethod) &&
+            codeGen.TryGetMemberBuilder(sourceMethod, out var member) &&
+            member is MethodInfo methodInfo)
+        {
+            var definition = methodInfo.IsGenericMethodDefinition
+                ? methodInfo
+                : methodInfo.GetGenericMethodDefinition();
+
+            var arguments = definition.GetGenericArguments();
+            if ((uint)ordinal < (uint)arguments.Length)
+            {
+                parameter = arguments[ordinal];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Type[] NormalizeStateMachineRuntimeTypes(Type[] runtimeTypeArguments, CodeGen.CodeGenerator codeGen)
+    {
+        if (runtimeTypeArguments.Length == 0)
+            return runtimeTypeArguments;
+
+        var normalized = new Type[runtimeTypeArguments.Length];
+        var updated = false;
+
+        for (var i = 0; i < runtimeTypeArguments.Length; i++)
+        {
+            var symbolArgument = TypeArguments.Length > i ? TypeArguments[i] : null;
+            var argument = runtimeTypeArguments[i];
+            var normalizedArgument = NormalizeStateMachineRuntimeType(symbolArgument, argument, codeGen);
+            normalized[i] = normalizedArgument;
+
+            if (!ReferenceEquals(argument, normalizedArgument))
+                updated = true;
+        }
+
+        return updated ? normalized : runtimeTypeArguments;
+    }
+
+    private Type NormalizeStateMachineRuntimeType(ITypeSymbol? symbolArgument, Type runtimeArgument, CodeGen.CodeGenerator codeGen)
+    {
+        if (runtimeArgument is null)
+            return runtimeArgument;
+
+        if (symbolArgument is ConstructedNamedTypeSymbol constructed &&
+            constructed.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+            runtimeArgument.IsGenericType)
+        {
+            var asyncRuntimeParameters = new Type[stateMachine.TypeParameters.Length];
+
+            foreach (var mapping in stateMachine.TypeParameterMappings)
+            {
+                if (TryGetMethodGenericParameter(stateMachine.AsyncMethod, mapping.AsyncParameter.Ordinal, codeGen, out var asyncRuntime))
+                {
+                    asyncRuntimeParameters[mapping.StateMachineParameter.Ordinal] = asyncRuntime;
+                    continue;
+                }
+
+                if (codeGen.TryGetRuntimeTypeForTypeParameter(mapping.AsyncParameter, out var asyncResolved))
+                    asyncRuntimeParameters[mapping.StateMachineParameter.Ordinal] = asyncResolved;
+            }
+
+            return SubstituteStateMachineRuntimeGenerics(runtimeArgument, asyncRuntimeParameters);
+        }
+
+        return runtimeArgument;
+    }
+
+    private static Type SubstituteStateMachineRuntimeGenerics(Type runtimeType, Type[] asyncRuntimeParameters)
+    {
+        if (runtimeType.IsGenericParameter)
+        {
+            var position = runtimeType.GenericParameterPosition;
+            if ((uint)position < (uint)asyncRuntimeParameters.Length && asyncRuntimeParameters[position] is Type mapped)
+                return mapped;
+
+            return runtimeType;
+        }
+
+        if (!runtimeType.IsGenericType)
+            return runtimeType;
+
+        var definition = runtimeType.IsGenericTypeDefinition ? runtimeType : runtimeType.GetGenericTypeDefinition();
+        var arguments = runtimeType.GetGenericArguments();
+        var replaced = false;
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var substituted = SubstituteStateMachineRuntimeGenerics(arguments[i], asyncRuntimeParameters);
+            if (!ReferenceEquals(substituted, arguments[i]))
+            {
+                arguments[i] = substituted;
+                replaced = true;
+            }
+        }
+
+        if (!replaced)
+            return runtimeType;
+
+        return definition.MakeGenericType(arguments);
+    }
+
+    private static bool TryGetSourceMethod(IMethodSymbol methodSymbol, out SourceMethodSymbol sourceMethod)
+    {
+        switch (methodSymbol)
+        {
+            case SourceMethodSymbol source:
+                sourceMethod = source;
+                return true;
+            case IAliasSymbol alias when alias.UnderlyingSymbol is IMethodSymbol aliasMethod &&
+                TryGetSourceMethod(aliasMethod, out sourceMethod):
+                return true;
+        }
+
+        if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+            !ReferenceEquals(underlying, methodSymbol) &&
+            TryGetSourceMethod(underlying, out sourceMethod))
+        {
+            return true;
+        }
+
+        var originalDefinition = methodSymbol.OriginalDefinition;
+        if (originalDefinition is not null &&
+            !ReferenceEquals(originalDefinition, methodSymbol) &&
+            TryGetSourceMethod(originalDefinition, out sourceMethod))
+        {
+            return true;
+        }
+
+        var constructedFrom = methodSymbol.ConstructedFrom;
+        if (constructedFrom is not null &&
+            !ReferenceEquals(constructedFrom, methodSymbol) &&
+            TryGetSourceMethod(constructedFrom, out sourceMethod))
+        {
+            return true;
+        }
+
+        sourceMethod = null!;
+        return false;
+    }
+
     private bool ParametersMatch(
         ParameterInfo[] runtimeParameters,
         ImmutableArray<IParameterSymbol> parameterSymbols,
@@ -568,6 +733,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
             if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
                 return runtimeType;
+
+            if (typeParameter.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.TryMapToAsyncMethodTypeParameter(typeParameter, out var asyncParameter) &&
+                codeGen.TryGetRuntimeTypeForTypeParameter(asyncParameter, out var asyncRuntimeType))
+            {
+                return asyncRuntimeType;
+            }
 
             throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
         }

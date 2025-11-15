@@ -100,6 +100,23 @@ internal partial class BoundBinaryOperator
             return true;
         }
 
+        if (left.IsReferenceType &&
+            right.IsReferenceType &&
+            SymbolEqualityComparer.Default.Equals(left, right))
+        {
+            if (kind == SyntaxKind.EqualsEqualsToken)
+            {
+                op = new BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType);
+                return true;
+            }
+
+            if (kind == SyntaxKind.NotEqualsToken)
+            {
+                op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType);
+                return true;
+            }
+        }
+
         // Try lifting
         if (left.IsNullable() && right.IsNullable())
         {

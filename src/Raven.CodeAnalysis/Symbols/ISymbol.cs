@@ -377,7 +377,14 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
             var segments = new Stack<string>();
 
             for (INamedTypeSymbol? current = named; current is not null; current = current.ContainingType)
-                segments.Push(current.MetadataName);
+            {
+                var segment = current.Name;
+
+                if (current.IsGenericType)
+                    segment = $"{segment}`{current.Arity}";
+
+                segments.Push(segment);
+            }
 
             typeName = segments.Count > 0
                 ? string.Join("+", segments)

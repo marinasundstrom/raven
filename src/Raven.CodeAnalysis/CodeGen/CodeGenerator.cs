@@ -131,7 +131,7 @@ internal class CodeGenerator
 
                 var mapped = synthesizedStack.Peek();
                 var asyncStack = GetOrCreateGenericParameterStack(mapping.AsyncParameter);
-                if (asyncStack.Count == 0 || !ReferenceEquals(asyncStack.Peek(), mapped))
+                if (asyncStack.Count == 0)
                     asyncStack.Push(mapped);
             }
         }
