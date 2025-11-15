@@ -1766,6 +1766,20 @@ internal class ExpressionGenerator : Generator
                         break;
                     }
 
+                    var cacheRightValue = !fieldSymbol.IsStatic && containingType?.IsValueType == true;
+                    IILocal? cachedRightLocal = null;
+
+                    if (cacheRightValue)
+                    {
+                        EmitExpression(right);
+
+                        if (fieldNeedsBox)
+                            ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
+
+                        cachedRightLocal = ILGenerator.DeclareLocal(ResolveClrType(fieldSymbol.Type));
+                        ILGenerator.Emit(OpCodes.Stloc, cachedRightLocal);
+                    }
+
                     if (!fieldSymbol.IsStatic)
                     {
                         if (needsAddress)
@@ -1808,22 +1822,34 @@ internal class ExpressionGenerator : Generator
                         }
                     }
 
-                    // Emit RHS value
-                    EmitExpression(right);
-
-                    // Box if assigning value type to reference type
-                    if (fieldNeedsBox)
+                    if (!cacheRightValue)
                     {
-                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
+                        // Emit RHS value
+                        EmitExpression(right);
+
+                        // Box if assigning value type to reference type
+                        if (fieldNeedsBox)
+                        {
+                            ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
+                        }
+
+                        if (fieldNeedsResult)
+                        {
+                            ILGenerator.Emit(OpCodes.Dup);
+                        }
                     }
-
-                    if (fieldNeedsResult)
+                    else if (cachedRightLocal is not null)
                     {
-                        ILGenerator.Emit(OpCodes.Dup);
+                        ILGenerator.Emit(OpCodes.Ldloc, cachedRightLocal);
                     }
 
                     ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
                     EmitAsyncInvestigationStore(fieldSymbol);
+
+                    if (fieldNeedsResult && cacheRightValue && cachedRightLocal is not null)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldloc, cachedRightLocal);
+                    }
                     break;
                 }
 
