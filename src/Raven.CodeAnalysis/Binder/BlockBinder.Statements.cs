@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -473,15 +474,31 @@ partial class BlockBinder
                 identifier.Kind == SyntaxKind.IdentifierToken)
             {
                 var name = identifier.Text;
+                var isShadowingExistingInScope = false;
+
                 if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
                 {
-                    _diagnostics.ReportVariableAlreadyDefined(name, identifier.GetLocation());
-                    localSymbol = existing.Symbol as SourceLocalSymbol;
+                    var isSameDeclarator = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == declaration.SyntaxTree &&
+                        reference.Span == declaration.Span);
+
+                    if (isSameDeclarator)
+                    {
+                        localSymbol = existing.Symbol as SourceLocalSymbol;
+                    }
+                    else
+                    {
+                        isShadowingExistingInScope = true;
+                    }
                 }
-                else
-                {
-                    localSymbol = CreateLocalSymbol(declaration, name, isMutable: false, declaredType);
-                }
+
+                if (!isShadowingExistingInScope && LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+                    isShadowingExistingInScope = true;
+
+                if (isShadowingExistingInScope)
+                    _diagnostics.ReportVariableShadowsPreviousDeclaration(name, identifier.GetLocation());
+
+                localSymbol ??= CreateLocalSymbol(declaration, name, isMutable: false, declaredType);
             }
         }
 
