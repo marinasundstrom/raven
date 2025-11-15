@@ -43,6 +43,13 @@ internal sealed class DeclarationTable
             case MethodDeclarationSyntax method:
                 key = CreateKey(SymbolKind.Method, method.Identifier.ValueText, 0, method);
                 return true;
+            case VariableDeclaratorSyntax
+            {
+                Identifier.ValueText: "_",
+                Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword }
+            }:
+                key = default;
+                return false;
             case VariableDeclaratorSyntax { Parent.Parent: LocalDeclarationStatementSyntax } variable:
                 key = CreateKey(SymbolKind.Local, variable.Identifier.ValueText, 0, variable);
                 return true;

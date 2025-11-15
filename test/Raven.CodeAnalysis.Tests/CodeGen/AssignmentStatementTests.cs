@@ -106,4 +106,32 @@ class Foo {
         var returnValue = method.Invoke(instance, Array.Empty<object?>());
         Assert.Null(returnValue);
     }
+
+    [Fact]
+    public void DiscardLetBinding_DoesNotDeclareSymbol()
+    {
+        var code = """
+class Foo {
+    Run() -> unit {
+        let _ = 42
+        return ()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var declarator = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single();
+
+        Assert.Null(model.GetDeclaredSymbol(declarator));
+    }
 }
