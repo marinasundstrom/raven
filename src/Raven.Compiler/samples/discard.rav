@@ -1,0 +1,2 @@
+_ = System.Console.WriteLine("Test")
+let _ = System.Console.WriteLine("Test")
