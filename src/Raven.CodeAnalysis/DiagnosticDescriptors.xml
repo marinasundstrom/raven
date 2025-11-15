@@ -72,9 +72,9 @@
   <Descriptor Id="RAV0167" Identifier="VariableAlreadyDefined" Title="Variable already defined"
     Message="A variable named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0168" Identifier="VariableShadowsOuterScope"
-    Title="Variable shadows outer scope variable"
-    Message="Variable '{name}' shadows a variable declared in an outer scope"
+  <Descriptor Id="RAV0168" Identifier="VariableShadowsPreviousDeclaration"
+    Title="Variable shadows previous declaration"
+    Message="Variable '{name}' shadows a previously declared variable"
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0169" Identifier="ConstLocalMustBeConstant"
     Title="Const local requires a constant initializer"

@@ -124,20 +124,21 @@ let x: int // RAV0166
 ```
 
 ## RAV0167: Variable already defined
-Redeclared a variable with the same name in the same scope.
+Declared two variables with the same name as part of a single declaration (for example, within a tuple deconstruction).
 
 ```raven
-let x = 1
-let x = 2 // RAV0167
+let (x, x) = getPair() // RAV0167
 ```
 
-## RAV0168: Variable shadows outer scope variable
-Declared a variable with same name as one in an outer scope.
+## RAV0168: Variable shadows previous declaration
+Declared a variable with the same name as an earlier declaration. This includes shadowing within the same block or from an outer scope.
 
 ```raven
 let x = 1
+let x = x + 1 // RAV0168 (warning)
+
 if true {
-    let x = 2 // RAV0168 (warning)
+    let x = x + 1 // RAV0168 (warning)
 }
 ```
 
