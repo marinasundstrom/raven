@@ -21,8 +21,17 @@ WriteLine(x)
 * The constructed async state machine now reuses its own generic parameter when emitting builder completions. `ConstructedNamedTypeSymbol.ResolveRuntimeTypeArgument` first reuses any registered runtime type for the state-machine parameter before falling back to the async-method mapping, so the builder MemberRefs resolve to `AsyncTaskMethodBuilder<!T>` instead of leaking the async method’s `!!0`.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L268-L304】
 * The emitted IL for `Program/'<>c__AsyncStateMachine0`1'::MoveNext` now calls `AsyncTaskMethodBuilder<!T>.SetResult(!0)`, matching Roslyn’s baseline and eliminating the verifier mismatch that produced `AsyncTaskMethodBuilder<!!0>` earlier in the investigation.【F:docs/investigations/async-await.md†L30-L35】
 * The compiled `test8.rav` sample still executes successfully and prints `42`, confirming the earlier `BadImageFormatException` fix continues to hold end-to-end.【88982c†L1-L2】
-* The CLI regression matrix is no longer green: `async-await.rav` fails to bind `Task.FromResult` without explicit type arguments (`RAV1501`/`RAV0024`), while `async-try-catch.rav` reports that `Exception` “is not derived from System.Exception” even though that catch target should be valid.【55c933†L1-L11】【19464a†L1-L4】
-* `test6.rav`, `test7.rav`, `try-match-async.rav`, and `http-client.rav` continue to build and run; the HTTP sample now predictably catches a `403` from contoso.com instead of crashing at runtime.【d6680d†L1-L5】【7d6784†L1-L2】【a00ac9†L1-L3】【2a1401†L1-L4】
+* Await-heavy CLI sample status is tracked below for quick reference as regressions crop up in new areas of the lowering pipeline.
+
+| Sample | Status | Notes |
+| --- | --- | --- |
+| `async-await.rav` | ❌ fails | `Task.FromResult` now requires explicit type arguments and fails with `RAV1501`/`RAV0024`.【55c933†L1-L11】 |
+| `async-try-catch.rav` | ❌ fails | `catch (Exception)` incorrectly reports “is not derived from System.Exception.”【19464a†L1-L4】 |
+| `http-client.rav` | ✅ runs | Builds and predictably catches the remote `403` response instead of crashing.【2a1401†L1-L4】 |
+| `test6.rav` | ✅ runs | Continues to build/run after the await lowering updates.【d6680d†L1-L5】 |
+| `test7.rav` | ✅ runs | Exercises awaiting `Task.FromResult` in an async helper without issues.【7d6784†L1-L2】 |
+| `test8.rav` | ✅ runs | Emits the generic async state machine correctly and prints `42`.【88982c†L1-L2】 |
+| `try-match-async.rav` | ✅ runs | Still builds and executes its awaited pattern matching sample.【a00ac9†L1-L3】 |
 * Targeted regression tests covering await lowering, the builder `Start<TStateMachine>` MethodSpec, and the `SetResult` MemberRef all pass, guarding the substitution pipeline against regressions.【9329ec†L1-L11】【0f004d†L1-L6】【5e9a18†L1-L8】
 
 ### IL snapshot – builder completion uses the state-machine generic
