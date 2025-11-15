@@ -174,7 +174,9 @@ statement forms are described in [Control flow](control-flow.md).
 Later declarations in the same scope may **shadow** earlier bindings. Each declaration
 introduces a new symbol; code that follows binds to the most recent declaration.
 Shadowing is permitted for both `let` and `var` bindings, but it produces the
-warning diagnostic `RAV0168` to help catch unintentional redeclarations.
+warning diagnostic `RAV0168` to help catch unintentional redeclarations. Parameters of
+the enclosing function count as previous declarations for this purpose, so a local that
+reuses a parameter name both shadows it and triggers the same warning.
 
 ```raven
 let answer = 41

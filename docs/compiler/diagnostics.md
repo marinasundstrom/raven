@@ -131,13 +131,17 @@ let (x, x) = getPair() // RAV0167
 ```
 
 ## RAV0168: Variable shadows previous declaration
-Declared a variable with the same name as an earlier declaration. This includes shadowing within the same block or from an outer scope.
+Declared a variable with the same name as an earlier declaration. This includes shadowing within the same block, from an outer scope, or from the parameters of the enclosing function.
 
 ```raven
 let x = 1
 let x = x + 1 // RAV0168 (warning)
 
 if true {
+    let x = x + 1 // RAV0168 (warning)
+}
+
+func demo(x: int) {
     let x = x + 1 // RAV0168 (warning)
 }
 ```

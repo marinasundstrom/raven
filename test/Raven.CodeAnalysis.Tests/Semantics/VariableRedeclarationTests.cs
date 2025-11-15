@@ -51,4 +51,19 @@ let x : 'a' | 1 = 1
                 ]);
             verifier.Verify();
         }
+
+        [Fact]
+        public void LocalShadowingParameter_Warns()
+        {
+            var code = """
+func demo(x: int) {
+    let x = x + 1
+}
+""";
+            var verifier = CreateVerifier(code,
+                expectedDiagnostics: [
+                    new DiagnosticResult("RAV0168").WithSpan(2, 9, 2, 10).WithArguments("x").WithSeverity(DiagnosticSeverity.Warning)
+                ]);
+            verifier.Verify();
+        }
     }
