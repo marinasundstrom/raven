@@ -267,6 +267,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
         if (typeArgument is ITypeParameterSymbol typeParameter)
         {
+            if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
+                return runtimeType;
+
             if (TryGetMappedAsyncParameter(typeParameter, out var stateMachine, out var asyncParameter) &&
                 stateMachine is not null &&
                 asyncParameter is not null)
