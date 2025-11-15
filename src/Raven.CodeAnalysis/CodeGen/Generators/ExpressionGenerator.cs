@@ -2066,6 +2066,22 @@ internal class ExpressionGenerator : Generator
     {
         EmitExpression(node.Right);
 
+        var pattern = node.Pattern;
+
+        if (pattern is null || !pattern.GetDesignators().Any())
+        {
+            var discardType = GetPatternValueType(node.Right.Type);
+
+            if (discardType is null ||
+                discardType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            {
+                return;
+            }
+
+            ILGenerator.Emit(OpCodes.Pop);
+            return;
+        }
+
         var valueType = GetPatternValueType(node.Right.Type) ?? GetPatternValueType(node.Pattern.Type);
 
         if (valueType is null || valueType.TypeKind == TypeKind.Error)
@@ -2077,7 +2093,7 @@ internal class ExpressionGenerator : Generator
         var valueLocal = ILGenerator.DeclareLocal(ResolveClrType(valueType));
         ILGenerator.Emit(OpCodes.Stloc, valueLocal);
 
-        EmitPatternAssignment(node.Pattern, valueLocal, valueType);
+        EmitPatternAssignment(pattern, valueLocal, valueType);
     }
 
     private void EmitPatternAssignment(BoundPattern pattern, IILocal valueLocal, ITypeSymbol valueType)
