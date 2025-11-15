@@ -1595,15 +1595,24 @@ internal static class AsyncLowerer
             if (_hoistableLocals.Count == 0 || locals.IsDefaultOrEmpty)
                 return locals;
 
-            var builder = ImmutableArray.CreateBuilder<ILocalSymbol>();
+            var builder = ImmutableArray.CreateBuilder<ILocalSymbol>(locals.Length);
+            var removedHoistedLocal = false;
 
             foreach (var local in locals)
             {
-                if (!_hoistableLocals.ContainsKey(local))
-                    builder.Add(local);
+                if (_hoistableLocals.ContainsKey(local))
+                {
+                    removedHoistedLocal = true;
+                    continue;
+                }
+
+                builder.Add(local);
             }
 
-            return builder.MoveToImmutable();
+            if (!removedHoistedLocal)
+                return locals;
+
+            return builder.ToImmutable();
         }
     }
 
