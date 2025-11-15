@@ -450,7 +450,7 @@ partial class BlockBinder
 
     private BoundCatchClause BindCatchClause(CatchClauseSyntax catchClause)
     {
-        var exceptionBase = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
+        ITypeSymbol exceptionBase = Compilation.GetSpecialType(SpecialType.System_Exception);
         var exceptionType = exceptionBase;
 
         SourceLocalSymbol? localSymbol = null;
