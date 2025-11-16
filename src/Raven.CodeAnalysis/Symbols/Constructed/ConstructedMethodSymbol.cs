@@ -28,7 +28,10 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(typeParameters.Length, SymbolEqualityComparer.Default);
         for (int i = 0; i < typeParameters.Length; i++)
-            _substitutionMap[typeParameters[i]] = typeArguments[i];
+        {
+            var canonical = CanonicalizeTypeParameter(typeParameters[i]);
+            _substitutionMap[canonical] = typeArguments[i];
+        }
     }
 
     public IMethodSymbol Definition => _definition;
@@ -120,8 +123,12 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
     private ITypeSymbol Substitute(ITypeSymbol type)
     {
-        if (type is ITypeParameterSymbol tp && _substitutionMap.TryGetValue(tp, out var replacement))
-            return replacement;
+        if (type is ITypeParameterSymbol tp)
+        {
+            tp = CanonicalizeTypeParameter(tp);
+            if (_substitutionMap.TryGetValue(tp, out var replacement))
+                return replacement;
+        }
 
         if (type is ByRefTypeSymbol byRef)
         {
@@ -161,6 +168,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         return type;
+    }
+
+    private ITypeParameterSymbol CanonicalizeTypeParameter(ITypeParameterSymbol typeParameter)
+    {
+        if (typeParameter.ContainingSymbol is IMethodSymbol &&
+            typeParameter.Ordinal >= 0 &&
+            typeParameter.Ordinal < _definition.TypeParameters.Length)
+        {
+            return _definition.TypeParameters[typeParameter.Ordinal];
+        }
+
+        return typeParameter;
     }
 
     private sealed class ConstructedParameterSymbol : IParameterSymbol

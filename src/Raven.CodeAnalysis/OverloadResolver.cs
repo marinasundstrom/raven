@@ -117,7 +117,7 @@ internal sealed class OverloadResolver
             if (receiver?.Type is null)
                 return null;
 
-            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions))
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions, method))
                 return null;
 
             parameterIndex++;
@@ -134,16 +134,13 @@ internal sealed class OverloadResolver
 
             var expression = mapped.Value.Expression;
             var argumentType = expression.Type;
-            if (argumentType is null)
-                continue;
-
-            if (argumentType.TypeKind == TypeKind.Error)
+            if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
                 continue;
 
             if (expression is BoundLambdaExpression)
                 continue;
 
-            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions))
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions, method))
                 return null;
         }
 
@@ -169,7 +166,8 @@ internal sealed class OverloadResolver
         Compilation compilation,
         ITypeSymbol parameterType,
         ITypeSymbol argumentType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        IMethodSymbol? inferenceMethod)
     {
         parameterType = NormalizeType(parameterType);
         argumentType = NormalizeType(argumentType);
@@ -179,6 +177,7 @@ internal sealed class OverloadResolver
 
         if (parameterType is ITypeParameterSymbol typeParameter)
         {
+            typeParameter = GetCanonicalTypeParameter(typeParameter, inferenceMethod);
             argumentType = NormalizeType(argumentType);
 
             if (substitutions.TryGetValue(typeParameter, out var existing))
@@ -231,7 +230,7 @@ internal sealed class OverloadResolver
                     IsGenericCollectionInterface(paramNamed, "IReadOnlyCollection") ||
                     IsGenericCollectionInterface(paramNamed, "IReadOnlyList"))
                 {
-                    return TryInferFromTypes(compilation, paramNamed.TypeArguments[0], arrayArgument.ElementType, substitutions);
+                    return TryInferFromTypes(compilation, paramNamed.TypeArguments[0], arrayArgument.ElementType, substitutions, inferenceMethod);
                 }
 
                 foreach (var iface in arrayArgument.AllInterfaces)
@@ -243,10 +242,10 @@ internal sealed class OverloadResolver
         }
 
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
-            return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions);
+            return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod);
 
         if (parameterType is NullableTypeSymbol paramNullable && argumentType is NullableTypeSymbol argNullable)
-            return TryInferFromTypes(compilation, paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
+            return TryInferFromTypes(compilation, paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions, inferenceMethod);
 
         return true;
 
@@ -269,7 +268,7 @@ internal sealed class OverloadResolver
 
             for (int i = 0; i < paramArguments.Length; i++)
             {
-                if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions))
+                if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions, inferenceMethod))
                     return false;
             }
 
@@ -345,6 +344,21 @@ internal sealed class OverloadResolver
             return literal.UnderlyingType;
 
         return type;
+    }
+
+    private static ITypeParameterSymbol GetCanonicalTypeParameter(ITypeParameterSymbol typeParameter, IMethodSymbol? inferenceMethod)
+    {
+        if (inferenceMethod is null)
+            return typeParameter;
+
+        if (typeParameter.ContainingSymbol is IMethodSymbol &&
+            typeParameter.Ordinal >= 0 &&
+            typeParameter.Ordinal < inferenceMethod.TypeParameters.Length)
+        {
+            return inferenceMethod.TypeParameters[typeParameter.Ordinal];
+        }
+
+        return typeParameter;
     }
 
     private static void AddCandidateIfMissing(ImmutableArray<IMethodSymbol>.Builder builder, IMethodSymbol candidate)
