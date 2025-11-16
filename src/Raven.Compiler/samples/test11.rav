@@ -1,0 +1,7 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Inference issue:
+let t = await Task.Run(async () => 42)
+
+WriteLine(t)
