@@ -92,7 +92,7 @@ internal static class AsyncLowerer
         rewrittenBody = StateDispatchInjector.Inject(rewrittenBody, stateMachine, awaitRewriter.Dispatches);
 
         var tryStatements = new List<BoundStatement>();
-        tryStatements.AddRange(CreateStateDispatchStatements(context, entryLabel));
+        tryStatements.AddRange(CreateStateDispatchStatements(context, entryLabel, awaitRewriter.Dispatches));
 
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
         if (!stateMachine.HoistedLocalsToDispose.IsDefaultOrEmpty)
@@ -239,28 +239,47 @@ internal static class AsyncLowerer
 
     private static IEnumerable<BoundStatement> CreateStateDispatchStatements(
         MoveNextLoweringContext context,
-        ILabelSymbol entryLabel)
+        ILabelSymbol entryLabel,
+        ImmutableArray<StateDispatch> dispatches)
     {
         var statements = new List<BoundStatement>();
 
-        var stateAccess = new BoundFieldAccess(context.StateMachine.StateField);
-        var initialState = new BoundLiteralExpression(
-            BoundLiteralExpressionKind.NumericLiteral,
-            -1,
-            stateAccess.Type);
-
-        if (!BoundBinaryOperator.TryLookup(context.Compilation, SyntaxKind.EqualsEqualsToken, stateAccess.Type, initialState.Type, out var equals))
+        var stateField = context.StateMachine.StateField;
+        var stateType = stateField.Type;
+        if (!BoundBinaryOperator.TryLookup(context.Compilation, SyntaxKind.EqualsEqualsToken, stateType, stateType, out var equals))
             throw new InvalidOperationException("Async lowering requires integer equality operator.");
 
-        var condition = new BoundBinaryExpression(stateAccess, equals, initialState);
-        var gotoEntry = new BoundGotoStatement(entryLabel);
-        var thenBlock = new BoundBlockStatement(new BoundStatement[] { gotoEntry });
+        statements.Add(CreateStateDispatchStatement(stateField, equals, -1, entryLabel));
 
-        statements.Add(new BoundIfStatement(condition, thenBlock));
+        if (!dispatches.IsDefaultOrEmpty)
+        {
+            foreach (var dispatch in dispatches)
+            {
+                statements.Add(CreateStateDispatchStatement(stateField, equals, dispatch.State, dispatch.Label));
+            }
+        }
 
         statements.Add(new BoundGotoStatement(entryLabel));
 
         return statements;
+    }
+
+    private static BoundStatement CreateStateDispatchStatement(
+        SourceFieldSymbol stateField,
+        BoundBinaryOperator equals,
+        int state,
+        ILabelSymbol targetLabel)
+    {
+        var stateAccess = new BoundFieldAccess(stateField);
+        var stateLiteral = new BoundLiteralExpression(
+            BoundLiteralExpressionKind.NumericLiteral,
+            state,
+            stateField.Type);
+
+        var condition = new BoundBinaryExpression(stateAccess, equals, stateLiteral);
+        var gotoTarget = new BoundGotoStatement(targetLabel);
+        var thenBlock = new BoundBlockStatement(new BoundStatement[] { gotoTarget });
+        return new BoundIfStatement(condition, thenBlock);
     }
 
     private static IEnumerable<BoundStatement> CreateCompletionStatements(MoveNextLoweringContext context)
