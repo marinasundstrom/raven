@@ -1570,7 +1570,7 @@ public partial class SemanticModel
                 namespaceSymbol,
                 [caseDeclaration.GetLocation()],
                 [caseDeclaration.GetReference()],
-                RefKind.Out,
+                RefKind.Ref,
                 hasExplicitDefaultValue: false,
                 explicitDefaultValue: null,
                 isMutable: false);

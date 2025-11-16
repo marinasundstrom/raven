@@ -445,7 +445,7 @@ are not permitted inside a union body.
 
 Every `union` emits a sealed `struct` with a private `_discriminator : int` and `_payload : object` field plus a private
 constructor that records the active case. Each case in the declaration produces a nested `struct` containing the payload fields,
-an implicit conversion operator back to the outer union, and an instance method `bool TryGetCase(out CaseType)` that copies the
+an implicit conversion operator back to the outer union, and an instance method `bool TryGetCase(ref CaseType)` that copies the
 payload when the discriminator matches. Case structs expose their payload via public fields whose names match the constructor
 parameters. Unions must declare at least one case, and case parameter lists may not contain `ref`, `in`, or `out` parameters
 because the payload values are copied into the union's storage; the compiler reports diagnostics when either restriction is

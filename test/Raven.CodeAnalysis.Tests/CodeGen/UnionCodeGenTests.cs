@@ -21,13 +21,13 @@ class Program {
 
     static Print(result: Result<int>) -> unit {
         var ok: Result<int>.Ok;
-        if (result.TryGetOk(out ok)) {
+        if (result.TryGetOk(ref ok)) {
             System.Console.WriteLine(ok.value);
             return;
         }
 
         var error: Result<int>.Error;
-        if (result.TryGetError(out error)) {
+        if (result.TryGetError(ref error)) {
             System.Console.WriteLine(error.message);
         }
     }
@@ -42,7 +42,7 @@ class Program {
     }
 
     [Fact]
-    public void UnionTryGet_ResetsOutParameterForParameterlessCase()
+    public void UnionTryGet_RefParameterForParameterlessCase()
     {
         const string source = """
 union Maybe<T> {
@@ -58,7 +58,7 @@ class Program {
 
     static Print(value: Maybe<int>) -> unit {
         var payload: Maybe<int>.Some;
-        let found = value.TryGetSome(out payload);
+        let found = value.TryGetSome(ref payload);
         System.Console.WriteLine(found);
         System.Console.WriteLine(payload.value);
     }
@@ -84,7 +84,7 @@ class Program {
     static Main() -> unit {
         let pair: Pair<int> = Pair<int>.Point(x: 2, y: 3);
         var payload: Pair<int>.Point;
-        if (pair.TryGetPoint(out payload)) {
+        if (pair.TryGetPoint(ref payload)) {
             System.Console.WriteLine(payload.x + payload.y);
         }
     }

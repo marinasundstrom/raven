@@ -39,7 +39,7 @@ public class UnionDeclarationSemanticTests : CompilationTestBase
             .OfType<IMethodSymbol>()
             .Single(m => m.Name == "TryGetOk");
         Assert.Equal(SpecialType.System_Boolean, tryGet.ReturnType.SpecialType);
-        Assert.Equal(RefKind.Out, tryGet.Parameters[0].RefKind);
+        Assert.Equal(RefKind.Ref, tryGet.Parameters[0].RefKind);
         Assert.Equal("Result<T>.Ok", tryGet.Parameters[0].Type.ToDisplayString());
     }
 
