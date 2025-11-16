@@ -1,4 +1,6 @@
+using System.IO;
 using System.Linq;
+using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Semantics.Tests;
@@ -96,5 +98,30 @@ public class UnionDeclarationSemanticTests : CompilationTestBase
 
         var diagnostics = model.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.UnionCaseParameterCannotBeByRef);
+    }
+
+    [Fact]
+    public void UnionDeclaration_EmitsUnionAttribute()
+    {
+        const string source = @"union Token {
+    Identifier(text: string)
+}";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "uni");
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var unionType = assembly.GetType("Token");
+        Assert.NotNull(unionType);
+
+        Assert.Contains(unionType!.GetCustomAttributesData(), data => data.AttributeType.Name == "UnionAttribute");
+        var caseType = unionType.GetNestedType("Identifier");
+        Assert.NotNull(caseType);
+        Assert.DoesNotContain(caseType!.GetCustomAttributesData(), data => data.AttributeType.Name == "UnionAttribute");
+        Assert.NotNull(assembly.GetType("UnionAttribute"));
     }
 }

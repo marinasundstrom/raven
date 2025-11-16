@@ -207,11 +207,14 @@ internal class CodeGenerator
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
+    public Type? UnionAttributeType { get; private set; }
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _tupleElementNamesCtor;
+    ConstructorInfo? _unionAttributeCtor;
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
+    bool _emitUnionAttribute;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
     {
@@ -531,6 +534,8 @@ internal class CodeGenerator
 
         if (_emitTypeUnionAttribute)
             CreateTypeUnionAttribute();
+        if (_emitUnionAttribute)
+            CreateUnionAttribute();
         if (_emitNullType)
             CreateNullStruct();
         CreateUnitStruct();
@@ -609,6 +614,9 @@ internal class CodeGenerator
 
         foreach (var type in types)
         {
+            if (type is SourceNamedTypeSymbol { IsUnionDeclaration: true })
+                _emitUnionAttribute = true;
+
             foreach (var member in type.GetMembers())
             {
                 switch (member)
@@ -738,6 +746,54 @@ internal class CodeGenerator
 
         // Create the type
         TypeUnionAttributeType = attrBuilder.CreateType();
+    }
+
+    private void CreateUnionAttribute()
+    {
+        var attrBuilder = ModuleBuilder.DefineType(
+            "UnionAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            typeof(Attribute));
+
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)]);
+        var attrUsageBuilder = new CustomAttributeBuilder(
+            attrUsageCtor!,
+            new object[] { AttributeTargets.Struct });
+        attrBuilder.SetCustomAttribute(attrUsageBuilder);
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            Type.EmptyTypes);
+
+        var attributeCtor = typeof(Attribute).GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null);
+
+        if (attributeCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        var ilCtor = ctorBuilder.GetILGenerator();
+        ilCtor.Emit(OpCodes.Ldarg_0);
+        ilCtor.Emit(OpCodes.Call, attributeCtor);
+        ilCtor.Emit(OpCodes.Ret);
+
+        UnionAttributeType = attrBuilder.CreateType();
+    }
+
+    internal void ApplyUnionAttribute(TypeBuilder builder)
+    {
+        if (UnionAttributeType is null)
+            return;
+
+        _unionAttributeCtor ??= UnionAttributeType.GetConstructor(Type.EmptyTypes);
+        if (_unionAttributeCtor is null)
+            throw new InvalidOperationException("UnionAttribute is missing a public parameterless constructor.");
+
+        var attributeBuilder = new CustomAttributeBuilder(_unionAttributeCtor, Array.Empty<object>());
+        builder.SetCustomAttribute(attributeBuilder);
     }
 
     private void CreateNullStruct()

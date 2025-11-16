@@ -799,6 +799,7 @@ public partial class SemanticModel
                         isSealed: true,
                         declaredAccessibility: unionAccessibility);
 
+                    unionSymbol.MarkAsUnionDeclaration();
                     InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList);
 
                     var unionBinder = new UnionDeclarationBinder(parentBinder, unionSymbol, unionDecl);
@@ -1141,6 +1142,7 @@ public partial class SemanticModel
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentTypeForUnion))
                     );
 
+                    nestedUnionSymbol.MarkAsUnionDeclaration();
                     InitializeTypeParameters(nestedUnionSymbol, nestedUnion.TypeParameterList);
 
                     var nestedUnionBinder = new UnionDeclarationBinder(classBinder, nestedUnionSymbol, nestedUnion);
@@ -1287,6 +1289,7 @@ public partial class SemanticModel
                                 AccessibilityUtilities.GetDefaultTypeAccessibility(parentInterface))
                         );
 
+                        nestedUnionSymbol.MarkAsUnionDeclaration();
                         InitializeTypeParameters(nestedUnionSymbol, nestedUnion.TypeParameterList);
 
                         var nestedUnionBinder = new UnionDeclarationBinder(interfaceBinder, nestedUnionSymbol, nestedUnion);

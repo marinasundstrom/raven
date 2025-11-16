@@ -68,6 +68,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsExtensionDeclaration { get; private set; }
 
+    public bool IsUnionDeclaration { get; private set; }
+
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
         _allInterfaces ??= ComputeAllInterfaces();
@@ -170,6 +172,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         IsExtensionDeclaration = true;
         IsSealed = true;
+    }
+
+    internal void MarkAsUnionDeclaration()
+    {
+        IsUnionDeclaration = true;
     }
 
     internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)
