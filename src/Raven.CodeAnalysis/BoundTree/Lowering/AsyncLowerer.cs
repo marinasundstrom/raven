@@ -826,12 +826,41 @@ internal static class AsyncLowerer
             for (var i = 0; i < _dispatches.Count; i++)
             {
                 var dispatch = _dispatches[i];
-                if (dispatch.GuardBlock is null)
+                if (dispatch.GuardPath.IsDefaultOrEmpty || dispatch.GuardPath.Length == 0)
                     continue;
 
-                if (_blockMap.TryGetValue(dispatch.GuardBlock, out var mapped))
-                    _dispatches[i] = new StateDispatch(dispatch.State, dispatch.Label, mapped);
+                var guards = dispatch.GuardPath;
+                var changed = false;
+                var builder = ImmutableArray.CreateBuilder<BoundBlockStatement>(guards.Length);
+
+                for (var guardIndex = 0; guardIndex < guards.Length; guardIndex++)
+                {
+                    var guard = guards[guardIndex];
+                    if (_blockMap.TryGetValue(guard, out var mapped))
+                    {
+                        builder.Add(mapped);
+                        if (!ReferenceEquals(mapped, guard))
+                            changed = true;
+                    }
+                    else
+                    {
+                        builder.Add(guard);
+                    }
+                }
+
+                if (changed)
+                    _dispatches[i] = new StateDispatch(dispatch.State, dispatch.Label, builder.MoveToImmutable());
             }
+        }
+
+        private ImmutableArray<BoundBlockStatement> GetCurrentGuardPath()
+        {
+            if (_tryBlocks.Count == 0)
+                return ImmutableArray<BoundBlockStatement>.Empty;
+
+            var guards = _tryBlocks.ToArray();
+            Array.Reverse(guards);
+            return ImmutableArray.Create(guards);
         }
 
         private List<SourceFieldSymbol> CollectHoistedDisposables(ImmutableArray<ILocalSymbol> locals)
@@ -1444,8 +1473,8 @@ internal static class AsyncLowerer
             var awaiterType = SubstituteAsyncMethodTypeParameters(awaitExpression.AwaiterType);
             var awaiterField = _stateMachine.AddHoistedLocal($"<>awaiter{state}", awaiterType);
             var resumeLabel = CreateLabel(_stateMachine, $"state{state}");
-            var guardBlock = _tryBlocks.Count > 0 ? _tryBlocks.Peek() : null;
-            _dispatches.Add(new StateDispatch(state, resumeLabel, guardBlock));
+            var guardPath = GetCurrentGuardPath();
+            _dispatches.Add(new StateDispatch(state, resumeLabel, guardPath));
 
             var awaiterStore = CreateAwaiterStoreStatement(awaitExpression, awaiterField);
             yield return awaiterStore;
@@ -1696,47 +1725,90 @@ internal static class AsyncLowerer
             if (blockDispatches is null)
                 throw new ArgumentNullException(nameof(blockDispatches));
 
-            var entryLabelBuilder = ImmutableDictionary.CreateBuilder<int, ILabelSymbol>();
-            var result = new Dictionary<BoundBlockStatement, BlockDispatchInfo>(blockDispatches.Count);
-            var guardId = 0;
+            var guardBlocks = new HashSet<BoundBlockStatement>(ReferenceEqualityComparer.Instance);
 
             foreach (var dispatch in dispatches)
             {
-                if (dispatch.GuardBlock is null)
+                if (!dispatch.HasGuards)
                     continue;
 
-                if (!blockDispatches.TryGetValue(dispatch.GuardBlock, out var list))
+                foreach (var guard in dispatch.GuardPath)
                 {
-                    list = new List<StateDispatch>();
-                    blockDispatches[dispatch.GuardBlock] = list;
-                }
+                    guardBlocks.Add(guard);
 
-                list.Add(dispatch);
+                    if (!blockDispatches.TryGetValue(guard, out var list))
+                    {
+                        list = new List<StateDispatch>();
+                        blockDispatches[guard] = list;
+                    }
+
+                    if (!list.Contains(dispatch))
+                        list.Add(dispatch);
+                }
             }
+
+            var guardEntryByBlock = new Dictionary<BoundBlockStatement, LabelSymbol>(guardBlocks.Count, ReferenceEqualityComparer.Instance);
+            var guardId = 0;
+
+            foreach (var guard in guardBlocks)
+                guardEntryByBlock[guard] = CreateLabel(stateMachine, $"guard{guardId++}");
+
+            var entryLabelBuilder = ImmutableDictionary.CreateBuilder<int, ILabelSymbol>();
+
+            foreach (var dispatch in dispatches)
+            {
+                if (!dispatch.HasGuards)
+                    continue;
+
+                var firstGuard = dispatch.GuardPath[0];
+                if (guardEntryByBlock.TryGetValue(firstGuard, out var entryLabel))
+                    entryLabelBuilder[dispatch.State] = entryLabel;
+            }
+
+            var result = new Dictionary<BoundBlockStatement, BlockDispatchInfo>(blockDispatches.Count, ReferenceEqualityComparer.Instance);
 
             foreach (var pair in blockDispatches)
             {
+                var block = pair.Key;
                 var dispatchList = pair.Value
                     .OrderBy(d => d.State)
                     .ToImmutableArray();
 
-                ILabelSymbol? entryLabel = null;
-                if (dispatchList.Any(d => ReferenceEquals(d.GuardBlock, pair.Key)))
+                var blockDispatchesBuilder = ImmutableArray.CreateBuilder<BlockDispatch>(dispatchList.Length);
+                foreach (var dispatch in dispatchList)
                 {
-                    entryLabel = CreateLabel(stateMachine, $"guard{guardId++}");
-
-                    foreach (var dispatch in dispatchList)
-                    {
-                        if (ReferenceEquals(dispatch.GuardBlock, pair.Key))
-                            entryLabelBuilder[dispatch.State] = entryLabel;
-                    }
+                    var target = ResolveBlockDispatchTarget(dispatch, block, guardEntryByBlock);
+                    blockDispatchesBuilder.Add(new BlockDispatch(dispatch.State, target));
                 }
 
-                result[pair.Key] = new BlockDispatchInfo(dispatchList, entryLabel);
+                guardEntryByBlock.TryGetValue(block, out var entryLabel);
+                result[block] = new BlockDispatchInfo(blockDispatchesBuilder.MoveToImmutable(), entryLabel);
             }
 
             guardEntryLabels = entryLabelBuilder.ToImmutable();
             return result;
+        }
+
+        private static ILabelSymbol ResolveBlockDispatchTarget(
+            StateDispatch dispatch,
+            BoundBlockStatement block,
+            Dictionary<BoundBlockStatement, LabelSymbol> guardEntryByBlock)
+        {
+            if (dispatch.TryGetGuardIndex(block, out var guardIndex))
+            {
+                if (guardIndex < dispatch.GuardPath.Length - 1)
+                {
+                    var nextGuard = dispatch.GuardPath[guardIndex + 1];
+                    if (!guardEntryByBlock.TryGetValue(nextGuard, out var nextEntry))
+                        throw new InvalidOperationException("Missing guard entry label for nested protected region.");
+
+                    return nextEntry;
+                }
+
+                return dispatch.Label;
+            }
+
+            return dispatch.Label;
         }
 
         private sealed class DispatchCollector : BoundTreeWalker
@@ -1830,7 +1902,7 @@ internal static class AsyncLowerer
                 return new BoundBlockStatement(statements, node.LocalsToDispose);
             }
 
-            private IEnumerable<BoundStatement> CreateDispatchStatements(ImmutableArray<StateDispatch> dispatches)
+            private IEnumerable<BoundStatement> CreateDispatchStatements(ImmutableArray<BlockDispatch> dispatches)
             {
                 var stateType = _stateMachine.StateField.Type;
                 if (!BoundBinaryOperator.TryLookup(_stateMachine.Compilation, SyntaxKind.EqualsEqualsToken, stateType, stateType, out var equals))
@@ -1845,7 +1917,7 @@ internal static class AsyncLowerer
                         stateType);
 
                     var condition = new BoundBinaryExpression(stateAccess, equals, stateLiteral);
-                    var gotoStatement = new BoundGotoStatement(dispatch.Label);
+                    var gotoStatement = new BoundGotoStatement(dispatch.Target);
                     var gotoBlock = new BoundBlockStatement(new BoundStatement[] { gotoStatement });
                     yield return new BoundIfStatement(condition, gotoBlock);
                 }
@@ -1854,15 +1926,28 @@ internal static class AsyncLowerer
 
         private sealed class BlockDispatchInfo
         {
-            public BlockDispatchInfo(ImmutableArray<StateDispatch> dispatches, ILabelSymbol? entryLabel)
+            public BlockDispatchInfo(ImmutableArray<BlockDispatch> dispatches, ILabelSymbol? entryLabel)
             {
                 Dispatches = dispatches;
                 EntryLabel = entryLabel;
             }
 
-            public ImmutableArray<StateDispatch> Dispatches { get; }
+            public ImmutableArray<BlockDispatch> Dispatches { get; }
 
             public ILabelSymbol? EntryLabel { get; }
+        }
+
+        private readonly struct BlockDispatch
+        {
+            public BlockDispatch(int state, ILabelSymbol target)
+            {
+                State = state;
+                Target = target ?? throw new ArgumentNullException(nameof(target));
+            }
+
+            public int State { get; }
+
+            public ILabelSymbol Target { get; }
         }
     }
 
@@ -2030,18 +2115,41 @@ internal static class AsyncLowerer
 
     private readonly struct StateDispatch
     {
-        public StateDispatch(int state, LabelSymbol label, BoundBlockStatement? guardBlock)
+        public StateDispatch(int state, LabelSymbol label, ImmutableArray<BoundBlockStatement> guardPath)
         {
             State = state;
-            Label = label;
-            GuardBlock = guardBlock;
+            Label = label ?? throw new ArgumentNullException(nameof(label));
+            GuardPath = guardPath;
         }
 
         public int State { get; }
 
         public LabelSymbol Label { get; }
 
-        public BoundBlockStatement? GuardBlock { get; }
+        public ImmutableArray<BoundBlockStatement> GuardPath { get; }
+
+        public bool HasGuards => !GuardPath.IsDefaultOrEmpty && GuardPath.Length > 0;
+
+        public bool TryGetGuardIndex(BoundBlockStatement block, out int index)
+        {
+            if (block is null || GuardPath.IsDefaultOrEmpty || GuardPath.Length == 0)
+            {
+                index = -1;
+                return false;
+            }
+
+            for (var i = 0; i < GuardPath.Length; i++)
+            {
+                if (ReferenceEquals(GuardPath[i], block))
+                {
+                    index = i;
+                    return true;
+                }
+            }
+
+            index = -1;
+            return false;
+        }
     }
 
     internal readonly struct AsyncMethodAnalysis
