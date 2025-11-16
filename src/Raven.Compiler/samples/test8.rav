@@ -1,8 +1,9 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
-func Compute<T>(value: T) -> Task<T> {
-    return Task.FromResult(value)
+async func Compute<T>(value: T) -> Task<T> {
+    await Task.Delay(2000)
+    return value
 }
 
 let x = await Compute(42)
