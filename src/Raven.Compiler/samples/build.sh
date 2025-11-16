@@ -6,6 +6,9 @@ set -Euo pipefail
 shopt -s nullglob
 
 OUTPUT_DIR="output"
+if [[ -d "$OUTPUT_DIR" ]]; then
+  rm -rf "$OUTPUT_DIR"
+fi
 mkdir -p "$OUTPUT_DIR"
 
 DOTNET_VERSION="net9.0"
