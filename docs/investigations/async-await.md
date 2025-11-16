@@ -18,6 +18,7 @@ Track the overall completeness of Raven's async/await implementation. The origin
 * A new `NestedTryAwaitExpressionAsyncAssembly_PassesIlVerifyWhenToolAvailable` regression test compiles a script with nested `try`/`finally`/`catch` blocks and verifies the generated IL passes `ilverify`, so the multi-guard dispatcher remains covered even when optional tooling is installed.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L195-L339】
 * `UsingTryAwaitExpressionAsyncAssembly_PassesIlVerifyWhenToolAvailable` adds another IL-level regression that mimics the `http-client.rav` disposal pattern, keeping awaits that resume inside stacked `using let` statements under verifier coverage.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L309-L346】
 * A fresh manual rotation confirms every await-heavy CLI sample (`async-await`, `async-try-catch`, `http-client`, `test6`, `test7`, `test8`, and `try-match-async`) compiles and prints the expected values, so the guarded dispatcher now survives realistic workloads beyond the original repro programs.【9c222c†L2-L4】【85e300†L2-L4】【4e41b6†L2-L4】【de211e†L2-L4】【89b5ba†L2-L2】【108430†L1-L3】【74185c†L2-L2】
+* Async methods/functions that omit explicit return annotations now participate in a two-pass inference pipeline: `TypeMemberBinder`/`FunctionBinder` seed async declarations with `Task` and flag them for inference, and `MethodBodyBinder` re-binds the body with the inferred `Task<T>` produced by `AsyncReturnTypeUtilities` + `ReturnTypeCollector`. Expression-bodied functions route through the same helper before we emit their implicit return block, keeping tests like `TopLevelAwait_WithReturnExpression_SynthesizesTaskOfInt` green.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L325-L351】【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L55-L179】【F:src/Raven.CodeAnalysis/Binder/MethodBodyBinder.cs†L19-L70】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L5584-L5618】【F:src/Raven.CodeAnalysis/Binder/AsyncReturnTypeUtilities.cs†L5-L67】【F:src/Raven.CodeAnalysis/Binder/ReturnTypeCollector.cs†L8-L109】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L239-L262】
 * Await-heavy CLI sample status is tracked below for quick reference as regressions crop up in new areas of the lowering pipeline.
 
 | Sample | Status | Notes |
@@ -133,3 +134,36 @@ Use the snippet below to reproduce the inference regression:
 * Closing the gap likely requires pushing awaited-context information down into lambda binding (e.g., by teaching `GetTargetType` or `RecordLambdaTargets` to consider the async result type) and then ranking the candidate delegates so `Task.Run(Func<Task<T>>)` wins whenever the awaited result feeds a non-unit value. That keeps LINQ scenarios intact while allowing `async () => 42` to lower into `return Task.FromResult(42);` instead of tripping the current `int`→`unit` conversion error.
 * Whatever scoring heuristic lands also needs to cover async methods/functions/lambdas that omit `await` entirely. Once the compiler understands that the body returns a non-`unit` literal/expression, it should synthesize the `Task.FromResult` lowering automatically and infer the delegate or method return type from that value—matching Roslyn’s behavior for `async` members that complete synchronously and ensuring callers still see the correct `Task<T>` shape.
 * Keep Raven’s equivalent of Roslyn warning CS1998 in play for these await-less async bodies. Async methods/functions/lambdas that promise `Task`/`Task<T>` but never `await` should continue to trigger the diagnostic that warns they will run synchronously so we don’t silently accept code paths that ought to remain synchronous methods.
+
+### Snippet: try/match faulted await regression
+
+1. Compile the snippet below (stored anywhere, e.g., `/tmp/try-match-regression.rav`) via `dotnet run --project src/Raven.Compiler -- /tmp/try-match-regression.rav -o /tmp/try-match-regression.dll -d pretty`.
+2. The sample forces a `try ... match` around a faulting awaited call:
+
+   ```
+   import System.*
+   import System.Threading.Tasks.*
+
+   func Foo() -> Task<int> {
+       await Task.Delay(200)
+       throw new Exception("")
+       return 0
+   }
+
+   let result = try await Foo() match {
+       int value => value.ToString()
+       Exception ex => ex.Message
+   }
+
+   Console.WriteLine(result)
+   ```
+
+3. The compiler fails before it even reasons about the `match` because the async method body still triggers `error RAV1503: Cannot convert from '0' to 'Task'` at the `return 0;` statement even though `Foo` explicitly promises `Task<int>`. The inference/lowering pipeline is evidently dropping the generic return information when an async method with a real `await` feeds into the guarded `try ... match` lowering, so `ReturnTypeCollector` or the rebinding pass still believes the method returns `Task`.【e51693†L1-L20】
+
+### Investigation notes – async method inference
+
+* The declaration binders already distinguish async methods that need return-type inference. `TypeMemberBinder` and `FunctionBinder` default those declarations to `Task`, mark them via `SourceMethodSymbol.RequireAsyncReturnTypeInference`, and defer diagnostics through `SourceMethodSymbol.ShouldDeferAsyncReturnDiagnostics` so the initial bind can complete without generating false “cannot convert `int` to `Task`” errors.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L325-L351】【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L55-L125】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L93-L108】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L206-L223】
+* `MethodBodyBinder.BindBlockStatement` (and `BlockBinder.BindFunction` for expression-bodied functions) detect the inference flag, run `AsyncReturnTypeUtilities.InferAsyncReturnType` over the bound body or expression, update the method symbol to `Task<T>`, and immediately re-bind the body so conversions, return statements, and trailing-expression checks see the finalized type.【F:src/Raven.CodeAnalysis/Binder/MethodBodyBinder.cs†L19-L70】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L5584-L5618】【F:src/Raven.CodeAnalysis/Binder/AsyncReturnTypeUtilities.cs†L5-L67】
+* `AsyncReturnTypeUtilities` simply normalizes whatever `ReturnTypeCollector` discovers in the body (literal `42`, `await Foo()`, implicit final expression, etc.) and wraps it in the right `Task` shape. Because `ReturnTypeCollector` never descends into nested lambdas, we still need to flow the inferred `Task<T>` back into lambda binding so async method groups passed as delegates prefer the `Func<Task<T>>` overload instead of the zero-result alternative.【F:src/Raven.CodeAnalysis/Binder/ReturnTypeCollector.cs†L8-L109】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L33-L315】
+* `AsyncLowerer.Analyze` records whether a method actually contains an `await`, so once inference starts producing `Task<T>` for await-less bodies we can keep warning (CS1998-equivalent) callers without forcing them to spell out `Task<T>` themselves. The combination of `SourceMethodSymbol.SetContainsAwait` plus the existing diagnostics in `MethodBodyBinder` gives us the plumbing we need to emit the warning only after inference completes.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L15-L33】【F:src/Raven.CodeAnalysis/Binder/MethodBodyBinder.cs†L54-L96】
+* Remaining work: audit async methods/functions that feed into delegate inference (e.g., method groups passed to `Task.Run`) and ensure the post-inference `Task<T>` flows into `GetTargetType`/`RecordLambdaTargets`. Today `GetTargetType` still chooses the first viable delegate whenever the enclosing call-site stays ambiguous, so any async method without `await` that returns a literal continues to fall back to `Func<Task>` even after inference updated its signature.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2165-L2260】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L317-L479】
