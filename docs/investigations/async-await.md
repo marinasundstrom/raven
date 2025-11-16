@@ -101,23 +101,25 @@ IL_00c0: call instance void valuetype [System.Private.CoreLib]System.Runtime.Com
 
 ## Snippet: Lambda inference issue
 
-For testing:
+Use the snippet below to reproduce the inference regression:
 
-```
-Build failed with 3 error(s)
-robert@Roberts-MacBook-Pro Raven.Compiler % dotnet run -- samples/test11.rav -o test.dll -d pretty
-import System.Console.*
-import System.Threading.Tasks.*
+1. Run the CLI: `dotnet run -- samples/test11.rav -o test.dll -d pretty`
+2. The sample under test contains the following code:
 
-// Inference issue:
-let t = await Task.Run(async () => 42)
+   ```
+   import System.Console.*
+   import System.Threading.Tasks.*
 
-WriteLine(t)
+   // Inference issue:
+   let t = await Task.Run(async () => 42)
 
-samples/test11.rav(5,15): error RAV1501: No overload for method 'Run' takes 1 arguments
-samples/test11.rav(5,36): error RAV1503: Cannot convert from 'int' to 'unit'
-samples/test11.rav(7,1): error RAV0121: The call is ambiguous between the following methods or properties: 'WriteLine' and 
-'WriteLine'
+   WriteLine(t)
+   ```
 
-Build failed with 3 error(s)
-```
+3. The compiler currently fails with three diagnostics:
+
+   ```
+   samples/test11.rav(5,15): error RAV1501: No overload for method 'Run' takes 1 arguments
+   samples/test11.rav(5,36): error RAV1503: Cannot convert from 'int' to 'unit'
+   samples/test11.rav(7,1): error RAV0121: The call is ambiguous between the following methods or properties: 'WriteLine' and 'WriteLine'
+   ```
