@@ -186,4 +186,37 @@ let result = await Task.Run(async () => 42)
         Assert.Equal("Task`1", returnType.MetadataName);
         Assert.Equal(SpecialType.System_Int32, returnType.TypeArguments.Single().SpecialType);
     }
+
+    [Fact]
+    public void AsyncLambda_TaskRunInvocation_BindsGenericOverload()
+    {
+        const string source = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+let t = await Task.Run(async () => 42)
+WriteLine(t)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var root = tree.GetRoot();
+        var taskRunInvocation = root
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First();
+
+        var model = compilation.GetSemanticModel(tree);
+        var symbolInfo = model.GetSymbolInfo(taskRunInvocation);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(method.IsGenericMethod);
+        Assert.Equal("Run", method.Name);
+        var typeArgument = Assert.Single(method.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, typeArgument.SpecialType);
+    }
 }
