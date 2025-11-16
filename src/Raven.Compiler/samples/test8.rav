@@ -2,9 +2,12 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 async func Compute<T>(value: T) -> Task<T> {
+    WriteLine("Before delay")
     await Task.Delay(2000)
+    WriteLine("After delay")
     return value
 }
 
 let x = await Compute(42)
+WriteLine("After Compute")
 WriteLine(x)
