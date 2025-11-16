@@ -12,20 +12,53 @@ Track the overall completeness of Raven's async/await implementation. The origin
 ## Current findings
 * The constructed async state machine now reuses its own generic parameter when emitting builder completions. `ConstructedNamedTypeSymbol.ResolveRuntimeTypeArgument` first reuses any registered runtime type for the state-machine parameter before falling back to the async-method mapping, so the builder MemberRefs resolve to `AsyncTaskMethodBuilder<!T>` instead of leaking the async method’s `!!0`.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L268-L304】
 * The emitted IL for `Program/'<>c__AsyncStateMachine0`1'::MoveNext` now calls `AsyncTaskMethodBuilder<!T>.SetResult(!0)`, matching Roslyn’s baseline and eliminating the verifier mismatch that produced `AsyncTaskMethodBuilder<!!0>` earlier in the investigation.【F:docs/investigations/async-await.md†L33-L38】
-* The compiled `test8.rav` sample still executes successfully and prints `42`, confirming the earlier `BadImageFormatException` fix continues to hold end-to-end.【88982c†L1-L2】
-* Re-running `samples/async-await.rav` through the CLI emits `/tmp/async-await.dll` and the binary prints the expected `first:1`, `sum:6`, and `done` messages, so the `Task.FromResult` inference regression no longer reproduces.【413905†L1-L17】【27dee1†L1-L4】
+* The compiled `test8.rav` sample still executes successfully and prints `42`, confirming the earlier `BadImageFormatException` fix continues to hold end-to-end.【09763f†L1-L3】【70c729†L1-L4】
+* Re-running `samples/async-await.rav` through the CLI emits `/tmp/async-await.dll` and the binary prints the expected `first:1`, `sum:6`, and `done` messages, so the `Task.FromResult` inference regression no longer reproduces.【800bf5†L1-L5】
 * Await expressions that live inside a `try` block now resume from guard-aware landing pads instead of jumping directly into a protected region. `AwaitLoweringRewriter` records the owning guard for each resumption label, `StateDispatchInjector` synthesizes per-guard entry labels, and the outer dispatcher re-routes to those landing pads before flowing to the final resume label.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L700-L760】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1655-L1853】
+* A fresh manual rotation confirms every await-heavy CLI sample (`async-await`, `async-try-catch`, `http-client`, `test6`, `test7`, `test8`, and `try-match-async`) compiles and prints the expected values, so the guarded dispatcher now survives realistic workloads beyond the original repro programs.【800bf5†L1-L5】【262bc8†L1-L5】【34161b†L1-L5】【8e64b8†L1-L5】【36bad8†L1-L3】【09763f†L1-L3】【70c729†L1-L4】【e77d8e†L1-L3】
 * Await-heavy CLI sample status is tracked below for quick reference as regressions crop up in new areas of the lowering pipeline.
 
 | Sample | Status | Notes |
 | --- | --- | --- |
-| `async-await.rav` | ✅ runs | Builds and prints the async flow (`first:1`, `sum:6`, `done`).【413905†L1-L17】【27dee1†L1-L4】 |
-| `async-try-catch.rav` | ✅ runs | Compiles and prints `value:42`, `caught:boom`, and `completed`, proving awaits inside the guard now resume through the landing pad.【1edbb1†L1-L4】 |
-| `http-client.rav` | ✅ runs | Compiles and catches the `HttpRequestException`, printing the `403` status text instead of crashing the state machine.【ca1d09†L1-L4】 |
-| `test6.rav` | ✅ runs | Continues to build/run after the await lowering updates.【d6680d†L1-L5】 |
-| `test7.rav` | ✅ runs | Exercises awaiting `Task.FromResult` in an async helper without issues.【7d6784†L1-L2】 |
-| `test8.rav` | ✅ runs | Emits the generic async state machine correctly and prints `42`.【88982c†L1-L2】 |
-| `try-match-async.rav` | ⚠️ verify | Succeeds when the awaited operation completes successfully, but the sample still needs coverage for the faulted-await path described above.【F:src/Raven.Compiler/samples/try-match-async.rav†L1-L9】 |
+| `async-await.rav` | ✅ runs | Builds and prints the async flow (`first:1`, `sum:6`, `done`).【800bf5†L1-L5】 |
+| `async-try-catch.rav` | ✅ runs | Compiles and prints `value:42`, `caught:boom`, and `completed`, proving awaits inside the guard now resume through the landing pad.【262bc8†L1-L5】 |
+| `http-client.rav` | ✅ runs | Compiles and catches the `HttpRequestException`, printing the `403` status text instead of crashing the state machine.【34161b†L1-L5】 |
+| `test6.rav` | ✅ runs | Continues to build/run after the await lowering updates.【8e64b8†L1-L5】 |
+| `test7.rav` | ✅ runs | Exercises awaiting `Task.FromResult` in an async helper without issues.【36bad8†L1-L3】 |
+| `test8.rav` | ✅ runs | Emits the generic async state machine correctly and prints `42`.【09763f†L1-L3】【70c729†L1-L4】 |
+| `try-match-async.rav` | ⚠️ verify | Succeeds when the awaited operation completes successfully, but the sample still needs coverage for the faulted-await path described above.【e77d8e†L1-L3】【F:src/Raven.Compiler/samples/try-match-async.rav†L1-L9】 |
+
+### Sample compilation harness
+
+Use the following Bash snippet from the repo root to rebuild and execute every await-heavy CLI sample in one pass. Extend the `SAMPLES` array whenever new async demos appear, and keep the `try-match-async` entry once its deliberate faulting path lands so regressions surface quickly.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+SAMPLES=(
+  async-await
+  async-try-catch
+  http-client
+  test6
+  test7
+  test8
+  try-match-async
+)
+
+for sample in "${SAMPLES[@]}"; do
+  src="src/Raven.Compiler/samples/${sample}.rav"
+  out="/tmp/${sample}.dll"
+
+  echo "==> Building ${sample}"
+  dotnet run --project src/Raven.Compiler -- "$src" -o "$out"
+
+  echo "==> Running ${sample}"
+  dotnet "$out"
+  echo
+done
+```
+
 * Targeted regression tests covering await lowering, the builder `Start<TStateMachine>` MethodSpec, and the `SetResult` MemberRef all pass, guarding the substitution pipeline against regressions.【9329ec†L1-L11】【0f004d†L1-L6】【5e9a18†L1-L8】
 
 ### Guarded await fix
@@ -36,7 +69,7 @@ The guarded-await regression is resolved by teaching the state-machine lowering 
 2. `StateDispatchInjector` groups guard-owned dispatches, synthesizes `guardN` labels for each protected block, and injects those landing pads inside the guard before emitting the local dispatcher that jumps to the actual resume label.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1655-L1740】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1805-L1853】
 3. `CreateStateDispatchStatements` consults the guard-entry map and routes the outer dispatcher through the guard’s landing pad instead of targeting the resume label directly, so every `goto` flows through the guard before resuming the awaited block.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L248-L275】
 
-With that wiring in place, both guarded samples compile and run again: `async-try-catch.rav` prints `value:42`, `caught:boom`, and `completed`, and `http-client.rav` now executes its catch handler and surfaces the `403 (Forbidden)` status text instead of crashing the process.【1edbb1†L1-L4】【ca1d09†L1-L4】
+With that wiring in place, both guarded samples compile and run again: `async-try-catch.rav` prints `value:42`, `caught:boom`, and `completed`, and `http-client.rav` now executes its catch handler and surfaces the `403 (Forbidden)` status text instead of crashing the process.【262bc8†L1-L5】【34161b†L1-L5】
 
 ### IL snapshot – builder completion uses the state-machine generic
 
@@ -51,7 +84,7 @@ IL_00c0: call instance void valuetype [System.Private.CoreLib]System.Runtime.Com
 ## Task list
 * Add metadata regression coverage for `AsyncTaskMethodBuilder<T>.SetException` mirroring the `SetResult` test so the completion path remains pinned to the state-machine generic parameter.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1195-L1252】
 * Diff the MethodSpec table for `test8` against Roslyn to confirm awaiter helpers (`GetAwaiter`, `GetResult`, `get_IsCompleted`) also stay on the async-method generics now that the runtime substitution prefers the state-machine parameter.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L268-L304】
-* Re-run `async-await.rav` periodically to guard the `Task.FromResult` inference path, ensuring the await-heavy sample keeps compiling and running end-to-end.【413905†L1-L17】【27dee1†L1-L4】
+* Re-run `async-await.rav` periodically to guard the `Task.FromResult` inference path, ensuring the await-heavy sample keeps compiling and running end-to-end.【800bf5†L1-L5】
 * Capture IL snapshots (e.g., via `ilverify` or `ilspycmd`) for the guard-entry dispatcher so future regressions reveal themselves immediately; the new landing pads originate in `StateDispatchInjector` and flow through `CreateStateDispatchStatements`.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L248-L295】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1655-L1853】
 * Extend `try-match-async.rav` with a deliberate faulting await (throwing inside the awaited Task) and assert the resulting pattern match routes to the `Exception` arm, proving the lowered state machine raises the exception before the pattern switch executes.【F:src/Raven.Compiler/samples/try-match-async.rav†L1-L9】
 * Keep `async-try-catch.rav` in the manual sample rotation so the async try/catch lowering (and `catch (Exception)` binding) stay covered whenever lowering changes land.【F:src/Raven.Compiler/samples/async-try-catch.rav†L1-L16】【39032d†L1-L17】【78df97†L1-L4】
