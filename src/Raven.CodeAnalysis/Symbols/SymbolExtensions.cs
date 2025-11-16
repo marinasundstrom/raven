@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
@@ -29,6 +30,19 @@ public static partial class SymbolExtensions
         ["System.Void"] = "void",
         ["System.Unit"] = "unit"
     };
+
+    public static bool MetadataIdentityEquals(this ITypeSymbol? left, ITypeSymbol? right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        if (left is null || right is null)
+            return false;
+
+        var leftIdentity = left.ToDisplayString(SymbolDisplayFormat.CSharpSymbolKeyFormat);
+        var rightIdentity = right.ToDisplayString(SymbolDisplayFormat.CSharpSymbolKeyFormat);
+        return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal);
+    }
 
     public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {

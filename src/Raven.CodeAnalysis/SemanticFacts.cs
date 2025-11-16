@@ -22,7 +22,7 @@ public static class SemanticFacts
 
         for (var current = type.BaseType; current is not null; current = current.BaseType)
         {
-            if (comparer.Equals(current, potentialBase))
+            if (current.MetadataIdentityEquals(potentialBase))
                 return true;
         }
 
@@ -42,7 +42,7 @@ public static class SemanticFacts
 
         comparer ??= SymbolEqualityComparer.Default;
 
-        if (comparer.Equals(type, interfaceType))
+        if (type.MetadataIdentityEquals(interfaceType))
             return true;
 
         if (type is INamedTypeSymbol typeInterface &&
@@ -57,7 +57,7 @@ public static class SemanticFacts
 
         foreach (var implementedInterface in GetAllInterfaces(type))
         {
-            if (comparer.Equals(implementedInterface, interfaceType))
+            if (implementedInterface.MetadataIdentityEquals(interfaceType))
                 return true;
 
             if (IsVariantCompatible(implementedInterface, interfaceType, comparer))
@@ -136,7 +136,7 @@ public static class SemanticFacts
         if (typeArgument is IErrorTypeSymbol || constraintType is IErrorTypeSymbol)
             return true;
 
-        if (SymbolEqualityComparer.Default.Equals(typeArgument, constraintType))
+        if (typeArgument.MetadataIdentityEquals(constraintType))
             return true;
 
         if (constraintType is INamedTypeSymbol namedConstraint)
@@ -147,21 +147,21 @@ public static class SemanticFacts
 
     public static bool SatisfiesNamedTypeConstraint(ITypeSymbol typeArgument, INamedTypeSymbol constraintType)
     {
-        if (SymbolEqualityComparer.Default.Equals(typeArgument, constraintType))
+        if (typeArgument.MetadataIdentityEquals(constraintType))
             return true;
 
         if (constraintType.TypeKind == TypeKind.Interface)
         {
             if (typeArgument is INamedTypeSymbol namedArgument &&
                 namedArgument.TypeKind == TypeKind.Interface &&
-                SymbolEqualityComparer.Default.Equals(namedArgument, constraintType))
+                namedArgument.MetadataIdentityEquals(constraintType))
             {
                 return true;
             }
 
             foreach (var implemented in typeArgument.AllInterfaces)
             {
-                if (SymbolEqualityComparer.Default.Equals(implemented, constraintType))
+                if (implemented.MetadataIdentityEquals(constraintType))
                     return true;
             }
 
@@ -172,7 +172,7 @@ public static class SemanticFacts
         {
             for (var current = namedType; current is not null; current = current.BaseType)
             {
-                if (SymbolEqualityComparer.Default.Equals(current, constraintType))
+                if (current.MetadataIdentityEquals(constraintType))
                     return true;
             }
 
@@ -207,7 +207,7 @@ public static class SemanticFacts
 
         foreach (var constraint in typeParameter.ConstraintTypes)
         {
-            if (comparer.Equals(constraint, potentialBase))
+            if (constraint.MetadataIdentityEquals(potentialBase))
                 return true;
 
             if (constraint is ITypeParameterSymbol nestedTypeParameter &&
@@ -236,7 +236,7 @@ public static class SemanticFacts
         {
             if (constraint is INamedTypeSymbol namedConstraint)
             {
-                if (comparer.Equals(namedConstraint, interfaceType))
+                if (namedConstraint.MetadataIdentityEquals(interfaceType))
                     return true;
 
                 if (namedConstraint.TypeKind == TypeKind.Interface &&
@@ -247,7 +247,7 @@ public static class SemanticFacts
 
                 foreach (var implementedInterface in namedConstraint.AllInterfaces)
                 {
-                    if (comparer.Equals(implementedInterface, interfaceType))
+                    if (implementedInterface.MetadataIdentityEquals(interfaceType))
                         return true;
 
                     if (IsVariantCompatible(implementedInterface, interfaceType, comparer))
@@ -287,7 +287,7 @@ public static class SemanticFacts
             return false;
         }
 
-        if (!comparer.Equals(implementedDefinition, targetDefinition))
+        if (!implementedDefinition.MetadataIdentityEquals(targetDefinition))
             return false;
 
         var typeParameters = implementedDefinition.TypeParameters;
@@ -317,7 +317,7 @@ public static class SemanticFacts
                         return false;
                     break;
                 default:
-                    if (!comparer.Equals(implementedArgument, targetArgument))
+                    if (!implementedArgument.MetadataIdentityEquals(targetArgument))
                         return false;
                     break;
             }
@@ -331,7 +331,7 @@ public static class SemanticFacts
         ITypeSymbol destination,
         SymbolEqualityComparer comparer)
     {
-        if (comparer.Equals(source, destination))
+        if (source.MetadataIdentityEquals(destination))
             return true;
 
         if (destination.SpecialType == SpecialType.System_Object)
