@@ -28,6 +28,19 @@ Track the overall completeness of Raven's async/await implementation. The origin
 | `try-match-async.rav` | ⚠️ verify | Succeeds when the awaited operation completes successfully, but the sample still needs coverage for the faulted-await path described above.【F:src/Raven.Compiler/samples/try-match-async.rav†L1-L9】 |
 * Targeted regression tests covering await lowering, the builder `Start<TStateMachine>` MethodSpec, and the `SetResult` MemberRef all pass, guarding the substitution pipeline against regressions.【9329ec†L1-L11】【0f004d†L1-L6】【5e9a18†L1-L8】
 
+### Guarded await failure mode
+
+*The `async-try-catch.rav` sample aborts with `InvalidProgramException` because the MoveNext dispatcher jumps directly into the guarded block that owns a suspended await, violating the CLI “single-entry” rule for protected regions.*【4907a6†L1-L6】
+
+1. `CreateMoveNextBody` always prepends a dispatcher that runs before the rewritten body and lives outside the user’s `try/catch`. Each `StateDispatch` recorded by the await rewriter is emitted as an `if (state == N) goto <resumeLabel>` ahead of the entry label, so the resumption path bypasses the statement that opens the `try` block produced for the source program.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L81-L120】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L240-L283】
+2. `StateDispatchInjector` also seeds every block that contains a resumption label with a local dispatcher, but this happens *inside* the guarded region. When the outer dispatcher jumps straight to the label, control transfers into the `try` body without entering at its start, which is precisely the pattern rejected by the CLR verifier.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1621-L1750】
+
+**Fix direction.** We need to prevent `CreateStateDispatchStatements` from targeting labels that sit in a protected region. Instead, the outer dispatcher should only redirect to safe landing pads (one per `try` block) that are placed *inside* the guard. The localized dispatch that `StateDispatchInjector` adds inside the landing pad can then jump to the actual resume label without violating the single-entry constraint. Bringing this in line with Roslyn requires:
+
+* Extending `StateDispatch` to track the `BoundBlockStatement` (or `BoundTryStatement`) that owns each resume label so we know when a guard is involved during dispatch construction.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1380-L1445】
+* Teaching `CreateStateDispatchStatements` to emit “guard entry” labels instead of the final resume targets whenever the owning block is a `try` body; the first statement inside that guard-specific block can then be the injected `if (state == N) goto <resumeLabel>` so the jump originates within the protected region.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L240-L283】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1621-L1750】
+* Once the dispatcher is split, re-running `async-try-catch.rav` and `http-client.rav` should succeed because every resumption path now flows through the same entry point the verifier expects, and the `try` body can safely execute its catch logic after the awaited operation throws.【F:src/Raven.Compiler/samples/async-try-catch.rav†L1-L16】【F:src/Raven.Compiler/samples/http-client.rav†L1-L33】
+
 ### IL snapshot – builder completion uses the state-machine generic
 
 ```il
