@@ -87,7 +87,7 @@ IL_00c0: call instance void valuetype [System.Private.CoreLib]System.Runtime.Com
 * Add metadata regression coverage for `AsyncTaskMethodBuilder<T>.SetException` mirroring the `SetResult` test so the completion path remains pinned to the state-machine generic parameter.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1195-L1252】
 * Diff the MethodSpec table for `test8` against Roslyn to confirm awaiter helpers (`GetAwaiter`, `GetResult`, `get_IsCompleted`) also stay on the async-method generics now that the runtime substitution prefers the state-machine parameter.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L268-L304】
 * Re-run `async-await.rav` periodically to guard the `Task.FromResult` inference path, ensuring the await-heavy sample keeps compiling and running end-to-end.【9c222c†L2-L4】
-* Investigate the async lambda inference regression spotted in `await Task.Run(async () => 42)` where the lambda should infer as `Func<Task<int>>`, warn about the synchronous body, and lower `42` to `return Task.FromResult(42);`. The current inference fails whenever an `async` lambda lacks an `await`, so tighten the fix without breaking existing LINQ lambda inference.
+* Investigate the async lambda inference regression spotted in `await Task.Run(async () => 42)` where the lambda should infer as `Func<Task<int>>`, warn about the synchronous body, and lower `42` to `return Task.FromResult(42);`. The current inference fails whenever an `async` lambda lacks an `await`, so tighten the fix without breaking existing LINQ lambda inference. (Check section: _Snippet: Lambda inference issue_)
 * Capture IL snapshots (e.g., via `ilverify` or `ilspycmd`) for the guard-entry dispatcher so future regressions reveal themselves immediately; the new landing pads originate in `StateDispatchInjector` and flow through `CreateStateDispatchStatements`.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L248-L295】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1655-L1853】
 * Extend `try-match-async.rav` with a deliberate faulting await (throwing inside the awaited Task) and assert the resulting pattern match routes to the `Exception` arm, proving the lowered state machine raises the exception before the pattern switch executes.【F:src/Raven.Compiler/samples/try-match-async.rav†L1-L9】
 * Keep `async-try-catch.rav` in the manual sample rotation so the async try/catch lowering (and `catch (Exception)` binding) stay covered whenever lowering changes land.【F:src/Raven.Compiler/samples/async-try-catch.rav†L1-L16】【39032d†L1-L17】【78df97†L1-L4】
@@ -98,3 +98,26 @@ IL_00c0: call instance void valuetype [System.Private.CoreLib]System.Runtime.Com
 2. **Fix the remaining substitutions** – Audit builder- and await-related call sites (now focusing on `SetResult`, `SetException`, and hoisted-field accesses) so they always instantiate with the async method’s generic parameters before emission. Add targeted tests that assert the constructed MethodSpecs carry the right generics once the fixes land.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2678-L2706】
 3. **Reconcile locals and temporaries** – Align the async state-machine locals with Roslyn by trimming redundant temporaries and ensuring disposal guards reuse existing hoisted locals, which prevents verifier-visible signature drift.
 4. **Verify end-to-end** – After metadata and locals match, rerun `ilverify` and the runtime sample to confirm the image loads without `BadImageFormatException`, then lock the behaviour down with regression coverage (unit tests plus IL snapshots where necessary).
+
+## Snippet: Lambda inference issue
+
+For testing:
+
+```
+Build failed with 3 error(s)
+robert@Roberts-MacBook-Pro Raven.Compiler % dotnet run -- samples/test11.rav -o test.dll -d pretty
+import System.Console.*
+import System.Threading.Tasks.*
+
+// Inference issue:
+let t = await Task.Run(async () => 42)
+
+WriteLine(t)
+
+samples/test11.rav(5,15): error RAV1501: No overload for method 'Run' takes 1 arguments
+samples/test11.rav(5,36): error RAV1503: Cannot convert from 'int' to 'unit'
+samples/test11.rav(7,1): error RAV0121: The call is ambiguous between the following methods or properties: 'WriteLine' and 
+'WriteLine'
+
+Build failed with 3 error(s)
+```
