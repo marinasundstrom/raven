@@ -227,6 +227,35 @@ let instance = C()
 await instance.Work()
 """;
 
+    private const string UsingTryAwaitAsyncCode = """
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+class Disposable : IDisposable {
+    public init() { }
+
+    public Dispose() -> unit => WriteLine("disposed")
+}
+
+class Worker {
+    async Work() -> Task {
+        try {
+            using let outer = Disposable()
+            await Task.Delay(1)
+            using let inner = Disposable()
+            await Task.Delay(1)
+            WriteLine("work done")
+        } catch (Exception e) {
+            WriteLine("caught:${e.Message}")
+        }
+    }
+}
+
+let worker = Worker()
+await worker.Work()
+""";
+
     [Fact]
     public void AsyncAssembly_PassesIlVerifyWhenToolAvailable()
     {
@@ -299,6 +328,29 @@ await instance.Work()
         {
             var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
             Assert.True(succeeded, "IL verification failed for nested try-await expression. Run ravenc --ilverify for detailed output.");
+        }
+        finally
+        {
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void UsingTryAwaitExpressionAsyncAssembly_PassesIlVerifyWhenToolAvailable()
+    {
+        if (!IlVerifyTestHelper.TryResolve(_output))
+        {
+            _output.WriteLine("Skipping IL verification because ilverify was not found.");
+            return;
+        }
+
+        var assemblyPath = EmitAsyncAssemblyToDisk(UsingTryAwaitAsyncCode, out var compilation);
+
+        try
+        {
+            var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
+            Assert.True(succeeded, "IL verification failed for using try-await expression. Run ravenc --ilverify for detailed output.");
         }
         finally
         {
