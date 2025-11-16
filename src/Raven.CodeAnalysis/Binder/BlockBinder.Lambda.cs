@@ -53,7 +53,8 @@ partial class BlockBinder
             candidateDelegates = ImmutableArray<INamedTypeSymbol>.Empty;
 
         INamedTypeSymbol? primaryDelegate = targetDelegate ?? candidateDelegates.FirstOrDefault();
-        var targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
+        var primarySignature = primaryDelegate?.GetDelegateInvokeMethod();
+        var targetSignature = targetDelegate?.GetDelegateInvokeMethod();
 
         var parameterSymbols = new List<IParameterSymbol>();
         for (int index = 0; index < parameterSyntaxes.Length; index++)
@@ -75,7 +76,7 @@ partial class BlockBinder
                 };
             }
 
-            var targetParam = targetSignature is { } invoke && invoke.Parameters.Length > index
+            var targetParam = primarySignature is { } invoke && invoke.Parameters.Length > index
                 ? invoke.Parameters[index]
                 : null;
 
@@ -282,11 +283,11 @@ partial class BlockBinder
             sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
 
         var delegateType = primaryDelegate is not null &&
-            targetSignature is not null &&
-            targetSignature.Parameters.Length == parameterSymbols.Count &&
-            SymbolEqualityComparer.Default.Equals(returnType, targetSignature.ReturnType) &&
+            primarySignature is not null &&
+            primarySignature.Parameters.Length == parameterSymbols.Count &&
+            SymbolEqualityComparer.Default.Equals(returnType, primarySignature.ReturnType) &&
             parameterSymbols
-                .Zip(targetSignature.Parameters, (parameter, target) =>
+                .Zip(primarySignature.Parameters, (parameter, target) =>
                     SymbolEqualityComparer.Default.Equals(parameter.Type, target.Type) && parameter.RefKind == target.RefKind)
                 .All(match => match)
             ? primaryDelegate

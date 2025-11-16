@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Xunit;
@@ -155,5 +156,34 @@ let result = await handler()
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, boundLambda.ReturnType));
+    }
+
+    [Fact]
+    public void AsyncLambda_TaskRunWithoutAwait_InfersTaskOfResult()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+let result = await Task.Run(async () => 42)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var lambdaSyntax = tree
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var model = compilation.GetSemanticModel(tree);
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.ReturnType);
+
+        Assert.Equal("Task`1", returnType.MetadataName);
+        Assert.Equal(SpecialType.System_Int32, returnType.TypeArguments.Single().SpecialType);
     }
 }
