@@ -40,6 +40,8 @@ constructors and emit correct IL.【F:test/Raven.CodeAnalysis.Samples.Tests/Samp
 ## Union types
 When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.
 
+Discriminated `union` declarations use the same runtime building blocks. The compiler emits a sealed struct with a private `int` discriminator and an `object` payload field. Each case produces a nested struct that stores the payload by value, defines an implicit conversion back to the outer union, and exposes a `bool TryGetCase(out CaseType)` helper that copies the payload into caller-provided storage.
+
 For example:
 
 ```raven

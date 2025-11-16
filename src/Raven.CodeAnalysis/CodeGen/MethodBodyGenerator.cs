@@ -113,6 +113,18 @@ internal class MethodBodyGenerator
 
         ILGenerator = MethodGenerator.ILBuilderFactory.Create(MethodGenerator);
 
+        if (MethodSymbol is SynthesizedUnionConversionMethodSymbol unionConversion)
+        {
+            EmitUnionConversion(unionConversion);
+            return;
+        }
+
+        if (MethodSymbol is SynthesizedUnionTryGetMethodSymbol unionTryGet)
+        {
+            EmitUnionTryGet(unionTryGet);
+            return;
+        }
+
         if (MethodSymbol is SynthesizedMainMethodSymbol mainSymbol && mainSymbol.AsyncImplementation is { } asyncImplementation)
         {
             EmitTopLevelMainBridge(mainSymbol, asyncImplementation);
@@ -325,6 +337,14 @@ internal class MethodBodyGenerator
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
 
+            case UnionDeclarationSyntax:
+                EmitUnionConstructorBody();
+                break;
+
+            case UnionCaseDeclarationSyntax:
+                EmitUnionCaseConstructorBody();
+                break;
+
             default:
                 throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
         }
@@ -366,6 +386,161 @@ internal class MethodBodyGenerator
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitUnionConversion(SynthesizedUnionConversionMethodSymbol conversion)
+    {
+        if (MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(conversion.UnionConstructor) is not ConstructorInfo constructorInfo)
+            throw new InvalidOperationException("Union conversion is missing backing constructor.");
+
+        ILGenerator.Emit(OpCodes.Ldc_I4, conversion.CaseIndex);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+
+        var parameterType = conversion.Parameters[0].Type;
+        var parameterClrType = MethodGenerator.ResolveClrType(parameterType);
+        if (parameterType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, parameterClrType);
+
+        ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitUnionTryGet(SynthesizedUnionTryGetMethodSymbol method)
+    {
+        var discriminatorFieldInfo = method.DiscriminatorField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var payloadFieldInfo = method.PayloadField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var missLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldfld, discriminatorFieldInfo);
+        ILGenerator.Emit(OpCodes.Ldc_I4, method.CaseIndex);
+        ILGenerator.Emit(OpCodes.Bne_Un_S, missLabel);
+
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldfld, payloadFieldInfo);
+
+        var parameterType = method.Parameters[0].Type;
+        var parameterClrType = MethodGenerator.ResolveClrType(parameterType);
+        if (parameterType.IsValueType)
+            ILGenerator.Emit(OpCodes.Unbox_Any, parameterClrType);
+        else
+            ILGenerator.Emit(OpCodes.Castclass, parameterClrType);
+
+        if (parameterType.IsValueType)
+            ILGenerator.Emit(OpCodes.Stobj, parameterClrType);
+        else
+            ILGenerator.Emit(OpCodes.Stind_Ref);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(missLabel);
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        if (parameterType.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Initobj, parameterClrType);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+            ILGenerator.Emit(OpCodes.Stind_Ref);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitUnionConstructorBody()
+    {
+        var unionType = (SourceNamedTypeSymbol)MethodSymbol.ContainingSymbol!;
+        var discriminatorField = unionType.GetMembers().OfType<SourceFieldSymbol>().First(f => f.Name == "_discriminator");
+        var payloadField = unionType.GetMembers().OfType<SourceFieldSymbol>().First(f => f.Name == "_payload");
+        var discriminatorInfo = discriminatorField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var payloadInfo = payloadField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Stfld, discriminatorInfo);
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldarg_2);
+        ILGenerator.Emit(OpCodes.Stfld, payloadInfo);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitUnionCaseConstructorBody()
+    {
+        if (MethodSymbol.ContainingType is not SourceNamedTypeSymbol caseType)
+            throw new InvalidOperationException("Union case constructor must belong to a source type.");
+
+        var fieldByName = new Dictionary<string, SourceFieldSymbol>(StringComparer.Ordinal);
+        foreach (var field in caseType.GetMembers().OfType<SourceFieldSymbol>())
+        {
+            if (!fieldByName.ContainsKey(field.Name))
+                fieldByName[field.Name] = field;
+        }
+
+        foreach (var parameter in MethodSymbol.Parameters)
+        {
+            if (!fieldByName.TryGetValue(parameter.Name, out var field))
+                continue;
+
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            EmitLoadParameterValue(parameter);
+            var fieldInfo = field.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            ILGenerator.Emit(OpCodes.Stfld, fieldInfo);
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitLoadParameterValue(IParameterSymbol parameter)
+    {
+        var parameterBuilder = MethodGenerator.GetParameterBuilder(parameter);
+        var argumentIndex = parameterBuilder.Position;
+        if (MethodSymbol.IsStatic)
+            argumentIndex -= 1;
+
+        EmitLoadArgument(argumentIndex);
+
+        if (parameter.RefKind == RefKind.None)
+            return;
+
+        var clrType = MethodGenerator.ResolveClrType(parameter.Type);
+        if (parameter.Type.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Ldobj, clrType);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldind_Ref);
+        }
+    }
+
+    private void EmitLoadArgument(int argumentIndex)
+    {
+        switch (argumentIndex)
+        {
+            case 0:
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                break;
+            case 1:
+                ILGenerator.Emit(OpCodes.Ldarg_1);
+                break;
+            case 2:
+                ILGenerator.Emit(OpCodes.Ldarg_2);
+                break;
+            case 3:
+                ILGenerator.Emit(OpCodes.Ldarg_3);
+                break;
+            default:
+                if (argumentIndex <= byte.MaxValue)
+                    ILGenerator.Emit(OpCodes.Ldarg_S, (byte)argumentIndex);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg, argumentIndex);
+                break;
+        }
     }
 
     private void EmitIteratorMethod(SynthesizedIteratorTypeSymbol iteratorType)

@@ -578,6 +578,13 @@
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="EqualsValueClauseSyntax" Type="EqualsValueClause" IsNullable="true" />
   </Node>
+  <Node Name="UnionCaseDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
+  </Node>
   <Node Name="ArrowExpressionClause" Inherits="Node">
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken"/>
     <Slot Name="Expression" Type="Expression" />
@@ -619,6 +626,17 @@
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true"  DefaultToken="OpenBraceToken"/>
     <Slot Name="Members" Type="SeparatedList" ElementType="EnumMemberDeclaration" />
+    <Slot Name="CloseBraceToken" Type="Token" IsInherited="true"  DefaultToken="CloseBraceToken"/>
+    <Slot Name="TerminatorToken" Type="Token" IsInherited="true"  IsOptionalToken="true"/>
+  </Node>
+  <Node Name="UnionDeclaration" Inherits="BaseTypeDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="UnionKeyword" Type="Token" DefaultToken="UnionKeyword"/>
+    <Slot Name="Identifier" Type="Token" IsInherited="true" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="OpenBraceToken" Type="Token" IsInherited="true"  DefaultToken="OpenBraceToken"/>
+    <Slot Name="Cases" Type="List" ElementType="UnionCaseDeclaration" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true"  DefaultToken="CloseBraceToken"/>
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true"  IsOptionalToken="true"/>
   </Node>

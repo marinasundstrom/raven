@@ -31,6 +31,7 @@ Declaration              ::= NamespaceDeclaration
                            | FunctionDeclaration
                            | ExtensionDeclaration
                            | EnumDeclaration
+                           | UnionDeclaration
                            | ClassDeclaration
                            | StructDeclaration
                            | InterfaceDeclaration ;
@@ -66,6 +67,11 @@ EnumDeclaration          ::= TypeModifiers?
                              'enum' Identifier '{' EnumMembers? '}' ;
 EnumMembers              ::= EnumMember {',' EnumMember} ;
 EnumMember               ::= Identifier ['=' Expression] ;
+
+UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList? UnionBody ;
+UnionBody                ::= '{' {UnionCaseDeclaration} '}' ;
+UnionCaseDeclaration     ::= Identifier TypeParameterList? UnionCasePayload? ;
+UnionCasePayload         ::= '(' ParameterList? ')' ;
 
 ClassDeclaration         ::= TypeModifiers? 'class' Identifier PrimaryConstructor? BaseList? ClassBody ;
 PrimaryConstructor       ::= '(' ParameterList? ')' ;

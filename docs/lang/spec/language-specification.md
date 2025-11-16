@@ -51,7 +51,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `const`, `continue`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `const`, `continue`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `union`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes

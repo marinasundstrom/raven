@@ -7,14 +7,14 @@ Discriminated unions are value types that represent a fixed set of alternative s
 ## Syntax
 
 ```csharp
-type Token {
+union Token {
     Identifier(text: string)
     Number(text: string)
     Unknown
 }
 ```
 
-* `type` introduces a discriminated union declaration.
+* `union` introduces a discriminated union declaration.
 * Each clause declares a case. A case name followed by a parameter list defines a constructor. A bare case name (e.g. `Unknown`) produces a parameterless constructor.
 * The compiler emits one nested `struct` per case with a constructor and implicit conversion back to the outer union struct.
 * The outer union struct exposes `TryGetIdentifier(out Identifier?)`, `TryGetNumber(out Number?)`, etc. to interrogate the active case.
@@ -32,10 +32,10 @@ Each case struct exposes the payload values via immutable fields or properties a
 
 ### Generics
 
-Unions support type parameters declared on the `type`:
+Unions support type parameters declared on the `union`:
 
 ```csharp
-type Result<T> {
+union Result<T> {
     Ok(result: T)
     Error(message: string)
 }
@@ -69,10 +69,15 @@ The leading `.` in the pattern is the target-member pattern syntax. When used in
 
 ## Runtime representation
 
-* Each union is compiled into a `struct` that contains a discriminator and, when necessary, inline storage for the payload of the active case.
+* Each union is compiled into a sealed `struct` that stores an integer discriminator alongside an `object` payload reference. Case values are boxed before being stored in the payload slot.
 * Each case becomes a nested `struct` containing only its payload and an implicit conversion back to the outer union.
 * For reference types the language will eventually support closed class hierarchies. Until then unions remain structs.
 * Helper methods such as `bool TryGetIdentifier(out Identifier?)` or `bool TryGetOk(out Ok<T>?)` are generated to enable low-level inspection and facilitate exhaustiveness analysis in contexts outside of pattern matching.
+
+## Restrictions
+
+* A `union` must declare at least one case. Empty unions produce diagnostic `RAV0401`.
+* Case parameter lists may not contain `ref`, `in`, or `out` parameters because the payload is copied into the union's storage. Violations produce diagnostic `RAV0402`.
 
 ## Interop and member import
 

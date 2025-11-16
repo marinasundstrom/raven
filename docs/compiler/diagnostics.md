@@ -213,6 +213,22 @@ Union includes a nullable type.
 type U = int | string? // RAV0400
 ```
 
+## RAV0401: Union must declare at least one case
+Discriminated unions must declare at least one case.
+
+```raven
+union Empty {} // RAV0401
+```
+
+## RAV0402: Union case parameters cannot be by-ref
+Case parameter lists cannot use `ref`, `in`, or `out` because union payloads are copied by value.
+
+```raven
+union Token {
+    Identifier(ref text: string) // RAV0402
+}
+```
+
 ## RAV0426: Type name does not exist in type
 Referenced a nested type that does not exist.
 

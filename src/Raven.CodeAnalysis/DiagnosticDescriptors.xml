@@ -209,6 +209,14 @@
     Title="Nullable type not allowed in union"
     Message="Nullable types are not allowed in union types" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0401" Identifier="UnionMustDeclareCase"
+    Title="Union must declare at least one case"
+    Message="Union '{name}' must declare at least one case" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0402" Identifier="UnionCaseParameterCannotBeByRef"
+    Title="Union case parameters cannot be by-ref"
+    Message="Parameter '{parameterName}' in union case '{caseName}' cannot be declared with '{modifier}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0426" Identifier="TypeNameDoesNotExistInType"
     Title="Type name does not exist in type"
     Message="The type name '{name}' does not exist in the type '{container}'"

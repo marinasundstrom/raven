@@ -411,3 +411,42 @@ logger.Log("hi")              // error: member not found
 ```
 
 If a type lists only interfaces, the compiler still emits `System.Object` as the base type before attaching the interface implementations.
+
+## Discriminated unions
+
+`union` declarations define a closed set of named cases that each carry an optional payload. The declaration syntax mirrors other
+type declarations: type modifiers come first, followed by the `union` keyword, the identifier, and an optional type parameter list.
+The body lists one or more cases. Each case names the constructor that creates that shape of the union. A case without parentheses
+is parameterless; adding `(parameters)` declares the payload that must be provided when constructing that case.
+
+```raven
+union Token {
+    Identifier(text: string)
+    Number(text: string)
+    Unknown
+}
+```
+
+Cases may declare their own generic arguments when they need additional type parameters beyond the outer union. Supply a type
+parameter list immediately after the case name and then use those parameters inside the payload:
+
+```raven
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+    Deferred<TResult>(factory: func() -> TResult)
+}
+```
+
+Constructing a case uses the same syntax as invoking a nested type: `let value = Result<int>.Ok(1)`. When the compiler can infer
+the union type (for example because the target is annotated), the shorthand `.Ok(1)` form is also available. Unions participate in
+pattern matching and `match` exhaustiveness checking, but at the syntax level they are limited to case declarations—other members
+are not permitted inside a union body.
+
+Every `union` emits a sealed `struct` with a private `_discriminator : int` and `_payload : object` field plus a private
+constructor that records the active case. Each case in the declaration produces a nested `struct` containing the payload fields,
+an implicit conversion operator back to the outer union, and an instance method `bool TryGetCase(out CaseType)` that copies the
+payload when the discriminator matches. Case structs expose their payload via public fields whose names match the constructor
+parameters. Unions must declare at least one case, and case parameter lists may not contain `ref`, `in`, or `out` parameters
+because the payload values are copied into the union's storage; the compiler reports diagnostics when either restriction is
+violated.
