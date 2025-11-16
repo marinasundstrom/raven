@@ -24,8 +24,8 @@ public class SampleProgramsTests
         ["tuples2.rav", Array.Empty<string>()],
         ["main.rav", Array.Empty<string>()],
         ["classes.rav", Array.Empty<string>()],
-        ["async-await.rav", Array.Empty<string>()],
-        ["async-try-catch.rav", Array.Empty<string>()],
+        [Path.Combine("async", "async-await.rav"), Array.Empty<string>()],
+        [Path.Combine("async", "async-try-catch.rav"), Array.Empty<string>()],
     ];
 
     [Theory]
@@ -158,7 +158,7 @@ public class SampleProgramsTests
     public async Task AsyncAwait_sample_executes_expected_flow()
     {
         var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
-        var samplePath = Path.Combine(projectDir, "samples", "async-await.rav");
+        var samplePath = Path.Combine(projectDir, "samples", "async", "async-await.rav");
 
         var outputDir = Path.Combine(Path.GetTempPath(), "raven_samples", Guid.NewGuid().ToString());
         Directory.CreateDirectory(outputDir);
