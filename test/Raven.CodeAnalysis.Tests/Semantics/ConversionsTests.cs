@@ -226,4 +226,49 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(conversion.IsPointer);
         Assert.True(conversion.IsAlias);
     }
+
+    [Fact]
+    public void Metadata_MethodInfo_DerivesFrom_MemberInfo()
+    {
+        var compilation = CreateCompilation();
+
+        var methodInfo = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Reflection.MethodInfo")!;
+        var memberInfo = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Reflection.MemberInfo")!;
+
+        Assert.NotNull(methodInfo.BaseType);
+        Assert.True(SemanticFacts.IsDerivedFrom(methodInfo, memberInfo, SymbolEqualityComparer.Default));
+
+        var conversion = compilation.ClassifyConversion(memberInfo, methodInfo);
+        Assert.True(conversion.Exists);
+        Assert.False(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+    }
+
+    [Fact]
+    public void Metadata_ExplicitCast_MemberInfo_To_MethodInfo_Succeeds()
+    {
+        const string source = """
+        import System.Reflection.*
+
+        let type = typeof(System.Object)
+        let members = type.GetMembers()
+        let member = members[0]
+        let method = (System.Reflection.MethodInfo)member
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        var model = compilation.GetSemanticModel(tree);
+        var cast = tree.GetRoot().DescendantNodes().OfType<CastExpressionSyntax>().Single();
+        var expressionType = model.GetTypeInfo(cast.Expression).Type!;
+        var targetType = model.GetTypeInfo(cast).Type!;
+
+        var conversion = compilation.ClassifyConversion(expressionType, targetType);
+        Assert.True(conversion.Exists);
+
+        Assert.DoesNotContain(
+            diagnostics,
+            d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+    }
 }

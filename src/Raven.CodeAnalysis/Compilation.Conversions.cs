@@ -68,7 +68,7 @@ public partial class Compilation
             bool destinationElementUsedAlias = false;
             var unaliasedDestination = Unalias(destinationElement, ref destinationElementUsedAlias);
 
-            if (!SymbolEqualityComparer.Default.Equals(unaliasedSource, unaliasedDestination))
+            if (!unaliasedSource.MetadataIdentityEquals(unaliasedDestination))
                 return false;
 
             if (sourceElementUsedAlias || destinationElementUsedAlias)
@@ -99,7 +99,7 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isPointer: true));
         }
 
-        if (SymbolEqualityComparer.Default.Equals(source, destination) &&
+        if (source.MetadataIdentityEquals(destination) &&
             source is not NullableTypeSymbol &&
             destination is not NullableTypeSymbol)
         {
@@ -136,7 +136,7 @@ public partial class Compilation
             var conv = ClassifyConversion(nullableSource.UnderlyingType, destination);
             if (conv.Exists)
             {
-                var isImplicit = !SymbolEqualityComparer.Default.Equals(nullableSource.UnderlyingType, destination) && conv.IsImplicit;
+                var isImplicit = !nullableSource.UnderlyingType.MetadataIdentityEquals(destination) && conv.IsImplicit;
                 return Finalize(new Conversion(
                     isImplicit: isImplicit,
                     isIdentity: conv.IsIdentity,
@@ -155,7 +155,7 @@ public partial class Compilation
             if (source is IUnionTypeSymbol unionSource &&
                 unionSource.Types.Count() == 2 &&
                 unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
-                unionSource.Types.Any(t => SymbolEqualityComparer.Default.Equals(t, nullableDest.UnderlyingType)))
+                unionSource.Types.Any(t => t.MetadataIdentityEquals(nullableDest.UnderlyingType)))
             {
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
             }
@@ -198,9 +198,9 @@ public partial class Compilation
 
         var objType = GetSpecialType(SpecialType.System_Object);
 
-        if (destination.Equals(objType, SymbolEqualityComparer.Default))
+        if (destination.MetadataIdentityEquals(objType))
         {
-            if (source.Equals(objType, SymbolEqualityComparer.Default))
+            if (source.MetadataIdentityEquals(objType))
             {
                 return Conversion.None;
             }
@@ -279,15 +279,15 @@ public partial class Compilation
 
             if (sourceNamed != null)
                 candidateConversions = candidateConversions.Concat(sourceNamed.GetMembers().OfType<IMethodSymbol>());
-            if (destinationNamed != null && !SymbolEqualityComparer.Default.Equals(source, destination))
+        if (destinationNamed != null && !source.MetadataIdentityEquals(destination))
                 candidateConversions = candidateConversions.Concat(destinationNamed.GetMembers().OfType<IMethodSymbol>());
 
             foreach (var method in candidateConversions)
             {
                 if (method.MethodKind is MethodKind.Conversion &&
                     method.Parameters.Length == 1 &&
-                    SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, source) &&
-                    SymbolEqualityComparer.Default.Equals(method.ReturnType, destination))
+                    method.Parameters[0].Type.MetadataIdentityEquals(source) &&
+                    method.ReturnType.MetadataIdentityEquals(destination))
                 {
                     var isImplicit = method.Name == "op_Implicit";
                     return Finalize(new Conversion(isImplicit: isImplicit, isUserDefined: true, methodSymbol: method));
@@ -303,13 +303,13 @@ public partial class Compilation
         if (source.IsValueType || destination.IsValueType)
             return false;
 
-        if (SymbolEqualityComparer.Default.Equals(source, destination))
+        if (source.MetadataIdentityEquals(destination))
             return false;
 
         var current = source.BaseType;
         while (current is not null)
         {
-            if (SymbolEqualityComparer.Default.Equals(current, destination))
+            if (current.MetadataIdentityEquals(destination))
                 return true;
 
             current = current.BaseType;
@@ -333,7 +333,7 @@ public partial class Compilation
         if (source.IsValueType || destination.IsValueType)
             return false;
 
-        if (SymbolEqualityComparer.Default.Equals(source, destination))
+        if (source.MetadataIdentityEquals(destination))
             return false;
 
         var comparer = SymbolEqualityComparer.Default;
