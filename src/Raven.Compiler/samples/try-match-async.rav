@@ -1,7 +1,13 @@
 import System.*
 import System.Threading.Tasks.*
 
-let result = try await Task.FromResult(1) match {
+func Foo() -> Task<int> {
+    await Task.Delay(200)
+    throw new Exception("")
+    return 0
+}
+
+let result = try await Foo() match {
     int value => value.ToString()
     Exception ex => ex.Message
 }
