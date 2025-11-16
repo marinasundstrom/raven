@@ -22,14 +22,14 @@ WriteLine(x)
 * The emitted IL for `Program/'<>c__AsyncStateMachine0`1'::MoveNext` now calls `AsyncTaskMethodBuilder<!T>.SetResult(!0)`, matching Roslyn’s baseline and eliminating the verifier mismatch that produced `AsyncTaskMethodBuilder<!!0>` earlier in the investigation.【F:docs/investigations/async-await.md†L30-L35】
 * The compiled `test8.rav` sample still executes successfully and prints `42`, confirming the earlier `BadImageFormatException` fix continues to hold end-to-end.【88982c†L1-L2】
 * Re-running `samples/async-await.rav` through the CLI emits `/tmp/async-await.dll` and the binary prints the expected `first:1`, `sum:6`, and `done` messages, so the `Task.FromResult` inference regression no longer reproduces.【413905†L1-L17】【27dee1†L1-L4】
-* `samples/async-try-catch.rav` now intentionally throws an `InvalidOperationException` after the awaited work so the catch block logs `caught:boom` before completing, exercising the async try/catch lowering end-to-end.【F:src/Raven.Compiler/samples/async-try-catch.rav†L1-L16】【39032d†L1-L17】【78df97†L1-L4】
+* Await expressions that live inside a `try` block currently generate invalid IL: both `samples/async-try-catch.rav` and `samples/http-client.rav` abort with `InvalidProgramException` before reaching their handlers, so `await` inside a guarded region is temporarily regressed until the async state machine wires its dispatch blocks without re-entering the method prologue.【4907a6†L1-L6】【52225f†L1-L6】
 * Await-heavy CLI sample status is tracked below for quick reference as regressions crop up in new areas of the lowering pipeline.
 
 | Sample | Status | Notes |
 | --- | --- | --- |
 | `async-await.rav` | ✅ runs | Builds and prints the async flow (`first:1`, `sum:6`, `done`).【413905†L1-L17】【27dee1†L1-L4】 |
-| `async-try-catch.rav` | ✅ runs | Throws and catches an `InvalidOperationException` after awaiting, so the handler prints `value:42`, `caught:boom`, and `completed`.【F:src/Raven.Compiler/samples/async-try-catch.rav†L1-L16】【39032d†L1-L17】【78df97†L1-L4】 |
-| `http-client.rav` | ✅ runs | Builds and predictably catches the remote `403` response instead of crashing.【2a1401†L1-L4】 |
+| `async-try-catch.rav` | ❌ fails | Runtime aborts with `InvalidProgramException`, so the sample never reaches its catch block.【4907a6†L1-L6】 |
+| `http-client.rav` | ❌ fails | Hits the same `InvalidProgramException` during `MoveNext`, so `await` inside the `try/catch` cannot complete yet.【52225f†L1-L6】 |
 | `test6.rav` | ✅ runs | Continues to build/run after the await lowering updates.【d6680d†L1-L5】 |
 | `test7.rav` | ✅ runs | Exercises awaiting `Task.FromResult` in an async helper without issues.【7d6784†L1-L2】 |
 | `test8.rav` | ✅ runs | Emits the generic async state machine correctly and prints `42`.【88982c†L1-L2】 |
