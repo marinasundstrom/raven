@@ -101,7 +101,7 @@ public class UnionDeclarationSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void UnionDeclaration_EmitsUnionAttribute()
+    public void UnionDeclaration_EmitsDiscriminatedUnionAttribute()
     {
         const string source = @"union Token {
     Identifier(text: string)
@@ -118,10 +118,10 @@ public class UnionDeclarationSemanticTests : CompilationTestBase
         var unionType = assembly.GetType("Token");
         Assert.NotNull(unionType);
 
-        Assert.Contains(unionType!.GetCustomAttributesData(), data => data.AttributeType.Name == "UnionAttribute");
+        Assert.Contains(unionType!.GetCustomAttributesData(), data => data.AttributeType.Name == "DiscriminatedUnionAttribute");
         var caseType = unionType.GetNestedType("Identifier");
         Assert.NotNull(caseType);
-        Assert.DoesNotContain(caseType!.GetCustomAttributesData(), data => data.AttributeType.Name == "UnionAttribute");
-        Assert.NotNull(assembly.GetType("UnionAttribute"));
+        Assert.DoesNotContain(caseType!.GetCustomAttributesData(), data => data.AttributeType.Name == "DiscriminatedUnionAttribute");
+        Assert.NotNull(assembly.GetType("DiscriminatedUnionAttribute"));
     }
 }

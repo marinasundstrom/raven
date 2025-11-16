@@ -444,7 +444,7 @@ pattern matching and `match` exhaustiveness checking, but at the syntax level th
 are not permitted inside a union body.
 
 Every `union` emits a sealed `struct` with a private `_discriminator : int` and `_payload : object` field plus a private
-constructor that records the active case. The compiler tags that struct with a synthesized `[Union]` attribute so metadata
+constructor that records the active case. The compiler tags that struct with a synthesized `[DiscriminatedUnion]` attribute so metadata
 consumers can recognize discriminated unions even after lowering. Each case in the declaration produces a nested `struct`
 containing the payload fields, an implicit conversion operator back to the outer union, and an instance method
 `bool TryGetCase(ref CaseType)` that copies the payload when the discriminator matches. Case structs expose their payload via

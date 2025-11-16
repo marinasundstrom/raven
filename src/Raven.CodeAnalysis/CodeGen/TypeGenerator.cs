@@ -197,7 +197,7 @@ internal class TypeGenerator
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
 
         if (TypeSymbol is SourceNamedTypeSymbol { IsUnionDeclaration: true })
-            CodeGen.ApplyUnionAttribute(TypeBuilder);
+            CodeGen.ApplyDiscriminatedUnionAttribute(TypeBuilder);
     }
 
     private static string GetNestedTypeMetadataName(INamedTypeSymbol type)

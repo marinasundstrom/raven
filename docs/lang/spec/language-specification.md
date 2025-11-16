@@ -1958,6 +1958,42 @@ let msg = u.ToString()   // treat receiver as the ancestor that declares ToStrin
 
 If any element **hides** the base member with `new` (different original), or an overload isn’t present on some element, the access is rejected with a diagnostic suggesting a cast or pattern match.
 
+### Discriminated union declarations
+
+`union` declarations introduce a closed set of named cases, each of which can carry its own payload. The syntax mirrors other type declarations: optional modifiers precede the `union` keyword, followed by the identifier and any type parameters. The body lists one or more case declarations:
+
+```raven
+public union Token
+{
+    Identifier(text: string)
+    Number(text: string)
+    Unknown
+}
+```
+
+* A case name followed by a parameter list describes the payload stored when that case is active. Omitting the parameter list creates a parameterless case.
+* Case declarations may introduce their own type parameters (`Deferred<TResult>(factory: func() -> TResult)`) in addition to those defined on the outer union. Type arguments are specified using the same `Union.Case<T>(...)` or `.Case<T>(...)` syntax used for other generic types.
+* Unions participate in pattern matching; the `.Case(...)` pattern is sugar for the compiler-generated `TryGetCase` helper. No other member kinds (fields, methods, etc.) may appear in the union body.
+
+Constructing a case uses either the fully qualified form (`Result<int>.Ok(1)`) or, when the target type is known, the shorthand `.Ok(1)` expression. Each case lowers to its own nested struct type that exposes the payload via public fields and defines an implicit conversion back to the outer union, so cases can flow through APIs independently when necessary.
+
+#### Generated structure and metadata
+
+Every union declaration lowers to a sealed struct that contains two private fields: `_discriminator : int` stores the active case index and `_payload : object` holds the boxed case data. The compiler synthesizes a private constructor that initializes both fields, public static constructors for each case, and helper members:
+
+* Nested structs named after each case. These structs copy the payload parameters by value, define an implicit conversion operator that constructs the containing union, and surface the payload fields publicly.
+* A `bool TryGetCase(ref CaseType)` method per case. The parameter is passed by `ref` so the caller-provided storage receives a copy of the payload when the discriminator matches. When the case does not match the method returns `false` and leaves the storage untouched.
+* `TryGet` helpers and implicit conversions are also synthesized for generic cases so that type parameters flow correctly through the API surface.
+* The lowered union struct is annotated with a synthesized `[DiscriminatedUnion]` attribute. The attribute is emitted once per assembly and applied only to the outer struct so metadata consumers can distinguish discriminated unions from ordinary structs. Case structs remain unannotated.
+
+#### Restrictions
+
+* A union must declare at least one case; empty bodies produce diagnostic `RAV0401`.
+* Case parameter lists may not contain `ref`, `in`, or `out` parameters because payloads are copied into the union’s storage; violations produce diagnostic `RAV0402`.
+* Case declarations are the only members allowed inside a union body.
+
+These constraints guarantee that unions remain pure value types with predictable metadata and code generation, and they ensure the synthesized helpers provide a uniform surface for pattern matching, reflection, and interop.
+
 Examples:
 
 ```raven

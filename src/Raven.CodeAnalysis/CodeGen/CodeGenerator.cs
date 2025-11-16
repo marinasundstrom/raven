@@ -207,14 +207,14 @@ internal class CodeGenerator
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
-    public Type? UnionAttributeType { get; private set; }
+    public Type? DiscriminatedUnionAttributeType { get; private set; }
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _tupleElementNamesCtor;
-    ConstructorInfo? _unionAttributeCtor;
+    ConstructorInfo? _discriminatedUnionAttributeCtor;
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
-    bool _emitUnionAttribute;
+    bool _emitDiscriminatedUnionAttribute;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
     {
@@ -534,8 +534,8 @@ internal class CodeGenerator
 
         if (_emitTypeUnionAttribute)
             CreateTypeUnionAttribute();
-        if (_emitUnionAttribute)
-            CreateUnionAttribute();
+        if (_emitDiscriminatedUnionAttribute)
+            CreateDiscriminatedUnionAttribute();
         if (_emitNullType)
             CreateNullStruct();
         CreateUnitStruct();
@@ -615,7 +615,7 @@ internal class CodeGenerator
         foreach (var type in types)
         {
             if (type is SourceNamedTypeSymbol { IsUnionDeclaration: true })
-                _emitUnionAttribute = true;
+                _emitDiscriminatedUnionAttribute = true;
 
             foreach (var member in type.GetMembers())
             {
@@ -748,10 +748,10 @@ internal class CodeGenerator
         TypeUnionAttributeType = attrBuilder.CreateType();
     }
 
-    private void CreateUnionAttribute()
+    private void CreateDiscriminatedUnionAttribute()
     {
         var attrBuilder = ModuleBuilder.DefineType(
-            "UnionAttribute",
+            "DiscriminatedUnionAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
             typeof(Attribute));
 
@@ -780,19 +780,19 @@ internal class CodeGenerator
         ilCtor.Emit(OpCodes.Call, attributeCtor);
         ilCtor.Emit(OpCodes.Ret);
 
-        UnionAttributeType = attrBuilder.CreateType();
+        DiscriminatedUnionAttributeType = attrBuilder.CreateType();
     }
 
-    internal void ApplyUnionAttribute(TypeBuilder builder)
+    internal void ApplyDiscriminatedUnionAttribute(TypeBuilder builder)
     {
-        if (UnionAttributeType is null)
+        if (DiscriminatedUnionAttributeType is null)
             return;
 
-        _unionAttributeCtor ??= UnionAttributeType.GetConstructor(Type.EmptyTypes);
-        if (_unionAttributeCtor is null)
-            throw new InvalidOperationException("UnionAttribute is missing a public parameterless constructor.");
+        _discriminatedUnionAttributeCtor ??= DiscriminatedUnionAttributeType.GetConstructor(Type.EmptyTypes);
+        if (_discriminatedUnionAttributeCtor is null)
+            throw new InvalidOperationException("DiscriminatedUnionAttribute is missing a public parameterless constructor.");
 
-        var attributeBuilder = new CustomAttributeBuilder(_unionAttributeCtor, Array.Empty<object>());
+        var attributeBuilder = new CustomAttributeBuilder(_discriminatedUnionAttributeCtor, Array.Empty<object>());
         builder.SetCustomAttribute(attributeBuilder);
     }
 

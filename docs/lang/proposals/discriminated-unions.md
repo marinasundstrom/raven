@@ -70,7 +70,7 @@ The leading `.` in the pattern is the target-member pattern syntax. When used in
 ## Runtime representation
 
 * Each union is compiled into a sealed `struct` that stores an integer discriminator alongside an `object` payload reference. Case values are boxed before being stored in the payload slot.
-* The outer struct is annotated with a synthesized `[Union]` attribute so metadata consumers can distinguish union declarations from ordinary structs. Case structs are not annotated.
+* The outer struct is annotated with a synthesized `[DiscriminatedUnion]` attribute so metadata consumers can distinguish union declarations from ordinary structs. Case structs are not annotated.
 * Each case becomes a nested `struct` containing only its payload and an implicit conversion back to the outer union.
 * For reference types the language will eventually support closed class hierarchies. Until then unions remain structs.
 * Helper methods such as `bool TryGetIdentifier(ref Identifier?)` or `bool TryGetOk(ref Ok<T>?)` are generated to enable low-level inspection and facilitate exhaustiveness analysis in contexts outside of pattern matching.
