@@ -16,7 +16,7 @@ COMPILER_EXC="ravc"
 EXCLUDE=(
   "test.rav"
   "tokenizer.rav"
-  #"test8.rav"
+  #"async-generic-compute.rav"
   # add others here if needed
 )
 
@@ -30,7 +30,7 @@ is_excluded() {
   return 1
 }
 
-rav_files=( samples/*.rav )
+rav_files=( samples/*.rav samples/async/*.rav )
 
 if (( ${#rav_files[@]} == 0 )); then
   echo "No .rav files found under samples/."

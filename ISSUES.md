@@ -13,7 +13,7 @@ Re-running every sample with `dotnet run --no-build --project src/Raven.Compiler
 | Sample | Status | Notes |
 | --- | --- | --- |
 | `arrays.rav` | ✅ Emitted / ✅ Ran | Recompiled via the CLI; running the emitted DLL prints 3, 1, 42, 3 as before.【0f5042†L1-L4】【1e4274†L1-L5】 |
-| `async-await.rav` | ✅ Emitted / ✅ Ran | The async sample now executes to completion, printing `first:1`, `sum:6`, and `done`.【5edb92†L1-L9】 |
+| `samples/async/async-await.rav` | ✅ Emitted / ✅ Ran | The async sample now executes to completion, printing `first:1`, `sum:6`, and `done`.【5edb92†L1-L9】 |
 | `catch.rav` | ✅ Emitted / ✅ Ran | Running the compiled DLL prints `Foo`.【5edb92†L10-L18】 |
 | `classes.rav` | ✅ Emitted / ✅ Ran | Execution prints `Hello`, `John`, the projected record, and the trailing unit value.【f240ae†L1-L10】 |
 | `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster in order when executed.【e1ebe5†L1-L11】 |
@@ -46,7 +46,7 @@ Re-running every sample with `dotnet run --no-build --project src/Raven.Compiler
 | `type-unions.rav` | ✅ Emitted / ⚠️ External dependency | Copying `TestDep.dll` beside the DLL enables execution, which then prints the expected projections.【594209†L1-L4】【95e0e1†L31-L42】 |
 | `unit.rav` | ✅ Emitted / ✅ Ran | Outputs `Hello` and the unit literals when executed.【95e0e1†L42-L50】 |
 
-**Runtime observations.** `async-await.rav` now runs to completion after the CompletedTask fix, while `reflection.rav` currently throws because its `members` array only contains a single element; `type-unions.rav` still requires copying `TestDep.dll` next to the emitted assembly. The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument.【5edb92†L1-L9】【380b9b†L1-L12】【95e0e1†L31-L42】【a15227†L1-L9】【44eca3†L1-L39】【304e7a†L1-L6】【b95219†L1-L4】【c6be6c†L1-L3】
+**Runtime observations.** `samples/async/async-await.rav` now runs to completion after the CompletedTask fix, while `reflection.rav` currently throws because its `members` array only contains a single element; `type-unions.rav` still requires copying `TestDep.dll` next to the emitted assembly. The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument.【5edb92†L1-L9】【380b9b†L1-L12】【95e0e1†L31-L42】【a15227†L1-L9】【44eca3†L1-L39】【304e7a†L1-L6】【b95219†L1-L4】【c6be6c†L1-L3】
 
 ## Common problem patterns
 - **Symbol binding recursion (resolved):** `SymbolEqualityComparer` now tracks visited symbol pairs to break cycles when inspecting extension methods, interface defaults, and interpolated strings. The affected samples (`samples/main.rav`, `samples/generator.rav`, `samples/interfaces.rav`, `samples/linq.rav`, and `samples/reflection.rav`) compile successfully again.【F:src/Raven.CodeAnalysis/SymbolEqualityComparer.cs†L1-L215】【4528a4†L1-L4】【2941cf†L1-L3】【152141†L1-L2】【d2560e†L1-L3】【2a10c8†L1-L2】【a8337e†L1-L3】【14c359†L1-L2】【4013ab†L1-L3】【9f9ee0†L1-L2】【6a0816†L1-L3】
