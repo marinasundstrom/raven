@@ -5,6 +5,8 @@
 set -Euo pipefail
 shopt -s nullglob
 
+PROJECT_DIR="src/Raven.Compiler"
+
 OUTPUT_DIR="output"
 if [[ -d "$OUTPUT_DIR" ]]; then
   rm -rf "$OUTPUT_DIR"
@@ -33,7 +35,7 @@ is_excluded() {
   return 1
 }
 
-rav_files=( samples/*.rav samples/async/*.rav samples/generics/*.rav )
+rav_files=( *.rav async/*.rav generics/*.rav )
 
 if (( ${#rav_files[@]} == 0 )); then
   echo "No .rav files found under samples/."
@@ -41,7 +43,7 @@ if (( ${#rav_files[@]} == 0 )); then
 fi
 
 # Make sure the compiler has been built
-dotnet build -c $BUILD_CONFIG
+dotnet build $PROJECT_DIR -c $BUILD_CONFIG
 
 failures=()
 successes=()
@@ -59,7 +61,7 @@ for file in "${rav_files[@]}"; do
 
   echo "Compiling: $file -> $output"
   
-  if ! "./bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC" -- "$file" -o "$output"; then
+  if ! "../$PROJECT_DIR/bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC" -- "$file" -o "$output"; then
     rc=$?
     echo "❌ Compile failed ($rc): $filename"
     failures+=("$filename (exit $rc)")
@@ -71,7 +73,7 @@ for file in "${rav_files[@]}"; do
 done
 
 # Copy dependency (this should not stop script if missing)
-cp ../TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
+cp ../src/TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
   echo "Warning: Could not copy TestDep.dll"
 
 echo "===== Compile Summary ====="
