@@ -721,12 +721,45 @@ internal partial class BlockBinder
 
     private BoundSingleVariableDesignator? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
     {
-        var declaration = singleVariableDesignation.Parent as DeclarationPatternSyntax;
-        var name = singleVariableDesignation.Identifier.ValueText;
-        var type = ResolveType(declaration.Type);
+        if (singleVariableDesignation.Identifier.IsMissing)
+            return null;
 
-        var local = CreateLocalSymbol(singleVariableDesignation, name, isMutable: false, type);
+        var name = singleVariableDesignation.Identifier.ValueText;
+        if (string.IsNullOrEmpty(name) || name == "_")
+            return null;
+
+        var (typeSyntax, isMutable) = GetPatternDesignationContext(singleVariableDesignation);
+        var type = typeSyntax is null
+            ? Compilation.GetSpecialType(SpecialType.System_Object)
+            : ResolveType(typeSyntax);
+
+        var local = CreateLocalSymbol(singleVariableDesignation, name, isMutable, type);
 
         return new BoundSingleVariableDesignator(local);
+    }
+
+    private (TypeSyntax? Type, bool IsMutable) GetPatternDesignationContext(SingleVariableDesignationSyntax designation)
+    {
+        TypeSyntax? typeSyntax = null;
+        var isMutable = false;
+
+        for (SyntaxNode? node = designation.Parent; node is not null; node = node.Parent)
+        {
+            switch (node)
+            {
+                case DeclarationPatternSyntax declarationPattern:
+                    typeSyntax ??= declarationPattern.Type;
+                    return (typeSyntax, isMutable);
+                case TypedVariableDesignationSyntax typedDesignation:
+                    typeSyntax ??= typedDesignation.TypeAnnotation.Type;
+                    break;
+                case VariablePatternSyntax variablePattern:
+                    if (variablePattern.BindingKeyword.IsKind(SyntaxKind.VarKeyword))
+                        isMutable = true;
+                    break;
+            }
+        }
+
+        return (typeSyntax, isMutable);
     }
 }

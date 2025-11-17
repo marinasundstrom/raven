@@ -1,6 +1,11 @@
 import System.*
 import System.Console.*
 
+union Option<T> {
+    Some(value: T)
+    None()
+}
+
 union Result<T> {
     Ok(value: T)
     Error(message: string)
@@ -15,14 +20,14 @@ func divide(numerator: int, denominator: int) -> Result<int> {
     return .Ok(value: quotient)
 }
 
-func format(result: Result<int>) -> string {
+func formatResult(result: Result<int>) -> string {
     return result match {
         .Ok(let value) => "ok ${value}",
         .Error(let message) => "error ${message}"
     }
 }
 
-func describe(result: Result<int>) -> string {
+func describeResult(result: Result<int>) -> string {
     if result is .Ok(let payload) {
         return "value was ${payload}"
     }
@@ -33,6 +38,23 @@ func describe(result: Result<int>) -> string {
     return "unreachable"
 }
 
+func findFirstEven(values: int[]) -> Option<int> {
+    for each candidate in values {
+        if candidate == (candidate / 2) * 2 {
+            return .Some(value: candidate)
+        }
+    }
+
+    return .None()
+}
+
+func formatOption(option: Option<int>) -> string {
+    return option match {
+        .Some(let value) => "some ${value}",
+        .None => "none"
+    }
+}
+
 let divisions = [
     (numerator: 42, denominator: 2),
     (numerator: 15, denominator: 0),
@@ -41,8 +63,14 @@ let divisions = [
 
 for each operation in divisions {
     let outcome = divide(operation.numerator, operation.denominator)
-    WriteLine("${operation.numerator} / ${operation.denominator} => ${format(outcome)}")
+    WriteLine("${operation.numerator} / ${operation.denominator} => ${formatResult(outcome)}")
 }
 
 let final = divide(100, 5)
-WriteLine(describe(final))
+WriteLine(describeResult(final))
+
+let firstEven = findFirstEven([9, 11, 2, 5])
+WriteLine("first even => ${formatOption(firstEven)}")
+
+let allOdd = findFirstEven([7, 3, 1])
+WriteLine("all odd => ${formatOption(allOdd)}")

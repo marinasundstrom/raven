@@ -505,6 +505,37 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_SemanticModel_ReturnsSymbolForVariableDesignation()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = value match {
+    let text => text
+    _ => ""
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var designation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(node => node.Identifier.ValueText == "text");
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        Assert.Equal("text", local.Name);
+        Assert.False(local.IsMutable);
+    }
+
+    [Fact]
     public void MatchExpression_WithArrayTypePattern_BindsArrayType()
     {
         const string code = """
