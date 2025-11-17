@@ -33,7 +33,7 @@ is_excluded() {
   return 1
 }
 
-rav_files=( samples/*.rav samples/async/*.rav )
+rav_files=( samples/*.rav samples/async/*.rav samples/generics/*.rav )
 
 if (( ${#rav_files[@]} == 0 )); then
   echo "No .rav files found under samples/."
