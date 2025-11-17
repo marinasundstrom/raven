@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -27,6 +28,9 @@ internal class TypeGenerator
     public IEnumerable<MethodGenerator> MethodGenerators => _methodGenerators.Values;
 
     public Type? Type { get; private set; }
+
+    ImmutableArray<ITypeParameterSymbol> _inheritedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    bool _releasedInheritedTypeParameters;
 
     public TypeGenerator(CodeGenerator codeGen, ITypeSymbol typeSymbol)
     {
@@ -93,14 +97,35 @@ internal class TypeGenerator
             return;
         }
 
+        TypeBuilder? containingTypeBuilder = null;
+        if (TypeSymbol is INamedTypeSymbol { ContainingType: INamedTypeSymbol containingType })
+        {
+            var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
+            if (containingGenerator.TypeBuilder is null)
+                containingGenerator.DefineTypeBuilder();
+
+            containingTypeBuilder = containingGenerator.TypeBuilder;
+        }
+
         var syntaxReference = TypeSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is not null)
         {
             if (TypeSymbol is INamedTypeSymbol nt && nt.TypeKind == TypeKind.Interface)
             {
-                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                    TypeSymbol.MetadataName,
-                    typeAttributes);
+                if (containingTypeBuilder is not null)
+                {
+                    var nestedName = GetNestedTypeMetadataName(nt);
+                    TypeBuilder = containingTypeBuilder.DefineNestedType(
+                        nestedName,
+                        typeAttributes);
+                }
+                else
+                {
+                    TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                        TypeSymbol.MetadataName,
+                        typeAttributes);
+                }
+
                 DefineTypeGenericParameters(nt);
 
                 if (!nt.Interfaces.IsDefaultOrEmpty)
@@ -113,15 +138,30 @@ internal class TypeGenerator
                 return;
             }
 
-            TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                TypeSymbol.MetadataName,
-                typeAttributes);
+            if (containingTypeBuilder is not null && TypeSymbol is INamedTypeSymbol nestedType)
+            {
+                var nestedName = GetNestedTypeMetadataName(nestedType);
+                var baseClrType = TypeSymbol.BaseType is not null
+                    ? ResolveClrType(TypeSymbol.BaseType)
+                    : null;
+
+                TypeBuilder = containingTypeBuilder.DefineNestedType(
+                    nestedName,
+                    typeAttributes,
+                    baseClrType);
+            }
+            else
+            {
+                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                    TypeSymbol.MetadataName,
+                    typeAttributes);
+
+                if (TypeSymbol.BaseType is not null)
+                    TypeBuilder.SetParent(ResolveClrType(TypeSymbol.BaseType));
+            }
 
             if (TypeSymbol is INamedTypeSymbol namedType)
                 DefineTypeGenericParameters(namedType);
-
-            if (TypeSymbol.BaseType is not null)
-                TypeBuilder.SetParent(ResolveClrType(TypeSymbol.BaseType));
 
         }
         else if (TypeSymbol is INamedTypeSymbol synthesizedType)
@@ -145,24 +185,24 @@ internal class TypeGenerator
                     synthesizedAttributes |= TypeAttributes.Sealed;
             }
 
-            TypeBuilder? containingTypeBuilder = null;
-            if (synthesizedType.ContainingType is INamedTypeSymbol containingType)
+            TypeBuilder? synthesizedContainingBuilder = null;
+            if (synthesizedType.ContainingType is INamedTypeSymbol synthesizedContainingType)
             {
-                var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
+                var containingGenerator = CodeGen.GetOrCreateTypeGenerator(synthesizedContainingType);
                 if (containingGenerator.TypeBuilder is null)
                     containingGenerator.DefineTypeBuilder();
 
-                containingTypeBuilder = containingGenerator.TypeBuilder;
+                synthesizedContainingBuilder = containingGenerator.TypeBuilder;
             }
 
             var baseClrType = synthesizedType.BaseType is not null
                 ? ResolveClrType(synthesizedType.BaseType)
                 : null;
 
-            if (containingTypeBuilder is not null)
+            if (synthesizedContainingBuilder is not null)
             {
                 var nestedName = GetNestedTypeMetadataName(synthesizedType);
-                TypeBuilder = containingTypeBuilder.DefineNestedType(
+                TypeBuilder = synthesizedContainingBuilder.DefineNestedType(
                     nestedName,
                     synthesizedAttributes,
                     baseClrType);
@@ -206,11 +246,40 @@ internal class TypeGenerator
         if (TypeBuilder is null)
             return;
 
-        if (namedType.TypeParameters.IsDefaultOrEmpty)
+        var allTypeParameters = GetTypeParametersInScope(namedType);
+        if (allTypeParameters.IsDefaultOrEmpty)
             return;
 
-        var parameterBuilders = TypeBuilder.DefineGenericParameters(namedType.TypeParameters.Select(tp => tp.Name).ToArray());
-        CodeGen.RegisterGenericParameters(namedType.TypeParameters, parameterBuilders);
+        var parameterBuilders = TypeBuilder.DefineGenericParameters(allTypeParameters.Select(tp => tp.Name).ToArray());
+        CodeGen.RegisterGenericParameters(allTypeParameters, parameterBuilders);
+
+        _inheritedTypeParameters = namedType.ContainingType is null
+            ? ImmutableArray<ITypeParameterSymbol>.Empty
+            : GetTypeParametersInScope(namedType.ContainingType);
+    }
+
+    private static ImmutableArray<ITypeParameterSymbol> GetTypeParametersInScope(INamedTypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        var stack = new Stack<INamedTypeSymbol>();
+        var current = typeSymbol;
+        while (current is not null)
+        {
+            stack.Push(current);
+            current = current.ContainingType;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>();
+        while (stack.Count > 0)
+        {
+            var next = stack.Pop();
+            if (!next.TypeParameters.IsDefaultOrEmpty)
+                builder.AddRange(next.TypeParameters);
+        }
+
+        return builder.ToImmutable();
     }
 
     private static TypeAttributes GetTypeAccessibilityAttributes(INamedTypeSymbol typeSymbol)
@@ -545,7 +614,19 @@ internal class TypeGenerator
             closure.CreateType();
 
         Type ??= TypeBuilder!.CreateType();
+        ReleaseInheritedGenericParameters();
         return Type!;
+    }
+
+    private void ReleaseInheritedGenericParameters()
+    {
+        if (_releasedInheritedTypeParameters)
+            return;
+
+        if (!_inheritedTypeParameters.IsDefaultOrEmpty)
+            CodeGen.UnregisterGenericParameters(_inheritedTypeParameters);
+
+        _releasedInheritedTypeParameters = true;
     }
 
     public bool HasMethodGenerator(IMethodSymbol methodSymbol)

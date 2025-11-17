@@ -142,6 +142,18 @@ internal class CodeGenerator
         }
     }
 
+    internal void UnregisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters)
+    {
+        if (parameters.IsDefaultOrEmpty)
+            return;
+
+        foreach (var parameter in parameters)
+        {
+            if (_genericParameterMap.TryGetValue(parameter, out var stack) && stack.Count > 0)
+                stack.Pop();
+        }
+    }
+
     private Stack<Type> GetOrCreateGenericParameterStack(ITypeParameterSymbol parameter)
     {
         if (!_genericParameterMap.TryGetValue(parameter, out var stack))
