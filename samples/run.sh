@@ -5,7 +5,13 @@
 set -Euo pipefail
 shopt -s nullglob
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 OUTPUT_DIR="${OUTPUT_DIR:-output}"
+if [[ "$OUTPUT_DIR" != /* ]]; then
+  OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
+fi
 
 # List of dlls to exclude (filenames only)
 EXCLUDE=(
