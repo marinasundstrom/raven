@@ -1,6 +1,6 @@
 # Proposal: Discriminated unions
 
-> ⚠️ This proposal has **NOT** been implemented
+> ✅ The syntax described here is implemented in the parser. Emission and semantic analysis remain future work.
 
 Discriminated unions are value types that represent a fixed set of alternative shapes. Each alternative is modeled as a distinct nested struct type whose constructor is declared inline with the union definition. The compiler emits `TryGet*` helpers for each case and pattern matching is expressed in terms of these helpers, ensuring exhaustiveness.
 

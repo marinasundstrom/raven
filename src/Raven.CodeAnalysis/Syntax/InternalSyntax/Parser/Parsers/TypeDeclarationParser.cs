@@ -273,6 +273,12 @@ internal class TypeDeclarationParser : SyntaxParser
                 memberDeclarationCheckpoint.Dispose();
                 return new EnumDeclarationParser(this).Parse();
             }
+
+            if (typeKeywordKind == SyntaxKind.UnionKeyword)
+            {
+                memberDeclarationCheckpoint.Dispose();
+                return new UnionDeclarationParser(this).Parse();
+            }
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
@@ -285,6 +291,12 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             memberDeclarationCheckpoint.Dispose();
             return new EnumDeclarationParser(this).Parse();
+        }
+
+        if (keywordOrIdentifier.IsKind(SyntaxKind.UnionKeyword))
+        {
+            memberDeclarationCheckpoint.Dispose();
+            return new UnionDeclarationParser(this).Parse();
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))

@@ -2069,6 +2069,33 @@ import Grades.*
 let best = A
 ```
 
+### Discriminated unions
+
+A discriminated union declaration defines a value type composed of a fixed set
+of **cases**. Each case acts like an inline constructor with an optional payload
+described by a parameter list. Unions use the `union` keyword:
+
+```raven
+union Token {
+    Identifier(text: string)
+    Number(value: int)
+    Unknown
+}
+```
+
+Unions may declare type parameters (`union Result<T> { ... }`). Each case shares
+the union's type parameters, and can be referenced either via the type name or
+with the leading-dot shorthand:
+
+```raven
+let token = Token.Identifier("foo")
+let other: Token = .Unknown
+```
+
+Each case becomes a nested struct that can be constructed directly. Pattern
+matching exhaustively checks every case; see [Pattern matching](#pattern-matching)
+for examples of the leading-dot syntax inside `match` expressions.
+
 ## Object-oriented types
 
 For guidance on declaring classes, structs, members, and interfaces, see
