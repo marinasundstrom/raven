@@ -18,6 +18,7 @@
   <TokenKind Name="ConstKeyword" Text="const" IsReservedWord="true" />
   <TokenKind Name="FuncKeyword" Text="func" IsReservedWord="true" />
   <TokenKind Name="EnumKeyword" Text="enum" IsReservedWord="true" />
+  <TokenKind Name="UnionKeyword" Text="union" IsReservedWord="true" />
   <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />
   <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
   <TokenKind Name="InterfaceKeyword" Text="interface" IsReservedWord="true" />
