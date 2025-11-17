@@ -8,11 +8,11 @@ union Result<T> {
 
 func divide(numerator: int, denominator: int) -> Result<int> {
     if denominator == 0 {
-        return Result<int>.Error(message: "Cannot divide by zero")
+        return .Error(message: "Cannot divide by zero")
     }
 
     let quotient = numerator / denominator
-    return Result<int>.Ok(value: quotient)
+    return .Ok(value: quotient)
 }
 
 func format(result: Result<int>) -> string {

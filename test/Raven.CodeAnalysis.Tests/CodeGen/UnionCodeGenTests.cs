@@ -130,4 +130,51 @@ class Program {
 
         Assert.Equal("ok 5\nerror boom", output);
     }
+
+    [Fact]
+    public void TargetTypedMemberBinding_ConstructsUnionCasesInReturnAndAssignment()
+    {
+        const string source = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+class Program {
+    static Main() -> unit {
+        System.Console.WriteLine(Describe(Divide(9, 3)));
+        System.Console.WriteLine(Describe(Divide(1, 0)));
+    }
+
+    static Divide(numerator: int, denominator: int) -> Result<int> {
+        if denominator == 0 {
+            return .Error(message: "Cannot divide by zero");
+        }
+
+        let result: Result<int> = .Ok(value: numerator / denominator);
+        return result;
+    }
+
+    static Describe(value: Result<int>) -> string {
+        var ok: Result<int>.Ok;
+        if (value.TryGetOk(ref ok)) {
+            return ok.value.ToString();
+        }
+
+        var error: Result<int>.Error;
+        if (value.TryGetError(ref error)) {
+            return error.message;
+        }
+
+        return "unknown";
+    }
+}
+""";
+
+        var output = CodeGenTestUtilities.EmitAndRun(source, "union_target_typed_case_binding");
+        if (output is null)
+            return;
+
+        Assert.Equal("3\nCannot divide by zero", output);
+    }
 }

@@ -2239,6 +2239,12 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(member, nameLocation, GetSymbolKindForDiagnostic(member)))
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
+            if (member is INamedTypeSymbol nestedType)
+            {
+                var constructedReceiver = expectedType as ConstructedNamedTypeSymbol;
+                return new BoundTypeExpression(nestedType, constructedReceiver);
+            }
+
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
 
@@ -3575,6 +3581,26 @@ partial class BlockBinder : Binder
 
                 receiver = memberExpr.Receiver;
                 methodName = method.Name;
+            }
+            else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
+            {
+                var argExprs = new List<BoundArgument>();
+                bool argErrors = false;
+                foreach (var arg in syntax.ArgumentList.Arguments)
+                {
+                    var boundArg = BindExpression(arg.Expression);
+                    if (boundArg is BoundErrorExpression)
+                        argErrors = true;
+                    var name = arg.NameColon?.Name.Identifier.ValueText;
+                    if (string.IsNullOrEmpty(name))
+                        name = null;
+                    argExprs.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
+                }
+
+                if (argErrors)
+                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+
+                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax, typeReference: (BoundTypeExpression)boundMember);
             }
             else
             {
