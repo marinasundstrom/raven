@@ -24,6 +24,16 @@ internal static class CodeGenTestUtilities
         return peStream.ToArray();
     }
 
+    internal static byte[] EmitLibrary(string code, string assemblyName, params string[] additionalSources)
+    {
+        var compilation = CreateCompilation(code, assemblyName, OutputKind.DynamicallyLinkedLibrary, additionalSources);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Xunit.Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        return peStream.ToArray();
+    }
+
     internal static string? EmitAndRun(string code, string assemblyName, params string[] additionalSources)
     {
         var compilation = CreateCompilation(code, assemblyName, additionalSources);
@@ -82,6 +92,9 @@ internal static class CodeGenTestUtilities
     internal static MetadataReference[] RuntimeMetadataReferences { get; } = GetRuntimeMetadataReferences();
 
     private static Compilation CreateCompilation(string code, string assemblyName, params string[] additionalSources)
+        => CreateCompilation(code, assemblyName, OutputKind.ConsoleApplication, additionalSources);
+
+    private static Compilation CreateCompilation(string code, string assemblyName, OutputKind outputKind, params string[] additionalSources)
     {
         var syntaxTrees = new List<RavenSyntaxTree> { RavenSyntaxTree.ParseText(code) };
 
@@ -90,7 +103,7 @@ internal static class CodeGenTestUtilities
 
         var references = RuntimeMetadataReferences;
 
-        return Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
+        return Compilation.Create(assemblyName, new CompilationOptions(outputKind))
             .AddSyntaxTrees(syntaxTrees.ToArray())
             .AddReferences(references);
     }

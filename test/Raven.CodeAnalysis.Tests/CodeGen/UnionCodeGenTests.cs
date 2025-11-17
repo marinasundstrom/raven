@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 using Xunit;
 
@@ -203,5 +206,46 @@ class Program {
         Assert.Contains(
             exception.LoaderExceptions.OfType<TypeLoadException>(),
             loader => loader.Message.Contains("field of an illegal type", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void UnionCaseStructs_GenericUnion_DefineCasesWithoutForwardingTypeParameters()
+    {
+        const string source = """
+union Result<T> {
+    Ok(value: T)
+}
+
+class Program {
+    static Main() -> unit { }
+}
+""";
+
+        var image = CodeGenTestUtilities.EmitLibrary(source, "union_generic_case_signature");
+        using var peReader = new PEReader(new MemoryStream(image));
+        var reader = peReader.GetMetadataReader();
+
+        var unionHandle = reader.TypeDefinitions.Single(handle =>
+        {
+            var definition = reader.GetTypeDefinition(handle);
+            return reader.GetString(definition.Name) == "Result`1";
+        });
+
+        var unionDefinition = reader.GetTypeDefinition(unionHandle);
+        var okHandle = unionDefinition.GetNestedTypes().Single(handle =>
+        {
+            var nested = reader.GetTypeDefinition(handle);
+            return reader.GetString(nested.Name) == "Ok";
+        });
+
+        var okDefinition = reader.GetTypeDefinition(okHandle);
+        Assert.Equal(0, okDefinition.GetGenericParameters().Count);
+
+        var payloadFieldHandle = okDefinition.GetFields().Single();
+        var payloadField = reader.GetFieldDefinition(payloadFieldHandle);
+        var signatureReader = reader.GetBlobReader(payloadField.Signature);
+        var signature = signatureReader.ReadBytes(signatureReader.Length);
+
+        Assert.Contains((byte)SignatureTypeCode.GenericTypeParameter, signature);
     }
 }
