@@ -31,6 +31,7 @@ Declaration              ::= NamespaceDeclaration
                            | FunctionDeclaration
                            | ExtensionDeclaration
                            | EnumDeclaration
+                           | UnionDeclaration
                            | ClassDeclaration
                            | StructDeclaration
                            | InterfaceDeclaration ;
@@ -71,8 +72,15 @@ ClassDeclaration         ::= TypeModifiers? 'class' Identifier PrimaryConstructo
 PrimaryConstructor       ::= '(' ParameterList? ')' ;
 StructDeclaration        ::= TypeModifiers? 'struct' Identifier ClassBody ;
 InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier BaseList? ClassBody ;
+UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList?
+                             '{' UnionCaseList '}' TypeTerminator? ;
+UnionCaseList            ::= UnionCaseClause {UnionCaseClause} ;
+UnionCaseClause          ::= Identifier ParameterList? ;
 BaseList                 ::= ':' Type {',' Type} ;
 ClassBody                ::= '{' {ClassMember} '}' ;
+
+TypeTerminator           ::= NewLineToken | ';' ;
+NewLineToken             ::= /* newline trivia promoted to a token after type declarations */ ;
 
 ClassMember              ::= FieldDeclaration
                            | MethodDeclaration
