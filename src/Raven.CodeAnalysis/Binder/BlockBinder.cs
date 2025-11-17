@@ -2036,6 +2036,12 @@ partial class BlockBinder : Binder
                 if (!EnsureMemberAccessible(nonMethodMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(nonMethodMember)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
+                if (nonMethodMember is INamedTypeSymbol nestedType)
+                {
+                    var constructedReceiver = typeExpr.Type as ConstructedNamedTypeSymbol;
+                    return new BoundTypeExpression(nestedType, constructedReceiver);
+                }
+
                 return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
             }
 
@@ -2070,6 +2076,12 @@ partial class BlockBinder : Binder
 
             if (!EnsureMemberAccessible(member, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+            if (member is INamedTypeSymbol nestedTypeMember)
+            {
+                var constructedReceiver = typeExpr.Type as ConstructedNamedTypeSymbol;
+                return new BoundTypeExpression(nestedTypeMember, constructedReceiver);
+            }
 
             return new BoundMemberAccessExpression(typeExpr, member);
         }
@@ -3517,7 +3529,7 @@ partial class BlockBinder : Binder
                 if (argErrors)
                     return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
-                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax);
+                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax, typeReference: (BoundTypeExpression)boundMember);
             }
             else
             {
@@ -3630,7 +3642,7 @@ partial class BlockBinder : Binder
 
             var typeExpr = BindTypeSyntax(generic);
             if (typeExpr is BoundTypeExpression type && type.Type is INamedTypeSymbol namedType)
-                return BindConstructorInvocation(namedType, genericBoundArguments, syntax);
+                return BindConstructorInvocation(namedType, genericBoundArguments, syntax, typeReference: type);
 
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
@@ -3735,7 +3747,7 @@ partial class BlockBinder : Binder
                     .FirstOrDefault();
 
                 if (nestedType is not null)
-                    return BindConstructorInvocation(nestedType, boundArguments, syntax, receiver);
+                    return BindConstructorInvocation(nestedType, boundArguments, syntax, receiver, receiver as BoundTypeExpression);
 
                 ReportSuppressedLambdaDiagnostics(boundArguments);
                 _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
@@ -3748,7 +3760,7 @@ partial class BlockBinder : Binder
                 .FirstOrDefault();
 
             if (nested is not null)
-                return BindConstructorInvocation(nested, boundArguments, syntax, receiver);
+                return BindConstructorInvocation(nested, boundArguments, syntax, receiver, receiver as BoundTypeExpression);
 
             _diagnostics.ReportMemberDoesNotContainDefinition(typeReceiver.Type.Name, methodName, syntax.Expression.GetLocation());
 
@@ -3930,9 +3942,21 @@ partial class BlockBinder : Binder
         INamedTypeSymbol typeSymbol,
         BoundArgument[] boundArguments,
         InvocationExpressionSyntax syntax,
-        BoundExpression? receiver = null)
+        BoundExpression? receiver = null,
+        BoundTypeExpression? typeReference = null)
     {
-        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
+        var constructors = typeSymbol.Constructors;
+
+        if (typeReference?.ConstructedReceiver is ConstructedNamedTypeSymbol constructedReceiver &&
+            typeSymbol.ContainingType is { } containingType &&
+            SymbolEqualityComparer.Default.Equals(containingType, constructedReceiver.ConstructedFrom))
+        {
+            constructors = constructors
+                .Select(c => (IMethodSymbol)new UnionCaseConstructorSymbol(c, constructedReceiver))
+                .ToImmutableArray();
+        }
+
+        var resolution = OverloadResolver.ResolveOverload(constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
         if (resolution.Success)
         {
             var constructor = resolution.Method!;

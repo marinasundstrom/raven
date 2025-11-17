@@ -1441,6 +1441,8 @@ public partial class SemanticModel
             caseBinder.EnsureTypeParameterConstraintTypesResolved(caseTypeSymbol.TypeParameters);
             _binderCache[caseDeclaration] = caseBinder;
 
+            var parameterCount = caseDeclaration.ParameterList?.Parameters.Count ?? 0;
+
             var caseConstructor = new SourceMethodSymbol(
                 ".ctor",
                 unitType,
@@ -1454,7 +1456,7 @@ public partial class SemanticModel
                 methodKind: MethodKind.Constructor,
                 declaredAccessibility: Accessibility.Public);
 
-            var caseParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
+            var caseParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(parameterCount);
             var seenOptionalParameter = false;
 
             if (caseDeclaration.ParameterList is not null)

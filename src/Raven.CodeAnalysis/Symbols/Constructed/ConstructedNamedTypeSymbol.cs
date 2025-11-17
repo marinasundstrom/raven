@@ -20,17 +20,21 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 
-    public ConstructedNamedTypeSymbol(INamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
+    public ConstructedNamedTypeSymbol(
+        INamedTypeSymbol originalDefinition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? parentSubstitutionMap = null)
     {
         ConstructedFrom = originalDefinition;
         _originalDefinition = originalDefinition;
         TypeArguments = typeArguments;
 
-        _substitutionMap = originalDefinition.TypeParameters
-            .Zip(TypeArguments, (p, a) => (p, a))
-            .ToDictionary(x => x.p, x => x.a);
+        _substitutionMap = parentSubstitutionMap is null
+            ? new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default)
+            : new Dictionary<ITypeParameterSymbol, ITypeSymbol>(parentSubstitutionMap, SymbolEqualityComparer.Default);
 
-        _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(_substitutionMap, SymbolEqualityComparer.Default);
+        foreach (var (parameter, argument) in originalDefinition.TypeParameters.Zip(TypeArguments, (p, a) => (p, a)))
+            _substitutionMap[parameter] = argument;
     }
 
     public ITypeSymbol Substitute(ITypeSymbol type)
@@ -214,16 +218,29 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     {
         if (_originalDefinition is PENamedTypeSymbol pen)
         {
-            var genericTypeDef = pen.GetClrType(codeGen);
-            return genericTypeDef.MakeGenericType(TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray()).GetTypeInfo();
+            var runtimeType = pen.GetClrType(codeGen);
+
+            if (runtimeType.IsGenericTypeDefinition && TypeArguments.Length > 0)
+            {
+                var args = TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray();
+                return runtimeType.MakeGenericType(args).GetTypeInfo();
+            }
+
+            return runtimeType.GetTypeInfo();
         }
 
         if (_originalDefinition is SourceNamedTypeSymbol source)
         {
             var definitionType = codeGen.GetTypeBuilder(source) ?? throw new InvalidOperationException("Missing type builder for generic definition.");
-            var runtimeArgs = TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray();
-            var constructed = definitionType.MakeGenericType(runtimeArgs);
-            return constructed.GetTypeInfo();
+
+            if (definitionType.IsGenericTypeDefinition && TypeArguments.Length > 0)
+            {
+                var runtimeArgs = TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray();
+                var constructed = definitionType.MakeGenericType(runtimeArgs);
+                return constructed.GetTypeInfo();
+            }
+
+            return definitionType.GetTypeInfo();
         }
 
         throw new InvalidOperationException("ConstructedNamedTypeSymbol is not based on a supported symbol type.");

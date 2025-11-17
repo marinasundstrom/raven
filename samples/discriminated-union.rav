@@ -1,0 +1,48 @@
+import System.*
+import System.Console.*
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+func divide(numerator: int, denominator: int) -> Result<int> {
+    if denominator == 0 {
+        return Result<int>.Error(message: "Cannot divide by zero")
+    }
+
+    let quotient = numerator / denominator
+    return Result<int>.Ok(value: quotient)
+}
+
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(let value) => "ok ${value}",
+        .Error(let message) => "error ${message}"
+    }
+}
+
+func describe(result: Result<int>) -> string {
+    if result is .Ok(let payload) {
+        return "value was ${payload}"
+    }
+    else if result is .Error(let message) {
+        return "failed because ${message}"
+    }
+
+    return "unreachable"
+}
+
+let divisions = [
+    (numerator: 42, denominator: 2),
+    (numerator: 15, denominator: 0),
+    (numerator: -9, denominator: 3)
+]
+
+for each operation in divisions {
+    let outcome = divide(operation.numerator, operation.denominator)
+    WriteLine("${operation.numerator} / ${operation.denominator} => ${format(outcome)}")
+}
+
+let final = divide(100, 5)
+WriteLine(describe(final))

@@ -33,7 +33,16 @@ internal readonly record struct SymbolQuery(
         var arity = Arity;
 
         if (isStatic.HasValue)
-            symbols = symbols.Where(s => s.IsStatic == isStatic.Value);
+        {
+            if (isStatic.Value)
+            {
+                symbols = symbols.Where(static s => s.IsStatic || s.Kind == SymbolKind.Type);
+            }
+            else
+            {
+                symbols = symbols.Where(static s => !s.IsStatic && s.Kind != SymbolKind.Type);
+            }
+        }
 
         if (arity.HasValue)
             symbols = symbols.Where(s => s is IMethodSymbol m && SupportsArgumentCount(m.Parameters, arity.Value));

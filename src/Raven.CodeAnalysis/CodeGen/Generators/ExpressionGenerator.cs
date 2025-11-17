@@ -1666,8 +1666,9 @@ internal class ExpressionGenerator : Generator
         IMethodSymbol constructorSymbol = symbol switch
         {
             SourceMethodSymbol sm => sm,
-            PEMethodSymbol a => a,
-            SubstitutedMethodSymbol b => b,
+            PEMethodSymbol pe => pe,
+            SubstitutedMethodSymbol substituted => substituted,
+            UnionCaseConstructorSymbol unionCase => unionCase.Original,
             _ => throw new Exception("Unsupported constructor symbol")
         };
 

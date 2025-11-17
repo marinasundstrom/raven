@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
+using Microsoft.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -403,6 +404,9 @@ internal class TypeGenerator
             {
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
                     {
+                        if (_methodGenerators.ContainsKey(methodSymbol))
+                            break;
+
                         if (methodSymbol.MethodKind == MethodKind.LambdaMethod)
                             break;
 
@@ -439,6 +443,9 @@ internal class TypeGenerator
 
                         if (getterSymbol is not null)
                         {
+                            if (_methodGenerators.ContainsKey(getterSymbol))
+                                goto DefinePropertyBuilder;
+
                             getGen = new MethodGenerator(this, getterSymbol, CodeGen.ILBuilderFactory);
                             _methodGenerators[getterSymbol] = getGen;
                             getGen.DefineMethodBuilder();
@@ -447,12 +454,16 @@ internal class TypeGenerator
 
                         if (setterSymbol is not null)
                         {
+                            if (_methodGenerators.ContainsKey(setterSymbol))
+                                goto DefinePropertyBuilder;
+
                             setGen = new MethodGenerator(this, setterSymbol, CodeGen.ILBuilderFactory);
                             _methodGenerators[setterSymbol] = setGen;
                             setGen.DefineMethodBuilder();
                             CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen.MethodBase);
                         }
 
+                    DefinePropertyBuilder:
                         var propertyType = ResolveClrType(propertySymbol.Type);
 
                         Type[]? paramTypes = null;
@@ -548,6 +559,17 @@ internal class TypeGenerator
                 methodGenerator.EmitBody();
             }
         }
+
+        var missingBodies = _methodGenerators.Values
+            .Where(static generator => !generator.HasEmittedBody)
+            .ToList();
+
+        if (missingBodies.Count > 0)
+        {
+            var description = string.Join(", ", missingBodies.Select(g => g.MethodSymbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)));
+            var typeName = TypeSymbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+            throw new InvalidOperationException($"Type '{typeName}' is missing method bodies for: {description}");
+        }
     }
 
     public Type CreateType()
@@ -555,8 +577,16 @@ internal class TypeGenerator
         foreach (var closure in _lambdaClosures.Values)
             closure.CreateType();
 
-        Type ??= TypeBuilder!.CreateType();
-        return Type!;
+        try
+        {
+            Type ??= TypeBuilder!.CreateType();
+            return Type!;
+        }
+        catch (InvalidOperationException ex)
+        {
+            var display = TypeSymbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+            throw new InvalidOperationException($"Failed to create type '{display}': {ex.Message}", ex);
+        }
     }
 
     public bool HasMethodGenerator(IMethodSymbol methodSymbol)
