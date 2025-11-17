@@ -97,11 +97,32 @@ internal class TypeGenerator
         var syntaxReference = TypeSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is not null)
         {
+            TypeBuilder? containingTypeBuilder = null;
+            if (TypeSymbol.ContainingType is INamedTypeSymbol containingType)
+            {
+                var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
+                if (containingGenerator.TypeBuilder is null)
+                    containingGenerator.DefineTypeBuilder();
+
+                containingTypeBuilder = containingGenerator.TypeBuilder;
+            }
+
             if (TypeSymbol is INamedTypeSymbol nt && nt.TypeKind == TypeKind.Interface)
             {
-                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                    TypeSymbol.MetadataName,
-                    typeAttributes);
+                if (containingTypeBuilder is not null)
+                {
+                    var nestedName = GetNestedTypeMetadataName(nt);
+                    TypeBuilder = containingTypeBuilder.DefineNestedType(
+                        nestedName,
+                        typeAttributes);
+                }
+                else
+                {
+                    TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                        TypeSymbol.MetadataName,
+                        typeAttributes);
+                }
+
                 DefineTypeGenericParameters(nt);
 
                 if (!nt.Interfaces.IsDefaultOrEmpty)
@@ -114,15 +135,33 @@ internal class TypeGenerator
                 return;
             }
 
-            TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                TypeSymbol.MetadataName,
-                typeAttributes);
+            var baseClrType = TypeSymbol.BaseType is not null
+                ? ResolveClrType(TypeSymbol.BaseType)
+                : null;
+
+            if (containingTypeBuilder is not null)
+            {
+                var nestedName = TypeSymbol is INamedTypeSymbol nestedNamed
+                    ? GetNestedTypeMetadataName(nestedNamed)
+                    : TypeSymbol.Name;
+
+                TypeBuilder = containingTypeBuilder.DefineNestedType(
+                    nestedName,
+                    typeAttributes,
+                    baseClrType);
+            }
+            else
+            {
+                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                    TypeSymbol.MetadataName,
+                    typeAttributes);
+
+                if (baseClrType is not null)
+                    TypeBuilder.SetParent(baseClrType);
+            }
 
             if (TypeSymbol is INamedTypeSymbol namedType)
                 DefineTypeGenericParameters(namedType);
-
-            if (TypeSymbol.BaseType is not null)
-                TypeBuilder.SetParent(ResolveClrType(TypeSymbol.BaseType));
 
         }
         else if (TypeSymbol is INamedTypeSymbol synthesizedType)
