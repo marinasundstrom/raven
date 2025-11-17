@@ -92,7 +92,7 @@ Alternative names considered: Old Norse **"Hrafn"** or Danish **"Ravn."**
 
 See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 
-More [samples](src/Raven.Compiler/samples/).
+More [samples](samples/).
 
 ---
  
@@ -171,12 +171,13 @@ When a file path is supplied, the editor opens the file and displays its name in
 ```
 src/
   Raven.CodeAnalysis/         # Compiler core: syntax, binder, semantic model, code gen
-  Raven.Compiler/             # Command-line compiler & samples
+  Raven.Compiler/             # Command-line compiler
   Raven.CodeAnalysis.Testing/ # Diagnostic test helpers
   TypeUnionAnalyzer/          # Analyzer for C# type unions
   TestDep/                    # Auxiliary test project
 
 test/                         # Unit tests
+samples/                      # Example Raven programs and CLI demos
 tools/
   NodeGenerator/              # Generates syntax node code from Model.xml
   Generator/                  # Shared Roslyn generator framework
