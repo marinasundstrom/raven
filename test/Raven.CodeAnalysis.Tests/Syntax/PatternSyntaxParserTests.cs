@@ -112,6 +112,41 @@ public class PatternSyntaxParserTests
         AssertNoErrors(tree);
     }
 
+    [Fact]
+    public void TargetMemberPattern_WithPayloadPatterns_Parses()
+    {
+        var (pattern, tree) = ParsePattern(".Ok(let value)");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var targetMember = Assert.IsType<TargetMemberPatternSyntax>(pattern);
+        Assert.Equal(".Ok(let value)", sourceText.ToString(targetMember.Span));
+
+        var name = Assert.IsType<IdentifierNameSyntax>(targetMember.Name);
+        Assert.Equal("Ok", name.Identifier.ValueText);
+
+        Assert.NotNull(targetMember.ArgumentList);
+        Assert.Single(targetMember.ArgumentList!.Arguments);
+        Assert.IsType<VariablePatternSyntax>(targetMember.ArgumentList.Arguments[0].Pattern);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void TargetMemberPattern_WithoutArguments_Parses()
+    {
+        var (pattern, tree) = ParsePattern(".None");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var targetMember = Assert.IsType<TargetMemberPatternSyntax>(pattern);
+        Assert.Equal(".None", sourceText.ToString(targetMember.Span));
+        Assert.Null(targetMember.ArgumentList);
+
+        var name = Assert.IsType<IdentifierNameSyntax>(targetMember.Name);
+        Assert.Equal("None", name.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
     private static (PatternSyntax Pattern, SyntaxTree Tree) ParsePattern(string patternText)
     {
         var code = $$"""

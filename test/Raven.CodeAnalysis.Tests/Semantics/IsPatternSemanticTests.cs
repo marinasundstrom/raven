@@ -60,4 +60,34 @@ let result = member is System.Reflection.MethodInfo method
         Assert.NotNull(localAssembly);
         Assert.Equal(declaredAssembly, localAssembly);
     }
+
+    [Fact]
+    public void IsPattern_WithUnionCasePattern_BindsPayload()
+    {
+        const string code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+let value: Result<int> = Result<int>.Ok(value: 5)
+let isOk = value is .Ok(let payload)
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var isPattern = tree.GetRoot().DescendantNodes().OfType<IsPatternExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
+
+        var unionPattern = Assert.IsType<BoundUnionCasePattern>(bound.Pattern);
+        Assert.Equal("Ok", unionPattern.CaseType.Name);
+        var argument = Assert.Single(unionPattern.Arguments);
+        var declaration = Assert.IsType<BoundDeclarationPattern>(argument);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+        Assert.Equal("payload", designator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, designator.Local.Type.SpecialType);
+    }
 }

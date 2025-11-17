@@ -217,6 +217,22 @@
     Title="Union case parameters cannot be by-ref"
     Message="Parameter '{parameterName}' in union case '{caseName}' cannot be declared with '{modifier}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0403" Identifier="UnionCasePatternRequiresDiscriminatedUnion"
+    Title="Union case pattern requires discriminated union"
+    Message="Target-member pattern '.{caseName}' requires a discriminated union target; '{targetType}' is not a discriminated union"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0404" Identifier="UnionCasePatternCaseNotFound"
+    Title="Union case not found"
+    Message="Discriminated union '{unionName}' does not contain a case named '{caseName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0405" Identifier="UnionCasePatternArgumentCountMismatch"
+    Title="Union case pattern argument count mismatch"
+    Message="Case '{caseName}' expects {expectedCount} payload pattern(s) but received {actualCount}"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0406" Identifier="UnionCasePatternAmbiguous"
+    Title="Union case pattern is ambiguous"
+    Message="Union case pattern '.{caseName}' is ambiguous because multiple discriminated unions are in scope"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0426" Identifier="TypeNameDoesNotExistInType"
     Title="Type name does not exist in type"
     Message="The type name '{name}' does not exist in the type '{container}'"

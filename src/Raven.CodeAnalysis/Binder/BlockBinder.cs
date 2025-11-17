@@ -1142,7 +1142,7 @@ partial class BlockBinder : Binder
             _scopeDepth++;
             var depth = _scopeDepth;
 
-            var pattern = BindPattern(arm.Pattern);
+            var pattern = BindPattern(arm.Pattern, scrutinee.Type);
 
             BoundExpression? guard = null;
             if (arm.WhenClause is { } whenClause)
@@ -1327,6 +1327,26 @@ partial class BlockBinder : Binder
 
                     return;
                 }
+            case BoundUnionCasePattern unionCasePattern:
+                {
+                    if (patternSyntax is TargetMemberPatternSyntax targetMember &&
+                        targetMember.ArgumentList is { } argumentList)
+                    {
+                        var elementCount = Math.Min(
+                            Math.Min(argumentList.Arguments.Count, unionCasePattern.Arguments.Length),
+                            unionCasePattern.PayloadFields.Length);
+
+                        for (var i = 0; i < elementCount; i++)
+                        {
+                            var fieldType = unionCasePattern.PayloadFields[i].Type;
+                            var argumentSyntax = argumentList.Arguments[i].Pattern;
+                            var boundArgument = unionCasePattern.Arguments[i];
+                            EnsureMatchArmPatternValid(fieldType, argumentSyntax, boundArgument);
+                        }
+                    }
+
+                    return;
+                }
         }
     }
 
@@ -1445,20 +1465,30 @@ partial class BlockBinder : Binder
             return;
         }
 
-        if (scrutineeType is not IUnionTypeSymbol union)
-        {
-            if (catchAllIndex >= 0)
-                return;
+        HashSet<ITypeSymbol>? remaining = null;
 
+        if (TryGetDiscriminatedUnionCaseTypes(scrutineeType, out var discriminatedCases) &&
+            !discriminatedCases.IsDefaultOrEmpty)
+        {
+            remaining = new HashSet<ITypeSymbol>(discriminatedCases, SymbolEqualityComparer.Default);
+        }
+        else if (scrutineeType is IUnionTypeSymbol union)
+        {
+            remaining = new HashSet<ITypeSymbol>(
+                GetUnionMembers(union),
+                SymbolEqualityComparer.Default);
+        }
+        else if (catchAllIndex < 0)
+        {
             _diagnostics.ReportMatchExpressionNotExhaustive(
                 "_",
                 matchExpression.GetLocation());
             return;
         }
-
-        var remaining = new HashSet<ITypeSymbol>(
-            GetUnionMembers(union),
-            SymbolEqualityComparer.Default);
+        else
+        {
+            return;
+        }
 
         var literalCoverage = CreateLiteralCoverage(remaining);
 
@@ -1657,6 +1687,9 @@ partial class BlockBinder : Binder
             case BoundTuplePattern tuplePattern:
                 RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
                 break;
+            case BoundUnionCasePattern unionCasePattern:
+                RemoveUnionCaseCandidate(remaining, unionCasePattern.CaseType, literalCoverage);
+                break;
         }
     }
 
@@ -1669,6 +1702,15 @@ partial class BlockBinder : Binder
 
         if (patternType.TypeKind == TypeKind.Error)
             return;
+
+        if (TryGetDiscriminatedUnionCaseTypes(patternType, out var patternCases) &&
+            !patternCases.IsDefaultOrEmpty)
+        {
+            foreach (var caseType in patternCases)
+                RemoveUnionCaseCandidate(remaining, caseType, literalCoverage);
+
+            return;
+        }
 
         foreach (var candidate in remaining.ToArray())
         {
@@ -1698,6 +1740,25 @@ partial class BlockBinder : Binder
         }
     }
 
+    private static void RemoveUnionCaseCandidate(
+        HashSet<ITypeSymbol> remaining,
+        ITypeSymbol caseType,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+    {
+        caseType = UnwrapAlias(caseType);
+
+        foreach (var candidate in remaining.ToArray())
+        {
+            var candidateType = UnwrapAlias(candidate);
+
+            if (!SymbolEqualityComparer.Default.Equals(candidateType, caseType))
+                continue;
+
+            remaining.Remove(candidate);
+            literalCoverage?.Remove(candidate);
+        }
+    }
+
     private static IEnumerable<ITypeSymbol> GetUnionMembers(IUnionTypeSymbol union)
     {
         foreach (var member in union.Types)
@@ -1709,7 +1770,18 @@ partial class BlockBinder : Binder
             }
             else
             {
-                yield return UnwrapAlias(member);
+                var unwrapped = UnwrapAlias(member);
+
+                if (TryGetDiscriminatedUnionCaseTypes(unwrapped, out var caseTypes) &&
+                    !caseTypes.IsDefaultOrEmpty)
+                {
+                    foreach (var caseType in caseTypes)
+                        yield return UnwrapAlias(caseType);
+                }
+                else
+                {
+                    yield return unwrapped;
+                }
             }
         }
     }

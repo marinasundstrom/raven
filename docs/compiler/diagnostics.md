@@ -229,6 +229,63 @@ union Token {
 }
 ```
 
+## RAV0403: Union case pattern requires discriminated union
+Target-member patterns (`.Case(...)`) only apply when the scrutinee is a
+discriminated union. Applying the syntax to other types produces this error.
+
+```raven
+let value = 42
+
+let text = value match {
+    .Some => "nope" // RAV0403
+}
+```
+
+## RAV0404: Union case not found
+The specified case name does not exist in the current union. Check the spelling
+or update the declaration.
+
+```raven
+union Maybe<T> {
+    Some(value: T)
+}
+
+let value: Maybe<int> = Maybe<int>.Some(value: 1)
+let text = value match {
+    .None => "missing" // RAV0404
+}
+```
+
+## RAV0405: Union case pattern argument count mismatch
+Each pattern argument corresponds to a payload field on the matching case.
+Providing too many or too few arguments reports an error.
+
+```raven
+union Maybe<T> {
+    Some(value: T)
+}
+
+let value: Maybe<int> = Maybe<int>.Some(value: 1)
+let text = value match {
+    .Some(let value, let extra) => extra // RAV0405
+}
+```
+
+## RAV0406: Union case pattern is ambiguous
+When multiple discriminated unions are in scope (for example via a type union)
+and they expose cases with the same name, the compiler cannot resolve `.Case`
+without specifying the target type. Use a declaration pattern to disambiguate.
+
+```raven
+union Alpha { Ready }
+union Beta { Ready }
+
+let choice: Alpha | Beta = Alpha.Ready()
+let text = choice match {
+    .Ready => "ambiguous" // RAV0406
+}
+```
+
 ## RAV0426: Type name does not exist in type
 Referenced a nested type that does not exist.
 

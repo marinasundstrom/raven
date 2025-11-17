@@ -59,6 +59,11 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParsePrimaryPattern()
     {
+        if (PeekToken().IsKind(SyntaxKind.DotToken))
+        {
+            return ParseTargetMemberPattern();
+        }
+
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             return ParseTuplePattern();
@@ -90,6 +95,48 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         return DeclarationPattern(type, designation);
+    }
+
+    private PatternSyntax ParseTargetMemberPattern()
+    {
+        var dotToken = ReadToken();
+        var name = new NameSyntaxParser(this).ParseSimpleName();
+
+        PatternArgumentListSyntax? argumentList = null;
+
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            argumentList = ParsePatternArgumentList();
+        }
+
+        return TargetMemberPattern(dotToken, name, argumentList);
+    }
+
+    private PatternArgumentListSyntax ParsePatternArgumentList()
+    {
+        var openParenToken = ReadToken();
+        var elements = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            elements.Add(ParsePatternArgument());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                elements.Add(commaToken);
+                elements.Add(ParsePatternArgument());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return PatternArgumentList(openParenToken, List(elements.ToArray()), closeParenToken);
+    }
+
+    private PatternArgumentSyntax ParsePatternArgument()
+    {
+        var pattern = new PatternSyntaxParser(this).ParsePattern();
+        return PatternArgument(pattern);
     }
 
     private PatternSyntax ParseVariablePattern()

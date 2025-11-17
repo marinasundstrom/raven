@@ -1003,6 +1003,13 @@ Patterns compose from the following primitives:
   test or bind each element independently. Each element may introduce a name
   before the colon (for example `(first: int, second: string)`) to bind the
   matched value while applying the nested subpattern.
+- `.Case(pattern1, …)` — target-member pattern; matches the specified
+  discriminated union case by invoking its generated `TryGetCase` helper. The
+  optional argument list destructures the payload fields in declaration order,
+  so `.Ok(let value)` binds the `value` field while checking the active case.
+  Parameterless cases omit the parentheses ( `.None` ), and cases with their own
+  type parameters accept the usual `<T>` argument list before the payload
+  patterns.
 - `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not
@@ -1030,6 +1037,12 @@ if value is "ok" or "pending" {
 
 if mode is not ("on" or "off") {
     Console.WriteLine("unexpected mode")
+}
+
+let status = GetResult()
+let text = status match {
+    .Ok(let payload) => $"ok {payload}",
+    .Error(let message) => $"error {message}",
 }
 ```
 
@@ -1976,6 +1989,26 @@ public union Token
 * Unions participate in pattern matching; the `.Case(...)` pattern is sugar for the compiler-generated `TryGetCase` helper. No other member kinds (fields, methods, etc.) may appear in the union body.
 
 Constructing a case uses either the fully qualified form (`Result<int>.Ok(1)`) or, when the target type is known, the shorthand `.Ok(1)` expression. Each case lowers to its own nested struct type that exposes the payload via public fields and defines an implicit conversion back to the outer union, so cases can flow through APIs independently when necessary.
+
+```raven
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+func Format(result: Result<int>) -> string {
+    result match {
+        .Ok(let payload) => $"ok {payload}",
+        .Error(let message) => $"error {message}",
+    }
+}
+```
+
+The `.Case` target-member pattern narrows to a specific case by invoking the
+generated `TryGetCase(ref CaseType)` helper and destructuring the payload fields
+into the nested patterns. Parameterless cases omit the parentheses and generic
+cases accept the usual `<T>` argument list before the payload patterns.
+
 
 #### Generated structure and metadata
 

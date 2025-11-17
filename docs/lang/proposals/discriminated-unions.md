@@ -57,6 +57,20 @@ func describe(token: Token) -> string {
 }
 ```
 
+```csharp
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(let payload) => $"ok {payload}"
+        .Error(let message) => $"error {message}"
+    }
+}
+```
+
 Missing cases produce diagnostics similar to other pattern matching scenarios. Pattern matching against unions desugars into nested target-member patterns that call the generated `TryGet*` helpers. For each arm the compiler emits code equivalent to:
 
 ```csharp

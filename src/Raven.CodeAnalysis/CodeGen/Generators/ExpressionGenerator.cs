@@ -1209,10 +1209,68 @@ internal class ExpressionGenerator : Generator
 
             ILGenerator.MarkLabel(labelDone);
         }
+        else if (pattern is BoundUnionCasePattern unionCasePattern)
+        {
+            EmitUnionCasePattern(unionCasePattern, scope);
+        }
         else
         {
             throw new NotSupportedException("Unsupported pattern");
         }
+    }
+
+    private void EmitUnionCasePattern(BoundUnionCasePattern pattern, Generator scope)
+    {
+        scope ??= this;
+
+        var typeMismatchLabel = ILGenerator.DefineLabel();
+        var failLabel = ILGenerator.DefineLabel();
+        var doneLabel = ILGenerator.DefineLabel();
+
+        var unionClrType = ResolveClrType(pattern.UnionType);
+        var caseClrType = ResolveClrType(pattern.CaseType);
+
+        var unionLocal = ILGenerator.DeclareLocal(unionClrType);
+        var caseLocal = ILGenerator.DeclareLocal(caseClrType);
+
+        ILGenerator.Emit(OpCodes.Dup);
+        ILGenerator.Emit(OpCodes.Isinst, unionClrType);
+        ILGenerator.Emit(OpCodes.Brfalse, typeMismatchLabel);
+
+        ILGenerator.Emit(OpCodes.Unbox_Any, unionClrType);
+        ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(pattern.TryGetMethod));
+        ILGenerator.Emit(OpCodes.Brfalse, failLabel);
+
+        for (var i = 0; i < pattern.Arguments.Length && i < pattern.PayloadFields.Length; i++)
+        {
+            ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+            var fieldInfo = pattern.PayloadFields[i].GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+
+            var fieldType = pattern.PayloadFields[i].Type;
+            if (fieldType.IsValueType)
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(fieldType));
+
+            EmitPattern(pattern.Arguments[i], scope);
+            ILGenerator.Emit(OpCodes.Brfalse, failLabel);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+        ILGenerator.MarkLabel(typeMismatchLabel);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+        ILGenerator.MarkLabel(failLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+        ILGenerator.MarkLabel(doneLabel);
     }
 
     private void EmitConstantPattern(BoundConstantPattern constantPattern)

@@ -590,6 +590,11 @@
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="Pattern" Inherits="ExpressionOrPattern" IsAbstract="true" />
+  <Node Name="TargetMemberPattern" Inherits="Pattern">
+    <Slot Name="DotToken" Type="Token" DefaultToken="DotToken"/>
+    <Slot Name="Name" Type="SimpleName" />
+    <Slot Name="ArgumentList" Type="PatternArgumentList" IsNullable="true" />
+  </Node>
   <Node Name="UnaryPattern" Inherits="Pattern" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Pattern" Type="Pattern" />
@@ -617,6 +622,14 @@
   </Node>
   <Node Name="TuplePatternElement" Inherits="Node">
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
+    <Slot Name="Pattern" Type="Pattern" />
+  </Node>
+  <Node Name="PatternArgumentList" Inherits="Node">
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken"/>
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="PatternArgument" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken"/>
+  </Node>
+  <Node Name="PatternArgument" Inherits="Node">
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
   <Node Name="EnumDeclaration" Inherits="BaseTypeDeclaration">

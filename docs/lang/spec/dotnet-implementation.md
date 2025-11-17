@@ -42,6 +42,13 @@ When emitted to .NET metadata, a union is projected as the narrowest common deno
 
 Discriminated `union` declarations use the same runtime building blocks. The compiler emits a sealed struct with a private `int` discriminator and an `object` payload field, then tags that struct with a synthesized `[DiscriminatedUnion]` attribute so metadata consumers can recognize discriminated unions. Each case produces a nested struct that stores the payload by value, defines an implicit conversion back to the outer union, and exposes a `bool TryGetCase(ref CaseType)` helper that copies the payload into caller-provided storage.
 
+Target-member patterns (`.Case(...)`) lower to a sequence of these `TryGet` calls.
+Each arm boxes the union (if needed), invokes the appropriate helper, and then
+feeds the copied case struct through the nested payload patterns. Parameterless
+cases omit the argument list, but the lowering always routes through the same
+`TryGet` surface.
+
+
 For example:
 
 ```raven

@@ -193,6 +193,158 @@ let result = x match {
     }
 
     [Fact]
+    public void MatchExpression_WithUnionCasePatterns_BindsPayloads()
+    {
+        const string code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+func describe(result: Result<int>) -> string {
+    result match {
+        .Ok(let payload) => $"ok {payload}",
+        .Error(let message) => $"error {message}",
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var okPattern = Assert.IsType<BoundUnionCasePattern>(bound.Arms[0].Pattern);
+        Assert.Equal("Ok", okPattern.CaseType.Name);
+        Assert.Single(okPattern.Arguments);
+        var okArgument = Assert.IsType<BoundDeclarationPattern>(okPattern.Arguments[0]);
+        var okDesignator = Assert.IsType<BoundSingleVariableDesignator>(okArgument.Designator);
+        Assert.Equal("payload", okDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, okDesignator.Local.Type.SpecialType);
+
+        var errorPattern = Assert.IsType<BoundUnionCasePattern>(bound.Arms[1].Pattern);
+        Assert.Equal("Error", errorPattern.CaseType.Name);
+        var errorArgument = Assert.IsType<BoundDeclarationPattern>(errorPattern.Arguments[0]);
+        var errorDesignator = Assert.IsType<BoundSingleVariableDesignator>(errorArgument.Designator);
+        Assert.Equal("message", errorDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_String, errorDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
+    public void MatchExpression_WithMissingUnionCase_ReportsDiagnostic()
+    {
+        const string code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+func describe(result: Result<int>) -> string {
+    result match {
+        .Ok(let payload) => payload.ToString()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithArguments("Result<int>.Error").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionCaseOnNonUnion_ReportsDiagnostic()
+    {
+        const string code = """
+let value = 42
+
+let result = value match {
+    .Ok => value
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV0403").WithArguments("Ok", "int").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnknownUnionCase_ReportsDiagnostic()
+    {
+        const string code = """
+union Maybe<T> {
+    Some(value: T)
+}
+
+func describe(value: Maybe<int>) -> int {
+    value match {
+        .None => 0
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV0404").WithArguments("Maybe<int>", "None").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionCaseArgumentCountMismatch_ReportsDiagnostic()
+    {
+        const string code = """
+union Maybe<T> {
+    Some(value: T)
+}
+
+func describe(value: Maybe<int>) -> int {
+    value match {
+        .Some(let value, let extra) => extra
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV0405").WithArguments("Some", "1", "2").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithAmbiguousUnionCase_ReportsDiagnostic()
+    {
+        const string code = """
+union Alpha {
+    Ready
+}
+
+union Beta {
+    Ready
+}
+
+let choice: Alpha | Beta = Alpha.Ready()
+
+let result = choice match {
+    .Ready => 0
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV0406").WithArguments("Ready").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithDiscardArmNotLast_ReportsDiagnostic()
     {
         const string code = """

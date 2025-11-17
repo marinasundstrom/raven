@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -159,6 +161,53 @@ internal sealed class BoundTuplePattern : BoundPattern
     }
 }
 
+internal sealed class BoundUnionCasePattern : BoundPattern
+{
+    public BoundUnionCasePattern(
+        INamedTypeSymbol unionType,
+        INamedTypeSymbol caseType,
+        IMethodSymbol tryGetMethod,
+        ImmutableArray<IFieldSymbol> payloadFields,
+        ImmutableArray<BoundPattern> arguments)
+        : base(unionType)
+    {
+        UnionType = unionType;
+        CaseType = caseType;
+        TryGetMethod = tryGetMethod;
+        PayloadFields = payloadFields;
+        Arguments = arguments;
+    }
+
+    public INamedTypeSymbol UnionType { get; }
+
+    public INamedTypeSymbol CaseType { get; }
+
+    public IMethodSymbol TryGetMethod { get; }
+
+    public ImmutableArray<IFieldSymbol> PayloadFields { get; }
+
+    public ImmutableArray<BoundPattern> Arguments { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators()
+    {
+        foreach (var argument in Arguments)
+        {
+            foreach (var designator in argument.GetDesignators())
+                yield return designator;
+        }
+    }
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal sealed class BoundConstantPattern : BoundPattern
 {
     public BoundConstantPattern(LiteralTypeSymbol literalType, BoundExpressionReason reason = BoundExpressionReason.None)
@@ -238,16 +287,17 @@ internal sealed class BoundDiscardDesignator : BoundDesignator
 
 internal partial class BlockBinder
 {
-    public virtual BoundPattern BindPattern(PatternSyntax syntax)
+    public virtual BoundPattern BindPattern(PatternSyntax syntax, ITypeSymbol? expectedType = null)
     {
         return syntax switch
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
             VariablePatternSyntax variable => BindVariablePattern(variable),
             DeclarationPatternSyntax d => BindDeclarationPattern(d),
-            TuplePatternSyntax t => BindTuplePattern(t),
-            UnaryPatternSyntax u => BindUnaryPattern(u),
-            BinaryPatternSyntax b => BindBinaryPattern(b),
+            TuplePatternSyntax t => BindTuplePattern(t, expectedType),
+            UnaryPatternSyntax u => BindUnaryPattern(u, expectedType),
+            BinaryPatternSyntax b => BindBinaryPattern(b, expectedType),
+            TargetMemberPatternSyntax targetMember => BindTargetMemberPattern(targetMember, expectedType),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
         };
     }
@@ -283,13 +333,139 @@ internal partial class BlockBinder
         return new BoundDeclarationPattern(type.Type, designator);
     }
 
-    private BoundPattern BindTuplePattern(TuplePatternSyntax syntax)
+    private BoundPattern BindTargetMemberPattern(TargetMemberPatternSyntax syntax, ITypeSymbol? expectedType)
+    {
+        var simpleName = syntax.Name;
+        var caseIdentifier = simpleName switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier,
+            GenericNameSyntax generic => generic.Identifier,
+            _ => SyntaxFactory.IdentifierToken(simpleName.GetFirstToken().Text)
+        };
+
+        var caseName = caseIdentifier.ValueText;
+        var location = simpleName.GetLocation();
+        var candidates = GetDiscriminatedUnionCandidates(expectedType);
+
+        if (candidates.IsDefaultOrEmpty)
+        {
+            var targetDisplay = expectedType is null
+                ? "<unknown>"
+                : expectedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportUnionCasePatternRequiresDiscriminatedUnion(caseName, targetDisplay, location);
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+        }
+
+        var matches = new List<(INamedTypeSymbol UnionType, INamedTypeSymbol CaseType, IMethodSymbol TryGet)>();
+
+        foreach (var unionType in candidates)
+        {
+            var caseType = unionType.GetMembers(caseName)
+                .OfType<INamedTypeSymbol>()
+                .FirstOrDefault();
+
+            if (caseType is null)
+                continue;
+
+            var tryGetMethod = unionType.GetMembers($"TryGet{caseName}")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault();
+
+            if (tryGetMethod is null)
+                continue;
+
+            matches.Add((unionType, caseType, tryGetMethod));
+        }
+
+        if (matches.Count == 0)
+        {
+            foreach (var unionType in candidates)
+            {
+                var unionDisplay = unionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                _diagnostics.ReportUnionCasePatternCaseNotFound(unionDisplay, caseName, location);
+            }
+
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+        }
+
+        if (matches.Count > 1)
+        {
+            _diagnostics.ReportUnionCasePatternAmbiguous(caseName, location);
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+        }
+
+        var (unionSymbol, caseSymbol, tryGet) = matches[0];
+
+        if (syntax.Name is GenericNameSyntax genericName)
+        {
+            var typeArguments = TryBindTypeArguments(genericName);
+            if (typeArguments is null)
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+
+            if (caseSymbol.TypeParameters.Length != typeArguments.Value.Length)
+            {
+                _diagnostics.ReportTypeRequiresTypeArguments(caseSymbol.Name, caseSymbol.TypeParameters.Length, genericName.Identifier.GetLocation());
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+            }
+
+            caseSymbol = (INamedTypeSymbol)caseSymbol.Construct(typeArguments.Value.ToArray());
+
+            if (tryGet.TypeParameters.Length == typeArguments.Value.Length)
+                tryGet = tryGet.Construct(typeArguments.Value.ToArray());
+        }
+        else if (caseSymbol.TypeParameters.Length > 0)
+        {
+            _diagnostics.ReportTypeRequiresTypeArguments(caseSymbol.Name, caseSymbol.TypeParameters.Length, location);
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+        }
+
+        var payloadMembers = GetUnionCaseFields(caseSymbol);
+        ImmutableArray<BoundPattern> boundArguments;
+
+        if (syntax.ArgumentList is null)
+        {
+            boundArguments = ImmutableArray<BoundPattern>.Empty;
+        }
+        else
+        {
+            var arguments = syntax.ArgumentList.Arguments;
+
+            if (arguments.Count != payloadMembers.Length)
+            {
+                _diagnostics.ReportUnionCasePatternArgumentCountMismatch(caseName, payloadMembers.Length, arguments.Count, syntax.ArgumentList.GetLocation());
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+            }
+
+            var builder = ImmutableArray.CreateBuilder<BoundPattern>(arguments.Count);
+
+            for (var i = 0; i < arguments.Count; i++)
+            {
+                var fieldType = payloadMembers[i].Type;
+                var argumentPattern = BindPattern(arguments[i].Pattern, fieldType);
+                builder.Add(argumentPattern);
+            }
+
+            boundArguments = builder.MoveToImmutable();
+        }
+
+        return new BoundUnionCasePattern(unionSymbol, caseSymbol, tryGet, payloadMembers, boundArguments);
+    }
+
+    private BoundPattern BindTuplePattern(TuplePatternSyntax syntax, ITypeSymbol? expectedType)
     {
         var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
+        var elementTypes = expectedType is null
+            ? ImmutableArray<ITypeSymbol>.Empty
+            : GetTupleElementTypes(expectedType);
 
         foreach (var elementSyntax in syntax.Elements)
         {
-            var boundElement = BindPattern(elementSyntax.Pattern);
+            var elementIndex = elementPatterns.Count;
+            ITypeSymbol? elementExpectedType = null;
+            if (!elementTypes.IsDefaultOrEmpty && elementTypes.Length > elementIndex)
+                elementExpectedType = elementTypes[elementIndex];
+
+            var boundElement = BindPattern(elementSyntax.Pattern, elementExpectedType);
             boundElement = BindTuplePatternElementDesignation(elementSyntax, boundElement);
             elementPatterns.Add(boundElement);
         }
@@ -411,6 +587,78 @@ internal partial class BlockBinder
         return new BoundTuplePattern(tupleType, boundElements.ToImmutable());
     }
 
+    private ImmutableArray<INamedTypeSymbol> GetDiscriminatedUnionCandidates(ITypeSymbol? expectedType)
+    {
+        if (expectedType is null)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        CollectDiscriminatedUnionCandidates(builder, expectedType);
+        return builder.ToImmutable();
+    }
+
+    private void CollectDiscriminatedUnionCandidates(ImmutableArray<INamedTypeSymbol>.Builder builder, ITypeSymbol type)
+    {
+        type = UnwrapAlias(type);
+
+        if (type is IUnionTypeSymbol unionType)
+        {
+            foreach (var member in unionType.Types)
+                CollectDiscriminatedUnionCandidates(builder, member);
+            return;
+        }
+
+        if (type is INamedTypeSymbol named && IsDiscriminatedUnion(named))
+        {
+            if (!builder.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, named)))
+                builder.Add(named);
+        }
+    }
+
+    private static bool TryGetDiscriminatedUnionCaseTypes(ITypeSymbol type, out ImmutableArray<INamedTypeSymbol> caseTypes)
+    {
+        caseTypes = ImmutableArray<INamedTypeSymbol>.Empty;
+        type = UnwrapAlias(type);
+
+        if (type is not INamedTypeSymbol named || !IsDiscriminatedUnion(named))
+            return false;
+
+        var cases = named.GetMembers()
+            .OfType<INamedTypeSymbol>()
+            .ToImmutableArray();
+
+        if (cases.IsDefaultOrEmpty || cases.Length == 0)
+            return false;
+
+        caseTypes = cases;
+        return true;
+    }
+
+    private static ImmutableArray<IFieldSymbol> GetUnionCaseFields(INamedTypeSymbol caseType)
+    {
+        return caseType.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Where(field => !field.IsStatic)
+            .ToImmutableArray();
+    }
+
+    private static bool IsDiscriminatedUnion(INamedTypeSymbol type)
+    {
+        if (type is SourceNamedTypeSymbol source && source.IsUnionDeclaration)
+            return true;
+
+        if (type.OriginalDefinition is SourceNamedTypeSymbol originalSource && originalSource.IsUnionDeclaration)
+            return true;
+
+        foreach (var attribute in type.GetAttributes())
+        {
+            if (string.Equals(attribute.AttributeClass?.Name, "DiscriminatedUnionAttribute", StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
     private BoundPattern BindTuplePatternElementDesignation(TuplePatternElementSyntax elementSyntax, BoundPattern pattern)
     {
         if (elementSyntax.NameColon is null)
@@ -435,9 +683,9 @@ internal partial class BlockBinder
         return new BoundDiscardPattern(objectType);
     }
 
-    private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax)
+    private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax, ITypeSymbol? expectedType)
     {
-        var operand = BindPattern(syntax.Pattern);
+        var operand = BindPattern(syntax.Pattern, expectedType);
         return syntax.Kind switch
         {
             SyntaxKind.NotPattern => new BoundNotPattern(operand),
@@ -445,10 +693,10 @@ internal partial class BlockBinder
         };
     }
 
-    private BoundPattern BindBinaryPattern(BinaryPatternSyntax syntax)
+    private BoundPattern BindBinaryPattern(BinaryPatternSyntax syntax, ITypeSymbol? expectedType)
     {
-        var left = BindPattern(syntax.Left);
-        var right = BindPattern(syntax.Right);
+        var left = BindPattern(syntax.Left, expectedType);
+        var right = BindPattern(syntax.Right, expectedType);
 
         return syntax.Kind switch
         {
@@ -464,7 +712,7 @@ internal partial class BlockBinder
     private BoundExpression BindIsPatternExpression(IsPatternExpressionSyntax syntax)
     {
         var expression = BindExpression(syntax.Expression);
-        var pattern = BindPattern(syntax.Pattern);
+        var pattern = BindPattern(syntax.Pattern, expression.Type);
 
         var booleanType = Compilation.GetSpecialType(SpecialType.System_Boolean);
 

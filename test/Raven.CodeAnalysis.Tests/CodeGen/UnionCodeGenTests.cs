@@ -97,4 +97,37 @@ class Program {
 
         Assert.Equal("5", output);
     }
+
+    [Fact]
+    public void UnionCasePattern_MatchExpression_EmitsTryGet()
+    {
+        const string source = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+class Program {
+    static Main() -> unit {
+        Print(Result<int>.Ok(value: 5));
+        Print(Result<int>.Error(message: "boom"));
+    }
+
+    static Print(value: Result<int>) -> unit {
+        let text = value match {
+            .Ok(let payload) => $"ok {payload}",
+            .Error(let message) => $"error {message}",
+        };
+
+        System.Console.WriteLine(text);
+    }
+}
+""";
+
+        var output = CodeGenTestUtilities.EmitAndRun(source, "union_case_pattern_match");
+        if (output is null)
+            return;
+
+        Assert.Equal("ok 5\nerror boom", output);
+    }
 }

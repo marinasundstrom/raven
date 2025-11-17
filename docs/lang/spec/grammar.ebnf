@@ -190,7 +190,14 @@ Assignable               ::= Identifier
                            | MemberBindingExpression
                            | ElementAccessExpression ;
 
-Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern | DiscardPattern ;
+Pattern                  ::= OrPattern ;
+
+OrPattern                ::= AndPattern {'or' AndPattern} ;
+AndPattern               ::= UnaryPattern {'and' UnaryPattern} ;
+UnaryPattern             ::= 'not' UnaryPattern | PrimaryPattern ;
+PrimaryPattern           ::= TargetMemberPattern | TuplePattern | DeclarationPattern | VariablePattern | DiscardPattern ;
+TargetMemberPattern      ::= '.' Identifier TypeArgumentList? PatternArgumentList? ;
+PatternArgumentList      ::= '(' [Pattern {',' Pattern}] ')' ;
 
 VariablePattern          ::= ('let' | 'var') VariableDesignation ;
 DeclarationPattern       ::= Type VariableDesignation ;
@@ -198,6 +205,7 @@ TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [Identifier ':'] Pattern ;
 
 DiscardPattern           ::= '_' | Type '_' ;
+TypeArgumentList         ::= '<' Type {',' Type} '>' ;
 
 VariableDesignation      ::= VariableDesignationCore [':' Type] ;
 VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;
