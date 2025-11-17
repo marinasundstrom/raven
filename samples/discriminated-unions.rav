@@ -1,0 +1,45 @@
+/*
+ * Demonstrates discriminated unions with and without generics.
+ */
+
+import System.*
+
+union Token {
+    Identifier(text: string)
+    Number(value: int)
+    Unknown
+}
+
+func describe(token: Token) -> string {
+    return token match {
+        .Identifier(text) => $"identifier '{text}'"
+        .Number(value) => $"number {value}"
+        .Unknown => "unknown token"
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(value) => $"ok {value}"
+        .Error(message) => $"error '{message}'"
+    }
+}
+
+let first = Token.Identifier("alpha")
+let second : Token = .Number(42)
+let third = Token.Unknown
+
+Console.WriteLine(describe(first))
+Console.WriteLine(describe(second))
+Console.WriteLine(describe(third))
+
+let ok : Result<int> = .Ok(99)
+let err = Result<int>.Error("boom")
+
+Console.WriteLine(format(ok))
+Console.WriteLine(format(err))
