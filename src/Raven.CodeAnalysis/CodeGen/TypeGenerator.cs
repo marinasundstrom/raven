@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -27,6 +28,9 @@ internal class TypeGenerator
     public IEnumerable<MethodGenerator> MethodGenerators => _methodGenerators.Values;
 
     public Type? Type { get; private set; }
+
+    ImmutableArray<ITypeParameterSymbol> _inheritedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    bool _releasedInheritedTypeParameters;
 
     public TypeGenerator(CodeGenerator codeGen, ITypeSymbol typeSymbol)
     {
@@ -242,11 +246,40 @@ internal class TypeGenerator
         if (TypeBuilder is null)
             return;
 
-        if (namedType.TypeParameters.IsDefaultOrEmpty)
+        var allTypeParameters = GetTypeParametersInScope(namedType);
+        if (allTypeParameters.IsDefaultOrEmpty)
             return;
 
-        var parameterBuilders = TypeBuilder.DefineGenericParameters(namedType.TypeParameters.Select(tp => tp.Name).ToArray());
-        CodeGen.RegisterGenericParameters(namedType.TypeParameters, parameterBuilders);
+        var parameterBuilders = TypeBuilder.DefineGenericParameters(allTypeParameters.Select(tp => tp.Name).ToArray());
+        CodeGen.RegisterGenericParameters(allTypeParameters, parameterBuilders);
+
+        _inheritedTypeParameters = namedType.ContainingType is null
+            ? ImmutableArray<ITypeParameterSymbol>.Empty
+            : GetTypeParametersInScope(namedType.ContainingType);
+    }
+
+    private static ImmutableArray<ITypeParameterSymbol> GetTypeParametersInScope(INamedTypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        var stack = new Stack<INamedTypeSymbol>();
+        var current = typeSymbol;
+        while (current is not null)
+        {
+            stack.Push(current);
+            current = current.ContainingType;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>();
+        while (stack.Count > 0)
+        {
+            var next = stack.Pop();
+            if (!next.TypeParameters.IsDefaultOrEmpty)
+                builder.AddRange(next.TypeParameters);
+        }
+
+        return builder.ToImmutable();
     }
 
     private static TypeAttributes GetTypeAccessibilityAttributes(INamedTypeSymbol typeSymbol)
@@ -581,7 +614,19 @@ internal class TypeGenerator
             closure.CreateType();
 
         Type ??= TypeBuilder!.CreateType();
+        ReleaseInheritedGenericParameters();
         return Type!;
+    }
+
+    private void ReleaseInheritedGenericParameters()
+    {
+        if (_releasedInheritedTypeParameters)
+            return;
+
+        if (!_inheritedTypeParameters.IsDefaultOrEmpty)
+            CodeGen.UnregisterGenericParameters(_inheritedTypeParameters);
+
+        _releasedInheritedTypeParameters = true;
     }
 
     public bool HasMethodGenerator(IMethodSymbol methodSymbol)
