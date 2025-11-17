@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+using System.Reflection;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
@@ -176,5 +180,28 @@ class Program {
             return;
 
         Assert.Equal("3\nCannot divide by zero", output);
+    }
+
+    [Fact]
+    public void UnionCaseStructs_WithGenericPayloads_EmitInvalidMetadata()
+    {
+        const string source = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+class Program {
+    static Main() -> unit { }
+}
+""";
+
+        var image = CodeGenTestUtilities.EmitAssembly(source, "union_generic_case_metadata");
+        var assembly = Assembly.Load(image);
+
+        var exception = Assert.Throws<ReflectionTypeLoadException>(() => assembly.GetTypes());
+        Assert.Contains(
+            exception.LoaderExceptions.OfType<TypeLoadException>(),
+            loader => loader.Message.Contains("field of an illegal type", StringComparison.Ordinal));
     }
 }

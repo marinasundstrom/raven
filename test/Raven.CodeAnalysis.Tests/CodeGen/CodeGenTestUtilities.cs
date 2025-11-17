@@ -14,18 +14,19 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 internal static class CodeGenTestUtilities
 {
+    internal static byte[] EmitAssembly(string code, string assemblyName, params string[] additionalSources)
+    {
+        var compilation = CreateCompilation(code, assemblyName, additionalSources);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Xunit.Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        return peStream.ToArray();
+    }
+
     internal static string? EmitAndRun(string code, string assemblyName, params string[] additionalSources)
     {
-        var syntaxTrees = new List<RavenSyntaxTree> { RavenSyntaxTree.ParseText(code) };
-
-        foreach (var source in additionalSources)
-            syntaxTrees.Add(RavenSyntaxTree.ParseText(source));
-
-        var references = RuntimeMetadataReferences;
-
-        var compilation = Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddSyntaxTrees(syntaxTrees.ToArray())
-            .AddReferences(references);
+        var compilation = CreateCompilation(code, assemblyName, additionalSources);
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -79,6 +80,20 @@ internal static class CodeGenTestUtilities
     }
 
     internal static MetadataReference[] RuntimeMetadataReferences { get; } = GetRuntimeMetadataReferences();
+
+    private static Compilation CreateCompilation(string code, string assemblyName, params string[] additionalSources)
+    {
+        var syntaxTrees = new List<RavenSyntaxTree> { RavenSyntaxTree.ParseText(code) };
+
+        foreach (var source in additionalSources)
+            syntaxTrees.Add(RavenSyntaxTree.ParseText(source));
+
+        var references = RuntimeMetadataReferences;
+
+        return Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTrees.ToArray())
+            .AddReferences(references);
+    }
 
     private static MetadataReference[] GetRuntimeMetadataReferences()
     {
