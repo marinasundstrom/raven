@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -55,6 +56,33 @@ func create() {
         var symbol = model.GetSymbolInfo(memberAccess).Symbol;
         var caseType = Assert.IsAssignableFrom<ITypeSymbol>(symbol);
         Assert.Equal("Some", caseType.Name);
+    }
+
+    [Fact]
+    public void CaseParameters_AreExposedAsGetterOnlyProperties()
+    {
+        const string source = """
+union Option {
+    Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = unionSymbol.Cases.Single();
+
+        var property = caseSymbol.GetMembers("value").OfType<IPropertySymbol>().Single();
+        Assert.Equal(Accessibility.Public, property.DeclaredAccessibility);
+        Assert.NotNull(property.GetMethod);
+        Assert.Null(property.SetMethod);
+        Assert.Equal(SpecialType.System_Int32, property.Type.SpecialType);
+
+        var backingField = caseSymbol.GetMembers().OfType<IFieldSymbol>()
+            .Single(f => f.Name == "<value>k__BackingField");
+        Assert.Equal(Accessibility.Private, backingField.DeclaredAccessibility);
     }
 
     [Fact]

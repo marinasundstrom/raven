@@ -131,6 +131,15 @@ internal class MethodBodyGenerator
             return;
         }
 
+        if (MethodSymbol.MethodKind == MethodKind.PropertyGet &&
+            MethodSymbol.ContainingType.TryGetDiscriminatedUnionCase() is not null &&
+            MethodSymbol.ContainingSymbol is SourcePropertySymbol unionCaseProperty &&
+            unionCaseProperty.BackingField is SourceFieldSymbol unionCaseField)
+        {
+            EmitUnionCasePropertyGetter(unionCaseProperty, unionCaseField);
+            return;
+        }
+
         var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is null)
         {
@@ -554,6 +563,23 @@ internal class MethodBodyGenerator
                 ILGenerator.Emit(OpCodes.Ldarg_0);
                 ILGenerator.Emit(OpCodes.Stsfld, fieldInfo);
             }
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitUnionCasePropertyGetter(SourcePropertySymbol propertySymbol, SourceFieldSymbol backingField)
+    {
+        var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+        if (propertySymbol.IsStatic)
+        {
+            ILGenerator.Emit(OpCodes.Ldsfld, fieldInfo);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
         }
 
         ILGenerator.Emit(OpCodes.Ret);

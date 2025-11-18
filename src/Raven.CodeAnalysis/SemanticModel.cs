@@ -995,8 +995,8 @@ public partial class SemanticModel
 
                     if (refKind == RefKind.None)
                     {
-                        _ = new SourceFieldSymbol(
-                            parameterSyntax.Identifier.ValueText,
+                        var backingField = new SourceFieldSymbol(
+                            $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
                             parameterType,
                             isStatic: false,
                             isLiteral: false,
@@ -1007,7 +1007,33 @@ public partial class SemanticModel
                             [parameterSyntax.GetLocation()],
                             [parameterSyntax.GetReference()],
                             new BoundParameterAccess(parameterSymbol),
+                            declaredAccessibility: Accessibility.Private);
+
+                        var propertySymbol = new SourcePropertySymbol(
+                            parameterSyntax.Identifier.ValueText,
+                            parameterType,
+                            caseSymbol,
+                            caseSymbol,
+                            namespaceSymbol,
+                            [parameterSyntax.GetLocation()],
+                            [parameterSyntax.GetReference()],
                             declaredAccessibility: Accessibility.Public);
+
+                        var getterSymbol = new SourceMethodSymbol(
+                            $"get_{parameterSyntax.Identifier.ValueText}",
+                            parameterType,
+                            ImmutableArray<SourceParameterSymbol>.Empty,
+                            propertySymbol,
+                            caseSymbol,
+                            namespaceSymbol,
+                            [parameterSyntax.GetLocation()],
+                            [parameterSyntax.GetReference()],
+                            isStatic: false,
+                            methodKind: MethodKind.PropertyGet,
+                            declaredAccessibility: Accessibility.Public);
+
+                        propertySymbol.SetBackingField(backingField);
+                        propertySymbol.SetAccessors(getterSymbol, null);
                     }
                 }
             }
@@ -1070,7 +1096,7 @@ public partial class SemanticModel
             [unionDecl.GetLocation()],
             [unionDecl.GetReference()],
             null,
-            declaredAccessibility: Accessibility.Private);
+            declaredAccessibility: Accessibility.Internal);
 
         var payloadField = new SourceFieldSymbol(
             "<Payload>",
@@ -1084,7 +1110,7 @@ public partial class SemanticModel
             [unionDecl.GetLocation()],
             [unionDecl.GetReference()],
             null,
-            declaredAccessibility: Accessibility.Private);
+            declaredAccessibility: Accessibility.Internal);
 
         unionSymbol.InitializeStorageFields(discriminatorField, payloadField);
 

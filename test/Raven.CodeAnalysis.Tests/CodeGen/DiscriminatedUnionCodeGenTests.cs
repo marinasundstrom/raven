@@ -55,11 +55,19 @@ class Container {
         var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
         Assert.Equal(caseType, caseValue!.GetType());
 
-        var valueField = caseType.GetField("value", BindingFlags.Public | BindingFlags.Instance)!;
-        var labelField = caseType.GetField("label", BindingFlags.Public | BindingFlags.Instance)!;
+        var valueField = caseType.GetField("<value>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var labelField = caseType.GetField("<label>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         Assert.Equal(42, (int)valueField.GetValue(caseValue)!);
         Assert.Equal("ok", (string)labelField.GetValue(caseValue)!);
+
+        var valueProperty = caseType.GetProperty("value", BindingFlags.Public | BindingFlags.Instance)!;
+        var labelProperty = caseType.GetProperty("label", BindingFlags.Public | BindingFlags.Instance)!;
+
+        Assert.False(valueProperty.CanWrite);
+        Assert.False(labelProperty.CanWrite);
+        Assert.Equal(42, (int)valueProperty.GetValue(caseValue)!);
+        Assert.Equal("ok", (string)labelProperty.GetValue(caseValue)!);
     }
 
     [Fact]
@@ -115,7 +123,7 @@ class Container {
         var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
         Assert.Equal(caseType, payload!.GetType());
 
-        var valueField = caseType.GetField("value", BindingFlags.Public | BindingFlags.Instance)!;
-        Assert.Equal(42, (int)valueField.GetValue(payload)!);
+        var valueProperty = caseType.GetProperty("value", BindingFlags.Public | BindingFlags.Instance)!;
+        Assert.Equal(42, (int)valueProperty.GetValue(payload)!);
     }
 }
