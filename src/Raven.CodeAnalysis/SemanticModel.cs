@@ -123,6 +123,9 @@ public partial class SemanticModel
     {
         var binder = GetBinder(node);
 
+        if (node is UnionCaseClauseSyntax caseClause && _unionCaseSymbols.TryGetValue(caseClause, out var caseSymbol))
+            return caseSymbol;
+
         if (Compilation.DeclarationTable.TryGetDeclKey(node, out var key))
         {
             return Compilation.SymbolFactory.GetOrCreate(key, () =>
@@ -779,6 +782,13 @@ public partial class SemanticModel
                         RegisterClassMembers(classDecl, classBinder);
                         break;
                     }
+                case UnionDeclarationSyntax unionDecl:
+                    {
+                        var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
+                        var namespaceSymbol = parentNamespace.AsSourceNamespace();
+                        RegisterUnionDeclaration(unionDecl, parentBinder, declaringSymbol, namespaceSymbol);
+                        break;
+                    }
 
                 case InterfaceDeclarationSyntax interfaceDecl:
                     {
@@ -900,6 +910,186 @@ public partial class SemanticModel
                     }
             }
         }
+    }
+
+    private void RegisterUnionCases(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceDiscriminatedUnionSymbol unionSymbol)
+    {
+        var namespaceSymbol = unionBinder.CurrentNamespace?.AsSourceNamespace()
+            ?? unionSymbol.ContainingNamespace?.AsSourceNamespace();
+        var caseSymbols = new List<IDiscriminatedUnionCaseSymbol>();
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
+        int ordinal = 0;
+
+        foreach (var caseClause in unionDecl.Cases)
+        {
+            var caseSymbol = new SourceDiscriminatedUnionCaseTypeSymbol(
+                caseClause.Identifier.ValueText,
+                ordinal++,
+                valueType!,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                [caseClause.GetLocation()],
+                [caseClause.GetReference()]);
+
+            var constructor = new SourceMethodSymbol(
+                ".ctor",
+                unitType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                caseSymbol,
+                caseSymbol,
+                namespaceSymbol,
+                [caseClause.GetLocation()],
+                [caseClause.GetReference()],
+                isStatic: false,
+                methodKind: MethodKind.Constructor,
+                declaredAccessibility: Accessibility.Public);
+
+            var parameters = new List<SourceParameterSymbol>();
+            var seenOptionalParameter = false;
+
+            if (caseClause.ParameterList is { } parameterList)
+            {
+                foreach (var parameterSyntax in parameterList.Parameters)
+                {
+                    var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+                    var refKind = refKindTokenKind switch
+                    {
+                        SyntaxKind.OutKeyword => RefKind.Out,
+                        SyntaxKind.InKeyword => RefKind.In,
+                        SyntaxKind.RefKeyword => RefKind.Ref,
+                        _ => RefKind.None,
+                    };
+
+                    var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
+                    var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+                    var parameterType = typeSyntax is null
+                        ? Compilation.ErrorTypeSymbol
+                        : refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                            ? unionBinder.ResolveType(typeSyntax, refKindForType)
+                            : unionBinder.ResolveType(typeSyntax);
+
+                    var defaultResult = TypeMemberBinder.ProcessParameterDefault(
+                        parameterSyntax,
+                        parameterType,
+                        parameterSyntax.Identifier.ValueText,
+                        unionBinder.Diagnostics,
+                        ref seenOptionalParameter);
+
+                    var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+                    var parameterSymbol = new SourceParameterSymbol(
+                        parameterSyntax.Identifier.ValueText,
+                        parameterType,
+                        constructor,
+                        caseSymbol,
+                        namespaceSymbol,
+                        [parameterSyntax.GetLocation()],
+                        [parameterSyntax.GetReference()],
+                        refKind,
+                        defaultResult.HasExplicitDefaultValue,
+                        defaultResult.ExplicitDefaultValue,
+                        isMutable);
+
+                    parameters.Add(parameterSymbol);
+
+                    if (refKind == RefKind.None)
+                    {
+                        _ = new SourceFieldSymbol(
+                            parameterSyntax.Identifier.ValueText,
+                            parameterType,
+                            isStatic: false,
+                            isLiteral: false,
+                            constantValue: null,
+                            caseSymbol,
+                            caseSymbol,
+                            namespaceSymbol,
+                            [parameterSyntax.GetLocation()],
+                            [parameterSyntax.GetReference()],
+                            new BoundParameterAccess(parameterSymbol),
+                            declaredAccessibility: Accessibility.Public);
+                    }
+                }
+            }
+
+            constructor.SetParameters(parameters);
+            caseSymbol.SetConstructorParameters(parameters);
+            RegisterUnionCaseSymbol(caseClause, caseSymbol);
+            caseSymbols.Add(caseSymbol);
+        }
+
+        unionSymbol.SetCases(caseSymbols);
+    }
+
+    private void RegisterUnionDeclaration(
+        UnionDeclarationSyntax unionDecl,
+        Binder parentBinder,
+        ISymbol declaringSymbol,
+        SourceNamespaceSymbol? namespaceSymbol)
+    {
+        var containingType = declaringSymbol as INamedTypeSymbol;
+        var containingNamespace = declaringSymbol switch
+        {
+            INamespaceSymbol ns => ns,
+            INamedTypeSymbol type => type.ContainingNamespace,
+            _ => namespaceSymbol
+        };
+
+        var baseTypeSymbol = Compilation.GetSpecialType(SpecialType.System_ValueType);
+        var unionAccessibility = AccessibilityUtilities.DetermineAccessibility(
+            unionDecl.Modifiers,
+            AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
+
+        var unionSymbol = new SourceDiscriminatedUnionSymbol(
+            unionDecl.Identifier.ValueText,
+            baseTypeSymbol!,
+            declaringSymbol,
+            containingType,
+            containingNamespace,
+            [unionDecl.GetLocation()],
+            [unionDecl.GetReference()],
+            unionAccessibility);
+
+        InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList);
+
+        var unionBinder = new UnionDeclarationBinder(parentBinder, unionSymbol, unionDecl);
+        unionBinder.EnsureTypeParameterConstraintTypesResolved(unionSymbol.TypeParameters);
+        _binderCache[unionDecl] = unionBinder;
+
+        namespaceSymbol ??= unionSymbol.ContainingNamespace?.AsSourceNamespace();
+
+        var discriminatorField = new SourceFieldSymbol(
+            "<Tag>",
+            Compilation.GetSpecialType(SpecialType.System_Int32),
+            isStatic: false,
+            isLiteral: false,
+            constantValue: 0,
+            unionSymbol,
+            unionSymbol,
+            namespaceSymbol,
+            [unionDecl.GetLocation()],
+            [unionDecl.GetReference()],
+            null,
+            declaredAccessibility: Accessibility.Private);
+
+        var payloadField = new SourceFieldSymbol(
+            "<Payload>",
+            Compilation.GetSpecialType(SpecialType.System_Object),
+            isStatic: false,
+            isLiteral: false,
+            constantValue: null,
+            unionSymbol,
+            unionSymbol,
+            namespaceSymbol,
+            [unionDecl.GetLocation()],
+            [unionDecl.GetReference()],
+            null,
+            declaredAccessibility: Accessibility.Private);
+
+        unionSymbol.InitializeStorageFields(discriminatorField, payloadField);
+
+        RegisterUnionSymbol(unionDecl, unionSymbol);
+        RegisterUnionCases(unionDecl, unionBinder, unionSymbol);
     }
 
     private void RegisterClassMembers(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
@@ -1053,6 +1243,14 @@ public partial class SemanticModel
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
                     break;
+
+                case UnionDeclarationSyntax nestedUnion:
+                    {
+                        var declaringSymbol = (ISymbol)classBinder.ContainingSymbol;
+                        var namespaceSymbol = classBinder.CurrentNamespace?.AsSourceNamespace();
+                        RegisterUnionDeclaration(nestedUnion, classBinder, declaringSymbol, namespaceSymbol);
+                        break;
+                    }
 
                 case InterfaceDeclarationSyntax nestedInterface:
                     var parentForInterface = (INamedTypeSymbol)classBinder.ContainingSymbol;
@@ -1415,4 +1613,19 @@ public partial class SemanticModel
 
     internal SourceNamedTypeSymbol GetClassSymbol(ClassDeclarationSyntax node)
         => _classSymbols[node];
+
+    private readonly Dictionary<UnionDeclarationSyntax, SourceDiscriminatedUnionSymbol> _unionSymbols = new();
+    private readonly Dictionary<UnionCaseClauseSyntax, SourceDiscriminatedUnionCaseTypeSymbol> _unionCaseSymbols = new();
+
+    internal void RegisterUnionSymbol(UnionDeclarationSyntax node, SourceDiscriminatedUnionSymbol symbol)
+        => _unionSymbols[node] = symbol;
+
+    internal SourceDiscriminatedUnionSymbol GetUnionSymbol(UnionDeclarationSyntax node)
+        => _unionSymbols[node];
+
+    internal void RegisterUnionCaseSymbol(UnionCaseClauseSyntax node, SourceDiscriminatedUnionCaseTypeSymbol symbol)
+        => _unionCaseSymbols[node] = symbol;
+
+    internal SourceDiscriminatedUnionCaseTypeSymbol GetUnionCaseSymbol(UnionCaseClauseSyntax node)
+        => _unionCaseSymbols[node];
 }

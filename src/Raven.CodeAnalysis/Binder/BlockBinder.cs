@@ -1991,6 +1991,9 @@ partial class BlockBinder : Binder
 
             if (member is null)
             {
+                if (TryBindDiscriminatedUnionCase(typeExpr.Type, name, memberAccess.Name.GetLocation()) is BoundExpression unionCase)
+                    return unionCase;
+
                 var typeName = typeExpr.Symbol!.Name;
                 _diagnostics.ReportMemberDoesNotContainDefinition(typeName, memberAccess.Name.ToString(), memberAccess.Name.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -2148,6 +2151,9 @@ partial class BlockBinder : Binder
 
             if (member is null)
             {
+                if (TryBindDiscriminatedUnionCase(expectedType, memberName, nameLocation) is BoundExpression unionCase)
+                    return unionCase;
+
                 _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, nameLocation);
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
@@ -2160,6 +2166,33 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportMemberAccessRequiresTargetType(memberName, nameLocation);
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression? TryBindDiscriminatedUnionCase(ITypeSymbol? receiverType, string memberName, Location location)
+    {
+        var targetType = receiverType?.UnwrapLiteralType() ?? receiverType;
+        if (targetType is not INamedTypeSymbol namedType)
+            return null;
+
+        if (namedType.TryGetDiscriminatedUnion() is null)
+            return null;
+
+        foreach (var member in namedType.GetMembers(memberName))
+        {
+            if (member is not ITypeSymbol typeMember)
+                continue;
+
+            if (typeMember.TryGetDiscriminatedUnionCase() is null)
+                continue;
+
+            var accessibleType = EnsureTypeAccessible(typeMember, location);
+            if (accessibleType.TypeKind == TypeKind.Error)
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+            return new BoundTypeExpression(accessibleType);
+        }
+
+        return null;
     }
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)

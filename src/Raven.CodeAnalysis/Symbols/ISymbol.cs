@@ -508,6 +508,24 @@ public interface IUnionTypeSymbol : ITypeSymbol
     ITypeSymbol? DeclaredUnderlyingType { get; }
 }
 
+public interface IDiscriminatedUnionSymbol : INamedTypeSymbol
+{
+    ImmutableArray<IDiscriminatedUnionCaseSymbol> Cases { get; }
+
+    IFieldSymbol DiscriminatorField { get; }
+
+    IFieldSymbol PayloadField { get; }
+}
+
+public interface IDiscriminatedUnionCaseSymbol : INamedTypeSymbol
+{
+    IDiscriminatedUnionSymbol Union { get; }
+
+    ImmutableArray<IParameterSymbol> ConstructorParameters { get; }
+
+    int Ordinal { get; }
+}
+
 public interface ITypeParameterSymbol : ITypeSymbol
 {
     int Ordinal { get; }

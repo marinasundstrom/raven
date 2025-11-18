@@ -324,6 +324,9 @@ internal class MethodBodyGenerator
 
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
+            case UnionCaseClauseSyntax:
+                EmitUnionCaseConstructor();
+                break;
 
             default:
                 throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
@@ -553,6 +556,18 @@ internal class MethodBodyGenerator
             }
         }
 
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitUnionCaseConstructor()
+    {
+        if (!MethodSymbol.IsConstructor)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        EmitFieldInitializers(MethodSymbol.IsStatic);
         ILGenerator.Emit(OpCodes.Ret);
     }
 
