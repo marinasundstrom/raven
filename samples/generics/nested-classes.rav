@@ -11,5 +11,7 @@ class Outer<A> {
     }
 }
 
+// Nested types that inherit parameters from enclosing type when instantiated.
+
 let a = Foo<int>.Bar()
-let a = Outer<int>.Inner<string>()
+let b = Outer<int>.Inner<string>()
