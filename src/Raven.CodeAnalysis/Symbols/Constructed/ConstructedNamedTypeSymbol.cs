@@ -277,16 +277,29 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
     internal System.Reflection.TypeInfo GetTypeInfo(CodeGenerator codeGen)
     {
+        var runtimeArguments = GetAllTypeArguments();
+
         if (_originalDefinition is PENamedTypeSymbol pen)
         {
             var genericTypeDef = pen.GetClrType(codeGen);
-            return genericTypeDef.MakeGenericType(TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray()).GetTypeInfo();
+            if (runtimeArguments.IsDefaultOrEmpty)
+                return genericTypeDef.GetTypeInfo();
+
+            var resolved = runtimeArguments
+                .Select(arg => ResolveRuntimeTypeArgument(arg, codeGen))
+                .ToArray();
+            return genericTypeDef.MakeGenericType(resolved).GetTypeInfo();
         }
 
         if (_originalDefinition is SourceNamedTypeSymbol source)
         {
             var definitionType = codeGen.GetTypeBuilder(source) ?? throw new InvalidOperationException("Missing type builder for generic definition.");
-            var runtimeArgs = TypeArguments.Select(arg => ResolveRuntimeTypeArgument(arg, codeGen)).ToArray();
+            if (runtimeArguments.IsDefaultOrEmpty)
+                return definitionType.GetTypeInfo();
+
+            var runtimeArgs = runtimeArguments
+                .Select(arg => ResolveRuntimeTypeArgument(arg, codeGen))
+                .ToArray();
             var constructed = definitionType.MakeGenericType(runtimeArgs);
             return constructed.GetTypeInfo();
         }
