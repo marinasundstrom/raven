@@ -334,7 +334,7 @@ public partial class SemanticModel
             var nsSymbol = ResolveNamespace(targetNamespace, name);
             if (nsSymbol != null)
             {
-                namespaceImports.Add(nsSymbol);
+                namespaceBinder.Diagnostics.ReportTypeExpectedWithoutWildcard(import.Name.GetLocation());
                 continue;
             }
 
@@ -389,6 +389,9 @@ public partial class SemanticModel
             importBinder.Diagnostics.Report(diagnostic);
 
         var topLevelBinder = CreateTopLevelBinder(cu, targetNamespace, importBinder);
+
+        foreach (var diagnostic in importBinder.Diagnostics.AsEnumerable())
+            topLevelBinder.Diagnostics.Report(diagnostic);
 
         _binderCache[cu] = topLevelBinder;
         if (fileScopedNamespace != null)
