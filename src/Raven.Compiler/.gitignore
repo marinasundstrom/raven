@@ -3,3 +3,4 @@ test.exe
 test
 test.runtimeconfig.json
 output
+TestDep.dll

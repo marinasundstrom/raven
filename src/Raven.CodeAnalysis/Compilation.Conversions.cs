@@ -60,6 +60,15 @@ public partial class Compilation
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
 
+        var sourceUnionCase = source.TryGetDiscriminatedUnionCase();
+        var destinationUnion = destination.TryGetDiscriminatedUnion();
+        if (sourceUnionCase is not null &&
+            destinationUnion is not null &&
+            SymbolEqualityComparer.Default.Equals(sourceUnionCase.Union, destinationUnion))
+        {
+            return Finalize(new Conversion(isImplicit: true, isDiscriminatedUnion: true));
+        }
+
         bool ElementTypesAreCompatible(ITypeSymbol sourceElement, ITypeSymbol destinationElement)
         {
             bool sourceElementUsedAlias = false;
