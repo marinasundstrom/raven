@@ -12,8 +12,8 @@ union Token {
 
 func describe(token: Token) -> string {
     return token match {
-        .Identifier(text) => $"identifier '{text}'"
-        .Number(value) => $"number {value}"
+        .Identifier(text) => "identifier '${text}'"
+        .Number(value) => "number ${value}"
         .Unknown => "unknown token"
     }
 }
@@ -25,8 +25,8 @@ union Result<T> {
 
 func format(result: Result<int>) -> string {
     return result match {
-        .Ok(value) => $"ok {value}"
-        .Error(message) => $"error '{message}'"
+        .Ok(value) => "ok ${value}"
+        .Error(message) => "error '${message}'"
     }
 }
 
