@@ -25,6 +25,25 @@ public static class TypeSymbolExtensionsForCodeGen
 
         var compilation = codeGen.Compilation;
 
+        if (typeSymbol is ConstructedNamedTypeSymbol constructedType)
+        {
+            if (constructedType.ConstructedFrom is not INamedTypeSymbol definition)
+                throw new InvalidOperationException("Constructed type is missing its original definition.");
+
+            var genericDefinition = GetClrTypeInternal(definition, codeGen, treatUnitAsVoid, isTopLevel: false);
+            var arguments = constructedType.GetAllTypeArguments()
+                .Select(arg => GetClrTypeInternal(arg, codeGen, treatUnitAsVoid, isTopLevel: false))
+                .ToArray();
+
+            if (!genericDefinition.IsGenericTypeDefinition && !genericDefinition.ContainsGenericParameters)
+                return genericDefinition;
+
+            if (arguments.Length == 0)
+                return genericDefinition;
+
+            return genericDefinition.MakeGenericType(arguments);
+        }
+
         if (typeSymbol is NullableTypeSymbol nullableType)
         {
             var underlying = GetClrTypeInternal(nullableType.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
@@ -101,6 +120,7 @@ public static class TypeSymbolExtensionsForCodeGen
         }
 
         if (typeSymbol is INamedTypeSymbol named &&
+            named is not ConstructedNamedTypeSymbol &&
             named.IsGenericType &&
             !named.IsUnboundGenericType)
         {

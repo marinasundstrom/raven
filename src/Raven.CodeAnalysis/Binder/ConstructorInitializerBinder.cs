@@ -78,6 +78,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         }
 
         var constructor = resolution.Method!;
+        constructor = EnsureConstructedConstructor(constructor, baseType);
         var convertedArguments = ConvertArguments(constructor.Parameters, argumentArray);
         if (convertedArguments.Any(static argument => argument is BoundErrorExpression))
             return null;

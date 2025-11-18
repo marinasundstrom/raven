@@ -390,6 +390,9 @@ public partial class SemanticModel
 
         var topLevelBinder = CreateTopLevelBinder(cu, targetNamespace, importBinder);
 
+        foreach (var diagnostic in importBinder.Diagnostics.AsEnumerable())
+            topLevelBinder.Diagnostics.Report(diagnostic);
+
         _binderCache[cu] = topLevelBinder;
         if (fileScopedNamespace != null)
             _binderCache[fileScopedNamespace] = importBinder;
@@ -766,12 +769,10 @@ public partial class SemanticModel
                         }
 
                         if (isNewSymbol)
-                        {
                             InitializeTypeParameters(classSymbol, classDecl.TypeParameterList);
 
-                            if (!interfaceList.IsDefaultOrEmpty)
-                                classSymbol.SetInterfaces(interfaceList);
-                        }
+                        if (!interfaceList.IsDefaultOrEmpty)
+                            classSymbol.SetInterfaces(interfaceList);
 
                         var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
                         classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
@@ -1253,12 +1254,10 @@ public partial class SemanticModel
                     }
 
                     if (isNewNestedSymbol)
-                    {
                         InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList);
 
-                        if (!nestedInterfaces.IsDefaultOrEmpty)
-                            nestedSymbol.SetInterfaces(nestedInterfaces);
-                    }
+                    if (!nestedInterfaces.IsDefaultOrEmpty)
+                        nestedSymbol.SetInterfaces(nestedInterfaces);
 
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
                     nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
