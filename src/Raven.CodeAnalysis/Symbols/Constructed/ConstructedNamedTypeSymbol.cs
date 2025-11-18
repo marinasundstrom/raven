@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection;
@@ -13,6 +14,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 {
     private readonly INamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
+    private readonly INamedTypeSymbol? _containingTypeOverride;
     private ImmutableArray<ISymbol>? _members;
     private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
@@ -21,16 +23,48 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 
     public ConstructedNamedTypeSymbol(INamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
+        : this(originalDefinition, typeArguments, inheritedSubstitution: null, containingTypeOverride: null)
+    {
+    }
+
+    private static Dictionary<ITypeParameterSymbol, ITypeSymbol> CreateSubstitutionMap(
+        INamedTypeSymbol originalDefinition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
+    {
+        if (inheritedSubstitution is null)
+        {
+            var map = originalDefinition.TypeParameters
+                .Zip(typeArguments, (p, a) => (p, a))
+                .ToDictionary(x => x.p, x => x.a);
+
+            return new Dictionary<ITypeParameterSymbol, ITypeSymbol>(map, SymbolEqualityComparer.Default);
+        }
+
+        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, SymbolEqualityComparer.Default);
+        var typeParameters = originalDefinition.TypeParameters;
+
+        if (!typeArguments.IsDefaultOrEmpty)
+        {
+            for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
+                substitution[typeParameters[i]] = typeArguments[i];
+        }
+
+        return substitution;
+    }
+
+    private ConstructedNamedTypeSymbol(
+        INamedTypeSymbol originalDefinition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution,
+        INamedTypeSymbol? containingTypeOverride)
     {
         ConstructedFrom = originalDefinition;
         _originalDefinition = originalDefinition;
         TypeArguments = typeArguments;
+        _containingTypeOverride = containingTypeOverride;
 
-        _substitutionMap = originalDefinition.TypeParameters
-            .Zip(TypeArguments, (p, a) => (p, a))
-            .ToDictionary(x => x.p, x => x.a);
-
-        _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(_substitutionMap, SymbolEqualityComparer.Default);
+        _substitutionMap = CreateSubstitutionMap(originalDefinition, typeArguments, inheritedSubstitution);
     }
 
     public ITypeSymbol Substitute(ITypeSymbol type)
@@ -67,8 +101,17 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
     private INamedTypeSymbol SubstituteNamedType(INamedTypeSymbol namedType)
     {
+        var containingOverride = namedType.ContainingType is INamedTypeSymbol containing &&
+            SymbolEqualityComparer.Default.Equals(containing, _originalDefinition)
+            ? this
+            : null;
+
         if (namedType.Arity == 0)
-            return namedType;
+        {
+            return containingOverride is not null
+                ? new ConstructedNamedTypeSymbol(namedType, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride)
+                : namedType;
+        }
 
         var typeArguments = new ITypeSymbol[namedType.Arity];
         var typeParameters = namedType.TypeParameters;
@@ -97,7 +140,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
             }
         }
 
-        return (INamedTypeSymbol)namedType.Construct(typeArguments);
+        if (containingOverride is null)
+            return (INamedTypeSymbol)namedType.Construct(typeArguments);
+
+        var immutableArguments = ImmutableArray.Create(typeArguments);
+        return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride);
     }
 
     // Symbol metadata forwarding
@@ -119,7 +166,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public bool IsType => true;
     public bool IsReferenceType => _originalDefinition.IsReferenceType;
     public bool IsValueType => _originalDefinition.IsValueType;
-    public INamedTypeSymbol? ContainingType => _originalDefinition.ContainingType;
+    public INamedTypeSymbol? ContainingType => _containingTypeOverride ?? _originalDefinition.ContainingType;
     public INamespaceSymbol? ContainingNamespace => _originalDefinition.ContainingNamespace;
     public ISymbol? ContainingSymbol => _originalDefinition.ContainingSymbol;
     public IAssemblySymbol? ContainingAssembly => _originalDefinition.ContainingAssembly;
@@ -181,7 +228,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
     {
-        return _originalDefinition.Construct(typeArguments);
+        if (_containingTypeOverride is null)
+            return _originalDefinition.Construct(typeArguments);
+
+        var immutableArguments = ImmutableArray.Create(typeArguments);
+        return new ConstructedNamedTypeSymbol(_originalDefinition, immutableArguments, _substitutionMap, _containingTypeOverride);
     }
 
     public ITypeSymbol? LookupType(string name)

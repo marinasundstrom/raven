@@ -334,7 +334,7 @@ public partial class SemanticModel
             var nsSymbol = ResolveNamespace(targetNamespace, name);
             if (nsSymbol != null)
             {
-                namespaceBinder.Diagnostics.ReportTypeExpectedWithoutWildcard(import.Name.GetLocation());
+                namespaceImports.Add(nsSymbol);
                 continue;
             }
 
@@ -766,12 +766,10 @@ public partial class SemanticModel
                         }
 
                         if (isNewSymbol)
-                        {
                             InitializeTypeParameters(classSymbol, classDecl.TypeParameterList);
 
-                            if (!interfaceList.IsDefaultOrEmpty)
-                                classSymbol.SetInterfaces(interfaceList);
-                        }
+                        if (!interfaceList.IsDefaultOrEmpty)
+                            classSymbol.SetInterfaces(interfaceList);
 
                         var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
                         classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
@@ -1253,12 +1251,10 @@ public partial class SemanticModel
                     }
 
                     if (isNewNestedSymbol)
-                    {
                         InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList);
 
-                        if (!nestedInterfaces.IsDefaultOrEmpty)
-                            nestedSymbol.SetInterfaces(nestedInterfaces);
-                    }
+                    if (!nestedInterfaces.IsDefaultOrEmpty)
+                        nestedSymbol.SetInterfaces(nestedInterfaces);
 
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
                     nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);

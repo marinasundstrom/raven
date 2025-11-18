@@ -124,7 +124,7 @@ class BinderFactory
             var namespaceSymbol = ResolveNamespace(nsSymbol!, importName);
             if (namespaceSymbol != null)
             {
-                nsBinder.Diagnostics.ReportTypeExpectedWithoutWildcard(importDirective.Name.GetLocation());
+                namespaceImports.Add(namespaceSymbol);
                 continue;
             }
 

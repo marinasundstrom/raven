@@ -69,6 +69,55 @@ class Container<T>
         var field = Assert.Single(holder.GetMembers("value").OfType<IFieldSymbol>());
 
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, field.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
+    }
+
+    [Fact]
+    public void ConstructedType_NestedTypeInstantiation_RetainsContainingType()
+    {
+        var source = """
+class Container<T>
+{
+    public class Holder
+    {
+        var value: T;
+    }
+
+    public class Inner<U>
+    {
+        var value: T;
+        var data: U;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "constructed-nested-instantiation",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var containerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Container"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(containerDefinition.Construct(intType));
+
+        var holder = Assert.IsAssignableFrom<INamedTypeSymbol>(constructed.LookupType("Holder"));
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
+
+        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructed.LookupType("Inner"));
+        var constructedInner = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.Construct(stringType));
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, constructedInner.ContainingType));
+
+        var valueField = Assert.Single(constructedInner.GetMembers("value").OfType<IFieldSymbol>());
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, valueField.Type));
+
+        var dataField = Assert.Single(constructedInner.GetMembers("data").OfType<IFieldSymbol>());
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, dataField.Type));
     }
 
     [Fact]
