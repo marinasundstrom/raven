@@ -90,6 +90,20 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public ImmutableArray<ISymbol> GetMembers(string name) =>
         GetMembers().Where(m => m.Name == name).ToImmutableArray();
 
+    internal ImmutableArray<ITypeSymbol> GetAllTypeArguments()
+    {
+        if (_containingTypeOverride is ConstructedNamedTypeSymbol constructedContaining)
+        {
+            var inherited = constructedContaining.GetAllTypeArguments();
+            if (TypeArguments.IsDefaultOrEmpty || TypeArguments.Length == 0)
+                return inherited;
+
+            return inherited.AddRange(TypeArguments);
+        }
+
+        return TypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : TypeArguments;
+    }
+
     private ISymbol SubstituteMember(ISymbol member) => member switch
     {
         IMethodSymbol m => new SubstitutedMethodSymbol(m, this),

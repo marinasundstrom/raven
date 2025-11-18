@@ -21,4 +21,25 @@ public class SymbolQueryTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void NestedType_IsAvailableThroughConstructedTypeExpression()
+    {
+        string testCode =
+            """
+            class Foo<T>
+            {
+                public class Bar
+                {
+                    let value: T
+                }
+            }
+
+            let bar = Foo<int>.Bar();
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }

@@ -1964,6 +1964,9 @@ partial class BlockBinder : Binder
                 if (!EnsureMemberAccessible(nonMethodMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(nonMethodMember)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
+                if (nonMethodMember is ITypeSymbol typeMember)
+                    return new BoundTypeExpression(typeMember);
+
                 return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
             }
 
@@ -2001,6 +2004,9 @@ partial class BlockBinder : Binder
 
             if (!EnsureMemberAccessible(member, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+            if (member is ITypeSymbol typeMemberSymbol)
+                return new BoundTypeExpression(typeMemberSymbol);
 
             return new BoundMemberAccessExpression(typeExpr, member);
         }
