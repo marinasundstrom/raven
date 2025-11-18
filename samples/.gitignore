@@ -1,1 +1,6 @@
 output
+test.dll
+test.exe
+test
+test.runtimeconfig.json
+TestDep.dll

@@ -10,3 +10,6 @@ class Outer<A> {
         let b: B 
     }
 }
+
+let a = Foo<int>.Bar()
+let a = Outer<int>.Inner<string>()
