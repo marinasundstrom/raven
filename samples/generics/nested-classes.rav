@@ -1,13 +1,13 @@
 class Foo<T> {
-    class Bar {
+    public class Bar {
         let value: T
     }
 }
 
 class Outer<A> {
-    class Inner<B> {
+    public class Inner<B> {
         let value: A
-        let b: B 
+        let b: B
     }
 }
 
