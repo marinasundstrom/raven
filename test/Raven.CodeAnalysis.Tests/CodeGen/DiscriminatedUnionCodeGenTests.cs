@@ -537,4 +537,56 @@ class Container {
 
         Assert.Equal("Result<int>.Ok(value=5)", text);
     }
+
+    [Fact]
+    public void UnionToString_EscapesStringValues()
+    {
+        var code = """
+union Shape {
+    Label(text: string)
+}
+
+class Container {
+    public static Create() -> Shape {
+        return .Label("a\"b")
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Shape", throwOnError: true)!;
+        var caseType = unionType.GetNestedType("Label", BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var ctor = caseType.GetConstructor(new[] { typeof(string) })!;
+        var caseInstance = ctor.Invoke(new object?[] { "a\"b" });
+        var caseToString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
+        var caseText = (string)caseToString.Invoke(caseInstance, Array.Empty<object?>())!;
+        Assert.Equal("Shape.Label(text=\"a\\\"b\")", caseText);
+
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var createMethod = containerType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
+        var unionValue = createMethod.Invoke(null, Array.Empty<object?>());
+        Assert.NotNull(unionValue);
+
+        var unionToString = unionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
+        var unionText = (string)unionToString.Invoke(unionValue, Array.Empty<object?>())!;
+        Assert.Equal("Shape.Label(text=\"a\\\"b\")", unionText);
+    }
 }
