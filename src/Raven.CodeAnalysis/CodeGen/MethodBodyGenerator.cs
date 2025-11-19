@@ -927,7 +927,7 @@ internal class MethodBodyGenerator
 
             ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
             ILGenerator.Emit(OpCodes.Callvirt, builderToString);
-            ILGenerator.Emit(OpCodes.Br_S, endLabel);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(nextCaseLabel);
         }
@@ -1213,7 +1213,7 @@ internal class MethodBodyGenerator
 
         var typeLoopCheck = ILGenerator.DefineLabel();
         var typeLoopBody = ILGenerator.DefineLabel();
-        ILGenerator.Emit(OpCodes.Br_S, typeLoopCheck);
+        ILGenerator.Emit(OpCodes.Br, typeLoopCheck);
         ILGenerator.MarkLabel(typeLoopBody);
 
         var skipCommaLabel = ILGenerator.DefineLabel();
@@ -1263,7 +1263,7 @@ internal class MethodBodyGenerator
         ILGenerator.MarkLabel(typeLoopCheck);
         ILGenerator.Emit(OpCodes.Ldloc, argIndexLocal);
         ILGenerator.Emit(OpCodes.Ldloc, argsLengthLocal);
-        ILGenerator.Emit(OpCodes.Blt_S, typeLoopBody);
+        ILGenerator.Emit(OpCodes.Blt, typeLoopBody);
 
         ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
         ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'>');
@@ -1299,7 +1299,7 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Ldstr, "null");
             ILGenerator.Emit(OpCodes.Callvirt, appendString);
             ILGenerator.Emit(OpCodes.Pop);
-            ILGenerator.Emit(OpCodes.Br_S, endLabel);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(nonNullLabel);
 
@@ -1348,7 +1348,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldstr, "null");
         ILGenerator.Emit(OpCodes.Callvirt, appendString);
         ILGenerator.Emit(OpCodes.Pop);
-        ILGenerator.Emit(OpCodes.Br_S, doneLabel);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
 
         ILGenerator.MarkLabel(notNullLabel);
 
