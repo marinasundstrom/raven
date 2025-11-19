@@ -787,22 +787,26 @@ internal class MethodBodyGenerator
         var stringIndexOf = typeof(string).GetMethod(nameof(string.IndexOf), new[] { typeof(char) })!;
         var stringSubstring = typeof(string).GetMethod(nameof(string.Substring), new[] { typeof(int), typeof(int) })!;
 
-        var parameterInfos = new List<(string Name, ITypeSymbol Type, MethodInfo Getter)>();
+        var parameterInfos = new List<(string Name, ITypeSymbol Type, FieldInfo Field)>();
 
         foreach (var parameter in caseSymbol.ConstructorParameters)
         {
             if (parameter.RefKind != RefKind.None || parameter.Type is null)
                 continue;
 
-            var property = caseSymbol.GetMembers(parameter.Name)
-                .OfType<IPropertySymbol>()
-                .FirstOrDefault();
+            if (caseSymbol
+                    .GetMembers(parameter.Name)
+                    .OfType<IPropertySymbol>()
+                    .FirstOrDefault() is not SourcePropertySymbol property)
+            {
+                continue;
+            }
 
-            if (property?.GetMethod is not IMethodSymbol getter)
+            if (property.BackingField is not SourceFieldSymbol backingField)
                 continue;
 
-            var getterInfo = getter.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
-            parameterInfos.Add((parameter.Name, parameter.Type, getterInfo));
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            parameterInfos.Add((parameter.Name, parameter.Type, fieldInfo));
         }
 
         var builderLocal = ILGenerator.DeclareLocal(builderType);
@@ -1004,7 +1008,7 @@ internal class MethodBodyGenerator
 
                 ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
                 ILGenerator.Emit(OpCodes.Ldarg_0);
-                ILGenerator.Emit(OpCodes.Call, parameter.Getter);
+                ILGenerator.Emit(OpCodes.Ldfld, parameter.Field);
 
                 if (parameter.Type.IsValueType)
                 {

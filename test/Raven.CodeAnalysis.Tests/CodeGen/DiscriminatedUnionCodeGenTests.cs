@@ -449,4 +449,92 @@ class Container {
         Assert.NotNull(converted);
         Assert.Equal(closedUnionType, converted!.GetType());
     }
+
+    [Fact]
+    public void UnionCaseToString_FormatsUnionNameAndParameters()
+    {
+        var code = """
+union Shape {
+    Rectangle(width: int, height: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Shape", throwOnError: true)!;
+        var caseType = unionType.GetNestedType("Rectangle", BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var ctor = caseType.GetConstructor(new[] { typeof(int), typeof(int) })!;
+        var caseInstance = ctor.Invoke(new object?[] { 3, 6 });
+        var toString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
+
+        var text = (string)toString.Invoke(caseInstance, Array.Empty<object?>())!;
+        Assert.Equal("Shape.Rectangle(width=3, height=6)", text);
+    }
+
+    [Fact]
+    public void UnionToString_IndicatesActiveCase()
+    {
+        var code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+class Container {
+    public static Create() -> Result<int> {
+        return .Ok(5)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var createMethod = containerType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
+
+        var unionValue = createMethod.Invoke(null, Array.Empty<object?>());
+        Assert.NotNull(unionValue);
+
+        var unionTypeDefinition = runtimeAssembly.GetType("Result`1", throwOnError: true)!;
+        var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
+        Assert.Equal(closedUnionType, unionValue!.GetType());
+
+        var toString = closedUnionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
+        var text = (string)toString.Invoke(unionValue, Array.Empty<object?>())!;
+
+        Assert.Equal("Result<int>.Ok(value=5)", text);
+    }
 }
