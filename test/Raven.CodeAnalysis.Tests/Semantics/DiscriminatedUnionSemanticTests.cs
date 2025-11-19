@@ -332,6 +332,84 @@ union Result<T> {
     }
 
     [Fact]
+    public void CasePattern_ImplicitPayloadDesignations_InMatch_BindLocals()
+    {
+        const string source = """
+func describe(result: Result<int>) -> string {
+    return result match {
+        .Ok(payload) => payload.ToString()
+        .Error(message) => message
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchSyntax = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchSyntax));
+
+        var okPattern = Assert.IsType<BoundCasePattern>(boundMatch.Arms[0].Pattern);
+        var okPayload = Assert.IsType<BoundDeclarationPattern>(okPattern.Arguments[0]);
+        var okDesignator = Assert.IsType<BoundSingleVariableDesignator>(okPayload.Designator);
+
+        Assert.Equal(SpecialType.System_Int32, okDesignator.Local.Type.SpecialType);
+        Assert.Equal("payload", okDesignator.Local.Name);
+
+        var errorPattern = Assert.IsType<BoundCasePattern>(boundMatch.Arms[1].Pattern);
+        var errorPayload = Assert.IsType<BoundDeclarationPattern>(errorPattern.Arguments[0]);
+        var errorDesignator = Assert.IsType<BoundSingleVariableDesignator>(errorPayload.Designator);
+
+        Assert.Equal(SpecialType.System_String, errorDesignator.Local.Type.SpecialType);
+        Assert.Equal("message", errorDesignator.Local.Name);
+    }
+
+    [Fact]
+    public void CasePattern_MissingArm_ReportsExhaustivenessDiagnostic()
+    {
+        const string source = """
+func describe(result: Result<int>) -> string {
+    return result match {
+        .Ok(payload) => payload.ToString()
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("RAV2100", diagnostic.Id);
+        Assert.Contains("Error", diagnostic.GetMessage());
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchSyntax = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchSyntax));
+
+        var okPattern = Assert.IsType<BoundCasePattern>(boundMatch.Arms[0].Pattern);
+        var okPayload = Assert.IsType<BoundDeclarationPattern>(okPattern.Arguments[0]);
+        var okDesignator = Assert.IsType<BoundSingleVariableDesignator>(okPayload.Designator);
+
+        Assert.Equal(SpecialType.System_Int32, okDesignator.Local.Type.SpecialType);
+        Assert.Equal("payload", okDesignator.Local.Name);
+    }
+
+    [Fact]
     public void CasePattern_WithGuard_RemainsInExhaustivenessCheck()
     {
         const string source = """
