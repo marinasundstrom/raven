@@ -814,7 +814,7 @@ internal class MethodBodyGenerator
 
             ILGenerator.Emit(OpCodes.Ldloc, tagLocal);
             ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
-            ILGenerator.Emit(OpCodes.Bne_Un_S, nextCaseLabel);
+            ILGenerator.Emit(OpCodes.Bne_Un, nextCaseLabel);
 
             if (parameterInfos.Count > 0)
             {
