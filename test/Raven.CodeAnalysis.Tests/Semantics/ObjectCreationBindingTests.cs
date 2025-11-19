@@ -69,5 +69,8 @@ let value = Outer<int>.Inner<string>();
         var substitutedConstructor = Assert.IsType<SubstitutedMethodSymbol>(bound.Constructor);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, substitutedConstructor.ContainingType));
+
+        Assert.All(constructedType.TypeArguments, argument => Assert.False(argument is ITypeParameterSymbol));
+        Assert.All(constructedType.GetAllTypeArguments(), argument => Assert.False(argument is ITypeParameterSymbol));
     }
 }

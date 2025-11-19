@@ -92,16 +92,33 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
     internal ImmutableArray<ITypeSymbol> GetAllTypeArguments()
     {
+        var normalizedArguments = NormalizeTypeArguments();
+
         if (_containingTypeOverride is ConstructedNamedTypeSymbol constructedContaining)
         {
             var inherited = constructedContaining.GetAllTypeArguments();
-            if (TypeArguments.IsDefaultOrEmpty || TypeArguments.Length == 0)
+            if (normalizedArguments.IsDefaultOrEmpty || normalizedArguments.Length == 0)
                 return inherited;
 
-            return inherited.AddRange(TypeArguments);
+            return inherited.AddRange(normalizedArguments);
         }
 
-        return TypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : TypeArguments;
+        return normalizedArguments;
+    }
+
+    private ImmutableArray<ITypeSymbol> NormalizeTypeArguments()
+    {
+        if (TypeArguments.IsDefault)
+            return ImmutableArray<ITypeSymbol>.Empty;
+
+        if (TypeArguments.IsDefaultOrEmpty || TypeArguments.Length == 0)
+            return TypeArguments;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(TypeArguments.Length);
+        foreach (var argument in TypeArguments)
+            builder.Add(Substitute(argument));
+
+        return builder.MoveToImmutable();
     }
 
     private ISymbol SubstituteMember(ISymbol member) => member switch
@@ -591,8 +608,10 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     internal ConstructorInfo GetConstructorInfo(CodeGenerator codeGen)
     {
+        var cacheArguments = _constructed.GetAllTypeArguments();
+
         if (_original is SourceMethodSymbol cachedSource &&
-            codeGen.TryGetMemberBuilder(cachedSource, _constructed.TypeArguments, out var cachedMember) &&
+            codeGen.TryGetMemberBuilder(cachedSource, cacheArguments, out var cachedMember) &&
             cachedMember is ConstructorInfo cachedConstructor)
         {
             return cachedConstructor;
@@ -620,7 +639,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
                 var constructedCtor = TypeBuilder.GetConstructor(constructedType, definitionCtor);
                 if (constructedCtor is not null)
                 {
-                    codeGen.AddMemberBuilder(sourceMethod, constructedCtor, _constructed.TypeArguments);
+                    codeGen.AddMemberBuilder(sourceMethod, constructedCtor, cacheArguments);
                     return constructedCtor;
                 }
             }
@@ -633,8 +652,10 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     internal MethodInfo GetMethodInfo(CodeGenerator codeGen)
     {
+        var cacheArguments = _constructed.GetAllTypeArguments();
+
         if (_original is SourceMethodSymbol cachedSource &&
-            codeGen.TryGetMemberBuilder(cachedSource, _constructed.TypeArguments, out var cachedMember) &&
+            codeGen.TryGetMemberBuilder(cachedSource, cacheArguments, out var cachedMember) &&
             cachedMember is MethodInfo cachedMethod)
         {
             return cachedMethod;
@@ -684,7 +705,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
                 var constructedMethod = TypeBuilder.GetMethod(constructedType, definitionMethod);
                 if (constructedMethod is not null)
                 {
-                    codeGen.AddMemberBuilder(sourceMethod, constructedMethod, _constructed.TypeArguments);
+                    codeGen.AddMemberBuilder(sourceMethod, constructedMethod, cacheArguments);
                     return constructedMethod;
                 }
             }
@@ -700,7 +721,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             var resolved = constructedType.GetMethod(definitionMethod.Name, bindingFlags, null, parameterTypes, null);
             if (resolved is not null)
             {
-                codeGen.AddMemberBuilder(sourceMethod, resolved, _constructed.TypeArguments);
+                codeGen.AddMemberBuilder(sourceMethod, resolved, cacheArguments);
                 return resolved;
             }
 
@@ -751,8 +772,10 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
 
     internal FieldInfo GetFieldInfo(CodeGenerator codeGen)
     {
+        var cacheArguments = _constructed.GetAllTypeArguments();
+
         if (_original is SourceFieldSymbol cachedSource &&
-            codeGen.TryGetMemberBuilder(cachedSource, _constructed.TypeArguments, out var cachedMember) &&
+            codeGen.TryGetMemberBuilder(cachedSource, cacheArguments, out var cachedMember) &&
             cachedMember is FieldInfo cachedField)
         {
             return cachedField;
@@ -777,7 +800,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
                 var constructedField = TypeBuilder.GetField(constructedType, definitionField);
                 if (constructedField is not null)
                 {
-                    codeGen.AddMemberBuilder(sourceField, constructedField, _constructed.TypeArguments);
+                    codeGen.AddMemberBuilder(sourceField, constructedField, cacheArguments);
                     return constructedField;
                 }
             }
@@ -789,7 +812,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
             var resolved = constructedType.GetField(definitionField.Name, bindingFlags);
             if (resolved is not null)
             {
-                codeGen.AddMemberBuilder(sourceField, resolved, _constructed.TypeArguments);
+                codeGen.AddMemberBuilder(sourceField, resolved, cacheArguments);
                 return resolved;
             }
 

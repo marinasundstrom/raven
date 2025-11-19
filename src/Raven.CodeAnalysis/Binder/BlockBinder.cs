@@ -1965,7 +1965,18 @@ partial class BlockBinder : Binder
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 if (nonMethodMember is ITypeSymbol typeMember)
+                {
+                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null && typeMember is INamedTypeSymbol namedMember)
+                    {
+                        if (!ValidateTypeArgumentConstraints(namedMember, typeArgs, i => GetTypeArgumentLocation(genericTypeSyntax.TypeArgumentList.Arguments, genericTypeSyntax.GetLocation(), i), namedMember.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+                        if (TryConstructGeneric(namedMember, typeArgs, namedMember.Arity) is INamedTypeSymbol constructedType)
+                            typeMember = constructedType;
+                    }
+
                     return new BoundTypeExpression(typeMember);
+                }
 
                 return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
             }
@@ -2588,6 +2599,15 @@ partial class BlockBinder : Binder
                 var constructed = typeArgs.IsEmpty
                     ? namedType
                     : TryConstructGeneric(namedType, typeArgs, namedType.Arity) ?? namedType;
+
+                if (!typeArgs.IsEmpty &&
+                    constructed is ConstructedNamedTypeSymbol constructedNamed &&
+                    constructedNamed.TypeArguments.Any(static argument => argument is ITypeParameterSymbol))
+                {
+                    var fallback = constructedNamed.Construct(typeArgs.ToArray());
+                    if (fallback is INamedTypeSymbol substituted)
+                        constructed = substituted;
+                }
 
                 return new BoundTypeExpression(constructed);
             }
