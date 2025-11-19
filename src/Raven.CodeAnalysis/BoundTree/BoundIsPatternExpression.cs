@@ -581,7 +581,8 @@ internal partial class BlockBinder
 
         for (var i = 0; i < elementCount; i++)
         {
-            var boundArgument = BindPattern(argumentList!.Arguments[i], parameters[i].Type);
+            var argumentSyntax = argumentList!.Arguments[i];
+            var boundArgument = BindCasePatternArgument(argumentSyntax, parameters[i].Type);
             boundArguments.Add(boundArgument);
         }
 
@@ -596,6 +597,50 @@ internal partial class BlockBinder
         }
 
         return new BoundCasePattern(caseSymbol, tryGetMethod, boundArguments.ToImmutable());
+    }
+
+    private BoundPattern BindCasePatternArgument(PatternSyntax syntax, ITypeSymbol parameterType)
+    {
+        if (TryBindImplicitPayloadDesignation(syntax, parameterType) is { } implicitDesignation)
+            return implicitDesignation;
+
+        return BindPattern(syntax, parameterType);
+    }
+
+    private BoundPattern? TryBindImplicitPayloadDesignation(PatternSyntax syntax, ITypeSymbol parameterType)
+    {
+        if (parameterType.TypeKind == TypeKind.Error)
+            return null;
+
+        if (syntax is DeclarationPatternSyntax
+            {
+                Type: IdentifierNameSyntax identifierName,
+                Designation: SingleVariableDesignationSyntax
+                {
+                    Identifier: { Kind: SyntaxKind.None }
+                },
+            })
+        {
+            var name = identifierName.Identifier.ValueText;
+
+            if (string.IsNullOrEmpty(name) || name == "_")
+            {
+                var discardType = parameterType.TypeKind == TypeKind.Error
+                    ? Compilation.ErrorTypeSymbol
+                    : parameterType;
+
+                return new BoundDiscardPattern(discardType);
+            }
+
+            parameterType = EnsureTypeAccessible(parameterType, identifierName.GetLocation());
+
+            var local = CreateLocalSymbol(identifierName, name, isMutable: false, parameterType);
+            var designator = new BoundSingleVariableDesignator(local);
+
+            return new BoundDeclarationPattern(parameterType, designator);
+        }
+
+        return null;
     }
 }
 

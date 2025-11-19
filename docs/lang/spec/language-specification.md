@@ -1018,7 +1018,9 @@ Patterns compose from the following primitives:
   nested subpattern is typed to the corresponding parameter. Case payloads are
   bound from the generated case properties before evaluating the nested
   patterns, so `.Ok(value)` in `match result` binds `value` with the case's
-  declared type.
+  declared type. Bare payload identifiers implicitly bind immutable locals, so
+  `.Ok(payload)` is equivalent to `.Ok(let payload)`; use `_` to explicitly
+  discard a payload.
 - `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not
