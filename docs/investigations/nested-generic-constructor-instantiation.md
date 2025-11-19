@@ -51,5 +51,29 @@ This confirms that the constructor symbol passed to `BoundObjectCreationExpressi
 - [x] **Ensure runtime type materialization collects inherited arguments.** Complete — `ConstructedNamedTypeSymbol.GetTypeInfo` now appends the containing type’s instantiation before handing the runtime type back to codegen. This eliminated partially open runtime types but did not fix constructor binding because we are still invoking the source definition.
 - [x] **Bind object creation against substituted constructors.** Both object creation and constructor initializers now reuse a helper that wraps resolved constructors in `SubstitutedMethodSymbol` whenever the target type is a `ConstructedNamedTypeSymbol`, so `BoundObjectCreationExpression.Symbol` already carries the constructed containing type. The new `ObjectCreationBindingTests` lock this in place.
 - [x] **Harden `GetClrConstructorInfo` for nested generics.** `MethodSymbolExtensionsForCodeGen.GetClrConstructorInfo` now normalizes every constructor symbol through a local helper that returns a `SubstitutedMethodSymbol` whenever the containing type is constructed, ensuring runtime emission can never reach the CLR using a definition-only constructor handle again.
+## Status update (2025-11-19, plan re-evaluation)
+After refreshing all generators, recompiling `samples/generics/nested-classes.rav`, and disassembling the resulting `nested.dll` (`DOTNET_ROLL_FORWARD=Major ilspycmd nested.dll -t Program -il`), the emitted IL still targets the open nested constructors. Worse, the supposedly closed nested instantiation `Outer<int>.Inner<string>()` now shows both metadata arguments bound to `int32`, proving that the nested type’s explicit `<string>` argument is being dropped somewhere inside the substitution pipeline:
+
+```
+.locals init (
+    [0] class Foo`1/Bar<int32>,
+    [1] class Outer`1/Inner`1<int32, int32>
+)
+
+IL_0000: newobj instance void Foo`1/Bar::.ctor()
+IL_0005: stloc.0
+IL_0006: newobj instance void class Outer`1/Inner`1<int32, int32>::.ctor()
+IL_000b: stloc.1
+```
+
+Because binder substitution and constructor-codegen guards are already in place, the remaining bug has to live in how we construct nested `INamedTypeSymbol`s (likely `ConstructedNamedTypeSymbol.SubstituteNamedType`) and how those constructed types hand their argument lists to runtime type creation.
+
+## Plan
+- [x] **Capture the failing IL and document the reproduction environment.** Complete — the sample build plus `ilspycmd` dump now live in this investigation, providing a stable baseline to compare against future fixes.
+- [x] **Ensure runtime type materialization collects inherited arguments.** Complete — `ConstructedNamedTypeSymbol.GetTypeInfo` now appends the containing type’s instantiation before handing the runtime type back to codegen. This eliminated partially open runtime types but did not fix constructor binding because we are still invoking the source definition.
+- [x] **Bind object creation against substituted constructors.** Both object creation and constructor initializers now reuse a helper that wraps resolved constructors in `SubstitutedMethodSymbol` whenever the target type is a `ConstructedNamedTypeSymbol`, so `BoundObjectCreationExpression.Symbol` already carries the constructed containing type. The new `ObjectCreationBindingTests` lock this in place.
+- [x] **Harden `GetClrConstructorInfo` for nested generics.** `MethodSymbolExtensionsForCodeGen.GetClrConstructorInfo` now normalizes every constructor symbol through a local helper that returns a `SubstitutedMethodSymbol` whenever the containing type is constructed, ensuring runtime emission can never reach the CLR using a definition-only constructor handle again.
+- [ ] **Diagnose nested type argument propagation.** Instrument or unit-test `ConstructedNamedTypeSymbol.SubstituteNamedType` (and the `SymbolQuery` paths that call it) to prove whether `Outer<int>.Inner<string>` ever builds a constructed symbol whose `TypeArguments` are `[int, string]`; this will reveal whether we are dropping explicit inner arguments while inheriting the outer instantiation.
+- [ ] **Fix constructed nested type materialization.** Once the broken substitution site is identified, update the nested-type construction logic so the explicit inner arguments survive through `GetAllTypeArguments()`/`GetTypeInfo()` and ensure the resulting runtime types surface the correct generic argument ordering.
 - [ ] **Add regression coverage.** Introduce a targeted IL or reflection-based test that instantiates `Foo<int>.Bar()` and `Outer<int>.Inner<string>()`, then verifies the emitted constructor references include both outer and inner type arguments. Consider expanding the existing `SymbolQuery` or `ConstructedNamedTypeSymbol` tests to cover this scenario and/or add a `CodeGen` test that inspects `MethodBodyGenerator` output.
 - [ ] **Validate the samples and full test suite.** Rebuild `samples/generics/nested-classes.rav` and run `dotnet test test/Raven.CodeAnalysis.Tests /property:WarningLevel=0` to ensure the fix integrates cleanly with the rest of the compiler.
