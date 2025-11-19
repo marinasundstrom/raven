@@ -539,6 +539,47 @@ class Container {
     }
 
     [Fact]
+    public void UnionCaseToString_HandlesGenericValueTypes()
+    {
+        var code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+
+        var unionTypeDefinition = runtimeAssembly.GetType("Result`1", throwOnError: true)!;
+        var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
+        var caseType = closedUnionType.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var ctor = caseType.GetConstructor(new[] { typeof(int) })!;
+        var caseInstance = ctor.Invoke(new object?[] { 99 });
+        var toString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
+
+        var text = (string)toString.Invoke(caseInstance, Array.Empty<object?>())!;
+        Assert.Equal("Result<int>.Ok(value=99)", text);
+    }
+
+    [Fact]
     public void UnionToString_EscapesStringValues()
     {
         var code = """

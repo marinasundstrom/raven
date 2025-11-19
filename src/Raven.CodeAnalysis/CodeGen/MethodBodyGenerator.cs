@@ -1131,47 +1131,86 @@ internal class MethodBodyGenerator
             return;
         }
 
-        var valueLocal = ILGenerator.DeclareLocal(typeof(object));
+        var valueClrType = ResolveClrType(valueType);
+        var valueLocal = ILGenerator.DeclareLocal(valueClrType);
         valueLocal.SetLocalSymInfo("value");
 
         emitLoadValue();
-
-        if (valueType.IsValueType)
-        {
-            var parameterClrType = ResolveClrType(valueType);
-            ILGenerator.Emit(OpCodes.Box, parameterClrType);
-        }
-
         ILGenerator.Emit(OpCodes.Stloc, valueLocal);
 
-        var notNullLabel = ILGenerator.DefineLabel();
-        var doneLabel = ILGenerator.DefineLabel();
+        if (valueType.IsReferenceType)
+        {
+            var notNullLabel = ILGenerator.DefineLabel();
+            var doneLabel = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+            ILGenerator.Emit(OpCodes.Brtrue_S, notNullLabel);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldstr, "null");
+            ILGenerator.Emit(OpCodes.Callvirt, appendString);
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+            ILGenerator.MarkLabel(notNullLabel);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, objectToString);
+            ILGenerator.Emit(OpCodes.Dup);
+
+            var hasTextLabel = ILGenerator.DefineLabel();
+            ILGenerator.Emit(OpCodes.Brtrue_S, hasTextLabel);
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldstr, "null");
+            ILGenerator.MarkLabel(hasTextLabel);
+            ILGenerator.Emit(OpCodes.Callvirt, appendString);
+            ILGenerator.Emit(OpCodes.Pop);
+
+            ILGenerator.MarkLabel(doneLabel);
+            return;
+        }
+
+        var boxedValueLocal = ILGenerator.DeclareLocal(typeof(object));
+        boxedValueLocal.SetLocalSymInfo("valueObject");
 
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
-        ILGenerator.Emit(OpCodes.Brtrue_S, notNullLabel);
+
+        // Box value-type and type-parameter payloads so they can be null-checked
+        // and formatted safely even when instantiated with struct arguments.
+        if (valueType.IsValueType || valueType is ITypeParameterSymbol)
+            ILGenerator.Emit(OpCodes.Box, valueClrType);
+
+        ILGenerator.Emit(OpCodes.Stloc, boxedValueLocal);
+
+        var boxedNotNullLabel = ILGenerator.DefineLabel();
+        var boxedDoneLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
+        ILGenerator.Emit(OpCodes.Brtrue_S, boxedNotNullLabel);
 
         ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
         ILGenerator.Emit(OpCodes.Ldstr, "null");
         ILGenerator.Emit(OpCodes.Callvirt, appendString);
         ILGenerator.Emit(OpCodes.Pop);
-        ILGenerator.Emit(OpCodes.Br, doneLabel);
+        ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
 
-        ILGenerator.MarkLabel(notNullLabel);
+        ILGenerator.MarkLabel(boxedNotNullLabel);
 
         ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
         ILGenerator.Emit(OpCodes.Callvirt, objectToString);
         ILGenerator.Emit(OpCodes.Dup);
 
-        var hasTextLabel = ILGenerator.DefineLabel();
-        ILGenerator.Emit(OpCodes.Brtrue_S, hasTextLabel);
+        var boxedHasTextLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Brtrue_S, boxedHasTextLabel);
         ILGenerator.Emit(OpCodes.Pop);
         ILGenerator.Emit(OpCodes.Ldstr, "null");
-        ILGenerator.MarkLabel(hasTextLabel);
+        ILGenerator.MarkLabel(boxedHasTextLabel);
         ILGenerator.Emit(OpCodes.Callvirt, appendString);
         ILGenerator.Emit(OpCodes.Pop);
 
-        ILGenerator.MarkLabel(doneLabel);
+        ILGenerator.MarkLabel(boxedDoneLabel);
     }
 
     private void EmitUnionCaseConstructor()
