@@ -612,6 +612,17 @@
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
+  <Node Name="CasePattern" Inherits="Pattern">
+    <Slot Name="Type" Type="Type" IsNullable="true" />
+    <Slot Name="DotToken" Type="Token" DefaultToken="DotToken"/>
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="ArgumentList" Type="CasePatternArgumentList" IsNullable="true" />
+  </Node>
+  <Node Name="CasePatternArgumentList" Inherits="Node">
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken"/>
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="Pattern" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken"/>
+  </Node>
   <Node Name="EnumDeclaration" Inherits="BaseTypeDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />

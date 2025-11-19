@@ -112,6 +112,41 @@ public class PatternSyntaxParserTests
         AssertNoErrors(tree);
     }
 
+    [Fact]
+    public void CasePattern_WithSimpleIdentifier_Parses()
+    {
+        var (pattern, tree) = ParsePattern(".Unknown");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var casePattern = Assert.IsType<CasePatternSyntax>(pattern);
+        Assert.Equal(".Unknown", sourceText.ToString(casePattern.Span));
+        Assert.Null(casePattern.Type);
+        Assert.Equal("Unknown", casePattern.Identifier.ValueText);
+        Assert.Null(casePattern.ArgumentList);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void CasePattern_WithTypeAndArguments_Parses()
+    {
+        var (pattern, tree) = ParsePattern("Token.Identifier(let text, _)");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var casePattern = Assert.IsType<CasePatternSyntax>(pattern);
+        Assert.Equal("Token.Identifier(let text, _)", sourceText.ToString(casePattern.Span));
+        var qualifiedType = Assert.IsType<IdentifierNameSyntax>(casePattern.Type);
+        Assert.Equal("Token", qualifiedType.Identifier.ValueText);
+        Assert.Equal("Identifier", casePattern.Identifier.ValueText);
+
+        var argumentList = casePattern.ArgumentList ?? throw new InvalidOperationException("Missing case arguments.");
+        Assert.Equal(2, argumentList.Arguments.Count);
+        Assert.IsType<VariablePatternSyntax>(argumentList.Arguments[0]);
+        Assert.IsType<DiscardPatternSyntax>(argumentList.Arguments[1]);
+
+        AssertNoErrors(tree);
+    }
+
     private static (PatternSyntax Pattern, SyntaxTree Tree) ParsePattern(string patternText)
     {
         var code = $$"""
