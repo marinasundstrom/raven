@@ -1110,6 +1110,73 @@ internal class ExpressionGenerator : Generator
         {
             EmitConstantPattern(constantPattern);
         }
+        else if (pattern is BoundCasePattern casePattern)
+        {
+            var unionClrType = ResolveClrType(casePattern.CaseSymbol.Union);
+            var caseClrType = ResolveClrType(casePattern.CaseSymbol);
+            var unionLocal = ILGenerator.DeclareLocal(unionClrType);
+            var caseLocal = ILGenerator.DeclareLocal(caseClrType);
+
+            var labelSuccess = ILGenerator.DefineLabel();
+            var labelFail = ILGenerator.DefineLabel();
+            var labelDone = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Isinst, unionClrType);
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Brtrue, labelSuccess);
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Br, labelDone);
+
+            ILGenerator.MarkLabel(labelSuccess);
+            ILGenerator.Emit(OpCodes.Unbox_Any, unionClrType);
+            ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+
+            ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+            ILGenerator.Emit(OpCodes.Initobj, caseClrType);
+
+            ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+            ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+            var parameterCount = Math.Min(
+                casePattern.CaseSymbol.ConstructorParameters.Length,
+                casePattern.Arguments.Length);
+
+            for (var i = 0; i < parameterCount; i++)
+            {
+                var parameter = casePattern.CaseSymbol.ConstructorParameters[i];
+                var propertyName = GetCasePropertyName(parameter.Name);
+                var propertySymbol = casePattern.CaseSymbol
+                    .GetMembers(propertyName)
+                    .OfType<IPropertySymbol>()
+                    .FirstOrDefault();
+
+                if (propertySymbol?.GetMethod is null)
+                {
+                    ILGenerator.Emit(OpCodes.Br, labelFail);
+                    break;
+                }
+
+                ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
+
+                if (propertySymbol.Type.IsValueType)
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(propertySymbol.Type));
+
+                EmitPattern(casePattern.Arguments[i], scope);
+                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            }
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Br, labelDone);
+
+            ILGenerator.MarkLabel(labelFail);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+            ILGenerator.MarkLabel(labelDone);
+        }
         else if (pattern is BoundUnaryPattern unaryPattern)
         {
             EmitPattern(unaryPattern.Pattern, scope);
@@ -1213,6 +1280,20 @@ internal class ExpressionGenerator : Generator
         {
             throw new NotSupportedException("Unsupported pattern");
         }
+    }
+
+    private static string GetCasePropertyName(string parameterName)
+    {
+        if (string.IsNullOrEmpty(parameterName))
+            return parameterName;
+
+        if (char.IsUpper(parameterName[0]))
+            return parameterName;
+
+        Span<char> buffer = stackalloc char[parameterName.Length];
+        parameterName.AsSpan().CopyTo(buffer);
+        buffer[0] = char.ToUpperInvariant(buffer[0]);
+        return new string(buffer);
     }
 
     private void EmitConstantPattern(BoundConstantPattern constantPattern)

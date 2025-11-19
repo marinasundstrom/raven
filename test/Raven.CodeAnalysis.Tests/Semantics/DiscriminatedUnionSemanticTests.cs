@@ -223,4 +223,117 @@ class Container {
         var loweredReturn = loweredBody.Statements.OfType<BoundReturnStatement>().Single();
         Assert.IsType<BoundCastExpression>(loweredReturn.Expression);
     }
+
+    [Fact]
+    public void CasePattern_BindsPayloadType()
+    {
+        const string source = """
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(let payload) => payload.ToString()
+        .Error(let message) => message
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchSyntax = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchSyntax));
+        var okPattern = Assert.IsType<BoundCasePattern>(boundMatch.Arms[0].Pattern);
+        var payloadPattern = Assert.IsType<BoundDeclarationPattern>(okPattern.Arguments[0]);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(payloadPattern.Designator);
+
+        Assert.Equal(SpecialType.System_Int32, designator.Local.Type.SpecialType);
+    }
+
+    [Fact]
+    public void CasePattern_ImplicitPayloadDesignations_BindLocals()
+    {
+        const string source = """
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(payload) => payload.ToString()
+        .Error(message) => message
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchSyntax = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchSyntax));
+        var okPayload = Assert.IsType<BoundDeclarationPattern>(Assert.IsType<BoundCasePattern>(boundMatch.Arms[0].Pattern).Arguments[0]);
+        var errorPayload = Assert.IsType<BoundDeclarationPattern>(Assert.IsType<BoundCasePattern>(boundMatch.Arms[1].Pattern).Arguments[0]);
+
+        Assert.Equal(SpecialType.System_Int32, okPayload.Designator.Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, errorPayload.Designator.Type.SpecialType);
+    }
+
+    [Fact]
+    public void CasePattern_WithGuard_RemainsInExhaustivenessCheck()
+    {
+        const string source = """
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(let payload) => "ok ${payload}" when payload > 1
+        .Error(let message) => "error ${message}"
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.MatchExpressionNotExhaustive, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void CasePattern_ReportsArgumentCountMismatch()
+    {
+        const string source = """
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok() => "ok"
+        _ => "none"
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.CasePatternArgumentCountMismatch, diagnostic.Descriptor);
+    }
 }

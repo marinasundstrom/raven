@@ -45,7 +45,11 @@ WriteLine(summary)
 
 Because string interpolation uses `${...}` inside ordinary quotes, the final line prints `Saw "Raven"; Counted 3; Nothing to report.`. Flow-sensitive analysis ensures that `text` and `number` have the right types inside each `match` arm, and the `_` discard keeps the expression exhaustive without introducing a binding.
 
-> **Status:** The parser already accepts the `union` declarations shown above, but member binding, pattern matching, and code generation still need work before discriminated unions emit successfully. Follow the [discriminated unions investigation](investigations/discriminated-unions.md) for the latest blockers and proposed fixes.
+> **Status:** Discriminated unions parse, bind, and participate in pattern
+> matching (including case-pattern exhaustiveness). Code generation emits the
+> case structs, implicit conversions, and `TryGet*` helpers used by `match`
+> expressions. Follow the [discriminated unions investigation](investigations/discriminated-unions.md)
+> for ongoing work.
 
 ## Working with extension methods
 

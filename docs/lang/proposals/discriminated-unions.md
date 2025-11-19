@@ -1,6 +1,8 @@
 # Proposal: Discriminated unions
 
-> ✅ The syntax described here is implemented in the parser. Emission and semantic analysis remain future work.
+> ✅ The syntax described here is implemented in the parser and semantic model
+> (including case pattern binding and exhaustiveness). Code generation lowers
+> to implicit conversions and `TryGet*` helpers for the union cases.
 
 Discriminated unions are value types that represent a fixed set of alternative shapes. Each alternative is modeled as a distinct nested struct type whose constructor is declared inline with the union definition. The compiler emits `TryGet*` helpers for each case and pattern matching is expressed in terms of these helpers, ensuring exhaustiveness.
 
@@ -79,8 +81,8 @@ let description = token match {
 
 Adding an explicit qualifier bypasses the scrutinee's static type and is useful
 when the union flows in as an interface or object. The parser treats the
-qualifier as part of the case path; binding will validate that the qualifier and
-case belong to the same union when semantic analysis is implemented.
+qualifier as part of the case path; binding validates that the qualifier and
+case belong to the same union and enforces payload arity at the pattern site.
 
 ```csharp
 union Result<T> {
@@ -95,6 +97,16 @@ func format(result: Result<int>) -> string {
     }
 }
 ```
+
+Case payload identifiers may omit `let`/`var`; a bare name such as `.Ok(payload)`
+binds an immutable local typed to the corresponding payload parameter.
+
+Guards participate only when they are known to succeed. In a `match` over
+`Result<int>`, `.Ok(payload) when payload > 1` does not satisfy exhaustiveness
+because the guard can reject values; add another `Ok` arm or `_` to cover the
+remaining inputs. Case patterns desugar to calls to the generated `TryGet*`
+helpers, so nested payload patterns see the same properties exposed by the
+case struct.
 
 Missing cases produce diagnostics similar to other pattern matching scenarios. Pattern matching against unions desugars into nested target-member patterns that call the generated `TryGet*` helpers. For each arm the compiler emits code equivalent to:
 
