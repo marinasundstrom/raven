@@ -589,4 +589,42 @@ class Container {
         var unionText = (string)unionToString.Invoke(unionValue, Array.Empty<object?>())!;
         Assert.Equal("Shape.Label(text=\"a\\\"b\")", unionText);
     }
+
+    [Fact]
+    public void UnionToString_ReturnsUninitializedWhenPayloadIsNull()
+    {
+        var code = """
+union Maybe<T> {
+    None
+    Some(value: T)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionTypeDefinition = runtimeAssembly.GetType("Maybe`1", throwOnError: true)!;
+        var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
+
+        var instance = Activator.CreateInstance(closedUnionType)!;
+        var toString = closedUnionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
+
+        var text = (string)toString.Invoke(instance, Array.Empty<object?>())!;
+        Assert.Equal("<Uninitialized>", text);
+    }
 }
