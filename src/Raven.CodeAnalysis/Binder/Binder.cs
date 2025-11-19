@@ -1408,8 +1408,13 @@ internal abstract class Binder
         foreach (var candidate in candidates)
         {
             var definition = NormalizeDefinition(candidate);
-            if (definition.Arity == arity)
-                return definition;
+            if (definition.Arity != arity)
+                continue;
+
+            if (candidate is ConstructedNamedTypeSymbol constructed)
+                return constructed;
+
+            return definition;
         }
 
         return null;

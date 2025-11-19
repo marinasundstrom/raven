@@ -2178,6 +2178,9 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(member, nameLocation, GetSymbolKindForDiagnostic(member)))
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
+            if (member is ITypeSymbol typeMember)
+                return new BoundTypeExpression(typeMember);
+
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
 
