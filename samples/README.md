@@ -12,6 +12,15 @@
    Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler -- async/async-await.rav -o async-await.dll`).
 3. Execute the emitted assembly with `dotnet <file>.dll` (or rely on `build.sh`/`run.sh` for batch work).
 
+### Compiler options
+
+These are the main options available for when debugging the compiler:
+
+* **Print highlighted syntax** - `-d pretty`
+* **Print syntax tree** - `-s`
+* **Print binder tree** - `-b`
+* **Print binder tree and bound tree** - `-bt`
+
 ## Sample compilation and execution status
 
 Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` followed by `dotnet <file>.dll` produced the following results. Successful entries left DLLs under `.status-output/` for later inspection.
