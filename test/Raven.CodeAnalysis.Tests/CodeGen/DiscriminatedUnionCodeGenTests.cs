@@ -61,8 +61,8 @@ class Container {
         Assert.Equal(42, (int)valueField.GetValue(caseValue)!);
         Assert.Equal("ok", (string)labelField.GetValue(caseValue)!);
 
-        var valueProperty = caseType.GetProperty("value", BindingFlags.Public | BindingFlags.Instance)!;
-        var labelProperty = caseType.GetProperty("label", BindingFlags.Public | BindingFlags.Instance)!;
+        var valueProperty = caseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
+        var labelProperty = caseType.GetProperty("Label", BindingFlags.Public | BindingFlags.Instance)!;
 
         Assert.False(valueProperty.CanWrite);
         Assert.False(labelProperty.CanWrite);
@@ -123,7 +123,7 @@ class Container {
         var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
         Assert.Equal(caseType, payload!.GetType());
 
-        var valueProperty = caseType.GetProperty("value", BindingFlags.Public | BindingFlags.Instance)!;
+        var valueProperty = caseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
         Assert.Equal(42, (int)valueProperty.GetValue(payload)!);
     }
 
@@ -244,14 +244,14 @@ class Container {
         var okArgs = new object?[] { Activator.CreateInstance(okCaseType)! };
         var okResult = (bool)okTryGetMethod.Invoke(okUnionValue, okArgs)!;
         Assert.True(okResult);
-        var okValueProperty = okCaseType.GetProperty("value", BindingFlags.Public | BindingFlags.Instance)!;
+        var okValueProperty = okCaseType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
         Assert.Equal(7, (int)okValueProperty.GetValue(okArgs[0])!);
 
         var errorUnionValue = getErrorMethod.Invoke(container, Array.Empty<object?>());
         var errorArgs = new object?[] { Activator.CreateInstance(errorCaseType)! };
         var errorResult = (bool)errorTryGetMethod.Invoke(errorUnionValue, errorArgs)!;
         Assert.True(errorResult);
-        var errorMessageProperty = errorCaseType.GetProperty("message", BindingFlags.Public | BindingFlags.Instance)!;
+        var errorMessageProperty = errorCaseType.GetProperty("Message", BindingFlags.Public | BindingFlags.Instance)!;
         Assert.Equal("boom", (string)errorMessageProperty.GetValue(errorArgs[0])!);
 
         var mismatchArgs = new object?[] { Activator.CreateInstance(errorCaseType)! };
