@@ -105,6 +105,50 @@ union Option {
     }
 
     [Fact]
+    public void DiscriminatedUnionCaseTypes_AnnotatedWithMarkerAttribute()
+    {
+        var code = """
+union Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+
+        var caseTypes = unionType.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotEmpty(caseTypes);
+
+        foreach (var caseType in caseTypes)
+        {
+            var attribute = Assert.Single(caseType
+                .GetCustomAttributesData()
+                .Where(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute"));
+
+            Assert.Single(attribute.ConstructorArguments);
+            Assert.Equal(unionType, attribute.ConstructorArguments[0].Value);
+        }
+    }
+
+    [Fact]
     public void DiscriminatedUnionConversion_SetsTagAndPayload()
     {
         var code = """

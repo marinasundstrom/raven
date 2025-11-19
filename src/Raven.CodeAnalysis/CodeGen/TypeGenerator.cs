@@ -233,6 +233,12 @@ internal class TypeGenerator
             var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
             TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
         }
+        else if (TypeSymbol is SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
+        {
+            var unionType = caseSymbol.Union.GetClrType(CodeGen);
+            var discriminatedUnionCaseAttribute = CodeGen.CreateDiscriminatedUnionCaseAttribute(unionType);
+            TypeBuilder!.SetCustomAttribute(discriminatedUnionCaseAttribute);
+        }
     }
 
     private static string GetNestedTypeMetadataName(INamedTypeSymbol type)
