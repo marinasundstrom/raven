@@ -1003,6 +1003,13 @@ Patterns compose from the following primitives:
   test or bind each element independently. Each element may introduce a name
   before the colon (for example `(first: int, second: string)`) to bind the
   matched value while applying the nested subpattern.
+- `.Case` / `Type.Case` — case pattern; matches a discriminated union case by
+  name. The leading `.` resolves against the current scrutinee in a `match` arm
+  or `is` expression. A qualifying type name forces lookup against that union
+  regardless of the scrutinee's static type. Case patterns may supply nested
+  subpatterns in parentheses to bind or validate payload fields, mirroring the
+  parameter list declared on the case: `.Identifier(text)` or
+  `Result<int>.Error(let message)`.
 - `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not
@@ -1030,6 +1037,10 @@ if value is "ok" or "pending" {
 
 if mode is not ("on" or "off") {
     Console.WriteLine("unexpected mode")
+}
+
+if token is .Identifier(text) {
+    Console.WriteLine($"identifier {text}")
 }
 ```
 

@@ -59,7 +59,10 @@ func describe(token: Token) -> string {
 }
 ```
 
-**Note:** The arms (for example, `.Identifier(text)`) is a `CasePattern` (mentioned in _grammar.ebnf_).
+**Note:** The arms (for example, `.Identifier(text)`) use the `CasePattern`
+syntax from _grammar.ebnf_: a leading `.` resolves the case against the current
+scrutinee, and an optional qualifier (such as `Token.Identifier`) forces lookup
+against a specific union type.
 
 ```csharp
 union Result<T> {
@@ -84,6 +87,23 @@ else if (token.TryGetUnknown(ref Token.Unknown? _)) { ... }
 ```
 
 The leading `.` in the pattern is the target-member pattern syntax. When used inside a `match` expression or `is` pattern it tells the compiler to resolve the case against the current scrutinee.
+
+## Compiler API integration
+
+Surface discriminated unions through the symbol model so semantic consumers can
+reason about unions declared in source or supplied via metadata:
+
+* `IsDiscriminatedUnion` returns `true` for the union struct itself and for any
+  constructed versions of it. When importing existing metadata, recognise the
+  synthesized `[DiscriminatedUnion]` attribute as the signal.
+* `IsDiscriminatedUnionCase` returns `true` for nested case structs and their
+  constructed forms. Metadata cases can be detected via the
+  `[DiscriminatedUnionCase]` attribute.
+* `UnderlyingDiscriminatedUnionType` (renamed from
+  `UnderlyingDiscriminatedUnion`) should report the outer union type. For
+  case structs it returns the containing union, and for the union type itself
+  it simply returns `this`. Attribute arguments on metadata-backed cases expose
+  the same relationship.
 
 ## Runtime representation
 
