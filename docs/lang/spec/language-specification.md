@@ -1009,7 +1009,8 @@ Patterns compose from the following primitives:
   regardless of the scrutinee's static type. Case patterns may supply nested
   subpatterns in parentheses to bind or validate payload fields, mirroring the
   parameter list declared on the case: `.Identifier(text)` or
-  `Result<int>.Error(let message)`.
+  `Result<int>.Error(let message)`. Parentheses are optional for parameterless
+  cases, so `.Unknown` and `.Unknown()` are equivalent.
 - `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not

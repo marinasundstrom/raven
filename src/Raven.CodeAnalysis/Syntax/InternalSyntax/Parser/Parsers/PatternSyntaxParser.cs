@@ -59,6 +59,11 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParsePrimaryPattern()
     {
+        if (PeekToken().IsKind(SyntaxKind.DotToken))
+        {
+            return ParseCasePattern(qualifier: null, dotToken: ReadToken());
+        }
+
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             return ParseTuplePattern();
@@ -76,6 +81,11 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         var type = new NameSyntaxParser(this).ParseTypeName();
+
+        if (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
+        {
+            return ParseCasePattern(type, dotToken);
+        }
 
         // Optionally consume a variable designation
         VariableDesignationSyntax designation;
@@ -119,6 +129,46 @@ internal class PatternSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         return TuplePattern(openParenToken, List(elementList.ToArray()), closeParenToken);
+    }
+
+    private CasePatternSyntax ParseCasePattern(TypeSyntax? qualifier, SyntaxToken dotToken)
+    {
+        var identifierToken = ReadToken();
+        if (identifierToken.Kind != SyntaxKind.IdentifierToken)
+        {
+            identifierToken = ToIdentifierToken(identifierToken);
+            UpdateLastToken(identifierToken);
+        }
+
+        var argumentList = ParseCasePatternArgumentList();
+        var path = CasePatternPath(qualifier, dotToken, identifierToken);
+
+        return CasePattern(path, argumentList);
+    }
+
+    private CasePatternArgumentListSyntax? ParseCasePatternArgumentList()
+    {
+        if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            return null;
+
+        var openParenToken = ReadToken();
+
+        var arguments = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            arguments.Add(new PatternSyntaxParser(this).ParsePattern());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                arguments.Add(commaToken);
+                arguments.Add(new PatternSyntaxParser(this).ParsePattern());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return CasePatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
     }
 
     private VariableDesignationSyntax ParseDesignation()

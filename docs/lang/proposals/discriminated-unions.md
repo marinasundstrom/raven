@@ -64,6 +64,24 @@ syntax from _grammar.ebnf_: a leading `.` resolves the case against the current
 scrutinee, and an optional qualifier (such as `Token.Identifier`) forces lookup
 against a specific union type.
 
+Case patterns accept the same payload shape declared on the case. A
+parameterless case may be matched with either `.Unknown` or `.Unknown()`, while
+payload-bearing cases unpack each element positionally:
+
+```csharp
+let token = Token.Identifier("foo")
+
+let description = token match {
+    .Identifier(let text) => text,
+    Token.Unknown() => "missing",
+}
+```
+
+Adding an explicit qualifier bypasses the scrutinee's static type and is useful
+when the union flows in as an interface or object. The parser treats the
+qualifier as part of the case path; binding will validate that the qualifier and
+case belong to the same union when semantic analysis is implemented.
+
 ```csharp
 union Result<T> {
     Ok(value: T)
