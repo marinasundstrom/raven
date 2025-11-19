@@ -1142,7 +1142,7 @@ partial class BlockBinder : Binder
             _scopeDepth++;
             var depth = _scopeDepth;
 
-            var pattern = BindPattern(arm.Pattern);
+            var pattern = BindPattern(arm.Pattern, scrutinee.Type);
 
             BoundExpression? guard = null;
             if (arm.WhenClause is { } whenClause)
@@ -1261,6 +1261,40 @@ partial class BlockBinder : Binder
                         location);
                     return;
                 }
+            case BoundCasePattern casePattern:
+                {
+                    var scrutineeUnion = scrutineeType.TryGetDiscriminatedUnion()
+                        ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
+
+                    var caseUnion = UnwrapAlias(casePattern.CaseSymbol.Union);
+
+                    if (scrutineeUnion is null || !SymbolEqualityComparer.Default.Equals(UnwrapAlias(scrutineeUnion), caseUnion))
+                    {
+                        var patternDisplay = $"for case '{casePattern.CaseSymbol.Name}'";
+                        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                            patternDisplay,
+                            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            patternSyntax.GetLocation());
+                        return;
+                    }
+
+                    if (patternSyntax is CasePatternSyntax caseSyntax && caseSyntax.ArgumentList is { } argumentList)
+                    {
+                        var parameterTypes = casePattern.CaseSymbol.ConstructorParameters;
+                        var elementCount = Math.Min(parameterTypes.Length, casePattern.Arguments.Length);
+                        var argumentCount = Math.Min(argumentList.Arguments.Count, elementCount);
+
+                        for (var i = 0; i < argumentCount; i++)
+                        {
+                            EnsureMatchArmPatternValid(
+                                parameterTypes[i].Type,
+                                argumentList.Arguments[i],
+                                casePattern.Arguments[i]);
+                        }
+                    }
+
+                    return;
+                }
             case BoundOrPattern orPattern:
                 {
                     if (patternSyntax is BinaryPatternSyntax binarySyntax)
@@ -1367,6 +1401,18 @@ partial class BlockBinder : Binder
             return false;
         }
 
+        if (patternType.TryGetDiscriminatedUnionCase() is { } caseType)
+        {
+            var targetUnion = scrutineeType.TryGetDiscriminatedUnion()
+                ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
+
+            if (targetUnion is not null &&
+                SymbolEqualityComparer.Default.Equals(UnwrapAlias(targetUnion), UnwrapAlias(caseType.Union)))
+            {
+                return true;
+            }
+        }
+
         return IsAssignable(patternType, scrutineeType, out _) ||
                IsAssignable(scrutineeType, patternType, out _);
     }
@@ -1442,6 +1488,15 @@ partial class BlockBinder : Binder
         if (IsBooleanType(scrutineeType))
         {
             EnsureBooleanMatchExhaustive(matchExpression, arms, catchAllIndex);
+            return;
+        }
+
+        var discriminatedUnion = scrutineeType.TryGetDiscriminatedUnion()
+            ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
+
+        if (discriminatedUnion is not null)
+        {
+            EnsureDiscriminatedUnionMatchExhaustive(matchExpression, arms, discriminatedUnion, catchAllIndex);
             return;
         }
 
@@ -1600,6 +1655,70 @@ partial class BlockBinder : Binder
         return false;
     }
 
+    private void EnsureDiscriminatedUnionMatchExhaustive(
+        MatchExpressionSyntax matchExpression,
+        ImmutableArray<BoundMatchArm> arms,
+        IDiscriminatedUnionSymbol union,
+        int catchAllIndex)
+    {
+        var remaining = new HashSet<IDiscriminatedUnionCaseSymbol>(union.Cases, SymbolEqualityComparer.Default);
+
+        HashSet<IDiscriminatedUnionCaseSymbol>? guaranteedRemaining = null;
+        if (catchAllIndex >= 0)
+            guaranteedRemaining = new HashSet<IDiscriminatedUnionCaseSymbol>(remaining, SymbolEqualityComparer.Default);
+
+        var reportedRedundantCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+                RemoveCoveredCases(guaranteedRemaining, arm.Pattern, union);
+
+            if (guardGuaranteesMatch)
+                RemoveCoveredCases(remaining, arm.Pattern, union);
+
+            if (remaining.Count == 0)
+            {
+                if (catchAllIndex >= 0 && !reportedRedundantCatchAll)
+                {
+                    if (i < catchAllIndex)
+                    {
+                        if (guaranteedRemaining is null || guaranteedRemaining.Count == 0)
+                        {
+                            ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                            reportedRedundantCatchAll = true;
+                        }
+                    }
+                    else if (i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
+                    {
+                        ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                        reportedRedundantCatchAll = true;
+                    }
+                }
+
+                return;
+            }
+
+            if (catchAllIndex >= 0 && !reportedRedundantCatchAll && i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
+            {
+                ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                reportedRedundantCatchAll = true;
+            }
+        }
+
+        var missingCase = remaining.FirstOrDefault();
+
+        if (missingCase is not null)
+        {
+            _diagnostics.ReportMatchExpressionNotExhaustive(
+                missingCase.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                matchExpression.GetLocation());
+        }
+    }
+
     private void RemoveCoveredUnionMembers(
         HashSet<ITypeSymbol> remaining,
         BoundPattern pattern,
@@ -1656,6 +1775,49 @@ partial class BlockBinder : Binder
                 break;
             case BoundTuplePattern tuplePattern:
                 RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
+                break;
+        }
+    }
+
+    private void RemoveCoveredCases(
+        HashSet<IDiscriminatedUnionCaseSymbol> remaining,
+        BoundPattern pattern,
+        IDiscriminatedUnionSymbol union)
+    {
+        switch (pattern)
+        {
+            case BoundDiscardPattern:
+                remaining.Clear();
+                break;
+            case BoundDeclarationPattern declaration:
+                {
+                    var declaredType = UnwrapAlias(declaration.DeclaredType);
+
+                    if (declaredType.SpecialType == SpecialType.System_Object ||
+                        SymbolEqualityComparer.Default.Equals(declaredType, UnwrapAlias((ITypeSymbol)union)))
+                    {
+                        remaining.Clear();
+                        break;
+                    }
+
+                    var declarationUnion = declaredType.TryGetDiscriminatedUnion()
+                        ?? declaredType.TryGetDiscriminatedUnionCase()?.Union;
+
+                    if (declarationUnion is not null &&
+                        SymbolEqualityComparer.Default.Equals(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
+                    {
+                        remaining.Clear();
+                    }
+
+                    break;
+                }
+            case BoundCasePattern casePattern:
+                if (SymbolEqualityComparer.Default.Equals(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)))
+                    remaining.Remove(casePattern.CaseSymbol);
+                break;
+            case BoundOrPattern orPattern:
+                RemoveCoveredCases(remaining, orPattern.Left, union);
+                RemoveCoveredCases(remaining, orPattern.Right, union);
                 break;
         }
     }

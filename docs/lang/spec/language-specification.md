@@ -1011,6 +1011,14 @@ Patterns compose from the following primitives:
   parameter list declared on the case: `.Identifier(text)` or
   `Result<int>.Error(let message)`. Parentheses are optional for parameterless
   cases, so `.Unknown` and `.Unknown()` are equivalent.
+- Case patterns are validated against the scrutinee's static type (or the
+  explicit qualifier). The qualifier must name a discriminated union; omitting
+  it relies on the scrutinee being a discriminated union or one of its case
+  structs. The payload arity must match the declared parameter list, and each
+  nested subpattern is typed to the corresponding parameter. Case payloads are
+  bound from the generated case properties before evaluating the nested
+  patterns, so `.Ok(value)` in `match result` binds `value` with the case's
+  declared type.
 - `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not
@@ -1118,6 +1126,14 @@ describe fallback behavior. Missing coverage produces `RAV2100`; redundant arms
 that can never be chosen produce unreachable diagnostics (`RAV2101`), and
 catch-alls that are unnecessary because earlier arms already cover every case
 produce `RAV2103`.
+
+Discriminated unions contribute a closed set of cases to exhaustiveness
+checking. A `match` over `Result<int>` must handle `Ok` and `Error` (either via
+explicit case patterns or a catch-all). Guards only relax exhaustiveness when
+they are known to succeed—`when payload > 1` still leaves `Ok` uncovered because
+the guard may fail at run time, while `when true` counts as handled. Use `_` to
+cover any remaining cases explicitly when a guarded arm cannot guarantee
+coverage.
 
 #### Flow-sensitive narrowing
 
