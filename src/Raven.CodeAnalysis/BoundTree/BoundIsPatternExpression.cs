@@ -552,11 +552,11 @@ internal partial class BlockBinder
         var tryGetMethod = unionType
             .GetMembers(tryGetMethodName)
             .OfType<IMethodSymbol>()
-            .FirstOrDefault(m =>
-                !m.IsStatic &&
-                m.Parameters.Length == 1 &&
-                m.Parameters[0].RefKind == RefKind.Ref &&
-                SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, caseSymbol));
+            .FirstOrDefault(m => !m.IsStatic)
+            ?? caseSymbol
+                .GetMembers(tryGetMethodName)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m => !m.IsStatic);
 
         if (tryGetMethod is null)
         {
