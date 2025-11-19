@@ -613,7 +613,9 @@ internal class MethodBodyGenerator
             return;
         }
 
-        var unionClrType = ResolveClrType(MethodSymbol.ContainingType!);
+        var unionClrType = InstantiateType(
+            MethodGenerator.TypeGenerator.TypeBuilder
+                ?? ResolveClrType(MethodSymbol.ContainingType!));
         var payloadType = unionSymbol.PayloadField.Type;
         var unionLocal = ILGenerator.DeclareLocal(unionClrType);
 
@@ -634,7 +636,10 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldarg_0);
 
         if (parameterType.IsValueType && !payloadType.IsValueType)
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(parameterType));
+        {
+            var parameterClrType = ResolveUnionCaseClrType(parameterType);
+            ILGenerator.Emit(OpCodes.Box, parameterClrType);
+        }
 
         ILGenerator.Emit(OpCodes.Stfld, payloadField);
         ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
@@ -966,5 +971,37 @@ internal class MethodBodyGenerator
                     break;
             }
         }
+    }
+
+    private Type ResolveUnionCaseClrType(ITypeSymbol caseTypeSymbol)
+    {
+        if (caseTypeSymbol is INamedTypeSymbol namedCase)
+        {
+            var caseGenerator = MethodGenerator.TypeGenerator.CodeGen.GetOrCreateTypeGenerator(namedCase);
+            if (caseGenerator.TypeBuilder is null)
+                caseGenerator.DefineTypeBuilder();
+
+            if (caseGenerator.TypeBuilder is not null)
+                return InstantiateType(caseGenerator.TypeBuilder);
+        }
+
+        return InstantiateType(ResolveClrType(caseTypeSymbol));
+    }
+
+    private static Type InstantiateType(Type type)
+    {
+        if (type is TypeBuilder typeBuilder && typeBuilder.ContainsGenericParameters)
+        {
+            var parameters = typeBuilder.GetGenericArguments();
+            return parameters.Length == 0 ? typeBuilder : typeBuilder.MakeGenericType(parameters);
+        }
+
+        if (type.IsGenericTypeDefinition)
+        {
+            var parameters = type.GetGenericArguments();
+            return parameters.Length == 0 ? type : type.MakeGenericType(parameters);
+        }
+
+        return type;
     }
 }

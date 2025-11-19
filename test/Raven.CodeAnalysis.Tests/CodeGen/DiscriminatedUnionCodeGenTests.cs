@@ -231,4 +231,66 @@ class Container {
             caseValue.GetType().GetGenericArguments(),
             arg => Assert.Equal(typeof(int), arg));
     }
+
+    [Fact]
+    public void GenericDiscriminatedUnionConversion_ClosesTypeArguments()
+    {
+        var code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+class Container {
+    public static CreateOk() -> Result<int> {
+        return .Ok(99)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var createMethod = containerType.GetMethod("CreateOk", BindingFlags.Public | BindingFlags.Static)!;
+
+        var unionValue = createMethod.Invoke(null, Array.Empty<object?>());
+        Assert.NotNull(unionValue);
+
+        var unionTypeDefinition = runtimeAssembly.GetType("Result`1", throwOnError: true)!;
+        var caseTypeDefinition = unionTypeDefinition.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
+        var closedCaseType = caseTypeDefinition.MakeGenericType(typeof(int));
+
+        Assert.Equal(closedUnionType, unionValue!.GetType());
+
+        var conversionMethod = closedUnionType.GetMethod(
+            "op_Implicit",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: new[] { closedCaseType },
+            modifiers: null)!;
+
+        var ctor = closedCaseType.GetConstructor(new[] { typeof(int) })!;
+        var caseInstance = ctor.Invoke(new object?[] { 7 });
+
+        var converted = conversionMethod.Invoke(null, new[] { caseInstance });
+        Assert.NotNull(converted);
+        Assert.Equal(closedUnionType, converted!.GetType());
+    }
 }
