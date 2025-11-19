@@ -1,0 +1,12 @@
+import System.*
+
+let ok : Result<int> = .Ok(99)
+let err = Result<int>.Error("boom")
+
+Console.WriteLine(ok)
+Console.WriteLine(err)
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
