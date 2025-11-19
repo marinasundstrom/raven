@@ -465,10 +465,35 @@ internal partial class BlockBinder
             var normalized = UnwrapAlias(accessible);
 
             if (normalized is INamedTypeSymbol named)
-                return named;
+                return InstantiateCaseType(named, unionType);
         }
 
         return null;
+    }
+
+    private INamedTypeSymbol InstantiateCaseType(INamedTypeSymbol caseType, INamedTypeSymbol unionType)
+    {
+        if (!unionType.IsGenericType || unionType.IsUnboundGenericType)
+            return caseType;
+
+        var unionArguments = unionType.TypeArguments;
+
+        if (unionArguments.IsDefaultOrEmpty || unionArguments.Length == 0)
+            return caseType;
+
+        if (!SymbolEqualityComparer.Default.Equals(caseType, caseType.OriginalDefinition) &&
+            !caseType.IsUnboundGenericType)
+            return caseType;
+
+        var arity = caseType.Arity;
+        var arguments = arity <= unionArguments.Length
+            ? unionArguments.Take(arity).ToArray()
+            : Array.Empty<ITypeSymbol>();
+
+        if (arguments.Length != arity)
+            return caseType;
+
+        return (INamedTypeSymbol)caseType.Construct(arguments);
     }
 
     private ImmutableArray<IParameterSymbol> GetDiscriminatedUnionCaseParameters(INamedTypeSymbol caseType)
@@ -575,7 +600,8 @@ internal partial class BlockBinder
             var parameterType = UnwrapAlias(parameter.Type);
 
             if (parameterType is INamedTypeSymbol named &&
-                SymbolEqualityComparer.Default.Equals(named, caseType))
+                (SymbolEqualityComparer.Default.Equals(named, caseType) ||
+                 SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, caseType.OriginalDefinition)))
             {
                 return method;
             }

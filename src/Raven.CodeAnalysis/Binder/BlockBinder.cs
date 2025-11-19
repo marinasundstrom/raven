@@ -1630,11 +1630,36 @@ partial class BlockBinder : Binder
             if (member is INamedTypeSymbol typeMember &&
                 DiscriminatedUnionFacts.IsDiscriminatedUnionCaseType(typeMember))
             {
-                builder.Add(typeMember);
+                builder.Add(InstantiateCaseTypeForMatch(typeMember, unionType));
             }
         }
 
         return builder.ToImmutable();
+    }
+
+    private INamedTypeSymbol InstantiateCaseTypeForMatch(INamedTypeSymbol caseType, INamedTypeSymbol unionType)
+    {
+        if (!unionType.IsGenericType || unionType.IsUnboundGenericType)
+            return caseType;
+
+        var arguments = unionType.TypeArguments;
+
+        if (arguments.IsDefaultOrEmpty || arguments.Length == 0)
+            return caseType;
+
+        if (!SymbolEqualityComparer.Default.Equals(caseType, caseType.OriginalDefinition) &&
+            !caseType.IsUnboundGenericType)
+            return caseType;
+
+        var arity = caseType.Arity;
+
+        if (arity == 0)
+            return caseType;
+
+        if (arity != arguments.Length)
+            return caseType;
+
+        return (INamedTypeSymbol)caseType.Construct(arguments.ToArray());
     }
 
     private void ReportRedundantCatchAll(MatchExpressionSyntax matchExpression, int catchAllIndex)
@@ -1719,8 +1744,13 @@ partial class BlockBinder : Binder
                         {
                             foreach (var candidate in remaining.ToArray())
                             {
-                                if (SymbolEqualityComparer.Default.Equals(UnwrapAlias(candidate), matchedCase))
+                                var normalized = (INamedTypeSymbol)UnwrapAlias(candidate);
+
+                                if (SymbolEqualityComparer.Default.Equals(normalized, matchedCase) ||
+                                    SymbolEqualityComparer.Default.Equals(normalized.OriginalDefinition, matchedCase.OriginalDefinition))
+                                {
                                     remaining.Remove(candidate);
+                                }
                             }
                         }
                     }

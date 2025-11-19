@@ -741,5 +741,53 @@ let text = result match {
         Assert.Equal("Error", errorPattern.CaseType.Name);
         Assert.Single(errorPattern.Arguments);
     }
+
+    [Fact]
+    public void MatchExpression_WithGenericDiscriminatedUnionCasePatterns_BindsConstructedCases()
+    {
+        const string code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+let result: Result<int> = Result.Ok(value: 42)
+
+let text = result match {
+    .Ok(payload) => payload.ToString()
+    .Error(message) => message
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic_case_pattern_match",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var okPattern = Assert.IsType<BoundCasePattern>(bound.Arms[0].Pattern);
+        Assert.Equal("Result", okPattern.UnionType.Name);
+        Assert.Equal(SpecialType.System_Int32, okPattern.UnionType.TypeArguments.Single().SpecialType);
+        Assert.Equal(SpecialType.System_Int32, okPattern.CaseType.TypeArguments.Single().SpecialType);
+
+        var okArgument = Assert.Single(okPattern.Arguments);
+        var okDeclaration = Assert.IsType<BoundDeclarationPattern>(okArgument.Pattern);
+        var okDesignator = Assert.IsType<BoundSingleVariableDesignator>(okDeclaration.Designator);
+        Assert.Equal("payload", okDesignator.Local.Name);
+
+        var errorPattern = Assert.IsType<BoundCasePattern>(bound.Arms[1].Pattern);
+        Assert.Equal("Error", errorPattern.CaseType.Name);
+        Assert.Equal(SpecialType.System_Int32, errorPattern.CaseType.TypeArguments.Single().SpecialType);
+
+        var errorArgument = Assert.Single(errorPattern.Arguments);
+        var errorDeclaration = Assert.IsType<BoundDeclarationPattern>(errorArgument.Pattern);
+        var errorDesignator = Assert.IsType<BoundSingleVariableDesignator>(errorDeclaration.Designator);
+        Assert.Equal("message", errorDesignator.Local.Name);
+    }
 }
 
