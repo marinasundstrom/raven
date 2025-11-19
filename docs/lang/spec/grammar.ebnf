@@ -192,7 +192,7 @@ Assignable               ::= Identifier
                            | MemberBindingExpression
                            | ElementAccessExpression ;
 
-Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern | DiscardPattern ;
+Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern | DiscardPattern | CasePattern ;
 
 VariablePattern          ::= ('let' | 'var') VariableDesignation ;
 DeclarationPattern       ::= Type VariableDesignation ;
@@ -200,6 +200,13 @@ TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [Identifier ':'] Pattern ;
 
 DiscardPattern           ::= '_' | Type '_' ;
+
+CasePattern              ::= CasePath [ '(' PatternList? ')' ] ;
+
+CasePath                 ::= '.' Identifier
+                           | Type '.' Identifier ;
+
+PatternList              ::= Pattern {',' Pattern} ;
 
 VariableDesignation      ::= VariableDesignationCore [':' Type] ;
 VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;
