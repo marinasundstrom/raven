@@ -997,6 +997,9 @@ public partial class SemanticModel
 
                     if (refKind == RefKind.None)
                     {
+                        var parameterName = parameterSyntax.Identifier.ValueText;
+                        var propertyName = GetUnionCasePropertyName(parameterName);
+
                         var backingField = new SourceFieldSymbol(
                             $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
                             parameterType,
@@ -1012,7 +1015,7 @@ public partial class SemanticModel
                             declaredAccessibility: Accessibility.Private);
 
                         var propertySymbol = new SourcePropertySymbol(
-                            parameterSyntax.Identifier.ValueText,
+                            propertyName,
                             parameterType,
                             caseSymbol,
                             caseSymbol,
@@ -1022,7 +1025,7 @@ public partial class SemanticModel
                             declaredAccessibility: Accessibility.Public);
 
                         var getterSymbol = new SourceMethodSymbol(
-                            $"get_{parameterSyntax.Identifier.ValueText}",
+                            $"get_{propertyName}",
                             parameterType,
                             ImmutableArray<SourceParameterSymbol>.Empty,
                             propertySymbol,
@@ -1096,6 +1099,20 @@ public partial class SemanticModel
         }
 
         unionSymbol.SetCases(caseSymbols);
+    }
+
+    private static string GetUnionCasePropertyName(string parameterName)
+    {
+        if (string.IsNullOrEmpty(parameterName))
+            return parameterName;
+
+        if (char.IsUpper(parameterName[0]))
+            return parameterName;
+
+        Span<char> buffer = stackalloc char[parameterName.Length];
+        parameterName.AsSpan().CopyTo(buffer);
+        buffer[0] = char.ToUpperInvariant(buffer[0]);
+        return new string(buffer);
     }
 
     private void RegisterUnionDeclaration(
