@@ -920,6 +920,7 @@ public partial class SemanticModel
         var caseSymbols = new List<IDiscriminatedUnionCaseSymbol>();
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         int ordinal = 0;
 
         foreach (var caseClause in unionDecl.Cases)
@@ -1067,6 +1068,31 @@ public partial class SemanticModel
                 Array.Empty<SyntaxReference>());
 
             conversionMethod.SetParameters(new[] { conversionParameter });
+
+            var tryGetMethod = new SourceMethodSymbol(
+                $"TryGet{caseClause.Identifier.ValueText}",
+                boolType!,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                declaredAccessibility: Accessibility.Public);
+
+            var tryGetParameter = new SourceParameterSymbol(
+                "value",
+                caseSymbol,
+                tryGetMethod,
+                unionSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                RefKind.Ref);
+
+            tryGetMethod.SetParameters(new[] { tryGetParameter });
         }
 
         unionSymbol.SetCases(caseSymbols);
