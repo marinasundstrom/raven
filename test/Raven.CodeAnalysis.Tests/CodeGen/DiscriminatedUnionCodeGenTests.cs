@@ -182,6 +182,84 @@ union Option {
     }
 
     [Fact]
+    public void DiscriminatedUnion_EmitsTryGetMethods()
+    {
+        var code = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+
+class Container {
+    public GetOk() -> Result {
+        return Result.Ok(value: 7)
+    }
+
+    public GetError() -> Result {
+        return Result.Error(message: "boom")
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Result", throwOnError: true)!;
+        var okCaseType = unionType.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var errorCaseType = unionType.GetNestedType("Error", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var okTryGetMethod = unionType.GetMethod(
+            "TryGetOk",
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: new[] { okCaseType.MakeByRefType() },
+            modifiers: null)!;
+        var errorTryGetMethod = unionType.GetMethod(
+            "TryGetError",
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: new[] { errorCaseType.MakeByRefType() },
+            modifiers: null)!;
+
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var container = Activator.CreateInstance(containerType)!;
+        var getOkMethod = containerType.GetMethod("GetOk", BindingFlags.Public | BindingFlags.Instance)!;
+        var getErrorMethod = containerType.GetMethod("GetError", BindingFlags.Public | BindingFlags.Instance)!;
+
+        var okUnionValue = getOkMethod.Invoke(container, Array.Empty<object?>());
+        var okArgs = new object?[] { Activator.CreateInstance(okCaseType)! };
+        var okResult = (bool)okTryGetMethod.Invoke(okUnionValue, okArgs)!;
+        Assert.True(okResult);
+        var okValueProperty = okCaseType.GetProperty("value", BindingFlags.Public | BindingFlags.Instance)!;
+        Assert.Equal(7, (int)okValueProperty.GetValue(okArgs[0])!);
+
+        var errorUnionValue = getErrorMethod.Invoke(container, Array.Empty<object?>());
+        var errorArgs = new object?[] { Activator.CreateInstance(errorCaseType)! };
+        var errorResult = (bool)errorTryGetMethod.Invoke(errorUnionValue, errorArgs)!;
+        Assert.True(errorResult);
+        var errorMessageProperty = errorCaseType.GetProperty("message", BindingFlags.Public | BindingFlags.Instance)!;
+        Assert.Equal("boom", (string)errorMessageProperty.GetValue(errorArgs[0])!);
+
+        var mismatchArgs = new object?[] { Activator.CreateInstance(errorCaseType)! };
+        var mismatchResult = (bool)errorTryGetMethod.Invoke(okUnionValue, mismatchArgs)!;
+        Assert.False(mismatchResult);
+    }
+
+    [Fact]
     public void GenericUnionCaseConstruction_PreservesOuterTypeArguments()
     {
         var code = """
