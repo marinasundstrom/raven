@@ -921,6 +921,8 @@ public partial class SemanticModel
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        var objectToString = GetObjectToStringMethod();
         int ordinal = 0;
 
         foreach (var caseClause in unionDecl.Cases)
@@ -1045,6 +1047,22 @@ public partial class SemanticModel
 
             constructor.SetParameters(parameters);
             caseSymbol.SetConstructorParameters(parameters);
+
+            var caseToString = new SourceMethodSymbol(
+                "ToString",
+                stringType!,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                caseSymbol,
+                caseSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                isOverride: true,
+                declaredAccessibility: Accessibility.Public);
+
+            caseToString.SetOverriddenMethod(objectToString);
             RegisterUnionCaseSymbol(caseClause, caseSymbol);
             caseSymbols.Add(caseSymbol);
 
@@ -1180,10 +1198,37 @@ public partial class SemanticModel
             null,
             declaredAccessibility: Accessibility.Internal);
 
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        var objectToString = GetObjectToStringMethod();
+
+        var unionToString = new SourceMethodSymbol(
+            "ToString",
+            stringType!,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            unionSymbol,
+            unionSymbol,
+            namespaceSymbol,
+            new[] { unionDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: false,
+            methodKind: MethodKind.Ordinary,
+            isOverride: true,
+            declaredAccessibility: Accessibility.Public);
+
+        unionToString.SetOverriddenMethod(objectToString);
         unionSymbol.InitializeStorageFields(discriminatorField, payloadField);
 
         RegisterUnionSymbol(unionDecl, unionSymbol);
         RegisterUnionCases(unionDecl, unionBinder, unionSymbol);
+    }
+
+    private IMethodSymbol GetObjectToStringMethod()
+    {
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        return objectType!
+            .GetMembers("ToString")
+            .OfType<IMethodSymbol>()
+            .First(m => m.Parameters.Length == 0);
     }
 
     private void RegisterClassMembers(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
