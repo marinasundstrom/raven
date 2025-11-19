@@ -83,6 +83,46 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void CasePattern_WithShorthandPath_Parses()
+    {
+        var (pattern, tree) = ParsePattern(".Identifier(let text)");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var casePattern = Assert.IsType<CasePatternSyntax>(pattern);
+        Assert.Equal(".Identifier(let text)", sourceText.ToString(casePattern.Span));
+        Assert.Null(casePattern.Path.Qualifier);
+        Assert.Equal("Identifier", casePattern.Path.Identifier.ValueText);
+
+        var argumentList = casePattern.ArgumentList;
+        Assert.NotNull(argumentList);
+        var argument = Assert.Single(argumentList!.Arguments);
+        var payload = Assert.IsType<VariablePatternSyntax>(argument);
+        var designation = Assert.IsType<SingleVariableDesignationSyntax>(payload.Designation);
+        Assert.Equal("text", designation.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void CasePattern_WithQualifierAndPayload_Parses()
+    {
+        var (pattern, tree) = ParsePattern("Token.Identifier(let text)");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var casePattern = Assert.IsType<CasePatternSyntax>(pattern);
+        Assert.Equal("Token.Identifier(let text)", sourceText.ToString(casePattern.Span));
+        Assert.Equal("Token", Assert.IsType<IdentifierNameSyntax>(casePattern.Path.Qualifier).Identifier.ValueText);
+        Assert.Equal("Identifier", casePattern.Path.Identifier.ValueText);
+
+        var argumentList = casePattern.ArgumentList;
+        Assert.NotNull(argumentList);
+        var argument = Assert.Single(argumentList!.Arguments);
+        Assert.IsType<VariablePatternSyntax>(argument);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void BinaryPattern_WithAndHasHigherPrecedenceThanOr()
     {
         var (pattern, tree) = ParsePattern("let left and let right or let fallback");
