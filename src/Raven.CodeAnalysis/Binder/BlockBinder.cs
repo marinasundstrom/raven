@@ -1964,6 +1964,20 @@ partial class BlockBinder : Binder
                 if (!EnsureMemberAccessible(nonMethodMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(nonMethodMember)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
+                if (nonMethodMember is ITypeSymbol typeMember)
+                {
+                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null && typeMember is INamedTypeSymbol namedMember)
+                    {
+                        if (!ValidateTypeArgumentConstraints(namedMember, typeArgs, i => GetTypeArgumentLocation(genericTypeSyntax.TypeArgumentList.Arguments, genericTypeSyntax.GetLocation(), i), namedMember.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+                        if (TryConstructGeneric(namedMember, typeArgs, namedMember.Arity) is INamedTypeSymbol constructedType)
+                            typeMember = constructedType;
+                    }
+
+                    return new BoundTypeExpression(typeMember);
+                }
+
                 return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
             }
 
@@ -2001,6 +2015,9 @@ partial class BlockBinder : Binder
 
             if (!EnsureMemberAccessible(member, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+            if (member is ITypeSymbol typeMemberSymbol)
+                return new BoundTypeExpression(typeMemberSymbol);
 
             return new BoundMemberAccessExpression(typeExpr, member);
         }
@@ -2160,6 +2177,9 @@ partial class BlockBinder : Binder
 
             if (!EnsureMemberAccessible(member, nameLocation, GetSymbolKindForDiagnostic(member)))
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+            if (member is ITypeSymbol typeMember)
+                return new BoundTypeExpression(typeMember);
 
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
@@ -2582,6 +2602,15 @@ partial class BlockBinder : Binder
                 var constructed = typeArgs.IsEmpty
                     ? namedType
                     : TryConstructGeneric(namedType, typeArgs, namedType.Arity) ?? namedType;
+
+                if (!typeArgs.IsEmpty &&
+                    constructed is ConstructedNamedTypeSymbol constructedNamed &&
+                    constructedNamed.TypeArguments.Any(static argument => argument is ITypeParameterSymbol))
+                {
+                    var fallback = constructedNamed.Construct(typeArgs.ToArray());
+                    if (fallback is INamedTypeSymbol substituted)
+                        constructed = substituted;
+                }
 
                 return new BoundTypeExpression(constructed);
             }
@@ -3972,6 +4001,7 @@ partial class BlockBinder : Binder
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
+            constructor = EnsureConstructedConstructor(constructor, typeSymbol);
             if (!EnsureMemberAccessible(constructor, syntax.Type.GetLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
 
@@ -3988,6 +4018,31 @@ partial class BlockBinder : Binder
         ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    protected static IMethodSymbol EnsureConstructedConstructor(IMethodSymbol constructor, INamedTypeSymbol typeSymbol)
+    {
+        if (constructor is null)
+            throw new ArgumentNullException(nameof(constructor));
+        if (typeSymbol is null)
+            throw new ArgumentNullException(nameof(typeSymbol));
+
+        if (constructor is SubstitutedMethodSymbol || constructor is ConstructedMethodSymbol)
+            return constructor;
+
+        if (typeSymbol is not ConstructedNamedTypeSymbol constructed)
+            return constructor;
+
+        if (constructed.ConstructedFrom is not INamedTypeSymbol originalDefinition)
+            return constructor;
+
+        if (constructor.ContainingType is not INamedTypeSymbol containingDefinition)
+            return constructor;
+
+        if (!SymbolEqualityComparer.Default.Equals(containingDefinition, originalDefinition))
+            return constructor;
+
+        return new SubstitutedMethodSymbol(constructor, constructed);
     }
 
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)

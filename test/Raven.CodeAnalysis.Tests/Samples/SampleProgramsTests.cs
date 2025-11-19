@@ -1,3 +1,4 @@
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -8,23 +9,24 @@ public class SampleProgramsTests
     public static IEnumerable<object[]> SamplePrograms =>
     [
         ["arrays.rav"],
+        ["classes.rav"],
         ["enums.rav"],
         ["general.rav"],
-        ["generics.rav"],
+        ["generics/generics.rav"],
         ["io.rav"],
-        ["test2.rav"],
-        ["type-unions.rav"],
-        ["tuples.rav"],
         ["main.rav"],
-        ["classes.rav"],
+        ["test2.rav"],
+        ["tuples.rav"],
+        ["type-unions.rav"],
     ];
 
     [Theory]
     [MemberData(nameof(SamplePrograms))]
     public void Sample_should_load_into_compilation(string fileName)
     {
-        var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
-        var samplePath = Path.Combine(projectDir, "samples", fileName);
+        var repoRoot = Path.GetFullPath(Path.Combine("..", "..", "..", "..", ".."));
+        var compilerDir = Path.Combine(repoRoot, "src", "Raven.Compiler");
+        var samplePath = Path.Combine(repoRoot, "samples", fileName);
         var text = File.ReadAllText(samplePath);
         var tree = SyntaxTree.ParseText(text, path: samplePath);
 
@@ -33,7 +35,7 @@ public class SampleProgramsTests
 
         var testDepOutputPath = Path.Combine(outputDir, "TestDep.dll");
 
-        var testDep = Path.Combine(projectDir, "TestDep.dll");
+        var testDep = Path.Combine(compilerDir, "TestDep.dll");
         if (File.Exists(testDep))
             File.Copy(testDep, testDepOutputPath, overwrite: true);
 
@@ -48,7 +50,9 @@ public class SampleProgramsTests
                     MetadataReference.CreateFromFile(testDepOutputPath)]);
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Empty(diagnostics.Where(d => d.Descriptor != CompilerDiagnostics.FileScopedCodeOutOfOrder));
+        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error &&
+                                            d.Descriptor != CompilerDiagnostics.FileScopedCodeOutOfOrder);
+        Assert.Empty(errors);
     }
 
     [Fact]

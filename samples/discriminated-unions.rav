@@ -4,6 +4,20 @@
 
 import System.*
 
+let first = Token.Identifier("alpha")
+let second : Token = .Number(42)
+let third = Token.Unknown
+
+Console.WriteLine(describe(first))
+Console.WriteLine(describe(second))
+Console.WriteLine(describe(third))
+
+let ok : Result<int> = .Ok(99)
+let err = Result<int>.Error("boom")
+
+Console.WriteLine(format(ok))
+Console.WriteLine(format(err))
+
 union Token {
     Identifier(text: string)
     Number(value: int)
@@ -29,17 +43,3 @@ func format(result: Result<int>) -> string {
         .Error(message) => "error '${message}'"
     }
 }
-
-let first = Token.Identifier("alpha")
-let second : Token = .Number(42)
-let third = Token.Unknown
-
-Console.WriteLine(describe(first))
-Console.WriteLine(describe(second))
-Console.WriteLine(describe(third))
-
-let ok : Result<int> = .Ok(99)
-let err = Result<int>.Error("boom")
-
-Console.WriteLine(format(ok))
-Console.WriteLine(format(err))

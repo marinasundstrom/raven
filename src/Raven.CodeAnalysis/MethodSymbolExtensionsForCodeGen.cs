@@ -46,6 +46,8 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        constructorSymbol = EnsureConstructedConstructor(constructorSymbol);
+
         if (codeGen.TryGetRuntimeConstructor(constructorSymbol, out var cached))
             return cached;
 
@@ -64,6 +66,20 @@ internal static class MethodSymbolExtensionsForCodeGen
             PEMethodSymbol peConstructor => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveRuntimeConstructorInfo(peConstructor, codeGen)),
             _ => throw new InvalidOperationException($"Unsupported constructor symbol type '{constructorSymbol.GetType()}'.")
         };
+    }
+
+    private static IMethodSymbol EnsureConstructedConstructor(IMethodSymbol constructorSymbol)
+    {
+        if (constructorSymbol is null)
+            throw new ArgumentNullException(nameof(constructorSymbol));
+
+        if (constructorSymbol is SubstitutedMethodSymbol || constructorSymbol is ConstructedMethodSymbol)
+            return constructorSymbol;
+
+        if (constructorSymbol.ContainingType is not ConstructedNamedTypeSymbol constructed)
+            return constructorSymbol;
+
+        return new SubstitutedMethodSymbol(constructorSymbol, constructed);
     }
 
     private static MethodInfo ResolveRuntimeMethodInfo(PEMethodSymbol methodSymbol, CodeGenerator codeGen)
