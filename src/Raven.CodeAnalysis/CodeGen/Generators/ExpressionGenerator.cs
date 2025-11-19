@@ -1168,6 +1168,10 @@ internal class ExpressionGenerator : Generator
                 throw new NotSupportedException("Unsupported binary pattern kind");
             }
         }
+        else if (pattern is BoundCasePattern casePattern)
+        {
+            EmitCasePattern(casePattern, scope);
+        }
         else if (pattern is BoundTuplePattern tuplePattern)
         {
             var tupleInterfaceType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ITuple")
@@ -1213,6 +1217,92 @@ internal class ExpressionGenerator : Generator
         {
             throw new NotSupportedException("Unsupported pattern");
         }
+    }
+
+    private void EmitCasePattern(BoundCasePattern casePattern, Generator scope)
+    {
+        var scrutineeLocal = ILGenerator.DeclareLocal(typeof(object));
+        ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+        if (casePattern.TryGetMethod is null)
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            return;
+        }
+
+        var unionClrType = ResolveClrType(casePattern.UnionType);
+        var caseClrType = MethodBodyGenerator.ResolveUnionCaseClrType(casePattern.CaseType);
+        var unionLocal = ILGenerator.DeclareLocal(unionClrType);
+        var caseLocal = ILGenerator.DeclareLocal(caseClrType);
+
+        var failLabel = ILGenerator.DefineLabel();
+        var doneLabel = ILGenerator.DefineLabel();
+        var nonNullLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+        ILGenerator.Emit(OpCodes.Brtrue_S, nonNullLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+        ILGenerator.MarkLabel(nonNullLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+        ILGenerator.Emit(OpCodes.Unbox_Any, unionClrType);
+        ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+        ILGenerator.Emit(OpCodes.Brfalse, failLabel);
+
+        foreach (var argument in casePattern.Arguments)
+        {
+            EmitCasePatternArgument(casePattern, caseLocal, argument, scope);
+            ILGenerator.Emit(OpCodes.Brfalse, failLabel);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+        ILGenerator.MarkLabel(failLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+        ILGenerator.MarkLabel(doneLabel);
+    }
+
+    private void EmitCasePatternArgument(
+        BoundCasePattern casePattern,
+        IILocal caseLocal,
+        BoundCasePatternArgument argument,
+        Generator scope)
+    {
+        var property = argument.Property;
+        if (property?.GetMethod is null)
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            return;
+        }
+
+        if (casePattern.CaseType.IsValueType)
+            ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+        else
+            ILGenerator.Emit(OpCodes.Ldloc, caseLocal);
+
+        var getter = GetMethodInfo(property.GetMethod);
+        var callOpCode = casePattern.CaseType.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
+        ILGenerator.Emit(callOpCode, getter);
+
+        var propertyType = property.Type ?? Compilation.ErrorTypeSymbol;
+        if (propertyType.TypeKind == TypeKind.Error)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            return;
+        }
+
+        if (propertyType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(propertyType));
+
+        EmitPattern(argument.Pattern, scope);
     }
 
     private void EmitConstantPattern(BoundConstantPattern constantPattern)

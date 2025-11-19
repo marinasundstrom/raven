@@ -384,6 +384,18 @@
   <Descriptor Id="RAV2103" Identifier="MatchExpressionCatchAllRedundant" Title="Match catch-all is redundant"
     Message="Match expression catch-all is redundant; all cases are already handled"
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2104" Identifier="CasePatternRequiresType" Title="Case pattern requires a discriminated union type"
+    Message="Case pattern '.{caseName}' cannot be resolved without a discriminated union type"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2105" Identifier="CasePatternRequiresDiscriminatedUnion" Title="Case pattern requires discriminated union"
+    Message="Type '{typeName}' is not a discriminated union and cannot be matched with a case pattern"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2106" Identifier="CasePatternCaseNotFound" Title="Union case not found"
+    Message="Discriminated union '{unionName}' does not contain a case named '{caseName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2107" Identifier="CasePatternArgumentCountMismatch" Title="Case pattern argument count mismatch"
+    Message="Case '{caseName}' expects {expectedCount} argument(s) but pattern provides {actualCount}"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred" Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

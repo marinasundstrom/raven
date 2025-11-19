@@ -1060,7 +1060,7 @@ internal class MethodBodyGenerator
         return position;
     }
 
-    private Type ResolveUnionCaseClrType(ITypeSymbol caseTypeSymbol)
+    internal Type ResolveUnionCaseClrType(ITypeSymbol caseTypeSymbol)
     {
         if (caseTypeSymbol is INamedTypeSymbol namedCase)
         {

@@ -698,5 +698,48 @@ let result = value match {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchExpression_WithCasePatterns_BindsCasePattern()
+    {
+        const string code = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+
+let result: Result = Result.Ok(value: 42)
+
+let text = result match {
+    .Ok(value) => value.ToString()
+    .Error(message) => message
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "case_pattern_match",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var okPattern = Assert.IsType<BoundCasePattern>(bound.Arms[0].Pattern);
+        Assert.Equal("Result", okPattern.UnionType.Name);
+        Assert.Equal("Ok", okPattern.CaseType.Name);
+        Assert.NotNull(okPattern.TryGetMethod);
+
+        var okArgument = Assert.Single(okPattern.Arguments);
+        var declaration = Assert.IsType<BoundDeclarationPattern>(okArgument.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+        Assert.Equal("value", designator.Local.Name);
+
+        var errorPattern = Assert.IsType<BoundCasePattern>(bound.Arms[1].Pattern);
+        Assert.Equal("Error", errorPattern.CaseType.Name);
+        Assert.Single(errorPattern.Arguments);
+    }
 }
 

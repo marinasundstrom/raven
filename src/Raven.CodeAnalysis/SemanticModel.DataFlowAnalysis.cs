@@ -173,6 +173,10 @@ internal sealed class AssignmentCollector : SyntaxWalker
                 foreach (var element in tuple.Elements)
                     CollectAssignedLocals(element);
                 break;
+            case BoundCasePattern casePattern:
+                foreach (var argument in casePattern.Arguments)
+                    CollectAssignedLocals(argument.Pattern);
+                break;
             case BoundBinaryPattern binary:
                 CollectAssignedLocals(binary.Left);
                 CollectAssignedLocals(binary.Right);
@@ -415,6 +419,13 @@ internal sealed class DataFlowWalker : SyntaxWalker
                 foreach (var element in tuple.Elements)
                 {
                     foreach (var local in GetPatternLocals(element))
+                        yield return local;
+                }
+                yield break;
+            case BoundCasePattern casePattern:
+                foreach (var argument in casePattern.Arguments)
+                {
+                    foreach (var local in GetPatternLocals(argument.Pattern))
                         yield return local;
                 }
                 yield break;

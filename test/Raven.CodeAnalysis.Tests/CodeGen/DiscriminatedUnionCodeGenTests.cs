@@ -449,4 +449,75 @@ class Container {
         Assert.NotNull(converted);
         Assert.Equal(closedUnionType, converted!.GetType());
     }
+
+    [Fact]
+    public void MatchExpression_WithCasePatterns_InvokesTryGet()
+    {
+        var code = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+
+class Evaluator {
+    public Evaluate(Result input) -> string {
+        return input match {
+            .Ok(value) => "ok ${value}"
+            .Error(message) => "error ${message}"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var evaluatorType = runtimeAssembly.GetType("Evaluator", throwOnError: true)!;
+        var evaluator = Activator.CreateInstance(evaluatorType)!;
+        var evaluateMethod = evaluatorType.GetMethod("Evaluate", BindingFlags.Public | BindingFlags.Instance)!;
+
+        var unionType = runtimeAssembly.GetType("Result", throwOnError: true)!;
+        var okCaseType = unionType.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var errorCaseType = unionType.GetNestedType("Error", BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var okCtor = okCaseType.GetConstructor(new[] { typeof(int) })!;
+        var errorCtor = errorCaseType.GetConstructor(new[] { typeof(string) })!;
+
+        var okConversion = unionType.GetMethod(
+            "op_Implicit",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: new[] { okCaseType },
+            modifiers: null)!;
+        var errorConversion = unionType.GetMethod(
+            "op_Implicit",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: new[] { errorCaseType },
+            modifiers: null)!;
+
+        var okUnion = okConversion.Invoke(null, new[] { okCtor.Invoke(new object?[] { 5 }) });
+        var errorUnion = errorConversion.Invoke(null, new[] { errorCtor.Invoke(new object?[] { "boom" }) });
+
+        var okResult = (string)evaluateMethod.Invoke(evaluator, new[] { okUnion })!;
+        var errorResult = (string)evaluateMethod.Invoke(evaluator, new[] { errorUnion })!;
+
+        Assert.Equal("ok 5", okResult);
+        Assert.Equal("error boom", errorResult);
+    }
 }

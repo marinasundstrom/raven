@@ -23,6 +23,7 @@ partial class BlockBinder : Binder
     private bool _allowReturnsInExpression;
     private int _loopDepth;
     private int _expressionContextDepth;
+    private ITypeSymbol? _currentPatternInputType;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -1142,7 +1143,7 @@ partial class BlockBinder : Binder
             _scopeDepth++;
             var depth = _scopeDepth;
 
-            var pattern = BindPattern(arm.Pattern);
+            var pattern = BindPattern(arm.Pattern, scrutinee.Type);
 
             BoundExpression? guard = null;
             if (arm.WhenClause is { } whenClause)
@@ -1327,6 +1328,22 @@ partial class BlockBinder : Binder
 
                     return;
                 }
+            case BoundCasePattern casePattern:
+                {
+                    var unionType = UnwrapAlias(casePattern.UnionType);
+
+                    if (!PatternCanMatch(scrutineeType, unionType))
+                    {
+                        var patternDisplay = GetMatchPatternDisplay(casePattern.CaseType);
+                        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                            patternDisplay,
+                            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            patternSyntax.GetLocation());
+                        return;
+                    }
+
+                    return;
+                }
         }
     }
 
@@ -1445,6 +1462,13 @@ partial class BlockBinder : Binder
             return;
         }
 
+        if (scrutineeType is INamedTypeSymbol namedType &&
+            DiscriminatedUnionFacts.IsDiscriminatedUnionType(namedType))
+        {
+            EnsureDiscriminatedUnionMatchExhaustive(matchExpression, namedType, arms, catchAllIndex);
+            return;
+        }
+
         if (scrutineeType is not IUnionTypeSymbol union)
         {
             if (catchAllIndex >= 0)
@@ -1553,6 +1577,66 @@ partial class BlockBinder : Binder
         return -1;
     }
 
+    private void EnsureDiscriminatedUnionMatchExhaustive(
+        MatchExpressionSyntax matchExpression,
+        INamedTypeSymbol unionType,
+        ImmutableArray<BoundMatchArm> arms,
+        int catchAllIndex)
+    {
+        var caseTypes = GetDiscriminatedUnionCaseTypes(unionType);
+
+        if (caseTypes.IsDefaultOrEmpty)
+        {
+            if (catchAllIndex >= 0)
+                return;
+
+            _diagnostics.ReportMatchExpressionNotExhaustive(
+                unionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                matchExpression.GetLocation());
+            return;
+        }
+
+        var remaining = new HashSet<INamedTypeSymbol>(caseTypes, SymbolEqualityComparer.Default);
+
+        for (var i = 0; i < arms.Length && remaining.Count > 0; i++)
+        {
+            var arm = arms[i];
+
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            RemoveCoveredDiscriminatedUnionCases(unionType, remaining, arm.Pattern);
+        }
+
+        if (remaining.Count == 0 || catchAllIndex >= 0)
+            return;
+
+        foreach (var missing in remaining
+            .Select(caseType => caseType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal))
+        {
+            _diagnostics.ReportMatchExpressionNotExhaustive(
+                missing,
+                matchExpression.GetLocation());
+        }
+    }
+
+    private ImmutableArray<INamedTypeSymbol> GetDiscriminatedUnionCaseTypes(INamedTypeSymbol unionType)
+    {
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+        foreach (var member in unionType.GetMembers())
+        {
+            if (member is INamedTypeSymbol typeMember &&
+                DiscriminatedUnionFacts.IsDiscriminatedUnionCaseType(typeMember))
+            {
+                builder.Add(typeMember);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
     private void ReportRedundantCatchAll(MatchExpressionSyntax matchExpression, int catchAllIndex)
     {
         var patternLocation = matchExpression.Arms[catchAllIndex].Pattern.GetLocation();
@@ -1598,6 +1682,56 @@ partial class BlockBinder : Binder
         }
 
         return false;
+    }
+
+    private void RemoveCoveredDiscriminatedUnionCases(
+        INamedTypeSymbol unionType,
+        HashSet<INamedTypeSymbol> remaining,
+        BoundPattern pattern)
+    {
+        switch (pattern)
+        {
+            case BoundDiscardPattern:
+                remaining.Clear();
+                break;
+            case BoundDeclarationPattern declaration when declaration.Designator is BoundDiscardDesignator:
+                {
+                    var declaredType = UnwrapAlias(declaration.DeclaredType);
+
+                    if (declaredType is INamedTypeSymbol named &&
+                        SymbolEqualityComparer.Default.Equals(named, unionType))
+                    {
+                        remaining.Clear();
+                    }
+
+                    break;
+                }
+            case BoundCasePattern casePattern:
+                {
+                    var patternUnion = UnwrapAlias(casePattern.UnionType);
+
+                    if (patternUnion is INamedTypeSymbol namedUnion &&
+                        SymbolEqualityComparer.Default.Equals(namedUnion, unionType))
+                    {
+                        var caseType = UnwrapAlias(casePattern.CaseType);
+
+                        if (caseType is INamedTypeSymbol matchedCase)
+                        {
+                            foreach (var candidate in remaining.ToArray())
+                            {
+                                if (SymbolEqualityComparer.Default.Equals(UnwrapAlias(candidate), matchedCase))
+                                    remaining.Remove(candidate);
+                            }
+                        }
+                    }
+
+                    break;
+                }
+            case BoundOrPattern orPattern:
+                RemoveCoveredDiscriminatedUnionCases(unionType, remaining, orPattern.Left);
+                RemoveCoveredDiscriminatedUnionCases(unionType, remaining, orPattern.Right);
+                break;
+        }
     }
 
     private void RemoveCoveredUnionMembers(
