@@ -71,6 +71,40 @@ class Container {
     }
 
     [Fact]
+    public void DiscriminatedUnionStruct_AnnotatedWithMarkerAttribute()
+    {
+        var code = """
+union Option {
+    Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+
+        Assert.Contains(
+            unionType.GetCustomAttributesData(),
+            a => a.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
+    }
+
+    [Fact]
     public void DiscriminatedUnionConversion_SetsTagAndPayload()
     {
         var code = """

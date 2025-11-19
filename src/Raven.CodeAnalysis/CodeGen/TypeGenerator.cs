@@ -227,6 +227,12 @@ internal class TypeGenerator
         }
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+
+        if (TypeSymbol is SourceDiscriminatedUnionSymbol)
+        {
+            var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
+            TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
+        }
     }
 
     private static string GetNestedTypeMetadataName(INamedTypeSymbol type)

@@ -218,9 +218,11 @@ internal class CodeGenerator
     public Type? NullType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
+    public Type? DiscriminatedUnionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _tupleElementNamesCtor;
+    ConstructorInfo? _discriminatedUnionCtor;
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
@@ -403,6 +405,12 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_tupleElementNamesCtor!, new object?[] { transformNames.ToArray() });
     }
 
+    internal CustomAttributeBuilder CreateDiscriminatedUnionAttribute()
+    {
+        EnsureDiscriminatedUnionAttributeType();
+        return new CustomAttributeBuilder(_discriminatedUnionCtor!, Array.Empty<object?>());
+    }
+
     static IEnumerable<ITypeSymbol> Flatten(IEnumerable<ITypeSymbol> types)
         => types.SelectMany(t => t is IUnionTypeSymbol u ? Flatten(u.Types) : new[] { t });
 
@@ -448,6 +456,39 @@ internal class CodeGenerator
 
         _tupleElementNamesCtor = TupleElementNamesAttributeType.GetConstructor(new[] { typeof(string[]) })
             ?? throw new InvalidOperationException("Missing TupleElementNamesAttribute(string[]) constructor.");
+    }
+
+    void EnsureDiscriminatedUnionAttributeType()
+    {
+        if (DiscriminatedUnionAttributeType is not null)
+            return;
+
+        var attrBuilder = ModuleBuilder.DefineType(
+            "System.Runtime.CompilerServices.DiscriminatedUnionAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            typeof(Attribute));
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            Type.EmptyTypes);
+
+        var il = ctorBuilder.GetILGenerator();
+        var baseCtor = typeof(Attribute).GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null);
+        if (baseCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Call, baseCtor);
+        il.Emit(OpCodes.Ret);
+
+        DiscriminatedUnionAttributeType = attrBuilder.CreateType();
+        _discriminatedUnionCtor = DiscriminatedUnionAttributeType.GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing DiscriminatedUnionAttribute() constructor.");
     }
 
     bool TryCollectTupleElementNames(ITypeSymbol type, List<string?> transformNames)
