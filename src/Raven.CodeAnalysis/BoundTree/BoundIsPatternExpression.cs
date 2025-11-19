@@ -498,24 +498,30 @@ internal partial class BlockBinder
 
     private ImmutableArray<IParameterSymbol> GetDiscriminatedUnionCaseParameters(INamedTypeSymbol caseType)
     {
+        if (!caseType.Constructors.IsDefaultOrEmpty && caseType.Constructors.Length > 0)
+        {
+            IMethodSymbol? bestMatch = null;
+
+            foreach (var ctor in caseType.Constructors)
+            {
+                if (ctor.IsStatic)
+                    continue;
+
+                if (bestMatch is null || ctor.Parameters.Length > bestMatch.Parameters.Length)
+                    bestMatch = ctor;
+            }
+
+            if (bestMatch is not null)
+                return bestMatch.Parameters;
+        }
+
         if (caseType.TryGetDiscriminatedUnionCase() is { } caseSymbol &&
             !caseSymbol.ConstructorParameters.IsDefaultOrEmpty)
         {
             return caseSymbol.ConstructorParameters;
         }
 
-        IMethodSymbol? bestMatch = null;
-
-        foreach (var ctor in caseType.Constructors)
-        {
-            if (ctor.IsStatic)
-                continue;
-
-            if (bestMatch is null || ctor.Parameters.Length > bestMatch.Parameters.Length)
-                bestMatch = ctor;
-        }
-
-        return bestMatch?.Parameters ?? ImmutableArray<IParameterSymbol>.Empty;
+        return ImmutableArray<IParameterSymbol>.Empty;
     }
 
     private ImmutableArray<BoundCasePatternArgument> BindCasePatternArguments(

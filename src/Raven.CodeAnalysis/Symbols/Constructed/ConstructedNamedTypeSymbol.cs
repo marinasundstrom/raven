@@ -192,6 +192,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public bool IsType => true;
     public bool IsReferenceType => _originalDefinition.IsReferenceType;
     public bool IsValueType => _originalDefinition.IsValueType;
+    public bool IsDiscriminatedUnion => _originalDefinition.IsDiscriminatedUnion;
+    public bool IsDiscriminatedUnionCase => _originalDefinition.IsDiscriminatedUnionCase;
+    public INamedTypeSymbol? UnderlyingDiscriminatedUnion => _originalDefinition.UnderlyingDiscriminatedUnion;
     public INamedTypeSymbol? ContainingType => _containingTypeOverride ?? _originalDefinition.ContainingType;
     public INamespaceSymbol? ContainingNamespace => _originalDefinition.ContainingNamespace;
     public ISymbol? ContainingSymbol => _originalDefinition.ContainingSymbol;

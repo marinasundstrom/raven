@@ -7,58 +7,21 @@ namespace Raven.CodeAnalysis;
 
 internal static class DiscriminatedUnionFacts
 {
-    private const string DiscriminatedUnionAttributeName = "System.Runtime.CompilerServices.DiscriminatedUnionAttribute";
-    private const string DiscriminatedUnionCaseAttributeName = "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute";
 
     public static bool IsDiscriminatedUnionType(ITypeSymbol? type)
     {
-        if (type is null)
-            return false;
-
-        if (type.TryGetDiscriminatedUnion() is not null)
-            return true;
-
-        return HasAttribute(type, DiscriminatedUnionAttributeName);
+        return type?.IsDiscriminatedUnion == true;
     }
 
     public static bool IsDiscriminatedUnionCaseType(ITypeSymbol? type)
     {
-        if (type is null)
-            return false;
-
-        if (type.TryGetDiscriminatedUnionCase() is not null)
-            return true;
-
-        return HasAttribute(type, DiscriminatedUnionCaseAttributeName);
+        return type?.IsDiscriminatedUnionCase == true;
     }
 
     public static bool TryGetCaseUnionType(ITypeSymbol? caseType, out ITypeSymbol? unionType)
     {
-        if (caseType?.TryGetDiscriminatedUnionCase() is { } caseSymbol)
-        {
-            unionType = caseSymbol.Union;
-            return true;
-        }
-
-        if (caseType is not null)
-        {
-            foreach (var attribute in caseType.GetAttributes())
-            {
-                if (IsAttribute(attribute, DiscriminatedUnionCaseAttributeName) &&
-                    attribute.ConstructorArguments.Length == 1)
-                {
-                    var argument = attribute.ConstructorArguments[0];
-                    if (argument.Kind == TypedConstantKind.Type && argument.Value is ITypeSymbol union)
-                    {
-                        unionType = union;
-                        return true;
-                    }
-                }
-            }
-        }
-
-        unionType = null;
-        return false;
+        unionType = caseType?.UnderlyingDiscriminatedUnion;
+        return unionType is not null;
     }
 
     public static string GetCasePropertyName(string parameterName)
@@ -75,9 +38,4 @@ internal static class DiscriminatedUnionFacts
         return new string(buffer);
     }
 
-    private static bool HasAttribute(ITypeSymbol type, string metadataName)
-        => type.GetAttributes().Any(attribute => IsAttribute(attribute, metadataName));
-
-    private static bool IsAttribute(AttributeData attribute, string metadataName)
-        => attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == metadataName;
 }

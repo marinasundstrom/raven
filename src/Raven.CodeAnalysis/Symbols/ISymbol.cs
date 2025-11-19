@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -415,7 +416,59 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsTupleType => MetadataName.Contains("System.ValueTuple");
 
-    bool IsUnion => TypeKind == TypeKind.Union;
+    bool IsTypeUnion => TypeKind == TypeKind.Union;
+
+    bool IsDiscriminatedUnion
+    {
+        get
+        {
+            if (this is IDiscriminatedUnionSymbol)
+                return true;
+
+            return GetAttributes().Any(static attribute =>
+                attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
+                "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
+        }
+    }
+
+    bool IsDiscriminatedUnionCase
+    {
+        get
+        {
+            if (this is IDiscriminatedUnionCaseSymbol)
+                return true;
+
+            return GetAttributes().Any(static attribute =>
+                attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
+                "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
+        }
+    }
+
+    INamedTypeSymbol? UnderlyingDiscriminatedUnion
+    {
+        get
+        {
+            if (this is IDiscriminatedUnionSymbol union)
+                return union;
+
+            if (this is IDiscriminatedUnionCaseSymbol caseSymbol)
+                return caseSymbol.Union;
+
+            foreach (var attribute in GetAttributes())
+            {
+                if (attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
+                    "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute" &&
+                    attribute.ConstructorArguments.Length == 1)
+                {
+                    var argument = attribute.ConstructorArguments[0];
+                    if (argument.Kind == TypedConstantKind.Type && argument.Value is INamedTypeSymbol unionType)
+                        return unionType;
+                }
+            }
+
+            return null;
+        }
+    }
 }
 
 public enum TypeKind

@@ -1025,7 +1025,7 @@ internal class ExpressionGenerator : Generator
             new ExpressionGenerator(scope, arm.Expression).Emit();
 
             var armType = arm.Expression.Type;
-            if ((matchExpression.Type?.IsUnion ?? false) && (armType?.IsValueType ?? false))
+            if ((matchExpression.Type?.IsTypeUnion ?? false) && (armType?.IsValueType ?? false))
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
 
             ILGenerator.Emit(OpCodes.Br, endLabel);
@@ -3399,7 +3399,7 @@ internal class ExpressionGenerator : Generator
 
         var thenType = ifStatement.ThenBranch.Type;
 
-        if ((ifStatement.Type?.IsUnion ?? false)
+        if ((ifStatement.Type?.IsTypeUnion ?? false)
             && (thenType?.IsValueType ?? false))
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType));
@@ -3422,7 +3422,7 @@ internal class ExpressionGenerator : Generator
 
             var elseType = ifStatement.ElseBranch.Type;
 
-            if ((ifStatement.Type?.IsUnion ?? false)
+            if ((ifStatement.Type?.IsTypeUnion ?? false)
                 && (elseType?.IsValueType ?? false))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(elseType));

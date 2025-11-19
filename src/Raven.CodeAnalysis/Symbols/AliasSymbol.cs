@@ -120,7 +120,13 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
 
     public bool IsTupleType => _type.IsTupleType;
 
-    public bool IsUnion => _type.IsUnion;
+    public bool IsTypeUnion => _type.IsTypeUnion;
+
+    public bool IsDiscriminatedUnion => _type.IsDiscriminatedUnion;
+
+    public bool IsDiscriminatedUnionCase => _type.IsDiscriminatedUnionCase;
+
+    public INamedTypeSymbol? UnderlyingDiscriminatedUnion => _type.UnderlyingDiscriminatedUnion;
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
 

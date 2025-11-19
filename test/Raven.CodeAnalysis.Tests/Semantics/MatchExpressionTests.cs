@@ -231,6 +231,55 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithGenericDiscriminatedUnionCasePatterns_BindsPayloads()
+    {
+        const string code = """
+import System.*
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(payload) => "ok ${payload}"
+        .Error(message) => "error ${message}"
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "generic_union_match",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var okPattern = Assert.IsType<BoundCasePattern>(bound.Arms[0].Pattern);
+        var okArgument = Assert.Single(okPattern.Arguments);
+        var okDeclaration = Assert.IsType<BoundDeclarationPattern>(okArgument.Pattern);
+        var okDesignator = Assert.IsType<BoundSingleVariableDesignator>(okDeclaration.Designator);
+        Assert.Equal("payload", okDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, okDesignator.Local.Type.SpecialType);
+
+        var errorPattern = Assert.IsType<BoundCasePattern>(bound.Arms[1].Pattern);
+        var errorArgument = Assert.Single(errorPattern.Arguments);
+        var errorDeclaration = Assert.IsType<BoundDeclarationPattern>(errorArgument.Pattern);
+        var errorDesignator = Assert.IsType<BoundSingleVariableDesignator>(errorDeclaration.Designator);
+        Assert.Equal("message", errorDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_String, errorDesignator.Local.Type.SpecialType);
+    }
+
+    [Fact]
     public void MatchExpression_DiscardArm_BindsToDiscardPattern()
     {
         const string code = """

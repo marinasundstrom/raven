@@ -1627,11 +1627,21 @@ partial class BlockBinder : Binder
 
         foreach (var member in unionType.GetMembers())
         {
-            if (member is INamedTypeSymbol typeMember &&
-                DiscriminatedUnionFacts.IsDiscriminatedUnionCaseType(typeMember))
+            if (member is not INamedTypeSymbol typeMember)
+                continue;
+
+            if (!DiscriminatedUnionFacts.IsDiscriminatedUnionCaseType(typeMember))
+                continue;
+
+            var underlyingUnion = typeMember.UnderlyingDiscriminatedUnion ?? typeMember.ConstructedFrom as INamedTypeSymbol;
+            if (underlyingUnion is not null &&
+                !SymbolEqualityComparer.Default.Equals(underlyingUnion, unionType) &&
+                !SymbolEqualityComparer.Default.Equals(underlyingUnion, unionType.ConstructedFrom as INamedTypeSymbol))
             {
-                builder.Add(InstantiateCaseTypeForMatch(typeMember, unionType));
+                continue;
             }
+
+            builder.Add(InstantiateCaseTypeForMatch(typeMember, unionType));
         }
 
         return builder.ToImmutable();
@@ -2358,7 +2368,7 @@ partial class BlockBinder : Binder
         if (targetType is not INamedTypeSymbol namedType)
             return null;
 
-        if (namedType.TryGetDiscriminatedUnion() is null)
+        if (!DiscriminatedUnionFacts.IsDiscriminatedUnionType(namedType))
             return null;
 
         foreach (var member in namedType.GetMembers(memberName))
@@ -2366,8 +2376,16 @@ partial class BlockBinder : Binder
             if (member is not ITypeSymbol typeMember)
                 continue;
 
-            if (typeMember.TryGetDiscriminatedUnionCase() is null)
+            if (!DiscriminatedUnionFacts.IsDiscriminatedUnionCaseType(typeMember))
                 continue;
+
+            var underlying = typeMember.UnderlyingDiscriminatedUnion;
+            if (underlying is not null &&
+                !SymbolEqualityComparer.Default.Equals(underlying, namedType) &&
+                !SymbolEqualityComparer.Default.Equals(underlying, namedType.ConstructedFrom as INamedTypeSymbol))
+            {
+                continue;
+            }
 
             var accessibleType = EnsureTypeAccessible(typeMember, location);
             if (accessibleType.TypeKind == TypeKind.Error)

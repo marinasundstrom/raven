@@ -763,7 +763,7 @@ internal class CodeGenerator
                 return;
             }
 
-            if (typeSymbol.IsUnion && typeSymbol is IUnionTypeSymbol union)
+            if (typeSymbol.IsTypeUnion && typeSymbol is IUnionTypeSymbol union)
             {
                 _emitTypeUnionAttribute = true;
                 foreach (var t in union.Types)
