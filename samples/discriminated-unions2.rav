@@ -6,6 +6,13 @@ let err = Result<int>.Error("boom")
 Console.WriteLine(ok)
 Console.WriteLine(err)
 
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(payload) => "ok ${payload}"
+        .Error(message) => "error ${message}"
+    }
+}
+
 union Result<T> {
     Ok(value: T)
     Error(message: string)
