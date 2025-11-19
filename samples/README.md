@@ -40,7 +40,7 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `classes.rav` | ✅ Emitted / ✅ Ran | Prints `Hello`, `John`, the projected record, and the trailing unit value. |
 | `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster. |
 | `discard.rav` | ✅ Emitted / ✅ Ran | Prints `Test` twice to demonstrate discards. |
-| `discriminated-unions.rav` | ❌ Fails | Match clauses still generate parser/binder errors, so codegen never starts. |
+| `discriminated-unions.rav` | ❌ Fails | Shorthand case construction (`.Ok(...)`, `.Error(...)`) still binds as a member-binding invocation, so `BindInvocationExpression` falls back to calling `Invoke` on the case type (`RAV0117`). The match arms use the same leading-dot syntax, but the pattern binder only recognizes declaration/tuple/unary/binary forms, so they trip `RAV1001`/`RAV0103` before exhaustiveness analysis. The sample also violates the "top-level statements must come before declarations" rule (`RAV1011`). |
 | `enums.rav` | ✅ Emitted / ✅ Ran | Outputs `C`, `Grades`, `B`, `Grades`. |
 | `extensions.rav` | ✅ Emitted / ✅ Ran | Outputs `Count: 2`, `Sum: 3`, `Value: 4`. |
 | `foo.rav` | ✅ Emitted / ✅ Ran | Invocation prints `1`. |
@@ -82,4 +82,12 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `type-unions.rav` | ✅ Emitted / ⚠️ External dependency | Copy `src/TestDep/bin/Debug/net9.0/TestDep.dll` beside the emitted DLL before running so the union projections print. |
 | `unit.rav` | ✅ Emitted / ✅ Ran | Outputs `Hello` and the unit literals. |
 
-**Runtime observations.** The async sample completes, `reflection.rav` now runs to completion, and `type-unions.rav` still requires copying `TestDep.dll` next to the emitted assembly. The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument. `tokenizer.rav` still fails to terminate, and `test3.rav` continues to hit the entry-point synthesis recursion. Additional regressions remain: the HTTP client sample needs external network access (and currently exits with 403), `async/async-inference-regression.rav` and `async/try-match-async.rav` still fail to bind, and `discriminated-unions.rav` requires language support before it can build.
+**Runtime observations.** The async sample completes, `reflection.rav` now runs to completion, and `type-unions.rav` still requires copying `TestDep.dll` next to the emitted assembly. The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument. `tokenizer.rav` still fails to terminate, and `test3.rav` continues to hit the entry-point synthesis recursion. Additional regressions remain: the HTTP client sample needs external network access (and currently exits with 403), `async/async-inference-regression.rav` and `async/try-match-async.rav` still fail to bind, and `discriminated-unions.rav` is blocked on the issues called out above.
+
+### Discriminated union gaps
+
+To get `discriminated-unions.rav` to build, we still need to:
+
+1. Teach `BindInvocationExpression`'s member-binding path to recognize when the `.Case` shorthand produced a `BoundTypeExpression` so the call is routed through `BindConstructorInvocation` instead of falling back to `Invoke` diagnostics. The member-access path already does this, but the member-binding path currently drops into the `Invoke` fallback. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3460-L3560】
+2. Extend the pattern binder so the leading-dot syntax inside match arms is treated as a union case test (i.e., a declaration pattern against the nested case struct). Right now `BindPattern` only handles discards, variable declarations, tuples, and logical combinations, which is why the sample's `.Identifier(...)` arms surface parser/binder errors rather than matching on the union. 【F:src/Raven.CodeAnalysis/BoundTree/BoundIsPatternExpression.cs†L241-L377】
+3. Reorder or relax the "statements before declarations" rule so that the sample's top-level `let` statements and `Console.WriteLine` calls can sit beside the union declarations without triggering `RAV1011`. 【f653a6†L1-L24】
