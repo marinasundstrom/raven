@@ -20,16 +20,29 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | --- | --- | --- |
 | `arrays.rav` | ✅ Emitted / ✅ Ran | Running the DLL prints `3`, `1`, `42`, `3`. |
 | `async/async-await.rav` | ✅ Emitted / ✅ Ran | The async sample finishes with `first:1`, `sum:6`, and `done`. |
+| `async/async-file-io.rav` | ✅ Emitted / ✅ Ran | Runtime output lists the staged writes `alpha`, `beta`, `gamma`. |
+| `async/async-generic-compute.rav` | ✅ Emitted / ✅ Ran | Shows the "Before/After" delay log before printing `42`. |
+| `async/async-inference-regression.rav` | ❌ Fails | Binder errors persist (`int` can't satisfy the `unit` return type and `WriteLine` overloads stay ambiguous). |
+| `async/async-task-return.rav` | ✅ Emitted / ✅ Ran | Prints the awaited task result `43`. |
+| `async/async-try-catch.rav` | ✅ Emitted / ✅ Ran | Logs `value:42`, `caught:boom`, and `completed`. |
+| `async/http-client.rav` | ✅ Emitted / ⚠️ HTTP dependency | Execution attempts an external request and exits with a 403 in the sandbox. |
+| `async/try-match-async.rav` | ❌ Fails | Still reports `Cannot convert from '0' to 'Task'` for the awaited `try match`. |
 | `catch.rav` | ✅ Emitted / ✅ Ran | Prints `Foo`. |
 | `classes.rav` | ✅ Emitted / ✅ Ran | Prints `Hello`, `John`, the projected record, and the trailing unit value. |
 | `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster. |
+| `discard.rav` | ✅ Emitted / ✅ Ran | Prints `Test` twice to demonstrate discards. |
+| `discriminated-unions.rav` | ❌ Fails | Match clauses still generate parser/binder errors, so codegen never starts. |
 | `enums.rav` | ✅ Emitted / ✅ Ran | Outputs `C`, `Grades`, `B`, `Grades`. |
+| `extensions.rav` | ✅ Emitted / ✅ Ran | Outputs `Count: 2`, `Sum: 3`, `Value: 4`. |
 | `foo.rav` | ✅ Emitted / ✅ Ran | Invocation prints `1`. |
+| `foo2.rav` | ✅ Emitted / ✅ Ran | Prints `4`. |
+| `func-references.rav` | ✅ Emitted / ✅ Ran | Shows `Foo 3`. |
 | `function-types.rav` | ✅ Emitted / ✅ Ran | Displays `result = 10`, `chained = 20`, and `combined = 30`. |
 | `general.rav` | ✅ Emitted / ✅ Ran | Prints `Hello, World!` followed by `1`, `42`, `3`. |
 | `generator.rav` | ✅ Emitted / ✅ Ran | Shows `42` and the odd sequence `3, 5, 7, 9`. |
 | `generics/generics.rav` | ✅ Emitted / ✅ Ran | Execution prints `2`, `2`, `3`. |
 | `generics/generics2.rav` | ✅ Emitted / ✅ Ran | Running the DLL prints `ok`. |
+| `generics/nested-classes.rav` | ✅ Emitted / ✅ Ran | Completes without console output after exercising nested generic types. |
 | `goto.rav` | ✅ Emitted / ⚠️ Not run | Build succeeds but the program would loop forever, so execution is skipped. |
 | `interfaces.rav` | ✅ Emitted / ✅ Ran | Runtime output remains `Init`, `Do`, `Dispose 1`. |
 | `introduction.rav` | ✅ Emitted / ✅ Ran | Prints `Empty input.` followed by the summary lines. |
@@ -40,11 +53,19 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `match.rav` | ✅ Emitted / ✅ Ran | Runtime pattern output stays `Int32`, `String`, `foo`. |
 | `parse-number.rav` | ✅ Emitted / ⚠️ Interactive loop | Compilation succeeds but the program waits for console input, so execution is skipped. |
 | `pattern-matching.rav` | ✅ Emitted / ✅ Ran | Prints `else`. |
+| `pipe-operator.rav` | ✅ Emitted / ✅ Ran | Produces `Result: 7`. |
+| `pipe-operator2.rav` | ✅ Emitted / ✅ Ran | Prints `Result: 7`. |
+| `pipe-operator3.rav` | ✅ Emitted / ✅ Ran | Emits `42`. |
 | `reflection.rav` | ✅ Emitted / ✅ Ran | Lists the reflected members without throwing. |
+| `shadowing.rav` | ⚠️ Emitted with warning / ✅ Ran | Compilation warns that `a` shadows a previous declaration; runtime emits no output. |
 | `string-interpolation.rav` | ✅ Emitted / ✅ Ran | Outputs the Hebrew greeting from `Console.WriteLine`. |
 | `test.rav` | ✅ Emitted / ✅ Ran | Prints the lambda totals `7`, `5`, and `5`. |
 | `test2.rav` | ✅ Emitted / ✅ Ran | Produces `42`, `Hello, World!`, and `Hello, 2`. |
 | `test3.rav` | ❌ Fails | Top-level program synthesis still recurses in `SynthesizedMainMethodSymbol.ResolveReturnType`. |
+| `test4.rav` | ✅ Emitted / ✅ Ran | Completes silently after exercising property override compatibility. |
+| `test5.rav` | ✅ Emitted / ✅ Ran | Prints `Foo: Hejtest 2 3`. |
+| `test9.rav` | ✅ Emitted / ✅ Ran | Produces the unit literal `()`. |
+| `test10.rav` | ✅ Emitted / ✅ Ran | Prints `(2, test)`. |
 | `tokenizer.rav` | ⚠️ Hangs | `timeout 3` aborts compilation, indicating the tokenizer still fails to terminate. |
 | `try-match.rav` | ✅ Emitted / ⚠️ Input mismatch | Running with the default `'foo'` argument reports the format error and exits. |
 | `tuples.rav` | ⚠️ Emitted with warning / ✅ Ran | Compilation warns about the redundant catch-all, and the program prints the tuple projections. |
@@ -52,4 +73,4 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `type-unions.rav` | ✅ Emitted / ⚠️ External dependency | Copy `src/TestDep/bin/Debug/net9.0/TestDep.dll` beside the emitted DLL before running so the union projections print. |
 | `unit.rav` | ✅ Emitted / ✅ Ran | Outputs `Hello` and the unit literals. |
 
-**Runtime observations.** The async sample completes, `reflection.rav` now runs to completion, and `type-unions.rav` still requires copying `TestDep.dll` next to the emitted assembly. The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument. `tokenizer.rav` still fails to terminate, and `test3.rav` continues to hit the entry-point synthesis recursion.
+**Runtime observations.** The async sample completes, `reflection.rav` now runs to completion, and `type-unions.rav` still requires copying `TestDep.dll` next to the emitted assembly. The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument. `tokenizer.rav` still fails to terminate, and `test3.rav` continues to hit the entry-point synthesis recursion. Additional regressions remain: the HTTP client sample needs external network access (and currently exits with 403), `async/async-inference-regression.rav` and `async/try-match-async.rav` still fail to bind, and `discriminated-unions.rav` requires language support before it can build.
