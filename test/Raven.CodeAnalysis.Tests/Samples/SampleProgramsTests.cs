@@ -50,8 +50,7 @@ public class SampleProgramsTests
                     MetadataReference.CreateFromFile(testDepOutputPath)]);
 
         var diagnostics = compilation.GetDiagnostics();
-        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error &&
-                                            d.Descriptor != CompilerDiagnostics.FileScopedCodeOutOfOrder);
+        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error);
         Assert.Empty(errors);
     }
 

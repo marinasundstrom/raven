@@ -582,6 +582,23 @@ public partial class SemanticModel
 
         var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
 
+        void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
+        {
+            var seenNonGlobal = false;
+            foreach (var member in members)
+            {
+                if (member is GlobalStatementSyntax gs)
+                {
+                    if (seenNonGlobal)
+                        parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
+                }
+                else
+                {
+                    seenNonGlobal = true;
+                }
+            }
+        }
+
         if (fileScopedNamespace != null)
         {
             foreach (var member in cu.Members)
@@ -592,9 +609,11 @@ public partial class SemanticModel
                 parentBinder.Diagnostics.ReportFileScopedNamespaceOutOfOrder(member.GetLocation());
             }
 
+            CheckOrder(fileScopedNamespace.Members);
         }
         else
         {
+            CheckOrder(cu.Members);
         }
 
         if (bindableGlobals.Count > 0)
