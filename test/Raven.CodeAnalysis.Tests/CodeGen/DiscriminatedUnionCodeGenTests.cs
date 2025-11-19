@@ -128,6 +128,60 @@ class Container {
     }
 
     [Fact]
+    public void DiscriminatedUnion_EmitsImplicitConversionOperators()
+    {
+        var code = """
+union Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var conversionMethod = unionType.GetMethod(
+            "op_Implicit",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: new[] { caseType },
+            modifiers: null)!;
+
+        var ctor = caseType.GetConstructor(new[] { typeof(int) })!;
+        var caseInstance = ctor.Invoke(new object?[] { 7 });
+
+        var unionValue = conversionMethod.Invoke(null, new[] { caseInstance });
+        Assert.NotNull(unionValue);
+
+        var tagField = unionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var payloadField = unionType.GetField("<Payload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        Assert.Equal(1, (int)tagField.GetValue(unionValue)!);
+
+        var payload = payloadField.GetValue(unionValue);
+        Assert.NotNull(payload);
+        Assert.Equal(caseType, payload!.GetType());
+    }
+
+    [Fact]
     public void GenericUnionCaseConstruction_PreservesOuterTypeArguments()
     {
         var code = """

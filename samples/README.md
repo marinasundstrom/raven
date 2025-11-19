@@ -40,7 +40,7 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `classes.rav` | ✅ Emitted / ✅ Ran | Prints `Hello`, `John`, the projected record, and the trailing unit value. |
 | `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster. |
 | `discard.rav` | ✅ Emitted / ✅ Ran | Prints `Test` twice to demonstrate discards. |
-| `discriminated-unions.rav` | ❌ Fails | `.Ok(...)`/`.Error(...)` now resolve to the generated case constructors, but the match arms still use the leading-dot syntax that the current pattern binder does not recognize, so they report `RAV1001`/`RAV0103` before exhaustiveness analysis. The file keeps its union declarations after the global statements so it satisfies the ordering rule while we focus on pattern binding, lowering, and code generation. |
+| `discriminated-unions.rav` | ❌ Fails | `.Ok(...)`/`.Error(...)` now resolve to the generated case constructors, and each case type exposes an implicit conversion back to the containing union so target-typed initializers and arguments share the same lowering path. The match arms still use the leading-dot syntax that the current pattern binder does not recognize, so they report `RAV1001`/`RAV0103` before exhaustiveness analysis. The file keeps its union declarations after the global statements so it satisfies the ordering rule while we focus on pattern binding, lowering, and code generation. |
 | `enums.rav` | ✅ Emitted / ✅ Ran | Outputs `C`, `Grades`, `B`, `Grades`. |
 | `extensions.rav` | ✅ Emitted / ✅ Ran | Outputs `Count: 2`, `Sum: 3`, `Value: 4`. |
 | `foo.rav` | ✅ Emitted / ✅ Ran | Invocation prints `1`. |

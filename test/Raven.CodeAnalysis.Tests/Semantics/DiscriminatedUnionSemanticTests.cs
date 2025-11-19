@@ -93,6 +93,41 @@ union Option {
     }
 
     [Fact]
+    public void Union_DeclaresImplicitConversionPerCase()
+    {
+        const string source = """
+union Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        var conversionMethods = unionSymbol
+            .GetMembers("op_Implicit")
+            .OfType<IMethodSymbol>()
+            .ToArray();
+
+        Assert.Equal(unionSymbol.Cases.Length, conversionMethods.Length);
+
+        foreach (var caseSymbol in unionSymbol.Cases)
+        {
+            var matchingConversion = conversionMethods.Single(m =>
+                m.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, caseSymbol));
+
+            Assert.Equal(unionSymbol, matchingConversion.ReturnType);
+            Assert.True(matchingConversion.IsStatic);
+        }
+    }
+
+    [Fact]
     public void CaseParameters_AreExposedAsGetterOnlyProperties()
     {
         const string source = """
@@ -148,10 +183,13 @@ class Container {
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsDiscriminatedUnion);
+        Assert.True(conversion.IsUserDefined);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(conversion.MethodSymbol);
+        Assert.Equal("op_Implicit", method.Name);
     }
 
     [Fact]
-    public void Lowerer_RewritesDiscriminatedUnionConversion()
+    public void Lowerer_PreservesDiscriminatedUnionConversion()
     {
         const string source = """
 union Option {
@@ -178,22 +216,11 @@ class Container {
         var returnStatement = boundBody.Statements.OfType<BoundReturnStatement>().Single();
         var castExpression = Assert.IsType<BoundCastExpression>(returnStatement.Expression);
         Assert.True(castExpression.Conversion.IsDiscriminatedUnion);
+        Assert.True(castExpression.Conversion.IsUserDefined);
+        Assert.NotNull(castExpression.Conversion.MethodSymbol);
 
         var loweredBody = Lowerer.LowerBlock(methodSymbol, boundBody);
         var loweredReturn = loweredBody.Statements.OfType<BoundReturnStatement>().Single();
-        var blockExpr = Assert.IsType<BoundBlockExpression>(loweredReturn.Expression);
-        var statements = blockExpr.Statements.ToArray();
-        Assert.Equal(5, statements.Length);
-
-        var tagAssignment = Assert.IsType<BoundExpressionStatement>(statements[2]);
-        var tagFieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(tagAssignment.Expression);
-        Assert.Equal("<Tag>", tagFieldAssignment.Field.Name);
-
-        var payloadAssignment = Assert.IsType<BoundExpressionStatement>(statements[3]);
-        var payloadFieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(payloadAssignment.Expression);
-        Assert.Equal("<Payload>", payloadFieldAssignment.Field.Name);
-
-        var resultExpression = Assert.IsType<BoundExpressionStatement>(statements[4]);
-        Assert.IsType<BoundLocalAccess>(resultExpression.Expression);
+        Assert.IsType<BoundCastExpression>(loweredReturn.Expression);
     }
 }

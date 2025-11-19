@@ -11,7 +11,7 @@ internal sealed partial class Lowerer
     {
         var rewrittenExpression = (BoundExpression?)Visit(node.Expression) ?? node.Expression;
 
-        if (node.Conversion.IsDiscriminatedUnion)
+        if (node.Conversion.IsDiscriminatedUnion && node.Conversion.MethodSymbol is null)
             return LowerDiscriminatedUnionConversion(node, rewrittenExpression);
 
         if (ReferenceEquals(rewrittenExpression, node.Expression))

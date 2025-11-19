@@ -1043,6 +1043,30 @@ public partial class SemanticModel
             caseSymbol.SetConstructorParameters(parameters);
             RegisterUnionCaseSymbol(caseClause, caseSymbol);
             caseSymbols.Add(caseSymbol);
+
+            var conversionMethod = new SourceMethodSymbol(
+                "op_Implicit",
+                unionSymbol,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                isStatic: true,
+                methodKind: MethodKind.Conversion,
+                declaredAccessibility: Accessibility.Public);
+
+            var conversionParameter = new SourceParameterSymbol(
+                "value",
+                caseSymbol,
+                conversionMethod,
+                unionSymbol,
+                namespaceSymbol,
+                new[] { caseClause.GetLocation() },
+                Array.Empty<SyntaxReference>());
+
+            conversionMethod.SetParameters(new[] { conversionParameter });
         }
 
         unionSymbol.SetCases(caseSymbols);

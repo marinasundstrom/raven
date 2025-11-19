@@ -66,7 +66,12 @@ public partial class Compilation
             destinationUnion is not null &&
             SymbolEqualityComparer.Default.Equals(sourceUnionCase.Union, destinationUnion))
         {
-            return Finalize(new Conversion(isImplicit: true, isDiscriminatedUnion: true));
+            var conversionMethod = FindDiscriminatedUnionConversionMethod(source, destination);
+            return Finalize(new Conversion(
+                isImplicit: true,
+                isDiscriminatedUnion: true,
+                isUserDefined: conversionMethod is not null,
+                methodSymbol: conversionMethod));
         }
 
         bool ElementTypesAreCompatible(ITypeSymbol sourceElement, ITypeSymbol destinationElement)
@@ -305,6 +310,53 @@ public partial class Compilation
         }
 
         return Conversion.None;
+    }
+
+    private static IMethodSymbol? FindDiscriminatedUnionConversionMethod(ITypeSymbol source, ITypeSymbol destination)
+    {
+        if (destination is INamedTypeSymbol destinationNamed)
+        {
+            var method = FindMatchingConversion(destinationNamed, source, destination);
+            if (method is not null)
+                return method;
+        }
+
+        if (source is INamedTypeSymbol sourceNamed)
+        {
+            var method = FindMatchingConversion(sourceNamed, source, destination);
+            if (method is not null)
+                return method;
+        }
+
+        return null;
+
+        static IMethodSymbol? FindMatchingConversion(
+            INamedTypeSymbol owner,
+            ITypeSymbol sourceType,
+            ITypeSymbol destinationType)
+        {
+            foreach (var member in owner.GetMembers("op_Implicit"))
+            {
+                if (member is not IMethodSymbol method)
+                    continue;
+
+                if (method.MethodKind is not MethodKind.Conversion)
+                    continue;
+
+                if (method.Parameters.Length != 1)
+                    continue;
+
+                if (!SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, sourceType))
+                    continue;
+
+                if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, destinationType))
+                    continue;
+
+                return method;
+            }
+
+            return null;
+        }
     }
 
     private bool IsReferenceConversion(ITypeSymbol source, ITypeSymbol destination)

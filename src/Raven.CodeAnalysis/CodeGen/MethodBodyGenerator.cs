@@ -140,6 +140,16 @@ internal class MethodBodyGenerator
             return;
         }
 
+        if (MethodSymbol.MethodKind == MethodKind.Conversion &&
+            MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
+            MethodSymbol.Parameters.Length == 1 &&
+            MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
+            MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol conversionUnion)
+        {
+            EmitDiscriminatedUnionConversion(conversionUnion);
+            return;
+        }
+
         var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is null)
         {
@@ -582,6 +592,52 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
         }
 
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitDiscriminatedUnionConversion(SourceDiscriminatedUnionSymbol unionSymbol)
+    {
+        if (MethodSymbol.Parameters.Length != 1)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var parameter = MethodSymbol.Parameters[0];
+        var parameterType = parameter.Type;
+        var caseSymbol = parameterType.TryGetDiscriminatedUnionCase();
+
+        if (caseSymbol is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var unionClrType = ResolveClrType(MethodSymbol.ContainingType!);
+        var payloadType = unionSymbol.PayloadField.Type;
+        var unionLocal = ILGenerator.DeclareLocal(unionClrType);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Initobj, unionClrType);
+
+        var discriminatorField = ((SourceFieldSymbol)unionSymbol.DiscriminatorField)
+            .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
+        ILGenerator.Emit(OpCodes.Stfld, discriminatorField);
+
+        var payloadField = ((SourceFieldSymbol)unionSymbol.PayloadField)
+            .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+
+        if (parameterType.IsValueType && !payloadType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(parameterType));
+
+        ILGenerator.Emit(OpCodes.Stfld, payloadField);
+        ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
         ILGenerator.Emit(OpCodes.Ret);
     }
 
