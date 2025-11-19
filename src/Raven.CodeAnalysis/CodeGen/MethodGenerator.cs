@@ -139,7 +139,7 @@ internal class MethodGenerator
             ? methodBuilderInstance.DefineParameter(0, ParameterAttributes.Retval, null)
             : ((ConstructorBuilder)MethodBase).DefineParameter(0, ParameterAttributes.Retval, null);
 
-        if (MethodSymbol.ReturnType.IsUnion)
+        if (MethodSymbol.ReturnType.IsTypeUnion)
         {
             var type = MethodSymbol.ReturnType;
             CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
@@ -172,7 +172,7 @@ internal class MethodGenerator
             else
                 parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, attrs, parameterSymbol.Name);
 
-            if (parameterSymbol.Type.IsUnion)
+            if (parameterSymbol.Type.IsTypeUnion)
             {
                 var type = parameterSymbol.Type;
                 CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);

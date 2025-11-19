@@ -85,11 +85,11 @@ internal class NameSyntaxParser : SyntaxParser
 
         SyntaxList types = SyntaxList.Empty;
 
-        bool isUnion = false;
+        bool IsTypeUnion = false;
 
         if (IsNextToken(SyntaxKind.BarToken))
         {
-            isUnion = true;
+            IsTypeUnion = true;
             types = types.Add(name);
         }
 
@@ -99,7 +99,7 @@ internal class NameSyntaxParser : SyntaxParser
             types = types.Add(ParseTypeName());
         }
 
-        if (isUnion)
+        if (IsTypeUnion)
         {
             return UnionType(types);
         }

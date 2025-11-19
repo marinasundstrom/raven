@@ -331,35 +331,35 @@ internal class CodeGenerator
                     _ => null
                 };
             case TypedConstantKind.Array:
-            {
-                var values = constant.Values;
-                if (values.IsDefaultOrEmpty)
-                    return Array.CreateInstance((targetClrType ?? typeof(object)).GetElementType() ?? typeof(object), 0);
-
-                var arraySymbol = targetSymbol as IArrayTypeSymbol ?? constant.Type as IArrayTypeSymbol;
-                var elementSymbol = arraySymbol?.ElementType;
-                var elementClrType = targetClrType?.GetElementType()
-                    ?? (elementSymbol is not null ? elementSymbol.GetClrType(this) : typeof(object));
-
-                var array = Array.CreateInstance(elementClrType, values.Length);
-                for (var i = 0; i < values.Length; i++)
                 {
-                    array.SetValue(GetAttributeValue(values[i], elementClrType, elementSymbol), i);
+                    var values = constant.Values;
+                    if (values.IsDefaultOrEmpty)
+                        return Array.CreateInstance((targetClrType ?? typeof(object)).GetElementType() ?? typeof(object), 0);
+
+                    var arraySymbol = targetSymbol as IArrayTypeSymbol ?? constant.Type as IArrayTypeSymbol;
+                    var elementSymbol = arraySymbol?.ElementType;
+                    var elementClrType = targetClrType?.GetElementType()
+                        ?? (elementSymbol is not null ? elementSymbol.GetClrType(this) : typeof(object));
+
+                    var array = Array.CreateInstance(elementClrType, values.Length);
+                    for (var i = 0; i < values.Length; i++)
+                    {
+                        array.SetValue(GetAttributeValue(values[i], elementClrType, elementSymbol), i);
+                    }
+
+                    return array;
                 }
-
-                return array;
-            }
             case TypedConstantKind.Enum:
-            {
-                if (constant.Value is null)
-                    return null;
+                {
+                    if (constant.Value is null)
+                        return null;
 
-                var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol)?.GetClrType(this);
-                if (enumType is not null && enumType.IsEnum)
-                    return Enum.ToObject(enumType, constant.Value);
+                    var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol)?.GetClrType(this);
+                    if (enumType is not null && enumType.IsEnum)
+                        return Enum.ToObject(enumType, constant.Value);
 
-                return constant.Value;
-            }
+                    return constant.Value;
+                }
             case TypedConstantKind.Primitive:
                 return constant.Value;
             case TypedConstantKind.Error:
@@ -573,27 +573,27 @@ internal class CodeGenerator
         switch (type)
         {
             case INamedTypeSymbol named when named.TypeKind == TypeKind.Tuple:
-            {
-                var tupleElements = named.TupleElements;
-                if (tupleElements.IsDefaultOrEmpty)
-                    break;
-
-                for (var i = 0; i < tupleElements.Length; i++)
                 {
-                    var element = tupleElements[i];
-                    var elementName = element.Name;
-                    var isExplicit = !string.IsNullOrEmpty(elementName) && elementName != $"Item{i + 1}";
-                    transformNames.Add(isExplicit ? elementName : null);
+                    var tupleElements = named.TupleElements;
+                    if (tupleElements.IsDefaultOrEmpty)
+                        break;
 
-                    if (isExplicit)
-                        hasAnyNames = true;
+                    for (var i = 0; i < tupleElements.Length; i++)
+                    {
+                        var element = tupleElements[i];
+                        var elementName = element.Name;
+                        var isExplicit = !string.IsNullOrEmpty(elementName) && elementName != $"Item{i + 1}";
+                        transformNames.Add(isExplicit ? elementName : null);
 
-                    if (TryCollectTupleElementNames(element.Type, transformNames))
-                        hasAnyNames = true;
+                        if (isExplicit)
+                            hasAnyNames = true;
+
+                        if (TryCollectTupleElementNames(element.Type, transformNames))
+                            hasAnyNames = true;
+                    }
+
+                    break;
                 }
-
-                break;
-            }
             case NullableTypeSymbol nullableType:
                 hasAnyNames |= TryCollectTupleElementNames(nullableType.UnderlyingType, transformNames);
                 break;
@@ -763,7 +763,7 @@ internal class CodeGenerator
                 return;
             }
 
-            if (typeSymbol.IsUnion && typeSymbol is IUnionTypeSymbol union)
+            if (typeSymbol.IsTypeUnion && typeSymbol is IUnionTypeSymbol union)
             {
                 _emitTypeUnionAttribute = true;
                 foreach (var t in union.Types)
