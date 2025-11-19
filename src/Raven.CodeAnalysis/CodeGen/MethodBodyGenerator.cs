@@ -746,27 +746,21 @@ internal class MethodBodyGenerator
             .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
         var objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
 
-        var payloadLocal = ILGenerator.DeclareLocal(typeof(object));
-        payloadLocal.SetLocalSymInfo("payload");
+        var hasPayloadLabel = ILGenerator.DefineLabel();
 
-        var uninitializedLabel = ILGenerator.DefineLabel();
-        var endLabel = ILGenerator.DefineLabel();
-
+        // if (_<Payload> != null) return _<Payload>.ToString();
+        // else return "<Uninitialized>";
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldfld, payloadField);
-        ILGenerator.Emit(OpCodes.Stloc, payloadLocal);
+        ILGenerator.Emit(OpCodes.Dup);
+        ILGenerator.Emit(OpCodes.Brtrue, hasPayloadLabel);
 
-        ILGenerator.Emit(OpCodes.Ldloc, payloadLocal);
-        ILGenerator.Emit(OpCodes.Brfalse, uninitializedLabel);
-
-        ILGenerator.Emit(OpCodes.Ldloc, payloadLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, objectToString);
-        ILGenerator.Emit(OpCodes.Br, endLabel);
-
-        ILGenerator.MarkLabel(uninitializedLabel);
+        ILGenerator.Emit(OpCodes.Pop);
         ILGenerator.Emit(OpCodes.Ldstr, "<Uninitialized>");
+        ILGenerator.Emit(OpCodes.Ret);
 
-        ILGenerator.MarkLabel(endLabel);
+        ILGenerator.MarkLabel(hasPayloadLabel);
+        ILGenerator.Emit(OpCodes.Callvirt, objectToString);
         ILGenerator.Emit(OpCodes.Ret);
     }
 
