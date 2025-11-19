@@ -925,6 +925,18 @@ public partial class SemanticModel
         var objectToString = GetObjectToStringMethod();
         int ordinal = 0;
 
+        void RegisterMember(SourceNamedTypeSymbol owner, ISymbol member)
+        {
+            if (!owner.GetMembers().Any(m => SymbolEqualityComparer.Default.Equals(m, member)))
+                owner.AddMember(member);
+        }
+
+        void RegisterCaseMember(ISymbol member)
+        {
+            RegisterMember(unionSymbol, member);
+            RegisterMember((SourceNamedTypeSymbol)member.ContainingType!, member);
+        }
+
         foreach (var caseClause in unionDecl.Cases)
         {
             var caseSymbol = new SourceDiscriminatedUnionCaseTypeSymbol(
@@ -949,6 +961,8 @@ public partial class SemanticModel
                 isStatic: false,
                 methodKind: MethodKind.Constructor,
                 declaredAccessibility: Accessibility.Public);
+
+            RegisterCaseMember(constructor);
 
             var parameters = new List<SourceParameterSymbol>();
             var seenOptionalParameter = false;
@@ -1002,9 +1016,9 @@ public partial class SemanticModel
                         var parameterName = parameterSyntax.Identifier.ValueText;
                         var propertyName = GetUnionCasePropertyName(parameterName);
 
-                        var backingField = new SourceFieldSymbol(
-                            $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
-                            parameterType,
+                    var backingField = new SourceFieldSymbol(
+                        $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
+                        parameterType,
                             isStatic: false,
                             isLiteral: false,
                             constantValue: null,
@@ -1016,6 +1030,8 @@ public partial class SemanticModel
                             new BoundParameterAccess(parameterSymbol),
                             declaredAccessibility: Accessibility.Private);
 
+                        RegisterCaseMember(backingField);
+
                         var propertySymbol = new SourcePropertySymbol(
                             propertyName,
                             parameterType,
@@ -1025,6 +1041,8 @@ public partial class SemanticModel
                             [parameterSyntax.GetLocation()],
                             [parameterSyntax.GetReference()],
                             declaredAccessibility: Accessibility.Public);
+
+                        RegisterCaseMember(propertySymbol);
 
                         var getterSymbol = new SourceMethodSymbol(
                             $"get_{propertyName}",
@@ -1038,6 +1056,8 @@ public partial class SemanticModel
                             isStatic: false,
                             methodKind: MethodKind.PropertyGet,
                             declaredAccessibility: Accessibility.Public);
+
+                        RegisterCaseMember(getterSymbol);
 
                         propertySymbol.SetBackingField(backingField);
                         propertySymbol.SetAccessors(getterSymbol, null);
@@ -1061,6 +1081,8 @@ public partial class SemanticModel
                 methodKind: MethodKind.Ordinary,
                 isOverride: true,
                 declaredAccessibility: Accessibility.Public);
+
+            RegisterCaseMember(caseToString);
 
             caseToString.SetOverriddenMethod(objectToString);
             RegisterUnionCaseSymbol(caseClause, caseSymbol);
@@ -1090,6 +1112,8 @@ public partial class SemanticModel
 
             conversionMethod.SetParameters(new[] { conversionParameter });
 
+            RegisterCaseMember(conversionMethod);
+
             var tryGetMethod = new SourceMethodSymbol(
                 $"TryGet{caseClause.Identifier.ValueText}",
                 boolType!,
@@ -1114,6 +1138,8 @@ public partial class SemanticModel
                 RefKind.Ref);
 
             tryGetMethod.SetParameters(new[] { tryGetParameter });
+
+            RegisterCaseMember(tryGetMethod);
         }
 
         unionSymbol.SetCases(caseSymbols);

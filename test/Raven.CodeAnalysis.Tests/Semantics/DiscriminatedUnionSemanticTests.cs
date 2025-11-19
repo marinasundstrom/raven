@@ -155,6 +155,47 @@ union Option {
     }
 
     [Fact]
+    public void SynthesizedUnionMembers_AreRegisteredOnUnionAndCaseSymbols()
+    {
+        const string source = """
+union Option {
+    Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = unionSymbol.Cases.Single();
+
+        var constructor = Assert.Single(caseSymbol.GetMembers(".ctor").OfType<IMethodSymbol>());
+        Assert.Contains(unionSymbol.GetMembers(".ctor"), m => SymbolEqualityComparer.Default.Equals(m, constructor));
+
+        var payloadProperty = Assert.Single(caseSymbol.GetMembers().OfType<IPropertySymbol>());
+        Assert.Contains(unionSymbol.GetMembers(payloadProperty.Name), m => SymbolEqualityComparer.Default.Equals(m, payloadProperty));
+
+        var getter = payloadProperty.GetMethod;
+        Assert.NotNull(getter);
+        Assert.Contains(unionSymbol.GetMembers(getter!.Name), m => SymbolEqualityComparer.Default.Equals(m, getter));
+
+        var caseToString = Assert.Single(caseSymbol.GetMembers("ToString").OfType<IMethodSymbol>());
+        Assert.Contains(unionSymbol.GetMembers("ToString"), m => SymbolEqualityComparer.Default.Equals(m, caseToString));
+
+        var conversion = unionSymbol
+            .GetMembers("op_Implicit")
+            .OfType<IMethodSymbol>()
+            .Single(m => SymbolEqualityComparer.Default.Equals(m.Parameters.Single().Type, caseSymbol));
+
+        Assert.Contains(caseSymbol.GetMembers("op_Implicit"), m => SymbolEqualityComparer.Default.Equals(m, conversion));
+
+        var tryGetName = $"TryGet{caseSymbol.Name}";
+        var tryGet = unionSymbol.GetMembers(tryGetName).OfType<IMethodSymbol>().Single();
+        Assert.Contains(caseSymbol.GetMembers(tryGetName), m => SymbolEqualityComparer.Default.Equals(m, tryGet));
+    }
+
+    [Fact]
     public void CaseToUnionConversion_ClassifiedAsDiscriminatedUnion()
     {
         const string source = """
