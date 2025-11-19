@@ -59,6 +59,8 @@ func describe(token: Token) -> string {
 }
 ```
 
+**Note:** The arms (for example, `.Identifier(text)`) is a `CasePattern` (mentioned in _grammar.ebnf_).
+
 ```csharp
 union Result<T> {
     Ok(value: T)
@@ -67,8 +69,8 @@ union Result<T> {
 
 func format(result: Result<int>) -> string {
     return result match {
-        .Ok(let payload) => $"ok {payload}"
-        .Error(let message) => $"error {message}"
+        .Ok(let payload) => "ok ${payload}"
+        .Error(let message) => "error ${message}"
     }
 }
 ```
