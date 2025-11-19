@@ -121,6 +121,49 @@ class Container<T>
     }
 
     [Fact]
+    public void ConstructedType_NestedTypeInstantiation_PreservesAllTypeArguments()
+    {
+        var source = """
+class Outer<T>
+{
+    public class Inner<U>
+    {
+        var outerValue: T;
+        var innerValue: U;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "constructed-nested-arguments",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Outer"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
+
+        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedOuter.LookupType("Inner"));
+        var constructedInner = Assert.IsAssignableFrom<ConstructedNamedTypeSymbol>(innerDefinition.Construct(stringType));
+
+        var explicitArguments = constructedInner.TypeArguments;
+        // SymbolQuery currently preserves only the explicit inner argument on TypeArguments;
+        // the inherited outer instantiation shows up only through GetAllTypeArguments.
+        Assert.Equal(1, explicitArguments.Length);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, explicitArguments[0]));
+
+        var runtimeArguments = constructedInner.GetAllTypeArguments();
+        Assert.Equal(2, runtimeArguments.Length);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, runtimeArguments[0]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, runtimeArguments[1]));
+    }
+
+    [Fact]
     public void ConstructedType_MethodGenerics_PreservesMethodTypeParameters()
     {
         var source = """
