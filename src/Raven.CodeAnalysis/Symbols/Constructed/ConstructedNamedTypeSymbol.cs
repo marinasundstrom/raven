@@ -127,26 +127,21 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
                 : namedType;
         }
 
-        var typeArguments = new ITypeSymbol[namedType.Arity];
         var typeParameters = namedType.TypeParameters;
-        var outerArity = _originalDefinition.Arity;
-
-        for (var i = 0; i < typeArguments.Length; i++)
+        if (typeParameters.Length == 0)
         {
-            if (i < TypeArguments.Length)
-            {
-                typeArguments[i] = TypeArguments[i];
-                continue;
-            }
+            return containingOverride is not null
+                ? new ConstructedNamedTypeSymbol(namedType, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride)
+                : namedType;
+        }
 
+        var typeArguments = new ITypeSymbol[typeParameters.Length];
+        for (var i = 0; i < typeParameters.Length; i++)
+        {
             var parameter = typeParameters[i];
             if (_substitutionMap.TryGetValue(parameter, out var replacement))
             {
                 typeArguments[i] = replacement;
-            }
-            else if (i < outerArity)
-            {
-                typeArguments[i] = TypeArguments[i];
             }
             else
             {

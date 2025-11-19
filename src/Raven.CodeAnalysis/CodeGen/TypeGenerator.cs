@@ -246,12 +246,12 @@ internal class TypeGenerator
         if (TypeBuilder is null)
             return;
 
-        var allTypeParameters = GetTypeParametersInScope(namedType);
-        if (allTypeParameters.IsDefaultOrEmpty)
+        var inScopeParameters = GetTypeParametersInScope(namedType);
+        if (inScopeParameters.IsDefaultOrEmpty)
             return;
 
-        var parameterBuilders = TypeBuilder.DefineGenericParameters(allTypeParameters.Select(tp => tp.Name).ToArray());
-        CodeGen.RegisterGenericParameters(allTypeParameters, parameterBuilders);
+        var parameterBuilders = TypeBuilder.DefineGenericParameters(inScopeParameters.Select(tp => tp.Name).ToArray());
+        CodeGen.RegisterGenericParameters(inScopeParameters, parameterBuilders);
 
         _inheritedTypeParameters = namedType.ContainingType is null
             ? ImmutableArray<ITypeParameterSymbol>.Empty
