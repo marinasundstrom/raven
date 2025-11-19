@@ -1,0 +1,4 @@
+ok 99
+error boom
+Result<int>.Ok(value=99)
+Result<int>.Error(message="boom")

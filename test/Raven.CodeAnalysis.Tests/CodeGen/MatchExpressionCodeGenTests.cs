@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
+using Raven.CodeAnalysis.Testing;
 
 using Microsoft.CodeAnalysis;
 
@@ -12,6 +15,31 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class MatchExpressionCodeGenTests
 {
+    private static readonly OpCode[] SingleByteOpCodes;
+    private static readonly OpCode[] MultiByteOpCodes;
+
+    static MatchExpressionCodeGenTests()
+    {
+        SingleByteOpCodes = new OpCode[0x100];
+        MultiByteOpCodes = new OpCode[0x100];
+
+        foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            if (field.GetValue(null) is not OpCode opcode)
+                continue;
+
+            var value = (ushort)opcode.Value;
+            if (value < 0x100)
+            {
+                SingleByteOpCodes[value] = opcode;
+            }
+            else if ((value & 0xFF00) == 0xFE00)
+            {
+                MultiByteOpCodes[value & 0xFF] = opcode;
+            }
+        }
+    }
+
     [Fact]
     public void MatchExpression_WithValueTypeArm_EmitsAndRuns()
     {
@@ -109,6 +137,48 @@ class Describer {
     }
 
     [Fact]
+    public void MatchExpression_WithDiscriminatedUnion_UsesTryGetAndCaseProperties()
+    {
+        const string code = """
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+class Formatter {
+    Format(result: Result<int>) -> string {
+        return result match {
+            .Ok(value) => "ok ${value}"
+            .Error(message) => "error ${message}"
+        }
+    }
+}
+""";
+
+        var syntaxTree = RavenSyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("match_union", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(RuntimeMetadataReferences);
+
+        compilation.EnsureSetup();
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var formatterType = assembly.GetType("Formatter", throwOnError: true)!;
+        var formatMethod = formatterType.GetMethod("Format", BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var calledMethods = GetCalledMethods(formatMethod).ToArray();
+
+        Assert.Contains(calledMethods, method => method.Name == "TryGetOk");
+        Assert.Contains(calledMethods, method => method.Name == "TryGetError");
+        Assert.Contains(calledMethods, method => method.Name == "get_Value");
+        Assert.Contains(calledMethods, method => method.Name == "get_Message");
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionTupleFallback_EmitsAndRuns()
     {
         const string code = """
@@ -161,6 +231,103 @@ class Describer {
             return;
 
         Assert.Equal("false,tuple", output);
+    }
+
+    private static IEnumerable<MethodBase> GetCalledMethods(MethodInfo method)
+    {
+        var body = method.GetMethodBody() ?? throw new InvalidOperationException("Method has no body.");
+        var il = body.GetILAsByteArray() ?? throw new InvalidOperationException("Method body has no IL.");
+        var module = method.Module;
+
+        for (var i = 0; i < il.Length;)
+        {
+            var opcode = ReadOpCode(il, ref i);
+            int? methodToken = null;
+
+            switch (opcode.OperandType)
+            {
+                case OperandType.InlineNone:
+                    break;
+                case OperandType.ShortInlineBrTarget:
+                case OperandType.ShortInlineI:
+                case OperandType.ShortInlineVar:
+                    i += 1;
+                    break;
+                case OperandType.InlineVar:
+                    i += 2;
+                    break;
+                case OperandType.InlineI:
+                case OperandType.InlineBrTarget:
+                case OperandType.InlineField:
+                case OperandType.InlineSig:
+                case OperandType.InlineString:
+                case OperandType.InlineType:
+                    i += 4;
+                    break;
+                case OperandType.InlineMethod:
+                case OperandType.InlineTok:
+                    methodToken = BitConverter.ToInt32(il, i);
+                    i += 4;
+                    break;
+                case OperandType.InlineI8:
+                case OperandType.InlineR:
+                    i += 8;
+                    break;
+                case OperandType.ShortInlineR:
+                    i += 4;
+                    break;
+                case OperandType.InlineSwitch:
+                    var count = BitConverter.ToInt32(il, i);
+                    i += 4 + (count * 4);
+                    break;
+                default:
+                    throw new NotSupportedException($"Unsupported operand type: {opcode.OperandType}");
+            }
+
+            if ((opcode == OpCodes.Call || opcode == OpCodes.Callvirt) && methodToken.HasValue)
+            {
+                MethodBase? resolved = null;
+
+                try
+                {
+                    resolved = module.ResolveMethod(methodToken.Value);
+                }
+                catch (ArgumentException)
+                {
+                }
+                catch (MissingMethodException)
+                {
+                }
+
+                if (resolved is not null)
+                    yield return resolved;
+            }
+        }
+    }
+
+    private static OpCode ReadOpCode(byte[] il, ref int index)
+    {
+        if (index >= il.Length)
+            throw new InvalidOperationException("Unexpected end of IL stream.");
+
+        var code = il[index++];
+        if (code == 0xFE)
+        {
+            if (index >= il.Length)
+                throw new InvalidOperationException("Unexpected end of IL stream when decoding multi-byte opcode.");
+
+            var second = il[index++];
+            var opcode = MultiByteOpCodes[second];
+            if (opcode.Value == 0 && opcode != OpCodes.Nop)
+                throw new InvalidOperationException($"Unknown opcode: 0xFE 0x{second:X2}");
+            return opcode;
+        }
+
+        var single = SingleByteOpCodes[code];
+        if (single.Value == 0 && single != OpCodes.Nop)
+            throw new InvalidOperationException($"Unknown opcode: 0x{code:X2}");
+
+        return single;
     }
 
     private static string? EmitAndRun(string code, string assemblyName, params string[] additionalSources)
