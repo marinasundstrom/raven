@@ -140,6 +140,16 @@ internal class MethodBodyGenerator
             return;
         }
 
+        if (MethodSymbol.MethodKind == MethodKind.Conversion &&
+            MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
+            MethodSymbol.Parameters.Length == 1 &&
+            MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
+            MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol conversionUnion)
+        {
+            EmitDiscriminatedUnionConversion(conversionUnion);
+            return;
+        }
+
         var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is null)
         {
@@ -585,6 +595,57 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
+    private void EmitDiscriminatedUnionConversion(SourceDiscriminatedUnionSymbol unionSymbol)
+    {
+        if (MethodSymbol.Parameters.Length != 1)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var parameter = MethodSymbol.Parameters[0];
+        var parameterType = parameter.Type;
+        var caseSymbol = parameterType.TryGetDiscriminatedUnionCase();
+
+        if (caseSymbol is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var unionClrType = InstantiateType(
+            MethodGenerator.TypeGenerator.TypeBuilder
+                ?? ResolveClrType(MethodSymbol.ContainingType!));
+        var payloadType = unionSymbol.PayloadField.Type;
+        var unionLocal = ILGenerator.DeclareLocal(unionClrType);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Initobj, unionClrType);
+
+        var discriminatorField = ((SourceFieldSymbol)unionSymbol.DiscriminatorField)
+            .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
+        ILGenerator.Emit(OpCodes.Stfld, discriminatorField);
+
+        var payloadField = ((SourceFieldSymbol)unionSymbol.PayloadField)
+            .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+
+        if (parameterType.IsValueType && !payloadType.IsValueType)
+        {
+            var parameterClrType = ResolveUnionCaseClrType(parameterType);
+            ILGenerator.Emit(OpCodes.Box, parameterClrType);
+        }
+
+        ILGenerator.Emit(OpCodes.Stfld, payloadField);
+        ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
     private void EmitUnionCaseConstructor()
     {
         if (!MethodSymbol.IsConstructor)
@@ -910,5 +971,37 @@ internal class MethodBodyGenerator
                     break;
             }
         }
+    }
+
+    private Type ResolveUnionCaseClrType(ITypeSymbol caseTypeSymbol)
+    {
+        if (caseTypeSymbol is INamedTypeSymbol namedCase)
+        {
+            var caseGenerator = MethodGenerator.TypeGenerator.CodeGen.GetOrCreateTypeGenerator(namedCase);
+            if (caseGenerator.TypeBuilder is null)
+                caseGenerator.DefineTypeBuilder();
+
+            if (caseGenerator.TypeBuilder is not null)
+                return InstantiateType(caseGenerator.TypeBuilder);
+        }
+
+        return InstantiateType(ResolveClrType(caseTypeSymbol));
+    }
+
+    private static Type InstantiateType(Type type)
+    {
+        if (type is TypeBuilder typeBuilder && typeBuilder.ContainsGenericParameters)
+        {
+            var parameters = typeBuilder.GetGenericArguments();
+            return parameters.Length == 0 ? typeBuilder : typeBuilder.MakeGenericType(parameters);
+        }
+
+        if (type.IsGenericTypeDefinition)
+        {
+            var parameters = type.GetGenericArguments();
+            return parameters.Length == 0 ? type : type.MakeGenericType(parameters);
+        }
+
+        return type;
     }
 }

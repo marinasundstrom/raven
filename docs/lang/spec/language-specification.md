@@ -2092,9 +2092,25 @@ let token = Token.Identifier("foo")
 let other: Token = .Unknown
 ```
 
-Each case becomes a nested struct that can be constructed directly. Pattern
-matching exhaustively checks every case; see [Pattern matching](#pattern-matching)
-for examples of the leading-dot syntax inside `match` expressions.
+Each case becomes a nested struct (`Token.Identifier`, `Token.Number`, …) whose
+constructor parameters mirror the payload declared on the case. Supplying the
+enclosing type name is always allowed; omitting it (for example, `.Unknown`)
+requires the context to already expect the containing union so the compiler can
+resolve which declaration supplies the case.
+
+For every case `Case`, the compiler synthesizes an implicit conversion
+`Case -> Token`. Assigning, returning, or passing a case value therefore
+automatically produces the union instance:
+
+```raven
+let ok: Result<int> = .Ok(99)          // implicit Case -> Result<int> conversion
+let err = Result<int>.Error("boom")
+Console.WriteLine(ok)
+```
+
+Pattern matching exhaustively checks every case; see
+[Pattern matching](#pattern-matching) for examples of the leading-dot syntax
+inside `match` expressions.
 
 ## Object-oriented types
 
