@@ -178,7 +178,13 @@ FinallyClause            ::= 'finally' Block ;
 
 (* ---------- Expressions & precedence (lowest → highest) ---------- *)
 
-Expression               ::= AssignmentExpression ;
+Expression               ::= AssignmentExpression {MatchExpressionSuffix} ;
+
+MatchExpressionSuffix    ::= 'match' '{' MatchArmList '}' ;
+MatchArmList             ::= MatchArm {MatchArm} ;
+MatchArm                 ::= Pattern MatchGuardClause? '=>' Expression MatchArmTerminator? ;
+MatchGuardClause         ::= 'when' Expression ;
+MatchArmTerminator       ::= NewLineToken | ';' ;
 
 AssignmentExpression     ::= AssignmentTarget AssignmentOperator AssignmentExpression
                            | ConditionalNullCoalesceExpression ;
