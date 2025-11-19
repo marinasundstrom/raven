@@ -36,13 +36,13 @@ union Option {
     public void MemberAccess_BindsToUnionCaseType()
     {
         const string source = """
+func create() {
+    let option = Option.Some(value: 42)
+}
+
 union Option {
     None
     Some(value: int)
-}
-
-func create() {
-    let option = Option.Some(value: 42)
 }
 """;
 
@@ -56,6 +56,40 @@ func create() {
         var symbol = model.GetSymbolInfo(memberAccess).Symbol;
         var caseType = Assert.IsAssignableFrom<ITypeSymbol>(symbol);
         Assert.Equal("Some", caseType.Name);
+    }
+
+    [Fact]
+    public void MemberBindingInvocation_TargetTypedCase_BindsConstructor()
+    {
+        const string source = """
+func build() {
+    let option : Option = .Some(value: 42)
+}
+
+union Option {
+    None
+    Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundNode = model.GetBoundNode(invocation) ?? throw new InvalidOperationException("Missing bound invocation.");
+        var creation = boundNode switch
+        {
+            BoundObjectCreationExpression objectCreation => objectCreation,
+            BoundCastExpression { Expression: BoundObjectCreationExpression innerCreation } => innerCreation,
+            _ => throw new InvalidOperationException($"Unexpected bound node '{boundNode.GetType().Name}'.")
+        };
+        var constructor = creation.Constructor;
+        Assert.Equal(MethodKind.Constructor, constructor.MethodKind);
+        Assert.Equal("Some", constructor.ContainingType.Name);
+        Assert.Equal("Option", constructor.ContainingType.ContainingType?.Name);
     }
 
     [Fact]

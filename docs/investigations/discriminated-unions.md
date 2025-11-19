@@ -4,15 +4,14 @@ The parser implements the syntax and case clauses described in the discriminated
 
 ## Reproduction status
 
-`dotnet run --project src/Raven.Compiler -- samples/discriminated-unions.rav` still fails with the following diagnostics:
+`dotnet run --project src/Raven.Compiler -- samples/discriminated-unions.rav` still fails because the match arms use `.Identifier(text)`/`.Ok(value)` patterns that the current binder does not understand. The `.Ok(...)`/`.Error(...)` expressions now bind to the case constructors, so the remaining diagnostics are:
 
-* `RAV0117` – `.Ok(...)` and `.Error(...)` case construction uses the target-typed member-binding syntax, but `BindInvocationExpression`'s `MemberBindingExpressionSyntax` path never recognizes the `BoundTypeExpression` returned by `TryBindDiscriminatedUnionCase`. That branch only handles method groups and member accesses, so the binder falls back to invoking `Invoke` on the nested case struct instead of routing the call through `BindConstructorInvocation`.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2002-L2215】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3460-L3561】
 * `RAV1001`/`RAV0103` – The `match` arms use `.Identifier(text)`/`.Ok(value)` patterns, but `BoundIsPatternExpression.BindPattern` only handles discard, variable, declaration, tuple, unary, and binary patterns. Because the leading-dot syntax is treated as an unknown pattern kind, the binder throws `NotImplementedException`, which surfaces as the parser/binder errors called out in the sample README.【F:src/Raven.CodeAnalysis/BoundTree/BoundIsPatternExpression.cs†L241-L339】【F:samples/discriminated-unions.rav†L20-L38】
 Even after fixing the errors above, the current compiler would still stop short of runnable unions because it never synthesizes the `TryGet*` helpers promised by the proposal, and no lowerer path emits the `match` desugaring that consumes those helpers. The sections below break down the remaining implementation work. The existing `FileScopedCodeOutOfOrder` restriction still applies, so the sample keeps its global statements at the top of the file and groups union declarations with the other type members that follow.【F:samples/discriminated-unions.rav†L1-L38】
 
 ## Binder and pattern work
 
-1. **Constructor binding for `.Case(...)` expressions.** Extend the member-binding branch of `BindInvocationExpression` so that it mirrors the member-access logic when it sees a `BoundTypeExpression`. Once the branch dispatches to `BindConstructorInvocation`, the implicit conversion from `Token.Identifier` to `Token` can reuse the existing discriminated union conversion pipeline in `Compilation.Conversions`.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3460-L3555】【F:src/Raven.CodeAnalysis/Compilation.Conversions.cs†L40-L70】
+1. **Constructor binding for `.Case(...)` expressions.** ✅ The member-binding branch of `BindInvocationExpression` now mirrors the member-access logic when it sees a `BoundTypeExpression`, so the shorthand routes through `BindConstructorInvocation` instead of falling back to `Invoke`. `MemberBindingInvocation_TargetTypedCase_BindsConstructor` exercises this path to guard the regression. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3496-L3540】【F:test/Raven.CodeAnalysis.Tests/Semantics/DiscriminatedUnionSemanticTests.cs†L38-L74】
 2. **Pattern recognition for union cases.** Add a new pattern kind that matches the leading-dot syntax and binds it as a declaration pattern whose type comes from the nested case struct returned by `TryBindDiscriminatedUnionCase`. Exhaustiveness checking can then reason about `IDiscriminatedUnionSymbol.Cases`, and the lowerer will have the type information required to produce `TryGet*` calls once those helpers exist.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2002-L2215】【F:src/Raven.CodeAnalysis/BoundTree/BoundIsPatternExpression.cs†L241-L339】
 3. **Top-level statement ordering.** ✅ Completed. Rather than relaxing `CreateTopLevelBinder`, the samples and unit tests now keep union declarations (and all other types) after the file's top-level statements so the existing `FileScopedCodeOutOfOrder` rule is satisfied.【F:samples/discriminated-unions.rav†L1-L38】【F:test/Raven.CodeAnalysis.Tests/Samples/SampleProgramsTests.cs†L39-L69】
 
@@ -24,7 +23,7 @@ Even after fixing the errors above, the current compiler would still stop short 
 
 ## Next steps
 
-1. Implement the member-binding and pattern binder changes so the parser can successfully bind the sample without throwing `NotImplementedException` or reporting `RAV0117`/`RAV1001`.
+1. Extend the pattern binder so the parser can successfully bind the sample without throwing `NotImplementedException` or reporting `RAV1001`/`RAV0103`.
 2. ✅ Keep union declarations after the file's top-level statements so the compiler never reports `FileScopedCodeOutOfOrder` for discriminated union samples.
 3. Synthesize `TryGet*` helpers and teach the lowerer/matcher to consume them, following the shape laid out in the proposal.
 4. Add semantic and end-to-end tests that cover both non-generic (`Token`) and generic (`Result<T>`) unions, including construction, pattern matching, and payload accessors.
