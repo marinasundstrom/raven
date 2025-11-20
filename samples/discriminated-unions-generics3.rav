@@ -1,0 +1,20 @@
+/*
+ * Demonstrates discriminated unions with generics.
+ */
+
+import System.*
+
+Console.WriteLine(test(42))
+
+func test(value: int) -> Result<string, string> {
+    //if value == 42 {
+        return .Ok("Yay")
+    //} else {
+    //    return .Error("No")
+    //}
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
