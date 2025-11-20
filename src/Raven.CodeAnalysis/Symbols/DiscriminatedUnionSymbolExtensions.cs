@@ -9,11 +9,16 @@ internal static class DiscriminatedUnionSymbolExtensions
         if (type is null)
             return null;
 
-        if (type is IDiscriminatedUnionCaseSymbol caseSymbol)
+        if (type is IDiscriminatedUnionCaseSymbol caseSymbol && type.IsDiscriminatedUnionCase)
             return caseSymbol;
 
-        if (type is INamedTypeSymbol named && named.ConstructedFrom is IDiscriminatedUnionCaseSymbol constructedCase)
-            return constructedCase;
+        if (type is INamedTypeSymbol named && named.IsDiscriminatedUnionCase)
+            return named switch
+            {
+                IDiscriminatedUnionCaseSymbol constructedCase => constructedCase,
+                _ when named.ConstructedFrom is IDiscriminatedUnionCaseSymbol constructedDefinition => constructedDefinition,
+                _ => null,
+            };
 
         return null;
     }
@@ -23,11 +28,16 @@ internal static class DiscriminatedUnionSymbolExtensions
         if (type is null)
             return null;
 
-        if (type is IDiscriminatedUnionSymbol unionSymbol)
+        if (type is IDiscriminatedUnionSymbol unionSymbol && type.IsDiscriminatedUnion)
             return unionSymbol;
 
-        if (type is INamedTypeSymbol named && named.ConstructedFrom is IDiscriminatedUnionSymbol constructedUnion)
-            return constructedUnion;
+        if (type is INamedTypeSymbol named && named.IsDiscriminatedUnion)
+            return named switch
+            {
+                IDiscriminatedUnionSymbol constructedUnion => constructedUnion,
+                _ when named.ConstructedFrom is IDiscriminatedUnionSymbol constructedDefinition => constructedDefinition,
+                _ => null,
+            };
 
         return null;
     }
