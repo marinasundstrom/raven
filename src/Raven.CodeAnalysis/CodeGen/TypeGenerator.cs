@@ -469,6 +469,14 @@ internal class TypeGenerator
 
         foreach (var memberSymbol in TypeSymbol.GetMembers())
         {
+            if (memberSymbol.ContainingType is { } containingType &&
+                !SymbolEqualityComparer.Default.Equals(containingType, TypeSymbol))
+            {
+                // Skip members that belong to nested types (e.g., discriminated union cases)
+                // but are surfaced on the containing union symbol for semantic analysis.
+                continue;
+            }
+
             switch (memberSymbol)
             {
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
