@@ -10,6 +10,8 @@ let err = Result<int>.Error("boom")
 Console.WriteLine(format(ok))
 Console.WriteLine(format((Result<int>)err))
 
+Console.WriteLine(format(.Ok(42)))
+
 func format(result: Result<int>) -> string {
     return result match {
         .Ok(value) => "ok ${value}"
@@ -20,4 +22,9 @@ func format(result: Result<int>) -> string {
 union Result<T> {
     Ok(value: T)
     Error(message: string)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
 }
