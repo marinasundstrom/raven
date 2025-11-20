@@ -78,28 +78,22 @@ internal class StatementGenerator : Generator
     {
         var scope = new Scope(this);
         var hasElse = ifStatement.ElseNode is not null;
-        ILLabel elseLabel = default;
-
-        if (hasElse)
-            elseLabel = ILGenerator.DefineLabel();
-
         var endLabel = ILGenerator.DefineLabel();
+        var elseLabel = hasElse
+            ? ILGenerator.DefineLabel()
+            : endLabel;
 
-        new ExpressionGenerator(scope, ifStatement.Condition).Emit();
+        new ExpressionGenerator(scope, ifStatement.Condition)
+            .EmitBranchOpForCondition(ifStatement.Condition, elseLabel);
+
+        new StatementGenerator(scope, ifStatement.ThenNode).Emit();
 
         if (hasElse)
         {
-            ILGenerator.Emit(OpCodes.Brfalse, elseLabel);
-            new StatementGenerator(scope, ifStatement.ThenNode).Emit();
             ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(elseLabel);
-            new StatementGenerator(scope, ifStatement.ElseNode!).Emit();
-        }
-        else
-        {
-            ILGenerator.Emit(OpCodes.Brfalse, endLabel);
-            new StatementGenerator(scope, ifStatement.ThenNode).Emit();
+            new StatementGenerator(new Scope(this), ifStatement.ElseNode!).Emit();
         }
 
         ILGenerator.MarkLabel(endLabel);

@@ -3490,7 +3490,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBranchOpForCondition(BoundExpression expression, ILLabel end)
+    internal void EmitBranchOpForCondition(BoundExpression expression, ILLabel end)
     {
         if (expression is BoundParenthesizedExpression parenthesizedExpression)
         {
