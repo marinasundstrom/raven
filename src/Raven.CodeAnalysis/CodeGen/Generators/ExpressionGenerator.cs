@@ -1000,7 +1000,7 @@ internal class ExpressionGenerator : Generator
         EmitExpression(isPatternExpression.Expression); // Push the value of the expression onto the stack
 
         var expressionType = isPatternExpression.Expression.Type;
-        if (expressionType is { IsValueType: true } && expressionType.TypeKind != TypeKind.Error)
+        if (RequiresValueTypeHandling(expressionType) && expressionType.TypeKind != TypeKind.Error)
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
 
         EmitPattern(isPatternExpression.Pattern);       // Evaluate the pattern; leaves a boolean on the stack
@@ -1071,6 +1071,16 @@ internal class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(exitLabel);
     }
 
+    private static bool RequiresValueTypeHandling(ITypeSymbol typeSymbol)
+    {
+        return typeSymbol.IsValueType || typeSymbol is ITypeParameterSymbol { IsReferenceType: false };
+    }
+
+    private static bool IsKnownReferenceType(ITypeSymbol typeSymbol)
+    {
+        return typeSymbol.IsReferenceType == true && typeSymbol.TypeKind != TypeKind.TypeParameter;
+    }
+
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
     {
         scope ??= this;
@@ -1089,7 +1099,7 @@ internal class ExpressionGenerator : Generator
 
             var patternLocal = EmitDesignation(declarationPattern.Designator, scope);
 
-            if (typeSymbol.IsValueType)
+            if (!IsKnownReferenceType(typeSymbol))
             {
                 var labelSuccess = ILGenerator.DefineLabel();
                 var labelDone = ILGenerator.DefineLabel();
@@ -1184,7 +1194,7 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
-                if (propertySymbol.Type.IsValueType)
+                if (RequiresValueTypeHandling(propertySymbol.Type))
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(propertySymbol.Type));
 
                 EmitPattern(casePattern.Arguments[i], scope);
@@ -2934,10 +2944,11 @@ internal class ExpressionGenerator : Generator
             {
                 EmitExpression(argument);
 
-                if (argument?.Type is { IsValueType: true } &&
+                if (argument?.Type is { } argumentType &&
+                    RequiresValueTypeHandling(argumentType) &&
                     !paramSymbol.Type.IsValueType)
                 {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argument.Type));
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argumentType));
                 }
             }
         }
