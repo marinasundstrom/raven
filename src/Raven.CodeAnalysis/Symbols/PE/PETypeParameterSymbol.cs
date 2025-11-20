@@ -67,6 +67,10 @@ internal sealed partial class PETypeParameterSymbol : Symbol, ITypeParameterSymb
         }
     }
 
+    public bool IsReferenceType => (ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
+
+    public bool IsValueType => (ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
+
     //public bool HasConstructorConstraint => (_type.GenericParameterAttributes & GenericParameterAttributes.DefaultConstructorConstraint) != 0;
     //public bool HasReferenceTypeConstraint => (_type.GenericParameterAttributes & GenericParameterAttributes.ReferenceTypeConstraint) != 0;
     //public bool HasValueTypeConstraint => (_type.GenericParameterAttributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0;

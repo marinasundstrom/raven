@@ -131,9 +131,9 @@ public static class CompletionProvider
             return type;
         }
 
-        ITypeSymbol? TryGetLiteralCompletionTargetType()
+        ITypeSymbol? TryGetLiteralCompletionTargetType(SyntaxToken currentToken)
         {
-            if (token.GetAncestor<EqualsValueClauseSyntax>() is { } equalsClause)
+            if (currentToken.GetAncestor<EqualsValueClauseSyntax>() is { } equalsClause)
             {
                 if (position < equalsClause.EqualsToken.Span.End)
                     return null;
@@ -154,12 +154,22 @@ public static class CompletionProvider
                 };
             }
 
-            if (token.GetAncestor<AssignmentExpressionSyntax>() is { } assignment)
+            if (currentToken.GetAncestor<AssignmentExpressionSyntax>() is { } assignment)
             {
                 if (position < assignment.OperatorToken.Span.End)
                     return null;
 
                 if (assignment.Left is ExpressionSyntax left)
+                    return model.GetTypeInfo(left).Type;
+                return null;
+            }
+
+            if (currentToken.GetAncestor<AssignmentStatementSyntax>() is { } assignmentStatement)
+            {
+                if (position < assignmentStatement.OperatorToken.Span.End)
+                    return null;
+
+                if (assignmentStatement.Left is ExpressionSyntax left)
                     return model.GetTypeInfo(left).Type;
                 return null;
             }
@@ -204,7 +214,17 @@ public static class CompletionProvider
             }
         }
 
-        var literalTargetType = TryGetLiteralCompletionTargetType();
+        var literalTargetType = TryGetLiteralCompletionTargetType(token);
+        if (literalTargetType is null)
+        {
+            var syntaxTree = token.SyntaxTree;
+            if (syntaxTree is not null && token.Span.Start > 0)
+            {
+                var previousToken = syntaxTree.GetRoot().FindToken(token.Span.Start - 1);
+                if (previousToken != token)
+                    literalTargetType = TryGetLiteralCompletionTargetType(previousToken);
+            }
+        }
         if (literalTargetType is not null)
         {
             var literalMembers = new List<ISymbol>();

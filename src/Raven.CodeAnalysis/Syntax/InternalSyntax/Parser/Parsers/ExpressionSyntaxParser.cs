@@ -932,6 +932,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseNewExpression();
                 break;
 
+            case SyntaxKind.DefaultKeyword:
+                expr = ParseDefaultExpression();
+                break;
+
             case SyntaxKind.TypeOfKeyword:
                 expr = ParseTypeOfExpression();
                 break;
@@ -1071,6 +1075,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var typeName = new NameSyntaxParser(this).ParseTypeName();
 
         return ObjectCreationExpression(newKeyword, typeName, ParseArgumentListSyntax());
+    }
+
+    private ExpressionSyntax ParseDefaultExpression()
+    {
+        var defaultKeyword = ReadToken();
+
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            var openParenToken = ReadToken();
+            var type = new NameSyntaxParser(this).ParseTypeName();
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+            return DefaultExpression(defaultKeyword, openParenToken, type, closeParenToken);
+        }
+
+        return DefaultExpression(defaultKeyword, null, null, null);
     }
 
     private ExpressionSyntax ParseTypeOfExpression()

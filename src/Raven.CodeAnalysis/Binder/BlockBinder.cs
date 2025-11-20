@@ -193,6 +193,7 @@ partial class BlockBinder : Binder
         var constantValueComputed = false;
 
         if (type.TypeKind != TypeKind.Error &&
+            initializer is not null &&
             boundInitializer is not null &&
             ShouldAttemptConversion(boundInitializer))
         {
@@ -620,6 +621,7 @@ partial class BlockBinder : Binder
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
             CastExpressionSyntax castExpression => BindCastExpression(castExpression),
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
+            DefaultExpressionSyntax defaultExpression => BindDefaultExpression(defaultExpression),
             TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
@@ -3014,6 +3016,30 @@ partial class BlockBinder : Binder
         };
 
         return new BoundLiteralExpression(kind, value, type);
+    }
+
+    private BoundExpression BindDefaultExpression(DefaultExpressionSyntax syntax)
+    {
+        if (syntax.Type is TypeSyntax explicitType)
+        {
+            var type = ResolveType(explicitType);
+            type = EnsureTypeAccessible(type, explicitType.GetLocation());
+
+            return new BoundDefaultValueExpression(type);
+        }
+
+        var targetType = GetTargetType(syntax);
+
+        if (targetType is null)
+        {
+            _diagnostics.ReportDefaultLiteralRequiresTargetType(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (targetType.TypeKind == TypeKind.Error)
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+        return new BoundDefaultValueExpression(targetType);
     }
 
     private BoundExpression BindUnitExpression(UnitExpressionSyntax syntax)
