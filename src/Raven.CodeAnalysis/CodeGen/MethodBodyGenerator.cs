@@ -820,9 +820,10 @@ internal class MethodBodyGenerator
         argTypeLocal.SetLocalSymInfo("typeArg");
         var argNameLocal = ILGenerator.DeclareLocal(typeof(string));
         argNameLocal.SetLocalSymInfo("typeArgName");
+        var includeParameterNames = parameterInfos.Count > 1;
         IILocal? firstParameterLocal = null;
 
-        if (parameterInfos.Count > 0)
+        if (includeParameterNames)
         {
             firstParameterLocal = ILGenerator.DeclareLocal(typeof(bool));
             firstParameterLocal.SetLocalSymInfo("firstParameter");
@@ -869,32 +870,38 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Callvirt, appendChar);
             ILGenerator.Emit(OpCodes.Pop);
 
-            ILGenerator.Emit(OpCodes.Ldc_I4_1);
-            ILGenerator.Emit(OpCodes.Stloc, firstParameterLocal!);
+            if (includeParameterNames)
+            {
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                ILGenerator.Emit(OpCodes.Stloc, firstParameterLocal!);
+            }
 
             foreach (var parameter in parameterInfos)
             {
-                var skipParameterComma = ILGenerator.DefineLabel();
-                ILGenerator.Emit(OpCodes.Ldloc, firstParameterLocal!);
-                ILGenerator.Emit(OpCodes.Brtrue_S, skipParameterComma);
-                ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
-                ILGenerator.Emit(OpCodes.Ldstr, ", ");
-                ILGenerator.Emit(OpCodes.Callvirt, appendString);
-                ILGenerator.Emit(OpCodes.Pop);
-                ILGenerator.MarkLabel(skipParameterComma);
+                if (includeParameterNames)
+                {
+                    var skipParameterComma = ILGenerator.DefineLabel();
+                    ILGenerator.Emit(OpCodes.Ldloc, firstParameterLocal!);
+                    ILGenerator.Emit(OpCodes.Brtrue_S, skipParameterComma);
+                    ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+                    ILGenerator.Emit(OpCodes.Ldstr, ", ");
+                    ILGenerator.Emit(OpCodes.Callvirt, appendString);
+                    ILGenerator.Emit(OpCodes.Pop);
+                    ILGenerator.MarkLabel(skipParameterComma);
 
-                ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                ILGenerator.Emit(OpCodes.Stloc, firstParameterLocal!);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.Emit(OpCodes.Stloc, firstParameterLocal!);
 
-                ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
-                ILGenerator.Emit(OpCodes.Ldstr, parameter.Name);
-                ILGenerator.Emit(OpCodes.Callvirt, appendString);
-                ILGenerator.Emit(OpCodes.Pop);
+                    ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+                    ILGenerator.Emit(OpCodes.Ldstr, parameter.Name);
+                    ILGenerator.Emit(OpCodes.Callvirt, appendString);
+                    ILGenerator.Emit(OpCodes.Pop);
 
-                ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
-                ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'=');
-                ILGenerator.Emit(OpCodes.Callvirt, appendChar);
-                ILGenerator.Emit(OpCodes.Pop);
+                    ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'=');
+                    ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+                    ILGenerator.Emit(OpCodes.Pop);
+                }
 
                 EmitAppendFormattedValue(
                     builderLocal,
@@ -930,8 +937,10 @@ internal class MethodBodyGenerator
             if (parameter.RefKind != RefKind.None || parameter.Type is null)
                 continue;
 
+            var propertyName = GetUnionCasePropertyName(parameter.Name);
+
             if (caseSymbol
-                    .GetMembers(parameter.Name)
+                    .GetMembers(propertyName)
                     .OfType<IPropertySymbol>()
                     .FirstOrDefault() is not SourcePropertySymbol property)
             {
@@ -942,10 +951,21 @@ internal class MethodBodyGenerator
                 continue;
 
             var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
-            parameterInfos.Add((parameter.Name, parameter.Type, fieldInfo));
+            parameterInfos.Add((property.Name, parameter.Type, fieldInfo));
         }
 
         return parameterInfos;
+    }
+
+    private static string GetUnionCasePropertyName(string parameterName)
+    {
+        if (string.IsNullOrEmpty(parameterName) || char.IsUpper(parameterName[0]))
+            return parameterName;
+
+        Span<char> buffer = stackalloc char[parameterName.Length];
+        parameterName.AsSpan().CopyTo(buffer);
+        buffer[0] = char.ToUpperInvariant(buffer[0]);
+        return new string(buffer);
     }
 
     private void EmitUnionFriendlyName(
