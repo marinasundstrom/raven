@@ -374,6 +374,40 @@ union Result<T> {
     }
 
     [Fact]
+    public void CasePattern_NonGenericUnion_BindsTryGetMethods()
+    {
+        const string source = """
+func describe(value: Test) -> string {
+    return value match {
+        .Something(text) => text
+        .Nothing => "none"
+    }
+}
+
+union Test {
+    Something(value: string)
+    Nothing
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchSyntax = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchSyntax));
+
+        var somethingPattern = Assert.IsType<BoundCasePattern>(boundMatch.Arms[0].Pattern);
+        Assert.Equal("TryGetSomething", somethingPattern.TryGetMethod.Name);
+
+        var nothingPattern = Assert.IsType<BoundCasePattern>(boundMatch.Arms[1].Pattern);
+        Assert.Equal("TryGetNothing", nothingPattern.TryGetMethod.Name);
+    }
+
+    [Fact]
     public void CasePattern_MissingArm_ReportsExhaustivenessDiagnostic()
     {
         const string source = """
