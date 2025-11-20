@@ -37,6 +37,7 @@ internal static class OperationFactory
             BoundGotoStatement => OperationKind.Goto,
             BoundLabeledStatement => OperationKind.Labeled,
             BoundLiteralExpression => OperationKind.Literal,
+            BoundDefaultValueExpression => OperationKind.DefaultValue,
             BoundLocalAccess => OperationKind.LocalReference,
             BoundParameterAccess => OperationKind.ParameterReference,
             BoundFieldAccess => OperationKind.FieldReference,

@@ -363,6 +363,10 @@
     Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="Target-typed member access (like '.Test') requires a type context to resolve the member."
     HelpLinkUri="" />
+  <Descriptor Id="RAV2011" Identifier="DefaultLiteralRequiresTargetType"
+    Title="'default' requires a target type"
+    Message="The 'default' literal can only be used when a target type is known"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2020" Identifier="InvalidAliasType" Title="Invalid alias target"
     Message="Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, long, float, double, string, and unit."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

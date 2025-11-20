@@ -309,6 +309,8 @@ public static class PrettySyntaxTreePrinter
             PredefinedTypeSyntax pt => $"{pt.Keyword.Text} ",
             UnitTypeSyntax _ => "() ",
             FunctionTypeSyntax ft => $"{ft} ",
+            DefaultExpressionSyntax { Type: { } type } => $"default({type}) ",
+            DefaultExpressionSyntax => "default ",
             TypeOfExpressionSyntax typeOf => $"typeof({typeOf.Type}) ",
             _ => string.Empty
         };

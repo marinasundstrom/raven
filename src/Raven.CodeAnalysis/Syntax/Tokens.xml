@@ -43,6 +43,7 @@
   <TokenKind Name="YieldKeyword" Text="yield" IsReservedWord="true" />
   <TokenKind Name="ThrowKeyword" Text="throw" IsReservedWord="true" />
   <TokenKind Name="NewKeyword" Text="new" IsReservedWord="true" />
+  <TokenKind Name="DefaultKeyword" Text="default" IsReservedWord="true" />
   <TokenKind Name="TrueKeyword" Text="true" IsReservedWord="true" />
   <TokenKind Name="FalseKeyword" Text="false" IsReservedWord="true" />
   <TokenKind Name="IsKeyword" Text="is" IsReservedWord="true" />

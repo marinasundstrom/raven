@@ -51,7 +51,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `const`, `continue`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `const`, `continue`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
@@ -434,6 +434,20 @@ let listType = typeof(System.Collections.Generic.List<int>)
 
 `typeof` is useful when reflecting over metadata or when passing type objects to
 APIs such as `Activator.CreateInstance`.
+
+### Default expressions
+
+`default` produces the zero-initialized value for a type. Use the explicit form
+`default(T)` to request the default value for a known type `T`. The target-typed
+literal `default` instead relies on the surrounding context—such as a variable
+annotation, a return type, or an argument position—to supply the type. When no
+target type is available, the compiler reports `RAV2011` because the literal
+cannot be inferred.
+
+```raven
+let zero = default(int)
+let emptyText: string = default
+```
 
 ### String literals
 

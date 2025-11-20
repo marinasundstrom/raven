@@ -91,6 +91,11 @@ public enum OperationKind
     Literal,
 
     /// <summary>
+    /// A default value expression.
+    /// </summary>
+    DefaultValue,
+
+    /// <summary>
     /// A reference to a local variable.
     /// </summary>
     LocalReference,
