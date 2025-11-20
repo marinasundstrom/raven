@@ -643,7 +643,7 @@ internal class MethodBodyGenerator
             return;
         }
 
-        var unionClrType = InstantiateType(
+        var unionClrType = Generator.InstantiateType(
             MethodGenerator.TypeGenerator.TypeBuilder
                 ?? ResolveClrType(MethodSymbol.ContainingType!));
         var payloadType = unionSymbol.PayloadField.Type;
@@ -831,7 +831,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Newobj, builderCtor);
         ILGenerator.Emit(OpCodes.Stloc, builderLocal);
 
-        var unionClrType = InstantiateType(ResolveClrType(caseSymbol.Union));
+        var unionClrType = Generator.InstantiateType(ResolveClrType(caseSymbol.Union));
 
         EmitUnionFriendlyName(
             unionClrType,
@@ -1560,26 +1560,10 @@ internal class MethodBodyGenerator
                 caseGenerator.DefineTypeBuilder();
 
             if (caseGenerator.TypeBuilder is not null)
-                return InstantiateType(caseGenerator.TypeBuilder);
+                return Generator.InstantiateType(caseGenerator.TypeBuilder);
         }
 
-        return InstantiateType(ResolveClrType(caseTypeSymbol));
+        return Generator.InstantiateType(ResolveClrType(caseTypeSymbol));
     }
 
-    private static Type InstantiateType(Type type)
-    {
-        if (type is TypeBuilder typeBuilder && typeBuilder.ContainsGenericParameters)
-        {
-            var parameters = typeBuilder.GetGenericArguments();
-            return parameters.Length == 0 ? typeBuilder : typeBuilder.MakeGenericType(parameters);
-        }
-
-        if (type.IsGenericTypeDefinition)
-        {
-            var parameters = type.GetGenericArguments();
-            return parameters.Length == 0 ? type : type.MakeGenericType(parameters);
-        }
-
-        return type;
-    }
 }

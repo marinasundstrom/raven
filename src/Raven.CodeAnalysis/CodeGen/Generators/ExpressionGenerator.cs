@@ -1134,8 +1134,8 @@ internal class ExpressionGenerator : Generator
         }
         else if (pattern is BoundCasePattern casePattern)
         {
-            var unionClrType = ResolveClrType(casePattern.CaseSymbol.Union);
-            var caseClrType = ResolveClrType(casePattern.CaseSymbol);
+            var unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
+            var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
             var unionLocal = ILGenerator.DeclareLocal(unionClrType);
             var caseLocal = ILGenerator.DeclareLocal(caseClrType);
 

@@ -20,6 +20,7 @@ public class SampleProgramsTests
         ["generics/generics.rav"],
         ["io.rav"],
         ["main.rav"],
+        ["discriminated-unions-generics.rav"],
         ["discriminated-unions2.rav"],
         ["test2.rav"],
         ["tuples.rav"],
@@ -28,6 +29,7 @@ public class SampleProgramsTests
 
     public static IEnumerable<object[]> SampleProgramsWithExpectedOutputs =>
     [
+        ["discriminated-unions-generics.rav"],
         ["discriminated-unions2.rav"],
     ];
 

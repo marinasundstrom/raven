@@ -10,7 +10,7 @@ using Raven.CodeAnalysis.CodeGen;
 namespace Raven.CodeAnalysis.Symbols;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
+internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscriminatedUnionSymbol, IDiscriminatedUnionCaseSymbol
 {
     private readonly INamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
@@ -19,6 +19,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
+    private ImmutableArray<IDiscriminatedUnionCaseSymbol>? _cases;
+    private ImmutableArray<IParameterSymbol>? _constructorParameters;
+    private IDiscriminatedUnionSymbol? _union;
+    private IFieldSymbol? _discriminatorField;
+    private IFieldSymbol? _payloadField;
 
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 
@@ -173,6 +178,42 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
         return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride);
     }
 
+    private bool TryGetUnionDefinition(out IDiscriminatedUnionSymbol unionDefinition)
+    {
+        if (_originalDefinition is IDiscriminatedUnionSymbol union)
+        {
+            unionDefinition = union;
+            return true;
+        }
+
+        if (ConstructedFrom is IDiscriminatedUnionSymbol constructedUnion)
+        {
+            unionDefinition = constructedUnion;
+            return true;
+        }
+
+        unionDefinition = null!;
+        return false;
+    }
+
+    private bool TryGetCaseDefinition(out IDiscriminatedUnionCaseSymbol caseDefinition)
+    {
+        if (_originalDefinition is IDiscriminatedUnionCaseSymbol caseSymbol)
+        {
+            caseDefinition = caseSymbol;
+            return true;
+        }
+
+        if (ConstructedFrom is IDiscriminatedUnionCaseSymbol constructedCase)
+        {
+            caseDefinition = constructedCase;
+            return true;
+        }
+
+        caseDefinition = null!;
+        return false;
+    }
+
     // Symbol metadata forwarding
     public string Name => _originalDefinition.Name;
     public string MetadataName => _originalDefinition.MetadataName;
@@ -227,8 +268,78 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
         _allInterfaces ??= _originalDefinition.AllInterfaces
             .Select(i => (INamedTypeSymbol)Substitute(i))
             .ToImmutableArray();
+    public ImmutableArray<IDiscriminatedUnionCaseSymbol> Cases
+    {
+        get
+        {
+            if (!TryGetUnionDefinition(out var unionDefinition))
+                return ImmutableArray<IDiscriminatedUnionCaseSymbol>.Empty;
+
+            return _cases ??= SubstituteUnionCases(unionDefinition.Cases);
+        }
+    }
+    public IFieldSymbol DiscriminatorField
+    {
+        get
+        {
+            if (_discriminatorField is not null)
+                return _discriminatorField;
+
+            if (!TryGetUnionDefinition(out var unionDefinition))
+                throw new InvalidOperationException("Constructed type is not a discriminated union.");
+
+            _discriminatorField = new SubstitutedFieldSymbol(unionDefinition.DiscriminatorField, this);
+            return _discriminatorField;
+        }
+    }
+    public IFieldSymbol PayloadField
+    {
+        get
+        {
+            if (_payloadField is not null)
+                return _payloadField;
+
+            if (!TryGetUnionDefinition(out var unionDefinition))
+                throw new InvalidOperationException("Constructed type is not a discriminated union.");
+
+            _payloadField = new SubstitutedFieldSymbol(unionDefinition.PayloadField, this);
+            return _payloadField;
+        }
+    }
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers().OfType<IMethodSymbol>().Where(x => !x.IsStatic && x.IsConstructor).ToImmutableArray();
     public IMethodSymbol? StaticConstructor => GetMembers().OfType<IMethodSymbol>().Where(x => x.IsStatic && x.IsConstructor).FirstOrDefault();
+
+    public IDiscriminatedUnionSymbol Union
+    {
+        get
+        {
+            if (_union is not null)
+                return _union;
+
+            if (ContainingType is IDiscriminatedUnionSymbol containingUnion)
+                return _union = containingUnion;
+
+            if (!TryGetCaseDefinition(out var caseDefinition))
+                throw new InvalidOperationException("Constructed type is not a discriminated union case.");
+
+            return _union = (IDiscriminatedUnionSymbol)SubstituteNamedType((INamedTypeSymbol)caseDefinition.Union);
+        }
+    }
+
+    public ImmutableArray<IParameterSymbol> ConstructorParameters
+    {
+        get
+        {
+            if (!TryGetCaseDefinition(out var caseDefinition))
+                return ImmutableArray<IParameterSymbol>.Empty;
+
+            return _constructorParameters ??= caseDefinition.ConstructorParameters
+                .Select(p => (IParameterSymbol)new SubstitutedParameterSymbol(p, this))
+                .ToImmutableArray();
+        }
+    }
+
+    public int Ordinal => TryGetCaseDefinition(out var caseDefinition) ? caseDefinition.Ordinal : 0;
 
     public INamedTypeSymbol UnderlyingTupleType
     {
@@ -250,6 +361,18 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
             .Select(member => SubstituteMember(member))
             .OfType<IFieldSymbol>()
             .ToImmutableArray();
+
+    private ImmutableArray<IDiscriminatedUnionCaseSymbol> SubstituteUnionCases(ImmutableArray<IDiscriminatedUnionCaseSymbol> cases)
+    {
+        if (cases.IsDefaultOrEmpty || cases.Length == 0)
+            return cases;
+
+        var builder = ImmutableArray.CreateBuilder<IDiscriminatedUnionCaseSymbol>(cases.Length);
+        foreach (var caseSymbol in cases)
+            builder.Add((IDiscriminatedUnionCaseSymbol)SubstituteNamedType((INamedTypeSymbol)caseSymbol));
+
+        return builder.MoveToImmutable();
+    }
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);

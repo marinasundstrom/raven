@@ -106,6 +106,23 @@ internal abstract class Generator
         }
     }
 
+    internal static Type InstantiateType(Type type)
+    {
+        if (type is TypeBuilder typeBuilder && typeBuilder.ContainsGenericParameters)
+        {
+            var parameters = typeBuilder.GetGenericArguments();
+            return parameters.Length == 0 ? typeBuilder : typeBuilder.MakeGenericType(parameters);
+        }
+
+        if (type.IsGenericTypeDefinition)
+        {
+            var parameters = type.GetGenericArguments();
+            return parameters.Length == 0 ? type : type.MakeGenericType(parameters);
+        }
+
+        return type;
+    }
+
     protected BoundNode GetBoundNode(SyntaxNode syntaxNode)
     {
         SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
