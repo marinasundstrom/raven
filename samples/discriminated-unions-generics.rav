@@ -1,0 +1,24 @@
+/*
+ * Demonstrates discriminated unions with generics.
+ */
+
+import System.*
+
+let ok : Result<int> = .Ok(99)
+let err = Result<int>.Error("boom")
+
+Console.WriteLine(format(ok))
+Console.WriteLine(format(err))
+
+
+func format(result: Result<int>) -> string {
+    return result match {
+        .Ok(value) => "ok ${value}"
+        .Error(message) => "error '${message}'"
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}

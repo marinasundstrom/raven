@@ -1,5 +1,5 @@
 /*
- * Demonstrates discriminated unions with and without generics.
+ * Demonstrates discriminated unions
  */
 
 import System.*
@@ -12,18 +12,6 @@ Console.WriteLine(describe(first))
 Console.WriteLine(describe(second))
 Console.WriteLine(describe(third))
 
-let ok : Result<int> = .Ok(99)
-let err = Result<int>.Error("boom")
-
-Console.WriteLine(format(ok))
-Console.WriteLine(format(err))
-
-union Token {
-    Identifier(text: string)
-    Number(value: int)
-    Unknown
-}
-
 func describe(token: Token) -> string {
     return token match {
         .Identifier(text) => "identifier '${text}'"
@@ -32,14 +20,8 @@ func describe(token: Token) -> string {
     }
 }
 
-union Result<T> {
-    Ok(value: T)
-    Error(message: string)
-}
-
-func format(result: Result<int>) -> string {
-    return result match {
-        .Ok(value) => "ok ${value}"
-        .Error(message) => "error '${message}'"
-    }
+union Token {
+    Identifier(text: string)
+    Number(value: int)
+    Unknown
 }
