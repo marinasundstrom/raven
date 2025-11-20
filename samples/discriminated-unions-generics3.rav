@@ -9,8 +9,11 @@ Console.WriteLine(returnsSome(42))
 let unwrapped = returnsSome(42).UnwrapOrDefault()
 Console.WriteLine(unwrapped)
 
-let unwrapped2 = returnsNone(42).UnwrapOrThrow()
-Console.WriteLine(unwrapped2)
+//let unwrapped2 = returnsNone(42).UnwrapOrThrow()
+//Console.WriteLine(unwrapped2)
+
+let unwrapped3 = test(4).UnwrapOrThrow()
+Console.WriteLine(unwrapped3)
 
 func returnsSome(value: int) -> Option<int> {
     return .Some(value)
@@ -19,6 +22,14 @@ func returnsSome(value: int) -> Option<int> {
 func returnsNone(value: int) -> Option<int> {
     return .None
 }
+
+func test(value: int) -> Result<int> {
+    if value == 42 {
+        return .Ok(42)
+    }
+    return .Error("Wrong number")
+}
+
 
 union Option<T> {
     Some(value: T)
@@ -48,5 +59,24 @@ extension OptionExtensions<T> for Option<T> {
             return value
         }
         throw new System.InvalidOperationException("Option is None")
+    }
+}
+
+extension ResultExtensions<T> for Result<T> {
+    UnwrapOrDefault() -> T {
+        if self is .Ok(value) {
+            return value
+        }
+        return default(T)
+    }
+
+    UnwrapOrThrow() -> T {
+        var error: string = ""
+        if self is .Ok(value) {
+            return value
+        } else if self is .Error(error2) {
+            error = error2
+        }
+        throw new System.InvalidOperationException("${error}")
     }
 }
