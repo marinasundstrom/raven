@@ -2179,7 +2179,12 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             if (member is ITypeSymbol typeMemberSymbol)
+            {
+                if (BindDiscriminatedUnionCaseType(typeMemberSymbol) is { } unionCase)
+                    return unionCase;
+
                 return new BoundTypeExpression(typeMemberSymbol);
+            }
 
             return new BoundMemberAccessExpression(typeExpr, member);
         }
@@ -2341,7 +2346,12 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             if (member is ITypeSymbol typeMember)
+            {
+                if (BindDiscriminatedUnionCaseType(typeMember) is { } unionCase)
+                    return unionCase;
+
                 return new BoundTypeExpression(typeMember);
+            }
 
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
@@ -2359,31 +2369,53 @@ partial class BlockBinder : Binder
         if (namedType.TryGetDiscriminatedUnion() is null)
             return null;
 
-            foreach (var member in namedType.GetMembers(memberName))
-            {
-                if (member is not ITypeSymbol typeMember)
-                    continue;
+        foreach (var member in namedType.GetMembers(memberName))
+        {
+            if (member is not ITypeSymbol typeMember)
+                continue;
 
-                if (typeMember.TryGetDiscriminatedUnionCase() is null)
-                    continue;
+            if (typeMember.TryGetDiscriminatedUnionCase() is null)
+                continue;
 
-                var accessibleType = EnsureTypeAccessible(typeMember, location);
-                if (accessibleType.TypeKind == TypeKind.Error)
-                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+            var accessibleType = EnsureTypeAccessible(typeMember, location);
+            if (accessibleType.TypeKind == TypeKind.Error)
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                if (accessibleType is INamedTypeSymbol caseType)
-                {
-                    var parameterlessCtor = caseType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
-
-                    if (parameterlessCtor is not null)
-                        return new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty);
-                }
-
-                return new BoundTypeExpression(accessibleType);
-            }
-
-            return null;
+            return BindDiscriminatedUnionCaseType(accessibleType);
         }
+
+        return null;
+    }
+
+    private BoundExpression? BindDiscriminatedUnionCaseType(ITypeSymbol typeMember)
+    {
+        var isUnionCase = typeMember.TryGetDiscriminatedUnionCase() is not null;
+
+        if (!isUnionCase &&
+            typeMember is INamedTypeSymbol namedType &&
+            namedType.ContainingType?.TryGetDiscriminatedUnion() is not null)
+        {
+            isUnionCase = true;
+        }
+
+        if (!isUnionCase && typeMember.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is Raven.CodeAnalysis.Syntax.UnionCaseClauseSyntax))
+        {
+            isUnionCase = true;
+        }
+
+        if (!isUnionCase)
+            return null;
+
+        if (typeMember is INamedTypeSymbol caseType)
+        {
+            var parameterlessCtor = caseType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
+
+            if (parameterlessCtor is not null)
+                return new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty);
+        }
+
+        return new BoundTypeExpression(typeMember);
+    }
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)
     {
