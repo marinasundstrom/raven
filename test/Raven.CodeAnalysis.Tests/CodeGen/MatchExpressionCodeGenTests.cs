@@ -211,6 +211,37 @@ System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describ
     }
 
     [Fact]
+    public void MatchExpression_ParameterlessUnionCase_AllowsOmittedInvocation()
+    {
+        const string code = """
+import System.Console.*
+
+let a = Test.Something("foo")
+let b = Test.Nothing
+
+WriteLine(describe(a) + "," + describe(b))
+
+func describe(value: Test) -> string {
+    return value match {
+        .Something(text) => text
+        .Nothing => "none"
+    }
+}
+
+union Test {
+    Something(value: string)
+    Nothing
+}
+""";
+
+        var output = EmitAndRun(code, "match_union_parameterless_instantiation");
+        if (output is null)
+            return;
+
+        Assert.Equal("foo,none", output);
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionTupleFallback_EmitsAndRuns()
     {
         const string code = """

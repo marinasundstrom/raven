@@ -2359,23 +2359,31 @@ partial class BlockBinder : Binder
         if (namedType.TryGetDiscriminatedUnion() is null)
             return null;
 
-        foreach (var member in namedType.GetMembers(memberName))
-        {
-            if (member is not ITypeSymbol typeMember)
-                continue;
+            foreach (var member in namedType.GetMembers(memberName))
+            {
+                if (member is not ITypeSymbol typeMember)
+                    continue;
 
-            if (typeMember.TryGetDiscriminatedUnionCase() is null)
-                continue;
+                if (typeMember.TryGetDiscriminatedUnionCase() is null)
+                    continue;
 
-            var accessibleType = EnsureTypeAccessible(typeMember, location);
-            if (accessibleType.TypeKind == TypeKind.Error)
-                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+                var accessibleType = EnsureTypeAccessible(typeMember, location);
+                if (accessibleType.TypeKind == TypeKind.Error)
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-            return new BoundTypeExpression(accessibleType);
+                if (accessibleType is INamedTypeSymbol caseType)
+                {
+                    var parameterlessCtor = caseType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
+
+                    if (parameterlessCtor is not null)
+                        return new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty);
+                }
+
+                return new BoundTypeExpression(accessibleType);
+            }
+
+            return null;
         }
-
-        return null;
-    }
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)
     {
