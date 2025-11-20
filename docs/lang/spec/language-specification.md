@@ -984,19 +984,24 @@ flow-sensitive type analysis.
 
 Patterns compose from the following primitives:
 
-- `Type` — type pattern; succeeds when the scrutinee can convert to `Type`.
-  No binding is introduced.
+- `Type` — type pattern; succeeds when the scrutinee can convert to `Type`. This
+  behaves like a type test when no designation is provided (for example,
+  `object => value.ToString()`).
 - `Type name` — typed binding; succeeds when the scrutinee converts to
   `Type`, then binds the converted value to `name` as an immutable local.
-- `_` / `Type _` — discard; matches anything without introducing a binding.
-  The typed form asserts the value can convert to `Type` while still discarding
-  it. Because `_` is reserved for discards, writing `_` as the designation never
+- `let name` / `var name` — variable pattern; always matches and introduces a
+  binding. `let` produces an immutable local while `var` creates a mutable one.
+  Parenthesized designations such as `let (first, second): (int, string)` bind
+  each element positionally.
+- `_` / `Type _` — discard; matches anything without introducing a binding. The
+  typed form asserts the value can convert to `Type` while still discarding it.
+  Because `_` is reserved for discards, writing `_` as the designation never
   creates a binding. Discards participate in pattern exhaustiveness: an
   unguarded `_` arm is considered a catch-all and satisfies any remaining cases
   even when earlier arms introduced bindings.
-- `literal` — literal pattern; matches when the scrutinee equals the literal.
-  Literal patterns piggyback on Raven's literal types, so `"on"` or `42`
-  narrow unions precisely.
+- `literal` — constant pattern; matches when the scrutinee equals the literal
+  value (`true`, `"on"`, `42`, or `null`). Literal patterns piggyback on Raven's
+  literal types, so they also narrow unions precisely.
 - `(element1, element2, …)` — tuple pattern; matches when the scrutinee is a
   tuple with the same arity and each element matches the corresponding
   subpattern. Tuple patterns destructure positionally, so nested patterns may
@@ -1021,13 +1026,15 @@ Patterns compose from the following primitives:
   declared type. Bare payload identifiers implicitly bind immutable locals, so
   `.Ok(payload)` is equivalent to `.Ok(let payload)`; use `_` to explicitly
   discard a payload.
+- `pattern1 and pattern2` — conjunction; succeeds only when both operands
+  match. Bindings from either operand are available after the conjunction.
 - `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not
   introduce bindings even if its operand would.
 
-`or` associates to the left, `not` binds tighter than `or`, and parentheses
-override the default precedence as needed.
+`or` associates to the left, `and` binds tighter than `or`, and `not` binds
+tighter than both. Parentheses override the default precedence as needed.
 
 ```raven
 if payload is string {
@@ -1052,6 +1059,10 @@ if mode is not ("on" or "off") {
 
 if token is .Identifier(text) {
     Console.WriteLine($"identifier {text}")
+}
+
+if token is .Identifier(let text) and text != "" {
+    Console.WriteLine($"non-empty identifier {text}")
 }
 ```
 
