@@ -549,14 +549,7 @@ internal partial class BlockBinder
         }
 
         var tryGetMethodName = $"TryGet{caseSymbol.Name}";
-        var tryGetMethod = unionType
-            .GetMembers(tryGetMethodName)
-            .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => !m.IsStatic)
-            ?? caseSymbol
-                .GetMembers(tryGetMethodName)
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(m => !m.IsStatic);
+        var tryGetMethod = FindTryGetMethod(tryGetMethodName, lookupType, unionType, caseSymbol);
 
         if (tryGetMethod is null)
         {
@@ -597,6 +590,53 @@ internal partial class BlockBinder
         }
 
         return new BoundCasePattern(caseSymbol, tryGetMethod, boundArguments.ToImmutable());
+    }
+
+    private IMethodSymbol? FindTryGetMethod(
+        string methodName,
+        ITypeSymbol? lookupType,
+        IDiscriminatedUnionSymbol unionType,
+        IDiscriminatedUnionCaseSymbol caseSymbol)
+    {
+        var candidateTypes = new List<INamedTypeSymbol>();
+
+        void AddCandidate(INamedTypeSymbol? candidate)
+        {
+            if (candidate is null)
+                return;
+
+            candidate = (INamedTypeSymbol)UnwrapAlias(candidate);
+
+            if (candidateTypes.Any(t => SymbolEqualityComparer.Default.Equals(t, candidate)))
+                return;
+
+            candidateTypes.Add(candidate);
+
+            if (candidate.ConstructedFrom is INamedTypeSymbol constructedFrom &&
+                !SymbolEqualityComparer.Default.Equals(constructedFrom, candidate))
+            {
+                AddCandidate(constructedFrom);
+            }
+        }
+
+        AddCandidate(unionType);
+        AddCandidate(caseSymbol);
+
+        if (lookupType is INamedTypeSymbol namedLookup)
+            AddCandidate(namedLookup);
+
+        foreach (var candidate in candidateTypes)
+        {
+            var method = candidate
+                .GetMembers(methodName)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m => !m.IsStatic);
+
+            if (method is not null)
+                return method;
+        }
+
+        return null;
     }
 
     private BoundPattern BindCasePatternArgument(PatternSyntax syntax, ITypeSymbol parameterType)

@@ -2179,7 +2179,12 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             if (member is ITypeSymbol typeMemberSymbol)
+            {
+                if (BindDiscriminatedUnionCaseType(typeMemberSymbol) is { } unionCase)
+                    return unionCase;
+
                 return new BoundTypeExpression(typeMemberSymbol);
+            }
 
             return new BoundMemberAccessExpression(typeExpr, member);
         }
@@ -2341,7 +2346,12 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             if (member is ITypeSymbol typeMember)
+            {
+                if (BindDiscriminatedUnionCaseType(typeMember) is { } unionCase)
+                    return unionCase;
+
                 return new BoundTypeExpression(typeMember);
+            }
 
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
@@ -2371,10 +2381,40 @@ partial class BlockBinder : Binder
             if (accessibleType.TypeKind == TypeKind.Error)
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-            return new BoundTypeExpression(accessibleType);
+            return BindDiscriminatedUnionCaseType(accessibleType);
         }
 
         return null;
+    }
+
+    private BoundExpression? BindDiscriminatedUnionCaseType(ITypeSymbol typeMember)
+    {
+        var isUnionCase = typeMember.TryGetDiscriminatedUnionCase() is not null;
+
+        if (!isUnionCase &&
+            typeMember is INamedTypeSymbol namedType &&
+            namedType.ContainingType?.TryGetDiscriminatedUnion() is not null)
+        {
+            isUnionCase = true;
+        }
+
+        if (!isUnionCase && typeMember.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is Raven.CodeAnalysis.Syntax.UnionCaseClauseSyntax))
+        {
+            isUnionCase = true;
+        }
+
+        if (!isUnionCase)
+            return null;
+
+        if (typeMember is INamedTypeSymbol caseType)
+        {
+            var parameterlessCtor = caseType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
+
+            if (parameterlessCtor is not null)
+                return new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty);
+        }
+
+        return new BoundTypeExpression(typeMember);
     }
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)

@@ -174,7 +174,10 @@ internal class ExpressionGenerator : Generator
                 EmitTypeOfExpression(typeOfExpression);
                 break;
 
-            case BoundTypeExpression:
+            case BoundTypeExpression typeExpression:
+                if (!TryEmitDiscriminatedUnionCaseCreation(typeExpression.Type))
+                    break;
+
                 break;
 
             case BoundUnitExpression unitExpression:
@@ -200,6 +203,25 @@ internal class ExpressionGenerator : Generator
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
+    }
+
+    private bool TryEmitDiscriminatedUnionCaseCreation(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is not INamedTypeSymbol namedType)
+            return false;
+
+        if (namedType.TryGetDiscriminatedUnionCase() is null &&
+            namedType.ContainingType?.TryGetDiscriminatedUnion() is null)
+        {
+            return false;
+        }
+
+        var parameterlessCtor = namedType.Constructors.FirstOrDefault(static ctor => ctor.Parameters.Length == 0);
+        if (parameterlessCtor is null)
+            return false;
+
+        EmitObjectCreationExpression(new BoundObjectCreationExpression(parameterlessCtor, ImmutableArray<BoundExpression>.Empty));
+        return true;
     }
 
     private void EmitSelfExpression(BoundSelfExpression selfExpression)

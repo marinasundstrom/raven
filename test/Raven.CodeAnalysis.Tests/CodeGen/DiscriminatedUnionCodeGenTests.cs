@@ -668,4 +668,50 @@ union Maybe<T> {
         var text = (string)toString.Invoke(instance, Array.Empty<object?>())!;
         Assert.Equal("<Uninitialized>", text);
     }
+
+    [Fact]
+    public void DiscriminatedUnion_EmitsSingleToStringPerType()
+    {
+        var code = """
+import System.Console.*
+
+union Test {
+    Something(value: string)
+    Nothing
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Test", throwOnError: true)!;
+
+        var unionToStrings = unionType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(m => m.Name == nameof(object.ToString));
+        Assert.Single(unionToStrings);
+
+        foreach (var caseType in unionType.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            var caseToStrings = caseType
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(m => m.Name == nameof(object.ToString));
+
+            Assert.Single(caseToStrings);
+        }
+    }
 }

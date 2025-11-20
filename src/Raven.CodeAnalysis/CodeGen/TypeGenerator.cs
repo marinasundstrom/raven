@@ -469,6 +469,14 @@ internal class TypeGenerator
 
         foreach (var memberSymbol in TypeSymbol.GetMembers())
         {
+            if (memberSymbol.ContainingType is { } containingType &&
+                !SymbolEqualityComparer.Default.Equals(containingType, TypeSymbol))
+            {
+                // Skip members that belong to nested types (e.g., discriminated union cases)
+                // but are surfaced on the containing union symbol for semantic analysis.
+                continue;
+            }
+
             switch (memberSymbol)
             {
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
@@ -866,7 +874,13 @@ internal class TypeGenerator
             if (!TryGetMethodInfo(sourceMethod.OverriddenMethod, out var baseMethodInfo))
                 continue;
 
-            TypeBuilder.DefineMethodOverride(methodBuilder, baseMethodInfo);
+            // TypeBuilder.DefineMethodOverride should only be used for interface implementations.
+            // Virtual overrides are emitted by setting the correct MethodAttributes when the
+            // MethodBuilder is created, so there is no need to define an explicit override
+            // mapping for base class methods. Skipping this avoids Reflection.Emit throwing
+            // when the overridden method belongs to a base type rather than an interface.
+            if (baseMethodInfo.DeclaringType?.IsInterface == true)
+                TypeBuilder.DefineMethodOverride(methodBuilder, baseMethodInfo);
         }
     }
 

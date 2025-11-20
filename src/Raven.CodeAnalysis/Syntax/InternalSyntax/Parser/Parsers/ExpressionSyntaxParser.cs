@@ -1163,11 +1163,18 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
                 ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var arrowToken);
 
-                var expression = new ExpressionSyntaxParser(this).ParseExpression();
-
+                var previousTreatNewlinesDuringExpression = TreatNewlinesAsTokens;
                 SetTreatNewlinesAsTokens(true);
 
-                TryConsumeTerminator(out var terminatorToken);
+                var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+                SyntaxToken terminatorToken;
+                if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
+                {
+                    TryConsumeTerminator(out terminatorToken);
+                }
+
+                SetTreatNewlinesAsTokens(previousTreatNewlinesDuringExpression);
 
                 SetTreatNewlinesAsTokens(false);
 
@@ -1179,7 +1186,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             ExitParens();
         }
 
-        SetTreatNewlinesAsTokens(false);
+        SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
