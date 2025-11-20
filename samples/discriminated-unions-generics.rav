@@ -8,7 +8,7 @@ let ok : Result<int> = .Ok(99)
 let err = Result<int>.Error("boom")
 
 Console.WriteLine(format(ok))
-Console.WriteLine(format(err))
+Console.WriteLine(format((Result<int>)err))
 
 
 func format(result: Result<int>) -> string {
