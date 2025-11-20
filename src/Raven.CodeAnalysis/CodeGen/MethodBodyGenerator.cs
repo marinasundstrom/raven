@@ -1107,6 +1107,9 @@ internal class MethodBodyGenerator
         MethodInfo stringReplace,
         MethodInfo objectToString)
     {
+        var objectGetType = typeof(object).GetMethod(nameof(GetType))!;
+        var typeFromHandle = typeof(Type).GetMethod(nameof(Type.GetTypeFromHandle), new[] { typeof(RuntimeTypeHandle) })!;
+
         if (valueType.SpecialType == SpecialType.System_String)
         {
             var stringLocal = ILGenerator.DeclareLocal(typeof(string));
@@ -1151,45 +1154,35 @@ internal class MethodBodyGenerator
             return;
         }
 
+        if (valueType.SpecialType == SpecialType.System_Char)
+        {
+            var charLocal = ILGenerator.DeclareLocal(typeof(char));
+            charLocal.SetLocalSymInfo("charValue");
+
+            emitLoadValue();
+            ILGenerator.Emit(OpCodes.Stloc, charLocal);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\'');
+            ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+            ILGenerator.Emit(OpCodes.Pop);
+
+            EmitAppendEscapedChar(builderLocal, charLocal, appendString, appendChar);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\'');
+            ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+            ILGenerator.Emit(OpCodes.Pop);
+
+            return;
+        }
+
         var valueClrType = ResolveClrType(valueType);
         var valueLocal = ILGenerator.DeclareLocal(valueClrType);
         valueLocal.SetLocalSymInfo("value");
 
         emitLoadValue();
         ILGenerator.Emit(OpCodes.Stloc, valueLocal);
-
-        if (valueType.IsReferenceType)
-        {
-            var notNullLabel = ILGenerator.DefineLabel();
-            var doneLabel = ILGenerator.DefineLabel();
-
-            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
-            ILGenerator.Emit(OpCodes.Brtrue_S, notNullLabel);
-
-            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
-            ILGenerator.Emit(OpCodes.Ldstr, "null");
-            ILGenerator.Emit(OpCodes.Callvirt, appendString);
-            ILGenerator.Emit(OpCodes.Pop);
-            ILGenerator.Emit(OpCodes.Br, doneLabel);
-
-            ILGenerator.MarkLabel(notNullLabel);
-
-            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, objectToString);
-            ILGenerator.Emit(OpCodes.Dup);
-
-            var hasTextLabel = ILGenerator.DefineLabel();
-            ILGenerator.Emit(OpCodes.Brtrue_S, hasTextLabel);
-            ILGenerator.Emit(OpCodes.Pop);
-            ILGenerator.Emit(OpCodes.Ldstr, "null");
-            ILGenerator.MarkLabel(hasTextLabel);
-            ILGenerator.Emit(OpCodes.Callvirt, appendString);
-            ILGenerator.Emit(OpCodes.Pop);
-
-            ILGenerator.MarkLabel(doneLabel);
-            return;
-        }
 
         var boxedValueLocal = ILGenerator.DeclareLocal(typeof(object));
         boxedValueLocal.SetLocalSymInfo("valueObject");
@@ -1200,11 +1193,12 @@ internal class MethodBodyGenerator
         // and formatted safely even when instantiated with struct arguments.
         if (valueType.IsValueType || valueType is ITypeParameterSymbol)
             ILGenerator.Emit(OpCodes.Box, valueClrType);
-
         ILGenerator.Emit(OpCodes.Stloc, boxedValueLocal);
 
         var boxedNotNullLabel = ILGenerator.DefineLabel();
         var boxedDoneLabel = ILGenerator.DefineLabel();
+        var boxedStringLabel = ILGenerator.DefineLabel();
+        var boxedCharLabel = ILGenerator.DefineLabel();
 
         ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
         ILGenerator.Emit(OpCodes.Brtrue_S, boxedNotNullLabel);
@@ -1216,6 +1210,22 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
 
         ILGenerator.MarkLabel(boxedNotNullLabel);
+
+        // Handle runtime string payloads for generic parameters
+        ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+        ILGenerator.Emit(OpCodes.Ldtoken, typeof(string));
+        ILGenerator.Emit(OpCodes.Call, typeFromHandle);
+        ILGenerator.Emit(OpCodes.Ceq);
+        ILGenerator.Emit(OpCodes.Brtrue_S, boxedStringLabel);
+
+        // Handle runtime char payloads for generic parameters
+        ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, objectGetType);
+        ILGenerator.Emit(OpCodes.Ldtoken, typeof(char));
+        ILGenerator.Emit(OpCodes.Call, typeFromHandle);
+        ILGenerator.Emit(OpCodes.Ceq);
+        ILGenerator.Emit(OpCodes.Brtrue_S, boxedCharLabel);
 
         ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
         ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
@@ -1230,7 +1240,100 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Callvirt, appendString);
         ILGenerator.Emit(OpCodes.Pop);
 
+        ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
+
+        ILGenerator.MarkLabel(boxedStringLabel);
+        var boxedStringLocal = ILGenerator.DeclareLocal(typeof(string));
+        boxedStringLocal.SetLocalSymInfo("boxedString");
+
+        ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
+        ILGenerator.Emit(OpCodes.Castclass, typeof(string));
+        ILGenerator.Emit(OpCodes.Stloc, boxedStringLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\"');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, boxedStringLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, "\"");
+        ILGenerator.Emit(OpCodes.Ldstr, "\\\"");
+        ILGenerator.Emit(OpCodes.Callvirt, stringReplace);
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\"');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
+
+        ILGenerator.MarkLabel(boxedCharLabel);
+        var boxedCharLocal = ILGenerator.DeclareLocal(typeof(char));
+        boxedCharLocal.SetLocalSymInfo("boxedChar");
+
+        ILGenerator.Emit(OpCodes.Ldloc, boxedValueLocal);
+        ILGenerator.Emit(OpCodes.Unbox_Any, typeof(char));
+        ILGenerator.Emit(OpCodes.Stloc, boxedCharLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\'');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        EmitAppendEscapedChar(builderLocal, boxedCharLocal, appendString, appendChar);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\'');
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Br, boxedDoneLabel);
+
         ILGenerator.MarkLabel(boxedDoneLabel);
+    }
+
+    private void EmitAppendEscapedChar(
+        IILocal builderLocal,
+        IILocal charLocal,
+        MethodInfo appendString,
+        MethodInfo appendChar)
+    {
+        var escapeBackslashLabel = ILGenerator.DefineLabel();
+        var escapeQuoteLabel = ILGenerator.DefineLabel();
+        var writeCharLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldloc, charLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\\');
+        ILGenerator.Emit(OpCodes.Ceq);
+        ILGenerator.Emit(OpCodes.Brtrue_S, escapeBackslashLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, charLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, (int)'\'');
+        ILGenerator.Emit(OpCodes.Ceq);
+        ILGenerator.Emit(OpCodes.Brtrue_S, escapeQuoteLabel);
+
+        ILGenerator.Emit(OpCodes.Br_S, writeCharLabel);
+
+        ILGenerator.MarkLabel(escapeBackslashLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, "\\\\");
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Br_S, writeCharLabel);
+
+        ILGenerator.MarkLabel(escapeQuoteLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, "\\'");
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+        ILGenerator.Emit(OpCodes.Br_S, writeCharLabel);
+
+        ILGenerator.MarkLabel(writeCharLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, charLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, appendChar);
+        ILGenerator.Emit(OpCodes.Pop);
     }
 
     private void EmitUnionCaseConstructor()
