@@ -6,15 +6,51 @@ import System.*
 
 Console.WriteLine(test(42))
 
-func test(value: int) -> Result<string, string> {
-    //if value == 42 {
-        return .Ok("Yay")
-    //} else {
-    //    return .Error("No")
-    //}
+let unwrapped = test(42).UnwrapOrDefault()
+Console.WriteLine(unwrapped)
+
+let unwrapped2 = test2(42).UnwrapOrThrow()
+Console.WriteLine(unwrapped2)
+
+func test(value: int) -> Option<int> {
+    return .Some(value)
+}
+
+func test2(value: int) -> Option<int> {
+    return .None
+}
+
+func test3(value: int) -> Result<string, string> {
+    return .Ok("Yay")
+}
+
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
 }
 
 union Result<T, E> {
     Ok(value: T)
     Error(message: E)
+}
+
+extension OptionExtension<T> for Option<T> {
+    UnwrapOrDefault() -> T {
+        if self is .Some(value) {
+            return value
+        }
+        return default(T)
+    }
+
+    UnwrapOrThrow() -> T {
+        if self is .Some(value) {
+            return value
+        }
+        throw new System.InvalidOperationException("Option is None")
+    }
 }

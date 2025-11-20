@@ -1,0 +1,10 @@
+import System.Console.*
+
+WriteLine(test())
+
+func test() -> int {
+    if false {
+        return 1
+    }
+    return 0
+}
