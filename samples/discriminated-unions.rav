@@ -8,6 +8,10 @@ let first = Token.Identifier("alpha")
 let second : Token = .Number(42)
 let third = Token.Unknown
 
+Console.WriteLine(first)
+Console.WriteLine(second)
+Console.WriteLine(third)
+
 Console.WriteLine(describe(first))
 Console.WriteLine(describe(second))
 Console.WriteLine(describe(third))
