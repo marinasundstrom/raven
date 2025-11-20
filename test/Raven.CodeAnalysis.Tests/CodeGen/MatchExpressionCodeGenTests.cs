@@ -179,6 +179,38 @@ class Formatter {
     }
 
     [Fact]
+    public void MatchExpression_WithUnionIdentifierResult_ParsesNewlineSeparatedArms()
+    {
+        const string code = """
+union Test {
+    Something(value: string)
+    Nothing
+}
+
+class Formatter {
+    Describe(value: Test) -> string {
+        return value match {
+            .Something(text) => text
+            .Nothing => "none"
+        }
+    }
+}
+
+let formatter = Formatter()
+let something = Test.Something("hello")
+let nothing = Test.Nothing
+
+System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describe(nothing))
+""";
+
+        var output = EmitAndRun(code, "match_union_identifier_expression");
+        if (output is null)
+            return;
+
+        Assert.Equal("hello,none", output);
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionTupleFallback_EmitsAndRuns()
     {
         const string code = """
