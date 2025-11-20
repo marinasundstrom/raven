@@ -1,27 +1,23 @@
 /*
- * Demonstrates discriminated unions with generics.
+ * Demonstrates discriminated unions in Raven.
  */
 
 import System.*
 
-Console.WriteLine(test(42))
+Console.WriteLine(returnsSome(42))
 
-let unwrapped = test(42).UnwrapOrDefault()
+let unwrapped = returnsSome(42).UnwrapOrDefault()
 Console.WriteLine(unwrapped)
 
-let unwrapped2 = test2(42).UnwrapOrThrow()
+let unwrapped2 = returnsNone(42).UnwrapOrThrow()
 Console.WriteLine(unwrapped2)
 
-func test(value: int) -> Option<int> {
+func returnsSome(value: int) -> Option<int> {
     return .Some(value)
 }
 
-func test2(value: int) -> Option<int> {
+func returnsNone(value: int) -> Option<int> {
     return .None
-}
-
-func test3(value: int) -> Result<string, string> {
-    return .Ok("Yay")
 }
 
 union Option<T> {
@@ -36,10 +32,10 @@ union Result<T> {
 
 union Result<T, E> {
     Ok(value: T)
-    Error(message: E)
+    Error(data: E)
 }
 
-extension OptionExtension<T> for Option<T> {
+extension OptionExtensions<T> for Option<T> {
     UnwrapOrDefault() -> T {
         if self is .Some(value) {
             return value
