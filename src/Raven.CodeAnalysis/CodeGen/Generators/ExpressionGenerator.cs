@@ -747,6 +747,9 @@ internal class ExpressionGenerator : Generator
         if (to is ByRefTypeSymbol && from is IAddressTypeSymbol)
             return;
 
+        var fromClrType = ResolveClrType(from);
+        var toClrType = ResolveClrType(to);
+
         if (to is NullableTypeSymbol nullableTo && nullableTo.UnderlyingType.IsValueType)
         {
             EmitNullableConversion(from, nullableTo);
@@ -767,21 +770,36 @@ internal class ExpressionGenerator : Generator
 
         if (conversion.IsUnboxing)
         {
-            ILGenerator.Emit(OpCodes.Unbox_Any, ResolveClrType(to));
+            if (fromClrType.IsValueType)
+            {
+                if (toClrType == fromClrType)
+                    return;
+
+                if (conversion.IsNumeric)
+                {
+                    EmitNumericConversion(to);
+                    return;
+                }
+            }
+
+            ILGenerator.Emit(OpCodes.Unbox_Any, toClrType);
             return;
         }
 
         if (conversion.IsBoxing)
         {
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
+            if (!fromClrType.IsValueType)
+                return;
+
+            ILGenerator.Emit(OpCodes.Box, fromClrType);
             if (!SymbolEqualityComparer.Default.Equals(from, to))
-                ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(to));
+                ILGenerator.Emit(OpCodes.Castclass, toClrType);
             return;
         }
 
         if (conversion.IsReference)
         {
-            ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(to));
+            ILGenerator.Emit(OpCodes.Castclass, toClrType);
             return;
         }
 
@@ -3419,12 +3437,19 @@ internal class ExpressionGenerator : Generator
         new ExpressionGenerator(scope, ifStatement.Condition)
             .EmitBranchOpForCondition(ifStatement.Condition, elseLabel);
 
+        var resultClrType = ifStatement.Type is not null
+            ? ResolveClrType(ifStatement.Type)
+            : null;
+
         new ExpressionGenerator(scope, ifStatement.ThenBranch).Emit();
 
         var thenType = ifStatement.ThenBranch.Type;
 
-        if ((ifStatement.Type?.IsTypeUnion ?? false)
-            && (thenType?.IsValueType ?? false))
+        var thenRequiresBox =
+            resultClrType is { IsValueType: false }
+            && (thenType?.IsValueType ?? false);
+
+        if (thenRequiresBox)
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType));
         }
@@ -3446,8 +3471,11 @@ internal class ExpressionGenerator : Generator
 
             var elseType = ifStatement.ElseBranch.Type;
 
-            if ((ifStatement.Type?.IsTypeUnion ?? false)
-                && (elseType?.IsValueType ?? false))
+            var elseRequiresBox =
+                resultClrType is { IsValueType: false }
+                && (elseType?.IsValueType ?? false);
+
+            if (elseRequiresBox)
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(elseType));
             }
@@ -3462,7 +3490,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBranchOpForCondition(BoundExpression expression, ILLabel end)
+    internal void EmitBranchOpForCondition(BoundExpression expression, ILLabel end)
     {
         if (expression is BoundParenthesizedExpression parenthesizedExpression)
         {
