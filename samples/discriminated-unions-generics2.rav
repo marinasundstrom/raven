@@ -10,7 +10,7 @@ let err = Result<int>.Error("boom")
 Console.WriteLine(format(ok))
 Console.WriteLine(format((Result<int>)err))
 
-func format(result: Result<int>) -> string {
+func format<T>(result: Result<T>) -> string {
     return result match {
         .Ok(value) => "ok ${value}"
         .Error(message) => "error '${message}'"
