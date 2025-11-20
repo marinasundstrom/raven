@@ -46,9 +46,9 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
 
     public bool IsType => true;
 
-    public bool IsReferenceType => false;
+    public bool IsReferenceType => (ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
 
-    public bool IsValueType => false;
+    public bool IsValueType => (ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
 
     public INamedTypeSymbol? BaseType => null;
 

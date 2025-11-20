@@ -2573,18 +2573,34 @@ internal class ExpressionGenerator : Generator
 
     private void EmitDefaultValue(ITypeSymbol type)
     {
+        if (type is ITypeParameterSymbol typeParameter)
+        {
+            if ((typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0)
+            {
+                ILGenerator.Emit(OpCodes.Ldnull);
+                return;
+            }
+
+            EmitDefaultValueWithInitObj(type);
+            return;
+        }
+
         if (type.IsValueType)
         {
-            var clr = ResolveClrType(type);
-            var local = ILGenerator.DeclareLocal(clr);
-            ILGenerator.Emit(OpCodes.Ldloca, local);
-            ILGenerator.Emit(OpCodes.Initobj, clr);
-            ILGenerator.Emit(OpCodes.Ldloc, local);
+            EmitDefaultValueWithInitObj(type);
+            return;
         }
-        else
-        {
-            ILGenerator.Emit(OpCodes.Ldnull);
-        }
+
+        ILGenerator.Emit(OpCodes.Ldnull);
+    }
+
+    private void EmitDefaultValueWithInitObj(ITypeSymbol type)
+    {
+        var clr = ResolveClrType(type);
+        var local = ILGenerator.DeclareLocal(clr);
+        ILGenerator.Emit(OpCodes.Ldloca, local);
+        ILGenerator.Emit(OpCodes.Initobj, clr);
+        ILGenerator.Emit(OpCodes.Ldloc, local);
     }
 
     private void EmitExtensionPropertyAccess(IPropertySymbol propertySymbol, BoundExpression? receiver, bool receiverAlreadyLoaded)
