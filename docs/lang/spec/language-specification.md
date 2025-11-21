@@ -582,13 +582,28 @@ The compiler binds each named argument to its declared parameter. The call to
 first named argument, while the `invalid` call is rejected because it attempts
 to supply a positional argument (`2`) after specifying `x` by name.
 
-#### Extension declarations
+### Extensions
 
-An `extension` declaration groups helpers for a specific receiver type and is
-the canonical way to author extension methods in Raven. It appears at namespace
-scope alongside other declarations and begins with the `extension` keyword,
-followed by the name of the container and the `for` clause that identifies the
-receiver type:
+Extensions provide helper members for an existing receiver type without
+modifying the original declaration. The `extension` keyword declares a
+namespace-scoped container that targets a specific type via a `for` clause.
+Importing the container (for example, `import MyApp.StringExt.*`) brings its
+members into scope for lookup.
+
+Each member inside the body is implicitly an extension member for the receiver
+type. Members may be function declarations or computed properties. The compiler
+synthesizes a `self` parameter whose type matches the receiver and passes it as
+the first argument whenever the member is invoked. The `self` parameter behaves
+like a `let` binding: it cannot be reassigned but may be used to access members
+or forwarded to other calls. Extension members default to `public`
+accessibility and may be marked `internal` to restrict their visibility; other
+modifiers are rejected. As a result, extensions cannot declare `protected`,
+`private`, or `static` members.
+
+#### Extension methods
+
+Extension methods add callable helpers to the receiver type. They are declared
+inside an `extension` container as function members:
 
 ```raven
 extension StringExt for string
@@ -601,73 +616,12 @@ extension StringExt for string
 }
 ```
 
-The container name participates in imports just like a static class. Importing
-`StringExt` (for example, `import MyApp.StringExt.*`) makes the declared
-extensions available to lookup in that scope.
-
-Each member inside the body is implicitly an extension member for the type
-spelled in the `for` clause. Members may be function declarations or computed
-properties. The compiler synthesizes a `self` parameter whose type matches the
-receiver and passes it as the first argument whenever the member is invoked.
-The `self` parameter behaves like a `let` binding: it cannot be reassigned but
-may be used to access members or forwarded to other calls. Extension members
-default to `public` accessibility and may be marked `internal` to restrict
-their visibility; other modifiers are rejected. As a result, extensions cannot
-declare `protected`, `private`, or `static` members.
-
-```raven
-extension ListExt for List<int>
-{
-    CountPlusOne: int
-    {
-        get => self.Count + 1
-        set => self.Add(value)
-    }
-}
-```
-
-Extension properties must provide accessor bodies because the declaration has
-no state of its own—auto-properties are rejected. Both accessors observe the
-receiver through the synthesized `self` parameter, and setters receive a
-trailing `value` parameter that represents the assigned expression.
-
-#### Extension methods
-
-Raven follows the CLR extension model so source and metadata helpers behave the
-same way. An extension method is a `static` method whose first parameter is
-treated as the **receiver**. Raven considers a declaration an extension when it
-is produced from an `extension` declaration or when a `static` method inside a
-module or static class carries the .NET `ExtensionAttribute`. The attribute may
-be spelled either `[Extension]` or `[ExtensionAttribute]`; both forms produce the
-required metadata. Raven emits the same attribute when compiling the method so
-C# and other CLR languages recognize it as an
-extension.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】
-
 The receiver parameter determines which expressions may invoke the extension.
 Additional parameters follow the ordinary parameter rules: they may be generic,
 optional, `params`, or accept lambdas. Generic receiver parameters are
 substituted during method type inference, so helpers like `Where<T>(this
 IEnumerable<T>, Func<T, bool>)` become available to Raven code as soon as the
 appropriate namespace is imported.
-
-```raven
-import System.Runtime.CompilerServices.*
-
-public static class NumberExtensions {
-    [Extension]
-    public static Double(x: int) -> int {
-        return x + x
-    }
-}
-
-public static class EnumerableExtensions {
-    [Extension]
-    public static Where<T>(source: IEnumerable<T>, predicate: Func<T, bool>)
-        -> IEnumerable<T> {
-        // implementation omitted
-    }
-}
-```
 
 Extension methods participate in lookup through the same `import` mechanism used
 for types. Importing a namespace brings every extension method declared on the
@@ -705,6 +659,17 @@ assigned value. Overload resolution prefers instance properties over
 extensions, mirroring the method rules. Extension properties are accessor-only:
 they cannot declare backing storage, and both accessors must be implemented
 with bodies or expression clauses.
+
+```raven
+extension ListExt for List<int>
+{
+    CountPlusOne: int
+    {
+        get => self.Count + 1
+        set => self.Add(value)
+    }
+}
+```
 
 #### Pipe operator
 
