@@ -16,25 +16,25 @@ public class IntHelpers {
     }
 }
 
-union Result<T> {
+public union Result<T> {
     Ok(value: T)
     Error(message: string)
 }
 
-union Result<T, E> {
+public union Result<T, E> {
     Ok(value: T)
     Error(data: E)
 }
 
 extension ResultExtensions<T> for Result<T> {
-    UnwrapOrDefault() -> T {
+    public UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value
         }
         return default(T)
     }
 
-    UnwrapOrThrow() -> T {
+    public UnwrapOrThrow() -> T {
         var error: string = ""
         if self is .Ok(value) {
             return value

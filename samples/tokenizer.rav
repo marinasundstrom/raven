@@ -1,5 +1,6 @@
 import System.*
 import System.Text.*
+import System.IO.*
 
 /*
  *. let lexer = Lexer.WithSource(TextReader(...))
@@ -7,7 +8,7 @@ import System.Text.*
  */
 
 public class Lexer {
-    let textReader : TextReader
+    let _textReader : TextReader
 
     public init WithSource(textReader : TextReader) {
         self._textReader = textReader
@@ -17,31 +18,26 @@ public class Lexer {
         while true {
             let ch = _textReader.Read()
 
+            if ch == 0 {
+                return .EOF
+            }
+
             var number = -1
 
             if int.TryParse(ch.ToString(), &number) {
-                return Token(.Numerical, "test")
-            } else if char.IsLetter(ch) {
-                return Token(.Identifier, "test")
-                // return .Identifier("test")
+                return Number("test", number)
+            } else if char.IsLetter(Convert.ToChar(ch)) { //(char)ch
+                return .Identifier("test")
             }
+
+            return .Unknown
         }
     }
 }
 
-public struct Token(kind : SyntaxKind, value : string) {
-
-    public Kind : SyntaxKind { get } = kind
-
-    public Value : string { get } = value
-}
-
-public enum SyntaxKind { Identifier, Numerical, Unknown }
-
-/*
-enum Token {
+public union Token {
    Identifier(text: string)
-   Number(text: string)
+   Number(text: string, value: int)
+   EOF
    Unknown
 }
-*/
