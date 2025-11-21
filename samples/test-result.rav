@@ -37,17 +37,17 @@ union Result<T, E> {
 extension ResultExtensions<T> for Result<T> {
 
     // Arrow prop syntax not supported
-    //IsOk: bool => self is .Ok(value)
+    //public IsOk: bool => self is .Ok(value)
 
     // Compiles but IL isn't valid
     // Unhandled exception. System.TypeLoadException: Could not load type 'ResultExtensions`1' from assembly 'test-result, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'.
-    //IsError: bool {
+    //public IsError: bool {
     //    get => self is .Error(message)
     //}
 
     // Also fails
     // Unhandled exception. System.TypeLoadException: Could not load type 'ResultExtensions`1' from assembly 'test-result, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'.
-    IsError: bool {
+    public IsError: bool {
         get {
             if self is .Error(error) {
                 return true
@@ -56,14 +56,14 @@ extension ResultExtensions<T> for Result<T> {
         }
     }
 
-    UnwrapOrDefault() -> T {
+    public UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value
         }
         return default(T)
     }
 
-    UnwrapOrThrow() -> T {
+    public UnwrapOrThrow() -> T {
         var error: string = ""
         if self is .Ok(value) {
             return value
