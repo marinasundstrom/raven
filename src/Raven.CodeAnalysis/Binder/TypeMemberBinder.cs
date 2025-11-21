@@ -187,6 +187,15 @@ internal class TypeMemberBinder : Binder
             var initializerForSymbol = isLiteral ? null : initializer;
             var constantValueForSymbol = isLiteral ? constantValue : null;
 
+            var fieldTypeLocation = decl.TypeAnnotation?.Type.GetLocation() ?? decl.Identifier.GetLocation();
+            ValidateTypeAccessibility(
+                fieldType,
+                fieldAccessibility,
+                "field",
+                GetMemberDisplayName(decl.Identifier.ValueText),
+                $"field '{decl.Identifier.ValueText}'",
+                fieldTypeLocation);
+
             _ = new SourceFieldSymbol(
                 decl.Identifier.ValueText,
                 fieldType,
@@ -411,6 +420,36 @@ internal class TypeMemberBinder : Binder
             signatureParameters.Insert(0, (receiverType, RefKind.None));
         var signatureArray = signatureParameters.ToArray();
 
+        ValidateTypeAccessibility(
+            returnType,
+            methodAccessibility,
+            GetMethodKindDisplay(methodKind),
+            GetMemberDisplayName(displayName),
+            "return",
+            methodDecl.ReturnType?.Type.GetLocation() ?? methodDecl.Identifier.GetLocation());
+
+        if (receiverType is not null && _extensionReceiverTypeSyntax is not null)
+        {
+            ValidateTypeAccessibility(
+                receiverType,
+                methodAccessibility,
+                GetMethodKindDisplay(methodKind),
+                GetMemberDisplayName(displayName),
+                "receiver",
+                _extensionReceiverTypeSyntax.GetLocation());
+        }
+
+        foreach (var (paramName, paramType, _, syntax, _) in resolvedParamInfos)
+        {
+            ValidateTypeAccessibility(
+                paramType,
+                methodAccessibility,
+                GetMethodKindDisplay(methodKind),
+                GetMemberDisplayName(displayName),
+                $"parameter '{paramName}'",
+                syntax.TypeAnnotation!.Type.GetLocation());
+        }
+
         if (explicitInterfaceType is not null)
         {
             explicitInterfaceMember = FindExplicitInterfaceImplementation(
@@ -630,6 +669,17 @@ internal class TypeMemberBinder : Binder
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
 
+        foreach (var (paramName, paramType, _, syntax, _) in paramInfos)
+        {
+            ValidateTypeAccessibility(
+                paramType,
+                ctorAccessibility,
+                "constructor",
+                GetMemberDisplayName(".ctor"),
+                $"parameter '{paramName}'",
+                syntax.TypeAnnotation!.Type.GetLocation());
+        }
+
         CheckForDuplicateSignature(".ctor", _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation(), ctorDecl);
 
         var ctorSymbol = new SourceMethodSymbol(
@@ -730,6 +780,17 @@ internal class TypeMemberBinder : Binder
                 : ResolveType(typeSyntax);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
+        }
+
+        foreach (var (paramName, paramType, _, syntax, _) in paramInfos)
+        {
+            ValidateTypeAccessibility(
+                paramType,
+                ctorAccessibility,
+                "constructor",
+                GetMemberDisplayName(ctorDecl.Identifier.ValueText),
+                $"parameter '{paramName}'",
+                syntax.TypeAnnotation!.Type.GetLocation());
         }
 
         CheckForDuplicateSignature(ctorDecl.Identifier.ValueText, ctorDecl.Identifier.ValueText, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.Identifier.GetLocation(), ctorDecl);
@@ -926,9 +987,28 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
         }
 
+        ValidateTypeAccessibility(
+            propertyType,
+            propertyAccessibility,
+            "property",
+            GetMemberDisplayName(propertyName),
+            "property",
+            propertyDecl.Type.Type.GetLocation());
+
         ITypeSymbol? receiverType = null;
         if (isExtensionContainer)
             receiverType = GetExtensionReceiverType();
+
+        if (receiverType is not null && _extensionReceiverTypeSyntax is not null)
+        {
+            ValidateTypeAccessibility(
+                receiverType,
+                propertyAccessibility,
+                "property",
+                GetMemberDisplayName(propertyName),
+                "receiver",
+                _extensionReceiverTypeSyntax.GetLocation());
+        }
 
         var propertySymbol = new SourcePropertySymbol(
             propertyName,
@@ -1287,6 +1367,25 @@ internal class TypeMemberBinder : Binder
         {
             _diagnostics.ReportVirtualMemberInSealedType("Item", _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
+        }
+
+        ValidateTypeAccessibility(
+            propertyType,
+            indexerAccessibility,
+            "indexer",
+            GetMemberDisplayName("Item"),
+            "indexer",
+            indexerDecl.Type.Type.GetLocation());
+
+        foreach (var parameter in indexerParameters)
+        {
+            ValidateTypeAccessibility(
+                parameter.Type,
+                indexerAccessibility,
+                "indexer",
+                GetMemberDisplayName("Item"),
+                $"parameter '{parameter.Syntax.Identifier.ValueText}'",
+                parameter.Syntax.TypeAnnotation!.Type.GetLocation());
         }
 
         var propertySymbol = new SourcePropertySymbol(
@@ -1662,6 +1761,40 @@ internal class TypeMemberBinder : Binder
         }
 
         return new ParameterDefaultProcessingResult(true, evaluation.Value);
+    }
+
+    private string GetMemberDisplayName(string memberName)
+    {
+        return _containingType is null
+            ? memberName
+            : $"{_containingType.Name}.{memberName}";
+    }
+
+    private static string GetMethodKindDisplay(MethodKind methodKind)
+    {
+        return methodKind is MethodKind.Constructor or MethodKind.NamedConstructor
+            ? "constructor"
+            : "method";
+    }
+
+    private void ValidateTypeAccessibility(
+        ITypeSymbol type,
+        Accessibility memberAccessibility,
+        string memberKind,
+        string memberName,
+        string typeRole,
+        Location location)
+    {
+        if (type.TypeKind == TypeKind.Error)
+            return;
+
+        var effectiveMemberAccessibility = AccessibilityUtilities.GetEffectiveAccessibility(memberAccessibility, _containingType);
+
+        if (AccessibilityUtilities.IsTypeLessAccessibleThan(type, effectiveMemberAccessibility))
+        {
+            var typeDisplay = type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportTypeIsLessAccessibleThanMember(typeRole, typeDisplay, memberKind, memberName, location);
+        }
     }
 
     internal static ParameterDefaultEvaluationResult EvaluateParameterDefaultValue(

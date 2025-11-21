@@ -15,7 +15,11 @@ public sealed class TopLevelGlobalStatementTests : CompilationTestBase
     [Fact]
     public void GlobalStatements_CanReferenceTopLevelTypes()
     {
-        const string source = """
+const string source = """
+let greeter: IGreeter = Greeter();
+greeter.Greet();
+let shade = Shade.Green;
+
 interface IGreeter {
     public Greet() -> unit;
 };
@@ -28,10 +32,6 @@ enum Shade {
     Red,
     Green,
 };
-
-let greeter: IGreeter = Greeter();
-greeter.Greet();
-let shade = Shade.Green;
 """;
 
         var tree = SyntaxTree.ParseText(source);

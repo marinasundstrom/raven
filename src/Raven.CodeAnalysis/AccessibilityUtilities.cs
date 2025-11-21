@@ -199,4 +199,83 @@ internal static class AccessibilityUtilities
 
         return false;
     }
+
+    public static bool IsTypeLessAccessibleThan(ITypeSymbol type, Accessibility requiredAccessibility)
+    {
+        if (type is null)
+            return false;
+
+        if (type.TypeKind == TypeKind.Error)
+            return false;
+
+        var typeAccessibility = GetEffectiveAccessibility(type);
+        return GetAccessibilityRank(typeAccessibility) < GetAccessibilityRank(requiredAccessibility);
+    }
+
+    public static Accessibility GetEffectiveAccessibility(Accessibility accessibility, INamedTypeSymbol? containingType)
+    {
+        var effectiveAccessibility = NormalizeAccessibility(accessibility);
+
+        for (var current = containingType; current is not null; current = current.ContainingType)
+        {
+            var currentAccessibility = NormalizeAccessibility(current.DeclaredAccessibility);
+            effectiveAccessibility = Min(effectiveAccessibility, currentAccessibility);
+        }
+
+        return effectiveAccessibility;
+    }
+
+    private static Accessibility GetEffectiveAccessibility(ITypeSymbol type)
+    {
+        var accessibility = NormalizeAccessibility(type.DeclaredAccessibility);
+
+        if (type is INamedTypeSymbol { IsGenericType: true } namedType)
+        {
+            foreach (var argument in namedType.TypeArguments)
+                accessibility = Min(accessibility, GetEffectiveAccessibility(argument));
+        }
+
+        if (type is IArrayTypeSymbol arrayType)
+            accessibility = Min(accessibility, GetEffectiveAccessibility(arrayType.ElementType));
+        else if (type is IPointerTypeSymbol pointerType)
+            accessibility = Min(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType));
+        else if (type is IAddressTypeSymbol addressType)
+            accessibility = Min(accessibility, GetEffectiveAccessibility(addressType.ReferencedType));
+        else if (type is IUnionTypeSymbol unionType)
+        {
+            foreach (var unionMember in unionType.Types)
+                accessibility = Min(accessibility, GetEffectiveAccessibility(unionMember));
+        }
+
+        if (type.ContainingType is { } containingType)
+            accessibility = Min(accessibility, GetEffectiveAccessibility(containingType));
+
+        return accessibility;
+    }
+
+    private static Accessibility Min(Accessibility first, Accessibility second)
+    {
+        return GetAccessibilityRank(first) <= GetAccessibilityRank(second) ? first : second;
+    }
+
+    private static Accessibility NormalizeAccessibility(Accessibility accessibility)
+    {
+        if (accessibility == Accessibility.NotApplicable)
+            return Accessibility.Public;
+
+        return accessibility;
+    }
+
+    private static int GetAccessibilityRank(Accessibility accessibility)
+    {
+        return accessibility switch
+        {
+            Accessibility.Private => 0,
+            Accessibility.ProtectedAndInternal => 1,
+            Accessibility.ProtectedAndProtected => 2,
+            Accessibility.Internal => 3,
+            Accessibility.ProtectedOrInternal => 4,
+            _ => 5,
+        };
+    }
 }
