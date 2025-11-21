@@ -1,0 +1,19 @@
+import System.*
+import System.Collections.Generic.*
+
+let res: Result<int> = .Error("Bang")
+
+Console.WriteLine("Is error: ${res.IsError}")
+
+extension TestExtensions<T> for Result<T> {
+    public IsError: bool {
+        get {
+            return true;
+        }
+    }
+}
+
+public union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}

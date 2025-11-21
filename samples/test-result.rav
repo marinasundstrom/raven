@@ -36,24 +36,11 @@ union Result<T, E> {
 
 extension ResultExtensions<T> for Result<T> {
 
-    // Arrow prop syntax not supported
+    // Arrow prop syntax not working
     //public IsOk: bool => self is .Ok(value)
 
-    // Compiles but IL isn't valid
-    // Unhandled exception. System.TypeLoadException: Could not load type 'ResultExtensions`1' from assembly 'test-result, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'.
-    //public IsError: bool {
-    //    get => self is .Error(message)
-    //}
-
-    // Also fails
-    // Unhandled exception. System.TypeLoadException: Could not load type 'ResultExtensions`1' from assembly 'test-result, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'.
     public IsError: bool {
-        get {
-            if self is .Error(error) {
-                return true
-            }
-            return false;
-        }
+        get => self is .Error(message)
     }
 
     public UnwrapOrDefault() -> T {
