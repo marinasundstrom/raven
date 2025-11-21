@@ -580,6 +580,10 @@ internal class TypeDeclarationParser : SyntaxParser
             //typeAnnotation = (ArrowTypeClauseSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
         }
 
+        ArrowExpressionClauseSyntax? expressionBody = null;
+        if (PeekToken().IsKind(SyntaxKind.FatArrowToken))
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+
         EqualsValueClauseSyntax? initializer = null;
         if (IsNextToken(SyntaxKind.EqualsToken, out _))
         {
@@ -588,7 +592,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return PropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, initializer, terminatorToken);
+        return PropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
     }
 
     private TypeAnnotationClauseSyntax CreateMissingTypeAnnotationClause()

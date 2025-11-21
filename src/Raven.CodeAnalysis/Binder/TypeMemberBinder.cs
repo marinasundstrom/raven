@@ -889,7 +889,7 @@ internal class TypeMemberBinder : Binder
         return type;
     }
 
-    public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
+    public Dictionary<SyntaxNode, MethodBinder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
     {
         var propertyType = ResolveType(propertyDecl.Type.Type);
         var modifiers = propertyDecl.Modifiers;
@@ -1051,7 +1051,8 @@ internal class TypeMemberBinder : Binder
             propertySymbol.SetBackingField(backingField);
         }
 
-        var hasGetter = propertyDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? false;
+        var hasExpressionBody = propertyDecl.ExpressionBody is not null;
+        var hasGetter = propertyDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? hasExpressionBody;
         var hasSetter = propertyDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.SetAccessorDeclaration) ?? false;
 
         IMethodSymbol? overriddenGetter = null;
@@ -1118,7 +1119,7 @@ internal class TypeMemberBinder : Binder
             }
         }
 
-        var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
+        var binders = new Dictionary<SyntaxNode, MethodBinder>();
 
         SourceMethodSymbol? getMethod = null;
         SourceMethodSymbol? setMethod = null;
@@ -1234,6 +1235,70 @@ internal class TypeMemberBinder : Binder
                 else
                     setMethod = methodSymbol;
             }
+        }
+        else if (propertyDecl.ExpressionBody is not null)
+        {
+            var name = explicitAccessorPrefix + "get_" + propertySymbol.Name;
+            var accessorOverride = isOverride && overriddenGetter is not null;
+            var accessorVirtual = accessorOverride || isVirtual;
+            var accessorSealed = accessorOverride && isSealed;
+
+            var methodSymbol = new SourceMethodSymbol(
+                name,
+                propertyType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                propertySymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [propertyDecl.GetLocation()],
+                [propertyDecl.GetReference()],
+                isStatic: isStatic || isExtensionContainer,
+                methodKind: MethodKind.PropertyGet,
+                isAsync: false,
+                isVirtual: accessorVirtual,
+                isOverride: accessorOverride,
+                isSealed: accessorSealed,
+                declaredAccessibility: propertyAccessibility);
+
+            if (isExtensionContainer)
+                methodSymbol.MarkDeclaredInExtension();
+
+            var parameters = new List<SourceParameterSymbol>();
+            if (isExtensionContainer && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+            {
+                var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+                var selfParameter = new SourceParameterSymbol(
+                    "self",
+                    receiverType,
+                    methodSymbol,
+                    _containingType,
+                    receiverNamespace,
+                    [_extensionReceiverTypeSyntax.GetLocation()],
+                    [_extensionReceiverTypeSyntax.GetReference()]);
+                parameters.Add(selfParameter);
+            }
+
+            methodSymbol.SetParameters(parameters);
+
+            if (explicitInterfaceType is not null && explicitInterfaceProperty?.GetMethod is not null)
+            {
+                methodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceProperty.GetMethod));
+            }
+            else if (explicitInterfaceType is not null)
+            {
+                _diagnostics.ReportExplicitInterfaceMemberNotFound(
+                    explicitInterfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    propertyName,
+                    propertyDecl.Identifier.GetLocation());
+            }
+
+            if (accessorOverride && overriddenGetter is not null)
+                methodSymbol.SetOverriddenMethod(overriddenGetter);
+
+            var binder = new MethodBinder(methodSymbol, this);
+            binders[propertyDecl] = binder;
+
+            getMethod = methodSymbol;
         }
 
         propertySymbol.SetAccessors(getMethod, setMethod);

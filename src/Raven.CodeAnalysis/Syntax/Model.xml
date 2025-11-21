@@ -702,6 +702,7 @@
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="Type" Type="TypeAnnotationClause" IsInherited="true" />
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsInherited="true" />
+    <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>

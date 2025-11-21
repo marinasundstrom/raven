@@ -208,6 +208,8 @@ internal class MethodBodyGenerator
                 => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null
                 => semanticModel.GetBoundNode(a.ExpressionBody.Expression) as BoundExpression,
+            PropertyDeclarationSyntax p when p.ExpressionBody is not null
+                => semanticModel.GetBoundNode(p.ExpressionBody.Expression) as BoundExpression,
             FunctionStatementSyntax l when l.ExpressionBody is not null
                 => semanticModel.GetBoundNode(l.ExpressionBody.Expression) as BoundExpression,
             _ => null
@@ -356,6 +358,18 @@ internal class MethodBodyGenerator
                          propertySymbol.BackingField is SourceFieldSymbol backingField)
                 {
                     EmitAutoPropertyAccessor(accessorDeclaration, propertySymbol, backingField);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ret);
+                }
+                break;
+
+            case PropertyDeclarationSyntax propertyDeclaration:
+                if (expressionBody is not null)
+                {
+                    new ExpressionGenerator(baseGenerator, expressionBody).Emit();
+                    ILGenerator.Emit(OpCodes.Ret);
                 }
                 else
                 {

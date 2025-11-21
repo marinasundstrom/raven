@@ -148,6 +148,10 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
             accessorList = ParseAccessorList();
 
+        ArrowExpressionClauseSyntax? expressionBody = null;
+        if (PeekToken().IsKind(SyntaxKind.FatArrowToken))
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+
         EqualsValueClauseSyntax? initializer = null;
         if (IsNextToken(SyntaxKind.EqualsToken, out _))
             initializer = new EqualsValueClauseSyntaxParser(this).Parse();
@@ -161,6 +165,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             identifier,
             typeAnnotation,
             accessorList,
+            expressionBody,
             initializer,
             terminatorToken);
     }
