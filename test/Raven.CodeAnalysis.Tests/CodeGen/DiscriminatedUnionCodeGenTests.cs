@@ -714,4 +714,64 @@ union Test {
             Assert.Single(caseToStrings);
         }
     }
+
+    [Fact]
+    public void GenericUnionCaseType_IsRegisteredForCodeGeneration()
+    {
+        var code = """
+import System.*
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+extension ResultExtensions<T> for Result<T> {
+    public IsError: bool {
+        get {
+            if self is .Error(message) {
+                return true
+            }
+            return false
+        }
+    }
+}
+
+class Container {
+    public CreateError() -> Result<int> {
+        return Result<int>.Error(message: "oops")
+    }
+
+    public Check() -> bool {
+        var value = CreateError()
+        return value.IsError
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var check = containerType.GetMethod("Check", BindingFlags.Public | BindingFlags.Instance)!;
+        var instance = Activator.CreateInstance(containerType)!;
+
+        var isError = (bool)check.Invoke(instance, Array.Empty<object?>())!;
+        Assert.True(isError);
+    }
 }

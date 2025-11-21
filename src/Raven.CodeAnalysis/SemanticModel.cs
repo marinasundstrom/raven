@@ -971,6 +971,8 @@ public partial class SemanticModel
                 [caseClause.GetLocation()],
                 [caseClause.GetReference()]);
 
+            RegisterMember(unionSymbol, caseSymbol);
+
             var constructor = new SourceMethodSymbol(
                 ".ctor",
                 unitType,
