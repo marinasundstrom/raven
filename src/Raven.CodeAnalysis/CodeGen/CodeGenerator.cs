@@ -933,13 +933,30 @@ internal class CodeGenerator
         EnsureAsyncStateMachines();
         EnsureIteratorStateMachines();
 
-        var types = Compilation.Module.GlobalNamespace
+        var declaredTypes = Compilation.Module.GlobalNamespace
             .GetAllMembersRecursive()
             .OfType<ITypeSymbol>()
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
-        var unionCaseTypes = types
+        var extensionTypes = Compilation.SyntaxTrees
+            .Select(tree => (tree, model: Compilation.GetSemanticModel(tree)))
+            .SelectMany(tuple => tuple.tree.GetRoot()
+                .DescendantNodes()
+                .OfType<ExtensionDeclarationSyntax>()
+                .Select(decl => tuple.model.GetDeclaredSymbol(decl)))
+            .OfType<ITypeSymbol>()
+            .Where(t => t.DeclaringSyntaxReferences.Length > 0)
+            .ToArray();
+
+        var allTypes = declaredTypes
+            .Cast<ISymbol>()
+            .Concat(extensionTypes)
+            .Distinct(SymbolEqualityComparer.Default)
+            .OfType<ITypeSymbol>()
+            .ToArray();
+
+        var unionCaseTypes = declaredTypes
             .OfType<IDiscriminatedUnionSymbol>()
             .SelectMany(union => union.Cases)
             .OfType<ITypeSymbol>()
@@ -950,7 +967,7 @@ internal class CodeGenerator
         var synthesizedDelegates = Compilation.GetSynthesizedDelegateTypes().ToArray();
         var synthesizedIterators = Compilation.GetSynthesizedIteratorTypes().ToArray();
 
-        foreach (var typeSymbol in types)
+        foreach (var typeSymbol in allTypes)
         {
             GetOrCreateTypeGenerator(typeSymbol);
         }
@@ -978,7 +995,7 @@ internal class CodeGenerator
         var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
         var visiting = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
 
-        foreach (var typeSymbol in types)
+        foreach (var typeSymbol in allTypes)
         {
             EnsureTypeBuilderDefined(typeSymbol, visited, visiting);
         }

@@ -767,6 +767,8 @@ class Container {
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
+        var extensionContainer = runtimeAssembly.GetType("ResultExtensions`1");
+        Assert.NotNull(extensionContainer);
         var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
         var check = containerType.GetMethod("Check", BindingFlags.Public | BindingFlags.Instance)!;
         var instance = Activator.CreateInstance(containerType)!;
