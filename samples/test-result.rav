@@ -4,7 +4,7 @@
 
 import System.*
 
-let res = parseNumber("42")
+let res = parseNumber("foo")
 
 Console.WriteLine("Is error: ${res.IsError}")
 
@@ -38,6 +38,10 @@ extension ResultExtensions<T> for Result<T> {
 
     // Arrow prop syntax not working
     //public IsOk: bool => self is .Ok(value)
+
+    public IsOk: bool {
+        get => self is .Ok(message)
+    }
 
     public IsError: bool {
         get => self is .Error(message)
