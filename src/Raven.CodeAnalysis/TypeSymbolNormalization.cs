@@ -34,6 +34,9 @@ internal static class TypeSymbolNormalization
 
         var filtered = RemoveRedundantUnionMembers(members.ToImmutable());
 
+        if (TryCollapseToDiscriminatedUnion(filtered, out var discriminatedUnion))
+            return NormalizeForInference(discriminatedUnion);
+
         if (TryCollapseToNullable(filtered, out var collapsed))
             return NormalizeForInference(collapsed);
 
@@ -102,6 +105,41 @@ internal static class TypeSymbolNormalization
         return filtered.ToImmutable();
     }
 
+    private static bool TryCollapseToDiscriminatedUnion(
+        ImmutableArray<ITypeSymbol> members,
+        out ITypeSymbol? result)
+    {
+        result = null;
+
+        if (members.IsDefaultOrEmpty)
+            return false;
+
+        IDiscriminatedUnionSymbol? discriminatedUnion = null;
+
+        foreach (var member in members)
+        {
+            var caseSymbol = member.TryGetDiscriminatedUnionCase();
+            if (caseSymbol is null)
+                return false;
+
+            var currentUnion = UnwrapAlias(caseSymbol.Union) as IDiscriminatedUnionSymbol;
+            if (currentUnion is null)
+                return false;
+
+            if (discriminatedUnion is null)
+            {
+                discriminatedUnion = currentUnion;
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(discriminatedUnion, currentUnion))
+                return false;
+        }
+
+        result = discriminatedUnion as ITypeSymbol;
+        return result is not null;
+    }
+
     private static bool TryCollapseToNullable(ImmutableArray<ITypeSymbol> members, out ITypeSymbol? result)
     {
         result = null;
@@ -143,5 +181,13 @@ internal static class TypeSymbolNormalization
 
         result = new NullableTypeSymbol(other, null, null, null, []);
         return true;
+    }
+
+    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    {
+        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol aliasTarget)
+            type = aliasTarget;
+
+        return type;
     }
 }

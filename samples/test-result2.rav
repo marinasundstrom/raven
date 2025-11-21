@@ -4,21 +4,15 @@
 
 import System.*
 
-let res = parseNumber("42")
+let unwrapped3 = IntHelpers.ParseNumber("23").UnwrapOrThrow()
+Console.WriteLine(unwrapped3)
 
-let str = res match {
-    .Ok(v) => "Number is: ${v}"
-    .Error(message) => message
-}
-
-Console.WriteLine(str)
-
-let res2 = parseNumber("foo").UnwrapOrThrow()
-
-func parseNumber(str: string) -> Result<int> {
-    return try int.Parse(str) match {
-        int v => .Ok(v)
-        Exception exc => .Error(exc.Message)
+public class IntHelpers {
+    public static ParseNumber(str: string) -> Result<int> {
+        return try int.Parse(str) match {
+            int v => .Ok(v)
+            Exception exc => .Error(exc.Message)
+        }
     }
 }
 
