@@ -25,8 +25,6 @@ You find proposals for future language features [here](../proposals/).
 
 The file extension for source code files is: `.rav`.
 
-> Perhaps in the future we should use `.rvn`.
-
 ## Grammar
 
 An accompanying [EBNF grammar](grammar.ebnf) describes the structural
