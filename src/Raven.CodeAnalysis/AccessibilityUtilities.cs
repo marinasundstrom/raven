@@ -227,38 +227,48 @@ internal static class AccessibilityUtilities
 
     private static Accessibility GetEffectiveAccessibility(ITypeSymbol type)
     {
-        return GetEffectiveAccessibility(type, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
+        var cache = new Dictionary<ITypeSymbol, Accessibility>(SymbolEqualityComparer.Default);
+        var visiting = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        return GetEffectiveAccessibility(type, cache, visiting);
     }
 
-    private static Accessibility GetEffectiveAccessibility(ITypeSymbol type, HashSet<ITypeSymbol> visited)
+    private static Accessibility GetEffectiveAccessibility(
+        ITypeSymbol type,
+        Dictionary<ITypeSymbol, Accessibility> cache,
+        HashSet<ITypeSymbol> visiting)
     {
+        if (cache.TryGetValue(type, out var cached))
+            return cached;
+
         var accessibility = NormalizeAccessibility(type.DeclaredAccessibility);
 
-        if (!visited.Add(type))
+        if (!visiting.Add(type))
             return accessibility;
 
         if (type is INamedTypeSymbol { IsGenericType: true } namedType)
         {
             foreach (var argument in namedType.TypeArguments)
-                accessibility = Min(accessibility, GetEffectiveAccessibility(argument, visited));
+                accessibility = Min(accessibility, GetEffectiveAccessibility(argument, cache, visiting));
         }
 
         if (type is IArrayTypeSymbol arrayType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(arrayType.ElementType, visited));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(arrayType.ElementType, cache, visiting));
         else if (type is IPointerTypeSymbol pointerType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType, visited));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType, cache, visiting));
         else if (type is IAddressTypeSymbol addressType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(addressType.ReferencedType, visited));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(addressType.ReferencedType, cache, visiting));
         else if (type is IUnionTypeSymbol unionType)
         {
             foreach (var unionMember in unionType.Types)
-                accessibility = Min(accessibility, GetEffectiveAccessibility(unionMember, visited));
+                accessibility = Min(accessibility, GetEffectiveAccessibility(unionMember, cache, visiting));
         }
 
         if (type.ContainingType is { } containingType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(containingType, visited));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(containingType, cache, visiting));
 
-        visited.Remove(type);
+        visiting.Remove(type);
+        cache[type] = accessibility;
         return accessibility;
     }
 
