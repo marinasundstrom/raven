@@ -663,6 +663,11 @@ public partial class SemanticModel
 
     private void RegisterNamespaceMembers(SyntaxNode containerNode, Binder parentBinder, INamespaceSymbol parentNamespace)
     {
+        var classBinders = new List<(ClassDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+        var interfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
+        var extensionBinders = new List<(ExtensionDeclarationSyntax Syntax, ExtensionDeclarationBinder Binder)>();
+        var unionBinders = new List<(UnionDeclarationSyntax Syntax, UnionDeclarationBinder Binder, SourceDiscriminatedUnionSymbol Symbol)>();
+
         foreach (var member in containerNode.ChildNodes())
         {
             switch (member)
@@ -759,8 +764,8 @@ public partial class SemanticModel
                                 parentNamespace.AsSourceNamespace(),
                                 null,
                                 parentNamespace.AsSourceNamespace(),
-                                [declarationLocation],
-                                [declarationReference],
+                                new[] { declarationLocation },
+                                new[] { declarationReference },
                                 isSealed,
                                 isAbstract,
                                 declaredAccessibility: typeAccessibility);
@@ -780,14 +785,17 @@ public partial class SemanticModel
                         RegisterClassSymbol(classDecl, classSymbol);
                         if (classDecl.BaseList is not null && baseTypeSymbol!.IsSealed)
                             classBinder.Diagnostics.ReportCannotInheritFromSealedType(baseTypeSymbol.Name, classDecl.BaseList.Types[0].GetLocation());
-                        RegisterClassMembers(classDecl, classBinder);
+
+                        classBinders.Add((classDecl, classBinder));
                         break;
                     }
+
                 case UnionDeclarationSyntax unionDecl:
                     {
                         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
                         var namespaceSymbol = parentNamespace.AsSourceNamespace();
-                        RegisterUnionDeclaration(unionDecl, parentBinder, declaringSymbol, namespaceSymbol);
+                        var (unionBinder, unionSymbol) = RegisterUnionDeclaration(unionDecl, parentBinder, declaringSymbol, namespaceSymbol);
+                        unionBinders.Add((unionDecl, unionBinder, unionSymbol));
                         break;
                     }
 
@@ -815,8 +823,8 @@ public partial class SemanticModel
                             parentNamespace.AsSourceNamespace(),
                             null,
                             parentNamespace.AsSourceNamespace(),
-                            [interfaceDecl.GetLocation()],
-                            [interfaceDecl.GetReference()],
+                            new[] { interfaceDecl.GetLocation() },
+                            new[] { interfaceDecl.GetReference() },
                             true,
                             isAbstract: true,
                             declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
@@ -831,7 +839,7 @@ public partial class SemanticModel
                         var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
                         interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
                         _binderCache[interfaceDecl] = interfaceBinder;
-                        RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
+                        interfaceBinders.Add((interfaceDecl, interfaceBinder));
                         break;
                     }
 
@@ -849,8 +857,8 @@ public partial class SemanticModel
                             parentNamespace.AsSourceNamespace(),
                             null,
                             parentNamespace.AsSourceNamespace(),
-                            [extensionDecl.GetLocation()],
-                            [extensionDecl.GetReference()],
+                            new[] { extensionDecl.GetLocation() },
+                            new[] { extensionDecl.GetReference() },
                             isSealed: true,
                             isAbstract: true,
                             declaredAccessibility: extensionAccessibility);
@@ -863,7 +871,7 @@ public partial class SemanticModel
                         extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
                         _binderCache[extensionDecl] = extensionBinder;
 
-                        RegisterExtensionMembers(extensionDecl, extensionBinder);
+                        extensionBinders.Add((extensionDecl, extensionBinder));
                         break;
                     }
 
@@ -879,8 +887,8 @@ public partial class SemanticModel
                             parentNamespace.AsSourceNamespace(),
                             null,
                             parentNamespace.AsSourceNamespace(),
-                            [enumDecl.GetLocation()],
-                            [enumDecl.GetReference()],
+                            new[] { enumDecl.GetLocation() },
+                            new[] { enumDecl.GetReference() },
                             true,
                             declaredAccessibility: enumAccessibility
                         );
@@ -900,8 +908,8 @@ public partial class SemanticModel
                                 enumSymbol,
                                 enumSymbol,
                                 parentNamespace.AsSourceNamespace(),
-                                [enumMember.GetLocation()],
-                                [enumMember.GetReference()],
+                                new[] { enumMember.GetLocation() },
+                                new[] { enumMember.GetReference() },
                                 null,
                                 declaredAccessibility: Accessibility.Public
                             );
@@ -911,8 +919,22 @@ public partial class SemanticModel
                     }
             }
         }
-    }
 
+        foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
+            RegisterUnionCases(unionDecl, unionBinder, unionSymbol);
+
+        foreach (var (classDecl, classBinder) in classBinders)
+        {
+            RegisterClassMembers(classDecl, classBinder);
+            classBinder.EnsureDefaultConstructor();
+        }
+
+        foreach (var (interfaceDecl, interfaceBinder) in interfaceBinders)
+            RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
+
+        foreach (var (extensionDecl, extensionBinder) in extensionBinders)
+            RegisterExtensionMembers(extensionDecl, extensionBinder);
+    }
     private void RegisterUnionCases(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceDiscriminatedUnionSymbol unionSymbol)
     {
         var namespaceSymbol = unionBinder.CurrentNamespace?.AsSourceNamespace()
@@ -1159,7 +1181,7 @@ public partial class SemanticModel
         return new string(buffer);
     }
 
-    private void RegisterUnionDeclaration(
+    private (UnionDeclarationBinder Binder, SourceDiscriminatedUnionSymbol Symbol) RegisterUnionDeclaration(
         UnionDeclarationSyntax unionDecl,
         Binder parentBinder,
         ISymbol declaringSymbol,
@@ -1245,7 +1267,8 @@ public partial class SemanticModel
         unionSymbol.InitializeStorageFields(discriminatorField, payloadField);
 
         RegisterUnionSymbol(unionDecl, unionSymbol);
-        RegisterUnionCases(unionDecl, unionBinder, unionSymbol);
+
+        return (unionBinder, unionSymbol);
     }
 
     private IMethodSymbol GetObjectToStringMethod()
@@ -1411,7 +1434,8 @@ public partial class SemanticModel
                     {
                         var declaringSymbol = (ISymbol)classBinder.ContainingSymbol;
                         var namespaceSymbol = classBinder.CurrentNamespace?.AsSourceNamespace();
-                        RegisterUnionDeclaration(nestedUnion, classBinder, declaringSymbol, namespaceSymbol);
+                        var (unionBinder, unionSymbol) = RegisterUnionDeclaration(nestedUnion, classBinder, declaringSymbol, namespaceSymbol);
+                        RegisterUnionCases(nestedUnion, unionBinder, unionSymbol);
                         break;
                     }
 
