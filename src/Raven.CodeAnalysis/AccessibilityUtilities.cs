@@ -227,29 +227,38 @@ internal static class AccessibilityUtilities
 
     private static Accessibility GetEffectiveAccessibility(ITypeSymbol type)
     {
+        return GetEffectiveAccessibility(type, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
+    }
+
+    private static Accessibility GetEffectiveAccessibility(ITypeSymbol type, HashSet<ITypeSymbol> visited)
+    {
         var accessibility = NormalizeAccessibility(type.DeclaredAccessibility);
+
+        if (!visited.Add(type))
+            return accessibility;
 
         if (type is INamedTypeSymbol { IsGenericType: true } namedType)
         {
             foreach (var argument in namedType.TypeArguments)
-                accessibility = Min(accessibility, GetEffectiveAccessibility(argument));
+                accessibility = Min(accessibility, GetEffectiveAccessibility(argument, visited));
         }
 
         if (type is IArrayTypeSymbol arrayType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(arrayType.ElementType));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(arrayType.ElementType, visited));
         else if (type is IPointerTypeSymbol pointerType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType, visited));
         else if (type is IAddressTypeSymbol addressType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(addressType.ReferencedType));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(addressType.ReferencedType, visited));
         else if (type is IUnionTypeSymbol unionType)
         {
             foreach (var unionMember in unionType.Types)
-                accessibility = Min(accessibility, GetEffectiveAccessibility(unionMember));
+                accessibility = Min(accessibility, GetEffectiveAccessibility(unionMember, visited));
         }
 
         if (type.ContainingType is { } containingType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(containingType));
+            accessibility = Min(accessibility, GetEffectiveAccessibility(containingType, visited));
 
+        visited.Remove(type);
         return accessibility;
     }
 
