@@ -15,6 +15,11 @@ internal class TypeMemberBinder : Binder
     private ITypeSymbol? _extensionReceiverType;
     private bool _extensionReceiverTypeComputed;
 
+    private static readonly SymbolDisplayFormat TypeNameDiagnosticFormat =
+        SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
+            SymbolDisplayGenericsOptions.IncludeTypeParameters |
+            SymbolDisplayGenericsOptions.IncludeVariance);
+
     public TypeMemberBinder(Binder parent, INamedTypeSymbol containingType, TypeSyntax? extensionReceiverTypeSyntax = null)
         : base(parent, parent.Diagnostics)
     {
@@ -1767,7 +1772,7 @@ internal class TypeMemberBinder : Binder
     {
         return _containingType is null
             ? memberName
-            : $"{_containingType.Name}.{memberName}";
+            : $"{_containingType.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat)}.{memberName}";
     }
 
     private static string GetMethodKindDisplay(MethodKind methodKind)
@@ -1792,7 +1797,7 @@ internal class TypeMemberBinder : Binder
 
         if (AccessibilityUtilities.IsTypeLessAccessibleThan(type, effectiveMemberAccessibility))
         {
-            var typeDisplay = type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var typeDisplay = type.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat);
             _diagnostics.ReportTypeIsLessAccessibleThanMember(typeRole, typeDisplay, memberKind, memberName, location);
         }
     }

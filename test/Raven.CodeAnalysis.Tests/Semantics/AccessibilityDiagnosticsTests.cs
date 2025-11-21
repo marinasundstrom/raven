@@ -64,7 +64,7 @@ union Result<T> {
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0501").WithSpan(2, 47, 2, 58).WithArguments("return", "Result", "method", "Container.ParseNumber")]);
+            [new DiagnosticResult("RAV0501").WithSpan(2, 47, 2, 58).WithArguments("return", "Result<int>", "method", "Container.ParseNumber")]);
 
         verifier.Verify();
     }
