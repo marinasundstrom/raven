@@ -6,6 +6,8 @@ import System.*
 
 let res = parseNumber("42")
 
+Console.WriteLine("Is error: ${res.IsError}")
+
 let str = res match {
     .Ok(v) => "Number is: ${v}"
     .Error(message) => message
@@ -33,6 +35,27 @@ union Result<T, E> {
 }
 
 extension ResultExtensions<T> for Result<T> {
+
+    // Arrow prop syntax not supported
+    //IsOk: bool => self is .Ok(value)
+
+    // Compiles but IL isn't valid
+    // Unhandled exception. System.TypeLoadException: Could not load type 'ResultExtensions`1' from assembly 'test-result, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'.
+    //IsError: bool {
+    //    get => self is .Error(message)
+    //}
+
+    // Also fails
+    // Unhandled exception. System.TypeLoadException: Could not load type 'ResultExtensions`1' from assembly 'test-result, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'.
+    IsError: bool {
+        get {
+            if self is .Error(error) {
+                return true
+            }
+            return false;
+        }
+    }
+
     UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value
