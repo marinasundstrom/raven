@@ -2,10 +2,19 @@ import System.*
 import System.Text.*
 import System.IO.*
 
-/*
- *. let lexer = Lexer.WithSource(TextReader(...))
- *  let token = lexer.ReadToken()
- */
+using let sr = StreamReader("test.txt");
+
+let lexer = Lexer.WithSource(sr)
+let token = lexer.ReadToken()
+
+//Console.WriteLine(token)
+
+let value = token match {
+    .Number(text, value) => "Number ${value}"
+    _ => "Misc"
+}
+
+Console.WriteLine(value)
 
 public class Lexer {
     let _textReader : TextReader
@@ -18,20 +27,21 @@ public class Lexer {
         while true {
             let ch = _textReader.Read()
 
+            var number = -1
+
             if ch == 0 {
                 return .EOF
             }
-
-            var number = -1
-
-            if int.TryParse(ch.ToString(), &number) {
+            else if int.TryParse(ch.ToString(), &number) {
                 return Number("test", number)
             } else if char.IsLetter(Convert.ToChar(ch)) { //(char)ch
                 return .Identifier("test")
             }
 
-            return .Unknown
+            break
         }
+
+        return .Unknown
     }
 }
 
