@@ -79,6 +79,8 @@ public static partial class SymbolExtensions
         return property switch
         {
             SourcePropertySymbol sourceProperty => sourceProperty.IsDeclaredInExtension,
+            _ when property.GetMethod?.IsExtensionMethod == true => true,
+            _ when property.SetMethod?.IsExtensionMethod == true => true,
             _ => false
         };
     }

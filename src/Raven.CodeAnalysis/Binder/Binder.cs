@@ -276,6 +276,30 @@ internal abstract class Binder
         if (constructedAccessor.ContainingSymbol is IPropertySymbol constructedProperty)
             return constructedProperty;
 
+        if (constructedAccessor.ContainingType is INamedTypeSymbol containingType)
+        {
+            var propertyAccessorDefinition = (property.GetMethod ?? property.SetMethod)?.OriginalDefinition
+                ?? property.GetMethod
+                ?? property.SetMethod;
+
+            var propertyCandidate = containingType
+                .GetMembers(property.Name)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(candidate =>
+                {
+                    var candidateAccessor = (candidate.GetMethod ?? candidate.SetMethod)?.OriginalDefinition
+                        ?? candidate.GetMethod
+                        ?? candidate.SetMethod;
+
+                    return propertyAccessorDefinition is not null &&
+                        candidateAccessor is not null &&
+                        SymbolEqualityComparer.Default.Equals(candidateAccessor, propertyAccessorDefinition);
+                });
+
+            if (propertyCandidate is not null)
+                return propertyCandidate;
+        }
+
         return property;
     }
 
