@@ -939,6 +939,13 @@ internal class CodeGenerator
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
+        var unionCaseTypes = types
+            .OfType<IDiscriminatedUnionSymbol>()
+            .SelectMany(union => union.Cases)
+            .OfType<ITypeSymbol>()
+            .Where(t => t.DeclaringSyntaxReferences.Length > 0)
+            .ToArray();
+
         var synthesizedAsyncTypes = Compilation.GetSynthesizedAsyncStateMachineTypes().ToArray();
         var synthesizedDelegates = Compilation.GetSynthesizedDelegateTypes().ToArray();
         var synthesizedIterators = Compilation.GetSynthesizedIteratorTypes().ToArray();
@@ -946,6 +953,11 @@ internal class CodeGenerator
         foreach (var typeSymbol in types)
         {
             GetOrCreateTypeGenerator(typeSymbol);
+        }
+
+        foreach (var unionCaseType in unionCaseTypes)
+        {
+            GetOrCreateTypeGenerator(unionCaseType);
         }
 
         foreach (var asyncType in synthesizedAsyncTypes)
@@ -969,6 +981,11 @@ internal class CodeGenerator
         foreach (var typeSymbol in types)
         {
             EnsureTypeBuilderDefined(typeSymbol, visited, visiting);
+        }
+
+        foreach (var unionCaseType in unionCaseTypes)
+        {
+            EnsureTypeBuilderDefined(unionCaseType, visited, visiting);
         }
 
         foreach (var asyncType in synthesizedAsyncTypes)

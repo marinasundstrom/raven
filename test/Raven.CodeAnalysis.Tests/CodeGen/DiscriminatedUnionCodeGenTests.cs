@@ -774,4 +774,74 @@ class Container {
         var isError = (bool)check.Invoke(instance, Array.Empty<object?>())!;
         Assert.True(isError);
     }
+
+    [Fact]
+    public void GenericExtensionProperty_WithSiblingUnion_EmitsCaseTypes()
+    {
+        var code = """
+import System.*
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(data: E)
+}
+
+extension ResultExtensions<T> for Result<T> {
+    public IsError: bool {
+        get {
+            if self is .Error(message) {
+                return true
+            }
+            return false
+        }
+    }
+}
+
+class Container {
+    private Parse(text: string) -> Result<int> {
+        return try int.Parse(text) match {
+            int value => .Ok(value)
+            Exception exc => .Error(exc.Message)
+        }
+    }
+
+    public Check(text: string) -> bool {
+        return Parse(text).IsError
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var check = containerType.GetMethod("Check", BindingFlags.Public | BindingFlags.Instance)!;
+        var instance = Activator.CreateInstance(containerType)!;
+
+        var isError = (bool)check.Invoke(instance, new object?[] { "foo" })!;
+        var isOk = (bool)check.Invoke(instance, new object?[] { "42" })!;
+
+        Assert.True(isError);
+        Assert.False(isOk);
+    }
 }
