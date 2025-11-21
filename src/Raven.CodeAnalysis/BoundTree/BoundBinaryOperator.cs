@@ -57,35 +57,49 @@ internal partial class BoundBinaryOperator
 
         var candidates = new[]
         {
-            new BoundBinaryOperator(BinaryOperatorKind.Addition,  intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction, intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication, intType, intType, intType),
-            new BoundBinaryOperator(BinaryOperatorKind.Division, intType, intType, intType),
+            // int arithmetic
+            new BoundBinaryOperator(BinaryOperatorKind.Addition,        intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.Division,        intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, intType, intType),
 
-            new BoundBinaryOperator(BinaryOperatorKind.Addition, intType, int64, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction, intType, int64, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,intType, int64, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Division, intType, int64, int64),
+            // int (left) with long (right)
+            new BoundBinaryOperator(BinaryOperatorKind.Addition,        intType, int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     intType, int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  intType, int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Division,        intType, int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, int64,  int64),
 
-            new BoundBinaryOperator(BinaryOperatorKind.Addition, int64, int64, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction, int64, int64, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication, int64, int64, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Division,int64, int64, int64),
+            // long arithmetic
+            new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     int64,  int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  int64,  int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Division,        int64,  int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  int64,  int64),
 
-            new BoundBinaryOperator(BinaryOperatorKind.Addition, int64, intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Subtraction, int64, intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,int64, intType, int64),
-            new BoundBinaryOperator(BinaryOperatorKind.Division, int64, intType, int64),
+            // long (left) with int (right)
+            new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Division,        int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  intType, int64),
 
-            new BoundBinaryOperator(BinaryOperatorKind.Addition, stringType, stringType, stringType),
+            // string
+            new BoundBinaryOperator(BinaryOperatorKind.Addition,        stringType, stringType, stringType),
 
-            new BoundBinaryOperator(BinaryOperatorKind.Equality, intType, intType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.Inequality, intType, intType, boolType),
+            // int comparisons
+            new BoundBinaryOperator(BinaryOperatorKind.Equality,        intType, intType, boolType),
+            new BoundBinaryOperator(BinaryOperatorKind.Inequality,      intType, intType, boolType),
 
-            new BoundBinaryOperator(BinaryOperatorKind.GreaterThan, intType, intType, boolType),
-            new BoundBinaryOperator(BinaryOperatorKind.LessThan, intType, intType, boolType),
+            new BoundBinaryOperator(BinaryOperatorKind.GreaterThan,     intType, intType, boolType),
+            new BoundBinaryOperator(BinaryOperatorKind.LessThan,        intType, intType, boolType),
             new BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, intType, intType, boolType),
             new BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual, intType, intType, boolType),
+
+            // bool logical operators
+            new BoundBinaryOperator(BinaryOperatorKind.LogicalAnd,      boolType, boolType, boolType),
+            new BoundBinaryOperator(BinaryOperatorKind.LogicalOr,       boolType, boolType, boolType),
         };
 
         // Try regular match first
@@ -151,12 +165,15 @@ internal partial class BoundBinaryOperator
             SyntaxKind.MinusToken => operatorKind == BinaryOperatorKind.Subtraction,
             SyntaxKind.StarToken => operatorKind == BinaryOperatorKind.Multiplication,
             SyntaxKind.SlashToken => operatorKind == BinaryOperatorKind.Division,
+            SyntaxKind.PercentToken => operatorKind == BinaryOperatorKind.Modulo,
             SyntaxKind.EqualsEqualsToken => operatorKind == BinaryOperatorKind.Equality,
             SyntaxKind.NotEqualsToken => operatorKind == BinaryOperatorKind.Inequality,
             SyntaxKind.GreaterThanToken => operatorKind == BinaryOperatorKind.GreaterThan,
             SyntaxKind.LessThanToken => operatorKind == BinaryOperatorKind.LessThan,
             SyntaxKind.GreaterThanOrEqualsToken => operatorKind == BinaryOperatorKind.GreaterThanOrEqual,
             SyntaxKind.LessThanOrEqualsToken => operatorKind == BinaryOperatorKind.LessThanOrEqual,
+            SyntaxKind.AmpersandAmpersandToken => operatorKind == BinaryOperatorKind.LogicalAnd,
+            SyntaxKind.BarBarToken => operatorKind == BinaryOperatorKind.LogicalOr,
             _ => false,
         };
     }
@@ -185,6 +202,9 @@ internal enum BinaryOperatorKind
     LessThan,
     GreaterThanOrEqual,
     LessThanOrEqual,
+    Modulo,
+    LogicalAnd,
+    LogicalOr,
     StringConcatenation,
 
     Lifted = 1 << 8,

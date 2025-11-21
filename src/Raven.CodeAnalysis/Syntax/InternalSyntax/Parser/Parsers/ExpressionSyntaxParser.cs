@@ -69,7 +69,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         ExpressionSyntax ret = ParseAndExpression();
         SyntaxToken token;
-        while (ConsumeToken(SyntaxKind.OrToken, out token))
+        while (ConsumeToken(SyntaxKind.BarBarToken, out token))
         {
             ret = BinaryExpression(SyntaxKind.LogicalOrExpression, ret, token, ParseAndExpression());
         }
@@ -116,13 +116,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.GreaterThanOrEqualsToken:
                 return SyntaxKind.GreaterThanOrEqualsExpression;
 
-                /*
-                case SyntaxKind.LogicalAndToken:
-                    return SyntaxKind.LogicalAndExpression;
+            case SyntaxKind.AmpersandAmpersandToken:
+                return SyntaxKind.LogicalAndExpression;
 
-                case SyntaxKind.LogicalOrToken:
-                    return SyntaxKind.LogicalOrExpression;
-                */
+            case SyntaxKind.BarBarToken:
+                return SyntaxKind.LogicalOrExpression;
         }
 
         throw new ArgumentException("Kind is not valid for this expression.");
@@ -132,7 +130,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         ExpressionSyntax ret = ParseLogicalNotExpression();
         SyntaxToken token;
-        while (ConsumeToken(SyntaxKind.AndToken, out token))
+        while (ConsumeToken(SyntaxKind.AmpersandAmpersandToken, out token))
         {
             ret = BinaryExpression(SyntaxKind.LogicalAndExpression, ret, token, ParseAndExpression());
         }

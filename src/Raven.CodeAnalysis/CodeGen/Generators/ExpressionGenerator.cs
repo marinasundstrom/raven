@@ -2386,11 +2386,19 @@ internal class ExpressionGenerator : Generator
 
     private void EmitBinaryExpression(BoundBinaryExpression binaryExpression)
     {
-        EmitExpression(binaryExpression.Left);
-        EmitExpression(binaryExpression.Right);
-
         var op = binaryExpression.Operator;
         var operatorKind = op.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+
+        // Short-circuiting operators must control evaluation order themselves
+        if (operatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr)
+        {
+            EmitShortCircuitLogical(operatorKind, binaryExpression.Left, binaryExpression.Right);
+            return;
+        }
+
+        // All other operators: evaluate both operands then apply the opcode
+        EmitExpression(binaryExpression.Left);
+        EmitExpression(binaryExpression.Right);
 
         switch (operatorKind)
         {
@@ -2410,9 +2418,9 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Div);
                 break;
 
-            //case BinaryOperatorKind.Modulo:
-            //    ILGenerator.Emit(OpCodes.Rem);
-            //    break;
+            case BinaryOperatorKind.Modulo:
+                ILGenerator.Emit(OpCodes.Rem);
+                break;
 
             case BinaryOperatorKind.Equality:
                 ILGenerator.Emit(OpCodes.Ceq);
@@ -2446,6 +2454,53 @@ internal class ExpressionGenerator : Generator
 
             default:
                 throw new InvalidOperationException($"Invalid operator kind '{op.OperatorKind}'");
+        }
+    }
+
+    private void EmitShortCircuitLogical(
+        BinaryOperatorKind operatorKind,
+        BoundExpression left,
+        BoundExpression right)
+    {
+        var skipLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel();
+
+        switch (operatorKind)
+        {
+            case BinaryOperatorKind.LogicalAnd:
+                // if (!left) result = false; else result = right;
+                EmitExpression(left);                      // stack: [left]
+                ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+
+                // left == true → evaluate right, result = right
+                EmitExpression(right);                     // stack: [right]
+                ILGenerator.Emit(OpCodes.Br_S, endLabel);
+
+                // left == false → push false
+                ILGenerator.MarkLabel(skipLabel);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+                ILGenerator.MarkLabel(endLabel);
+                break;
+
+            case BinaryOperatorKind.LogicalOr:
+                // if (left) result = true; else result = right;
+                EmitExpression(left);                      // stack: [left]
+                ILGenerator.Emit(OpCodes.Brtrue_S, skipLabel);
+
+                // left == false → evaluate right, result = right
+                EmitExpression(right);                     // stack: [right]
+                ILGenerator.Emit(OpCodes.Br_S, endLabel);
+
+                // left == true → push true
+                ILGenerator.MarkLabel(skipLabel);
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+
+                ILGenerator.MarkLabel(endLabel);
+                break;
+
+            default:
+                throw new InvalidOperationException($"Unexpected logical operator kind '{operatorKind}'.");
         }
     }
 

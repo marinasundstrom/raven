@@ -264,12 +264,16 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.EqualsToken, chStr);
 
                     case '|':
-                        if (PeekChar(out ch2) && ch2 == '>')
+                        if (PeekChar(out ch2) && ch2 == '|')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.BarBarToken, "||");
+                        }
+                        else if (PeekChar(out ch2) && ch2 == '>')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.PipeToken, "|>");
                         }
-
                         return new Token(SyntaxKind.BarToken, chStr);
 
                     case '!':
@@ -284,6 +288,11 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.QuestionToken, chStr);
 
                     case '&':
+                        if (PeekChar(out ch2) && ch2 == '&')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.AmpersandAmpersandToken, "&&");
+                        }
                         return new Token(SyntaxKind.AmpersandToken, chStr);
 
                     case '<':

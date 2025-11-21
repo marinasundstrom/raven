@@ -7,38 +7,55 @@ using let sr = StreamReader("test.txt");
 let lexer = Lexer.WithSource(sr)
 let token = lexer.ReadToken()
 
-//Console.WriteLine(token)
+Console.WriteLine(token)
+
+let token2 = lexer.ReadToken()
 
 let value = token match {
     .Number(text, value) => "Number ${value}"
+    .Identifier(text) => "Identifier ${text}"
     _ => "Misc"
 }
 
 Console.WriteLine(value)
 
 public class Lexer {
-    let _textReader : TextReader
+    let _textReader: TextReader
+    let _stringBuilder: StringBuilder = StringBuilder()
 
     public init WithSource(textReader : TextReader) {
         self._textReader = textReader
     }
 
     public ReadToken() -> Token {
-        while true {
-            let ch = _textReader.Read()
+        //if _stringBuilder.Length > 0 {
+            _stringBuilder.Clear();
+        //}
 
-            var number = -1
+        var no = _textReader.Read()
 
-            if ch == 0 {
-                return .EOF
-            }
-            else if int.TryParse(ch.ToString(), &number) {
-                return Number("test", number)
+        var number = -1
+
+        if no == 0 {
+            return .EOF
+        }
+        else {
+            var ch = Convert.ToChar(no);
+            if int.TryParse(ch.ToString(), &number) {
+                _stringBuilder.Append(ch)
+                let noStr = _stringBuilder.ToString();
+                return Number(noStr, number)
             } else if char.IsLetter(Convert.ToChar(ch)) { //(char)ch
-                return .Identifier("test")
+                _stringBuilder.Append(ch)
+                no = _textReader.Read()
+                ch = Convert.ToChar(no)
+                while no != 0 && char.IsLetter(ch) {
+                    _stringBuilder.Append(ch)
+                    no = _textReader.Read()
+                    ch = Convert.ToChar(no)
+                }
+                return .Identifier(_stringBuilder.ToString())
             }
-
-            break
         }
 
         return .Unknown
