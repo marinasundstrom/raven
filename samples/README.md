@@ -30,7 +30,7 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `arrays.rav` | ✅ Emitted / ✅ Ran | Running the DLL prints `3`, `1`, `42`, `3`. |
 | `async/async-await.rav` | ✅ Emitted / ✅ Ran | Finishes with `first:1`, `sum:6`, and `done`. |
 | `async/async-file-io.rav` | ✅ Emitted / ✅ Ran | Runtime output lists the staged writes `alpha`, `beta`, `gamma`. |
-| `async/async-generic-compute.rav` | ✅ Emitted / ✅ Ran | Shows the "Before/After" delay log before printing `42`. |
+| `async/async-generic-compute.rav` | ✅ Emitted / ❌ Ran | Crashes with an `InvalidProgramException` while unwrapping the async generic result. |
 | `async/async-inference-regression.rav` | ❌ Fails | Binder errors persist (`int` can't satisfy the `unit` return type and `WriteLine` overloads stay ambiguous). |
 | `async/async-task-return.rav` | ✅ Emitted / ✅ Ran | Prints the awaited task result `43`. |
 | `async/async-try-catch.rav` | ✅ Emitted / ✅ Ran | Logs `value:42`, `caught:boom`, and `completed`. |
@@ -40,7 +40,9 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `classes.rav` | ✅ Emitted / ✅ Ran | Prints `Hello`, `John`, the projected record, and the trailing unit value. |
 | `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster. |
 | `discard.rav` | ✅ Emitted / ✅ Ran | Prints `Test` twice to demonstrate discards. |
-| `discriminated-unions-generics.rav` | ✅ Emitted / ❌ Ran | Runtime aborts with `System.BadImageFormatException` while formatting the generic result. |
+| `discriminated-unions-generics.rav` | ✅ Emitted / ✅ Ran | Prints the ok and error cases: `ok 99`, `error 'boom'`, `ok 42`. |
+| `discriminated-unions-generics2.rav` | ✅ Emitted / ✅ Ran | Emits `ok 99` followed by `error 'boom'` for the case helpers. |
+| `discriminated-unions-generics3.rav` | ✅ Emitted / ❌ Ran | Throws `InvalidOperationException` when unwrapping a mismatched `Result`. |
 | `discriminated-unions.rav` | ✅ Emitted / ✅ Ran | Prints the token classifications: `identifier 'alpha'`, `number 42`, `unknown token`. |
 | `enums.rav` | ✅ Emitted / ✅ Ran | Outputs `C`, `Grades`, `B`, `Grades`. |
 | `extensions.rav` | ✅ Emitted / ✅ Ran | Outputs `Count: 2`, `Sum: 3`, `Value: 4`. |
@@ -54,9 +56,10 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `generics/generics2.rav` | ✅ Emitted / ✅ Ran | Running the DLL prints `ok`. |
 | `generics/nested-classes.rav` | ✅ Emitted / ✅ Ran | Completes without console output after exercising nested generic types. |
 | `goto.rav` | ✅ Emitted / ⚠️ Not run | Build succeeds but the program would loop forever, so execution is skipped. |
+| `if-in-function.rav` | ✅ Emitted / ✅ Ran | Evaluates the nested function and prints `0`. |
 | `interfaces.rav` | ✅ Emitted / ✅ Ran | Runtime output remains `Init`, `Do`, `Dispose 1`. |
 | `introduction.rav` | ✅ Emitted / ✅ Ran | Prints `Empty input.` followed by the summary lines. |
-| `io.rav` | ✅ Emitted / ✅ Ran | Running with `.` enumerates 49 entries in the directory. |
+| `io.rav` | ✅ Emitted / ✅ Ran | Expects a directory argument; running with `.` listed 53 entries under `samples/`. |
 | `lambda.rav` | ✅ Emitted / ✅ Ran | Shows the captured lambda results and closure state transitions. |
 | `linq.rav` | ✅ Emitted / ✅ Ran | Outputs the reversed list `3`, `2`, `1`. |
 | `main.rav` | ✅ Emitted / ✅ Ran | Prints the critical value banner and tuple projection. |
@@ -76,14 +79,14 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `test5.rav` | ✅ Emitted / ✅ Ran | Prints `Foo: Hejtest 2 3`. |
 | `test9.rav` | ✅ Emitted / ✅ Ran | Produces the unit literal `()`. |
 | `test10.rav` | ✅ Emitted / ✅ Ran | Prints `(2, test)`. |
-| `tokenizer.rav` | ❌ Compile timeout | Compilation hung until the process was killed after 30 seconds, so no DLL was emitted. |
+| `tokenizer.rav` | ❌ Compile timeout | Compilation hung until it was manually canceled (no DLL emitted). |
 | `try-match.rav` | ✅ Emitted / ⚠️ Input mismatch | Running with the default `'foo'` argument reports the format error and exits. |
-| `tuples.rav` | ⚠️ Emitted with warning / ✅ Ran | Compilation warns about the redundant catch-all, and the program prints the tuple projections. |
+| `tuples.rav` | ⚠️ Emitted with warning / ✅ Ran | Compilation warns that all match cases are already handled; the program then prints the tuple projections. |
 | `tuples2.rav` | ✅ Emitted / ✅ Ran | Runtime output remains `tuple False foo`. |
 | `type-unions.rav` | ✅ Emitted / ❌ Ran | Fails at runtime with `FileNotFoundException` for `TestDep.dll` unless the dependency is copied beside the emitted DLL. |
 | `unit.rav` | ✅ Emitted / ✅ Ran | Outputs `Hello` and the unit literals. |
 
-**Runtime observations.** The async suite completes aside from the two known binder regressions, and `reflection.rav` runs to completion. Interactive or non-terminating samples remain non-turnkey: `io.rav` expects a directory argument (running with `.` listed 49 entries), `parse-number.rav` loops waiting for input, and `goto.rav` intentionally never exits. `try-match.rav` reports a format error for its default `'foo'` argument, `tokenizer.rav` still times out during compilation, the HTTP client sample exits with a 403, and `type-unions.rav` needs `TestDep.dll` beside the emitted assembly. `discriminated-unions.rav` now runs to completion, while the generic variant aborts at runtime with a `BadImageFormatException`.
+**Runtime observations.** The async suite largely completes: `async-inference-regression.rav` and `try-match-async.rav` still fail during binding, and `async-generic-compute.rav` now aborts at runtime with an `InvalidProgramException`. Interactive or non-terminating samples remain non-turnkey: `io.rav` expects a directory argument (running with `.` listed 53 entries under `samples/`), `parse-number.rav` loops waiting for input, and `goto.rav` intentionally never exits. `try-match.rav` reports a format error for its default `'foo'` argument, `tokenizer.rav` still hangs until manually canceled, the HTTP client sample exits with a 403, and `type-unions.rav` needs `TestDep.dll` beside the emitted assembly. `discriminated-unions.rav` plus both `discriminated-unions-generics.rav` and `discriminated-unions-generics2.rav` now run to completion, while `discriminated-unions-generics3.rav` fails with an `InvalidOperationException` when unwrapping the mismatched result.
 
 ### Discriminated union gaps
 
