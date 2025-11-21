@@ -1,0 +1,44 @@
+/*
+ * Demonstrates discriminated unions in Raven.
+ */
+
+import System.*
+
+let unwrapped3 = parseNumber("23").UnwrapOrThrow()
+Console.WriteLine(unwrapped3)
+
+func parseNumber(str: string) -> Result<int> {
+    return try int.Parse(str) match {
+        int v => .Ok(v)
+        Exception exc => .Error(exc.Message)
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(data: E)
+}
+
+extension ResultExtensions<T> for Result<T> {
+    UnwrapOrDefault() -> T {
+        if self is .Ok(value) {
+            return value
+        }
+        return default(T)
+    }
+
+    UnwrapOrThrow() -> T {
+        var error: string = ""
+        if self is .Ok(value) {
+            return value
+        } else if self is .Error(error2) {
+            error = error2
+        }
+        throw new System.InvalidOperationException("${error}")
+    }
+}
