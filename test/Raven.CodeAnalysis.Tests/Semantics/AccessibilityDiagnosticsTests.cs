@@ -45,4 +45,47 @@ let value = instance.secret;
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void PublicMethodReturningInternalType_ReportsRAV0501()
+    {
+        const string source = """
+public class Container {
+    public static ParseNumber(str: string) -> Result<int> {
+        return .Ok(0);
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithSpan(2, 47, 2, 58).WithArguments("return", "Result<int>", "method", "Container.ParseNumber")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMethodParameterWithInternalType_ReportsRAV0501()
+    {
+        const string source = """
+internal class Hidden {}
+
+public class Exposer {
+    public Call(value: Hidden) -> int {
+        return 0;
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithSpan(4, 24, 4, 30).WithArguments("parameter 'value'", "Hidden", "method", "Exposer.Call")]);
+
+        verifier.Verify();
+    }
 }

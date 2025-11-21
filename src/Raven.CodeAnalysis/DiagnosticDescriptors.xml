@@ -217,6 +217,10 @@
     Title="Symbol is inaccessible"
     Message="The {symbolKind} '{name}' is inaccessible due to its protection level"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0501" Identifier="TypeIsLessAccessibleThanMember"
+    Title="Type is less accessible than member"
+    Message="The {typeRole} type '{typeName}' is less accessible than {memberKind} '{memberName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0502" Identifier="AttributeNotValidForTarget"
     Title="Attribute not valid for target"
     Message="Attribute '{attributeName}' is not valid on target '{targetName}'. Valid targets are '{validTargets}'"

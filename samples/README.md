@@ -59,7 +59,7 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `if-in-function.rav` | ✅ Emitted / ✅ Ran | Evaluates the nested function and prints `0`. |
 | `interfaces.rav` | ✅ Emitted / ✅ Ran | Runtime output remains `Init`, `Do`, `Dispose 1`. |
 | `introduction.rav` | ✅ Emitted / ✅ Ran | Prints `Empty input.` followed by the summary lines. |
-| `io.rav` | ✅ Emitted / ⚠️ Arg required | Running without arguments prints the usage banner; provide a directory to list entries. |
+| `io.rav` | ✅ Emitted / ✅ Ran | Ran with `.` to list the sample directory contents; running without arguments still prints the usage banner. |
 | `lambda.rav` | ✅ Emitted / ✅ Ran | Shows the captured lambda results and closure state transitions. |
 | `linq.rav` | ✅ Emitted / ✅ Ran | Outputs the reversed list `3`, `2`, `1`. |
 | `main.rav` | ✅ Emitted / ✅ Ran | Prints the critical value banner and tuple projection. |
@@ -70,7 +70,7 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `pipe-operator.rav` | ✅ Emitted / ✅ Ran | Produces `Result: 7`. |
 | `pipe-operator2.rav` | ✅ Emitted / ✅ Ran | Prints `Result: 7`. |
 | `pipe-operator3.rav` | ✅ Emitted / ✅ Ran | Emits `42`. |
-| `reflection.rav` | ✅ Emitted / ✅ Ran | Lists the reflected members without throwing. |
+| `reflection.rav` | ✅ Emitted / ✅ Ran | Lists the reflected members (for example `System.Object`, `Equals`, `ToString`). |
 | `result.rav` | ✅ Emitted / ❌ Ran | `UnwrapOrThrow` throws `InvalidOperationException: Wrong number`. |
 | `shadowing.rav` | ⚠️ Emitted with warning / ✅ Ran | Compilation warns that `a` shadows a previous declaration; runtime emits no output. |
 | `string-interpolation.rav` | ✅ Emitted / ✅ Ran | Outputs the Hebrew greeting from `Console.WriteLine`. |
@@ -82,12 +82,12 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `test9.rav` | ✅ Emitted / ✅ Ran | Produces the unit literal `()`. |
 | `test10.rav` | ✅ Emitted / ✅ Ran | Prints `(2, test)`. |
 | `test-result.rav` | ✅ Emitted / ❌ Ran | Throws `InvalidOperationException` while parsing `foo`. |
-| `test-result2.rav` | ✅ Emitted / ✅ Ran | Prints `23`. |
-| `tokenizer.rav` | ❌ Compile timeout | Compilation hung and had to be interrupted even with a 30s timeout. |
+| `test-result2.rav` | ❌ Fails | Accessibility check now reports RAV0501 for exposing `Result<int>` from `ParseNumber`. |
+| `tokenizer.rav` | ❌ Compile timeout | Compilation still hangs and is terminated after a 120s timeout. |
 | `try-match.rav` | ✅ Emitted / ⚠️ Input mismatch | Running with the default `'foo'` argument reports the format error and exits. |
 | `tuples.rav` | ⚠️ Emitted with warning / ✅ Ran | Compilation warns that all match cases are already handled; the program then prints the tuple projections. |
 | `tuples2.rav` | ✅ Emitted / ✅ Ran | Runtime output remains `tuple False foo`. |
 | `type-unions.rav` | ✅ Emitted / ⚠️ Needs dependency | Copy `TestDep.dll` beside the emitted sample DLL before running. |
 | `unit.rav` | ✅ Emitted / ✅ Ran | Outputs `Hello` and the unit literals. |
 
-**Runtime observations.** The async suite still has gaps: `async-inference-regression.rav` and `try-match-async.rav` fail during binding, and `async-generic-compute.rav` aborts at runtime with an `InvalidProgramException`. Interactive or non-terminating samples remain non-turnkey: `io.rav` needs an argument, `parse-number.rav` loops waiting for input, and `goto.rav` intentionally never exits. `try-match.rav` reports a format error for its default `'foo'` argument, `tokenizer.rav` still hangs even under a timeout, the HTTP client sample exits with a 403, and `type-unions.rav` runs cleanly once `TestDep.dll` is copied beside the emitted assembly. Newly validated results include `test-result2.rav` running to completion while `option.rav`, `result.rav`, and `test-result.rav` throw during unwrapping; `discriminated-unions-generics3.rav` is no longer present in the repository.
+**Runtime observations.** The async suite still has gaps: `async-inference-regression.rav` and `try-match-async.rav` fail during binding, `async-generic-compute.rav` aborts at runtime with an `InvalidProgramException`, and the HTTP client sample exits with a 403 in the sandbox. Interactive or non-terminating samples require manual handling: `io.rav` needs an argument (ran with `.`), `parse-number.rav` waits for console input, and `goto.rav` intentionally never exits. `option.rav`, `result.rav`, and `test-result.rav` still throw while unwrapping failures, and `test-result2.rav` now fails to compile with RAV0501 for exposing an internal `Result<int>`. `try-match.rav` reports a format error for its default `'foo'` argument, `tokenizer.rav` still times out after 120s, `type-unions.rav` needs `TestDep.dll` beside the emitted assembly, and `discriminated-unions-generics3.rav` remains absent.
