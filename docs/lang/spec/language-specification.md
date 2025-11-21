@@ -25,8 +25,6 @@ You find proposals for future language features [here](../proposals/).
 
 The file extension for source code files is: `.rav`.
 
-> Perhaps in the future we should use `.rvn`.
-
 ## Grammar
 
 An accompanying [EBNF grammar](grammar.ebnf) describes the structural
@@ -361,8 +359,7 @@ escaped as `@await` when used outside this construct.
 `await` may only appear inside an async function or lambda. File-scope
 statements synthesize a synchronous `Program.Main` plus an async
 `Program.MainAsync`, so top-level awaits run inside the async method while the
-bridge invokes `MainAsync(args).GetAwaiter().GetResult()` before returning to
-the host. The awaited
+bridge awaits `MainAsync(args)` before returning to the host. The awaited
 expression must expose an instance method `GetAwaiter()` whose return type
 provides an accessible `bool IsCompleted { get; }` property and a parameterless
 `GetResult()` method. If the awaiter’s `GetResult` produces no value, the await
@@ -372,16 +369,11 @@ Failing any of these requirements produces a compile-time diagnostic identifying
 the missing member. The compiler also reports an error when `await` appears
 outside an async context.
 
-Evaluation proceeds in three stages. First the operand expression is evaluated
-to a value and `GetAwaiter()` is invoked to obtain the awaiter. If
-`IsCompleted` returns `true`, execution resumes immediately in the current
-method by calling `GetResult()` and replacing the `await` expression with the
-returned value. Otherwise the async state machine stores the awaiter in a
-hoisted field, stamps its state so `MoveNext` can resume at the suspended
-location, and calls `AwaitUnsafeOnCompleted`/`AwaitOnCompleted` on the method
-builder. The continuation re-enters `MoveNext`, reloads the awaiter field,
-calls `GetResult()`, clears the field, and continues with the remainder of the
-async body.
+Evaluation first computes the operand value and calls `GetAwaiter()` to obtain
+the awaiter. If `IsCompleted` is `true`, `GetResult()` is invoked immediately
+and the await expression yields its value. Otherwise execution is suspended and
+later resumed when the awaiter signals completion; resumption continues after
+the `await` with the result of `GetResult()`.
 
 ### Try expressions
 
@@ -401,10 +393,9 @@ instead. The union conversions follow the same rules as other union expressions
 when targeting explicitly typed variables. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1007-L1022】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3118-L3156】
 
 `await` may appear inside a `try` expression when used in an async method or
-lambda. Async lowering rewrites the await into a block expression while keeping
-the surrounding `try` intact, ensuring the state machine stores the awaited
-value on success and publishes the captured exception on failure without losing
-the expression shape. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L916-L951】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExceptionHandlingTests.cs†L89-L123】
+lambda. The awaited result still flows to the success case, and exceptions
+propagate to the union's exception case without altering the `try` expression's
+shape. 【F:test/Raven.CodeAnalysis.Tests/Semantics/ExceptionHandlingTests.cs†L89-L123】
 
 ### Cast expressions
 
@@ -1449,107 +1440,23 @@ Annotating any other type produces a diagnostic, and the compiler continues
 analysis as though the return type were `Task`. This rule applies uniformly to
 methods, file-scoped functions, and local functions declared inside other
 bodies. Property and indexer accessors may also carry `async`; getters must
-expose a task-shaped return type to remain valid, while setters lower through
-the builder for asynchronous setters so authors can await asynchronous work
-before storing values.
+expose a task-shaped return type to remain valid, while setters may await
+asynchronous work before storing values.
 
-Async declarations support both block bodies and expression bodies. When an
-expression-bodied member is marked `async`, the compiler lifts the expression
-into the generated state machine so `await` may appear anywhere an expression is
-permitted.
-
-Every `return` inside an async declaration lowers to a call on the synthesized
-method builder so the returned task reflects completion of the state machine.
+Async declarations support both block bodies and expression bodies. Every
+`return` inside an async declaration completes the task produced by the method.
 For `async Task` members each `return` statement must omit the expression;
-falling off the end of the body is equivalent to `return;` and still stamps
-`_state = -2` before invoking `SetResult()` on the builder. When an expression
-is present, the compiler converts it to the awaited result type and passes it to
-`SetResult(value)`.
+falling off the end of the body is equivalent to `return;`. For `async Task<T>`
+members, return expressions must convert to `T`.
 
 Returning an existing task instance such as `Task.CompletedTask` is not
 permitted inside an `async Task` body. Authors must `await` the task to observe
 its completion instead of returning it directly. Attempting to return an
 expression from an `async Task` member produces a diagnostic that mirrors the
-behavior of C# (error RAV2705).
-
-#### Task completion semantics
-
-`async` members returning `Task<T>` produce a task that represents the entire
-execution of the method body. The segment of the body that executes before the
-first `await` runs synchronously on the caller's stack. If no suspension point
-is encountered, the builder transitions directly to completion and the returned
-task is already marked as successfully finished when observed by the caller.
-
-Every completion path must stamp the synthesized state machine with `_state =
--2` before invoking `AsyncTaskMethodBuilder<T>.SetResult(value)`. The builder
-stores the converted return value until `GetAwaiter().GetResult()` is called on
-the task. Falling off the end of the body is equivalent to `return;`, so methods
-that produce no value pass `default(T)` to `SetResult`.
-
-The state machine itself is always mutated by reference. Lowering materialises a
-single receiver load and passes that managed pointer to
-`AsyncTaskMethodBuilder<T>` members as well as to `AwaitUnsafeOnCompleted`. The
-builder therefore observes the original struct instance for every `_state`
-update, awaiter field store, and completion call, matching the verifier-safe IL
-pattern emitted by C# compilers.
-
-The synthesized `_builder` field is emitted as the constructed
-`AsyncTaskMethodBuilder<T>` so metadata consumers observe the awaited result
-type. Reflection therefore reports `_builder : AsyncTaskMethodBuilder<int>` for
-an `async Task<int>` member rather than the nongeneric builder. The state
-machine also exposes parameterless `MoveNext()` and `SetStateMachine(IAsyncStateMachine)`
-methods so the CLR can bind the `IAsyncStateMachine` implementations without
-relying on name mangling.
-
-Nested async lambdas and local functions synthesize the same struct layout. When
-the closure produces a nested state machine, code generation registers `_state`,
-`_builder`, and each hoisted awaiter before emitting `MoveNext` so the nested
-body reuses the by-reference pattern established for methods. This guarantees
-`AwaitUnsafeOnCompleted` receives the original state-machine receiver even when
-the async body lives inside a lambda. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L27-L45】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L700-L738】
-
-Exceptions that escape before the first `await` propagate directly to the
-caller and prevent a task instance from being produced. After the state machine
-has been initialized, any uncaught exception routes through
-`AsyncTaskMethodBuilder<T>.SetException`. Awaiting the resulting task rethrows
-the original exception; synchronously blocking on `Task<T>.Result` wraps the
-exception in an `AggregateException`, preserving the .NET async contract.
-Throwing `OperationCanceledException` follows the same path and results in a
-faulted task until dedicated cancellation support is introduced. `finally`
-clauses and `using` disposals execute before completion or faulting so their
-side effects remain observable even when an exception occurs.
-
-#### Tooling guidance
-
-The command-line compiler provides an `--ilverify` flag that invokes the
-[`ilverify`](https://github.com/dotnet/runtime/tree/main/src/coreclr/tools/IlVerify)
-tool on the emitted assembly. The switch automatically forwards every metadata
-reference supplied during compilation, including `System.Private.CoreLib`, so
-verification succeeds without additional arguments. When the executable is not
-on the current `PATH`, pass `--ilverify-path <path>` or set the
-`RAVEN_ILVERIFY_PATH` environment variable; the runner falls back to the system
-`PATH` and prints actionable guidance when resolution fails. Successful
-verification proves the async state machine honours the by-reference builder
-invariants and that the lowered IL matches the CLR contract captured earlier in
-this section. 【F:src/Raven.Compiler/IlVerifyRunner.cs†L17-L136】
-
-Setting the `RAVEN_ILVERIFY_PATH` environment variable allows the regression test
-suite to invoke the same verifier. When present, `AsyncILGenerationTests` emits
-an async assembly to disk and calls `IlVerifyRunner.Verify` directly so CI can
-fail fast on invalid IL without relying on manual runs of `ravenc --ilverify`.
-The helper falls back to skipping the verification test if the executable cannot
-be located, keeping local developer workflows unblocked. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L77-L119】【F:test/Raven.CodeAnalysis.Tests/Utilities/IlVerifyTestHelper.cs†L1-L24】
-
-The repository’s tool manifest pins `dotnet-ilverify`, and both the CLI runner
-and regression suite launch `dotnet tool run ilverify` when no explicit path or
-environment override is provided. The test project restores the manifest before
-build so contributors can rely on `dotnet tool restore` rather than configuring
-verifier paths by hand. 【F:.config/dotnet-tools.json†L1-L9】【F:src/Raven.Compiler/IlVerifyRunner.cs†L17-L220】【F:test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj†L36-L47】
-
-When the first `await` is reached, the generated state machine captures the
-current `SynchronizationContext` and `TaskScheduler.Current`. Continuations
-resume on the captured context unless `ConfigureAwait(false)` is applied to the
-awaited task, mirroring the behaviour of C#.
+behavior of C# (error RAV2705). Exceptions that escape before the first `await`
+propagate directly to the caller. Once asynchronous execution begins, `await`
+unwrapped exceptions rethrow when the task is awaited, matching .NET's
+observable behaviour.
 
 ### Lambda expressions and captured variables
 

@@ -25,6 +25,11 @@ or tuples. The `null` entry represents the literal value rather than a standalon
 type; it may inhabit any nullable reference type and the nullable forms of value
 types.
 
+The primitive set defines the building blocks for all other types. `unit` is
+singleton-valued and participates in equality, generics, tuples, and unions like
+any other value type. The `null` literal is not a separate type; it flows only to
+nullable locations and never satisfies non-nullable parameters or bindings.
+
 ## Literal types
 
 Numeric, string, character, and boolean literals may appear as their own types.
@@ -85,7 +90,11 @@ let inferred = 1        // inferred int, literal type is widened
 
 ### Arrays
 
-`T[]` becomes `System.Array` with element type `T`.
+`T[]` becomes `System.Array` with element type `T`. Array element types preserve
+their nullability and generic arguments, and indexing uses the CLI's
+single-dimensional, zero-based representation (`System.Array.CreateInstance` with
+lower bound 0). Multidimensional arrays follow the underlying CLI semantics but
+use explicit syntax such as `T[,]` when supported by the grammar.
 
 ### Tuples
 
@@ -128,7 +137,15 @@ annotations, local bindings, generics, and so on.
 
 ### Nullable values
 
-Appending `?` creates a nullable type. Value types are emitted as `System.Nullable<T>` while reference types use C#'s nullable metadata.
+Appending `?` creates a nullable type. Value types are emitted as
+`System.Nullable<T>` while reference types use C#'s nullable metadata. Nullable
+types are distinct from their non-nullable counterparts for purposes of type
+identity and overload resolution. The compiler treats `T?` as accepting both
+`T` and `null`, while plain `T` rejects `null` unless the target is widened to a
+nullable form (for example, when joining flow branches into a union). Nullable
+value types lift member access through the underlying `Nullable<T>` API; nullable
+reference types retain the same runtime representation as their non-nullable
+form but influence static flow analysis and conversion rules.
 
 ### Union types
 
@@ -355,8 +372,8 @@ Reference conversions include the variance rules encoded on generic interfaces
 and delegates. If a referenced interface marks a type parameter as covariant,
 `T<Derived>` converts implicitly to `T<Base>`; contravariant parameters invert
 the check so `T<Base>` converts to `T<Derived>`. Raven applies these rules when
-importing .NET metadata, matching the behaviour of the CLR and C#. Source
-declarations remain invariant until the language grows syntax for `in`/`out`.
+importing .NET metadata and when compiling Raven source that declares `in` or
+`out` variance modifiers, matching the behaviour of the CLR and C#.
 
 When converting **from** a union, each branch must be convertible to the target
 type. When converting **to** a union, the source must convert to at least one
