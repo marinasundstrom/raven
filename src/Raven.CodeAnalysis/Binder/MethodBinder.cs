@@ -48,7 +48,8 @@ class MethodBinder : TypeMemberBinder
         if (node is MethodDeclarationSyntax
             or ConstructorDeclarationSyntax
             or NamedConstructorDeclarationSyntax
-            or AccessorDeclarationSyntax)
+            or AccessorDeclarationSyntax
+            or PropertyDeclarationSyntax)
             return _methodSymbol;
 
         if (node is ParameterSyntax parameter)

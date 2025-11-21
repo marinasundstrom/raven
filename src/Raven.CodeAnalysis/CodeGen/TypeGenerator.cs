@@ -509,6 +509,9 @@ internal class TypeGenerator
                     }
                 case IPropertySymbol propertySymbol:
                     {
+                        if (propertySymbol is SourcePropertySymbol sourceProperty && sourceProperty.IsDeclaredInExtension)
+                            break;
+
                         var getterSymbol = propertySymbol.GetMethod as IMethodSymbol;
                         var setterSymbol = propertySymbol.SetMethod as IMethodSymbol;
 
