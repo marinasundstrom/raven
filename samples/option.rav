@@ -1,0 +1,33 @@
+/*
+ * Demonstrates discriminated unions in Raven.
+ */
+
+import System.Console.*
+
+let unwrapped = returnsNone(42).UnwrapOrThrow()
+WriteLine(unwrapped)
+
+func returnsNone(value: int) -> Option<int> {
+    return .None
+}
+
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+extension OptionExtensions<T> for Option<T> {
+    UnwrapOrDefault() -> T {
+        if self is .Some(value) {
+            return value
+        }
+        return default(T)
+    }
+
+    UnwrapOrThrow() -> T {
+        if self is .Some(value) {
+            return value
+        }
+        throw new System.InvalidOperationException("Option is None")
+    }
+}
