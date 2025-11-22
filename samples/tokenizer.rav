@@ -1,3 +1,5 @@
+namespace MyTokenizer
+
 import System.*
 import System.Text.*
 import System.IO.*
