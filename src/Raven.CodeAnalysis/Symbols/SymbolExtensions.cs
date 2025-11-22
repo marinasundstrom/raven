@@ -380,6 +380,12 @@ public static partial class SymbolExtensions
         };
 
         var returnDisplay = returnType.ToDisplayStringKeywordAware(format);
+
+        if (returnType.TypeKind == TypeKind.Delegate)
+        {
+            returnDisplay = $"({returnDisplay})";
+        }
+
         return $"{parameterText} -> {returnDisplay}";
     }
 
