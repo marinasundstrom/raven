@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -63,13 +64,24 @@ public static partial class SymbolExtensions
 
         if (typeSymbol is IPointerTypeSymbol pointerType)
         {
-            return pointerType.PointedAtType.ToDisplayStringKeywordAware(format) + "*";
+            return "*" + pointerType.PointedAtType.ToDisplayStringKeywordAware(format);
+        }
+
+        if (typeSymbol is ITupleTypeSymbol tupleType)
+        {
+            var elementTypes = tupleType.TupleElements.Select(tupleElement =>
+            {
+                var type = tupleElement.Type.ToDisplayStringKeywordAware(format);
+                return type; //!string.IsNullOrEmpty(tupleElement.Name) ? $"{tupleElement.Name}: {type}" : type;
+            });
+
+            return "(" + string.Join(", ", elementTypes) + ")";
         }
 
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
         {
             if (typeSymbol.SpecialType == SpecialType.System_Unit)
-                return "unit";
+                return "()";
 
             var fullName = typeSymbol.ToFullyQualifiedMetadataName(); // e.g. "System.Int32"
             if (fullName is not null && s_specialTypeNames.TryGetValue(fullName, out var keyword))
@@ -363,7 +375,7 @@ public static partial class SymbolExtensions
         string parameterText = parameterDisplays.Count switch
         {
             0 => "()",
-            1 => parameterDisplays[0],
+            1 when parameterTypes[0] is not ITupleTypeSymbol and not UnitTypeSymbol => parameterDisplays[0],
             _ => $"({string.Join(", ", parameterDisplays)})"
         };
 

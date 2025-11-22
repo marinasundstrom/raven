@@ -1,0 +1,15 @@
+/*
+About how types (symbols) are represented in diagnostic messages
+
+Unit should be represented as () in diagnostic messages
+
+The string representation for TupleSymbol (representation of ValueTuple) should be: (int, int), or with names, (a: int, b: int)
+
+The string representation for function types with a single parameter should be rendered without parentheses: int -> int
+unless the type for that param is unit or tuple: (()) -> int or ((int, int)) -> int
+Otherwise, for multiple parameter, the parameters should be included: (a: int, b: int) -> int
+*/ 
+
+let a: (a: int, b: int) -> (int, int) = null
+
+let b: (()) -> (int, int) = null

@@ -190,7 +190,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/discriminated-unions2{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/t{RavenFileExtensions.Raven}");
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {
