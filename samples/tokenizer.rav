@@ -30,9 +30,9 @@ public class Lexer {
     }
 
     public ReadToken() -> Token {
-        //if _stringBuilder.Length > 0 {
-            _stringBuilder.Clear();
-        //}
+        if _stringBuilder.Length > 0 {
+            _ = _stringBuilder.Clear();
+        }
 
         var no = _textReader.Read()
 
@@ -46,7 +46,7 @@ public class Lexer {
             if int.TryParse(ch.ToString(), &number) {
                 _stringBuilder.Append(ch)
                 let noStr = _stringBuilder.ToString();
-                return Number(noStr, number)
+                return .Number(noStr, number)
             } else if char.IsLetter(Convert.ToChar(ch)) { //(char)ch
                 _stringBuilder.Append(ch)
                 no = _textReader.Read()
