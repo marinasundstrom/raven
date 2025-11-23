@@ -512,13 +512,13 @@ internal class StatementSyntaxParser : SyntaxParser
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
-        SyntaxToken? refKindKeyword = null;
-        if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
-            refKindKeyword = ReadToken();
+            SyntaxToken? refKindKeyword = null;
+            if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+                refKindKeyword = ReadToken();
 
-        SyntaxToken? bindingKeyword = null;
-        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
-            bindingKeyword = ReadToken();
+            SyntaxToken? bindingKeyword = null;
+            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+                bindingKeyword = ReadToken();
 
             SyntaxToken name;
             if (CanTokenBeIdentifier(PeekToken()))
@@ -554,7 +554,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-        parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

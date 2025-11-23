@@ -192,6 +192,16 @@ internal class Lexer : ILexer
                 switch (ch)
                 {
                     case '+':
+                        if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.PlusEqualsToken, "+=");
+                        }
+                        else if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.PlusPlusToken, "++");
+                        }
                         return new Token(SyntaxKind.PlusToken, chStr);
 
                     case '-':
@@ -204,12 +214,32 @@ internal class Lexer : ILexer
                         {
                             return ParseNumber(diagnostics, ref ch, true);
                         }
+                        else if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.MinusEqualsToken, "-=");
+                        }
+                        else if (PeekChar(out ch2) && ch2 == '-')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.MinusMinusToken, "--");
+                        }
                         return new Token(SyntaxKind.MinusToken, chStr);
 
                     case '/':
+                        if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.SlashEqualsToken, "/=");
+                        }
                         return new Token(SyntaxKind.SlashToken, chStr);
 
                     case '*':
+                        if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.StarEqualsToken, "*=");
+                        }
                         return new Token(SyntaxKind.StarToken, chStr);
 
                     case '%':
