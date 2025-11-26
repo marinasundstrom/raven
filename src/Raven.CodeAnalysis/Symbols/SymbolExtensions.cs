@@ -195,14 +195,8 @@ public static partial class SymbolExtensions
 
         if (symbol is ILocalSymbol localSymbol)
         {
-            if (format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType))
-            {
-                var typeFormat = WithoutTypeAccessibility(format);
-                var localType = localSymbol.Type.ToDisplayStringKeywordAware(typeFormat);
-                result.Append($"{localType} ");
-            }
-
-            result.Append(EscapeIdentifierIfNeeded(localSymbol.Name, format));
+            var display = FormatNamedSymbol(localSymbol.Name, localSymbol.Type, format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType), format, useNameOption: true);
+            result.Append(display);
             return result.ToString();
         }
 
@@ -214,14 +208,13 @@ public static partial class SymbolExtensions
 
         if (symbol is IParameterSymbol parameterSymbol)
         {
-            if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
-            {
-                var typeFormat = WithoutTypeAccessibility(format);
-                var localType = parameterSymbol.Type.ToDisplayStringKeywordAware(typeFormat);
-                result.Append($"{localType} ");
-            }
-
-            result.Append(EscapeIdentifierIfNeeded(parameterSymbol.Name, format));
+            var display = FormatNamedSymbol(
+                parameterSymbol.Name,
+                parameterSymbol.Type,
+                format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType),
+                format,
+                format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName));
+            result.Append(display);
             return result.ToString();
         }
 
@@ -454,16 +447,10 @@ public static partial class SymbolExtensions
             //if (parameter.IsOut) sb.Append("out ");
         }
 
-        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
-        {
-            sb.Append(parameter.Type.ToDisplayStringKeywordAware(format));
-            sb.Append(" ");
-        }
+        var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
+        var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
 
-        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName))
-        {
-            sb.Append(EscapeIdentifierIfNeeded(parameter.Name, format));
-        }
+        sb.Append(FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName));
 
         return sb.ToString();
     }
@@ -473,6 +460,32 @@ public static partial class SymbolExtensions
     {
         // Replace any special characters or keywords with escaped versions
         return identifier; //identifier.Replace("<", "&lt;").Replace(">", "&gt;");
+    }
+
+    private static string FormatNamedSymbol(
+        string name,
+        ITypeSymbol type,
+        bool includeType,
+        SymbolDisplayFormat format,
+        bool useNameOption)
+    {
+        var sb = new StringBuilder();
+
+        if (includeType)
+        {
+            var typeFormat = WithoutTypeAccessibility(format);
+            var typeDisplay = type.ToDisplayStringKeywordAware(typeFormat);
+            sb.Append(typeDisplay);
+            if (useNameOption)
+                sb.Append(' ');
+        }
+
+        if (useNameOption)
+        {
+            sb.Append(EscapeIdentifierIfNeeded(name, format));
+        }
+
+        return sb.ToString();
     }
 
     private static string GetFullNamespace(ISymbol symbol, SymbolDisplayFormat format)
