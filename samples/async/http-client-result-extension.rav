@@ -1,0 +1,31 @@
+import System.Console.*
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+using let client = HttpClient()
+let res = client.FetchAsync("http://www.contoso.com/")
+
+let str = res match {
+    .Ok(str) => "Response is: ${str}"
+    .Error(message) => "Error is: ${message}"
+}
+
+WriteLine(str)
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+extension HttpClientExtensions for HttpClient {
+    public async FetchAsync(url: string) -> Task<HttpResponseMessage> {
+        try {
+            using let response = await self.GetAsync(url)
+            response.EnsureSuccessStatusCode()
+            let responseBody = await response.Content.ReadAsStringAsync()
+            return .Ok
+        } catch (HttpRequestException e) {
+            return .Error
+        }
+    }
+}
