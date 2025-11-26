@@ -93,6 +93,39 @@ union Option {
     }
 
     [Fact]
+    public void AsyncReturn_TargetTypedCase_BindsUnionCase()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func fetch() -> Task<Result<string>> {
+    return .Ok(value: "done")
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberBinding = tree
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<MemberBindingExpressionSyntax>()
+            .Single();
+
+        var symbol = model.GetSymbolInfo(memberBinding).Symbol;
+        var caseType = Assert.IsAssignableFrom<ITypeSymbol>(symbol);
+        Assert.Equal("Ok", caseType.Name);
+    }
+
+    [Fact]
     public void Union_DeclaresImplicitConversionPerCase()
     {
         const string source = """
