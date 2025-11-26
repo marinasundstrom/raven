@@ -44,6 +44,10 @@
   <NodeKind Name="LogicalAndExpression" Type="BinaryExpression" />
   <NodeKind Name="LogicalOrExpression" Type="BinaryExpression" />
   <NodeKind Name="SimpleAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="AddAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="SubtractAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="MultiplyAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="DivideAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="SimpleAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="DiscardAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="MidAssignmentStatement" Type="AssignmentStatement" />

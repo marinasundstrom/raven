@@ -673,6 +673,10 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             SyntaxKind.SimpleAssignmentExpression when isDiscard => SyntaxKind.DiscardAssignmentStatement,
             SyntaxKind.SimpleAssignmentExpression => SyntaxKind.SimpleAssignmentStatement,
+            SyntaxKind.AddAssignmentExpression => SyntaxKind.AddAssignmentStatement,
+            SyntaxKind.SubtractAssignmentExpression => SyntaxKind.SubtractAssignmentStatement,
+            SyntaxKind.MultiplyAssignmentExpression => SyntaxKind.MultiplyAssignmentStatement,
+            SyntaxKind.DivideAssignmentExpression => SyntaxKind.DivideAssignmentStatement,
             _ => SyntaxKind.SimpleAssignmentStatement,
         };
     }
