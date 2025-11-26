@@ -3,10 +3,8 @@
  */
 import System.*
 
-union Shape {
-    Circle(radius: int)
-    Rectangle(width: int, height: int)
-}
+Console.WriteLine(area(.Circle(2)))
+Console.WriteLine(area(.Rectangle(3, 4)))
 
 func area(shape: Shape) -> int {
     return shape match {
@@ -15,5 +13,7 @@ func area(shape: Shape) -> int {
     }
 }
 
-Console.WriteLine(area(.Circle(2)))
-Console.WriteLine(area(.Rectangle(3, 4)))
+union Shape {
+    Circle(radius: int)
+    Rectangle(width: int, height: int)
+}
