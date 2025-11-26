@@ -2741,7 +2741,10 @@ partial class BlockBinder : Binder
                     return leftStmt.Type;
 
                 case ReturnStatementSyntax returnStmt:
-                    return _containingSymbol is IMethodSymbol method ? method.ReturnType : null;
+                    if (_containingSymbol is IMethodSymbol method)
+                        return GetReturnTargetType(method);
+
+                    break;
 
                 case BinaryExpressionSyntax binary when binary.Left == node:
                     return BindExpression(binary.Right).Type;
@@ -2909,7 +2912,7 @@ partial class BlockBinder : Binder
                         IsImplicitReturnTarget(block, expressionStatement) &&
                         _containingSymbol is IMethodSymbol methodSymbol)
                     {
-                        return methodSymbol.ReturnType;
+                        return GetReturnTargetType(methodSymbol);
                     }
 
                     return null;
@@ -2923,6 +2926,25 @@ partial class BlockBinder : Binder
         }
 
         return null;
+    }
+
+    private static ITypeSymbol GetReturnTargetType(IMethodSymbol method)
+    {
+        if (method is SourceMethodSymbol { HasAsyncReturnTypeError: true } or SourceLambdaSymbol { HasAsyncReturnTypeError: true })
+            return method.ReturnType;
+
+        var returnType = method.ReturnType;
+
+        if (method.IsAsync &&
+            returnType is INamedTypeSymbol namedReturn &&
+            namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            namedReturn.TypeArguments.Length == 1 &&
+            namedReturn.TypeArguments[0] is { } resultType)
+        {
+            return resultType;
+        }
+
+        return returnType;
     }
 
     protected BoundExpression BindTypeSyntax(TypeSyntax syntax)
