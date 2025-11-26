@@ -18,14 +18,14 @@ union Result<T> {
 }
 
 extension HttpClientExtensions for HttpClient {
-    public async FetchAsync(url: string) -> Task<HttpResponseMessage> {
+    public async FetchAsync(url: string) -> Task<Result<string>> {
         try {
             using let response = await self.GetAsync(url)
             response.EnsureSuccessStatusCode()
             let responseBody = await response.Content.ReadAsStringAsync()
-            return .Ok
+            return .Ok(responseBody)
         } catch (HttpRequestException e) {
-            return .Error
+            return .Error(e.Message)
         }
     }
 }
