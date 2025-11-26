@@ -24,6 +24,10 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new ArgumentNullException(nameof(codeGen));
 
         var compilation = codeGen.Compilation;
+        var debugConstructedMethod = string.Equals(
+            Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_METHOD"),
+            "1",
+            StringComparison.Ordinal);
 
         if (typeSymbol is ConstructedNamedTypeSymbol constructedType)
         {
@@ -34,6 +38,12 @@ public static class TypeSymbolExtensionsForCodeGen
             var arguments = constructedType.GetAllTypeArguments()
                 .Select(arg => GetClrTypeInternal(arg, codeGen, treatUnitAsVoid, isTopLevel: false))
                 .ToArray();
+
+            if (debugConstructedMethod)
+            {
+                var symbolArgs = constructedType.TypeArguments.Select(a => a?.ToString() ?? "<null>");
+                Console.Error.WriteLine($"[TypeSymbolExtensions] Projecting constructed type '{constructedType.ConstructedFrom}'<{string.Join(", ", symbolArgs)}> to '{genericDefinition}' with args: {string.Join(", ", arguments.Select(a => a?.FullName ?? a?.ToString() ?? "<null>"))}");
+            }
 
             if (!genericDefinition.IsGenericTypeDefinition && !genericDefinition.ContainsGenericParameters)
                 return genericDefinition;

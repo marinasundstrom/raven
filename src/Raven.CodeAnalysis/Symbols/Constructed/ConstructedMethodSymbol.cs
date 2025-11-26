@@ -241,9 +241,41 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             : containingClrType;
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
+        var debug = string.Equals(
+            Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_METHOD"),
+            "1",
+            StringComparison.Ordinal);
         var runtimeTypeArguments = TypeArguments
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
+
+        if (debug)
+        {
+            static string FormatType(Type type)
+            {
+                if (type is null)
+                    return "<null>";
+
+                var formatted = $"{type} (gp={type.IsGenericParameter})";
+
+                if (!type.IsGenericType)
+                    return formatted;
+
+                var args = type.GetGenericArguments();
+                var formattedArgs = string.Join(", ", args.Select(FormatType));
+                return $"{formatted}[{formattedArgs}]";
+            }
+
+            for (var i = 0; i < TypeArguments.Length && i < runtimeTypeArguments.Length; i++)
+            {
+                var runtimeArg = runtimeTypeArguments[i];
+                var symbolArg = TypeArguments[i];
+                var symbolDescription = symbolArg is INamedTypeSymbol named
+                    ? $"{named.ConstructedFrom}<{string.Join(", ", named.TypeArguments.Select(a => $"{a} (kind={a.TypeKind})"))}>"
+                    : symbolArg.ToString();
+                Console.Error.WriteLine($"[ConstructedMethodSymbol] Type argument {i}: symbol={symbolDescription} runtime={FormatType(runtimeArg)} containsGP={runtimeArg.ContainsGenericParameters}");
+            }
+        }
 
         for (var i = 0; i < TypeArguments.Length && i < runtimeTypeArguments.Length; i++)
         {
@@ -266,7 +298,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 parameterSymbols,
                 returnTypeSymbol,
                 runtimeTypeArguments,
-                out var cached))
+                out var cached,
+                debug))
         {
             return cached;
         }
@@ -320,14 +353,36 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 ? candidate.DeclaringType.GetGenericArguments()
                 : Array.Empty<Type>();
 
-            if (!ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen))
+        var parametersMatch = ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen, debug);
+            if (!parametersMatch)
+            {
+                if (debug)
+                {
+                    Console.Error.WriteLine($"  Rejected candidate {candidate} due to parameter mismatch.");
+                    Console.Error.WriteLine($"    Candidate params: {string.Join(", ", candidateParameters.Select(p => p.ParameterType))}");
+                }
                 continue;
+            }
 
             var normalizedReturnType = SubstituteRuntimeType(candidate.ReturnType, methodRuntimeArguments, typeRuntimeArguments);
             if (!MethodSymbolExtensionsForCodeGen.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
+            {
+                if (debug)
+                {
+                    Console.Error.WriteLine($"  Rejected candidate {candidate} due to return type mismatch: {normalizedReturnType} vs {returnTypeSymbol}.");
+                }
                 continue;
+            }
 
             return candidate;
+        }
+
+        if (debug)
+        {
+            Console.Error.WriteLine($"[ConstructedMethodSymbol] Unable to resolve '{_definition}' on '{containingClrType}'.");
+            Console.Error.WriteLine($"  Parameters: {string.Join(", ", parameterSymbols.Select(p => p.Type.ToString()))}");
+            Console.Error.WriteLine($"  Type arguments: {string.Join(", ", TypeArguments.Select(a => a.ToString()))}");
+            Console.Error.WriteLine($"  Runtime type arguments: {string.Join(", ", runtimeTypeArguments.Select(t => t?.FullName ?? t?.ToString() ?? "<null>"))}");
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
@@ -340,7 +395,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         ImmutableArray<IParameterSymbol> parameterSymbols,
         ITypeSymbol returnTypeSymbol,
         Type[] runtimeTypeArguments,
-        out MethodInfo methodInfo)
+        out MethodInfo methodInfo,
+        bool debug)
     {
         methodInfo = null!;
 
@@ -405,7 +461,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             ? candidate.DeclaringType.GetGenericArguments()
             : Array.Empty<Type>();
 
-        if (!ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen))
+        if (!ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen, debug))
             return false;
 
         var normalizedReturnType = SubstituteRuntimeType(candidate.ReturnType, methodRuntimeArguments, typeRuntimeArguments);
@@ -520,10 +576,72 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                     asyncRuntimeParameters[mapping.StateMachineParameter.Ordinal] = asyncResolved;
             }
 
-            return SubstituteStateMachineRuntimeGenerics(runtimeArgument, asyncRuntimeParameters);
+            runtimeArgument = SubstituteStateMachineRuntimeGenerics(runtimeArgument, asyncRuntimeParameters);
         }
 
-        return runtimeArgument;
+        return SubstituteRuntimeTypeUsingSymbol(runtimeArgument, symbolArgument, codeGen);
+    }
+
+    private Type SubstituteRuntimeTypeUsingSymbol(Type runtimeType, ITypeSymbol? symbolArgument, CodeGen.CodeGenerator codeGen)
+    {
+        if (symbolArgument is null)
+            return runtimeType;
+
+        if (runtimeType.IsByRef)
+        {
+            var symbolElement = (symbolArgument as ByRefTypeSymbol)?.ElementType ?? symbolArgument;
+            var substitutedElement = SubstituteRuntimeTypeUsingSymbol(runtimeType.GetElementType()!, symbolElement, codeGen);
+            return substitutedElement.MakeByRefType();
+        }
+
+        if (runtimeType.IsPointer)
+        {
+            var symbolElement = (symbolArgument as IPointerTypeSymbol)?.PointedAtType ?? symbolArgument;
+            var substitutedElement = SubstituteRuntimeTypeUsingSymbol(runtimeType.GetElementType()!, symbolElement, codeGen);
+            return substitutedElement.MakePointerType();
+        }
+
+        if (runtimeType.IsArray)
+        {
+            var symbolElement = (symbolArgument as IArrayTypeSymbol)?.ElementType ?? symbolArgument;
+            var substitutedElement = SubstituteRuntimeTypeUsingSymbol(runtimeType.GetElementType()!, symbolElement, codeGen);
+            return runtimeType.GetArrayRank() == 1
+                ? substitutedElement.MakeArrayType()
+                : substitutedElement.MakeArrayType(runtimeType.GetArrayRank());
+        }
+
+        if (runtimeType.IsGenericParameter)
+        {
+            return GetProjectedRuntimeType(symbolArgument, codeGen, treatUnitAsVoid: false, isTopLevel: false);
+        }
+
+        if (runtimeType.IsGenericType && symbolArgument is INamedTypeSymbol named && named.IsGenericType)
+        {
+            var definition = runtimeType.IsGenericTypeDefinition
+                ? runtimeType
+                : runtimeType.GetGenericTypeDefinition();
+
+            var runtimeArguments = runtimeType.GetGenericArguments();
+            var symbolArguments = named.TypeArguments;
+            var substitutedArguments = new Type[runtimeArguments.Length];
+            var changed = false;
+
+            for (var i = 0; i < runtimeArguments.Length; i++)
+            {
+                var symbolArg = i < symbolArguments.Length ? symbolArguments[i] : null;
+                substitutedArguments[i] = SubstituteRuntimeTypeUsingSymbol(runtimeArguments[i], symbolArg, codeGen);
+
+                if (!ReferenceEquals(substitutedArguments[i], runtimeArguments[i]))
+                    changed = true;
+            }
+
+            if (!changed)
+                return runtimeType;
+
+            return definition.MakeGenericType(substitutedArguments);
+        }
+
+        return runtimeType;
     }
 
     private static Type SubstituteStateMachineRuntimeGenerics(Type runtimeType, Type[] asyncRuntimeParameters)
@@ -604,7 +722,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         ImmutableArray<IParameterSymbol> parameterSymbols,
         Type[] methodRuntimeArguments,
         Type[]? typeRuntimeArguments,
-        CodeGen.CodeGenerator codeGen)
+        CodeGen.CodeGenerator codeGen,
+        bool debug)
     {
         if (runtimeParameters.Length != parameterSymbols.Length)
             return false;
@@ -612,7 +731,16 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         for (var i = 0; i < runtimeParameters.Length; i++)
         {
             if (!ParameterMatches(runtimeParameters[i], parameterSymbols[i], methodRuntimeArguments, typeRuntimeArguments, codeGen))
+            {
+                if (debug)
+                {
+                    var normalized = SubstituteRuntimeType(runtimeParameters[i].ParameterType, methodRuntimeArguments, typeRuntimeArguments);
+                    var expected = parameterSymbols[i].Type.GetClrTypeTreatingUnitAsVoid(codeGen);
+                    Console.Error.WriteLine($"    Parameter mismatch at {i}: runtime={normalized} expected={expected} symbol={parameterSymbols[i].Type}");
+                }
+
                 return false;
+            }
         }
 
         return true;
