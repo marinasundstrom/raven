@@ -839,8 +839,9 @@ partial class BlockBinder : Binder
             Compilation.GetSpecialType(SpecialType.System_Int32));
 
         var valueForComputation = target.ValueExpression;
+        var operandType = valueForComputation.Type ?? target.Type ?? Compilation.ErrorTypeSymbol;
 
-        if (valueForComputation.Type is null || oneLiteral.Type is null)
+        if (operandType.TypeKind == TypeKind.Error || oneLiteral.Type is null)
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
 
         var operatorKind = isIncrement ? SyntaxKind.PlusToken : SyntaxKind.MinusToken;
@@ -848,23 +849,27 @@ partial class BlockBinder : Binder
         if (!BoundBinaryOperator.TryLookup(Compilation, operatorKind, valueForComputation.Type, oneLiteral.Type, out var @operator))
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
 
-        var incrementedValue = new BoundBinaryExpression(valueForComputation, @operator, oneLiteral);
+        var tempOriginal = CreateTemporaryLocal(operandType, syntax);
+        var tempOriginalAccess = new BoundLocalAccess(tempOriginal);
+
+        var incrementedValue = new BoundBinaryExpression(tempOriginalAccess, @operator, oneLiteral);
         var convertedIncrement = ConvertValueForAssignment(incrementedValue, target.Type, syntax);
 
         if (convertedIncrement is BoundErrorExpression)
             return convertedIncrement;
 
-        var assignment = target.CreateAssignment(convertedIncrement);
+        var resultType = convertedIncrement.Type ?? target.Type ?? Compilation.ErrorTypeSymbol;
+        var tempResult = CreateTemporaryLocal(resultType, syntax);
+        var tempResultAccess = new BoundLocalAccess(tempResult);
 
-        if (isPrefix)
-            return assignment;
+        var assignment = target.CreateAssignment(tempResultAccess);
 
-        var temp = CreateTemporaryLocal(valueForComputation.Type, syntax);
         var statements = new List<BoundStatement>
         {
-            new BoundLocalDeclarationStatement(new [] { new BoundVariableDeclarator(temp, valueForComputation) }),
+            new BoundLocalDeclarationStatement(new [] { new BoundVariableDeclarator(tempOriginal, valueForComputation) }),
+            new BoundLocalDeclarationStatement(new [] { new BoundVariableDeclarator(tempResult, convertedIncrement) }),
             new BoundExpressionStatement(assignment),
-            new BoundExpressionStatement(new BoundLocalAccess(temp))
+            new BoundExpressionStatement(isPrefix ? tempResultAccess : tempOriginalAccess)
         };
 
         return new BoundBlockExpression(statements, Compilation.UnitTypeSymbol);
