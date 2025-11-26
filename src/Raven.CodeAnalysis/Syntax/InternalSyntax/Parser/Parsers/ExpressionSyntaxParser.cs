@@ -411,10 +411,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = UnaryExpression(SyntaxKind.UnaryPlusExpression, token, expr);
                 break;
 
+            case SyntaxKind.PlusPlusToken:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = UnaryExpression(SyntaxKind.PreIncrementExpression, token, expr);
+                break;
+
             case SyntaxKind.MinusToken:
                 ReadToken();
                 expr = ParseFactorExpression();
                 expr = UnaryExpression(SyntaxKind.UnaryMinusExpression, token, expr);
+                break;
+
+            case SyntaxKind.MinusMinusToken:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = UnaryExpression(SyntaxKind.PreDecrementExpression, token, expr);
                 break;
 
             case SyntaxKind.AmpersandToken:
@@ -733,6 +745,16 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 }
 
                 expr = ConditionalAccessExpression(expr, operatorToken, whenNotNull);
+            }
+            else if (token.IsKind(SyntaxKind.PlusPlusToken)) // Post-increment
+            {
+                var operatorToken = ReadToken();
+                expr = PostfixUnaryExpression(SyntaxKind.PostIncrementExpression, expr, operatorToken);
+            }
+            else if (token.IsKind(SyntaxKind.MinusMinusToken)) // Post-decrement
+            {
+                var operatorToken = ReadToken();
+                expr = PostfixUnaryExpression(SyntaxKind.PostDecrementExpression, expr, operatorToken);
             }
             else
             {

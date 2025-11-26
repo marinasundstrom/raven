@@ -95,6 +95,10 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="PostfixUnaryExpression" Inherits="Expression" HasExplicitKind="true">
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="OperatorToken" Type="Token" />
+  </Node>
   <Node Name="ArrowTypeClause" Inherits="Node">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken"/>

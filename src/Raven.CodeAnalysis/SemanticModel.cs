@@ -582,16 +582,19 @@ public partial class SemanticModel
 
         var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
 
-        void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
-        {
-            var seenNonGlobal = false;
-            foreach (var member in members)
+            void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
             {
-                if (member is GlobalStatementSyntax gs)
+                var seenNonGlobal = false;
+                foreach (var member in members)
                 {
-                    if (seenNonGlobal)
-                        parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
-                }
+                    if (member is ExtensionDeclarationSyntax)
+                        continue;
+
+                    if (member is GlobalStatementSyntax gs)
+                    {
+                        if (seenNonGlobal)
+                            parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
+                    }
                 else
                 {
                     seenNonGlobal = true;

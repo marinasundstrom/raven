@@ -23,6 +23,7 @@ partial class BlockBinder : Binder
     private bool _allowReturnsInExpression;
     private int _loopDepth;
     private int _expressionContextDepth;
+    private int _tempCounter;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -471,6 +472,23 @@ partial class BlockBinder : Binder
         return symbol;
     }
 
+    private SourceLocalSymbol CreateTempLocal(string nameHint, ITypeSymbol type, SyntaxNode syntax)
+    {
+        var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+        var containingNamespace = _containingSymbol.ContainingNamespace;
+        var name = $"<{nameHint}>__{_tempCounter++}";
+
+        return new SourceLocalSymbol(
+            name,
+            type,
+            isMutable: true,
+            _containingSymbol,
+            containingType,
+            containingNamespace,
+            [syntax.GetLocation()],
+            [syntax.GetReference()]);
+    }
+
     public override BoundStatement BindStatement(StatementSyntax statement)
     {
         if (TryGetCachedBoundNode(statement) is BoundStatement cached)
@@ -632,6 +650,7 @@ partial class BlockBinder : Binder
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
+            PostfixUnaryExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
             DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
             UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
@@ -782,6 +801,12 @@ partial class BlockBinder : Binder
         if (unaryExpression.Kind == SyntaxKind.AwaitExpression)
             return BindAwaitExpression(unaryExpression);
 
+        if (unaryExpression.Kind == SyntaxKind.PreIncrementExpression)
+            return BindIncrementOrDecrement(unaryExpression.Expression, unaryExpression.OperatorToken, SyntaxKind.PlusToken, isPostfix: false);
+
+        if (unaryExpression.Kind == SyntaxKind.PreDecrementExpression)
+            return BindIncrementOrDecrement(unaryExpression.Expression, unaryExpression.OperatorToken, SyntaxKind.MinusToken, isPostfix: false);
+
         var operand = BindExpression(unaryExpression.Expression);
 
         return unaryExpression.Kind switch
@@ -794,6 +819,233 @@ partial class BlockBinder : Binder
 
             _ => throw new NotSupportedException("Unsupported unary expression")
         };
+    }
+
+    private BoundExpression BindPostfixUnaryExpression(PostfixUnaryExpressionSyntax postfixUnary)
+    {
+        var binaryOperatorKind = postfixUnary.OperatorToken.Kind == SyntaxKind.PlusPlusToken
+            ? SyntaxKind.PlusToken
+            : SyntaxKind.MinusToken;
+
+        return BindIncrementOrDecrement(postfixUnary.Expression, postfixUnary.OperatorToken, binaryOperatorKind, isPostfix: true);
+    }
+
+    private BoundExpression BindIncrementOrDecrement(
+        ExpressionSyntax operandSyntax,
+        SyntaxToken operatorToken,
+        SyntaxKind binaryOperatorKind,
+        bool isPostfix)
+    {
+        var operand = BindExpression(operandSyntax);
+
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        return operand switch
+        {
+            BoundLocalAccess local => BindIncrementForLocal(local, operandSyntax, binaryOperatorKind, isPostfix),
+            BoundParameterAccess parameter => BindIncrementForParameter(parameter, operandSyntax, binaryOperatorKind, isPostfix),
+            BoundArrayAccessExpression arrayAccess => BindIncrementCore(
+                operandSyntax,
+                operand,
+                arrayAccess.Type ?? Compilation.ErrorTypeSymbol,
+                binaryOperatorKind,
+                isPostfix,
+                value => BoundFactory.CreateArrayAssignmentExpression(arrayAccess, value)),
+            BoundIndexerAccessExpression indexerAccess => BindIncrementCore(
+                operandSyntax,
+                operand,
+                indexerAccess.Type ?? Compilation.ErrorTypeSymbol,
+                binaryOperatorKind,
+                isPostfix,
+                value => BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, value)),
+            BoundFieldAccess fieldAccess => BindIncrementForField(fieldAccess, operandSyntax, binaryOperatorKind, isPostfix),
+            BoundMemberAccessExpression memberAccess when memberAccess.Symbol is IPropertySymbol propertySymbol
+                => BindIncrementForProperty(memberAccess, propertySymbol, operandSyntax, binaryOperatorKind, isPostfix),
+            _ => BindInvalidIncrementOperand(operatorToken)
+        };
+    }
+
+    private BoundExpression BindIncrementForLocal(
+        BoundLocalAccess localAccess,
+        ExpressionSyntax operandSyntax,
+        SyntaxKind binaryOperatorKind,
+        bool isPostfix)
+    {
+        var localSymbol = localAccess.Local;
+        var localType = localSymbol.Type ?? Compilation.ErrorTypeSymbol;
+        var targetType = GetIncrementTargetType(localType);
+
+        if (!localSymbol.IsMutable)
+        {
+            _diagnostics.ReportThisValueIsNotMutable(operandSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        return BindIncrementCore(
+            operandSyntax,
+            localAccess,
+            targetType,
+            binaryOperatorKind,
+            isPostfix,
+            value => localType is ByRefTypeSymbol byRef
+                ? BoundFactory.CreateByRefAssignmentExpression(localAccess, byRef.ElementType, value)
+                : BoundFactory.CreateLocalAssignmentExpression(localSymbol, value));
+    }
+
+    private BoundExpression BindIncrementForParameter(
+        BoundParameterAccess parameterAccess,
+        ExpressionSyntax operandSyntax,
+        SyntaxKind binaryOperatorKind,
+        bool isPostfix)
+    {
+        var parameterSymbol = parameterAccess.Parameter;
+        var parameterType = parameterSymbol.Type ?? Compilation.ErrorTypeSymbol;
+        var targetType = GetIncrementTargetType(parameterType);
+
+        if (!parameterSymbol.IsMutable)
+        {
+            _diagnostics.ReportThisValueIsNotMutable(operandSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        return BindIncrementCore(
+            operandSyntax,
+            parameterAccess,
+            targetType,
+            binaryOperatorKind,
+            isPostfix,
+            value => parameterType is ByRefTypeSymbol byRef && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
+                ? BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRef.ElementType, value)
+                : BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, value));
+    }
+
+    private BoundExpression BindIncrementForField(
+        BoundFieldAccess fieldAccess,
+        ExpressionSyntax operandSyntax,
+        SyntaxKind binaryOperatorKind,
+        bool isPostfix)
+    {
+        var fieldSymbol = fieldAccess.Field;
+
+        if (fieldSymbol.IsLiteral)
+        {
+            _diagnostics.ReportThisValueIsNotMutable(operandSyntax.GetLocation());
+            return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
+        }
+
+        var targetType = fieldSymbol.Type ?? Compilation.ErrorTypeSymbol;
+
+        return BindIncrementCore(
+            operandSyntax,
+            fieldAccess,
+            targetType,
+            binaryOperatorKind,
+            isPostfix,
+            value => BoundFactory.CreateFieldAssignmentExpression(fieldAccess.Receiver, fieldSymbol, value));
+    }
+
+    private BoundExpression BindIncrementForProperty(
+        BoundMemberAccessExpression memberAccess,
+        IPropertySymbol propertySymbol,
+        ExpressionSyntax operandSyntax,
+        SyntaxKind binaryOperatorKind,
+        bool isPostfix)
+    {
+        SourceFieldSymbol? backingField = null;
+
+        if (propertySymbol.SetMethod is null)
+        {
+            if (!TryGetWritableAutoPropertyBackingField(propertySymbol, memberAccess, out backingField))
+            {
+                _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, operandSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            }
+
+            var backingAccess = new BoundFieldAccess(memberAccess.Receiver, backingField);
+
+            return BindIncrementCore(
+                operandSyntax,
+                backingAccess,
+                propertySymbol.Type,
+                binaryOperatorKind,
+                isPostfix,
+                value => BoundFactory.CreateFieldAssignmentExpression(memberAccess.Receiver, backingField, value));
+        }
+
+        return BindIncrementCore(
+            operandSyntax,
+            memberAccess,
+            propertySymbol.Type,
+            binaryOperatorKind,
+            isPostfix,
+            value => BoundFactory.CreatePropertyAssignmentExpression(memberAccess.Receiver, propertySymbol, value));
+    }
+
+    private BoundExpression BindIncrementCore(
+        ExpressionSyntax operandSyntax,
+        BoundExpression valueExpression,
+        ITypeSymbol targetType,
+        SyntaxKind binaryOperatorKind,
+        bool isPostfix,
+        Func<BoundExpression, BoundAssignmentExpression> createAssignment)
+    {
+        if (targetType.TypeKind == TypeKind.Error)
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+        var initialValue = ConvertValueForAssignment(valueExpression, targetType, operandSyntax);
+
+        if (initialValue is BoundErrorExpression)
+            return initialValue;
+
+        var tempLocal = CreateTempLocal("inc", targetType, operandSyntax);
+        var tempAccess = new BoundLocalAccess(tempLocal);
+
+        var statements = new List<BoundStatement>
+        {
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(tempLocal, initialValue)])
+        };
+
+        var stepLiteral = CreateStepLiteral();
+        var preparedStep = PrepareRightForAssignment(stepLiteral, targetType, operandSyntax);
+
+        if (preparedStep is BoundErrorExpression)
+            return preparedStep;
+
+        var updatedValue = BindBinaryExpression(binaryOperatorKind, tempAccess, preparedStep, operandSyntax.GetLocation());
+        var convertedUpdatedValue = ConvertValueForAssignment(updatedValue, targetType, operandSyntax);
+
+        if (convertedUpdatedValue is BoundErrorExpression)
+            return convertedUpdatedValue;
+
+        var assignment = createAssignment(convertedUpdatedValue);
+        statements.Add(new BoundExpressionStatement(assignment));
+
+        var resultExpression = isPostfix
+            ? (BoundExpression)new BoundLocalAccess(tempLocal)
+            : convertedUpdatedValue;
+
+        statements.Add(new BoundExpressionStatement(resultExpression));
+
+        return BoundFactory.CreateBlockExpression(statements);
+    }
+
+    private BoundExpression BindInvalidIncrementOperand(SyntaxToken operatorToken)
+    {
+        _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(operatorToken.GetLocation());
+        return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+    }
+
+    private ITypeSymbol GetIncrementTargetType(ITypeSymbol type)
+    {
+        return type is ByRefTypeSymbol byRef ? byRef.ElementType : type;
+    }
+
+    private BoundLiteralExpression CreateStepLiteral()
+    {
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+        var literalType = new LiteralTypeSymbol(intType, 1, Compilation);
+        return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 1, literalType);
     }
 
     private BoundExpression BindAwaitExpression(UnaryExpressionSyntax awaitExpression)
