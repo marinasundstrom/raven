@@ -197,7 +197,7 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.PlusEqualsToken, "+=");
                         }
-                        else if (PeekChar(out ch2) && ch2 == '=')
+                        else if (PeekChar(out ch2) && ch2 == '+')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.PlusPlusToken, "++");
