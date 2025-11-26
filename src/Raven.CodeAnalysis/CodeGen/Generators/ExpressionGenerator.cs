@@ -3035,7 +3035,7 @@ internal class ExpressionGenerator : Generator
 
                 if (argument?.Type is { } argumentType &&
                     RequiresValueTypeHandling(argumentType) &&
-                    !paramSymbol.Type.IsValueType)
+                    !RequiresValueTypeHandling(paramSymbol.Type))
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(argumentType));
                 }
