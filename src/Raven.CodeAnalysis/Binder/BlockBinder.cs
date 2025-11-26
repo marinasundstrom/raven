@@ -665,6 +665,54 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
+    private BoundExpression BindCompoundAssignmentValue(
+        BoundExpression leftValue,
+        BoundExpression rightValue,
+        ITypeSymbol targetType,
+        SyntaxKind binaryOperatorKind,
+        ExpressionSyntax rightSyntax)
+    {
+        var preparedRight = PrepareRightForAssignment(rightValue, targetType, rightSyntax);
+
+        if (preparedRight is BoundErrorExpression)
+            return preparedRight;
+
+        var binary = BindBinaryExpression(binaryOperatorKind, leftValue, preparedRight, rightSyntax.GetLocation());
+
+        return ConvertValueForAssignment(binary, targetType, rightSyntax);
+    }
+
+    private BoundExpression PrepareRightForAssignment(BoundExpression right, ITypeSymbol targetType, SyntaxNode syntax)
+    {
+        if (targetType.TypeKind != TypeKind.Error && ShouldAttemptConversion(right))
+        {
+            if (!IsAssignable(targetType, right.Type!, out var conversion))
+            {
+                _diagnostics.ReportCannotAssignFromTypeToType(
+                    right.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.GetLocation());
+                return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            right = ApplyConversion(right, targetType, conversion, syntax);
+        }
+
+        return right;
+    }
+
+    private static SyntaxKind? GetBinaryOperatorFromAssignment(SyntaxKind assignmentOperatorKind)
+    {
+        return assignmentOperatorKind switch
+        {
+            SyntaxKind.PlusEqualsToken => SyntaxKind.PlusToken,
+            SyntaxKind.MinusEqualsToken => SyntaxKind.MinusToken,
+            SyntaxKind.StarEqualsToken => SyntaxKind.StarToken,
+            SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
+            _ => null,
+        };
+    }
+
     private BoundExpression BindDiscardExpression(DiscardExpressionSyntax discardExpression)
     {
         _diagnostics.ReportDiscardExpressionNotAllowed(discardExpression.GetLocation());
@@ -2839,6 +2887,143 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
+    private BoundExpression BindCompoundAssignment(
+        ExpressionSyntax leftSyntax,
+        ExpressionSyntax rightSyntax,
+        SyntaxNode node,
+        SyntaxKind operatorTokenKind)
+    {
+        var binaryOperator = GetBinaryOperatorFromAssignment(operatorTokenKind);
+        if (binaryOperator is null)
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+
+        if (leftSyntax is DiscardExpressionSyntax)
+        {
+            _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
+        if (leftSyntax is ElementAccessExpressionSyntax elementAccess)
+        {
+            var right = BindExpression(rightSyntax);
+
+            var receiver = BindExpression(elementAccess.Expression);
+            var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
+
+            if (receiver.Type is IArrayTypeSymbol arrayType)
+            {
+                var arrayAccess = new BoundArrayAccessExpression(receiver, args, arrayType.ElementType);
+                var arrayRight = BindCompoundAssignmentValue(arrayAccess, right, arrayType.ElementType, binaryOperator.Value, rightSyntax);
+                return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRight);
+            }
+
+            var indexer = ResolveIndexer(receiver.Type!, args.Length);
+
+            if (indexer is null || indexer.SetMethod is null)
+            {
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
+            }
+
+            var indexerAccess = new BoundIndexerAccessExpression(receiver, args, indexer);
+            var indexerRight = BindCompoundAssignmentValue(indexerAccess, right, indexer.Type, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRight);
+        }
+
+        var left = BindExpression(leftSyntax);
+
+        if (left is BoundLocalAccess localAccess)
+        {
+            var localSymbol = localAccess.Local;
+            var localType = localSymbol.Type;
+            var right = BindExpression(rightSyntax);
+
+            if (localType is ByRefTypeSymbol byRefLocalType)
+            {
+                var localByRefRight = BindCompoundAssignmentValue(localAccess, right, byRefLocalType.ElementType, binaryOperator.Value, rightSyntax);
+                if (localByRefRight is BoundErrorExpression)
+                    return localByRefRight;
+
+                return BoundFactory.CreateByRefAssignmentExpression(localAccess, byRefLocalType.ElementType, localByRefRight);
+            }
+
+            if (!localSymbol.IsMutable)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            }
+
+            var localRight = BindCompoundAssignmentValue(localAccess, right, localType, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreateLocalAssignmentExpression(localSymbol, localRight);
+        }
+        else if (left is BoundParameterAccess parameterAccess)
+        {
+            var parameterSymbol = parameterAccess.Parameter;
+            var parameterType = parameterSymbol.Type;
+            var right = BindExpression(rightSyntax);
+
+            if (!parameterSymbol.IsMutable)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            }
+
+            if (parameterType is ByRefTypeSymbol byRefParameterType && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
+            {
+                var parameterByRefRight = BindCompoundAssignmentValue(parameterAccess, right, byRefParameterType.ElementType, binaryOperator.Value, rightSyntax);
+                if (parameterByRefRight is BoundErrorExpression)
+                    return parameterByRefRight;
+
+                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, parameterByRefRight);
+            }
+
+            var parameterRight = BindCompoundAssignmentValue(parameterAccess, right, parameterType, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, parameterRight);
+        }
+        else if (left.Symbol is IFieldSymbol fieldSymbol)
+        {
+            if (fieldSymbol.IsLiteral)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
+                return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
+            }
+
+            var right = BindExpression(rightSyntax);
+            var access = new BoundFieldAccess(GetReceiver(left), fieldSymbol);
+
+            var fieldRight = BindCompoundAssignmentValue(access, right, fieldSymbol.Type, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), fieldSymbol, fieldRight);
+        }
+        else if (left.Symbol is IPropertySymbol propertySymbol)
+        {
+            SourceFieldSymbol? backingField = null;
+
+            if (propertySymbol.SetMethod is null)
+            {
+                if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
+                {
+                    _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+            }
+
+            var right = BindExpression(rightSyntax);
+
+            if (backingField is not null)
+            {
+                var backingAccess = new BoundFieldAccess(GetReceiver(left), backingField);
+                var backingRight = BindCompoundAssignmentValue(backingAccess, right, propertySymbol.Type, binaryOperator.Value, rightSyntax);
+                return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), backingField, backingRight);
+            }
+
+            var propertyAccess = new BoundMemberAccessExpression(GetReceiver(left), propertySymbol);
+            var result = BindCompoundAssignmentValue(propertyAccess, right, propertySymbol.Type, binaryOperator.Value, rightSyntax);
+            return BoundFactory.CreatePropertyAssignmentExpression(GetReceiver(left), propertySymbol, result);
+        }
+
+        return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
     private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments, SeparatedSyntaxList<TypeArgumentSyntax> typeArgumentSyntax = default, int? arityOverride = null)
     {
         var symbol = LookupType(name);
@@ -3206,6 +3391,15 @@ partial class BlockBinder : Binder
 
         var right = BindExpression(syntax.Right);
 
+        return BindBinaryExpression(opKind, left, right, syntax.OperatorToken.GetLocation());
+    }
+
+    private BoundExpression BindBinaryExpression(
+        SyntaxKind opKind,
+        BoundExpression left,
+        BoundExpression right,
+        Location? diagnosticLocation = null)
+    {
         // 1. Specialfall: string + any → string-konkatenering
         if (opKind == SyntaxKind.PlusToken)
         {
@@ -3254,7 +3448,7 @@ partial class BlockBinder : Binder
             opKind.ToString(),
             left.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            syntax.OperatorToken.GetLocation());
+            diagnosticLocation ?? Location.None);
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
@@ -4444,8 +4638,11 @@ partial class BlockBinder : Binder
                                  p.GetMethod.Parameters.Length == argCount);
     }
 
-    private BoundExpression BindAssignment(ExpressionSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node)
+    private BoundExpression BindAssignment(ExpressionSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node, SyntaxKind operatorTokenKind)
     {
+        if (operatorTokenKind != SyntaxKind.EqualsToken)
+            return BindCompoundAssignment(leftSyntax, rightSyntax, node, operatorTokenKind);
+
         if (leftSyntax is DiscardExpressionSyntax)
         {
             var right = BindExpression(rightSyntax);
@@ -4683,7 +4880,12 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
-        => BindAssignment(syntax.Left, syntax.Right, syntax);
+    {
+        if (syntax.Parent is not AssignmentStatementSyntax)
+            _diagnostics.ReportAssignmentExpressionMustBeStatement(syntax.GetLocation());
+
+        return BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
+    }
 
     private BoundExpression ConvertValueForAssignment(BoundExpression value, ITypeSymbol targetType, SyntaxNode syntax)
     {
@@ -4704,20 +4906,28 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindAssignmentStatement(AssignmentStatementSyntax syntax)
     {
-        var bound = BindAssignment(syntax.Left, syntax.Right, syntax);
+        var bound = BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
         return bound is BoundAssignmentExpression assignment
             ? new BoundAssignmentStatement(assignment)
             : new BoundExpressionStatement(bound);
     }
 
-    private BoundExpression BindAssignment(ExpressionOrPatternSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node)
+    private BoundExpression BindAssignment(ExpressionOrPatternSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node, SyntaxKind operatorTokenKind)
     {
         if (leftSyntax is ExpressionSyntax leftExpression)
-            return BindAssignment(leftExpression, rightSyntax, node);
+            return BindAssignment(leftExpression, rightSyntax, node, operatorTokenKind);
 
         var right = BindExpression(rightSyntax);
         if (leftSyntax is PatternSyntax patternSyntax)
+        {
+            if (operatorTokenKind != SyntaxKind.EqualsToken)
+            {
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+            }
+
             return BindPatternAssignment(patternSyntax, right, node);
+        }
 
         _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
         return ErrorExpression(right.Type, reason: BoundExpressionReason.NotFound);

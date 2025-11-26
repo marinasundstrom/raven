@@ -206,7 +206,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         PatternSyntax? assignmentPattern = null;
         ExpressionSyntax? expr = null;
 
-        if (precedence == 0 && TryParseAssignmentPattern(out var pattern))
+        if (precedence == 0 && PeekToken(1).Kind == SyntaxKind.EqualsToken && TryParseAssignmentPattern(out var pattern))
         {
             assignmentPattern = pattern;
         }
@@ -215,7 +215,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             expr = ParseFactorExpression();
         }
 
-        if (ConsumeToken(SyntaxKind.EqualsToken, out var assignToken))
+        if (TryConsumeAssignmentOperator(out var assignToken))
         {
             ExpressionOrPatternSyntax leftNode;
             if (assignmentPattern is not null)
@@ -241,7 +241,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             var right = ParseExpressionCore(0);
 
-            return AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, leftNode, assignToken, right, Diagnostics);
+            return AssignmentExpression(GetAssignmentExpressionKind(assignToken), leftNode, assignToken, right, Diagnostics);
         }
 
         while (true)
@@ -327,6 +327,39 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (token.Kind == SyntaxKind.EqualsToken && depth > 0)
                 return true;
         }
+    }
+
+    private static SyntaxKind GetAssignmentExpressionKind(SyntaxToken operatorToken)
+    {
+        return operatorToken.Kind switch
+        {
+            SyntaxKind.PlusEqualsToken => SyntaxKind.AddAssignmentExpression,
+            SyntaxKind.MinusEqualsToken => SyntaxKind.SubtractAssignmentExpression,
+            SyntaxKind.StarEqualsToken => SyntaxKind.MultiplyAssignmentExpression,
+            SyntaxKind.SlashEqualsToken => SyntaxKind.DivideAssignmentExpression,
+            _ => SyntaxKind.SimpleAssignmentExpression,
+        };
+    }
+
+    private bool TryConsumeAssignmentOperator(out SyntaxToken token)
+    {
+        if (IsAssignmentOperator(PeekToken().Kind))
+        {
+            token = ReadToken();
+            return true;
+        }
+
+        token = null!;
+        return false;
+    }
+
+    private static bool IsAssignmentOperator(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.EqualsToken
+            or SyntaxKind.PlusEqualsToken
+            or SyntaxKind.MinusEqualsToken
+            or SyntaxKind.StarEqualsToken
+            or SyntaxKind.SlashEqualsToken;
     }
 
     private static bool IsPossibleAssignmentPatternStart(SyntaxToken token)
