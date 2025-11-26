@@ -97,4 +97,39 @@ extension MyEnumerableExt<T> for IEnumerable<T> {
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
 
+    [Fact]
+    public void ExtensionDeclaration_AsyncMethod_BindsAndLowers()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+let result = await 1.IncrementAsync()
+
+extension IntExtensions for int {
+    public async IncrementAsync() -> Task<int> {
+        return self + 1
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodDecl = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+
+        Assert.True(methodSymbol.IsExtensionMethod);
+        Assert.True(methodSymbol.IsAsync);
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.True(boundInvocation.Method.IsAsync);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+    }
+
 }

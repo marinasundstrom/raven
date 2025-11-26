@@ -3,7 +3,7 @@ import System.Net.Http.*
 import System.Threading.Tasks.*
 
 using let client = HttpClient()
-let res = client.FetchAsync("http://www.contoso.com/")
+let res = await client.FetchAsync("http://www.contoso.com/")
 
 let str = res match {
     .Ok(str) => "Response is: ${str}"
@@ -29,3 +29,4 @@ extension HttpClientExtensions for HttpClient {
         }
     }
 }
+
