@@ -30,7 +30,7 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `arrays.rav` | ✅ Emitted / ✅ Ran | Running the DLL prints `3`, `1`, `42`, `3`. |
 | `async/async-await.rav` | ✅ Emitted / ✅ Ran | Finishes with `first:1`, `sum:6`, and `done`. |
 | `async/async-file-io.rav` | ✅ Emitted / ✅ Ran | Runtime output lists the staged writes `alpha`, `beta`, `gamma`. |
-| `async/async-generic-compute.rav` | ✅ Emitted / ❌ Ran | Crashes with an `InvalidProgramException` while unwrapping the async generic result; the async state machine regressed after previously working. |
+| `async/async-generic-compute.rav` | ✅ Emitted / ✅ Ran | Prints `Before delay`, `After delay`, `After Compute`, and `42`. |
 | `async/async-inference-regression.rav` | ❌ Fails | Binder errors persist (`Run` overload count, `int` vs `unit`, ambiguous `WriteLine`); still never worked. |
 | `async/async-task-return.rav` | ✅ Emitted / ✅ Ran | Prints the awaited task result `43`. |
 | `async/async-try-catch.rav` | ✅ Emitted / ✅ Ran | Logs `value:42`, `caught:boom`, and `completed`. |
