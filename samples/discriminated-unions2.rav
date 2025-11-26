@@ -1,0 +1,19 @@
+/*
+ * Additional discriminated union sample
+ */
+import System.*
+
+union Shape {
+    Circle(radius: int)
+    Rectangle(width: int, height: int)
+}
+
+func area(shape: Shape) -> int {
+    return shape match {
+        .Circle(r) => r * r * 3,
+        .Rectangle(w, h) => w * h,
+    }
+}
+
+Console.WriteLine(area(.Circle(2)))
+Console.WriteLine(area(.Rectangle(3, 4)))
