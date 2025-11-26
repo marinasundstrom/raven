@@ -24,10 +24,7 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new ArgumentNullException(nameof(codeGen));
 
         var compilation = codeGen.Compilation;
-        var debugConstructedMethod = string.Equals(
-            Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_METHOD"),
-            "1",
-            StringComparison.Ordinal);
+        var debugConstructedMethod = ConstructedMethodDebugging.IsEnabled();
 
         if (typeSymbol is ConstructedNamedTypeSymbol constructedType)
         {

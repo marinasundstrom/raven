@@ -241,10 +241,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             : containingClrType;
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
-        var debug = string.Equals(
-            Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_METHOD"),
-            "1",
-            StringComparison.Ordinal);
+        var debug = ConstructedMethodDebugging.IsEnabled();
         var runtimeTypeArguments = TypeArguments
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
@@ -353,7 +350,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 ? candidate.DeclaringType.GetGenericArguments()
                 : Array.Empty<Type>();
 
-        var parametersMatch = ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen, debug);
+            var parametersMatch = ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen, debug);
             if (!parametersMatch)
             {
                 if (debug)
@@ -952,5 +949,14 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return treatUnitAsVoid && isTopLevel
             ? symbol.GetClrTypeTreatingUnitAsVoid(codeGen)
             : symbol.GetClrType(codeGen);
+    }
+}
+
+internal static class ConstructedMethodDebugging
+{
+    public static bool IsEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_METHOD");
+        return string.Equals(value, "1", StringComparison.Ordinal);
     }
 }
