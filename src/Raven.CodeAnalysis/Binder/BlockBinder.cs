@@ -23,6 +23,7 @@ partial class BlockBinder : Binder
     private bool _allowReturnsInExpression;
     private int _loopDepth;
     private int _expressionContextDepth;
+    private int _temporaryId;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -632,6 +633,7 @@ partial class BlockBinder : Binder
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
+            PostfixUnaryExpressionSyntax postfixUnaryExpression => BindPostfixUnaryExpression(postfixUnaryExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
             DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
             UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
@@ -738,6 +740,8 @@ partial class BlockBinder : Binder
 
         return unaryExpression.Kind switch
         {
+            SyntaxKind.PreIncrementExpression => BindIncrementOrDecrementExpression(operand, unaryExpression, isPrefix: true, isIncrement: true),
+            SyntaxKind.PreDecrementExpression => BindIncrementOrDecrementExpression(operand, unaryExpression, isPrefix: true, isIncrement: false),
             SyntaxKind.LogicalNotExpression => operand,
             SyntaxKind.UnaryMinusExpression => operand,
             SyntaxKind.UnaryPlusExpression => operand,
@@ -812,6 +816,189 @@ partial class BlockBinder : Binder
 
         return new BoundAwaitExpression(operand, resultType, awaiterType, getAwaiter, getResult, isCompleted);
     }
+
+    private BoundExpression BindPostfixUnaryExpression(PostfixUnaryExpressionSyntax postfixUnaryExpression)
+    {
+        var operand = BindExpression(postfixUnaryExpression.Expression);
+        var isIncrement = postfixUnaryExpression.Kind == SyntaxKind.PostIncrementExpression;
+
+        return BindIncrementOrDecrementExpression(operand, postfixUnaryExpression, isPrefix: false, isIncrement: isIncrement);
+    }
+
+    private BoundExpression BindIncrementOrDecrementExpression(BoundExpression operand, SyntaxNode syntax, bool isPrefix, bool isIncrement)
+    {
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        if (!TryGetIncrementTarget(operand, syntax, out var target))
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+        var oneLiteral = BoundFactory.CreateLiteralExpression(
+            BoundLiteralExpressionKind.NumericLiteral,
+            1,
+            Compilation.GetSpecialType(SpecialType.System_Int32));
+
+        var valueForComputation = target.ValueExpression;
+
+        if (valueForComputation.Type is null || oneLiteral.Type is null)
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+
+        var operatorKind = isIncrement ? SyntaxKind.PlusToken : SyntaxKind.MinusToken;
+
+        if (!BoundBinaryOperator.TryLookup(Compilation, operatorKind, valueForComputation.Type, oneLiteral.Type, out var @operator))
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+
+        var incrementedValue = new BoundBinaryExpression(valueForComputation, @operator, oneLiteral);
+        var convertedIncrement = ConvertValueForAssignment(incrementedValue, target.Type, syntax);
+
+        if (convertedIncrement is BoundErrorExpression)
+            return convertedIncrement;
+
+        var assignment = target.CreateAssignment(convertedIncrement);
+
+        if (isPrefix)
+            return assignment;
+
+        var temp = CreateTemporaryLocal(valueForComputation.Type, syntax);
+        var statements = new List<BoundStatement>
+        {
+            new BoundLocalDeclarationStatement(new [] { new BoundVariableDeclarator(temp, valueForComputation) }),
+            new BoundExpressionStatement(assignment),
+            new BoundExpressionStatement(new BoundLocalAccess(temp))
+        };
+
+        return new BoundBlockExpression(statements, Compilation.UnitTypeSymbol);
+    }
+
+    private bool TryGetIncrementTarget(BoundExpression operand, SyntaxNode syntax, out IncrementTarget target)
+    {
+        switch (operand)
+        {
+            case BoundArrayAccessExpression arrayAccess:
+                target = new IncrementTarget(arrayAccess.ElementType, operand, right => BoundFactory.CreateArrayAssignmentExpression(arrayAccess, right));
+                return true;
+
+            case BoundIndexerAccessExpression indexerAccess:
+                target = new IncrementTarget(indexerAccess.Indexer.Type, operand, right => BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, right));
+                return true;
+
+            case BoundLocalAccess localAccess:
+                {
+                    var local = localAccess.Local;
+
+                    if (!local.IsMutable)
+                    {
+                        _diagnostics.ReportThisValueIsNotMutable(syntax.GetLocation());
+                        target = default;
+                        return false;
+                    }
+
+                    if (local.Type is ByRefTypeSymbol byRefType)
+                    {
+                        var elementType = byRefType.ElementType;
+                        target = new IncrementTarget(
+                            elementType,
+                            operand,
+                            right => BoundFactory.CreateByRefAssignmentExpression(localAccess, elementType, right));
+                        return true;
+                    }
+
+                    target = new IncrementTarget(local.Type, operand, right => BoundFactory.CreateLocalAssignmentExpression(local, right));
+                    return true;
+                }
+
+            case BoundParameterAccess parameterAccess:
+                {
+                    var parameter = parameterAccess.Parameter;
+
+                    if (!parameter.IsMutable)
+                    {
+                        _diagnostics.ReportThisValueIsNotMutable(syntax.GetLocation());
+                        target = default;
+                        return false;
+                    }
+
+                    if (parameter.Type is ByRefTypeSymbol byRefParameterType && parameter.RefKind is RefKind.Ref or RefKind.Out)
+                    {
+                        var elementType = byRefParameterType.ElementType;
+                        target = new IncrementTarget(
+                            elementType,
+                            operand,
+                            right => BoundFactory.CreateByRefAssignmentExpression(parameterAccess, elementType, right));
+                        return true;
+                    }
+
+                    target = new IncrementTarget(parameter.Type, operand, right => BoundFactory.CreateParameterAssignmentExpression(parameter, right));
+                    return true;
+                }
+
+            case BoundExpression { Symbol: IFieldSymbol fieldSymbol }:
+                {
+                    if (fieldSymbol.IsLiteral)
+                    {
+                        _diagnostics.ReportThisValueIsNotMutable(syntax.GetLocation());
+                        target = default;
+                        return false;
+                    }
+
+                    target = new IncrementTarget(
+                        fieldSymbol.Type,
+                        operand,
+                        right => BoundFactory.CreateFieldAssignmentExpression(GetReceiver(operand), fieldSymbol, right));
+                    return true;
+                }
+
+            case BoundExpression { Symbol: IPropertySymbol propertySymbol }:
+                {
+                    SourceFieldSymbol? backingField = null;
+
+                    if (propertySymbol.SetMethod is null && !TryGetWritableAutoPropertyBackingField(propertySymbol, operand, out backingField))
+                    {
+                        _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, syntax.GetLocation());
+                        target = default;
+                        return false;
+                    }
+
+                    if (backingField is not null)
+                    {
+                        target = new IncrementTarget(
+                            propertySymbol.Type,
+                            operand,
+                            right => BoundFactory.CreateFieldAssignmentExpression(GetReceiver(operand), backingField, right));
+                        return true;
+                    }
+
+                    target = new IncrementTarget(
+                        propertySymbol.Type,
+                        operand,
+                        right => BoundFactory.CreatePropertyAssignmentExpression(GetReceiver(operand), propertySymbol, right));
+                    return true;
+                }
+        }
+
+        target = default;
+        _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(syntax.GetLocation());
+        return false;
+    }
+
+    private SourceLocalSymbol CreateTemporaryLocal(ITypeSymbol type, SyntaxNode syntax)
+    {
+        var name = $"__temp{_temporaryId++}";
+        return new SourceLocalSymbol(
+            name,
+            type,
+            isMutable: true,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingNamespace,
+            [syntax.GetLocation()],
+            [syntax.GetReference()]);
+    }
+
+    private readonly record struct IncrementTarget(
+        ITypeSymbol Type,
+        BoundExpression ValueExpression,
+        Func<BoundExpression, BoundAssignmentExpression> CreateAssignment);
 
     private bool IsAwaitExpressionAllowed()
     {
