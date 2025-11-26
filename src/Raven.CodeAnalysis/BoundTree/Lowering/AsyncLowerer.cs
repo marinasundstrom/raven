@@ -1164,6 +1164,63 @@ internal static class AsyncLowerer
 
             var expression = VisitExpression(node.Expression) ?? node.Expression;
 
+            if (ContainsAwait(expression))
+            {
+                var resultType = node.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
+                var unitType = _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit);
+
+                var resultLocal = new SourceLocalSymbol(
+                    "$tryExprResult",
+                    SubstituteStateMachineTypeParameters(resultType),
+                    isMutable: true,
+                    _stateMachine.MoveNextMethod,
+                    _stateMachine,
+                    _stateMachine.ContainingNamespace,
+                    new[] { Location.None },
+                    Array.Empty<SyntaxReference>());
+
+                var resultDeclarator = new BoundVariableDeclarator(resultLocal, initializer: null);
+                var resultDeclaration = new BoundLocalDeclarationStatement(new[] { resultDeclarator });
+
+                var assignment = new BoundLocalAssignmentExpression(resultLocal, expression, unitType);
+                var tryBlock = new BoundBlockStatement(new BoundStatement[]
+                {
+                    new BoundExpressionStatement(assignment)
+                });
+
+                var exceptionLocal = new SourceLocalSymbol(
+                    "$tryExprException",
+                    SubstituteStateMachineTypeParameters(node.ExceptionType),
+                    isMutable: true,
+                    _stateMachine.MoveNextMethod,
+                    _stateMachine,
+                    _stateMachine.ContainingNamespace,
+                    new[] { Location.None },
+                    Array.Empty<SyntaxReference>());
+
+                var catchAssignment = new BoundLocalAssignmentExpression(
+                    resultLocal,
+                    new BoundLocalAccess(exceptionLocal),
+                    unitType);
+
+                var catchBlock = new BoundBlockStatement(new BoundStatement[]
+                {
+                    new BoundExpressionStatement(catchAssignment)
+                });
+
+                var catchClause = new BoundCatchClause(node.ExceptionType, exceptionLocal, catchBlock);
+                var tryStatement = new BoundTryStatement(tryBlock, ImmutableArray.Create(catchClause), finallyBlock: null);
+
+                var blockStatements = new BoundStatement[]
+                {
+                    resultDeclaration,
+                    tryStatement,
+                    new BoundExpressionStatement(new BoundLocalAccess(resultLocal))
+                };
+
+                return new BoundBlockExpression(blockStatements, unitType);
+            }
+
             if (!ReferenceEquals(expression, node.Expression))
             {
                 var type = node.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
@@ -1655,6 +1712,39 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(property);
         }
 
+        private static bool ContainsAwait(BoundExpression expression)
+        {
+            var visitor = new AwaitDetector();
+            visitor.VisitExpression(expression);
+            return visitor.FoundAwait;
+        }
+
+        private sealed class AwaitDetector : BoundTreeWalker
+        {
+            public bool FoundAwait { get; private set; }
+
+            public override void VisitAwaitExpression(BoundAwaitExpression node)
+            {
+                FoundAwait = true;
+            }
+
+            public override void VisitExpression(BoundExpression? node)
+            {
+                if (FoundAwait || node is null)
+                    return;
+
+                base.VisitExpression(node);
+            }
+
+            public override void VisitStatement(BoundStatement? node)
+            {
+                if (FoundAwait || node is null)
+                    return;
+
+                base.VisitStatement(node);
+            }
+        }
+
         private ImmutableArray<ILocalSymbol> FilterLocalsToDispose(ImmutableArray<ILocalSymbol> locals)
         {
             if (_hoistableLocals.Count == 0 || locals.IsDefaultOrEmpty)
@@ -1681,11 +1771,11 @@ internal static class AsyncLowerer
         }
     }
 
-    private static class StateDispatchInjector
-    {
-        public static BoundBlockStatement Inject(
-            BoundBlockStatement body,
-            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        private static class StateDispatchInjector
+        {
+            public static BoundBlockStatement Inject(
+                BoundBlockStatement body,
+                SynthesizedAsyncStateMachineTypeSymbol stateMachine,
             ImmutableArray<StateDispatch> dispatches,
             out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
         {

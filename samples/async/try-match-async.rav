@@ -1,7 +1,7 @@
 import System.*
 import System.Threading.Tasks.*
 
-func Foo() -> Task<int> {
+async func Foo() -> Task<int> {
     await Task.Delay(200)
     throw new Exception("")
     return 0
