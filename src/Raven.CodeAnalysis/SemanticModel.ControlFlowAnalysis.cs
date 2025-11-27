@@ -80,15 +80,22 @@ public sealed class ControlFlowRegion
     // For a span of statements within the same block
     public ControlFlowRegion(StatementSyntax first, StatementSyntax last)
     {
-        if (first.Parent != last.Parent || first.Parent is not BlockStatementSyntax block)
+        if (first.Parent != last.Parent)
             throw new ArgumentException("Region must be a contiguous set of statements in the same block.");
 
         FirstStatement = first;
         LastStatement = last;
-        EnclosingBlock = block;
+        EnclosingBlock = first.Parent as BlockStatementSyntax;
+
+        SyntaxList<StatementSyntax> statements = first.Parent switch
+        {
+            BlockStatementSyntax block => block.Statements,
+            BlockSyntax blockExpr => blockExpr.Statements,
+            _ => throw new ArgumentException("Region must be a contiguous set of statements in the same block.")
+        };
 
         var found = false;
-        foreach (var stmt in block.Statements)
+        foreach (var stmt in statements)
         {
             if (stmt == first) found = true;
             if (found)
