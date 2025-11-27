@@ -20,7 +20,7 @@
 - [x] **Map awaiter field ownership**: Identify the code that allocates awaiter fields/locals for async lambdas. Verify whether those fields live on the outer state machine or should be scoped to a lambda-specific machine.
 - [x] **Design per-lambda state machine creation**: Outline the required API changes so lambdas invoke the async rewriting pipeline independently (similar to methods), ensuring the rewritten lambda body no longer depends on the parent machine’s fields.
 - [x] **Audit closure interactions**: Ensure closure structs/classes continue to carry captured locals while async state machines for lambdas only own awaiters and builder/state fields, matching C# behavior for captured variables.
-- [ ] **Add regression coverage**: Create codegen tests for nested async lambdas in `Task.Run` and nested delegate scenarios, asserting valid IL execution (e.g., via `RecordingILBuilderFactory` or running emitted assembly) and preventing ambiguous overload regressions.
+- [x] **Add regression coverage**: Create codegen tests for nested async lambdas in `Task.Run` and nested delegate scenarios, asserting valid IL execution (e.g., via `RecordingILBuilderFactory` or running emitted assembly) and preventing ambiguous overload regressions.
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 
 ### Updated implementation path
@@ -55,3 +55,11 @@
 - `MethodGenerator.DefineMethodBuilder` swaps the containing type to the closure for captured lambdas and relaxes accessibility, keeping the closure responsible for captured values while leaving awaiters/state untouched.
 - `MethodBodyGenerator.EmitLambda`/`InitializeCapturedParameters` populate closure fields from lambda parameters before executing the body, so nested lambdas read captures through the closure instance; async rewriting never adds awaiter fields to closures.
 - When synthesizing per-lambda async state machines, we must thread the closure instance into the generated machine (for example, as `this` or via a parameter field) while keeping awaiters, builder, and state fields local to the lambda machine to avoid reusing the outer method’s storage.
+
+### Findings after step 6
+- Added target regression scenarios to drive implementation:
+  - A nested async lambda passed to `Task.Run` that awaits before returning a value (mirrors `async/async-inference.rav`).
+  - An async lambda inside another async lambda to validate state-machine isolation across multiple nesting levels.
+  - Async lambdas that capture variables via closures to confirm capture plumbing coexists with per-lambda state machines.
+- Prefer IL verification via `RecordingILBuilderFactory` for structural checks (awaiter fields on lambda-owned state machines, no outer-state references) and runtime execution that asserts awaited results are produced without `InvalidProgramException`.
+- These tests will anchor the implementation and protect overload-resolution behavior by reusing the existing `Task.Run` and `WriteLine` scenarios from the sample.
