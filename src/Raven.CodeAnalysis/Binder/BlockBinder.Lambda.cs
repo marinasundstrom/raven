@@ -764,6 +764,12 @@ partial class BlockBinder
             return null;
         }
 
+        if (unbound.LambdaSymbol.IsAsync && !IsValidAsyncReturnType(invoke.ReturnType))
+        {
+            instrumentation.RecordBindingFailure();
+            return null;
+        }
+
         var syntax = unbound.Syntax;
         var parameterSyntaxes = syntax switch
         {

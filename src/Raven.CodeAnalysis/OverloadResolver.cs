@@ -206,12 +206,6 @@ internal sealed class OverloadResolver
         }
 
         var lambdaReturnType = lambda.ReturnType;
-        if (lambda.Symbol is ILambdaSymbol { IsAsync: true } &&
-            invoke.ReturnType is ITypeParameterSymbol &&
-            lambda.Body.Type is { TypeKind: not TypeKind.Error } bodyType)
-        {
-            lambdaReturnType = bodyType;
-        }
         if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
         {
             if (lambdaReturnType is ITypeParameterSymbol)
