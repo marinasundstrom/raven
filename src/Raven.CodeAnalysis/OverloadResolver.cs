@@ -203,6 +203,12 @@ internal sealed class OverloadResolver
         }
 
         var lambdaReturnType = lambda.ReturnType;
+        if (lambda.Symbol is ILambdaSymbol { IsAsync: true } &&
+            invoke.ReturnType is ITypeParameterSymbol &&
+            lambda.Body.Type is { TypeKind: not TypeKind.Error } bodyType)
+        {
+            lambdaReturnType = bodyType;
+        }
         if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
         {
             if (!TryInferFromTypes(compilation, invoke.ReturnType, lambdaReturnType, substitutions, inferenceMethod))
@@ -433,6 +439,18 @@ internal sealed class OverloadResolver
         var candParams = candidate.Parameters;
         var currentParams = current.Parameters;
 
+        if (arguments.Any(static a => a.Expression is BoundLambdaExpression { Symbol: ILambdaSymbol { IsAsync: true } }))
+        {
+            var candidateTaskDepth = GetTaskDepth(candidate.ReturnType);
+            var currentTaskDepth = GetTaskDepth(current.ReturnType);
+
+            if (candidateTaskDepth < currentTaskDepth)
+                return true;
+
+            if (currentTaskDepth < candidateTaskDepth)
+                return false;
+        }
+
         bool candidateIsExtension = candidate.IsExtensionMethod && receiver is not null;
         bool currentIsExtension = current.IsExtensionMethod && receiver is not null;
 
@@ -519,6 +537,29 @@ internal sealed class OverloadResolver
         }
 
         return better;
+    }
+
+    private static int GetTaskDepth(ITypeSymbol? type)
+    {
+        if (type is null)
+            return int.MaxValue;
+
+        var depth = 0;
+        var current = type;
+
+        while (current is INamedTypeSymbol named &&
+            (named.SpecialType == SpecialType.System_Threading_Tasks_Task ||
+             named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T))
+        {
+            depth++;
+
+            if (named.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                break;
+
+            current = named.TypeArguments.Length == 1 ? named.TypeArguments[0] : null;
+        }
+
+        return depth;
     }
 
     private static bool IsImplicitConversion(Compilation compilation, ITypeSymbol source, ITypeSymbol destination)

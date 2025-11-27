@@ -14,6 +14,7 @@ public class SampleProgramsTests
     public static IEnumerable<object[]> SamplePrograms =>
     [
         ["arrays.rav"],
+        ["async/async-inference-regression.rav"],
         ["classes.rav"],
         ["enums.rav"],
         ["general.rav"],
@@ -29,6 +30,7 @@ public class SampleProgramsTests
 
     public static IEnumerable<object[]> SampleProgramsWithExpectedOutputs =>
     [
+        ["async/async-inference-regression.rav"],
         ["discriminated-unions-generics.rav"],
         ["discriminated-unions2.rav"],
     ];
