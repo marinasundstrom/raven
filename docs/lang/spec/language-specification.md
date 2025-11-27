@@ -870,6 +870,26 @@ while cond {
 }
 ```
 
+### Unreachable statements
+
+Flow analysis tracks whether each statement in a block can execute. When a
+previous statement always transfers control—such as `return`, `throw`, `goto`,
+`yield break`, or a loop control transfer like `break`/`continue`—any following
+statement in the same block becomes unreachable. The compiler reports
+`RAV0162` (warning severity) on each such statement to highlight dead code
+paths.
+
+```raven
+func demo(flag: bool) {
+    if flag {
+        return
+    }
+
+    throw System.InvalidOperationException()
+    var value = 1      // RAV0162: Unreachable code detected
+}
+```
+
 ### Labeled statements and `goto`
 
 A label is written as `identifier:` ahead of a statement. Labels share a single
