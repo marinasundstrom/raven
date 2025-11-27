@@ -125,13 +125,26 @@ internal static class AsyncLowerer
         if (!analysis.RequiresStateMachine)
             return new AsyncRewriteResult(body, stateMachine, analysis);
 
-        if (stateMachine is not null)
+        stateMachine ??= compilation.CreateAsyncStateMachine(lambda);
+
+        if (stateMachine.OriginalBody is null)
+            stateMachine.SetOriginalBody(body);
+
+        if (stateMachine.MoveNextBody is null)
         {
-            var rewrittenBody = RewriteLambdaBody(compilation, lambda, stateMachine, body);
-            return new AsyncRewriteResult(rewrittenBody, stateMachine, analysis);
+            var moveNextBody = CreateMoveNextBody(compilation, stateMachine);
+            stateMachine.SetMoveNextBody(moveNextBody);
         }
 
-        return new AsyncRewriteResult(body, stateMachine, analysis);
+        if (stateMachine.SetStateMachineBody is null)
+        {
+            var setStateMachineBody = CreateSetStateMachineBody(stateMachine);
+            if (setStateMachineBody is not null)
+                stateMachine.SetSetStateMachineBody(setStateMachineBody);
+        }
+
+        var rewrittenBody = RewriteLambdaBody(compilation, lambda, stateMachine, body);
+        return new AsyncRewriteResult(rewrittenBody, stateMachine, analysis);
     }
 
     private static AsyncRewriteResult RewriteMethod(
@@ -173,7 +186,7 @@ internal static class AsyncLowerer
                 asyncStateMachine.SetSetStateMachineBody(setStateMachineBody);
         }
 
-        var rewrittenBody = RewriteMethodBody(compilation, method, asyncStateMachine);
+        var rewrittenBody = RewriteAsyncBody(compilation, method, asyncStateMachine);
         return new AsyncRewriteResult(rewrittenBody, asyncStateMachine, analysis);
     }
 
@@ -192,7 +205,7 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
-        throw new NotSupportedException("Async lambda state machine rewriting is not implemented yet.");
+        return RewriteAsyncBody(compilation, lambda, stateMachine);
     }
 
     public static bool ShouldRewrite(SourceMethodSymbol method, BoundBlockStatement body)
@@ -254,9 +267,9 @@ internal static class AsyncLowerer
         return new BoundBlockStatement(new BoundStatement[] { tryStatement });
     }
 
-    private static BoundBlockStatement RewriteMethodBody(
+    private static BoundBlockStatement RewriteAsyncBody(
         Compilation compilation,
-        SourceMethodSymbol method,
+        IMethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
         var statements = new List<BoundStatement>();
@@ -2927,7 +2940,7 @@ internal static class AsyncLowerer
     }
 
     private static BoundExpression CreateReturnExpression(
-        SourceMethodSymbol method,
+        IMethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         SourceLocalSymbol asyncLocal)
     {
