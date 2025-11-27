@@ -19,7 +19,7 @@
 - [x] **Inspect state machine synthesis for lambdas**: Follow `MethodBodyGenerator.EmitLambda` → `EmitLambdaBody` → `AsyncStateMachineRewriter` (or equivalent) to see when a lambda is considered async and whether a new `SynthesizedAsyncStateMachineTypeSymbol` is created per lambda.
 - [x] **Map awaiter field ownership**: Identify the code that allocates awaiter fields/locals for async lambdas. Verify whether those fields live on the outer state machine or should be scoped to a lambda-specific machine.
 - [x] **Design per-lambda state machine creation**: Outline the required API changes so lambdas invoke the async rewriting pipeline independently (similar to methods), ensuring the rewritten lambda body no longer depends on the parent machine’s fields.
-- [ ] **Audit closure interactions**: Ensure closure structs/classes continue to carry captured locals while async state machines for lambdas only own awaiters and builder/state fields, matching C# behavior for captured variables.
+- [x] **Audit closure interactions**: Ensure closure structs/classes continue to carry captured locals while async state machines for lambdas only own awaiters and builder/state fields, matching C# behavior for captured variables.
 - [ ] **Add regression coverage**: Create codegen tests for nested async lambdas in `Task.Run` and nested delegate scenarios, asserting valid IL execution (e.g., via `RecordingILBuilderFactory` or running emitted assembly) and preventing ambiguous overload regressions.
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 
@@ -49,3 +49,9 @@
   - Teach the rewriter to emit a generated `MoveNext` that returns `Task`/`Task<T>` matching the delegate, wrapping the original lambda body in a state machine and preserving closure captures.
 - Method/lambda rewriters must expose a stable surface that accepts the lambda symbol, lowered body, and `ContainingType` so that awaiter fields are allocated on the lambda’s own machine rather than the outer method’s.
 - The plan is to introduce a lambda-aware async rewrite stage inside `MethodGenerator.EmitLambdaBody` that produces a rewritten body and synthesized state machine before handing control back to `ExpressionGenerator` for IL emission. This keeps lambda IL generation consistent with methods while isolating awaiter ownership.
+
+### Findings after step 5
+- Captured lambdas emit as instance methods on a synthesized closure type (`TypeGenerator.EnsureLambdaClosure`), with one public field per captured symbol; async lambdas currently share this path without any async awareness.
+- `MethodGenerator.DefineMethodBuilder` swaps the containing type to the closure for captured lambdas and relaxes accessibility, keeping the closure responsible for captured values while leaving awaiters/state untouched.
+- `MethodBodyGenerator.EmitLambda`/`InitializeCapturedParameters` populate closure fields from lambda parameters before executing the body, so nested lambdas read captures through the closure instance; async rewriting never adds awaiter fields to closures.
+- When synthesizing per-lambda async state machines, we must thread the closure instance into the generated machine (for example, as `this` or via a parameter field) while keeping awaiters, builder, and state fields local to the lambda machine to avoid reusing the outer method’s storage.
