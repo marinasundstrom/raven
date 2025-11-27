@@ -156,6 +156,31 @@ let projector = async () -> int => {
     }
 
     [Fact]
+    public void AsyncLambda_AllowsNullableTaskDelegate()
+    {
+        const string source = """
+using System;
+using System.Threading.Tasks;
+
+class C
+{
+    void M()
+    {
+        Consume(async () => 1);
+    }
+
+    void Consume(Func<Task<int>?> factory) { }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void AsyncLambda_InTopLevelAwaitContext_BindsAndInfersTaskResult()
     {
         const string source = """
