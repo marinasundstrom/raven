@@ -140,13 +140,14 @@ internal static class AsyncLowerer
             rewrittenBody,
             stateMachine,
             awaitRewriter.Dispatches,
-            out var guardEntryLabels);
+            out var guardEntryLabels,
+            out var activeDispatches);
 
         var tryStatements = new List<BoundStatement>();
         tryStatements.AddRange(CreateStateDispatchStatements(
             context,
             entryLabel,
-            awaitRewriter.Dispatches,
+            activeDispatches,
             guardEntryLabels));
 
         var entryStatements = new List<BoundStatement>(rewrittenBody.Statements);
@@ -1866,16 +1867,20 @@ internal static class AsyncLowerer
             public static BoundBlockStatement Inject(
                 BoundBlockStatement body,
                 SynthesizedAsyncStateMachineTypeSymbol stateMachine,
-            ImmutableArray<StateDispatch> dispatches,
-            out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
-        {
-            if (body is null)
-                throw new ArgumentNullException(nameof(body));
+                ImmutableArray<StateDispatch> dispatches,
+                out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels,
+                out ImmutableArray<StateDispatch> activeDispatches)
+            {
+                if (body is null)
+                    throw new ArgumentNullException(nameof(body));
 
             guardEntryLabels = ImmutableDictionary<int, ILabelSymbol>.Empty;
 
             if (dispatches.IsDefaultOrEmpty)
+            {
+                activeDispatches = ImmutableArray<StateDispatch>.Empty;
                 return body;
+            }
 
             var labelMap = dispatches.ToImmutableDictionary(
                 d => (ISymbol)d.Label,
@@ -1888,6 +1893,18 @@ internal static class AsyncLowerer
                 blockDispatches,
                 dispatches,
                 out guardEntryLabels);
+
+            var activeDispatchBuilder = ImmutableArray.CreateBuilder<StateDispatch>();
+            foreach (var dispatchInfo in preparedDispatches.Values)
+            {
+                foreach (var dispatch in dispatchInfo.Dispatches)
+                {
+                    if (dispatch.Target is LabelSymbol label)
+                        activeDispatchBuilder.Add(new StateDispatch(dispatch.State, label, ImmutableArray<BoundBlockStatement>.Empty));
+                }
+            }
+
+            activeDispatches = activeDispatchBuilder.ToImmutable();
 
             if (preparedDispatches.Count == 0)
                 return body;
