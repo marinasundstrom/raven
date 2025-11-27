@@ -133,11 +133,17 @@ internal sealed class OverloadResolver
                 continue;
 
             var expression = mapped.Value.Expression;
+
+            if (expression is BoundLambdaExpression lambda)
+            {
+                if (!TryInferFromLambda(compilation, parameters[parameterIndex].Type, lambda, substitutions, method))
+                    return null;
+
+                continue;
+            }
+
             var argumentType = expression.Type;
             if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
-                continue;
-
-            if (expression is BoundLambdaExpression)
                 continue;
 
             if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions, method))
@@ -160,6 +166,50 @@ internal sealed class OverloadResolver
             return null;
 
         return method.Construct(inferredArguments);
+    }
+
+    private static bool TryInferFromLambda(
+        Compilation compilation,
+        ITypeSymbol parameterType,
+        BoundLambdaExpression lambda,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        IMethodSymbol? inferenceMethod)
+    {
+        if (parameterType is not INamedTypeSymbol delegateType ||
+            delegateType.TypeKind != TypeKind.Delegate)
+        {
+            return true;
+        }
+
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return true;
+
+        var lambdaParameters = lambda.Parameters.ToImmutableArray();
+        if (invoke.Parameters.Length != lambdaParameters.Length)
+            return false;
+
+        for (int i = 0; i < invoke.Parameters.Length; i++)
+        {
+            var parameter = invoke.Parameters[i];
+            var lambdaParameter = lambdaParameters[i];
+            var lambdaParameterType = lambdaParameter.Type;
+
+            if (lambdaParameterType is null || lambdaParameterType.TypeKind == TypeKind.Error)
+                continue;
+
+            if (!TryInferFromTypes(compilation, parameter.Type, lambdaParameterType, substitutions, inferenceMethod))
+                return false;
+        }
+
+        var lambdaReturnType = lambda.ReturnType;
+        if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
+        {
+            if (!TryInferFromTypes(compilation, invoke.ReturnType, lambdaReturnType, substitutions, inferenceMethod))
+                return false;
+        }
+
+        return true;
     }
 
     private static bool TryInferFromTypes(
@@ -658,7 +708,11 @@ internal sealed class OverloadResolver
         bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
-            if (canBindLambda is not null)
+            if (delegateType.IsGenericType && delegateType.TypeArguments.Any(static t => t is ITypeParameterSymbol))
+            {
+                lambdaCompatible = true;
+            }
+            else if (canBindLambda is not null)
             {
                 if (!canBindLambda(parameter, lambda))
                     return false;
