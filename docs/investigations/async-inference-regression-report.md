@@ -1,7 +1,7 @@
 # Async inference regression investigation
 
 ## Context
-The `samples/async/async-inference-regression.rav` sample still emits a runnable DLL that crashes at runtime after the async/await pipeline fails to produce a valid task for the awaited `Task.Run` lambda. The goal of this investigation is to pinpoint where the compiler diverges from C# semantics for async lambdas without `await` and to outline a plan to align Raven’s lowering with the C# behavior (warning plus `Task.FromResult`/`Task.CompletedTask` rewrite).
+The `samples/async/async-inference.rav` sample still emits a runnable DLL that crashes at runtime after the async/await pipeline fails to produce a valid task for the awaited `Task.Run` lambda. The goal of this investigation is to pinpoint where the compiler diverges from C# semantics for async lambdas without `await` and to outline a plan to align Raven’s lowering with the C# behavior (warning plus `Task.FromResult`/`Task.CompletedTask` rewrite).
 
 ## Observations
 - The bound tree for the sample shows `Task.Run` being bound to the non-generic overload, the async lambda being typed as `Func<Task>` with a raw `42` literal body, and the awaited variable `t` being typed as `Task`. No wrapper rewrites occur, so `WriteLine` ultimately receives the task object instead of the integer result.【e93a8d†L32-L47】
@@ -20,4 +20,4 @@ C# emits warning `CS1998` when an async lambda or method contains no `await`. Th
 - [x] **Detect await-less async bodies**: Extend async analysis to flag async methods, local functions, and lambdas with zero `await` occurrences, issuing a redundant-async diagnostic akin to `CS1998` while keeping compilation successful.
 - [x] **Synchronous async lowering path**: Add a lowering pass that, when async bodies lack `await`, bypasses state-machine synthesis and rewrites every return expression (including expression-bodied members) to `Task.FromResult(<expr>)` or `Task.CompletedTask` according to the async return shape. Ensure this runs for async lambdas as well as methods.
 - [x] **Integrate with lambda lowering**: Route async lambdas through the same await-less rewrite so their bodies produce completed tasks, enabling overload resolution to prefer `Task.Run<T>` and eliminating invalid casts/`NullReferenceException` at runtime.
-- [x] **Validation**: Rebuild and run `samples/async/async-inference-regression.rav`, confirm the console output prints `42` instead of `Task` via the added `.out` sample harness entry, and keep an eye on the IL to ensure the rewritten lambda returns `Task.FromResult(42)` without generating a nested `Task<Task<T>>` result.
+- [x] **Validation**: Rebuild and run `samples/async/async-inference.rav`, confirm the console output prints `42` instead of `Task` via the added `.out` sample harness entry, and keep an eye on the IL to ensure the rewritten lambda returns `Task.FromResult(42)` without generating a nested `Task<Task<T>>` result.

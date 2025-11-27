@@ -1,7 +1,13 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
-// Inference issue:
 let t = await Task.Run(async () => 42)
 
 WriteLine(t)
+
+let t2 = await Task.Run(async () => { 
+    await Task.Delay(200)
+    return 42
+})
+
+WriteLine(t2)

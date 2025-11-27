@@ -106,7 +106,7 @@ IL_00c0: call instance void valuetype [System.Private.CoreLib]System.Runtime.Com
 
 Use the snippet below to reproduce the inference regression:
 
-1. Run the CLI: `dotnet run -- samples/async/async-inference-regression.rav -o test.dll -d pretty`
+1. Run the CLI: `dotnet run -- samples/async/async-inference.rav -o test.dll -d pretty`
 2. The sample under test contains the following code:
 
    ```
@@ -122,14 +122,14 @@ Use the snippet below to reproduce the inference regression:
 3. The compiler currently fails with three diagnostics:
 
    ```
-   samples/async/async-inference-regression.rav(5,15): error RAV1501: No overload for method 'Run' takes 1 arguments
-   samples/async/async-inference-regression.rav(5,36): error RAV1503: Cannot convert from 'int' to 'unit'
-   samples/async/async-inference-regression.rav(7,1): error RAV0121: The call is ambiguous between the following methods or properties: 'WriteLine' and 'WriteLine'
+   samples/async/async-inference.rav(5,15): error RAV1501: No overload for method 'Run' takes 1 arguments
+   samples/async/async-inference.rav(5,36): error RAV1503: Cannot convert from 'int' to 'unit'
+   samples/async/async-inference.rav(7,1): error RAV0121: The call is ambiguous between the following methods or properties: 'WriteLine' and 'WriteLine'
    ```
 
 ### Investigation notes – async lambda inference
 
-* Re-running the repro sample from the repo root via `dotnet run --project src/Raven.Compiler -- src/Raven.Compiler/samples/async/async-inference-regression.rav -o /tmp/async-inference-regression.dll -d pretty` still emits the three diagnostics above, so the regression remains live after the guarded-await work.【711d7b†L1-L15】
+* Re-running the repro sample from the repo root via `dotnet run --project src/Raven.Compiler -- src/Raven.Compiler/samples/async/async-inference.rav -o /tmp/async-inference-regression.dll -d pretty` still emits the three diagnostics above, so the regression remains live after the guarded-await work.【711d7b†L1-L15】
 * `BindLambdaExpression` falls back to the first candidate delegate whenever the enclosing argument position does not provide a concrete target type. In the `Task.Run` call the recorded delegates arrive in metadata order, so the async lambda is forced onto the `Func<Task>` overload, and the body literal (`42`) is then checked against `unit` because async lambdas extract the result type from the chosen delegate’s `Task` return value.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L33-L220】
 * The recorded candidates themselves already contain the correct `Func<Task<T>>` shape—`ComputeLambdaDelegateTargets` walks every accessible `Task.Run` overload and stores each delegate type against the lambda syntax—but there is no scoring heuristic to prefer the generic overload once multiple delegates survive the initial arity filter.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L360-L434】
 * Because `GetTargetType` never looks through the enclosing `await` expression, the lambda binder never sees the fact that the awaited expression feeds an implicitly typed binding (`let t = …`) that eventually flows into `WriteLine`. The missing parent/await context leaves overload resolution with two viable delegate shapes and no way to choose the `Func<Task<int>>` overload that would make the async lambda legal.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2165-L2345】

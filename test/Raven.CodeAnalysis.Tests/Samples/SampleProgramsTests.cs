@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -14,7 +15,7 @@ public class SampleProgramsTests
     public static IEnumerable<object[]> SamplePrograms =>
     [
         ["arrays.rav"],
-        ["async/async-inference-regression.rav"],
+        ["async/async-inference.rav"],
         ["classes.rav"],
         ["enums.rav"],
         ["general.rav"],
@@ -30,7 +31,7 @@ public class SampleProgramsTests
 
     public static IEnumerable<object[]> SampleProgramsWithExpectedOutputs =>
     [
-        ["async/async-inference-regression.rav"],
+        ["async/async-inference.rav"],
         ["discriminated-unions-generics.rav"],
         ["discriminated-unions2.rav"],
     ];
