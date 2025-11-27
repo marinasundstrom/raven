@@ -13,6 +13,24 @@ namespace Raven.CodeAnalysis;
 
 internal static class AsyncLowerer
 {
+    public static AsyncMethodAnalysis Analyze(SourceLambdaSymbol lambda, BoundBlockStatement body)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        if (!lambda.IsAsync)
+            return new AsyncMethodAnalysis(requiresStateMachine: false, containsAwait: false);
+
+        var containsAwait = ContainsAwait(body);
+
+        lambda.SetContainsAwait(containsAwait);
+
+        var requiresStateMachine = containsAwait;
+        return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
+    }
+
     public static AsyncMethodAnalysis Analyze(SourceMethodSymbol method, BoundBlockStatement body)
     {
         if (method is null)
@@ -72,6 +90,11 @@ internal static class AsyncLowerer
 
     public static BoundBlockStatement Rewrite(SourceMethodSymbol method, BoundBlockStatement body)
     {
+        return RewriteMethod(method, body).Body;
+    }
+
+    public static AsyncRewriteResult RewriteMethod(SourceMethodSymbol method, BoundBlockStatement body)
+    {
         if (method is null)
             throw new ArgumentNullException(nameof(method));
         if (body is null)
@@ -80,11 +103,49 @@ internal static class AsyncLowerer
         var analysis = Analyze(method, body);
         var compilation = GetCompilation(method);
 
+        return RewriteMethod(compilation, method, body, analysis);
+    }
+
+    public static AsyncRewriteResult Rewrite(
+        SourceLambdaSymbol lambda,
+        BoundBlockStatement body,
+        SynthesizedAsyncStateMachineTypeSymbol? stateMachine = null)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        var analysis = Analyze(lambda, body);
+        var compilation = GetCompilation(lambda);
+
+        if (!analysis.ContainsAwait)
+            body = RewriteAwaitlessAsyncBody(compilation, lambda.ReturnType, body);
+
+        if (!analysis.RequiresStateMachine)
+            return new AsyncRewriteResult(body, stateMachine, analysis);
+
+        if (stateMachine is not null)
+        {
+            var rewrittenBody = RewriteLambdaBody(compilation, lambda, stateMachine, body);
+            return new AsyncRewriteResult(rewrittenBody, stateMachine, analysis);
+        }
+
+        return new AsyncRewriteResult(body, stateMachine, analysis);
+    }
+
+    private static AsyncRewriteResult RewriteMethod(
+        Compilation compilation,
+        SourceMethodSymbol method,
+        BoundBlockStatement body,
+        AsyncMethodAnalysis analysis)
+    {
+
         if (!analysis.ContainsAwait)
             body = RewriteAwaitlessAsyncBody(compilation, method.ReturnType, body);
 
         if (!analysis.RequiresStateMachine)
-            return body;
+            return new AsyncRewriteResult(body, method.AsyncStateMachine, analysis);
 
         if (method.AsyncStateMachine is null)
         {
@@ -112,7 +173,26 @@ internal static class AsyncLowerer
                 asyncStateMachine.SetSetStateMachineBody(setStateMachineBody);
         }
 
-        return RewriteMethodBody(compilation, method, asyncStateMachine);
+        var rewrittenBody = RewriteMethodBody(compilation, method, asyncStateMachine);
+        return new AsyncRewriteResult(rewrittenBody, asyncStateMachine, analysis);
+    }
+
+    private static BoundBlockStatement RewriteLambdaBody(
+        Compilation compilation,
+        SourceLambdaSymbol lambda,
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        BoundBlockStatement body)
+    {
+        if (compilation is null)
+            throw new ArgumentNullException(nameof(compilation));
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (stateMachine is null)
+            throw new ArgumentNullException(nameof(stateMachine));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        throw new NotSupportedException("Async lambda state machine rewriting is not implemented yet.");
     }
 
     public static bool ShouldRewrite(SourceMethodSymbol method, BoundBlockStatement body)
@@ -2641,6 +2721,25 @@ internal static class AsyncLowerer
         public bool RequiresStateMachine { get; }
 
         public bool ContainsAwait { get; }
+    }
+
+    internal readonly struct AsyncRewriteResult
+    {
+        public AsyncRewriteResult(
+            BoundBlockStatement body,
+            SynthesizedAsyncStateMachineTypeSymbol? stateMachine,
+            AsyncMethodAnalysis analysis)
+        {
+            Body = body;
+            StateMachine = stateMachine;
+            Analysis = analysis;
+        }
+
+        public BoundBlockStatement Body { get; }
+
+        public SynthesizedAsyncStateMachineTypeSymbol? StateMachine { get; }
+
+        public AsyncMethodAnalysis Analysis { get; }
     }
 
     private sealed class AwaitExpressionFinder : BoundTreeWalker
