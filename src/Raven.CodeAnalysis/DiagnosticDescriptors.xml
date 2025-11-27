@@ -68,6 +68,10 @@
   <Descriptor Id="RAV0165" Identifier="UseOfUnassignedVariable"
     Title="Use of unassigned local variable" Message="Use of unassigned local variable '{name}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0162" Identifier="UnreachableCodeDetected"
+    Title="Unreachable code detected"
+    Message="Unreachable code detected" Category="compiler" Severity="Warning"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0166" Identifier="LocalVariableMustBeInitialized"
     Title="Local variable must be initialized"
     Message="Local variable '{name}' must be initialized" Category="compiler" Severity="Error"
