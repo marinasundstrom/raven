@@ -36,7 +36,7 @@ Re-running every sample from `samples/` with `dotnet run --project ../src/Raven.
 | `async/async-try-catch.rav` | ✅ Emitted / ✅ Ran | Logs `value:42`, `caught:boom`, and `completed`. |
 | `async/http-client-result.rav` | ❌ Fails | Target-typed binding for `Ok`/`Error` on `Result<string>` is missing, so the `Task<Result<string>>` return does not compile. |
 | `async/http-client.rav` | ✅ Emitted / ⚠️ HTTP dependency | Execution attempts an external request and exits with a 403 in the sandbox. |
-| `async/try-match-async.rav` | ✅ Emitted / ❌ Hung | Compiles after marking `Foo` as `async`, but running the DLL deadlocks while waiting for the generated async state machine to complete. |
+| `async/try-match-async.rav` | ✅ Emitted / ✅ Ran | Prints the exception message `boom` from the async try/match and exits normally. |
 | `catch.rav` | ✅ Emitted / ✅ Ran | Prints `Foo`. |
 | `classes.rav` | ✅ Emitted / ✅ Ran | Prints `Hello`, `John`, the projected record, and the trailing unit value. |
 | `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster. |
