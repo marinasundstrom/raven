@@ -1166,8 +1166,11 @@ internal static class AsyncLowerer
 
             if (ContainsAwait(expression))
             {
-                var resultType = node.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
-                var unitType = _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit);
+                var compilation = _stateMachine.Compilation;
+                var resultType = SubstituteStateMachineTypeParameters(node.Type ?? compilation.ErrorTypeSymbol);
+                var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+
+                var convertedExpression = ApplyConversionIfNeeded(expression, resultType, compilation);
 
                 var resultLocal = new SourceLocalSymbol(
                     "$tryExprResult",
@@ -1182,7 +1185,7 @@ internal static class AsyncLowerer
                 var resultDeclarator = new BoundVariableDeclarator(resultLocal, initializer: null);
                 var resultDeclaration = new BoundLocalDeclarationStatement(new[] { resultDeclarator });
 
-                var assignment = new BoundLocalAssignmentExpression(resultLocal, expression, unitType);
+                var assignment = new BoundLocalAssignmentExpression(resultLocal, convertedExpression, unitType);
                 var tryBlock = new BoundBlockStatement(new BoundStatement[]
                 {
                     new BoundExpressionStatement(assignment)
@@ -1198,9 +1201,14 @@ internal static class AsyncLowerer
                     new[] { Location.None },
                     Array.Empty<SyntaxReference>());
 
+                var catchExpression = ApplyConversionIfNeeded(
+                    new BoundLocalAccess(exceptionLocal),
+                    resultType,
+                    compilation);
+
                 var catchAssignment = new BoundLocalAssignmentExpression(
                     resultLocal,
-                    new BoundLocalAccess(exceptionLocal),
+                    catchExpression,
                     unitType);
 
                 var catchBlock = new BoundBlockStatement(new BoundStatement[]
@@ -1710,6 +1718,26 @@ internal static class AsyncLowerer
                 throw new ArgumentNullException(nameof(property));
 
             return _stateMachine.SubstituteStateMachineTypeParameters(property);
+        }
+
+        private static BoundExpression ApplyConversionIfNeeded(
+            BoundExpression expression,
+            ITypeSymbol targetType,
+            Compilation compilation)
+        {
+            if (targetType is null)
+                return expression;
+
+            var sourceType = expression.Type ?? compilation.ErrorTypeSymbol;
+
+            if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+                return expression;
+
+            var conversion = compilation.ClassifyConversion(sourceType, targetType);
+            if (!conversion.Exists || conversion.IsIdentity)
+                return expression;
+
+            return new BoundCastExpression(expression, targetType, conversion);
         }
 
         private static bool ContainsAwait(BoundExpression expression)
