@@ -11,6 +11,11 @@ namespace Raven.CodeAnalysis;
 
 public static class BoundTreePrinter
 {
+    private static readonly SymbolDisplayFormat BoundTreeDisplayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat
+        .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
+        .WithMemberOptions(SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters)
+        .WithParameterOptions(SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName);
+
     public static void PrintBoundTree(this SemanticModel model)
     {
         if (model is null)
@@ -374,11 +379,11 @@ public static class BoundTreePrinter
 
     private static string FormatType(ITypeSymbol type)
     {
-        return type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        return type.ToDisplayString(BoundTreeDisplayFormat);
     }
 
     private static string FormatSymbol(ISymbol symbol)
     {
-        return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        return symbol.ToDisplayString(BoundTreeDisplayFormat);
     }
 }
