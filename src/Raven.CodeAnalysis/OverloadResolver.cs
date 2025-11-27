@@ -198,6 +198,9 @@ internal sealed class OverloadResolver
             if (lambdaParameterType is null || lambdaParameterType.TypeKind == TypeKind.Error)
                 continue;
 
+            if (lambdaParameterType is ITypeParameterSymbol)
+                continue;
+
             if (!TryInferFromTypes(compilation, parameter.Type, lambdaParameterType, substitutions, inferenceMethod))
                 return false;
         }
@@ -211,6 +214,9 @@ internal sealed class OverloadResolver
         }
         if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
         {
+            if (lambdaReturnType is ITypeParameterSymbol)
+                return true;
+
             if (!TryInferFromTypes(compilation, invoke.ReturnType, lambdaReturnType, substitutions, inferenceMethod))
                 return false;
         }
