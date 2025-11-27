@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -30,10 +29,6 @@ internal interface IILBuilder
     void BeginCatchBlock(Type exceptionType);
     void BeginFinallyBlock();
     void EndExceptionBlock();
-
-    void ValidateLabels();
-
-    IReadOnlyCollection<ILLabel> GetUnmarkedLabels();
 }
 
 internal interface IILocal

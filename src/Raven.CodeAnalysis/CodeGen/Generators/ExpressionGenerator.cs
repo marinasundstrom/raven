@@ -971,9 +971,9 @@ internal class ExpressionGenerator : Generator
                 {
                     if (field.ContainingType?.IsValueType == true && addressOf.Receiver is BoundSelfExpression)
                     {
-                        // Lambdas and synthesized helpers may be emitted as static methods even though their lowered bodies
-                        // still reference the implicit state machine receiver. In that case the receiver is passed explicitly
-                        // as the first parameter, so we can safely load it instead of rejecting the address computation.
+                        if (MethodSymbol.IsStatic)
+                            throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
+
                         ILGenerator.Emit(OpCodes.Ldarg_0);
                     }
                     else if (!TryEmitValueTypeReceiverAddress(addressOf.Receiver, addressOf.Receiver.Type, field.ContainingType))
@@ -998,6 +998,9 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case ITypeSymbol:
+                if (MethodSymbol.IsStatic)
+                    throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
+
                 ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 

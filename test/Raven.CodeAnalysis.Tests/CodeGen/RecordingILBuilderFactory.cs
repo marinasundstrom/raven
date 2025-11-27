@@ -1,4 +1,3 @@
-using System;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -178,8 +177,6 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
         public void BeginCatchBlock(Type exceptionType) => _inner.BeginCatchBlock(exceptionType);
         public void BeginFinallyBlock() => _inner.BeginFinallyBlock();
         public void EndExceptionBlock() => _inner.EndExceptionBlock();
-        public void ValidateLabels() => _inner.ValidateLabels();
-        public IReadOnlyCollection<ILLabel> GetUnmarkedLabels() => Array.Empty<ILLabel>();
     }
 }
 

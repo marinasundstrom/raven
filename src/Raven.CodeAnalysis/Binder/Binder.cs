@@ -1466,9 +1466,6 @@ internal abstract class Binder
         if (type is null)
             return false;
 
-        if (type is NullableTypeSymbol nullable)
-            type = nullable.UnderlyingType;
-
         if (type.TypeKind == TypeKind.Error)
             return true;
 

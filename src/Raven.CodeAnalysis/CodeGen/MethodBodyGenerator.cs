@@ -23,7 +23,6 @@ internal class MethodBodyGenerator
     private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(SymbolEqualityComparer.Default);
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
-    private bool _returnLabelEmitted;
 
     public MethodBodyGenerator(MethodGenerator methodGenerator)
     {
@@ -100,31 +99,6 @@ internal class MethodBodyGenerator
             : null;
     }
 
-    private string DescribeLabel(ILLabel ilLabel)
-    {
-        foreach (var (symbol, label) in _labels)
-        {
-            if (ReferenceEquals(label, ilLabel))
-                return symbol.Name;
-        }
-
-        return "<unknown>";
-    }
-
-    private void EnsureReturnLabelEmitted()
-    {
-        if (_returnLabelEmitted || _returnLabel is null)
-            return;
-
-        ILGenerator.MarkLabel(_returnLabel);
-
-        if (TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
-            ILGenerator.Emit(OpCodes.Ldloc, returnValueLocal);
-
-        ILGenerator.Emit(OpCodes.Ret);
-        _returnLabelEmitted = true;
-    }
-
     internal void EmitLoadClosure()
     {
         if (_lambdaClosure is null)
@@ -140,114 +114,112 @@ internal class MethodBodyGenerator
 
         ILGenerator = MethodGenerator.ILBuilderFactory.Create(MethodGenerator);
 
-        try
+        if (MethodSymbol is SynthesizedMainMethodSymbol mainSymbol && mainSymbol.AsyncImplementation is { } asyncImplementation)
         {
-            if (MethodSymbol is SynthesizedMainMethodSymbol mainSymbol && mainSymbol.AsyncImplementation is { } asyncImplementation)
+            EmitTopLevelMainBridge(mainSymbol, asyncImplementation);
+            return;
+        }
+
+        if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+        {
+            EmitAsyncStateMachineMethod(asyncStateMachine);
+            return;
+        }
+
+        if (MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
+        {
+            EmitIteratorMethod(iteratorType);
+            return;
+        }
+
+        if (MethodSymbol.MethodKind == MethodKind.PropertyGet &&
+            MethodSymbol.ContainingType.TryGetDiscriminatedUnionCase() is not null &&
+            MethodSymbol.ContainingSymbol is SourcePropertySymbol unionCaseProperty &&
+            unionCaseProperty.BackingField is SourceFieldSymbol unionCaseField)
+        {
+            EmitUnionCasePropertyGetter(unionCaseProperty, unionCaseField);
+            return;
+        }
+
+        if (MethodSymbol.MethodKind == MethodKind.Conversion &&
+            MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
+            MethodSymbol.Parameters.Length == 1 &&
+            MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
+            MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol conversionUnion)
+        {
+            EmitDiscriminatedUnionConversion(conversionUnion);
+            return;
+        }
+
+        if (MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol tryGetUnion &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
+            MethodSymbol.Parameters.Length == 1 &&
+            MethodSymbol.Parameters[0].RefKind == RefKind.Ref &&
+            MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is { } tryGetCase &&
+            MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            MethodSymbol.Name.StartsWith("TryGet", StringComparison.Ordinal))
+        {
+            EmitDiscriminatedUnionTryGetMethod(tryGetUnion, tryGetCase, MethodSymbol.Parameters[0]);
+            return;
+        }
+
+        if (MethodSymbol.Name == nameof(object.ToString) &&
+            MethodSymbol.Parameters.Length == 0 &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_String)
+        {
+            if (MethodSymbol.ContainingType is SourceDiscriminatedUnionCaseTypeSymbol caseType)
             {
-                EmitTopLevelMainBridge(mainSymbol, asyncImplementation);
+                EmitUnionCaseToString(caseType);
                 return;
             }
 
-            if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+            if (MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol unionType)
             {
-                EmitAsyncStateMachineMethod(asyncStateMachine);
+                EmitDiscriminatedUnionToString(unionType);
                 return;
             }
+        }
 
-            if (MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
-            {
-                EmitIteratorMethod(iteratorType);
-                return;
-            }
+        var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
 
-            if (MethodSymbol.MethodKind == MethodKind.PropertyGet &&
-                MethodSymbol.ContainingType.TryGetDiscriminatedUnionCase() is not null &&
-                MethodSymbol.ContainingSymbol is SourcePropertySymbol unionCaseProperty &&
-                unionCaseProperty.BackingField is SourceFieldSymbol unionCaseField)
-            {
-                EmitUnionCasePropertyGetter(unionCaseProperty, unionCaseField);
-                return;
-            }
+        var syntax = syntaxReference.GetSyntax();
 
-            if (MethodSymbol.MethodKind == MethodKind.Conversion &&
-                MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
-                MethodSymbol.Parameters.Length == 1 &&
-                MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
-                MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol conversionUnion)
-            {
-                EmitDiscriminatedUnionConversion(conversionUnion);
-                return;
-            }
+        var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
 
-            if (MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol tryGetUnion &&
-                MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
-                MethodSymbol.Parameters.Length == 1 &&
-                MethodSymbol.Parameters[0].RefKind == RefKind.Ref &&
-                MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is { } tryGetCase &&
-                MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
-                MethodSymbol.Name.StartsWith("TryGet", StringComparison.Ordinal))
-            {
-                EmitDiscriminatedUnionTryGetMethod(tryGetUnion, tryGetCase, MethodSymbol.Parameters[0]);
-                return;
-            }
+        BoundBlockStatement? boundBody = syntax switch
+        {
+            MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockStatement,
+            FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockStatement,
+            BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockStatement,
+            AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockStatement,
+            _ => null
+        };
 
-            if (MethodSymbol.Name == nameof(object.ToString) &&
-                MethodSymbol.Parameters.Length == 0 &&
-                MethodSymbol.ReturnType.SpecialType == SpecialType.System_String)
-            {
-                if (MethodSymbol.ContainingType is SourceDiscriminatedUnionCaseTypeSymbol caseType)
-                {
-                    EmitUnionCaseToString(caseType);
-                    return;
-                }
+        BoundExpression? expressionBody = syntax switch
+        {
+            MethodDeclarationSyntax m when m.ExpressionBody is not null
+                => semanticModel.GetBoundNode(m.ExpressionBody.Expression) as BoundExpression,
+            BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null
+                => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
+            AccessorDeclarationSyntax a when a.ExpressionBody is not null
+                => semanticModel.GetBoundNode(a.ExpressionBody.Expression) as BoundExpression,
+            PropertyDeclarationSyntax p when p.ExpressionBody is not null
+                => semanticModel.GetBoundNode(p.ExpressionBody.Expression) as BoundExpression,
+            FunctionStatementSyntax l when l.ExpressionBody is not null
+                => semanticModel.GetBoundNode(l.ExpressionBody.Expression) as BoundExpression,
+            _ => null
+        };
 
-                if (MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol unionType)
-                {
-                    EmitDiscriminatedUnionToString(unionType);
-                    return;
-                }
-            }
+        if (boundBody != null)
+            DeclareLocals(boundBody);
 
-            var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
-            if (syntaxReference is null)
-            {
-                ILGenerator.Emit(OpCodes.Ret);
-                return;
-            }
-
-            var syntax = syntaxReference.GetSyntax();
-
-            var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
-
-            BoundBlockStatement? boundBody = syntax switch
-            {
-                MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockStatement,
-                FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockStatement,
-                BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockStatement,
-                AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockStatement,
-                _ => null
-            };
-
-            BoundExpression? expressionBody = syntax switch
-            {
-                MethodDeclarationSyntax m when m.ExpressionBody is not null
-                    => semanticModel.GetBoundNode(m.ExpressionBody.Expression) as BoundExpression,
-                BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null
-                    => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
-                AccessorDeclarationSyntax a when a.ExpressionBody is not null
-                    => semanticModel.GetBoundNode(a.ExpressionBody.Expression) as BoundExpression,
-                PropertyDeclarationSyntax p when p.ExpressionBody is not null
-                    => semanticModel.GetBoundNode(p.ExpressionBody.Expression) as BoundExpression,
-                FunctionStatementSyntax l when l.ExpressionBody is not null
-                    => semanticModel.GetBoundNode(l.ExpressionBody.Expression) as BoundExpression,
-                _ => null
-            };
-
-            if (boundBody != null)
-                DeclareLocals(boundBody);
-
-            switch (syntax)
-            {
+        switch (syntax)
+        {
             case CompilationUnitSyntax compilationUnit:
                 if (MethodSymbol is SourceMethodSymbol &&
                     semanticModel.GetBoundNode(compilationUnit) is BoundBlockStatement topLevelBody)
@@ -421,22 +393,6 @@ internal class MethodBodyGenerator
 
             default:
                 throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
-            }
-        }
-        finally
-        {
-            EnsureReturnLabelEmitted();
-            var unmarkedLabels = ILGenerator.GetUnmarkedLabels();
-
-            try
-            {
-                ILGenerator.ValidateLabels();
-            }
-            catch (InvalidOperationException ex) when (unmarkedLabels.Count > 0)
-            {
-                var names = string.Join(", ", unmarkedLabels.Select(DescribeLabel));
-                throw new InvalidOperationException($"{ex.Message} Unmarked label symbols: {names}.", ex);
-            }
         }
     }
 
@@ -563,45 +519,27 @@ internal class MethodBodyGenerator
 
         ILGenerator = MethodGenerator.ILBuilderFactory.Create(MethodGenerator);
 
+        _lambdaClosure = closure;
+
         try
         {
-            _lambdaClosure = closure;
+            if (_lambdaClosure is not null)
+                InitializeCapturedParameters();
 
-            try
+            if (lambda.Body is BoundBlockExpression blockExpression)
             {
-                if (_lambdaClosure is not null)
-                    InitializeCapturedParameters();
-
-                if (lambda.Body is BoundBlockExpression blockExpression)
-                {
-                    var block = new BoundBlockStatement(blockExpression.Statements);
-                    DeclareLocals(block);
-                    EmitMethodBlock(block);
-                    return;
-                }
-
-                var returnStatement = new BoundReturnStatement(lambda.Body);
-                EmitStatement(returnStatement);
+                var block = new BoundBlockStatement(blockExpression.Statements);
+                DeclareLocals(block);
+                EmitMethodBlock(block);
+                return;
             }
-            finally
-            {
-                _lambdaClosure = null;
-            }
+
+            var returnStatement = new BoundReturnStatement(lambda.Body);
+            EmitStatement(returnStatement);
         }
         finally
         {
-            EnsureReturnLabelEmitted();
-            var unmarkedLabels = ILGenerator.GetUnmarkedLabels();
-
-            try
-            {
-                ILGenerator.ValidateLabels();
-            }
-            catch (InvalidOperationException ex) when (unmarkedLabels.Count > 0)
-            {
-                var names = string.Join(", ", unmarkedLabels.Select(DescribeLabel));
-                throw new InvalidOperationException($"{ex.Message} Unmarked label symbols: {names}.", ex);
-            }
+            _lambdaClosure = null;
         }
     }
 
@@ -1566,7 +1504,6 @@ internal class MethodBodyGenerator
         if (_returnLabel is ILLabel exitLabel)
         {
             ILGenerator.MarkLabel(exitLabel);
-            _returnLabelEmitted = true;
 
             if (TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
                 ILGenerator.Emit(OpCodes.Ldloc, returnValueLocal);

@@ -156,31 +156,6 @@ let projector = async () -> int => {
     }
 
     [Fact]
-    public void AsyncLambda_AllowsNullableTaskDelegate()
-    {
-        const string source = """
-using System;
-using System.Threading.Tasks;
-
-class C
-{
-    void M()
-    {
-        Consume(async () => 1);
-    }
-
-    void Consume(Func<Task<int>?> factory) { }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = CreateCompilation(tree);
-
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
-    }
-
-    [Fact]
     public void AsyncLambda_InTopLevelAwaitContext_BindsAndInfersTaskResult()
     {
         const string source = """
@@ -210,42 +185,5 @@ let result = await handler()
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, boundLambda.ReturnType));
-    }
-
-    [Fact]
-    public void AsyncLambda_TaskRunOverloads_SelectsTaskReturningDelegate()
-    {
-        const string source = """
-import System.Console.*
-import System.Threading.Tasks.*
-
-let t = await Task.Run(async () => 42)
-
-WriteLine(t)
-
-let t2 = await Task.Run(async () => {
-    await Task.Delay(200)
-    return 42
-})
-
-WriteLine(t2)
-""";
-
-        var (compilation, tree) = CreateCompilation(source);
-        compilation.EnsureSetup();
-
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
-
-        var model = compilation.GetSemanticModel(tree);
-        var root = tree.GetRoot();
-        var declarators = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        Assert.All(declarators, declarator =>
-        {
-            var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-            Assert.True(SymbolEqualityComparer.Default.Equals(intType, symbol.Type));
-        });
     }
 }
