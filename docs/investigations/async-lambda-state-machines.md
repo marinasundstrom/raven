@@ -28,7 +28,7 @@
 - [x] **Extend async rewriter entry points**: Added `AsyncLowerer.Rewrite(SourceLambdaSymbol, …)` plus an `AsyncRewriteResult` wrapper so async-aware callers can flow analysis, state-machine handles, and rewritten bodies for lambdas alongside the existing method overloads.
 - [x] **Synthesize per-lambda state machines**: Mirror method state-machine creation by introducing a `RewriteAsyncLambda` helper that produces a `SynthesizedAsyncStateMachineTypeSymbol` per async lambda and returns the rewritten body plus generated `MoveNext`.
 - [x] **Integrate into lambda emission**: Update `ExpressionGenerator.EmitLambdaExpression`/`MethodBodyGenerator.EmitLambda` to route async lambdas through the new rewrite hook before IL emission, replacing the current direct emit path for `lambda.IsAsync`.
-- [ ] **Plumb closure/hoisted locals**: Ensure lambda state machines reuse captured variables from enclosing closures while owning their own awaiter/storage fields; verify hoisted locals are referenced through the closure parameter instead of outer state-machine fields.
+- [x] **Plumb closure/hoisted locals**: Ensure lambda state machines reuse captured variables from enclosing closures while owning their own awaiter/storage fields; verify hoisted locals are referenced through the closure parameter instead of outer state-machine fields.
 - [ ] **Add execution/regression tests**: Expand `async/async-inference.rav` coverage with IL validation or runtime assertions, plus targeted unit tests that execute nested async lambdas to prevent regressions during implementation.
 
 ### Findings after step 1
@@ -68,3 +68,6 @@
 ### Findings after step 7
 - Added a lambda-aware async state-machine path that allocates a dedicated `SynthesizedAsyncStateMachineTypeSymbol` for each async lambda, reusing the method lowering pipeline for body rewriting and `MoveNext` synthesis.
 - The async state-machine factory now caches by `IMethodSymbol`, allowing lambdas to synthesize machines alongside methods without clashing with method-backed caches.
+
+### Findings after step 8
+- Async lambda state machines now rewrite `this` references to use the captured closure field on the lambda’s own state machine, keeping captured values on the closure while awaiters and state live on the lambda machine.

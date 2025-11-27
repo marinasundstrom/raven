@@ -235,6 +235,13 @@ internal static class AsyncLowerer
         var context = new MoveNextLoweringContext(compilation, stateMachine);
         var originalBody = stateMachine.OriginalBody ?? new BoundBlockStatement(Array.Empty<BoundStatement>());
 
+        if (stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
+            stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is SourceFieldSymbol closureField)
+        {
+            var closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
+            originalBody = closureRewriter.Rewrite(originalBody);
+        }
+
         var entryLabel = CreateLabel(stateMachine, "state");
 
         var awaitRewriter = new AwaitLoweringRewriter(stateMachine, context.BuilderMembers);
@@ -469,6 +476,39 @@ internal static class AsyncLowerer
         public Compilation Compilation { get; }
         public SynthesizedAsyncStateMachineTypeSymbol StateMachine { get; }
         public SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers BuilderMembers { get; }
+    }
+
+    private sealed class AsyncLambdaClosureRewriter : BoundTreeRewriter
+    {
+        private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
+        private readonly SourceFieldSymbol _closureField;
+
+        public AsyncLambdaClosureRewriter(
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+            SourceFieldSymbol closureField)
+        {
+            _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+            _closureField = closureField ?? throw new ArgumentNullException(nameof(closureField));
+        }
+
+        public BoundBlockStatement Rewrite(BoundBlockStatement body)
+        {
+            if (body is null)
+                throw new ArgumentNullException(nameof(body));
+
+            return (BoundBlockStatement)VisitBlockStatement(body)!;
+        }
+
+        public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
+        {
+            if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true })
+            {
+                var receiver = new BoundSelfExpression(_stateMachine);
+                return new BoundMemberAccessExpression(receiver, _closureField);
+            }
+
+            return (BoundExpression?)base.VisitSelfExpression(node);
+        }
     }
 
     private static BoundStatement? CreateBuilderSetResultStatement(
