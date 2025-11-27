@@ -218,6 +218,16 @@ internal static class AsyncLowerer
         return method.IsAsync;
     }
 
+    public static bool ShouldRewrite(SourceLambdaSymbol lambda, BoundBlockStatement body)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        return lambda.IsAsync;
+    }
+
     private static BoundBlockStatement CreateMoveNextBody(
         Compilation compilation,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
