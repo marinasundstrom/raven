@@ -107,6 +107,47 @@ value = 1
     }
 
     [Fact]
+    public void AnalyzeControlFlow_ReturnFollowedByStatement_MarksUnreachable()
+    {
+        const string source = """
+func main() {
+    return;
+    var value = 1;
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var block = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single()
+            .Body!;
+
+        var analysis = model.AnalyzeControlFlow(block);
+
+        analysis.UnreachableStatements.ShouldHaveSingleItem()
+            .ShouldBeOfType<LocalDeclarationStatementSyntax>();
+    }
+
+    [Fact]
+    public void GetDiagnostics_UnreachableStatement_ProducesWarning()
+    {
+        const string source = """
+func main() {
+    return;
+    var value = 1;
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetSemanticModel(tree).GetDiagnostics();
+
+        var unreachable = diagnostics.Single(d => d.Descriptor == CompilerDiagnostics.UnreachableCodeDetected);
+        unreachable.Severity.ShouldBe(DiagnosticSeverity.Warning);
+    }
+
+    [Fact]
     public void GetOperation_AssignmentStatement_ReturnsAssignmentOperation()
     {
         const string source = """

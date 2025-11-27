@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
@@ -49,6 +50,6 @@ public class FunctionTypeSyntaxTests
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
-        Assert.Equal("unit", functionType.ReturnType.ToString());
+        Assert.Equal("()", functionType.ReturnType.ToString());
     }
 }

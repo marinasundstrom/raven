@@ -34,7 +34,7 @@ class Foo {
             expectedDiagnostics: [
                 new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithSpan(3, 9, 3, 16)
-                    .WithArguments("unit", "int")
+                    .WithArguments("()", "int")
             ]);
 
         verifier.Verify();

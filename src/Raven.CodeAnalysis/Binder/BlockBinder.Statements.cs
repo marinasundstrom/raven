@@ -178,6 +178,8 @@ partial class BlockBinder
         var blockStmt = new BoundBlockStatement(boundStatements.ToArray(), localsAtDepth.ToImmutableArray());
         CacheBoundNode(block, blockStmt);
 
+        ReportUnreachableStatements(block);
+
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
             _locals.Remove(name);
 
@@ -251,6 +253,8 @@ partial class BlockBinder
         var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType, localsAtDepth.ToImmutableArray());
         CacheBoundNode(block, blockExpr);
 
+        ReportUnreachableStatements(block);
+
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
             _locals.Remove(name);
 
@@ -258,6 +262,22 @@ partial class BlockBinder
         if (!allowReturn)
             _expressionContextDepth--;
         return blockExpr;
+    }
+
+    private void ReportUnreachableStatements(SyntaxNode block)
+    {
+        ControlFlowAnalysis? controlFlow = block switch
+        {
+            BlockStatementSyntax statementBlock => SemanticModel.AnalyzeControlFlowInternal(new ControlFlowRegion(statementBlock), statementBlock, analyzeJumpPoints: false),
+            BlockSyntax expressionBlock when expressionBlock.Statements.Count > 0 => SemanticModel.AnalyzeControlFlowInternal(expressionBlock, analyzeJumpPoints: false),
+            _ => null
+        };
+
+        if (controlFlow is null)
+            return;
+
+        foreach (var statement in controlFlow.UnreachableStatements)
+            _diagnostics.ReportUnreachableCodeDetected(statement.GetLocation());
     }
 
     private BoundStatement BindForStatement(ForStatementSyntax forStmt)

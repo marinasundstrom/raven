@@ -14,10 +14,7 @@ public partial class SemanticModel
         EnsureDiagnosticsCollected();
 
         var region = new ControlFlowRegion(statement);
-        var walker = new ControlFlowWalker(this, region);
-        walker.Visit(statement); // only need to walk the single node
-
-        return walker.ToResult();
+        return AnalyzeControlFlowInternal(region, statement);
     }
 
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
@@ -25,8 +22,39 @@ public partial class SemanticModel
         EnsureDiagnosticsCollected();
 
         var region = new ControlFlowRegion(firstStatement, lastStatement);
-        var walker = new ControlFlowWalker(this, region);
-        walker.Visit(region.EnclosingBlock);
+        return AnalyzeControlFlowInternal(region, region.EnclosingBlock ?? firstStatement);
+    }
+
+    internal ControlFlowAnalysis AnalyzeControlFlowInternal(ControlFlowRegion region, StatementSyntax statement, bool analyzeJumpPoints = true)
+    {
+        var walker = new ControlFlowWalker(this, region, analyzeJumpPoints);
+        walker.Analyze(statement);
+
+        return walker.ToResult();
+    }
+
+    internal ControlFlowAnalysis AnalyzeControlFlowInternal(BlockSyntax block, bool analyzeJumpPoints = true)
+    {
+        if (block.Statements.Count == 0)
+        {
+            return new ControlFlowAnalysis
+            {
+                StartPointIsReachable = true,
+                EndPointIsReachable = true,
+                ReturnStatements = ImmutableArray<SyntaxNode>.Empty,
+                EntryPoints = ImmutableArray<SyntaxNode>.Empty,
+                ExitPoints = ImmutableArray<SyntaxNode>.Empty,
+                UnreachableStatements = ImmutableArray<StatementSyntax>.Empty,
+                Succeeded = true
+            };
+        }
+
+        var first = block.Statements[0];
+        var last = block.Statements[^1];
+        var region = new ControlFlowRegion(first, last);
+
+        var walker = new ControlFlowWalker(this, region, analyzeJumpPoints);
+        walker.Analyze(block);
 
         return walker.ToResult();
     }
@@ -52,15 +80,22 @@ public sealed class ControlFlowRegion
     // For a span of statements within the same block
     public ControlFlowRegion(StatementSyntax first, StatementSyntax last)
     {
-        if (first.Parent != last.Parent || first.Parent is not BlockStatementSyntax block)
+        if (first.Parent != last.Parent)
             throw new ArgumentException("Region must be a contiguous set of statements in the same block.");
 
         FirstStatement = first;
         LastStatement = last;
-        EnclosingBlock = block;
+        EnclosingBlock = first.Parent as BlockStatementSyntax;
+
+        SyntaxList<StatementSyntax> statements = first.Parent switch
+        {
+            BlockStatementSyntax block => block.Statements,
+            BlockSyntax blockExpr => blockExpr.Statements,
+            _ => throw new ArgumentException("Region must be a contiguous set of statements in the same block.")
+        };
 
         var found = false;
-        foreach (var stmt in block.Statements)
+        foreach (var stmt in statements)
         {
             if (stmt == first) found = true;
             if (found)
@@ -85,37 +120,142 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 {
     private readonly SemanticModel _semanticModel;
     private readonly ControlFlowRegion? _region;
+    private readonly bool _analyzeJumpPoints;
     private readonly List<SyntaxNode> _returnStatements = new();
-    private readonly List<SyntaxNode> _unreachableStatements = new();
+    private readonly List<StatementSyntax> _unreachableStatements = new();
     private readonly List<SyntaxNode> _entryPoints = new();
     private readonly List<SyntaxNode> _exitPoints = new();
-    private readonly bool _isReachable = true;
-    private bool _startVisited = false;
+    private bool _endPointIsReachable = true;
 
-    public ControlFlowWalker(SemanticModel semanticModel, ControlFlowRegion? region = null)
+    public ControlFlowWalker(SemanticModel semanticModel, ControlFlowRegion? region = null, bool analyzeJumpPoints = true)
     {
         _semanticModel = semanticModel;
         _region = region;
+        _analyzeJumpPoints = analyzeJumpPoints;
     }
 
-    public override void Visit(SyntaxNode? node)
+    public void Analyze(StatementSyntax statement)
     {
-        if (!_startVisited) _startVisited = true;
-        if (node is null) return;
+        _endPointIsReachable = AnalyzeStatement(statement, isReachable: true);
+    }
 
-        if (_isReachable)
+    public void Analyze(BlockSyntax block)
+    {
+        _endPointIsReachable = AnalyzeBlockStatements(block.Statements, isReachable: true);
+    }
+
+    private bool AnalyzeStatement(StatementSyntax statement, bool isReachable)
+    {
+        if (!isReachable)
         {
-            base.Visit(node);
+            MarkUnreachable(statement);
+            return false;
         }
-        else
+
+        switch (statement)
         {
-            _unreachableStatements.Add(node);
+            case BlockStatementSyntax block:
+                return AnalyzeBlock(block, isReachable);
+            case IfStatementSyntax ifStatement:
+                Visit(ifStatement.Condition);
+
+                var beforeIf = isReachable;
+
+                _ = AnalyzeStatement(ifStatement.ThenStatement, beforeIf);
+                var thenReachable = _endPointIsReachable;
+
+                var elseReachable = beforeIf;
+                if (ifStatement.ElseStatement is { } elseStatement)
+                {
+                    _ = AnalyzeStatement(elseStatement, beforeIf);
+                    elseReachable = _endPointIsReachable;
+                }
+
+                _endPointIsReachable = thenReachable || elseReachable;
+                return _endPointIsReachable;
+            case WhileStatementSyntax whileStatement:
+                Visit(whileStatement.Condition);
+                _ = AnalyzeStatement(whileStatement.Statement, isReachable);
+                _endPointIsReachable = isReachable;
+                return _endPointIsReachable;
+            case ForStatementSyntax forStatement:
+                Visit(forStatement.Expression);
+                _ = AnalyzeStatement(forStatement.Body, isReachable);
+                _endPointIsReachable = isReachable;
+                return _endPointIsReachable;
+            case TryStatementSyntax tryStatement:
+                return AnalyzeTryStatement(tryStatement, isReachable);
+            case LabeledStatementSyntax labeledStatement:
+                VisitLabeledStatement(labeledStatement);
+                _endPointIsReachable = AnalyzeStatement(labeledStatement.Statement, isReachable);
+                return _endPointIsReachable;
+            case GotoStatementSyntax gotoStatement:
+                VisitGotoStatement(gotoStatement);
+                _endPointIsReachable = false;
+                return false;
+            case BreakStatementSyntax breakStatement:
+                base.VisitBreakStatement(breakStatement);
+                _endPointIsReachable = false;
+                return false;
+            case ContinueStatementSyntax continueStatement:
+                base.VisitContinueStatement(continueStatement);
+                _endPointIsReachable = false;
+                return false;
+            case ReturnStatementSyntax returnStatement:
+                VisitReturnStatement(returnStatement);
+                _returnStatements.Add(returnStatement);
+                _endPointIsReachable = false;
+                return false;
+            case ThrowStatementSyntax throwStatement:
+                base.VisitThrowStatement(throwStatement);
+                _endPointIsReachable = false;
+                return false;
+            case YieldBreakStatementSyntax yieldBreakStatement:
+                base.VisitYieldBreakStatement(yieldBreakStatement);
+                _endPointIsReachable = false;
+                return false;
+            default:
+                base.Visit(statement);
+                _endPointIsReachable = true;
+                return true;
         }
+    }
+
+    private bool AnalyzeBlock(BlockStatementSyntax block, bool isReachable)
+        => AnalyzeBlockStatements(block.Statements, isReachable);
+
+    private bool AnalyzeBlockStatements(IEnumerable<StatementSyntax> statements, bool isReachable)
+    {
+        var currentReachable = isReachable;
+
+        foreach (var statement in statements)
+            currentReachable = AnalyzeStatement(statement, currentReachable);
+
+        _endPointIsReachable = currentReachable;
+        return currentReachable;
+    }
+
+    private bool AnalyzeTryStatement(TryStatementSyntax tryStatement, bool isReachable)
+    {
+        var tryReachable = AnalyzeStatement(tryStatement.Block, isReachable);
+        var reachesEnd = tryReachable;
+
+        foreach (var catchClause in tryStatement.CatchClauses)
+        {
+            var catchReachable = AnalyzeStatement(catchClause.Block, isReachable);
+            reachesEnd |= catchReachable;
+        }
+
+        if (tryStatement.FinallyClause is { } finallyClause)
+            reachesEnd = AnalyzeStatement(finallyClause.Block, reachesEnd);
+
+        _endPointIsReachable = reachesEnd;
+        return reachesEnd;
     }
 
     public override void VisitGotoStatement(GotoStatementSyntax node)
     {
-        if (_region is not null)
+        if (_analyzeJumpPoints && _region is not null)
         {
             var target = _semanticModel.GetLabelTarget(node);
 
@@ -142,7 +282,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
     public override void VisitLabeledStatement(LabeledStatementSyntax node)
     {
-        if (_region is not null && _region.Contains(node))
+        if (_analyzeJumpPoints && _region is not null && _region.Contains(node))
         {
             if (_semanticModel.HasExternalGotoToLabel(node, _region))
             {
@@ -177,12 +317,22 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         return new ControlFlowAnalysis
         {
             StartPointIsReachable = true,
-            EndPointIsReachable = _isReachable,
+            EndPointIsReachable = _endPointIsReachable,
             ReturnStatements = _returnStatements.ToImmutableArray(),
             EntryPoints = _entryPoints.ToImmutableArray(),
             ExitPoints = _exitPoints.ToImmutableArray(),
+            UnreachableStatements = _unreachableStatements.ToImmutableArray(),
             Succeeded = true
         };
+    }
+
+    private void MarkUnreachable(StatementSyntax statement)
+    {
+        if (_region is not null && !_region.Contains(statement) && !IsWithinRegionBounds(statement))
+            return;
+
+        if (!_unreachableStatements.Contains(statement))
+            _unreachableStatements.Add(statement);
     }
 }
 
@@ -267,4 +417,9 @@ public sealed class ControlFlowAnalysis
     /// Returns true if and only if analysis was successful. Analysis can fail if the region does not properly span a single expression, a single statement, or a contiguous series of statements within the enclosing block
     /// </summary>
     public bool Succeeded { get; init; }
+
+    /// <summary>
+    /// Statements that were determined to be unreachable during analysis.
+    /// </summary>
+    public ImmutableArray<StatementSyntax> UnreachableStatements { get; init; }
 }
