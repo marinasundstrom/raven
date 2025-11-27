@@ -386,7 +386,8 @@ WriteLine(result)
 
         MetadataReference[] references =
         [
-            MetadataReference.CreateFromFile(runtimePath)
+            MetadataReference.CreateFromFile(runtimePath),
+            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
         ];
 
         var compilation = Compilation.Create("async-try-match", new CompilationOptions(OutputKind.ConsoleApplication))

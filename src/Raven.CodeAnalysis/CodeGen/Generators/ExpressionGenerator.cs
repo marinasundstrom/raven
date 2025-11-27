@@ -3748,11 +3748,7 @@ internal class ExpressionGenerator : Generator
         for (int i = 0; i < count; i++)
         {
             if (statements[i] is BoundLabeledStatement labeled)
-            {
                 MethodBodyGenerator.RegisterLabelScope(labeled.Label, blockScope);
-                var ilLabel = MethodBodyGenerator.GetOrCreateLabel(labeled.Label);
-                ILGenerator.MarkLabel(ilLabel);
-            }
         }
 
         ILGenerator.BeginExceptionBlock();
@@ -3762,6 +3758,9 @@ internal class ExpressionGenerator : Generator
             var statement = statements[i];
             if (statement is BoundLabeledStatement labeled)
             {
+                MethodBodyGenerator.RegisterLabelScope(labeled.Label, blockScope);
+                var ilLabel = MethodBodyGenerator.GetOrCreateLabel(labeled.Label);
+                ILGenerator.MarkLabel(ilLabel);
                 new StatementGenerator(blockScope, labeled.Statement).Emit();
             }
             else
