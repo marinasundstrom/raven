@@ -1,9 +1,11 @@
+import System.*
 import System.Console.*
 
 WriteLine(test())
 
 func test() -> int {
-    if false {
+    if true {
+        //throw new Exception()
         return 1
     }
     return 0
