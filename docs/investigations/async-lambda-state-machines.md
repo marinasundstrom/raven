@@ -17,7 +17,7 @@
 ## Investigation plan
 - [x] **Trace async lambda lowering entry point**: Walk `AsyncLowerer.VisitLambdaExpression` (and related visitors) to confirm whether async lambdas trigger a nested lowering pipeline or are inlined into the outer method’s state machine.
 - [x] **Inspect state machine synthesis for lambdas**: Follow `MethodBodyGenerator.EmitLambda` → `EmitLambdaBody` → `AsyncStateMachineRewriter` (or equivalent) to see when a lambda is considered async and whether a new `SynthesizedAsyncStateMachineTypeSymbol` is created per lambda.
-- [ ] **Map awaiter field ownership**: Identify the code that allocates awaiter fields/locals for async lambdas. Verify whether those fields live on the outer state machine or should be scoped to a lambda-specific machine.
+- [x] **Map awaiter field ownership**: Identify the code that allocates awaiter fields/locals for async lambdas. Verify whether those fields live on the outer state machine or should be scoped to a lambda-specific machine.
 - [ ] **Design per-lambda state machine creation**: Outline the required API changes so lambdas invoke the async rewriting pipeline independently (similar to methods), ensuring the rewritten lambda body no longer depends on the parent machine’s fields.
 - [ ] **Audit closure interactions**: Ensure closure structs/classes continue to carry captured locals while async state machines for lambdas only own awaiters and builder/state fields, matching C# behavior for captured variables.
 - [ ] **Add regression coverage**: Create codegen tests for nested async lambdas in `Task.Run` and nested delegate scenarios, asserting valid IL execution (e.g., via `RecordingILBuilderFactory` or running emitted assembly) and preventing ambiguous overload regressions.
@@ -30,3 +30,7 @@
 ### Findings after step 2
 - `ExpressionGenerator.EmitLambdaExpression` constructs a `MethodGenerator` for each lambda and immediately emits IL for the lambda body via `MethodGenerator.EmitLambdaBody` without checking `lambda.IsAsync` or invoking `AsyncLowerer`. No async analysis or rewriting happens along this path.
 - `MethodBodyGenerator.EmitLambda` emits the lambda body directly (block or return statement) with no async rewriting phase and no `SynthesizedAsyncStateMachineTypeSymbol` creation. Awaiter locals are never projected into a lambda-specific state machine, explaining why awaits currently reuse the enclosing method’s fields.
+
+### Findings after step 3
+- Await lowering allocates awaiter storage on whichever `SynthesizedAsyncStateMachineTypeSymbol` is passed to `AwaitLoweringRewriter`. Each await creates a `<>awaiter{state}` field via `_stateMachine.AddHoistedLocal(...)`, plus a `<>awaiterLocal{n}` local inside `MoveNext` for resume paths. There is no notion of a lambda-specific state machine here; all awaiter fields belong to the state machine provided by the caller (currently the enclosing method’s machine).
+- Because async lambdas never invoke `AsyncLowerer.Rewrite`, their awaits bypass the rewriter that creates these awaiter fields. When awaits appear in lambdas inside an async method, any awaited expression that does get lowered happens against the outer method’s state machine, which matches the observed invalid IL where a lambda tries to take the address of `<>awaiter*` fields from a static context.
