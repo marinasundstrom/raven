@@ -553,27 +553,31 @@ partial class BlockBinder
 
         if (_containingSymbol is IMethodSymbol method)
         {
+            var compilation = Compilation;
+            var returnType = method.ReturnType ?? compilation.ErrorTypeSymbol;
+            var hasErrorReturnType = returnType.TypeKind == TypeKind.Error;
+
             var skipReturnConversions = method switch
             {
                 SourceMethodSymbol { HasAsyncReturnTypeError: true } => true,
                 SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true } => true,
                 SourceLambdaSymbol { HasAsyncReturnTypeError: true } => true,
-                _ => false,
+                _ => hasErrorReturnType,
             };
 
             if (!skipReturnConversions)
             {
                 if (expr is null)
                 {
-                    var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
-                    if (!IsAssignable(method.ReturnType, unit, out _))
+                    var unit = compilation.GetSpecialType(SpecialType.System_Unit);
+                    if (!IsAssignable(returnType, unit, out _))
                         _diagnostics.ReportCannotConvertFromTypeToType(
                             unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             returnStatement.GetLocation());
                 }
-                else if (method.IsAsync &&
-                    method.ReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                else if (!hasErrorReturnType && method.IsAsync &&
+                    returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
                 {
                     var methodDisplay = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     _diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
@@ -582,10 +586,11 @@ partial class BlockBinder
                 }
                 else
                 {
-                    var targetType = method.ReturnType;
+                    var targetType = returnType;
+                    var expressionType = expr.Type ?? compilation.ErrorTypeSymbol;
 
-                    if (method.IsAsync &&
-                        method.ReturnType is INamedTypeSymbol namedReturn &&
+                    if (method.IsAsync && !hasErrorReturnType &&
+                        returnType is INamedTypeSymbol namedReturn &&
                         namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
                         namedReturn.TypeArguments.Length == 1 &&
                         namedReturn.TypeArguments[0] is { } resultType)
@@ -595,10 +600,10 @@ partial class BlockBinder
 
                     if (ShouldAttemptConversion(expr) && targetType.TypeKind != TypeKind.Error)
                     {
-                        if (!IsAssignable(targetType, expr.Type, out var conversion))
+                        if (!IsAssignable(targetType, expressionType, out var conversion))
                         {
                             _diagnostics.ReportCannotConvertFromTypeToType(
-                                expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                expressionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                                 targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                                 returnStatement.Expression!.GetLocation());
                         }
