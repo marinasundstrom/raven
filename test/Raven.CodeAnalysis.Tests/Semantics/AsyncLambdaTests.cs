@@ -50,6 +50,36 @@ class C
     }
 
     [Fact]
+    public void AsyncLambda_WithoutAwait_RewritesToCompletedTaskFromResult()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+let projector = async () => 42
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var owner = boundLambda.Symbol?.ContainingSymbol ?? compilation.Assembly.GlobalNamespace;
+
+        var lowered = LambdaLowerer.Rewrite(boundLambda, owner);
+
+        var invocation = Assert.IsType<BoundInvocationExpression>(lowered.Body);
+        Assert.Equal("FromResult", invocation.Method.Name);
+        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(invocation.Method.ContainingType);
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task_T, containingType.OriginalDefinition.SpecialType);
+    }
+
+    [Fact]
     public void AsyncLambda_WithBlockBody_DefaultsToTask()
     {
         const string source = """

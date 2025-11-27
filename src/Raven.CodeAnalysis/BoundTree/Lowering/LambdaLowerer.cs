@@ -8,7 +8,12 @@ internal static class LambdaLowerer
     {
         var owner = lambda.Symbol ?? containingSymbol;
 
-        var loweredBody = LowerBody(lambda.Body, owner);
+        var body = lambda.Body;
+
+        if (lambda.Symbol is SourceLambdaSymbol { IsAsync: true, ContainsAwait: false } asyncLambda)
+            body = AsyncLowerer.RewriteAwaitlessLambdaBody(asyncLambda, body);
+
+        var loweredBody = LowerBody(body, owner);
         if (ReferenceEquals(loweredBody, lambda.Body))
             return lambda;
 

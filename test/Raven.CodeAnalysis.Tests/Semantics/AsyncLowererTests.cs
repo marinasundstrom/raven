@@ -89,6 +89,43 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_AsyncMethodWithoutAwait_RewritesReturnToFromResult()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Compute() -> Task<Int32> {
+        return 42
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        Assert.Null(methodSymbol.AsyncStateMachine);
+
+        var returnStatement = Assert.IsType<BoundReturnStatement>(Assert.Single(rewritten.Statements));
+        var invocation = Assert.IsType<BoundInvocationExpression>(returnStatement.Expression);
+
+        Assert.Equal("FromResult", invocation.Method.Name);
+        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(invocation.Method.ContainingType);
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task_T, containingType.OriginalDefinition.SpecialType);
+    }
+
+    [Fact]
     public void Analyze_TopLevelAsyncFunction_RequiresStateMachine()
     {
         const string source = """
