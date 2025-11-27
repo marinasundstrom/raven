@@ -66,8 +66,25 @@ class MethodBodyBinder : BlockBinder
             }
         }
 
+        if (_methodSymbol is SourceMethodSymbol { IsAsync: true } asyncMethod)
+            AnalyzeAsyncBody(block, asyncMethod, bound);
+
         CacheBoundNode(block, bound);
         return bound;
+    }
+
+    private void AnalyzeAsyncBody(BlockStatementSyntax block, SourceMethodSymbol asyncMethod, BoundBlockStatement bound)
+    {
+        var containsAwait = AsyncLowerer.ContainsAwait(bound);
+        asyncMethod.SetContainsAwait(containsAwait);
+
+        if (containsAwait)
+            return;
+
+        var memberDescription = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
+        var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, block);
+
+        _diagnostics.ReportAsyncLacksAwait(memberDescription, location);
     }
 
     private bool ShouldSkipTrailingExpressionCheck(ITypeSymbol unitType)

@@ -364,6 +364,19 @@ partial class BlockBinder
             mutable.SetDelegateType(delegateType);
         }
 
+        if (isAsyncLambda && lambdaSymbol is SourceLambdaSymbol asyncLambda)
+        {
+            var containsAwait = AsyncLowerer.ContainsAwait(bodyExpr);
+            asyncLambda.SetContainsAwait(containsAwait);
+
+            if (!containsAwait)
+            {
+                var description = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncLambda);
+                var location = asyncKeywordToken?.GetLocation() ?? syntax.GetLocation();
+                _diagnostics.ReportAsyncLacksAwait(description, location);
+            }
+        }
+
         var boundLambda = new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
 
         var suppressed = suppressedDiagnostics.ToImmutable();

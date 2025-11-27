@@ -135,6 +135,10 @@
     Title="Async Task return cannot include a value"
     Message="Since '{methodName}' is an async method that returns 'Task', a return keyword must not be followed by an object expression"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2706" Identifier="AsyncLacksAwait"
+    Title="Async body lacks await"
+    Message="This async {memberDescription} lacks 'await' operators and will run synchronously"
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0234" Identifier="TypeOrNamespaceNameDoesNotExistInTheNamespace"
     Title="Type or namespace does not exist in namespace"
     Message="The type or namespace name '{typeOrNs}' does not exist in the namespace '{container}'"

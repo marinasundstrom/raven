@@ -22,13 +22,35 @@ internal static class AsyncLowerer
         if (!method.IsAsync)
             return new AsyncMethodAnalysis(requiresStateMachine: false, containsAwait: false);
 
+        var containsAwait = ContainsAwait(body);
+
+        method.SetContainsAwait(containsAwait);
+
+        var requiresStateMachine = containsAwait;
+        return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
+    }
+
+    public static bool ContainsAwait(BoundNode node)
+    {
+        if (node is null)
+            throw new ArgumentNullException(nameof(node));
+
         var finder = new AwaitExpressionFinder();
-        finder.VisitBlockStatement(body);
 
-        method.SetContainsAwait(finder.FoundAwait);
+        switch (node)
+        {
+            case BoundBlockStatement block:
+                finder.VisitBlockStatement(block);
+                break;
+            case BoundExpression expression:
+                finder.VisitExpression(expression);
+                break;
+            default:
+                finder.Visit(node);
+                break;
+        }
 
-        var requiresStateMachine = finder.FoundAwait;
-        return new AsyncMethodAnalysis(requiresStateMachine, finder.FoundAwait);
+        return finder.FoundAwait;
     }
 
     public static BoundBlockStatement Rewrite(SourceMethodSymbol method, BoundBlockStatement body)
