@@ -256,6 +256,24 @@ let worker = Worker()
 await worker.Work()
 """;
 
+    private const string TryAwaitMatchAsyncCode = """
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Foo() -> Task<int> {
+    await Task.Delay(1)
+    throw new Exception("boom")
+}
+
+let result = try await Foo() match {
+    int value => value.ToString()
+    Exception ex => ex.Message
+}
+
+WriteLine(result)
+""";
+
     [Fact]
     public void AsyncAssembly_PassesIlVerifyWhenToolAvailable()
     {
@@ -357,6 +375,67 @@ await worker.Work()
             if (File.Exists(assemblyPath))
                 File.Delete(assemblyPath);
         }
+    }
+
+    [Fact]
+    public async Task TryAwaitExpression_WithException_EvaluatesToExceptionValue()
+    {
+        var syntaxTree = SyntaxTree.ParseText(TryAwaitMatchAsyncCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath),
+            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
+        ];
+
+        var compilation = Compilation.Create("async-try-match", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+
+        var loadContext = new AssemblyLoadContext(name: null, isCollectible: true);
+        using var assemblyStream = new MemoryStream(peStream.ToArray());
+        var assembly = loadContext.LoadFromStream(assemblyStream);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+        Console.SetOut(writer);
+
+        try
+        {
+            var entryPoint = assembly.EntryPoint;
+            Assert.NotNull(entryPoint);
+
+            var parameters = entryPoint!.GetParameters().Length == 1
+                ? new object?[] { Array.Empty<string>() }
+                : Array.Empty<object?>();
+
+            var result = entryPoint.Invoke(null, parameters);
+
+            if (result is Task task)
+                await task;
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            loadContext.Unload();
+        }
+
+        var output = writer.ToString().Trim();
+        Assert.Equal("boom", output);
     }
 
     [Fact]

@@ -3,7 +3,7 @@ import System.Threading.Tasks.*
 
 async func Foo() -> Task<int> {
     await Task.Delay(200)
-    throw new Exception("")
+    throw new Exception("boom")
     return 0
 }
 
