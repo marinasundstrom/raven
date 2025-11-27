@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis;
 
@@ -22,13 +23,51 @@ internal static class AsyncLowerer
         if (!method.IsAsync)
             return new AsyncMethodAnalysis(requiresStateMachine: false, containsAwait: false);
 
+        var containsAwait = ContainsAwait(body);
+
+        method.SetContainsAwait(containsAwait);
+
+        var requiresStateMachine = containsAwait;
+        return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
+    }
+
+    public static bool ContainsAwait(BoundNode node)
+    {
+        if (node is null)
+            throw new ArgumentNullException(nameof(node));
+
         var finder = new AwaitExpressionFinder();
-        finder.VisitBlockStatement(body);
 
-        method.SetContainsAwait(finder.FoundAwait);
+        switch (node)
+        {
+            case BoundBlockStatement block:
+                finder.VisitBlockStatement(block);
+                break;
+            case BoundExpression expression:
+                finder.VisitExpression(expression);
+                break;
+            default:
+                finder.Visit(node);
+                break;
+        }
 
-        var requiresStateMachine = finder.FoundAwait;
-        return new AsyncMethodAnalysis(requiresStateMachine, finder.FoundAwait);
+        return finder.FoundAwait;
+    }
+
+    public static BoundExpression RewriteAwaitlessLambdaBody(SourceLambdaSymbol lambda, BoundExpression body)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        var compilation = GetCompilation(lambda);
+
+        if (!TryGetAsyncReturnInfo(compilation, lambda.ReturnType, out var returnInfo))
+            return body;
+
+        var rewriter = new AwaitlessAsyncRewriter(compilation, returnInfo);
+        return rewriter.RewriteExpression(body);
     }
 
     public static BoundBlockStatement Rewrite(SourceMethodSymbol method, BoundBlockStatement body)
@@ -39,10 +78,13 @@ internal static class AsyncLowerer
             throw new ArgumentNullException(nameof(body));
 
         var analysis = Analyze(method, body);
+        var compilation = GetCompilation(method);
+
+        if (!analysis.ContainsAwait)
+            body = RewriteAwaitlessAsyncBody(compilation, method.ReturnType, body);
+
         if (!analysis.RequiresStateMachine)
             return body;
-
-        var compilation = GetCompilation(method);
 
         if (method.AsyncStateMachine is null)
         {
@@ -75,7 +117,12 @@ internal static class AsyncLowerer
 
     public static bool ShouldRewrite(SourceMethodSymbol method, BoundBlockStatement body)
     {
-        return Analyze(method, body).RequiresStateMachine;
+        if (method is null)
+            throw new ArgumentNullException(nameof(method));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        return method.IsAsync;
     }
 
     private static BoundBlockStatement CreateMoveNextBody(
@@ -2333,6 +2380,256 @@ internal static class AsyncLowerer
         }
     }
 
+    private static BoundBlockStatement RewriteAwaitlessAsyncBody(
+        Compilation compilation,
+        ITypeSymbol asyncReturnType,
+        BoundBlockStatement body)
+    {
+        if (!TryGetAsyncReturnInfo(compilation, asyncReturnType, out var returnInfo))
+            return body;
+
+        var rewriter = new AwaitlessAsyncRewriter(compilation, returnInfo);
+        return rewriter.RewriteBlock(body);
+    }
+
+    private static bool TryGetAsyncReturnInfo(
+        Compilation compilation,
+        ITypeSymbol asyncReturnType,
+        out AwaitlessAsyncReturnInfo returnInfo)
+    {
+        returnInfo = default;
+
+        if (asyncReturnType is null)
+            return false;
+
+        if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task) is not INamedTypeSymbol taskType ||
+            taskType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        var resultType = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, asyncReturnType);
+        if (resultType is null)
+            return false;
+
+        var taskOfT = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) as INamedTypeSymbol;
+
+        returnInfo = new AwaitlessAsyncReturnInfo(asyncReturnType, resultType, taskType, taskOfT);
+        return returnInfo.IsSupported;
+    }
+
+    private readonly struct AwaitlessAsyncReturnInfo
+    {
+        public AwaitlessAsyncReturnInfo(
+            ITypeSymbol asyncReturnType,
+            ITypeSymbol resultType,
+            INamedTypeSymbol taskType,
+            INamedTypeSymbol? taskOfT)
+        {
+            AsyncReturnType = asyncReturnType;
+            ResultType = resultType;
+            TaskType = taskType;
+            TaskOfT = taskOfT;
+        }
+
+        public ITypeSymbol AsyncReturnType { get; }
+
+        public ITypeSymbol ResultType { get; }
+
+        public INamedTypeSymbol TaskType { get; }
+
+        public INamedTypeSymbol? TaskOfT { get; }
+
+        public bool IsTask => SymbolEqualityComparer.Default.Equals(AsyncReturnType, TaskType);
+
+        public bool IsTaskOfT =>
+            AsyncReturnType is INamedTypeSymbol named &&
+            TaskOfT is not null &&
+            SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, TaskOfT);
+
+        public bool IsSupported => IsTask || IsTaskOfT;
+    }
+
+    private sealed class AwaitlessAsyncRewriter : BoundTreeRewriter
+    {
+        private readonly Compilation _compilation;
+        private readonly AwaitlessAsyncReturnInfo _returnInfo;
+        private readonly ITypeSymbol _unitType;
+        private readonly BoundExpression? _completedTask;
+
+        public AwaitlessAsyncRewriter(Compilation compilation, AwaitlessAsyncReturnInfo returnInfo)
+        {
+            _compilation = compilation;
+            _returnInfo = returnInfo;
+            _unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+            _completedTask = CreateCompletedTaskAccess();
+        }
+
+        public BoundBlockStatement RewriteBlock(BoundBlockStatement body)
+        {
+            return (BoundBlockStatement)VisitBlockStatement(body)!;
+        }
+
+        public BoundExpression RewriteExpression(BoundExpression body)
+        {
+            var rewritten = (BoundExpression)VisitExpression(body)!;
+            return RewriteReturnExpression(rewritten);
+        }
+
+        public override BoundNode? VisitReturnStatement(BoundReturnStatement node)
+        {
+            var expression = VisitExpression(node.Expression);
+            var rewritten = RewriteReturnExpression(expression);
+            return new BoundReturnStatement(rewritten);
+        }
+
+        public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var statements = new List<BoundStatement>();
+            var changed = false;
+
+            foreach (var statement in node.Statements)
+            {
+                var rewritten = (BoundStatement)VisitStatement(statement);
+                changed |= !ReferenceEquals(rewritten, statement);
+                statements.Add(rewritten);
+            }
+
+            if (!changed)
+                return node;
+
+            return new BoundBlockStatement(statements, node.LocalsToDispose);
+        }
+
+        public override BoundNode? VisitBlockExpression(BoundBlockExpression node)
+        {
+            if (node is null)
+                return null;
+
+            var statements = new List<BoundStatement>();
+            var changed = false;
+
+            foreach (var statement in node.Statements)
+            {
+                var rewritten = (BoundStatement)VisitStatement(statement);
+                changed |= !ReferenceEquals(rewritten, statement);
+                statements.Add(rewritten);
+            }
+
+            if (!changed)
+                return node;
+
+            return new BoundBlockExpression(statements, node.UnitType, node.LocalsToDispose);
+        }
+
+        private BoundExpression RewriteReturnExpression(BoundExpression? expression)
+        {
+            if (expression is not null)
+            {
+                var converted = TryImplicitlyConvert(expression, _returnInfo.AsyncReturnType);
+                if (converted is not null)
+                    return converted;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(_returnInfo.ResultType, _unitType))
+            {
+                var completedTask = _completedTask ?? (expression ?? CreateNullLiteral(_returnInfo.AsyncReturnType));
+
+                if (expression is null || IsEffectivelyVoidExpression(expression))
+                    return completedTask;
+
+                return CreateSequencedExpression(expression, completedTask);
+            }
+
+            var value = expression ?? CreateDefaultValueExpression(_returnInfo.ResultType);
+            if (value is null)
+                return expression ?? CreateNullLiteral(_returnInfo.AsyncReturnType);
+
+            var fromResult = CreateFromResultInvocation(value);
+            return fromResult ?? expression ?? CreateNullLiteral(_returnInfo.AsyncReturnType);
+        }
+
+        private BoundExpression? TryImplicitlyConvert(BoundExpression expression, ITypeSymbol targetType)
+        {
+            var sourceType = expression.Type ?? _compilation.ErrorTypeSymbol;
+            var conversion = _compilation.ClassifyConversion(sourceType, targetType);
+
+            if (!conversion.Exists || !conversion.IsImplicit)
+                return null;
+
+            if (conversion.IsIdentity)
+                return expression;
+
+            return new BoundCastExpression(expression, targetType, conversion);
+        }
+
+        private BoundExpression CreateSequencedExpression(BoundExpression expression, BoundExpression result)
+        {
+            var statements = new List<BoundStatement>
+            {
+                new BoundExpressionStatement(expression),
+                new BoundExpressionStatement(result)
+            };
+
+            return new BoundBlockExpression(statements, _unitType);
+        }
+
+        private BoundExpression? CreateFromResultInvocation(BoundExpression value)
+        {
+            if (!_returnInfo.IsTaskOfT)
+                return null;
+
+            var fromResult = _returnInfo.TaskType
+                .GetMembers(nameof(Task.FromResult))
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m => m.IsStatic && m.TypeParameters.Length == 1 && m.Parameters.Length == 1);
+
+            if (fromResult is null)
+                return null;
+
+            var constructed = fromResult.Construct(_returnInfo.ResultType);
+            var parameterType = constructed.Parameters[0].Type;
+            var argument = ApplyConversionIfNeeded(value, parameterType);
+            return new BoundInvocationExpression(constructed, new[] { argument });
+        }
+
+        private BoundExpression ApplyConversionIfNeeded(BoundExpression expression, ITypeSymbol targetType)
+        {
+            var sourceType = expression.Type ?? _compilation.ErrorTypeSymbol;
+            var conversion = _compilation.ClassifyConversion(sourceType, targetType);
+            if (!conversion.Exists || conversion.IsIdentity)
+                return expression;
+
+            return new BoundCastExpression(expression, targetType, conversion);
+        }
+
+        private BoundExpression? CreateCompletedTaskAccess()
+        {
+            if (!SymbolEqualityComparer.Default.Equals(_returnInfo.ResultType, _unitType))
+                return null;
+
+            foreach (var member in _returnInfo.TaskType.GetMembers(nameof(Task.CompletedTask)))
+            {
+                if (member is IPropertySymbol { IsStatic: true, Type: var type } property &&
+                    SymbolEqualityComparer.Default.Equals(type, _returnInfo.TaskType))
+                {
+                    return new BoundMemberAccessExpression(null, property);
+                }
+
+                if (member is IFieldSymbol { IsStatic: true, Type: var fieldType } field &&
+                    SymbolEqualityComparer.Default.Equals(fieldType, _returnInfo.TaskType))
+                {
+                    return new BoundMemberAccessExpression(null, field);
+                }
+            }
+
+            return null;
+        }
+    }
+
     internal readonly struct AsyncMethodAnalysis
     {
         public AsyncMethodAnalysis(bool requiresStateMachine, bool containsAwait)
@@ -2559,11 +2856,11 @@ internal static class AsyncLowerer
             type);
     }
 
-    private static Compilation GetCompilation(SourceMethodSymbol method)
+    private static Compilation GetCompilation(ISymbol symbol)
     {
-        if (method.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
+        if (symbol?.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
             return sourceAssembly.Compilation;
 
-        throw new InvalidOperationException("Async lowering requires a source assembly method.");
+        throw new InvalidOperationException("Async lowering requires a source assembly symbol.");
     }
 }

@@ -228,6 +228,66 @@ partial class BlockBinder
                 inferred = collected;
         }
 
+        bool ContainsTypeParameter(ITypeSymbol type)
+        {
+            switch (type)
+            {
+                case ITypeParameterSymbol:
+                    return true;
+                case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                    return named.TypeArguments.Any(ContainsTypeParameter);
+                case IArrayTypeSymbol array:
+                    return ContainsTypeParameter(array.ElementType);
+                case ByRefTypeSymbol byRef:
+                    return ContainsTypeParameter(byRef.ElementType);
+                case NullableTypeSymbol nullable:
+                    return ContainsTypeParameter(nullable.UnderlyingType);
+                case ITupleTypeSymbol tuple:
+                    return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
+                default:
+                    return false;
+            }
+        }
+
+        INamedTypeSymbol? SelectBestDelegate(ITypeSymbol? inferredReturn)
+        {
+            if (candidateDelegates.IsDefaultOrEmpty)
+                return primaryDelegate;
+
+            if (inferredReturn is null || inferredReturn.TypeKind == TypeKind.Error)
+                return primaryDelegate ?? candidateDelegates.FirstOrDefault();
+
+            foreach (var candidate in candidateDelegates)
+            {
+                var invoke = candidate.GetDelegateInvokeMethod();
+                if (invoke is null)
+                    continue;
+
+                var candidateReturn = invoke.ReturnType;
+                var expectedBody = isAsyncLambda
+                    ? ExtractAsyncResultType(candidateReturn) ?? candidateReturn
+                    : candidateReturn;
+
+                if (expectedBody is null || expectedBody.TypeKind == TypeKind.Error)
+                    continue;
+
+                if (expectedBody is ITypeParameterSymbol)
+                    return candidate;
+
+                var conversion = Compilation.ClassifyConversion(
+                    inferredReturn,
+                    expectedBody);
+
+                if (conversion.Exists && conversion.IsImplicit)
+                    return candidate;
+            }
+
+            return primaryDelegate ?? candidateDelegates.FirstOrDefault();
+        }
+
+        primaryDelegate = SelectBestDelegate(inferred);
+        targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
+
         var targetReturn = targetSignature?.ReturnType;
         if (targetReturn is not null && targetReturn.TypeKind == TypeKind.Error)
             targetReturn = null;
@@ -239,7 +299,9 @@ partial class BlockBinder
         }
         else if (targetReturn is not null)
         {
-            returnType = targetReturn;
+            returnType = ContainsTypeParameter(targetReturn)
+                ? (isAsyncLambda ? InferAsyncReturnType(inferred, unitType) : inferred ?? targetReturn)
+                : targetReturn;
         }
         else if (isAsyncLambda)
         {
@@ -257,6 +319,7 @@ partial class BlockBinder
         }
 
         if (expectedBodyType is not null &&
+            expectedBodyType is not ITypeParameterSymbol &&
             inferred is not null &&
             inferred.TypeKind != TypeKind.Error &&
             expectedBodyType.TypeKind != TypeKind.Error)
@@ -299,6 +362,19 @@ partial class BlockBinder
         {
             mutable.SetReturnType(returnType);
             mutable.SetDelegateType(delegateType);
+        }
+
+        if (isAsyncLambda && lambdaSymbol is SourceLambdaSymbol asyncLambda)
+        {
+            var containsAwait = AsyncLowerer.ContainsAwait(bodyExpr);
+            asyncLambda.SetContainsAwait(containsAwait);
+
+            if (!containsAwait)
+            {
+                var description = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncLambda);
+                var location = asyncKeywordToken?.GetLocation() ?? syntax.GetLocation();
+                _diagnostics.ReportAsyncLacksAwait(description, location);
+            }
         }
 
         var boundLambda = new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);

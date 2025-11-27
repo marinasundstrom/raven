@@ -6464,6 +6464,20 @@ partial class BlockBinder : Binder
             }
 
             var boundBlock = new BoundBlockStatement(statements);
+
+            if (symbol is SourceMethodSymbol { IsAsync: true } asyncMethod)
+            {
+                var containsAwait = AsyncLowerer.ContainsAwait(boundBlock);
+                asyncMethod.SetContainsAwait(containsAwait);
+
+                if (!containsAwait)
+                {
+                    var description = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
+                    var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, function.ExpressionBody);
+                    _diagnostics.ReportAsyncLacksAwait(description, location);
+                }
+            }
+
             SemanticModel.CacheBoundNode(function.ExpressionBody, boundBlock);
         }
 
