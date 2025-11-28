@@ -27,6 +27,7 @@
 - [ ] **Re-validate Task.Run overload resolution**: After inference updates, re-run `async/async-inference.rav` to confirm it binds to `Task<TResult> Run<TResult>(Func<Task<TResult>?>)` and keeps other overloads (e.g., `WriteLine`) unambiguous.
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 - [ ] **Run sample test procedure**: Follow the testing steps in `samples/README.md` to verify sample programs remain intact after async-lambda changes.
+- [ ] **Normalize `Task<Unit>` to `Task`**: Treat `Task<Unit>` as interchangeable with non-generic `Task` during resolution and emission to mirror the `Unit`→`void` mapping for async returns.
 
 ### Redo plan (aligning inference with C# and LINQ scenarios)
 - [ ] **Re-derive delegate inference rules**: Model C# async-lambda delegate inference (including return type shaping for awaitful bodies) so we infer `Func<Task<T>?>`/`Func<Task?>` even before overload resolution, preventing fallbacks to synchronous delegates.
@@ -129,3 +130,7 @@
 
 ### Findings after step 21
 - Allowing lambda replay to skip conversions when the delegate return type is a type parameter now keeps generic `Task.Run` overloads viable; the expression-bodied `async () => 42` binds to `Task.Run<TResult>` but infers `TResult=()` while the block async lambda still reports ambiguity and yields an `ErrorExpression` for the awaited call.【f6a597†L5-L40】
+
+### Findings after step 22
+- Prioritized collected return-type inference for async lambdas so block-bodied async delegates reuse explicit `return` types when shaping async return kinds, avoiding collapses to `Task` or nested task shapes when returns supply concrete values.
+- Added an implicit identity conversion between `Task<Unit>` and `Task` to align async return normalization with the `Unit`↔`void` mapping and ease overload selection for void-returning async delegates.

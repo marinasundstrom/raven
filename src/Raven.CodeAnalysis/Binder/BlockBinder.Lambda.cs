@@ -252,12 +252,19 @@ partial class BlockBinder
 
         var inferredAsyncReturnInput = inferred;
 
-        if (isAsyncLambda && (inferredAsyncReturnInput is null ||
-                              inferredAsyncReturnInput.TypeKind == TypeKind.Error ||
-                              SymbolEqualityComparer.Default.Equals(inferredAsyncReturnInput, unitType)))
+        if (isAsyncLambda)
         {
-            if (collectedReturn is not null && collectedReturn.TypeKind != TypeKind.Error)
+            if (collectedReturn is { TypeKind: not TypeKind.Error })
+            {
                 inferredAsyncReturnInput = collectedReturn;
+            }
+            else if (inferredAsyncReturnInput is null ||
+                     inferredAsyncReturnInput.TypeKind == TypeKind.Error ||
+                     SymbolEqualityComparer.Default.Equals(inferredAsyncReturnInput, unitType))
+            {
+                if (collectedReturn is not null)
+                    inferredAsyncReturnInput = collectedReturn;
+            }
         }
 
         var inferredAsyncReturn = isAsyncLambda
