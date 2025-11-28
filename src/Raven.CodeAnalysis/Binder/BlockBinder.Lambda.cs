@@ -1051,16 +1051,21 @@ partial class BlockBinder
         if (unbound.LambdaSymbol.IsAsync)
             expectedBodyType = ExtractAsyncResultTypeForReplay(returnType) ?? expectedBodyType;
 
+        var conversionSource = inferred;
+
+        if (unbound.LambdaSymbol.IsAsync && conversionSource is not null)
+            conversionSource = ExtractAsyncResultTypeForReplay(conversionSource) ?? conversionSource;
+
         var shouldApplyConversion =
-            inferred is not null &&
-            inferred.TypeKind != TypeKind.Error &&
+            conversionSource is not null &&
+            conversionSource.TypeKind != TypeKind.Error &&
             expectedBodyType is not null &&
             expectedBodyType.TypeKind != TypeKind.Error &&
             expectedBodyType is not ITypeParameterSymbol;
 
         if (shouldApplyConversion)
         {
-            if (!IsAssignable(expectedBodyType, inferred, out var conversion))
+            if (!IsAssignable(expectedBodyType, conversionSource!, out var conversion))
             {
                 instrumentation.RecordBindingFailure();
                 return null;
