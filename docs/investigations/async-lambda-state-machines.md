@@ -154,3 +154,7 @@
 ### Findings after step 27
 - Adjusted lambda replay in overload inference to reuse the async-shaped return type already computed during binding (via `AsyncReturnTypeUtilities.InferAsyncReturnType`), rather than re-inferring from the raw body, so nullable/task normalization survives generic inference.
 - Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the expression-bodied `Task.Run(async () => 42)` argument inferred as `Func<Task<Task.TResult>?>` and the block-bodied async lambda as an ambiguous `ErrorExpression`, with diagnostics `RAV0121`/`RAV1503` unchanged, so overload resolution remains unresolved for the `Task.Run` sample.【72d8e4†L5-L40】【72d8e4†L41-L55】
+
+### Findings after step 28
+- Switched async lambdas to infer return types from the raw body/collected returns before wrapping them in `Task`/`Task<T>`, preserving the body result type for conversion checks and avoiding double task-wrapping during binding.
+- Rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` now removes the `RAV1503` conversion and leaves only the overload ambiguities: the expression-bodied async lambda is still printed as `Func<Task<Task.TResult>?>`, and the block-bodied async lambda remains an ambiguous `ErrorExpression` with `RAV0121` on both `Task.Run` and `WriteLine`.【a8e7da†L5-L34】【a8e7da†L35-L44】
