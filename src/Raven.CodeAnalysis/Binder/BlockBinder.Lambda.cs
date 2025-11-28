@@ -989,7 +989,45 @@ partial class BlockBinder
         if (inferred is not null && inferred.TypeKind != TypeKind.Error)
             inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
 
+        bool ContainsTypeParameter(ITypeSymbol type)
+        {
+            switch (type)
+            {
+                case ITypeParameterSymbol:
+                    return true;
+                case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                    return named.TypeArguments.Any(ContainsTypeParameter);
+                case IArrayTypeSymbol array:
+                    return ContainsTypeParameter(array.ElementType);
+                case ByRefTypeSymbol byRef:
+                    return ContainsTypeParameter(byRef.ElementType);
+                case NullableTypeSymbol nullable:
+                    return ContainsTypeParameter(nullable.UnderlyingType);
+                case ITupleTypeSymbol tuple:
+                    return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
+                default:
+                    return false;
+            }
+        }
+
         var returnType = invoke.ReturnType;
+        ITypeSymbol? inferredAsyncReturn = null;
+
+        if (unbound.LambdaSymbol.IsAsync)
+        {
+            inferredAsyncReturn = collectedReturn ??
+                AsyncReturnTypeUtilities.InferAsyncReturnType(
+                    Compilation,
+                    inferred ?? returnType);
+
+            if (inferredAsyncReturn is { TypeKind: not TypeKind.Error } &&
+                (returnType is null ||
+                 returnType.TypeKind == TypeKind.Error ||
+                 ContainsTypeParameter(returnType)))
+            {
+                returnType = inferredAsyncReturn;
+            }
+        }
 
         ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol asyncReturnType)
         {
