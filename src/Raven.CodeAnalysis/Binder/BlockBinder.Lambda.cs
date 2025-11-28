@@ -231,6 +231,24 @@ partial class BlockBinder
                 inferred = collected;
         }
 
+        if (isAsyncLambda && inferred is IUnionTypeSymbol union)
+        {
+            var unionTypes = union.Types.ToImmutableArray();
+            if (!unionTypes.IsDefaultOrEmpty)
+            {
+                var nonUnitTypes = unionTypes
+                    .Where(t => !SymbolEqualityComparer.Default.Equals(t, unitType))
+                    .ToImmutableArray();
+
+                if (!nonUnitTypes.IsDefaultOrEmpty)
+                {
+                    inferred = nonUnitTypes.Length == 1
+                        ? nonUnitTypes[0]
+                        : TypeSymbolNormalization.NormalizeUnion(nonUnitTypes);
+                }
+            }
+        }
+
         var inferredAsyncReturn = isAsyncLambda
             ? InferAsyncReturnType(inferred, unitType)
             : null;
@@ -415,15 +433,20 @@ partial class BlockBinder
         {
             returnType = annotatedReturnType;
         }
-        else if (isAsyncLambda && IsAsyncReturnCompatibleWithLambda(targetReturn))
-        {
-            returnType = ContainsTypeParameter(targetReturn!)
-                ? inferredAsyncReturn ?? targetReturn!
-                : targetReturn!;
-        }
         else if (isAsyncLambda)
         {
-            returnType = inferredAsyncReturn ?? Compilation.ErrorTypeSymbol;
+            if (inferredAsyncReturn is { TypeKind: not TypeKind.Error })
+            {
+                returnType = inferredAsyncReturn;
+            }
+            else if (IsAsyncReturnCompatibleWithLambda(targetReturn))
+            {
+                returnType = targetReturn!;
+            }
+            else
+            {
+                returnType = Compilation.ErrorTypeSymbol;
+            }
         }
         else if (targetReturn is not null)
         {

@@ -112,3 +112,7 @@
 ### Findings after step 17
 - Updated lambda delegate selection to favor task-returning delegates (including generic `Task<T>` delegates) and to classify candidates against inferred async results even when initial inference is unavailable.
 - Despite preferring the `Task<T>`-shaped delegate in code, the bound-tree dump for `async/async-inference.rav` still shows the awaited lambda bound as `Func<Task?>` and `Task.Run` resolving to the non-generic overload, so generic inference remains blocked and the sample continues to report `RAV1501`/`RAV0121` diagnostics.【de9a27†L55-L79】
+
+### Findings after step 18
+- Adjusted async lambda return inference to favor inferred async return types over delegate hints and to strip `Unit` entries from union-based return inference so `return` expressions with values aren’t collapsed to `Task`.
+- Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the awaited `Task.Run` lambda typed as `Func<Task?>`, and overload resolution continues to reject the generic `Task<TResult> Run<TResult>(Func<Task<TResult>?>)` overload with `RAV1501`/`RAV0121` diagnostics, so delegate inference remains unresolved.【5f5391†L1-L35】
