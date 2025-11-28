@@ -14,8 +14,12 @@ internal sealed class OverloadResolver
         BoundArgument[] arguments,
         Compilation compilation,
         BoundExpression? receiver = null,
-        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null)
+        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null,
+        SyntaxNode? callSyntax = null)
     {
+        var logger = compilation.Options.OverloadResolutionLogger;
+        List<OverloadCandidateLog>? candidateLogs = logger is null ? null : new();
+
         IMethodSymbol? bestMatch = null;
         int bestScore = int.MaxValue;
         ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
@@ -23,19 +27,38 @@ internal sealed class OverloadResolver
 
         foreach (var candidate in methods)
         {
+            var candidateStatus = OverloadCandidateStatus.Applicable;
+            int? candidateScore = null;
+            IMethodSymbol? constructed = null;
             var method = ApplyTypeArgumentInference(candidate, receiver, arguments, compilation);
             if (method is null)
+            {
+                candidateStatus = OverloadCandidateStatus.TypeInferenceFailed;
+                RecordCandidate(candidate, constructed, candidateStatus, candidateScore, isExtension: false);
                 continue;
+            }
 
+            constructed = method;
             var parameters = method.Parameters;
             var treatAsExtension = method.IsExtensionMethod && receiver is not null;
             var providedCount = arguments.Length + (treatAsExtension ? 1 : 0);
 
             if (!HasSufficientArguments(parameters, providedCount))
+            {
+                candidateStatus = OverloadCandidateStatus.InsufficientArguments;
+                RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension);
                 continue;
+            }
 
             if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, canBindLambda, out var score))
+            {
+                candidateStatus = OverloadCandidateStatus.ArgumentMismatch;
+                RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension);
                 continue;
+            }
+
+            candidateScore = score;
+            RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension);
 
             if (score < bestScore)
             {
@@ -79,10 +102,46 @@ internal sealed class OverloadResolver
             AddCandidateIfMissing(ambiguous, method);
         }
 
+        var ambiguousCandidates = ambiguous?.ToImmutable() ?? ImmutableArray<IMethodSymbol>.Empty;
+
+        if (logger is not null && candidateLogs is not null)
+        {
+            var resolvedCandidates = MarkCandidates(candidateLogs, bestMatch, ambiguousCandidates);
+            var argumentLogs = CreateArgumentLogs(arguments);
+
+            logger.Log(new OverloadResolutionLogEntry(
+                callSyntax,
+                receiver?.Type,
+                argumentLogs,
+                resolvedCandidates,
+                bestMatch,
+                ambiguousCandidates));
+        }
+
         if (ambiguous is { Count: > 0 })
             return OverloadResolutionResult.Ambiguous(ambiguous.ToImmutable());
 
         return new OverloadResolutionResult(bestMatch);
+
+        void RecordCandidate(
+            IMethodSymbol original,
+            IMethodSymbol? constructedMethod,
+            OverloadCandidateStatus status,
+            int? score,
+            bool isExtension)
+        {
+            if (candidateLogs is null)
+                return;
+
+            candidateLogs.Add(new OverloadCandidateLog(
+                original,
+                constructedMethod,
+                status,
+                score,
+                isExtension,
+                IsBest: false,
+                IsAmbiguous: false));
+        }
     }
 
     internal static IMethodSymbol? ApplyTypeArgumentInference(
@@ -304,6 +363,47 @@ internal sealed class OverloadResolver
         }
 
         return true;
+    }
+
+    private static ImmutableArray<OverloadCandidateLog> MarkCandidates(
+        List<OverloadCandidateLog> candidates,
+        IMethodSymbol? best,
+        ImmutableArray<IMethodSymbol> ambiguous)
+    {
+        if (candidates.Count == 0)
+            return ImmutableArray<OverloadCandidateLog>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<OverloadCandidateLog>(candidates.Count);
+
+        foreach (var candidate in candidates)
+        {
+            var constructed = candidate.ConstructedMethod ?? candidate.OriginalMethod;
+            var isBest = best is not null && SymbolEqualityComparer.Default.Equals(constructed, best);
+            var isAmbiguous = !ambiguous.IsDefaultOrEmpty && ambiguous.Any(a => SymbolEqualityComparer.Default.Equals(a, constructed));
+
+            builder.Add(candidate with { IsBest = isBest, IsAmbiguous = isAmbiguous });
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableArray<OverloadArgumentLog> CreateArgumentLogs(IReadOnlyList<BoundArgument> arguments)
+    {
+        if (arguments.Count == 0)
+            return ImmutableArray<OverloadArgumentLog>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<OverloadArgumentLog>(arguments.Count);
+
+        foreach (var argument in arguments)
+        {
+            builder.Add(new OverloadArgumentLog(
+                argument.Name,
+                argument.RefKind,
+                argument.Type,
+                argument.Syntax));
+        }
+
+        return builder.ToImmutable();
     }
 
     private static bool TryInferFromTypes(

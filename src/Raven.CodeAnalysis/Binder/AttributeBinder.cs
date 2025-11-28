@@ -85,7 +85,7 @@ internal sealed class AttributeBinder : BlockBinder
             return new BoundErrorExpression(attributeType, null, BoundExpressionReason.ArgumentBindingFailed);
 
         var arguments = boundArguments.ToArray();
-        var resolution = OverloadResolver.ResolveOverload(attributeType.Constructors, arguments, Compilation);
+        var resolution = OverloadResolver.ResolveOverload(attributeType.Constructors, arguments, Compilation, callSyntax: attribute);
 
         if (resolution.Success)
         {

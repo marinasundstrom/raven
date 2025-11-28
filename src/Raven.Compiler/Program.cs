@@ -55,6 +55,10 @@ string? ilVerifyPath = null;
 var enableAsyncInvestigation = false;
 string asyncInvestigationLabel = "Step14";
 var asyncInvestigationScope = AsyncInvestigationPointerLabelScope.FieldOnly;
+var enableOverloadLog = false;
+string? overloadLogPath = null;
+var overloadLogOwnsWriter = false;
+OverloadResolutionLog? overloadResolutionLog = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -152,6 +156,11 @@ for (int i = 0; i < args.Length; i++)
                 hasInvalidOption = true;
             }
             break;
+        case "--overload-log":
+            enableOverloadLog = true;
+            if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                overloadLogPath = args[++i];
+            break;
         case "--ref":
         case "--refs":
             if (i + 1 < args.Length)
@@ -212,6 +221,23 @@ var options = new CompilationOptions(outputKind);
 if (enableAsyncInvestigation)
     options = options.WithAsyncInvestigation(
         AsyncInvestigationOptions.Enable(asyncInvestigationLabel, asyncInvestigationScope));
+if (enableOverloadLog)
+{
+    TextWriter writer;
+    if (!string.IsNullOrWhiteSpace(overloadLogPath))
+    {
+        writer = new StreamWriter(File.Open(overloadLogPath, FileMode.Create, FileAccess.Write, FileShare.Read));
+        overloadLogOwnsWriter = true;
+    }
+    else
+    {
+        writer = Console.Out;
+        overloadLogOwnsWriter = false;
+    }
+
+    overloadResolutionLog = new OverloadResolutionLog(writer, overloadLogOwnsWriter);
+    options = options.WithOverloadResolutionLogger(overloadResolutionLog);
+}
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
 var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -485,6 +511,8 @@ else
         CreateAppHost(compilation, outputFilePath, targetFramework);
 }
 
+overloadResolutionLog?.Dispose();
+
 static string? FindDebugDirectory()
 {
     var dir = Environment.CurrentDirectory;
@@ -521,6 +549,8 @@ static void PrintHelp()
     Console.WriteLine("  --symbols [list|hierarchy]");
     Console.WriteLine("                     Inspect symbols produced from source.");
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
+    Console.WriteLine("  --overload-log [path]");
+    Console.WriteLine("                     Log overload resolution details to the console or the provided file.");
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  --ilverify       Verify emitted IL using the 'ilverify' tool");

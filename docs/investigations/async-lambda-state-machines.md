@@ -199,3 +199,8 @@
 ### Findings after step 37
 - Allowed overload resolution to treat lambdas as compatible delegates after signature checks even when the delegate type lacks type-parameter arguments or a `canBindLambda` hook, avoiding unnecessary conversion scoring between delegate types.
 - Rerunning `dotnet run --no-build --project src/Raven.Compiler -- /tmp/min.rav -bt --no-emit` still reports `RAV1501` for the block-bodied `Task.Run` call, with the lambda body printed as a `Unit`-typed block despite returning `42`, indicating the overload set remains unbound for the async block lambda.【6b5c1f†L1-L21】
+
+### Findings after step 38
+- Added an `--overload-log` option that emits per-call candidate scoring and selections so overload debugging can be triggered without modifying code.
+- Running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt --no-emit --overload-log overload.log` shows the expression-bodied `Task.Run` argument entering overload resolution as `Func<Task<int>>` yet selecting `Run(() -> Task<Task.TResult>?>)`, highlighting that async inference is still double-wrapping the result before candidate selection.【076261†L1-L19】
+- The block-bodied async lambda logs as `Func<Task<int>>` with the generic `Func<Task<TResult>?>` overload marked `ArgumentMismatch`/`TypeInferenceFailed`, leaving `Task.Run` unresolved (`RAV1501`) and the downstream `WriteLine` call ambiguous.【076261†L39-L66】
