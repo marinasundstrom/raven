@@ -6,8 +6,8 @@ internal static class AsyncReturnTypeUtilities
 {
     public static ITypeSymbol InferAsyncReturnType(Compilation compilation, BoundNode body)
     {
-        var inferred = ReturnTypeCollector.Infer(body);
-        return InferAsyncReturnType(compilation, inferred);
+        return ReturnTypeCollector.InferAsync(compilation, body)
+            ?? compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
     }
 
     public static ITypeSymbol InferAsyncReturnType(Compilation compilation, ITypeSymbol? bodyType)

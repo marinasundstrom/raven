@@ -7,6 +7,12 @@ namespace Raven.CodeAnalysis;
 
 internal static class ReturnTypeCollector
 {
+    public static ITypeSymbol? InferAsync(Compilation compilation, BoundNode node)
+    {
+        var inferred = Infer(node);
+        return AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, inferred);
+    }
+
     public static ITypeSymbol? Infer(BoundNode node)
     {
         var collector = new Collector();

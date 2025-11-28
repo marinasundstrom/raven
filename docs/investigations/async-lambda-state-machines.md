@@ -142,3 +142,6 @@
 ### Findings after step 24
 - Added a fallback in `ReturnTypeCollector` so expression-bodied lambdas use their expression type when no return statements are collected, allowing async expression bodies to infer task-shaped returns for overload resolution.
 - Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` now binds the expression-bodied `async () => 42` argument to the generic `Task.Run<TResult>` overload with `TResult=int`, and `WriteLine` sees `t` as `Int32`. The block-bodied async lambda still reports `RAV0121` on `Task.Run`, leaving `t2` and the final `WriteLine` ambiguous.【47df6f†L7-L41】
+
+### Findings after step 25
+- Enabled async-aware return collection in `ReturnTypeCollector` so async lambdas infer task-shaped returns directly, but the `-bt` dump shows the expression-bodied `Task.Run` lambda now bound as `Func<Task<Task.TResult>?>` and the block-bodied async lambda still lands on an ambiguous `ErrorExpression` with `RAV1503`/`RAV0121` diagnostics. Overload resolution remains unresolved for the block lambda despite the task wrapping.【6f6619†L5-L40】
