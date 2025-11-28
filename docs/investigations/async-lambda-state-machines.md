@@ -21,6 +21,7 @@
 - [x] **Design per-lambda state machine creation**: Outline the required API changes so lambdas invoke the async rewriting pipeline independently (similar to methods), ensuring the rewritten lambda body no longer depends on the parent machine’s fields.
 - [x] **Audit closure interactions**: Ensure closure structs/classes continue to carry captured locals while async state machines for lambdas only own awaiters and builder/state fields, matching C# behavior for captured variables.
 - [x] **Add regression coverage**: Create codegen tests for nested async lambdas in `Task.Run` and nested delegate scenarios, asserting valid IL execution (e.g., via `RecordingILBuilderFactory` or running emitted assembly) and preventing ambiguous overload regressions.
+- [x] **Inspect Task.Run overload inference**: Capture binder/bound-tree output for `async/async-inference.rav` (with `-bt`) to understand how the async lambda’s delegate type is inferred and why the `Task.Run(Func<Task<TResult>?>)` overload is skipped.
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 - [ ] **Run sample test procedure**: Follow the testing steps in `samples/README.md` to verify sample programs remain intact after async-lambda changes.
 
@@ -74,3 +75,6 @@
 
 ### Findings after step 9
 - Added runtime regression coverage for async lambdas passed to `Task.Run` and nested async lambdas with captures to ensure per-lambda state machines execute without invalid IL and return expected results.
+
+### Findings after step 10
+- Binder/bound-tree output for `async/async-inference.rav` (invoked with `-bt`) shows the awaited lambda passed to `Task.Run` being inferred as `Func<int>` rather than an async `Func<Task<int>?>`, with candidate delegates including both task-returning and synchronous shapes. Because the lambda’s delegate type collapses to `Func<int>`, overload resolution treats the invocation as ambiguous and emits `RAV0121`, never choosing `Task<TResult> Run<TResult>(Func<Task<TResult>?> function)`.
