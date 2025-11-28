@@ -195,7 +195,12 @@ public static partial class SymbolExtensions
 
         if (symbol is ILocalSymbol localSymbol)
         {
-            var display = FormatNamedSymbol(localSymbol.Name, localSymbol.Type, format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType), format, useNameOption: true);
+            var display = FormatNamedSymbol(
+                localSymbol.Name,
+                localSymbol.Type,
+                format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType),
+                format,
+                useNameOption: true);
             result.Append(display);
             return result.ToString();
         }
@@ -271,23 +276,50 @@ public static partial class SymbolExtensions
 
         if (symbol is IMethodSymbol methodSymbol)
         {
-            // Return type (if requested)
-            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
+                methodSymbol.TypeParameters is { IsDefaultOrEmpty: false })
             {
-                var returnType = methodSymbol.ReturnType?.ToDisplayStringKeywordAware(format);
-                if (!string.IsNullOrEmpty(returnType))
-                {
-                    result.Insert(0, returnType + " ");
-                }
+                var parameters = methodSymbol.TypeParameters
+                    .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+                result.Append('<');
+                result.Append(string.Join(", ", parameters));
+                result.Append('>');
             }
 
-            // Handle method parameters (if the symbol is a method)
             if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature ||
                 format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
             {
                 result.Append("(");
                 result.Append(string.Join(", ", methodSymbol.Parameters.Select(p => FormatParameter(p, format))));
                 result.Append(")");
+            }
+
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            {
+                var returnType = methodSymbol.ReturnType?.ToDisplayStringKeywordAware(format);
+                if (!string.IsNullOrEmpty(returnType))
+                {
+                    result.Append(" -> ");
+                    result.Append(returnType);
+                }
+            }
+        }
+        else if (symbol is IPropertySymbol propertySymbol)
+        {
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            {
+                var typeDisplay = propertySymbol.Type.ToDisplayStringKeywordAware(format);
+                result.Append(": ");
+                result.Append(typeDisplay);
+            }
+        }
+        else if (symbol is IFieldSymbol fieldSymbol)
+        {
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            {
+                var typeDisplay = fieldSymbol.Type.ToDisplayStringKeywordAware(format);
+                result.Append(": ");
+                result.Append(typeDisplay);
             }
         }
 
@@ -440,20 +472,10 @@ public static partial class SymbolExtensions
     // Helper method to format a parameter
     private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat format)
     {
-        var sb = new StringBuilder();
-
-        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeModifiers))
-        {
-            //if (parameter.IsRef) sb.Append("ref ");
-            //if (parameter.IsOut) sb.Append("out ");
-        }
-
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
 
-        sb.Append(FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName));
-
-        return sb.ToString();
+        return FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
     }
 
     // Helper method to escape identifiers
@@ -472,18 +494,26 @@ public static partial class SymbolExtensions
     {
         var sb = new StringBuilder();
 
+        if (useNameOption)
+        {
+            sb.Append(EscapeIdentifierIfNeeded(name, format));
+
+            if (includeType)
+            {
+                sb.Append(": ");
+                var typeFormat = WithoutTypeAccessibility(format);
+                var typeDisplay = type.ToDisplayStringKeywordAware(typeFormat);
+                sb.Append(typeDisplay);
+            }
+
+            return sb.ToString();
+        }
+
         if (includeType)
         {
             var typeFormat = WithoutTypeAccessibility(format);
             var typeDisplay = type.ToDisplayStringKeywordAware(typeFormat);
             sb.Append(typeDisplay);
-            if (useNameOption)
-                sb.Append(' ');
-        }
-
-        if (useNameOption)
-        {
-            sb.Append(EscapeIdentifierIfNeeded(name, format));
         }
 
         return sb.ToString();

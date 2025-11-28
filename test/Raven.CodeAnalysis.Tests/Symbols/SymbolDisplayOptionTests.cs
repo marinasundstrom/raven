@@ -39,7 +39,7 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
         var display = methodSymbol.ToDisplayString(detailed);
 
         Assert.Equal(
-            "public string System.String.Concat(string str0, string str1)",
+            "public System.String.Concat(str0: string, str1: string) -> string",
             display);
     }
 
@@ -70,11 +70,11 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
         var withoutSpecialTypes = baseFormat.WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.None);
 
         Assert.Equal(
-            "public string System.String.Concat(string str0, string str1)",
+            "public System.String.Concat(str0: string, str1: string) -> string",
             methodSymbol.ToDisplayString(withSpecialTypes));
 
         Assert.Equal(
-            "public System.String System.String.Concat(System.String str0, System.String str1)",
+            "public System.String.Concat(str0: System.String, str1: System.String) -> System.String",
             methodSymbol.ToDisplayString(withoutSpecialTypes));
     }
 
@@ -100,7 +100,7 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
 
         var display = methodSymbol.ToDisplayString(format);
 
-        Assert.Equal("string Concat(string str0, string str1)", display);
+        Assert.Equal("Concat(str0: string, str1: string) -> string", display);
     }
 
     [Fact]
@@ -124,6 +124,6 @@ class Sample {
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat
             .WithLocalOptions(SymbolDisplayLocalOptions.IncludeType);
 
-        Assert.Equal("int number", local.ToDisplayString(format));
+        Assert.Equal("number: int", local.ToDisplayString(format));
     }
 }
