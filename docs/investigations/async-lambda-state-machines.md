@@ -99,3 +99,8 @@
 
 ### Findings after step 14
 - Updated async-lambda delegate selection and type-argument inference to unwrap nullable task return types when extracting async results, then drive generic inference from the unwrapped results. Despite the improved unwrapping, rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still reports `RAV1501` for the awaitless async lambda and `RAV0121` ambiguities for `Task.Run`/`WriteLine`, indicating delegate inference remains stuck on synchronous shapes and the `Task.Run(Func<Task<TResult>?>)` overload is still skipped.【50d5bb†L1-L35】
+
+### Findings after step 15
+- Overload resolution now rejects async lambdas for non-task-returning delegates, so async arguments only keep task-shaped candidates during method selection.【F:src/Raven.CodeAnalysis/OverloadResolver.cs†L734-L861】
+- Rerunning `async/async-inference.rav` shows the block async lambda now binds to `Task.Run` with a `Func<Task?>` delegate and the `WriteLine` ambiguity clears, but generic inference still fails to pick `Task<TResult> Run<TResult>(Func<Task<TResult>?>)`—`t2` lowers to `Unit` and the async lambda’s return value is converted to `Unit`, leaving the sample incorrect.【15ec4f†L1-L35】
+- Executing the reduced sample that only contains the awaited `Task.Run(async () => { await Task.Delay(200); return 42 })` now compiles without overload diagnostics but crashes in codegen with the original `Cannot take address of instance field '<>awaiter6' in a static context` stack trace, confirming state-machine emission issues resurface once overload resolution succeeds.【375045†L1-L60】

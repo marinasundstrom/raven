@@ -773,6 +773,13 @@ internal sealed class OverloadResolver
         bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
+            if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+            {
+                var invoke = delegateType.GetDelegateInvokeMethod();
+                if (invoke is null || !IsAsyncDelegateCompatible(lambda, invoke.ReturnType, compilation))
+                    return false;
+            }
+
             if (delegateType.IsGenericType && delegateType.TypeArguments.Any(static t => t is ITypeParameterSymbol))
             {
                 lambdaCompatible = true;
@@ -818,6 +825,41 @@ internal sealed class OverloadResolver
             score += conversionScore;
         }
         return true;
+
+        static bool IsAsyncDelegateCompatible(
+            BoundLambdaExpression lambda,
+            ITypeSymbol delegateReturnType,
+            Compilation compilation)
+        {
+            var lambdaAsyncReturn = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+            var lambdaAsyncResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, lambdaAsyncReturn)
+                ?? lambdaAsyncReturn;
+
+            if (delegateReturnType is NullableTypeSymbol nullable)
+                delegateReturnType = nullable.UnderlyingType;
+
+            if (delegateReturnType.SpecialType == SpecialType.System_Void)
+            {
+                var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+                return SymbolEqualityComparer.Default.Equals(lambdaAsyncResult, unitType);
+            }
+
+            return IsAsyncReturn(delegateReturnType);
+
+            static bool IsAsyncReturn(ITypeSymbol type)
+            {
+                if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                    return true;
+
+                if (type is INamedTypeSymbol named &&
+                    named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
     }
 
     private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch

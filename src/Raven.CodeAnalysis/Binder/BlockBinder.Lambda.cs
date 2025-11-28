@@ -231,6 +231,14 @@ partial class BlockBinder
                 inferred = collected;
         }
 
+        var inferredAsyncReturn = isAsyncLambda
+            ? InferAsyncReturnType(inferred, unitType)
+            : null;
+
+        var inferredAsyncResult = inferredAsyncReturn is not null
+            ? ExtractAsyncResultType(inferredAsyncReturn)
+            : null;
+
         bool ContainsTypeParameter(ITypeSymbol type)
         {
             switch (type)
@@ -290,6 +298,13 @@ partial class BlockBinder
                     continue;
 
                 var candidateReturn = invoke.ReturnType;
+                if (isAsyncLambda &&
+                    candidateReturn.SpecialType != SpecialType.System_Void &&
+                    !IsAsyncDelegateReturn(candidateReturn))
+                {
+                    continue;
+                }
+
                 var expectedBody = isAsyncLambda
                     ? ExtractAsyncResultType(candidateReturn) ?? candidateReturn
                     : candidateReturn;
@@ -325,7 +340,11 @@ partial class BlockBinder
             return primaryDelegate ?? candidateDelegates.FirstOrDefault();
         }
 
-        primaryDelegate = SelectBestDelegate(inferred);
+        var delegateSelectionType = isAsyncLambda
+            ? inferredAsyncResult ?? inferred
+            : inferred;
+
+        primaryDelegate = SelectBestDelegate(delegateSelectionType);
         targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
 
         var targetReturn = targetSignature?.ReturnType;
@@ -333,19 +352,39 @@ partial class BlockBinder
             targetReturn = null;
 
         ITypeSymbol returnType;
+        bool IsAsyncReturnCompatibleWithLambda(ITypeSymbol? candidateReturn)
+        {
+            if (!isAsyncLambda || candidateReturn is null)
+                return false;
+
+            if (candidateReturn.SpecialType == SpecialType.System_Void)
+                return SymbolEqualityComparer.Default.Equals(inferredAsyncResult, unitType);
+
+            if (candidateReturn is NullableTypeSymbol nullable)
+                candidateReturn = nullable.UnderlyingType;
+
+            return IsValidAsyncReturnType(candidateReturn);
+        }
+
         if (annotatedReturnType is { TypeKind: not TypeKind.Error })
         {
             returnType = annotatedReturnType;
         }
-        else if (targetReturn is not null)
+        else if (isAsyncLambda && IsAsyncReturnCompatibleWithLambda(targetReturn))
         {
-            returnType = ContainsTypeParameter(targetReturn)
-                ? (isAsyncLambda ? InferAsyncReturnType(inferred, unitType) : inferred ?? targetReturn)
-                : targetReturn;
+            returnType = ContainsTypeParameter(targetReturn!)
+                ? inferredAsyncReturn ?? targetReturn!
+                : targetReturn!;
         }
         else if (isAsyncLambda)
         {
-            returnType = InferAsyncReturnType(inferred, unitType);
+            returnType = inferredAsyncReturn ?? Compilation.ErrorTypeSymbol;
+        }
+        else if (targetReturn is not null)
+        {
+            returnType = ContainsTypeParameter(targetReturn)
+                ? inferred ?? targetReturn
+                : targetReturn;
         }
         else
         {
