@@ -165,3 +165,6 @@
 
 ### Findings after step 30
 - Preserved ambiguous overload candidates on `BoundErrorExpression` so `-bt` dumps now list the competing `Task.Run` overloads that triggered ambiguity, keeping binder output actionable for overload investigations.【791409†L16-L24】
+
+### Findings after step 31
+- Discovered that lambda replay short-circuited async return inference when the bound body was a block typed as `Unit`, so delegate replay never consulted collected return types. Replay now reuses collected returns for `Unit`-typed bodies (including async `ReturnTypeCollector.InferAsync`), keeping block async lambdas shaped like their `return` values instead of `Unit` during overload resolution.

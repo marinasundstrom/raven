@@ -979,14 +979,22 @@ partial class BlockBinder
             lambdaBinder.DeclareParameter(parameter);
 
         var body = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
-        var inferred = body.Type ??
-            (unbound.LambdaSymbol.IsAsync
-                ? ReturnTypeCollector.InferAsync(Compilation, body)
-                : ReturnTypeCollector.Infer(body));
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var collectedReturn = unbound.LambdaSymbol.IsAsync
+            ? ReturnTypeCollector.InferAsync(Compilation, body)
+            : ReturnTypeCollector.Infer(body);
+
+        var inferred = body.Type;
+        if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
+            inferred = collectedReturn;
+
+        if (inferred is null)
+            inferred = collectedReturn;
+
         if (inferred is not null && inferred.TypeKind != TypeKind.Error)
             inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
+
         var returnType = invoke.ReturnType;
-        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
 
         ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol asyncReturnType)
         {
