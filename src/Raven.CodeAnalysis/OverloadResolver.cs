@@ -207,6 +207,27 @@ internal sealed class OverloadResolver
 
         var lambdaReturnType = lambda.ReturnType;
 
+        bool ContainsTypeParameter(ITypeSymbol type)
+        {
+            switch (type)
+            {
+                case ITypeParameterSymbol:
+                    return true;
+                case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                    return named.TypeArguments.Any(ContainsTypeParameter);
+                case IArrayTypeSymbol array:
+                    return ContainsTypeParameter(array.ElementType);
+                case ByRefTypeSymbol byRef:
+                    return ContainsTypeParameter(byRef.ElementType);
+                case NullableTypeSymbol nullable:
+                    return ContainsTypeParameter(nullable.UnderlyingType);
+                case ITupleTypeSymbol tuple:
+                    return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
+                default:
+                    return false;
+            }
+        }
+
         if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
         {
             // Prefer the already computed async return over re-inferring from the raw body
@@ -219,6 +240,17 @@ internal sealed class OverloadResolver
             else
             {
                 lambdaReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+            }
+
+            // If the async return still contains type parameters (e.g., Task<T>), fall back to
+            // inferring the async return directly from the body so overload resolution can learn
+            // about concrete return values such as `int` from `return 42` in a block-bodied async
+            // lambda.
+            if (lambdaReturnType is { TypeKind: not TypeKind.Error } withTypeParams && ContainsTypeParameter(withTypeParams))
+            {
+                var inferredFromBody = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+                if (inferredFromBody is { TypeKind: not TypeKind.Error })
+                    lambdaReturnType = inferredFromBody;
             }
         }
 

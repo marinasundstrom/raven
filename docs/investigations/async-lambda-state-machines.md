@@ -172,3 +172,7 @@
 ### Findings after step 32
 - Async delegate selection now treats type-parameter returns as compatible for async lambdas and prefers them when an async result was already inferred, keeping generic `Task<T>` delegates (e.g., `Task.Run(Func<Task<T>?>)`) eligible instead of discarding them before inference can flow.
 - Re-running `async/async-inference.rav` with `-bt` still crashes during emission with `Unable to resolve runtime type for type parameter: TResult`, so the block-bodied `Task.Run` lambda remains ambiguous/unbound even though the generic async overload stays in the candidate set.
+
+### Findings after step 33
+- During overload inference, async lambdas that rebound to delegates with type-parameter returns now fall back to async return inference from the lambda body so the return shape includes concrete results (e.g., `Task<int>` from `return 42`).
+- Despite the fallback, running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still crashes in codegen with `Unable to resolve runtime type for type parameter: TResult`, indicating the block-bodied `Task.Run` lambda continues to flow an unconstrained `TResult` into emission.
