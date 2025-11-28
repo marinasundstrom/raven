@@ -27,7 +27,7 @@
 - [ ] **Re-validate Task.Run overload resolution**: After inference updates, re-run `async/async-inference.rav` to confirm it binds to `Task<TResult> Run<TResult>(Func<Task<TResult>?>)` and keeps other overloads (e.g., `WriteLine`) unambiguous.
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 - [ ] **Run sample test procedure**: Follow the testing steps in `samples/README.md` to verify sample programs remain intact after async-lambda changes.
-- [ ] **Normalize `Task<Unit>` to `Task`**: Treat `Task<Unit>` as interchangeable with non-generic `Task` during resolution and emission to mirror the `Unit`→`void` mapping for async returns.
+- [x] **Normalize `Task<Unit>` to `Task`**: Treat `Task<Unit>` as interchangeable with non-generic `Task` during resolution and emission to mirror the `Unit`→`void` mapping for async returns.
 - [x] **Audit async nullability during inference**: Ensure async return inference reuses the shared async return helper so nullable task-shaped delegates stay eligible without double-wrapping async lambda results.
 
 ### Redo plan (aligning inference with C# and LINQ scenarios)
@@ -168,3 +168,7 @@
 
 ### Findings after step 31
 - Discovered that lambda replay short-circuited async return inference when the bound body was a block typed as `Unit`, so delegate replay never consulted collected return types. Replay now reuses collected returns for `Unit`-typed bodies (including async `ReturnTypeCollector.InferAsync`), keeping block async lambdas shaped like their `return` values instead of `Unit` during overload resolution.
+
+### Findings after step 32
+- Async delegate selection now treats type-parameter returns as compatible for async lambdas and prefers them when an async result was already inferred, keeping generic `Task<T>` delegates (e.g., `Task.Run(Func<Task<T>?>)`) eligible instead of discarding them before inference can flow.
+- Re-running `async/async-inference.rav` with `-bt` still crashes during emission with `Unable to resolve runtime type for type parameter: TResult`, so the block-bodied `Task.Run` lambda remains ambiguous/unbound even though the generic async overload stays in the candidate set.

@@ -360,28 +360,23 @@ partial class BlockBinder
 
                 if (expectedBody is ITypeParameterSymbol)
                 {
+                    // Keep generic async delegates (e.g., Task<T> Run(Func<Task<T>?>)) eligible even
+                    // when the expected body is a type parameter. If we already inferred an async
+                    // result, prefer this candidate up front instead of discarding it due to the
+                    // unconstrained type parameter comparison.
                     if (asyncResult is { TypeKind: not TypeKind.Error })
                     {
-                        var conversion = Compilation.ClassifyConversion(asyncResult, expectedBody);
-                        if (conversion.Exists && conversion.IsImplicit)
-                        {
-                            var prefer = bestAsyncByResult is null ||
-                                         (!bestAsyncConversion.IsIdentity && conversion.IsIdentity);
-
-                            if (prefer)
-                            {
-                                bestAsyncByResult = candidate;
-                                bestAsyncConversion = conversion;
-                            }
-
-                            continue;
-                        }
-                    }
-
-                    if (IsAsyncDelegateReturn(candidateReturn))
+                        bestAsyncByResult ??= candidate;
                         asyncMatch ??= candidate;
+                    }
+                    else if (IsAsyncDelegateReturn(candidateReturn))
+                    {
+                        asyncMatch ??= candidate;
+                    }
                     else
+                    {
                         syncMatch ??= candidate;
+                    }
 
                     continue;
                 }
