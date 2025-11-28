@@ -11,7 +11,15 @@ internal static class ReturnTypeCollector
     {
         var collector = new Collector();
         collector.Visit(node);
-        return collector.GetResult();
+        var collected = collector.GetResult();
+
+        if (collected is null && node is BoundExpression expression &&
+            expression.Type is ITypeSymbol { TypeKind: not TypeKind.Error } type)
+        {
+            return TypeSymbolNormalization.NormalizeForInference(type);
+        }
+
+        return collected;
     }
 
     private sealed class Collector : BoundTreeWalker

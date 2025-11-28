@@ -138,3 +138,7 @@
 ### Findings after step 23
 - Guarded async return inference against double-wrapping task-shaped body types so `async` lambdas keep an existing `Task`/`Task<T>` result instead of inflating to nested tasks during delegate selection.
 - Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the expression-bodied async lambda bound as `Func<Task<Task.TResult>?>` and the `Task.Run` call choosing the non-generic overload, while the block-bodied async lambda remains an ambiguous `ErrorExpression`, leaving overload resolution unchanged for `t2` and the final `WriteLine`.【ec9ae2†L5-L39】
+
+### Findings after step 24
+- Added a fallback in `ReturnTypeCollector` so expression-bodied lambdas use their expression type when no return statements are collected, allowing async expression bodies to infer task-shaped returns for overload resolution.
+- Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` now binds the expression-bodied `async () => 42` argument to the generic `Task.Run<TResult>` overload with `TResult=int`, and `WriteLine` sees `t` as `Int32`. The block-bodied async lambda still reports `RAV0121` on `Task.Run`, leaving `t2` and the final `WriteLine` ambiguous.【47df6f†L7-L41】

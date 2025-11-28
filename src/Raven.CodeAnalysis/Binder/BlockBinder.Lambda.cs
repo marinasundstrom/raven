@@ -392,6 +392,24 @@ partial class BlockBinder
 
                 if (expectedBody is ITypeParameterSymbol)
                 {
+                    if (asyncResult is { TypeKind: not TypeKind.Error })
+                    {
+                        var conversion = Compilation.ClassifyConversion(asyncResult, expectedBody);
+                        if (conversion.Exists && conversion.IsImplicit)
+                        {
+                            var prefer = bestAsyncByResult is null ||
+                                         (!bestAsyncConversion.IsIdentity && conversion.IsIdentity);
+
+                            if (prefer)
+                            {
+                                bestAsyncByResult = candidate;
+                                bestAsyncConversion = conversion;
+                            }
+
+                            continue;
+                        }
+                    }
+
                     if (IsAsyncDelegateReturn(candidateReturn))
                         asyncMatch ??= candidate;
                     else
@@ -409,11 +427,11 @@ partial class BlockBinder
                     syncMatch ??= candidate;
             }
 
-            if (asyncMatch is not null)
-                return asyncMatch;
-
             if (bestAsyncByResult is not null)
                 return bestAsyncByResult;
+
+            if (asyncMatch is not null)
+                return asyncMatch;
 
             if (syncMatch is not null)
                 return syncMatch;
