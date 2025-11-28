@@ -150,3 +150,7 @@
 ### Findings after step 26
 - Routed async lambda return inference through `AsyncReturnTypeUtilities.InferAsyncReturnType` and `ExtractAsyncResultType`, keeping nullable task returns intact and preventing local inference from wrapping already task-shaped bodies.
 - The `-bt` dump still shows the expression-bodied `Task.Run(async () => 42)` lambda as `Func<Task<Task.TResult>?>` and now reports `RAV1503` for converting `Task` to `int`, while the block-bodied async lambda remains an ambiguous `ErrorExpression`, indicating delegate inference is still substituting `Task.Run`’s type parameter into the async body despite the nullability-aware helper.【57a61b†L64-L96】
+
+### Findings after step 27
+- Adjusted lambda replay in overload inference to reuse the async-shaped return type already computed during binding (via `AsyncReturnTypeUtilities.InferAsyncReturnType`), rather than re-inferring from the raw body, so nullable/task normalization survives generic inference.
+- Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the expression-bodied `Task.Run(async () => 42)` argument inferred as `Func<Task<Task.TResult>?>` and the block-bodied async lambda as an ambiguous `ErrorExpression`, with diagnostics `RAV0121`/`RAV1503` unchanged, so overload resolution remains unresolved for the `Task.Run` sample.【72d8e4†L5-L40】【72d8e4†L41-L55】

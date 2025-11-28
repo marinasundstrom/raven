@@ -205,9 +205,22 @@ internal sealed class OverloadResolver
                 return false;
         }
 
-        var lambdaReturnType = lambda.Symbol is ILambdaSymbol { IsAsync: true }
-            ? AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body)
-            : lambda.ReturnType;
+        var lambdaReturnType = lambda.ReturnType;
+
+        if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+        {
+            // Prefer the already computed async return over re-inferring from the raw body
+            // so we keep task-shaped inference (including nullable/Task<Unit> normalization)
+            // when replaying the lambda for generic inference.
+            if (lambdaReturnType is { TypeKind: not TypeKind.Error })
+            {
+                lambdaReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambdaReturnType);
+            }
+            else
+            {
+                lambdaReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+            }
+        }
 
         if ((lambdaReturnType is null || lambdaReturnType.TypeKind == TypeKind.Error) &&
             lambda.Body.Type is { TypeKind: not TypeKind.Error } bodyType)
