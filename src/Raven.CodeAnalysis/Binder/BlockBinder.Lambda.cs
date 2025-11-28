@@ -262,10 +262,34 @@ partial class BlockBinder
 
         INamedTypeSymbol? SelectBestDelegate(ITypeSymbol? inferredReturn)
         {
+            if (isAsyncLambda)
+            {
+                var taskGeneric = candidateDelegates.FirstOrDefault(candidate =>
+                {
+                    var invoke = candidate.GetDelegateInvokeMethod();
+                    var candidateReturn = invoke?.ReturnType;
+
+                    if (candidateReturn is NullableTypeSymbol nullable)
+                        candidateReturn = nullable.UnderlyingType;
+
+                    return candidateReturn is INamedTypeSymbol named &&
+                        named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T;
+                });
+
+                if (taskGeneric is not null)
+                    return taskGeneric;
+            }
+
+            var asyncResult = isAsyncLambda
+                ? inferredAsyncResult ?? inferred
+                : null;
+
+            var returnForSelection = inferredReturn ?? asyncResult;
+
             if (candidateDelegates.IsDefaultOrEmpty)
                 return primaryDelegate;
 
-            if (inferredReturn is null || inferredReturn.TypeKind == TypeKind.Error)
+            if (returnForSelection is null || returnForSelection.TypeKind == TypeKind.Error)
                 return primaryDelegate ?? candidateDelegates.FirstOrDefault();
 
             bool IsAsyncDelegateReturn(ITypeSymbol? candidateReturn)
@@ -282,7 +306,7 @@ partial class BlockBinder
             bool IsConvertibleToExpected(ITypeSymbol expectedBody)
             {
                 var conversion = Compilation.ClassifyConversion(
-                    inferredReturn,
+                    returnForSelection,
                     expectedBody);
 
                 return conversion.Exists && conversion.IsImplicit;
@@ -290,6 +314,8 @@ partial class BlockBinder
 
             INamedTypeSymbol? asyncMatch = null;
             INamedTypeSymbol? syncMatch = null;
+            INamedTypeSymbol? bestAsyncByResult = null;
+            Conversion bestAsyncConversion = default;
 
             foreach (var candidate in candidateDelegates)
             {
@@ -312,6 +338,22 @@ partial class BlockBinder
                 if (expectedBody is null || expectedBody.TypeKind == TypeKind.Error)
                     continue;
 
+                if (asyncResult is { TypeKind: not TypeKind.Error })
+                {
+                    var conversion = Compilation.ClassifyConversion(asyncResult, expectedBody);
+                    if (conversion.Exists && conversion.IsImplicit)
+                    {
+                        var prefer = bestAsyncByResult is null ||
+                                     (!bestAsyncConversion.IsIdentity && conversion.IsIdentity);
+
+                        if (prefer)
+                        {
+                            bestAsyncByResult = candidate;
+                            bestAsyncConversion = conversion;
+                        }
+                    }
+                }
+
                 if (expectedBody is ITypeParameterSymbol)
                 {
                     if (IsAsyncDelegateReturn(candidateReturn))
@@ -333,6 +375,9 @@ partial class BlockBinder
 
             if (asyncMatch is not null)
                 return asyncMatch;
+
+            if (bestAsyncByResult is not null)
+                return bestAsyncByResult;
 
             if (syncMatch is not null)
                 return syncMatch;

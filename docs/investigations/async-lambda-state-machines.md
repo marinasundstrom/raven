@@ -108,3 +108,7 @@
 ### Findings after step 16
 - Relaxed async return validation to accept nullable `Task`/`Task<T>` types so nullable task delegates stay eligible for async lambdas during overload and delegate selection.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L1464-L1475】
 - Rerunning `async/async-inference.rav` with `-bt` now keeps the async lambda typed as `Func<Task?>` and still fails `Task.Run` with `RAV1501`, while `t2` remains `Unit` and `WriteLine` stays ambiguous—delegate inference continues to collapse to the non-generic task overload instead of the `Func<Task<int>?>`-based generic overload.【9c16b8†L1-L31】
+
+### Findings after step 17
+- Updated lambda delegate selection to favor task-returning delegates (including generic `Task<T>` delegates) and to classify candidates against inferred async results even when initial inference is unavailable.
+- Despite preferring the `Task<T>`-shaped delegate in code, the bound-tree dump for `async/async-inference.rav` still shows the awaited lambda bound as `Func<Task?>` and `Task.Run` resolving to the non-generic overload, so generic inference remains blocked and the sample continues to report `RAV1501`/`RAV0121` diagnostics.【de9a27†L55-L79】
