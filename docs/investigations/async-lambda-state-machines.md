@@ -22,6 +22,7 @@
 - [x] **Audit closure interactions**: Ensure closure structs/classes continue to carry captured locals while async state machines for lambdas only own awaiters and builder/state fields, matching C# behavior for captured variables.
 - [x] **Add regression coverage**: Create codegen tests for nested async lambdas in `Task.Run` and nested delegate scenarios, asserting valid IL execution (e.g., via `RecordingILBuilderFactory` or running emitted assembly) and preventing ambiguous overload regressions.
 - [x] **Inspect Task.Run overload inference**: Capture binder/bound-tree output for `async/async-inference.rav` (with `-bt`) to understand how the async lambda’s delegate type is inferred and why the `Task.Run(Func<Task<TResult>?>)` overload is skipped.
+- [x] **Keep generic delegates replayable**: Permit async lambda replay when delegate returns a type-parameterized task so generic overloads stay eligible during binding.
 - [ ] **Align async async-lambda inference with C#**: Adjust delegate inference and overload selection so awaitful async lambdas are inferred as `Func<Task<T>?>` (or `Func<Task?>`) instead of synchronous delegates, letting `Task.Run(Func<Task<TResult>?>)` bind without ambiguity.
 - [ ] **Re-validate Task.Run overload resolution**: After inference updates, re-run `async/async-inference.rav` to confirm it binds to `Task<TResult> Run<TResult>(Func<Task<TResult>?>)` and keeps other overloads (e.g., `WriteLine`) unambiguous.
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
@@ -125,3 +126,6 @@
 ### Findings after step 20
 - Added an identity conversion between `Unit` and `void` so delegate selection can treat `void`-returning delegates (e.g., `Action`) as compatible when lambda inference yields `Unit`, aligning with IL emission where `Unit` maps to `System.Void`.【F:src/Raven.CodeAnalysis/Compilation.Conversions.cs†L28-L45】
 - Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still infers the `Task.Run` lambda as `Func<Task?>`, reports `RAV1501` for `Task.Run`, warns that the async lambda lacks awaits, and leaves `t2` as `Unit`, so overload selection remains unresolved despite the `Unit`/`void` equivalence fix.【788f06†L8-L38】【788f06†L39-L48】
+
+### Findings after step 21
+- Allowing lambda replay to skip conversions when the delegate return type is a type parameter now keeps generic `Task.Run` overloads viable; the expression-bodied `async () => 42` binds to `Task.Run<TResult>` but infers `TResult=()` while the block async lambda still reports ambiguity and yields an `ErrorExpression` for the awaited call.【f6a597†L5-L40】
