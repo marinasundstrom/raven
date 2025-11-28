@@ -30,6 +30,13 @@
 - [x] **Normalize `Task<Unit>` to `Task`**: Treat `Task<Unit>` as interchangeable with non-generic `Task` during resolution and emission to mirror the `Unit`→`void` mapping for async returns.
 - [x] **Audit async nullability during inference**: Ensure async return inference reuses the shared async return helper so nullable task-shaped delegates stay eligible without double-wrapping async lambda results.
 
+### Plan re-evaluation (current focus)
+- [ ] **Fix async block-lambda inference**: Ensure block-bodied async lambdas flow their collected `return` types (e.g., `int` from `return 42`) into async return shaping so the inferred delegate becomes `Func<Task<int>?>` instead of defaulting to `Func<Task?>`/`Func<Task<T>>` with an unresolved `T`.
+- [ ] **Stabilize generic substitution in async lambdas**: Track where `TResult` remains unresolved during bound-tree/codegen for `Task.Run(async () => { ... })` and ensure the async rewriter and state-machine synthesis operate on constructed delegate types rather than open generic placeholders.
+- [ ] **Re-check overload resolution after inference fix**: After inference/substitution changes, rerun `samples/async/async-inference.rav -bt` to confirm `Task.Run` binds to `Task<TResult> Run<TResult>(Func<Task<TResult>?>)` and that `WriteLine` resolves without ambiguity; add regression coverage for the block-bodied form.
+- [ ] **Cover LINQ extension lambdas**: Add LINQ-style async lambda calls (e.g., `Select/SelectMany` with awaits) to validate delegate inference and overload resolution with extension methods once the `Task.Run` case is fixed.
+- [ ] **Run sample procedure**: Execute the steps in `samples/README.md` after fixes land to ensure end-to-end behavior of shipped samples remains intact.
+
 ### Redo plan (aligning inference with C# and LINQ scenarios)
 - [ ] **Re-derive delegate inference rules**: Model C# async-lambda delegate inference (including return type shaping for awaitful bodies) so we infer `Func<Task<T>?>`/`Func<Task?>` even before overload resolution, preventing fallbacks to synchronous delegates.
 - [ ] **Retool overload resolution for async lambdas**: Ensure overload candidate filtering respects the async-shaped delegate results, particularly for APIs that accept both synchronous and task-returning delegates (e.g., `Task.Run`, LINQ `Select`/`SelectMany`).
