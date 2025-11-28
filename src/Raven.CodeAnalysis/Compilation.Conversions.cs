@@ -41,6 +41,14 @@ public partial class Compilation
 
         var aliasInvolved = sourceUsedAlias || destinationUsedAlias;
 
+        if (source.SpecialType is SpecialType.System_Unit &&
+            destination.SpecialType is SpecialType.System_Void ||
+            source.SpecialType is SpecialType.System_Void &&
+            destination.SpecialType is SpecialType.System_Unit)
+        {
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+        }
+
         Conversion Finalize(Conversion conversion)
         {
             if (!conversion.Exists)

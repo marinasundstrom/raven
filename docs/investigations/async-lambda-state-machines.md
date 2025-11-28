@@ -33,6 +33,7 @@
 - [ ] **Exercise LINQ extension resolution**: Add focused cases where async lambdas appear in LINQ-style extension method calls so the binder handles generic extension lookup plus delegate inference without ambiguity.
 - [ ] **Rebuild diagnostics and dumps**: Update bound-tree/binder diagnostics to surface full candidate signatures (including extension methods) when ambiguities remain, aiding future debugging of LINQ and `Task.Run` overload picks.
 - [ ] **Cross-validate with samples/tests**: After redoing the inference stack, rerun `async/async-inference.rav` with `-bt` and the samples test procedure, and add LINQ-centric regression tests that assert correct overload binding for async lambdas.
+- [x] **Honor `Unit`/`void` equivalence during inference**: Treat `Unit` and `void` as interchangeable in conversion checks so delegate selection can pick void-returning delegates (e.g., `Action`) when the lambda result is `Unit`.
 
 ### Updated implementation path
 - [x] **Extend async rewriter entry points**: Added `AsyncLowerer.Rewrite(SourceLambdaSymbol, …)` plus an `AsyncRewriteResult` wrapper so async-aware callers can flow analysis, state-machine handles, and rewritten bodies for lambdas alongside the existing method overloads.
@@ -120,3 +121,7 @@
 ### Findings after step 19
 - Extended async lambda return inference to reuse collected return types when the initial inference yields `Unit`/error, feeding the async return calculator with the collected result type before selecting delegates.
 - Despite the fallback, rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still prints the awaited `Task.Run` lambda as `Func<System.Threading.Tasks.Task?>` and binds the call to the non-generic `Task Run` overload, leaving `t2` as `Unit` and `WriteLine` ambiguous.【7fb426†L9-L35】
+
+### Findings after step 20
+- Added an identity conversion between `Unit` and `void` so delegate selection can treat `void`-returning delegates (e.g., `Action`) as compatible when lambda inference yields `Unit`, aligning with IL emission where `Unit` maps to `System.Void`.【F:src/Raven.CodeAnalysis/Compilation.Conversions.cs†L28-L45】
+- Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still infers the `Task.Run` lambda as `Func<Task?>`, reports `RAV1501` for `Task.Run`, warns that the async lambda lacks awaits, and leaves `t2` as `Unit`, so overload selection remains unresolved despite the `Unit`/`void` equivalence fix.【788f06†L8-L38】【788f06†L39-L48】
