@@ -443,6 +443,19 @@ partial class BlockBinder
             {
                 returnType = inferredAsyncReturn;
             }
+            else if (targetReturn is not null && ContainsTypeParameter(targetReturn))
+            {
+                // Avoid flowing type-parameterized delegate returns into the lambda's
+                // return type when we already have async inference inputs. Doing so
+                // keeps the lambda shaped like its async body (e.g., Task<int>)
+                // instead of inheriting Task<T> and re-wrapping to Task<Task<T>>
+                // during replay.
+                var inferredAsync = AsyncReturnTypeUtilities.InferAsyncReturnType(
+                    Compilation,
+                    inferredAsyncReturnInput ?? inferred ?? collectedReturn ?? targetReturn);
+
+                returnType = inferredAsync;
+            }
             else if (IsAsyncReturnCompatibleWithLambda(targetReturn))
             {
                 returnType = targetReturn!;

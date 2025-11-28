@@ -158,3 +158,7 @@
 ### Findings after step 28
 - Switched async lambdas to infer return types from the raw body/collected returns before wrapping them in `Task`/`Task<T>`, preserving the body result type for conversion checks and avoiding double task-wrapping during binding.
 - Rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` now removes the `RAV1503` conversion and leaves only the overload ambiguities: the expression-bodied async lambda is still printed as `Func<Task<Task.TResult>?>`, and the block-bodied async lambda remains an ambiguous `ErrorExpression` with `RAV0121` on both `Task.Run` and `WriteLine`.【a8e7da†L5-L34】【a8e7da†L35-L44】
+
+### Findings after step 29
+- Adjusted async lambda return selection to avoid flowing type-parameterized delegate returns directly into the lambda’s return type, instead reusing async inference (body/collected returns) when the target delegate contains type parameters.
+- Despite the change, rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the expression-bodied `Task.Run` argument printed as `Func<Task<Task.TResult>?>`, and the block-bodied async lambda remains an ambiguous `ErrorExpression` with `RAV0121` diagnostics on both `Task.Run` and `WriteLine`, so overload resolution is still unresolved.【73bc49†L5-L36】【73bc49†L37-L47】
