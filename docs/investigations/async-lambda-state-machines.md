@@ -27,6 +27,13 @@
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 - [ ] **Run sample test procedure**: Follow the testing steps in `samples/README.md` to verify sample programs remain intact after async-lambda changes.
 
+### Redo plan (aligning inference with C# and LINQ scenarios)
+- [ ] **Re-derive delegate inference rules**: Model C# async-lambda delegate inference (including return type shaping for awaitful bodies) so we infer `Func<Task<T>?>`/`Func<Task?>` even before overload resolution, preventing fallbacks to synchronous delegates.
+- [ ] **Retool overload resolution for async lambdas**: Ensure overload candidate filtering respects the async-shaped delegate results, particularly for APIs that accept both synchronous and task-returning delegates (e.g., `Task.Run`, LINQ `Select`/`SelectMany`).
+- [ ] **Exercise LINQ extension resolution**: Add focused cases where async lambdas appear in LINQ-style extension method calls so the binder handles generic extension lookup plus delegate inference without ambiguity.
+- [ ] **Rebuild diagnostics and dumps**: Update bound-tree/binder diagnostics to surface full candidate signatures (including extension methods) when ambiguities remain, aiding future debugging of LINQ and `Task.Run` overload picks.
+- [ ] **Cross-validate with samples/tests**: After redoing the inference stack, rerun `async/async-inference.rav` with `-bt` and the samples test procedure, and add LINQ-centric regression tests that assert correct overload binding for async lambdas.
+
 ### Updated implementation path
 - [x] **Extend async rewriter entry points**: Added `AsyncLowerer.Rewrite(SourceLambdaSymbol, …)` plus an `AsyncRewriteResult` wrapper so async-aware callers can flow analysis, state-machine handles, and rewritten bodies for lambdas alongside the existing method overloads.
 - [x] **Synthesize per-lambda state machines**: Mirror method state-machine creation by introducing a `RewriteAsyncLambda` helper that produces a `SynthesizedAsyncStateMachineTypeSymbol` per async lambda and returns the rewritten body plus generated `MoveNext`.
