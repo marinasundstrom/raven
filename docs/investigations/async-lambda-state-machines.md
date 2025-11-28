@@ -187,3 +187,7 @@
 ### Findings after step 34
 - Added collection of async return inference during lambda type-argument inference so block-bodied async lambdas feed their collected async returns (e.g., `Task<int>` from `return 42`) into generic substitutions before falling back to raw body types.
 - Rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still crashes in codegen when projecting the block async lambda’s delegate type (`Unable to resolve runtime type for type parameter: TResult`), so the lambda continues to reach emission with an open `TResult` despite the collected async return being available.【b56c8c†L1-L62】
+
+### Findings after step 35
+- Async lambda type-argument inference now substitutes the collected async return result when the lambda’s async result is still a type parameter, so collected `return` types (e.g., `Task<int>` from `return 42`) flow into generic substitution instead of returning early on an unconstrained `TResult`.
+- The `async/async-inference.rav` block-bodied `Task.Run` call still crashes during codegen with `Unable to resolve runtime type for type parameter: TResult`, indicating the async delegate is still reaching emission with an unconstructed `TResult` even after substituting the collected async result.【c636c2†L1-L55】

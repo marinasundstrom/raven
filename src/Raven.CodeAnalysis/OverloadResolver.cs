@@ -277,6 +277,16 @@ internal sealed class OverloadResolver
                 var expectedResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, invoke.ReturnType)
                     ?? invoke.ReturnType;
 
+                if (lambdaResult is ITypeParameterSymbol &&
+                    collectedAsyncReturn is { TypeKind: not TypeKind.Error })
+                {
+                    var collectedAsyncResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, collectedAsyncReturn)
+                        ?? collectedAsyncReturn;
+
+                    if (collectedAsyncResult is { TypeKind: not TypeKind.Error })
+                        lambdaResult = collectedAsyncResult;
+                }
+
                 if (lambdaResult is ITypeParameterSymbol)
                     return true;
 
