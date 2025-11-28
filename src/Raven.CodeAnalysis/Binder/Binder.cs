@@ -1469,6 +1469,9 @@ internal abstract class Binder
         if (type.TypeKind == TypeKind.Error)
             return true;
 
+        if (type is NullableTypeSymbol nullable)
+            type = nullable.UnderlyingType;
+
         if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return true;
 
