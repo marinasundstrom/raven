@@ -96,3 +96,6 @@
 
 ### Findings after step 13
 - Updated overload type inference to feed async lambdas through `AsyncReturnTypeUtilities.InferAsyncReturnType` so type-parameter inference sees `Task`/`Task<T>`-shaped returns instead of raw body types. Re-running the `async/async-inference.rav` sample now fails earlier in overload resolution: the first async lambda reports `RAV1501` (`Task.Run` overload not found) and the awaited block lambda binds as `Action`, selecting the non-generic `Task Run` overload and leaving `WriteLine` ambiguous because `t2` remains `Unit`. The delegate inference is still not picking the `Func<Task<T>?>` shape needed for `Task.Run`’s generic overload, so further alignment with C#’s async-lambda delegate selection is required.【853682†L47-L76】
+
+### Findings after step 14
+- Updated async-lambda delegate selection and type-argument inference to unwrap nullable task return types when extracting async results, then drive generic inference from the unwrapped results. Despite the improved unwrapping, rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still reports `RAV1501` for the awaitless async lambda and `RAV0121` ambiguities for `Task.Run`/`WriteLine`, indicating delegate inference remains stuck on synchronous shapes and the `Task.Run(Func<Task<TResult>?>)` overload is still skipped.【50d5bb†L1-L35】

@@ -53,6 +53,9 @@ internal static class AsyncReturnTypeUtilities
 
     public static ITypeSymbol? ExtractAsyncResultType(Compilation compilation, ITypeSymbol asyncReturnType)
     {
+        if (asyncReturnType is NullableTypeSymbol nullable)
+            asyncReturnType = nullable.UnderlyingType;
+
         if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return compilation.GetSpecialType(SpecialType.System_Unit);
 

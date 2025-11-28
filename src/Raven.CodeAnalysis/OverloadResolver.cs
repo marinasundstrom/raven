@@ -216,11 +216,27 @@ internal sealed class OverloadResolver
         }
         if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
         {
-            if (lambdaReturnType is ITypeParameterSymbol)
-                return true;
+            if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+            {
+                var lambdaResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, lambdaReturnType)
+                    ?? lambdaReturnType;
+                var expectedResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, invoke.ReturnType)
+                    ?? invoke.ReturnType;
 
-            if (!TryInferFromTypes(compilation, invoke.ReturnType, lambdaReturnType, substitutions, inferenceMethod))
-                return false;
+                if (lambdaResult is ITypeParameterSymbol)
+                    return true;
+
+                if (!TryInferFromTypes(compilation, expectedResult, lambdaResult, substitutions, inferenceMethod))
+                    return false;
+            }
+            else
+            {
+                if (lambdaReturnType is ITypeParameterSymbol)
+                    return true;
+
+                if (!TryInferFromTypes(compilation, invoke.ReturnType, lambdaReturnType, substitutions, inferenceMethod))
+                    return false;
+            }
         }
 
         return true;

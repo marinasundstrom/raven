@@ -209,6 +209,9 @@ partial class BlockBinder
 
         ITypeSymbol? ExtractAsyncResultType(ITypeSymbol asyncReturnType)
         {
+            if (asyncReturnType is NullableTypeSymbol nullable)
+                asyncReturnType = nullable.UnderlyingType;
+
             if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
                 return unitType;
 
@@ -860,6 +863,9 @@ partial class BlockBinder
 
         ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol asyncReturnType)
         {
+            if (asyncReturnType is NullableTypeSymbol nullable)
+                asyncReturnType = nullable.UnderlyingType;
+
             if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
                 return unitType;
 
