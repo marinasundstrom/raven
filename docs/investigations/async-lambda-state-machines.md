@@ -162,3 +162,6 @@
 ### Findings after step 29
 - Adjusted async lambda return selection to avoid flowing type-parameterized delegate returns directly into the lambda’s return type, instead reusing async inference (body/collected returns) when the target delegate contains type parameters.
 - Despite the change, rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the expression-bodied `Task.Run` argument printed as `Func<Task<Task.TResult>?>`, and the block-bodied async lambda remains an ambiguous `ErrorExpression` with `RAV0121` diagnostics on both `Task.Run` and `WriteLine`, so overload resolution is still unresolved.【73bc49†L5-L36】【73bc49†L37-L47】
+
+### Findings after step 30
+- Preserved ambiguous overload candidates on `BoundErrorExpression` so `-bt` dumps now list the competing `Task.Run` overloads that triggered ambiguity, keeping binder output actionable for overload investigations.【791409†L16-L24】

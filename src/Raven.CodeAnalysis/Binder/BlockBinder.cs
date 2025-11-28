@@ -1400,6 +1400,14 @@ partial class BlockBinder : Binder
         return returnConversion.Exists && returnConversion.IsImplicit;
     }
 
+    private static ImmutableArray<ISymbol> AsSymbolCandidates(ImmutableArray<IMethodSymbol> methods)
+    {
+        if (methods.IsDefaultOrEmpty)
+            return ImmutableArray<ISymbol>.Empty;
+
+        return ImmutableArray.CreateRange(methods, static m => (ISymbol)m);
+    }
+
     private BoundExpression BindAsExpression(AsExpressionSyntax asExpression)
     {
         var expression = BindExpression(asExpression.Expression);
@@ -2577,7 +2585,9 @@ partial class BlockBinder : Binder
                         if (!ambiguousMethods.IsDefaultOrEmpty)
                             _diagnostics.ReportCallIsAmbiguous(name, ambiguousMethods, nameLocation);
 
-                        return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                        return ErrorExpression(
+                            reason: BoundExpressionReason.Ambiguous,
+                            candidates: AsSymbolCandidates(ambiguousMethods));
                     }
 
                     EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
@@ -3883,7 +3893,9 @@ partial class BlockBinder : Binder
             if (resolution.IsAmbiguous)
             {
                 _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
-                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                return ErrorExpression(
+                    reason: BoundExpressionReason.Ambiguous,
+                    candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
         }
 
@@ -3904,7 +3916,9 @@ partial class BlockBinder : Binder
             if (resolution.IsAmbiguous)
             {
                 _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
-                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                return ErrorExpression(
+                    reason: BoundExpressionReason.Ambiguous,
+                    candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
             ReportSuppressedLambdaDiagnostics(totalArguments);
@@ -4432,7 +4446,9 @@ partial class BlockBinder : Binder
                 if (resolution.IsAmbiguous)
                 {
                     _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-                    return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                    return ErrorExpression(
+                        reason: BoundExpressionReason.Ambiguous,
+                        candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
                 }
 
                 var nestedType = typeReceiver.Type
@@ -4493,7 +4509,9 @@ partial class BlockBinder : Binder
             if (resolution.IsAmbiguous)
             {
                 _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                return ErrorExpression(
+                    reason: BoundExpressionReason.Ambiguous,
+                    candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
             _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
@@ -4518,11 +4536,13 @@ partial class BlockBinder : Binder
                 return new BoundInvocationExpression(method, convertedArgs, null);
             }
 
-            if (resolution.IsAmbiguous)
-            {
-                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-                return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
-            }
+        if (resolution.IsAmbiguous)
+        {
+            _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+            return ErrorExpression(
+                reason: BoundExpressionReason.Ambiguous,
+                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+        }
 
             // Fall back to type if overload resolution failed
             var typeFallback = LookupType(methodName) as INamedTypeSymbol;
@@ -4619,7 +4639,9 @@ partial class BlockBinder : Binder
         if (resolution.IsAmbiguous)
         {
             _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+            return ErrorExpression(
+                reason: BoundExpressionReason.Ambiguous,
+                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
         }
 
         if (LookupType(methodName) is INamedTypeSymbol typeFallback)
@@ -4651,7 +4673,11 @@ partial class BlockBinder : Binder
         if (resolution.IsAmbiguous)
         {
             _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, syntax.GetLocation());
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Ambiguous);
+            return new BoundErrorExpression(
+                typeSymbol,
+                null,
+                BoundExpressionReason.Ambiguous,
+                AsSymbolCandidates(resolution.AmbiguousCandidates));
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
@@ -4728,7 +4754,11 @@ partial class BlockBinder : Binder
         if (resolution.IsAmbiguous)
         {
             _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, syntax.GetLocation());
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Ambiguous);
+            return new BoundErrorExpression(
+                typeSymbol,
+                null,
+                BoundExpressionReason.Ambiguous,
+                AsSymbolCandidates(resolution.AmbiguousCandidates));
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
@@ -4844,7 +4874,9 @@ partial class BlockBinder : Binder
                             else if (resolution.IsAmbiguous)
                             {
                                 _diagnostics.ReportCallIsAmbiguous(name, resolution.AmbiguousCandidates, invocation.GetLocation());
-                                whenNotNull = ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                                whenNotNull = ErrorExpression(
+                                    reason: BoundExpressionReason.Ambiguous,
+                                    candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
                             }
                             else
                             {

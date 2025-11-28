@@ -10,8 +10,9 @@ internal sealed partial class BoundNodeFactory
     public BoundErrorExpression ErrorExpression(
         ITypeSymbol? type = null,
         ISymbol? symbol = null,
-        BoundExpressionReason reason = BoundExpressionReason.None)
-        => CreateErrorExpression(type ?? Compilation.ErrorTypeSymbol, symbol, reason);
+        BoundExpressionReason reason = BoundExpressionReason.None,
+        ImmutableArray<ISymbol> candidates = default)
+        => CreateErrorExpression(type ?? Compilation.ErrorTypeSymbol, symbol, reason, candidates);
 
     public BoundUnitExpression UnitExpression(BoundExpressionReason reason = BoundExpressionReason.None)
         => CreateUnitExpression(reason);

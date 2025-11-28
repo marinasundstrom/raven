@@ -101,7 +101,11 @@ internal sealed class AttributeBinder : BlockBinder
         if (resolution.IsAmbiguous)
         {
             _diagnostics.ReportCallIsAmbiguous(attributeType.Name, resolution.AmbiguousCandidates, attribute.GetLocation());
-            return new BoundErrorExpression(attributeType, null, BoundExpressionReason.Ambiguous);
+            return new BoundErrorExpression(
+                attributeType,
+                null,
+                BoundExpressionReason.Ambiguous,
+                ImmutableArray.CreateRange(resolution.AmbiguousCandidates, static c => (ISymbol)c));
         }
 
         _diagnostics.ReportNoOverloadForMethod(attributeType.Name, arguments.Length, attribute.GetLocation());
