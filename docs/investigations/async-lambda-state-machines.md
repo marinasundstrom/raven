@@ -25,7 +25,7 @@
 - [x] **Keep generic delegates replayable**: Permit async lambda replay when delegate returns a type-parameterized task so generic overloads stay eligible during binding.
 - [x] **Align async async-lambda inference with C#**: Adjust delegate inference and overload selection so awaitful async lambdas are inferred as `Func<Task<T>?>` (or `Func<Task?>`) instead of synchronous delegates, letting `Task.Run(Func<Task<TResult>?>)` bind without ambiguity.
 - [x] **Re-validate Task.Run overload resolution**: After inference updates, re-run `async/async-inference.rav` to confirm it binds to `Task<TResult> Run<TResult>(Func<Task<TResult>?>)` and keeps other overloads (e.g., `WriteLine`) unambiguous.
-- [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
+- [x] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 - [ ] **Run sample test procedure**: Follow the testing steps in `samples/README.md` to verify sample programs remain intact after async-lambda changes.
 - [x] **Normalize `Task<Unit>` to `Task`**: Treat `Task<Unit>` as interchangeable with non-generic `Task` during resolution and emission to mirror the `Unit`→`void` mapping for async returns.
 - [x] **Audit async nullability during inference**: Ensure async return inference reuses the shared async return helper so nullable task-shaped delegates stay eligible without double-wrapping async lambda results.
@@ -45,6 +45,7 @@
 - [ ] **Rebuild diagnostics and dumps**: Update bound-tree/binder diagnostics to surface full candidate signatures (including extension methods) when ambiguities remain, aiding future debugging of LINQ and `Task.Run` overload picks.
 - [ ] **Cross-validate with samples/tests**: After redoing the inference stack, rerun `async/async-inference.rav` with `-bt` and the samples test procedure, and add LINQ-centric regression tests that assert correct overload binding for async lambdas.
 - [x] **Honor `Unit`/`void` equivalence during inference**: Treat `Unit` and `void` as interchangeable in conversion checks so delegate selection can pick void-returning delegates (e.g., `Action`) when the lambda result is `Unit`.
+- [ ] **Stabilize async lambda emission**: Ensure async lambda state machines are fully constructed before IL emission so open generic results (e.g., `TResult` from `Task.Run`) no longer surface as unresolved runtime types.
 
 ### Updated implementation path
 - [x] **Extend async rewriter entry points**: Added `AsyncLowerer.Rewrite(SourceLambdaSymbol, …)` plus an `AsyncRewriteResult` wrapper so async-aware callers can flow analysis, state-machine handles, and rewritten bodies for lambdas alongside the existing method overloads.
@@ -216,3 +217,6 @@
 ### Findings after step 41
 - Async lambda replay now extracts the async result type before compatibility checks, so async block lambdas compare against the delegate’s result (`int`) instead of a task-wrapped inference. The binder callback now accepts `Func<Task<int>>` arguments for `Task.Run(Func<Task<TResult>?>)` instead of rejecting them as incompatible.
 - Running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt --no-emit --overload-log overload.log` now succeeds: both `Task.Run` calls bind to the generic overload producing `Task<int>`, the block-bodied lambda lowers with a `Task<int>` return, and `WriteLine` resolves to `int`, leaving only the expected “awaitless async lambda” warning for the expression-bodied case.【2f6815†L6-L39】【aac515†L39-L76】
+
+### Findings after step 42
+- End-to-end compilation of `samples/async/async-inference.rav` (with emission) now reaches IL generation but fails with `Unable to resolve runtime type for type parameter: TResult` when emitting the block-bodied async lambda’s state machine, indicating the delegate still carries an open generic return despite overload binding succeeding.【e07a99†L1-L73】
