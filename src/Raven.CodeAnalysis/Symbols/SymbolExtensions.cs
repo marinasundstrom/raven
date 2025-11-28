@@ -282,7 +282,8 @@ public static partial class SymbolExtensions
             }
 
             // Handle method parameters (if the symbol is a method)
-            if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature)
+            if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature ||
+                format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
             {
                 result.Append("(");
                 result.Append(string.Join(", ", methodSymbol.Parameters.Select(p => FormatParameter(p, format))));

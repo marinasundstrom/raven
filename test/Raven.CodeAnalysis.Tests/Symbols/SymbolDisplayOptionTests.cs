@@ -79,6 +79,31 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
     }
 
     [Fact]
+    public void MethodDisplay_UsesParameterMemberOptionWithoutDelegateStyle()
+    {
+        var compilation = CreateCompilation();
+        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.String"));
+
+        var methodSymbol = stringType.GetMembers("Concat")
+            .OfType<IMethodSymbol>()
+            .First(m => m.Parameters.Length == 2 &&
+                        m.Parameters.All(p => p.Type.SpecialType == SpecialType.System_String));
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithMemberOptions(
+                SymbolDisplayMemberOptions.IncludeType |
+                SymbolDisplayMemberOptions.IncludeParameters)
+            .WithParameterOptions(
+                SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeName);
+
+        var display = methodSymbol.ToDisplayString(format);
+
+        Assert.Equal("string Concat(string str0, string str1)", display);
+    }
+
+    [Fact]
     public void LocalDisplay_UsesIncludeTypeOption()
     {
         const string source = """
