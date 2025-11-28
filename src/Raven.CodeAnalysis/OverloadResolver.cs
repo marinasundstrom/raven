@@ -856,7 +856,13 @@ internal sealed class OverloadResolver
                 lambdaCompatible = true;
             }
             else if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
+            {
                 return false;
+            }
+            else
+            {
+                lambdaCompatible = true;
+            }
         }
 
         if (argument is BoundAddressOfExpression)

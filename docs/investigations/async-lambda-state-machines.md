@@ -195,3 +195,7 @@
 ### Findings after step 36
 - Reused async return inference during lambda replay so delegate returns that contain type parameters get replaced with the collected async return (e.g., `Task<int>`), keeping replay from reintroducing open generic returns.
 - Running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt --no-emit` now shows the block-bodied async lambda bound with a `Task<int>` return, but the delegate type still carries the `Task.TResult` placeholder (`Func<Task<Task.TResult>?>`), leaving `Task.Run` on the block lambda unresolved (`RAV1501`) and the trailing `WriteLine` ambiguous.【246715†L7-L46】【246715†L47-L56】
+
+### Findings after step 37
+- Allowed overload resolution to treat lambdas as compatible delegates after signature checks even when the delegate type lacks type-parameter arguments or a `canBindLambda` hook, avoiding unnecessary conversion scoring between delegate types.
+- Rerunning `dotnet run --no-build --project src/Raven.Compiler -- /tmp/min.rav -bt --no-emit` still reports `RAV1501` for the block-bodied `Task.Run` call, with the lambda body printed as a `Unit`-typed block despite returning `42`, indicating the overload set remains unbound for the async block lambda.【6b5c1f†L1-L21】
