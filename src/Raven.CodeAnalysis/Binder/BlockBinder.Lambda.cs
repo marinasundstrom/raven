@@ -193,41 +193,6 @@ partial class BlockBinder
         }
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
 
-        ITypeSymbol InferAsyncReturnType(ITypeSymbol? bodyType, ITypeSymbol unit)
-        {
-            var taskType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
-
-            if (bodyType is null ||
-                bodyType.TypeKind == TypeKind.Error ||
-                SymbolEqualityComparer.Default.Equals(bodyType, unit) ||
-                bodyType.SpecialType == SpecialType.System_Void)
-            {
-                return taskType;
-            }
-
-            if (Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is INamedTypeSymbol taskGeneric)
-                return taskGeneric.Construct(bodyType);
-
-            return taskType;
-        }
-
-        ITypeSymbol? ExtractAsyncResultType(ITypeSymbol asyncReturnType)
-        {
-            if (asyncReturnType is NullableTypeSymbol nullable)
-                asyncReturnType = nullable.UnderlyingType;
-
-            if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
-                return unitType;
-
-            if (asyncReturnType is INamedTypeSymbol named &&
-                named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-                named.TypeArguments.Length == 1)
-            {
-                return named.TypeArguments[0];
-            }
-
-            return null;
-        }
         if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
         {
             if (collectedReturn is not null)
@@ -270,11 +235,11 @@ partial class BlockBinder
         }
 
         var inferredAsyncReturn = isAsyncLambda
-            ? InferAsyncReturnType(inferredAsyncReturnInput, unitType)
+            ? AsyncReturnTypeUtilities.InferAsyncReturnType(Compilation, inferredAsyncReturnInput)
             : null;
 
         var inferredAsyncResult = inferredAsyncReturn is not null
-            ? ExtractAsyncResultType(inferredAsyncReturn)
+            ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, inferredAsyncReturn)
             : null;
 
         bool ContainsTypeParameter(ITypeSymbol type)
@@ -370,7 +335,7 @@ partial class BlockBinder
                 }
 
                 var expectedBody = isAsyncLambda
-                    ? ExtractAsyncResultType(candidateReturn) ?? candidateReturn
+                    ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, candidateReturn) ?? candidateReturn
                     : candidateReturn;
 
                 if (expectedBody is null || expectedBody.TypeKind == TypeKind.Error)
@@ -500,7 +465,7 @@ partial class BlockBinder
         ITypeSymbol? expectedBodyType = returnType;
         if (isAsyncLambda)
         {
-            expectedBodyType = ExtractAsyncResultType(returnType) ?? expectedBodyType;
+            expectedBodyType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) ?? expectedBodyType;
         }
 
         if (expectedBodyType is not null &&

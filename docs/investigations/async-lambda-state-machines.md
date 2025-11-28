@@ -28,6 +28,7 @@
 - [ ] **Validate end-to-end**: Re-run the original sample and relevant unit tests to confirm `InvalidProgramException` is resolved and overload resolution behavior remains intact.
 - [ ] **Run sample test procedure**: Follow the testing steps in `samples/README.md` to verify sample programs remain intact after async-lambda changes.
 - [ ] **Normalize `Task<Unit>` to `Task`**: Treat `Task<Unit>` as interchangeable with non-generic `Task` during resolution and emission to mirror the `Unit`→`void` mapping for async returns.
+- [x] **Audit async nullability during inference**: Ensure async return inference reuses the shared async return helper so nullable task-shaped delegates stay eligible without double-wrapping async lambda results.
 
 ### Redo plan (aligning inference with C# and LINQ scenarios)
 - [ ] **Re-derive delegate inference rules**: Model C# async-lambda delegate inference (including return type shaping for awaitful bodies) so we infer `Func<Task<T>?>`/`Func<Task?>` even before overload resolution, preventing fallbacks to synchronous delegates.
@@ -145,3 +146,7 @@
 
 ### Findings after step 25
 - Enabled async-aware return collection in `ReturnTypeCollector` so async lambdas infer task-shaped returns directly, but the `-bt` dump shows the expression-bodied `Task.Run` lambda now bound as `Func<Task<Task.TResult>?>` and the block-bodied async lambda still lands on an ambiguous `ErrorExpression` with `RAV1503`/`RAV0121` diagnostics. Overload resolution remains unresolved for the block lambda despite the task wrapping.【6f6619†L5-L40】
+
+### Findings after step 26
+- Routed async lambda return inference through `AsyncReturnTypeUtilities.InferAsyncReturnType` and `ExtractAsyncResultType`, keeping nullable task returns intact and preventing local inference from wrapping already task-shaped bodies.
+- The `-bt` dump still shows the expression-bodied `Task.Run(async () => 42)` lambda as `Func<Task<Task.TResult>?>` and now reports `RAV1503` for converting `Task` to `int`, while the block-bodied async lambda remains an ambiguous `ErrorExpression`, indicating delegate inference is still substituting `Task.Run`’s type parameter into the async body despite the nullability-aware helper.【57a61b†L64-L96】
