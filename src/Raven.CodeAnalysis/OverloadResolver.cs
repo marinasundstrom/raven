@@ -206,6 +206,7 @@ internal sealed class OverloadResolver
         }
 
         var lambdaReturnType = lambda.ReturnType;
+        ITypeSymbol? collectedAsyncReturn = null;
 
         bool ContainsTypeParameter(ITypeSymbol type)
         {
@@ -230,6 +231,8 @@ internal sealed class OverloadResolver
 
         if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
         {
+            collectedAsyncReturn = ReturnTypeCollector.InferAsync(compilation, lambda.Body);
+
             // Prefer the already computed async return over re-inferring from the raw body
             // so we keep task-shaped inference (including nullable/Task<Unit> normalization)
             // when replaying the lambda for generic inference.
@@ -248,7 +251,7 @@ internal sealed class OverloadResolver
             // lambda.
             if (lambdaReturnType is { TypeKind: not TypeKind.Error } withTypeParams && ContainsTypeParameter(withTypeParams))
             {
-                var inferredFromBody = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+                var inferredFromBody = collectedAsyncReturn ?? AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
                 if (inferredFromBody is { TypeKind: not TypeKind.Error })
                     lambdaReturnType = inferredFromBody;
             }
@@ -258,6 +261,12 @@ internal sealed class OverloadResolver
             lambda.Body.Type is { TypeKind: not TypeKind.Error } bodyType)
         {
             lambdaReturnType = bodyType;
+        }
+
+        if (collectedAsyncReturn is { TypeKind: not TypeKind.Error })
+        {
+            if (lambdaReturnType is null || lambdaReturnType.TypeKind == TypeKind.Error || ContainsTypeParameter(lambdaReturnType))
+                lambdaReturnType = collectedAsyncReturn;
         }
         if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
         {
