@@ -29,7 +29,7 @@
 - [x] **Synthesize per-lambda state machines**: Mirror method state-machine creation by introducing a `RewriteAsyncLambda` helper that produces a `SynthesizedAsyncStateMachineTypeSymbol` per async lambda and returns the rewritten body plus generated `MoveNext`.
 - [x] **Integrate into lambda emission**: Update `ExpressionGenerator.EmitLambdaExpression`/`MethodBodyGenerator.EmitLambda` to route async lambdas through the new rewrite hook before IL emission, replacing the current direct emit path for `lambda.IsAsync`.
 - [x] **Plumb closure/hoisted locals**: Ensure lambda state machines reuse captured variables from enclosing closures while owning their own awaiter/storage fields; verify hoisted locals are referenced through the closure parameter instead of outer state-machine fields.
-- [ ] **Add execution/regression tests**: Expand `async/async-inference.rav` coverage with IL validation or runtime assertions, plus targeted unit tests that execute nested async lambdas to prevent regressions during implementation.
+- [x] **Add execution/regression tests**: Expand `async/async-inference.rav` coverage with IL validation or runtime assertions, plus targeted unit tests that execute nested async lambdas to prevent regressions during implementation.
 
 ### Findings after step 1
 - `LambdaLowerer.Rewrite` only rewrites await-less async lambdas via `AsyncLowerer.RewriteAwaitlessLambdaBody`; async lambdas that contain awaits are merely lowered for control flow/closures without entering the async state-machine pipeline. This means the async rewriter never creates a state machine for a lambda body that awaits.
@@ -71,3 +71,6 @@
 
 ### Findings after step 8
 - Async lambda state machines now rewrite `this` references to use the captured closure field on the lambda’s own state machine, keeping captured values on the closure while awaiters and state live on the lambda machine.
+
+### Findings after step 9
+- Added runtime regression coverage for async lambdas passed to `Task.Run` and nested async lambdas with captures to ensure per-lambda state machines execute without invalid IL and return expected results.
