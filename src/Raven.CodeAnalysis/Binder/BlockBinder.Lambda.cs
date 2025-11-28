@@ -257,6 +257,29 @@ partial class BlockBinder
             if (inferredReturn is null || inferredReturn.TypeKind == TypeKind.Error)
                 return primaryDelegate ?? candidateDelegates.FirstOrDefault();
 
+            bool IsAsyncDelegateReturn(ITypeSymbol? candidateReturn)
+            {
+                if (!isAsyncLambda || candidateReturn is null)
+                    return false;
+
+                if (candidateReturn is NullableTypeSymbol nullable)
+                    candidateReturn = nullable.UnderlyingType;
+
+                return IsValidAsyncReturnType(candidateReturn);
+            }
+
+            bool IsConvertibleToExpected(ITypeSymbol expectedBody)
+            {
+                var conversion = Compilation.ClassifyConversion(
+                    inferredReturn,
+                    expectedBody);
+
+                return conversion.Exists && conversion.IsImplicit;
+            }
+
+            INamedTypeSymbol? asyncMatch = null;
+            INamedTypeSymbol? syncMatch = null;
+
             foreach (var candidate in candidateDelegates)
             {
                 var invoke = candidate.GetDelegateInvokeMethod();
@@ -272,15 +295,29 @@ partial class BlockBinder
                     continue;
 
                 if (expectedBody is ITypeParameterSymbol)
-                    return candidate;
+                {
+                    if (IsAsyncDelegateReturn(candidateReturn))
+                        asyncMatch ??= candidate;
+                    else
+                        syncMatch ??= candidate;
 
-                var conversion = Compilation.ClassifyConversion(
-                    inferredReturn,
-                    expectedBody);
+                    continue;
+                }
 
-                if (conversion.Exists && conversion.IsImplicit)
-                    return candidate;
+                if (!IsConvertibleToExpected(expectedBody))
+                    continue;
+
+                if (IsAsyncDelegateReturn(candidateReturn))
+                    asyncMatch ??= candidate;
+                else
+                    syncMatch ??= candidate;
             }
+
+            if (asyncMatch is not null)
+                return asyncMatch;
+
+            if (syncMatch is not null)
+                return syncMatch;
 
             return primaryDelegate ?? candidateDelegates.FirstOrDefault();
         }
