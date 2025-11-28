@@ -134,3 +134,7 @@
 ### Findings after step 22
 - Prioritized collected return-type inference for async lambdas so block-bodied async delegates reuse explicit `return` types when shaping async return kinds, avoiding collapses to `Task` or nested task shapes when returns supply concrete values.
 - Added an implicit identity conversion between `Task<Unit>` and `Task` to align async return normalization with the `Unit`↔`void` mapping and ease overload selection for void-returning async delegates.
+
+### Findings after step 23
+- Guarded async return inference against double-wrapping task-shaped body types so `async` lambdas keep an existing `Task`/`Task<T>` result instead of inflating to nested tasks during delegate selection.
+- Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the expression-bodied async lambda bound as `Func<Task<Task.TResult>?>` and the `Task.Run` call choosing the non-generic overload, while the block-bodied async lambda remains an ambiguous `ErrorExpression`, leaving overload resolution unchanged for `t2` and the final `WriteLine`.【ec9ae2†L5-L39】

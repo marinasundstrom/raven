@@ -19,18 +19,19 @@ internal static class AsyncReturnTypeUtilities
 
         var normalized = TypeSymbolNormalization.NormalizeForInference(bodyType);
 
-        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+        // If the body already produces a task-shaped value, keep it as-is instead of wrapping it
+        // again. This prevents double-tasking async lambdas such as `async () => 42` when generic
+        // delegate inference substitutes `Task<T>` into the body type.
+        if (normalized is NullableTypeSymbol { UnderlyingType: var underlying })
+            normalized = underlying;
 
-        if (normalized.SpecialType == SpecialType.System_Threading_Tasks_Task)
+        if (normalized.SpecialType == SpecialType.System_Threading_Tasks_Task ||
+            normalized is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Threading_Tasks_Task_T })
         {
-            normalized = unitType;
+            return normalized;
         }
-        else if (normalized is INamedTypeSymbol named &&
-                 named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-                 named.TypeArguments.Length == 1)
-        {
-            normalized = named.TypeArguments[0];
-        }
+
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
 
         if (SymbolEqualityComparer.Default.Equals(normalized, unitType) ||
             normalized.SpecialType == SpecialType.System_Void)
