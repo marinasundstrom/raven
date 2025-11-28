@@ -181,6 +181,8 @@ partial class BlockBinder
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
 
         var inferred = bodyExpr.Type;
+        var collectedReturn = ReturnTypeCollector.Infer(bodyExpr);
+
         if (returnTypeSyntax is null &&
             inferred is not null &&
             inferred.TypeKind != TypeKind.Error)
@@ -226,9 +228,8 @@ partial class BlockBinder
         }
         if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
         {
-            var collected = ReturnTypeCollector.Infer(bodyExpr);
-            if (collected is not null)
-                inferred = collected;
+            if (collectedReturn is not null)
+                inferred = collectedReturn;
         }
 
         if (isAsyncLambda && inferred is IUnionTypeSymbol union)
@@ -249,8 +250,18 @@ partial class BlockBinder
             }
         }
 
+        var inferredAsyncReturnInput = inferred;
+
+        if (isAsyncLambda && (inferredAsyncReturnInput is null ||
+                              inferredAsyncReturnInput.TypeKind == TypeKind.Error ||
+                              SymbolEqualityComparer.Default.Equals(inferredAsyncReturnInput, unitType)))
+        {
+            if (collectedReturn is not null && collectedReturn.TypeKind != TypeKind.Error)
+                inferredAsyncReturnInput = collectedReturn;
+        }
+
         var inferredAsyncReturn = isAsyncLambda
-            ? InferAsyncReturnType(inferred, unitType)
+            ? InferAsyncReturnType(inferredAsyncReturnInput, unitType)
             : null;
 
         var inferredAsyncResult = inferredAsyncReturn is not null

@@ -116,3 +116,7 @@
 ### Findings after step 18
 - Adjusted async lambda return inference to favor inferred async return types over delegate hints and to strip `Unit` entries from union-based return inference so `return` expressions with values aren’t collapsed to `Task`.
 - Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still shows the awaited `Task.Run` lambda typed as `Func<Task?>`, and overload resolution continues to reject the generic `Task<TResult> Run<TResult>(Func<Task<TResult>?>)` overload with `RAV1501`/`RAV0121` diagnostics, so delegate inference remains unresolved.【5f5391†L1-L35】
+
+### Findings after step 19
+- Extended async lambda return inference to reuse collected return types when the initial inference yields `Unit`/error, feeding the async return calculator with the collected result type before selecting delegates.
+- Despite the fallback, rerunning `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` still prints the awaited `Task.Run` lambda as `Func<System.Threading.Tasks.Task?>` and binds the call to the non-generic `Task Run` overload, leaving `t2` as `Unit` and `WriteLine` ambiguous.【7fb426†L9-L35】
