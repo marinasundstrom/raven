@@ -21,6 +21,26 @@ public enum OverloadCandidateStatus
     ArgumentMismatch,
 }
 
+public enum OverloadArgumentComparisonResult
+{
+    Success,
+    DefaultValueUsed,
+    MissingArgument,
+    NullArgumentType,
+    VoidArgument,
+    RefKindMismatch,
+    LambdaIncompatible,
+    ConversionFailed,
+}
+
+public readonly record struct OverloadArgumentComparisonLog(
+    string? ParameterName,
+    RefKind RefKind,
+    ITypeSymbol? ParameterType,
+    ITypeSymbol? ArgumentType,
+    OverloadArgumentComparisonResult Result,
+    string? Detail);
+
 public readonly record struct OverloadCandidateLog(
     IMethodSymbol OriginalMethod,
     IMethodSymbol? ConstructedMethod,
@@ -28,7 +48,8 @@ public readonly record struct OverloadCandidateLog(
     int? Score,
     bool IsExtensionMethod,
     bool IsBest,
-    bool IsAmbiguous);
+    bool IsAmbiguous,
+    ImmutableArray<OverloadArgumentComparisonLog> ParameterComparisons);
 
 public readonly record struct OverloadArgumentLog(
     string? Name,
@@ -104,6 +125,36 @@ public sealed class OverloadResolutionLog : IOverloadResolutionLogger, IDisposab
                 var extensionTag = candidate.IsExtensionMethod ? " [extension]" : string.Empty;
 
                 builder.AppendLine($"  - {signature}{extensionTag} [{status}{score}]");
+
+                if (!candidate.ParameterComparisons.IsDefaultOrEmpty)
+                {
+                    builder.AppendLine("    Comparisons:");
+
+                    foreach (var comparison in candidate.ParameterComparisons)
+                    {
+                        var parameterName = string.IsNullOrEmpty(comparison.ParameterName)
+                            ? "<unnamed>"
+                            : comparison.ParameterName;
+
+                        var refPrefix = comparison.RefKind == RefKind.None
+                            ? string.Empty
+                            : $"{comparison.RefKind.ToString().ToLowerInvariant()} ";
+
+                        var parameterType = comparison.ParameterType is null
+                            ? "<null>"
+                            : comparison.ParameterType.ToDisplayString(Format);
+
+                        var argumentType = comparison.ArgumentType is null
+                            ? "<null>"
+                            : comparison.ArgumentType.ToDisplayString(Format);
+
+                        var detail = string.IsNullOrEmpty(comparison.Detail)
+                            ? string.Empty
+                            : $": {comparison.Detail}";
+
+                        builder.AppendLine($"      - {parameterName}: {refPrefix}{parameterType} <- {argumentType} [{comparison.Result}{detail}]");
+                    }
+                }
             }
         }
 
