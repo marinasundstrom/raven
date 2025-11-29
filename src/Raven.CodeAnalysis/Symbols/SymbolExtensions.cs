@@ -47,6 +47,9 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
+        if (typeSymbol is ITypeParameterSymbol typeParameter)
+            return EscapeIdentifierIfNeeded(typeParameter.Name, format);
+
         if (TryFormatFunctionType(typeSymbol, format, out var functionDisplay))
             return functionDisplay;
 

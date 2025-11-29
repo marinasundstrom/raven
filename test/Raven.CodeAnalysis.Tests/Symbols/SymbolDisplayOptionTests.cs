@@ -126,4 +126,36 @@ class Sample {
 
         Assert.Equal("number: int", local.ToDisplayString(format));
     }
+
+    [Fact]
+    public void GenericMethodDisplay_OmitsContainingTypeOnTypeParameter()
+    {
+        var compilation = CreateCompilation();
+        var taskType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"));
+
+        var run = taskType.GetMembers("Run")
+            .OfType<IMethodSymbol>()
+            .First(m => m.IsGenericMethod && m.Parameters.Length == 1 &&
+                        m.Parameters[0].Type is INamedTypeSymbol
+                        {
+                            Name: "Func",
+                            TypeArguments.Length: 1,
+                            TypeArguments: [INamedTypeSymbol { Name: "Task" }]
+                        });
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
+            .WithMemberOptions(
+                SymbolDisplayMemberOptions.IncludeContainingType |
+                SymbolDisplayMemberOptions.IncludeType |
+                SymbolDisplayMemberOptions.IncludeParameters)
+            .WithParameterOptions(
+                SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeName);
+
+        Assert.Equal(
+            "Task.Run<TResult>(function: Func<Task<TResult>>) -> Task<TResult>",
+            run.ToDisplayString(format));
+    }
 }
