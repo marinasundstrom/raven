@@ -220,3 +220,7 @@
 
 ### Findings after step 42
 - End-to-end compilation of `samples/async/async-inference.rav` (with emission) now reaches IL generation but fails with `Unable to resolve runtime type for type parameter: TResult` when emitting the block-bodied async lambda’s state machine, indicating the delegate still carries an open generic return despite overload binding succeeding.【e07a99†L1-L73】
+
+### Findings after step 43
+- Extended overload logging to print instantiated type arguments. The `--overload-log` run for the block-bodied `Task.Run` call now shows the selected `Run<TResult>` overload closing `TResult` to `Int32`, even though the delegate parameter still prints as `Func<Task<Task.TResult>?>`, confirming type inference succeeds while the delegate remains rendered with the open placeholder.【26ab7d†L24-L39】
+- The corresponding `-bt --no-emit` bound tree still renders the async lambda’s delegate as `Func<Task<Task.TResult>?>` despite the lambda symbol returning `Task<int>`, reinforcing that the delegate display (and possibly the argument type flowing to emission) retains the `Task.TResult` placeholder even after generic inference chooses `int`.【125a18†L6-L28】

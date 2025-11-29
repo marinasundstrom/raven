@@ -121,6 +121,12 @@ public sealed class OverloadResolutionLog : IOverloadResolutionLogger, IDisposab
 
                 var method = candidate.ConstructedMethod ?? candidate.OriginalMethod;
                 var signature = method.ToDisplayString(Format);
+
+                if (!method.TypeArguments.IsDefaultOrEmpty)
+                {
+                    var args = string.Join(", ", method.TypeArguments.Select(a => a.ToDisplayString(Format)));
+                    signature = $"{signature} [TypeArgs: {args}]";
+                }
                 var score = candidate.Score is null ? string.Empty : $", Score={candidate.Score}";
                 var extensionTag = candidate.IsExtensionMethod ? " [extension]" : string.Empty;
 
@@ -159,7 +165,18 @@ public sealed class OverloadResolutionLog : IOverloadResolutionLogger, IDisposab
         }
 
         if (entry.SelectedMethod is not null)
-            builder.AppendLine($"Selected: {entry.SelectedMethod.ToDisplayString(Format)}");
+        {
+            var selected = entry.SelectedMethod;
+            var signature = selected.ToDisplayString(Format);
+
+            if (!selected.TypeArguments.IsDefaultOrEmpty)
+            {
+                var args = string.Join(", ", selected.TypeArguments.Select(a => a.ToDisplayString(Format)));
+                signature = $"{signature} [TypeArgs: {args}]";
+            }
+
+            builder.AppendLine($"Selected: {signature}");
+        }
 
         if (!entry.AmbiguousCandidates.IsDefaultOrEmpty)
         {
