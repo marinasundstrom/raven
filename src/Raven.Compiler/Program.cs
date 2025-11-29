@@ -199,7 +199,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/t{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/async/async-inference{RavenFileExtensions.Raven}");
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {

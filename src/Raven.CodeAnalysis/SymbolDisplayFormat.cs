@@ -76,6 +76,7 @@ public class SymbolDisplayFormat
         MemberOptions = SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
                            SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType
     };
 
     public static SymbolDisplayFormat CSharpShortErrorMessageFormat { get; } = new SymbolDisplayFormat
