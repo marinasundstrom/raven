@@ -27,7 +27,13 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     }
 
 
-    public bool IsParams => _parameterInfo.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0;
+    public bool IsParams
+    {
+        get
+        {
+            return _parameterInfo.CustomAttributes.Count(x => x.AttributeType == typeof(ParamArrayAttribute)) == 1;
+        }
+    }
 
     public RefKind RefKind
     {
