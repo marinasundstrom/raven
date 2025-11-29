@@ -241,13 +241,25 @@ public static partial class SymbolExtensions
 
         if (symbol is IMethodSymbol methodSymbol)
         {
-            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
-                methodSymbol.TypeParameters is { IsDefaultOrEmpty: false })
+            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters)
+                && (!methodSymbol.TypeParameters.IsDefaultOrEmpty || !methodSymbol.TypeArguments.IsDefaultOrEmpty))
             {
-                var parameters = methodSymbol.TypeParameters
-                    .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+
+                IEnumerable<string> arguments;
+
+                if (!methodSymbol.TypeArguments.IsDefaultOrEmpty &&
+                    methodSymbol.TypeArguments.Length == methodSymbol.TypeParameters.Length)
+                {
+                    arguments = methodSymbol.TypeArguments.Select(a => FormatType(a, format));
+                }
+                else
+                {
+                    arguments = methodSymbol.TypeParameters
+                        .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+                }
+
                 result.Append('<');
-                result.Append(string.Join(", ", parameters));
+                result.Append(string.Join(", ", arguments));
                 result.Append('>');
             }
 
