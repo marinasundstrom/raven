@@ -315,10 +315,42 @@ public static partial class SymbolExtensions
             }
         }
 
+        // Prefix: accessibility + modifiers
+        string? accessibilityPrefix = null;
         if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility) &&
             symbol.DeclaredAccessibility is not Accessibility.NotApplicable)
         {
-            result.Insert(0, symbol.DeclaredAccessibility.ToString().ToLower() + " ");
+            accessibilityPrefix = symbol.DeclaredAccessibility.ToString().ToLower();
+        }
+
+        string? modifiersPrefix = null;
+        if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeModifiers))
+        {
+            modifiersPrefix = GetMemberModifiers(symbol);
+        }
+
+        if (!string.IsNullOrEmpty(accessibilityPrefix) || !string.IsNullOrEmpty(modifiersPrefix))
+        {
+            var prefixBuilder = new StringBuilder();
+
+            if (!string.IsNullOrEmpty(accessibilityPrefix))
+            {
+                prefixBuilder.Append(accessibilityPrefix);
+            }
+
+            if (!string.IsNullOrEmpty(modifiersPrefix))
+            {
+                if (prefixBuilder.Length > 0)
+                    prefixBuilder.Append(' ');
+
+                prefixBuilder.Append(modifiersPrefix);
+            }
+
+            if (prefixBuilder.Length > 0)
+            {
+                prefixBuilder.Append(' ');
+                result.Insert(0, prefixBuilder.ToString());
+            }
         }
 
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
@@ -717,6 +749,147 @@ public static partial class SymbolExtensions
         }
 
         return string.Join(".", types);
+    }
+
+    private static string GetMemberModifiers(ISymbol symbol)
+    {
+        var parts = new List<string>();
+
+        switch (symbol)
+        {
+            case IParameterSymbol @param:
+                if (param.IsMutable)
+                {
+                    parts.Add("var");
+                }
+                else if (param.IsParams)
+                {
+                    parts.Add("..");
+                }
+                break;
+
+            case IFieldSymbol field:
+                /* if (field.IsConst)
+                {
+                    parts.Add("const");
+                }
+                else
+                { */
+                if (field.IsStatic)
+                    parts.Add("static");
+
+                /*
+                if (field.IsReadOnly)
+                    parts.Add("readonly");
+
+                if (field.IsVolatile)
+                    parts.Add("volatile");
+                */
+                //}
+
+                break;
+
+            case IMethodSymbol method:
+                // Local functions will also show these correctly.
+                if (method.IsStatic)
+                    parts.Add("static");
+
+                if (method.IsAbstract)
+                    parts.Add("abstract");
+
+                // C#-style: sealed override
+                if (method.IsSealed && method.IsOverride)
+                    parts.Add("sealed");
+
+                if (method.IsVirtual)
+                    parts.Add("virtual");
+
+                if (method.IsOverride)
+                    parts.Add("override");
+
+                if (method.IsAsync)
+                    parts.Add("async");
+
+                //if (method.IsPartialDefinition || method.IsPartialImplementation)
+                //    parts.Add("partial");
+
+                break;
+
+            case IPropertySymbol property:
+                if (property.IsStatic)
+                    parts.Add("static");
+
+                /*
+                if (property.IsAbstract)
+                    parts.Add("abstract");
+
+                if (property.IsSealed && property.IsOverride)
+                    parts.Add("sealed");
+
+                if (property.IsVirtual)
+                    parts.Add("virtual");
+
+                if (property.IsOverride)
+                    parts.Add("override");
+
+                // If Raven has required / readonly properties:
+                if (property.IsRequired)
+                    parts.Add("required");
+
+                if (property.IsReadOnly)
+                    parts.Add("readonly");
+                */
+
+                break;
+
+            /*
+            case IEventSymbol @event:
+                if (@event.IsStatic)
+                    parts.Add("static");
+
+                if (@event.IsAbstract)
+                    parts.Add("abstract");
+
+                if (@event.IsSealed && @event.IsOverride)
+                    parts.Add("sealed");
+
+                if (@event.IsVirtual)
+                    parts.Add("virtual");
+
+                if (@event.IsOverride)
+                    parts.Add("override");
+
+                break;
+            */
+
+            case INamedTypeSymbol type:
+                // Class / struct / interface / delegate modifiers
+                switch (type.TypeKind)
+                {
+                    case TypeKind.Class:
+                    case TypeKind.Struct:
+                    case TypeKind.Interface:
+                    case TypeKind.Delegate:
+                        if (type.IsStatic)
+                        {
+                            parts.Add("static");
+                        }
+                        else
+                        {
+                            if (type.IsAbstract)
+                                parts.Add("abstract");
+
+                            if (!type.IsSealed)
+                                parts.Add("open");
+                        }
+
+                        break;
+                }
+
+                break;
+        }
+
+        return string.Join(" ", parts);
     }
 
     public static IMethodSymbol? GetDelegateInvokeMethod(this INamedTypeSymbol typeSymbol)

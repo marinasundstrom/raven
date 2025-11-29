@@ -31,7 +31,7 @@ class Program
         {
             var writeLineMembers = consoleType.GetMembers("WriteLine");
             Console.WriteLine($"WriteLine members: {writeLineMembers.Length}");
-            foreach (var m in writeLineMembers) Console.WriteLine(m.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat.WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.UseSpecialTypes)));
+            foreach (var m in writeLineMembers) Console.WriteLine(m.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
         }
 
         var resolver = new System.Reflection.PathAssemblyResolver(references.Select(r => r.FilePath));
