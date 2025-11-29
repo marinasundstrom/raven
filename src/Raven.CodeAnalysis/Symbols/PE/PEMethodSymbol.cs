@@ -215,8 +215,17 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public bool IsGenericMethod => _methodInfo.IsGenericMethod;
 
-    public bool IsOverride =>
-        (_methodInfo as MethodInfo)?.GetBaseDefinition()?.DeclaringType != _methodInfo.DeclaringType;
+    public bool IsOverride
+    {
+        get
+        {
+            try
+            {
+                return (_methodInfo as MethodInfo)?.GetBaseDefinition()?.DeclaringType != _methodInfo.DeclaringType;
+            }
+            catch { return false; }
+        }
+    }
 
     public bool IsReadOnly =>
         (_methodInfo as MethodInfo)?.ReturnParameter?.GetRequiredCustomModifiers()

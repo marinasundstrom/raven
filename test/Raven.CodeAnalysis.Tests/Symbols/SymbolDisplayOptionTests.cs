@@ -39,7 +39,7 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
         var display = methodSymbol.ToDisplayString(detailed);
 
         Assert.Equal(
-            "public string System.String.Concat(string str0, string str1)",
+            "public System.String.Concat(str0: string, str1: string) -> string",
             display);
     }
 
@@ -70,12 +70,37 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
         var withoutSpecialTypes = baseFormat.WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.None);
 
         Assert.Equal(
-            "public string System.String.Concat(string str0, string str1)",
+            "public System.String.Concat(str0: string, str1: string) -> string",
             methodSymbol.ToDisplayString(withSpecialTypes));
 
         Assert.Equal(
-            "public System.String System.String.Concat(System.String str0, System.String str1)",
+            "public System.String.Concat(str0: System.String, str1: System.String) -> System.String",
             methodSymbol.ToDisplayString(withoutSpecialTypes));
+    }
+
+    [Fact]
+    public void MethodDisplay_UsesParameterMemberOptionWithoutDelegateStyle()
+    {
+        var compilation = CreateCompilation();
+        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.String"));
+
+        var methodSymbol = stringType.GetMembers("Concat")
+            .OfType<IMethodSymbol>()
+            .First(m => m.Parameters.Length == 2 &&
+                        m.Parameters.All(p => p.Type.SpecialType == SpecialType.System_String));
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithMemberOptions(
+                SymbolDisplayMemberOptions.IncludeType |
+                SymbolDisplayMemberOptions.IncludeParameters)
+            .WithParameterOptions(
+                SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeName);
+
+        var display = methodSymbol.ToDisplayString(format);
+
+        Assert.Equal("Concat(str0: string, str1: string) -> string", display);
     }
 
     [Fact]
@@ -99,6 +124,38 @@ class Sample {
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat
             .WithLocalOptions(SymbolDisplayLocalOptions.IncludeType);
 
-        Assert.Equal("int number", local.ToDisplayString(format));
+        Assert.Equal("number: int", local.ToDisplayString(format));
+    }
+
+    [Fact]
+    public void GenericMethodDisplay_OmitsContainingTypeOnTypeParameter()
+    {
+        var compilation = CreateCompilation();
+        var taskType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"));
+
+        var run = taskType.GetMembers("Run")
+            .OfType<IMethodSymbol>()
+            .First(m => m.IsGenericMethod && m.Parameters.Length == 1 &&
+                        m.Parameters[0].Type is INamedTypeSymbol
+                        {
+                            Name: "Func",
+                            TypeArguments.Length: 1,
+                            TypeArguments: [INamedTypeSymbol { Name: "Task" }]
+                        });
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
+            .WithMemberOptions(
+                SymbolDisplayMemberOptions.IncludeContainingType |
+                SymbolDisplayMemberOptions.IncludeType |
+                SymbolDisplayMemberOptions.IncludeParameters)
+            .WithParameterOptions(
+                SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeName);
+
+        Assert.Equal(
+            "Task.Run<TResult>(function: Func<Task<TResult>>) -> Task<TResult>",
+            run.ToDisplayString(format));
     }
 }

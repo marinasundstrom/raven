@@ -45,50 +45,12 @@ public static partial class SymbolExtensions
         return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Legacy name: now just delegates to the central type formatter.
+    /// </summary>
     public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
-        if (TryFormatFunctionType(typeSymbol, format, out var functionDisplay))
-            return functionDisplay;
-
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            var elementType = arrayType.ElementType;
-
-            if (arrayType.Rank > 1)
-            {
-                return elementType + "[" + new string(',', arrayType.Rank - 1) + "]";
-            }
-
-            return elementType.ToDisplayStringKeywordAware(format) + "[]";
-        }
-
-        if (typeSymbol is IPointerTypeSymbol pointerType)
-        {
-            return "*" + pointerType.PointedAtType.ToDisplayStringKeywordAware(format);
-        }
-
-        if (typeSymbol is ITupleTypeSymbol tupleType)
-        {
-            var elementTypes = tupleType.TupleElements.Select(tupleElement =>
-            {
-                var type = tupleElement.Type.ToDisplayStringKeywordAware(format);
-                return type; //!string.IsNullOrEmpty(tupleElement.Name) ? $"{tupleElement.Name}: {type}" : type;
-            });
-
-            return "(" + string.Join(", ", elementTypes) + ")";
-        }
-
-        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
-        {
-            if (typeSymbol.SpecialType == SpecialType.System_Unit)
-                return "()";
-
-            var fullName = typeSymbol.ToFullyQualifiedMetadataName(); // e.g. "System.Int32"
-            if (fullName is not null && s_specialTypeNames.TryGetValue(fullName, out var keyword))
-                return keyword;
-        }
-
-        return typeSymbol.ToDisplayString(format);
+        return FormatType(typeSymbol, format);
     }
 
     public static string ToDisplayStringForDiagnostics(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
@@ -96,7 +58,7 @@ public static partial class SymbolExtensions
         if (typeSymbol is LiteralTypeSymbol literal)
             typeSymbol = literal.UnderlyingType;
 
-        return typeSymbol.ToDisplayStringKeywordAware(format);
+        return FormatType(typeSymbol, format);
     }
 
     public static bool ContainsErrorType(this ITypeSymbol? typeSymbol)
@@ -179,7 +141,7 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayStringForTypeMismatchDiagnostic(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
-        var display = typeSymbol.ToDisplayStringKeywordAware(format);
+        var display = FormatType(typeSymbol, format);
 
         if (display.IndexOf('\'') >= 0 || display.IndexOf('"') >= 0)
             return display;
@@ -191,11 +153,20 @@ public static partial class SymbolExtensions
     {
         format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
 
+        // Single entry point for types
+        if (symbol is ITypeSymbol typeSymbol)
+            return FormatType(typeSymbol, format);
+
         var result = new StringBuilder();
 
         if (symbol is ILocalSymbol localSymbol)
         {
-            var display = FormatNamedSymbol(localSymbol.Name, localSymbol.Type, format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType), format, useNameOption: true);
+            var display = FormatNamedSymbol(
+                localSymbol.Name,
+                localSymbol.Type,
+                format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType),
+                format,
+                useNameOption: true);
             result.Append(display);
             return result.ToString();
         }
@@ -218,16 +189,15 @@ public static partial class SymbolExtensions
             return result.ToString();
         }
 
-        // Example: Include namespace and type qualification
+        // Type qualification for non-type symbols (namespaces/types used as containers)
         if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
         {
-            // Append containing namespaces when present (excluding the global namespace)
             if (symbol.ContainingNamespace is { } containingNamespace && !containingNamespace.IsGlobalNamespace)
             {
                 var ns = GetFullNamespace(symbol, format);
                 if (!string.IsNullOrEmpty(ns))
                 {
-                    result.Append(ns).Append(".");
+                    result.Append(ns).Append('.');
                 }
             }
 
@@ -236,71 +206,153 @@ public static partial class SymbolExtensions
                 var type = GetFullType(symbol, format);
                 if (!string.IsNullOrEmpty(type))
                 {
-                    result.Append(type).Append(".");
+                    result.Append(type).Append('.');
+                }
+            }
+        }
+        else if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
+        {
+            if (symbol.ContainingType is not null)
+            {
+                var type = GetFullType(symbol, format);
+                if (!string.IsNullOrEmpty(type))
+                {
+                    result.Append(type).Append('.');
                 }
             }
         }
 
-        // Append the symbol's name
+        // Symbol name
         result.Append(EscapeIdentifierIfNeeded(symbol.Name, format));
 
-        if (symbol is INamedTypeSymbol typeSymbol)
+        if (symbol is INamedTypeSymbol typeSymbol2)
         {
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
-                typeSymbol.TypeParameters is { IsDefaultOrEmpty: false })
+                typeSymbol2.TypeParameters is { IsDefaultOrEmpty: false })
             {
                 IEnumerable<string> arguments;
 
-                if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
-                    typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length)
+                if (!typeSymbol2.TypeArguments.IsDefaultOrEmpty &&
+                    typeSymbol2.TypeArguments.Length == typeSymbol2.TypeParameters.Length)
                 {
-                    arguments = typeSymbol.TypeArguments
-                        .Select(arg => arg.ToDisplayStringKeywordAware(format));
+                    arguments = typeSymbol2.TypeArguments
+                        .Select(arg => FormatType(arg, format));
                 }
                 else
                 {
-                    arguments = typeSymbol.TypeParameters
+                    arguments = typeSymbol2.TypeParameters
                         .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
                 }
 
-                result.Append("<");
+                result.Append('<');
                 result.Append(string.Join(", ", arguments));
-                result.Append(">");
+                result.Append('>');
             }
         }
 
         if (symbol is IMethodSymbol methodSymbol)
         {
-            // Return type (if requested)
+            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters)
+                && (!methodSymbol.TypeParameters.IsDefaultOrEmpty || !methodSymbol.TypeArguments.IsDefaultOrEmpty))
+            {
+
+                IEnumerable<string> arguments;
+
+                if (!methodSymbol.TypeArguments.IsDefaultOrEmpty &&
+                    methodSymbol.TypeArguments.Length == methodSymbol.TypeParameters.Length)
+                {
+                    arguments = methodSymbol.TypeArguments.Select(a => FormatType(a, format));
+                }
+                else
+                {
+                    arguments = methodSymbol.TypeParameters
+                        .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+                }
+
+                result.Append('<');
+                result.Append(string.Join(", ", arguments));
+                result.Append('>');
+            }
+
+            if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature ||
+                format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
+            {
+                result.Append('(');
+                result.Append(string.Join(", ", methodSymbol.Parameters.Select(p => FormatParameter(p, format))));
+                result.Append(')');
+            }
+
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
             {
-                var returnType = methodSymbol.ReturnType?.ToDisplayStringKeywordAware(format);
-                if (!string.IsNullOrEmpty(returnType))
+                var returnType = methodSymbol.ReturnType;
+                if (returnType is not null)
                 {
-                    result.Insert(0, returnType + " ");
+                    var returnDisplay = FormatType(returnType, format);
+                    if (!string.IsNullOrEmpty(returnDisplay))
+                    {
+                        result.Append(" -> ");
+                        result.Append(returnDisplay);
+                    }
                 }
             }
-
-            // Handle method parameters (if the symbol is a method)
-            if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature)
-            {
-                result.Append("(");
-                result.Append(string.Join(", ", methodSymbol.Parameters.Select(p => FormatParameter(p, format))));
-                result.Append(")");
-            }
         }
-
-        // Example for accessibility modifiers
-        if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility))
+        else if (symbol is IPropertySymbol propertySymbol)
         {
-            if (symbol.DeclaredAccessibility is not Accessibility.NotApplicable)
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
             {
-                result.Insert(0,
-                    symbol.DeclaredAccessibility.ToString().ToLower() + " "); // Assume `Accessibility` is a property
+                var typeDisplay = FormatType(propertySymbol.Type, format);
+                result.Append(": ");
+                result.Append(typeDisplay);
+            }
+        }
+        else if (symbol is IFieldSymbol fieldSymbol)
+        {
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            {
+                var typeDisplay = FormatType(fieldSymbol.Type, format);
+                result.Append(": ");
+                result.Append(typeDisplay);
             }
         }
 
-        // Handle miscellaneous options
+        // Prefix: accessibility + modifiers
+        string? accessibilityPrefix = null;
+        if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility) &&
+            symbol.DeclaredAccessibility is not Accessibility.NotApplicable)
+        {
+            accessibilityPrefix = symbol.DeclaredAccessibility.ToString().ToLower();
+        }
+
+        string? modifiersPrefix = null;
+        if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeModifiers))
+        {
+            modifiersPrefix = GetMemberModifiers(symbol);
+        }
+
+        if (!string.IsNullOrEmpty(accessibilityPrefix) || !string.IsNullOrEmpty(modifiersPrefix))
+        {
+            var prefixBuilder = new StringBuilder();
+
+            if (!string.IsNullOrEmpty(accessibilityPrefix))
+            {
+                prefixBuilder.Append(accessibilityPrefix);
+            }
+
+            if (!string.IsNullOrEmpty(modifiersPrefix))
+            {
+                if (prefixBuilder.Length > 0)
+                    prefixBuilder.Append(' ');
+
+                prefixBuilder.Append(modifiersPrefix);
+            }
+
+            if (prefixBuilder.Length > 0)
+            {
+                prefixBuilder.Append(' ');
+                result.Insert(0, prefixBuilder.ToString());
+            }
+        }
+
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
         {
             return EscapeIdentifier(result.ToString());
@@ -308,6 +360,179 @@ public static partial class SymbolExtensions
 
         return result.ToString();
     }
+
+    // =========================
+    //  Type formatting helpers
+    // =========================
+
+    private static string FormatType(ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        // Unwrap literal pseudo-types
+        if (typeSymbol is LiteralTypeSymbol literal)
+            return FormatType(literal.UnderlyingType, format);
+
+        // Nullable<T> => T?
+        if (typeSymbol is NullableTypeSymbol nullable)
+        {
+            var underlying = nullable.UnderlyingType;
+
+            // Nullable of function type => (A -> B)?
+            if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
+                TryFormatFunctionType(underlying, format, out var funcDisplay))
+            {
+                return $"({funcDisplay})?";
+            }
+
+            var underlyingDisplay = FormatType(underlying, format);
+            return underlyingDisplay + "?";
+        }
+
+        // Delegate function sugar (synthesized + System.Func/Action)
+        if (TryFormatFunctionType(typeSymbol, format, out var functionDisplay))
+            return functionDisplay;
+
+        // Type parameter: just the (escaped) name
+        if (typeSymbol is ITypeParameterSymbol typeParameter)
+            return EscapeIdentifierIfNeeded(typeParameter.Name, format);
+
+        // Arrays
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var elementDisplay = FormatType(arrayType.ElementType, format);
+
+            if (arrayType.Rank == 1)
+                return elementDisplay + "[]";
+
+            return elementDisplay + "[" + new string(',', arrayType.Rank - 1) + "]";
+        }
+
+        // Pointers
+        if (typeSymbol is IPointerTypeSymbol pointerType)
+        {
+            var pointedAt = FormatType(pointerType.PointedAtType, format);
+            return pointedAt + "*";
+        }
+
+        // Tuples
+        if (typeSymbol is ITupleTypeSymbol tupleType)
+        {
+            var elementTypes = tupleType.TupleElements
+                .Select(e =>
+                {
+                    var t = FormatType(e.Type, format);
+                    // Later: include element names if desired
+                    return t;
+                });
+
+            return "(" + string.Join(", ", elementTypes) + ")";
+        }
+
+        // Unions (if you want pipe-style display)
+        if (typeSymbol is IUnionTypeSymbol unionType)
+        {
+            var members = unionType.Types.Select(t => FormatType(t, format));
+            return string.Join(" | ", members);
+        }
+
+        // Special types => keywords
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
+        {
+            if (typeSymbol.SpecialType == SpecialType.System_Unit)
+                return "()";
+
+            var fullName = typeSymbol.ToFullyQualifiedMetadataName();
+            if (fullName is not null && s_specialTypeNames.TryGetValue(fullName, out var keyword))
+                return keyword;
+        }
+
+        // Named types and everything else
+        if (typeSymbol is INamedTypeSymbol namedType)
+            return FormatNamedType(namedType, format);
+
+        // Fallback: just the name
+        return EscapeIdentifierIfNeeded(typeSymbol.Name, format);
+    }
+
+    private static string FormatSimpleNamedType(INamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        var sb = new StringBuilder();
+
+        // Simple name
+        sb.Append(EscapeIdentifierIfNeeded(typeSymbol.Name, format));
+
+        // Generic arguments / parameters
+        if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
+            typeSymbol.Arity > 0)
+        {
+            IEnumerable<string> arguments;
+
+            if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
+                typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length)
+            {
+                // Constructed type: use actual type arguments
+                arguments = typeSymbol.TypeArguments.Select(a => FormatType(a, format));
+            }
+            else
+            {
+                // Unconstructed type: fall back to parameter names
+                arguments = typeSymbol.TypeParameters
+                    .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+            }
+
+            sb.Append('<');
+            sb.Append(string.Join(", ", arguments));
+            sb.Append('>');
+        }
+
+        return sb.ToString();
+    }
+
+    private static string FormatNamedType(INamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        var sb = new StringBuilder();
+
+        // Qualification
+        if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
+        {
+            if (typeSymbol.ContainingNamespace is { IsGlobalNamespace: false })
+            {
+                var ns = GetFullNamespace(typeSymbol, format);
+                if (!string.IsNullOrEmpty(ns))
+                {
+                    sb.Append(ns).Append('.');
+                }
+            }
+
+            if (typeSymbol.ContainingType is not null)
+            {
+                var containingTypes = GetFullType(typeSymbol, format);
+                if (!string.IsNullOrEmpty(containingTypes))
+                {
+                    sb.Append(containingTypes).Append('.');
+                }
+            }
+        }
+        else if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
+        {
+            if (typeSymbol.ContainingType is not null)
+            {
+                var containingTypes = GetFullType(typeSymbol, format);
+                if (!string.IsNullOrEmpty(containingTypes))
+                {
+                    sb.Append(containingTypes).Append('.');
+                }
+            }
+        }
+
+        // Simple name + generic params/args
+        sb.Append(FormatSimpleNamedType(typeSymbol, format));
+
+        return sb.ToString();
+    }
+
+    // =========================
+    //  Function type helpers
+    // =========================
 
     private static bool TryFormatFunctionType(ITypeSymbol typeSymbol, SymbolDisplayFormat format, out string display)
     {
@@ -372,7 +597,7 @@ public static partial class SymbolExtensions
             _ => $"({string.Join(", ", parameterDisplays)})"
         };
 
-        var returnDisplay = returnType.ToDisplayStringKeywordAware(format);
+        var returnDisplay = FormatType(returnType, format);
 
         if (returnType.TypeKind == TypeKind.Delegate)
         {
@@ -384,7 +609,7 @@ public static partial class SymbolExtensions
 
     private static string FormatFunctionParameter(ITypeSymbol type, RefKind refKind, SymbolDisplayFormat format)
     {
-        var typeDisplay = type.ToDisplayStringKeywordAware(format);
+        var typeDisplay = FormatType(type, format);
 
         return refKind switch
         {
@@ -407,6 +632,10 @@ public static partial class SymbolExtensions
 
         return ns.Name == "System" && (ns.ContainingNamespace is null || ns.ContainingNamespace.IsGlobalNamespace);
     }
+
+    // =========================
+    //  Misc helpers
+    // =========================
 
     private static SymbolDisplayFormat WithoutTypeAccessibility(SymbolDisplayFormat format)
     {
@@ -436,30 +665,18 @@ public static partial class SymbolExtensions
         return result;
     }
 
-    // Helper method to format a parameter
     private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat format)
     {
-        var sb = new StringBuilder();
-
-        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeModifiers))
-        {
-            //if (parameter.IsRef) sb.Append("ref ");
-            //if (parameter.IsOut) sb.Append("out ");
-        }
-
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
 
-        sb.Append(FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName));
-
-        return sb.ToString();
+        return FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
     }
 
-    // Helper method to escape identifiers
     private static string EscapeIdentifier(string identifier)
     {
-        // Replace any special characters or keywords with escaped versions
-        return identifier; //identifier.Replace("<", "&lt;").Replace(">", "&gt;");
+        // Could HTML-escape here if needed
+        return identifier;
     }
 
     private static string FormatNamedSymbol(
@@ -471,18 +688,26 @@ public static partial class SymbolExtensions
     {
         var sb = new StringBuilder();
 
-        if (includeType)
-        {
-            var typeFormat = WithoutTypeAccessibility(format);
-            var typeDisplay = type.ToDisplayStringKeywordAware(typeFormat);
-            sb.Append(typeDisplay);
-            if (useNameOption)
-                sb.Append(' ');
-        }
-
         if (useNameOption)
         {
             sb.Append(EscapeIdentifierIfNeeded(name, format));
+
+            if (includeType)
+            {
+                sb.Append(": ");
+                var typeFormat = WithoutTypeAccessibility(format);
+                var typeDisplay = FormatType(type, typeFormat);
+                sb.Append(typeDisplay);
+            }
+
+            return sb.ToString();
+        }
+
+        if (includeType)
+        {
+            var typeFormat = WithoutTypeAccessibility(format);
+            var typeDisplay = FormatType(type, typeFormat);
+            sb.Append(typeDisplay);
         }
 
         return sb.ToString();
@@ -493,14 +718,12 @@ public static partial class SymbolExtensions
         var namespaces = new List<string>();
         var currentNamespace = symbol.ContainingNamespace;
 
-        // Traverse all containing namespaces
         while (currentNamespace is not null && !currentNamespace.IsGlobalNamespace)
         {
             namespaces.Insert(0, EscapeIdentifierIfNeeded(currentNamespace.Name, format));
             currentNamespace = currentNamespace.ContainingNamespace;
         }
 
-        // Join namespaces with '.'
         return string.Join(".", namespaces);
     }
 
@@ -509,15 +732,164 @@ public static partial class SymbolExtensions
         var types = new List<string>();
         var currentType = symbol.ContainingType;
 
-        // Traverse all containing types
         while (currentType is not null)
         {
-            types.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
+            if (currentType is INamedTypeSymbol named)
+            {
+                // Include generic type parameters/arguments for each containing type
+                types.Insert(0, FormatSimpleNamedType(named, format));
+            }
+            else
+            {
+                // Fallback: just the name
+                types.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
+            }
+
             currentType = currentType.ContainingType;
         }
 
-        // Join types with '.'
         return string.Join(".", types);
+    }
+
+    private static string GetMemberModifiers(ISymbol symbol)
+    {
+        var parts = new List<string>();
+
+        switch (symbol)
+        {
+            case IParameterSymbol @param:
+                if (param.IsMutable)
+                {
+                    parts.Add("var");
+                }
+                else if (param.IsParams)
+                {
+                    parts.Add("..");
+                }
+                break;
+
+            case IFieldSymbol field:
+                /* if (field.IsConst)
+                {
+                    parts.Add("const");
+                }
+                else
+                { */
+                if (field.IsStatic)
+                    parts.Add("static");
+
+                /*
+                if (field.IsReadOnly)
+                    parts.Add("readonly");
+
+                if (field.IsVolatile)
+                    parts.Add("volatile");
+                */
+                //}
+
+                break;
+
+            case IMethodSymbol method:
+                // Local functions will also show these correctly.
+                if (method.IsStatic)
+                    parts.Add("static");
+
+                if (method.IsAbstract)
+                    parts.Add("abstract");
+
+                // C#-style: sealed override
+                if (method.IsSealed && method.IsOverride)
+                    parts.Add("sealed");
+
+                if (method.IsVirtual)
+                    parts.Add("virtual");
+
+                if (method.IsOverride)
+                    parts.Add("override");
+
+                if (method.IsAsync)
+                    parts.Add("async");
+
+                //if (method.IsPartialDefinition || method.IsPartialImplementation)
+                //    parts.Add("partial");
+
+                break;
+
+            case IPropertySymbol property:
+                if (property.IsStatic)
+                    parts.Add("static");
+
+                /*
+                if (property.IsAbstract)
+                    parts.Add("abstract");
+
+                if (property.IsSealed && property.IsOverride)
+                    parts.Add("sealed");
+
+                if (property.IsVirtual)
+                    parts.Add("virtual");
+
+                if (property.IsOverride)
+                    parts.Add("override");
+
+                // If Raven has required / readonly properties:
+                if (property.IsRequired)
+                    parts.Add("required");
+
+                if (property.IsReadOnly)
+                    parts.Add("readonly");
+                */
+
+                break;
+
+            /*
+            case IEventSymbol @event:
+                if (@event.IsStatic)
+                    parts.Add("static");
+
+                if (@event.IsAbstract)
+                    parts.Add("abstract");
+
+                if (@event.IsSealed && @event.IsOverride)
+                    parts.Add("sealed");
+
+                if (@event.IsVirtual)
+                    parts.Add("virtual");
+
+                if (@event.IsOverride)
+                    parts.Add("override");
+
+                break;
+            */
+
+            case INamedTypeSymbol type:
+                // Class / struct / interface / delegate modifiers
+                switch (type.TypeKind)
+                {
+                    case TypeKind.Class:
+                    case TypeKind.Struct:
+                    case TypeKind.Interface:
+                    case TypeKind.Delegate:
+                        if (type.IsStatic)
+                        {
+                            parts.Add("static");
+                        }
+                        else
+                        {
+                            if (type.IsAbstract)
+                                parts.Add("abstract");
+
+                            if (!type.IsSealed)
+                                parts.Add("open");
+                        }
+
+                        break;
+                }
+
+                break;
+        }
+
+        return string.Join(" ", parts);
     }
 
     public static IMethodSymbol? GetDelegateInvokeMethod(this INamedTypeSymbol typeSymbol)
