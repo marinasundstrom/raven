@@ -179,12 +179,7 @@ public static partial class SymbolExtensions
 
         if (symbol is IParameterSymbol parameterSymbol)
         {
-            var display = FormatNamedSymbol(
-                parameterSymbol.Name,
-                parameterSymbol.Type,
-                format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType),
-                format,
-                format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName));
+            var display = FormatParameter(parameterSymbol, format);
             result.Append(display);
             return result.ToString();
         }
@@ -677,7 +672,23 @@ public static partial class SymbolExtensions
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
 
-        return FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
+        // Core "type name" (or just type / just name depending on options)
+        var core = FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
+
+        if (parameter.IsParams)
+        {
+            core = ".." + core;
+        }
+
+        // Optionally prepend modifiers (var / .. etc.) when requested
+        if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeModifiers))
+        {
+            var modifiers = GetMemberModifiers(parameter);
+            if (!string.IsNullOrEmpty(modifiers))
+                return modifiers + " " + core;
+        }
+
+        return core;
     }
 
     private static string EscapeIdentifier(string identifier)
@@ -765,13 +776,13 @@ public static partial class SymbolExtensions
         switch (symbol)
         {
             case IParameterSymbol @param:
+                if (param.RefKind == RefKind.Out)
+                {
+                    parts.Add("out");
+                }
                 if (param.IsMutable)
                 {
                     parts.Add("var");
-                }
-                else if (param.IsParams)
-                {
-                    parts.Add("..");
                 }
                 break;
 
