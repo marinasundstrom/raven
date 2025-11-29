@@ -410,7 +410,14 @@ public static partial class SymbolExtensions
         if (typeSymbol is IPointerTypeSymbol pointerType)
         {
             var pointedAt = FormatType(pointerType.PointedAtType, format);
-            return pointedAt + "*";
+            return "*" + pointedAt;
+        }
+
+        // ByRef
+        if (typeSymbol is ByRefTypeSymbol byRefType)
+        {
+            var addressTo = FormatType(byRefType.ElementType, format);
+            return "&" + addressTo;
         }
 
         // Tuples
