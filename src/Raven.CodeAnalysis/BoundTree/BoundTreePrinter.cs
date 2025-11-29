@@ -13,6 +13,7 @@ public static class BoundTreePrinter
 {
     private static readonly SymbolDisplayFormat BoundTreeDisplayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat
         .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
+        .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
         .WithMemberOptions(SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters)
         .WithParameterOptions(SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName);
 
@@ -36,14 +37,29 @@ public static class BoundTreePrinter
 
         var nodeToSyntax = BuildNodeToSyntaxMap(cache);
         var roots = GetRootNodes(nodeToSyntax.Keys, nodeToSyntax);
-        var visited = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
+
+        var visitedNodes = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
+        var visitedSyntaxes = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
+
+        var printedAny = false;
 
         for (var i = 0; i < roots.Count; i++)
         {
-            if (i > 0)
-                Console.WriteLine();
+            var root = roots[i];
 
-            PrintRecursive(roots[i], nodeToSyntax, string.Empty, i == roots.Count - 1, visited);
+            // If this root corresponds to a syntax we've already printed somewhere
+            // in another tree, skip it.
+            if (nodeToSyntax.TryGetValue(root, out var syntax) &&
+                visitedSyntaxes.Contains(syntax))
+            {
+                continue;
+            }
+
+            if (printedAny)
+                Console.WriteLine();
+            printedAny = true;
+
+            PrintRecursive(root, nodeToSyntax, string.Empty, i == roots.Count - 1, visitedNodes, visitedSyntaxes);
         }
     }
 
@@ -128,25 +144,30 @@ public static class BoundTreePrinter
         IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
         string indent,
         bool isLast,
-        HashSet<BoundNode> visited)
+        HashSet<BoundNode> visitedNodes,
+        HashSet<SyntaxNode> visitedSyntaxes)
     {
         var marker = isLast ? "└── " : "├── ";
-        var alreadyVisited = !visited.Add(node);
-        var description = Describe(node, nodeToSyntax);
+        var alreadyVisitedNode = !visitedNodes.Add(node);
 
-        if (alreadyVisited)
+        var description = Describe(node, nodeToSyntax);
+        if (alreadyVisitedNode)
             description += " [cycle]";
 
         Console.WriteLine($"{indent}{marker}{description}");
 
-        if (alreadyVisited)
+        if (alreadyVisitedNode)
             return;
+
+        // Mark this node's syntax as visited (if any)
+        if (nodeToSyntax.TryGetValue(node, out var syntax))
+            visitedSyntaxes.Add(syntax);
 
         var children = GetChildren(node).ToList();
         for (var i = 0; i < children.Count; i++)
         {
             var childIndent = indent + (isLast ? "    " : "│   ");
-            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, visited);
+            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, visitedNodes, visitedSyntaxes);
         }
     }
 
