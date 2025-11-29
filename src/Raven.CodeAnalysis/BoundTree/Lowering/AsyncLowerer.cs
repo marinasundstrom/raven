@@ -13,6 +13,24 @@ namespace Raven.CodeAnalysis;
 
 internal static class AsyncLowerer
 {
+    public static AsyncMethodAnalysis Analyze(SourceLambdaSymbol lambda, BoundBlockStatement body)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        if (!lambda.IsAsync)
+            return new AsyncMethodAnalysis(requiresStateMachine: false, containsAwait: false);
+
+        var containsAwait = ContainsAwait(body);
+
+        lambda.SetContainsAwait(containsAwait);
+
+        var requiresStateMachine = containsAwait;
+        return new AsyncMethodAnalysis(requiresStateMachine, containsAwait);
+    }
+
     public static AsyncMethodAnalysis Analyze(SourceMethodSymbol method, BoundBlockStatement body)
     {
         if (method is null)
@@ -72,6 +90,11 @@ internal static class AsyncLowerer
 
     public static BoundBlockStatement Rewrite(SourceMethodSymbol method, BoundBlockStatement body)
     {
+        return RewriteMethod(method, body).Body;
+    }
+
+    public static AsyncRewriteResult RewriteMethod(SourceMethodSymbol method, BoundBlockStatement body)
+    {
         if (method is null)
             throw new ArgumentNullException(nameof(method));
         if (body is null)
@@ -80,11 +103,62 @@ internal static class AsyncLowerer
         var analysis = Analyze(method, body);
         var compilation = GetCompilation(method);
 
+        return RewriteMethod(compilation, method, body, analysis);
+    }
+
+    public static AsyncRewriteResult Rewrite(
+        SourceLambdaSymbol lambda,
+        BoundBlockStatement body,
+        SynthesizedAsyncStateMachineTypeSymbol? stateMachine = null)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        var analysis = Analyze(lambda, body);
+        var compilation = GetCompilation(lambda);
+
+        if (!analysis.ContainsAwait)
+            body = RewriteAwaitlessAsyncBody(compilation, lambda.ReturnType, body);
+
+        if (!analysis.RequiresStateMachine)
+            return new AsyncRewriteResult(body, stateMachine, analysis);
+
+        stateMachine ??= compilation.CreateAsyncStateMachine(lambda);
+
+        if (stateMachine.OriginalBody is null)
+            stateMachine.SetOriginalBody(body);
+
+        if (stateMachine.MoveNextBody is null)
+        {
+            var moveNextBody = CreateMoveNextBody(compilation, stateMachine);
+            stateMachine.SetMoveNextBody(moveNextBody);
+        }
+
+        if (stateMachine.SetStateMachineBody is null)
+        {
+            var setStateMachineBody = CreateSetStateMachineBody(stateMachine);
+            if (setStateMachineBody is not null)
+                stateMachine.SetSetStateMachineBody(setStateMachineBody);
+        }
+
+        var rewrittenBody = RewriteLambdaBody(compilation, lambda, stateMachine, body);
+        return new AsyncRewriteResult(rewrittenBody, stateMachine, analysis);
+    }
+
+    private static AsyncRewriteResult RewriteMethod(
+        Compilation compilation,
+        SourceMethodSymbol method,
+        BoundBlockStatement body,
+        AsyncMethodAnalysis analysis)
+    {
+
         if (!analysis.ContainsAwait)
             body = RewriteAwaitlessAsyncBody(compilation, method.ReturnType, body);
 
         if (!analysis.RequiresStateMachine)
-            return body;
+            return new AsyncRewriteResult(body, method.AsyncStateMachine, analysis);
 
         if (method.AsyncStateMachine is null)
         {
@@ -112,7 +186,26 @@ internal static class AsyncLowerer
                 asyncStateMachine.SetSetStateMachineBody(setStateMachineBody);
         }
 
-        return RewriteMethodBody(compilation, method, asyncStateMachine);
+        var rewrittenBody = RewriteAsyncBody(compilation, method, asyncStateMachine);
+        return new AsyncRewriteResult(rewrittenBody, asyncStateMachine, analysis);
+    }
+
+    private static BoundBlockStatement RewriteLambdaBody(
+        Compilation compilation,
+        SourceLambdaSymbol lambda,
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        BoundBlockStatement body)
+    {
+        if (compilation is null)
+            throw new ArgumentNullException(nameof(compilation));
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (stateMachine is null)
+            throw new ArgumentNullException(nameof(stateMachine));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        return RewriteAsyncBody(compilation, lambda, stateMachine);
     }
 
     public static bool ShouldRewrite(SourceMethodSymbol method, BoundBlockStatement body)
@@ -125,12 +218,29 @@ internal static class AsyncLowerer
         return method.IsAsync;
     }
 
+    public static bool ShouldRewrite(SourceLambdaSymbol lambda, BoundBlockStatement body)
+    {
+        if (lambda is null)
+            throw new ArgumentNullException(nameof(lambda));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        return lambda.IsAsync;
+    }
+
     private static BoundBlockStatement CreateMoveNextBody(
         Compilation compilation,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
         var context = new MoveNextLoweringContext(compilation, stateMachine);
         var originalBody = stateMachine.OriginalBody ?? new BoundBlockStatement(Array.Empty<BoundStatement>());
+
+        if (stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
+            stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is SourceFieldSymbol closureField)
+        {
+            var closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
+            originalBody = closureRewriter.Rewrite(originalBody);
+        }
 
         var entryLabel = CreateLabel(stateMachine, "state");
 
@@ -174,9 +284,9 @@ internal static class AsyncLowerer
         return new BoundBlockStatement(new BoundStatement[] { tryStatement });
     }
 
-    private static BoundBlockStatement RewriteMethodBody(
+    private static BoundBlockStatement RewriteAsyncBody(
         Compilation compilation,
-        SourceMethodSymbol method,
+        IMethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
         var statements = new List<BoundStatement>();
@@ -366,6 +476,39 @@ internal static class AsyncLowerer
         public Compilation Compilation { get; }
         public SynthesizedAsyncStateMachineTypeSymbol StateMachine { get; }
         public SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers BuilderMembers { get; }
+    }
+
+    private sealed class AsyncLambdaClosureRewriter : BoundTreeRewriter
+    {
+        private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
+        private readonly SourceFieldSymbol _closureField;
+
+        public AsyncLambdaClosureRewriter(
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+            SourceFieldSymbol closureField)
+        {
+            _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
+            _closureField = closureField ?? throw new ArgumentNullException(nameof(closureField));
+        }
+
+        public BoundBlockStatement Rewrite(BoundBlockStatement body)
+        {
+            if (body is null)
+                throw new ArgumentNullException(nameof(body));
+
+            return (BoundBlockStatement)VisitBlockStatement(body)!;
+        }
+
+        public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
+        {
+            if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true })
+            {
+                var receiver = new BoundSelfExpression(_stateMachine);
+                return new BoundMemberAccessExpression(receiver, _closureField);
+            }
+
+            return (BoundExpression?)base.VisitSelfExpression(node);
+        }
     }
 
     private static BoundStatement? CreateBuilderSetResultStatement(
@@ -2643,6 +2786,25 @@ internal static class AsyncLowerer
         public bool ContainsAwait { get; }
     }
 
+    internal readonly struct AsyncRewriteResult
+    {
+        public AsyncRewriteResult(
+            BoundBlockStatement body,
+            SynthesizedAsyncStateMachineTypeSymbol? stateMachine,
+            AsyncMethodAnalysis analysis)
+        {
+            Body = body;
+            StateMachine = stateMachine;
+            Analysis = analysis;
+        }
+
+        public BoundBlockStatement Body { get; }
+
+        public SynthesizedAsyncStateMachineTypeSymbol? StateMachine { get; }
+
+        public AsyncMethodAnalysis Analysis { get; }
+    }
+
     private sealed class AwaitExpressionFinder : BoundTreeWalker
     {
         public bool FoundAwait { get; private set; }
@@ -2828,7 +2990,7 @@ internal static class AsyncLowerer
     }
 
     private static BoundExpression CreateReturnExpression(
-        SourceMethodSymbol method,
+        IMethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         SourceLocalSymbol asyncLocal)
     {

@@ -52,7 +52,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
 
         var constructors = baseType.Constructors.Where(c => !c.IsStatic).ToImmutableArray();
         var argumentArray = boundArguments.ToArray();
-        var resolution = OverloadResolver.ResolveOverload(constructors, argumentArray, Compilation);
+        var resolution = OverloadResolver.ResolveOverload(constructors, argumentArray, Compilation, callSyntax: initializerSyntax);
 
         if (!resolution.Success)
         {

@@ -16,7 +16,8 @@ public class CompilationOptions
         bool runAnalyzers = true,
         PerformanceInstrumentation? performanceInstrumentation = null,
         ILoweringTraceSink? loweringTrace = null,
-        AsyncInvestigationOptions? asyncInvestigation = null)
+        AsyncInvestigationOptions? asyncInvestigation = null,
+        IOverloadResolutionLogger? overloadResolutionLogger = null)
     {
         OutputKind = outputKind;
         SpecificDiagnosticOptions = specificDiagnosticOptions ?? ImmutableDictionary<string, ReportDiagnostic>.Empty;
@@ -24,6 +25,7 @@ public class CompilationOptions
         PerformanceInstrumentation = performanceInstrumentation ?? PerformanceInstrumentation.Disabled;
         LoweringTrace = loweringTrace;
         AsyncInvestigation = asyncInvestigation ?? AsyncInvestigationOptions.Disabled;
+        OverloadResolutionLogger = overloadResolutionLogger;
     }
 
     public OutputKind OutputKind { get; }
@@ -33,26 +35,31 @@ public class CompilationOptions
     public bool RunAnalyzers { get; }
 
     public CompilationOptions WithSpecificDiagnosticOptions(IDictionary<string, ReportDiagnostic> options)
-        => new(OutputKind, SpecificDiagnosticOptions.SetItems(options), RunAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation);
+        => new(OutputKind, SpecificDiagnosticOptions.SetItems(options), RunAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger);
 
     public CompilationOptions WithSpecificDiagnosticOption(string diagnosticId, ReportDiagnostic option)
-        => new(OutputKind, SpecificDiagnosticOptions.SetItem(diagnosticId, option), RunAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation);
+        => new(OutputKind, SpecificDiagnosticOptions.SetItem(diagnosticId, option), RunAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger);
 
     public CompilationOptions WithRunAnalyzers(bool runAnalyzers)
-        => new(OutputKind, SpecificDiagnosticOptions, runAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation);
+        => new(OutputKind, SpecificDiagnosticOptions, runAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger);
 
     public PerformanceInstrumentation PerformanceInstrumentation { get; }
 
     public CompilationOptions WithPerformanceInstrumentation(PerformanceInstrumentation? instrumentation)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, instrumentation ?? PerformanceInstrumentation.Disabled, LoweringTrace, AsyncInvestigation);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, instrumentation ?? PerformanceInstrumentation.Disabled, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger);
 
     public ILoweringTraceSink? LoweringTrace { get; }
 
     public CompilationOptions WithLoweringTrace(ILoweringTraceSink? loweringTrace)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, PerformanceInstrumentation, loweringTrace, AsyncInvestigation);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, PerformanceInstrumentation, loweringTrace, AsyncInvestigation, OverloadResolutionLogger);
 
     public AsyncInvestigationOptions AsyncInvestigation { get; }
 
     public CompilationOptions WithAsyncInvestigation(AsyncInvestigationOptions? asyncInvestigation)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, PerformanceInstrumentation, LoweringTrace, asyncInvestigation ?? AsyncInvestigationOptions.Disabled);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, PerformanceInstrumentation, LoweringTrace, asyncInvestigation ?? AsyncInvestigationOptions.Disabled, OverloadResolutionLogger);
+
+    public IOverloadResolutionLogger? OverloadResolutionLogger { get; }
+
+    public CompilationOptions WithOverloadResolutionLogger(IOverloadResolutionLogger? overloadResolutionLogger)
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, overloadResolutionLogger);
 }

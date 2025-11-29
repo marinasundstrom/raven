@@ -41,6 +41,14 @@ public partial class Compilation
 
         var aliasInvolved = sourceUsedAlias || destinationUsedAlias;
 
+        if (source.SpecialType is SpecialType.System_Unit &&
+            destination.SpecialType is SpecialType.System_Void ||
+            source.SpecialType is SpecialType.System_Void &&
+            destination.SpecialType is SpecialType.System_Unit)
+        {
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+        }
+
         Conversion Finalize(Conversion conversion)
         {
             if (!conversion.Exists)
@@ -59,6 +67,26 @@ public partial class Compilation
 
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
+
+        if (source is INamedTypeSymbol taskSourceNamed &&
+            taskSourceNamed.TypeKind != TypeKind.Error &&
+            taskSourceNamed.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            taskSourceNamed.TypeArguments.Length == 1 &&
+            taskSourceNamed.TypeArguments[0].SpecialType == SpecialType.System_Unit &&
+            destination.SpecialType == SpecialType.System_Threading_Tasks_Task)
+        {
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+        }
+
+        if (destination is INamedTypeSymbol taskDestinationNamed &&
+            taskDestinationNamed.TypeKind != TypeKind.Error &&
+            taskDestinationNamed.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            taskDestinationNamed.TypeArguments.Length == 1 &&
+            taskDestinationNamed.TypeArguments[0].SpecialType == SpecialType.System_Unit &&
+            source.SpecialType == SpecialType.System_Threading_Tasks_Task)
+        {
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+        }
 
         var sourceUnionCase = source.TryGetDiscriminatedUnionCase();
         var destinationUnion = destination.TryGetDiscriminatedUnion();

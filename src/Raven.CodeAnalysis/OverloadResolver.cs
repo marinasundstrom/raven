@@ -14,8 +14,12 @@ internal sealed class OverloadResolver
         BoundArgument[] arguments,
         Compilation compilation,
         BoundExpression? receiver = null,
-        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null)
+        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null,
+        SyntaxNode? callSyntax = null)
     {
+        var logger = compilation.Options.OverloadResolutionLogger;
+        List<OverloadCandidateLog>? candidateLogs = logger is null ? null : new();
+
         IMethodSymbol? bestMatch = null;
         int bestScore = int.MaxValue;
         ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
@@ -23,19 +27,39 @@ internal sealed class OverloadResolver
 
         foreach (var candidate in methods)
         {
+            var candidateStatus = OverloadCandidateStatus.Applicable;
+            int? candidateScore = null;
+            IMethodSymbol? constructed = null;
+            List<OverloadArgumentComparisonLog>? candidateComparisons = logger is null ? null : new();
             var method = ApplyTypeArgumentInference(candidate, receiver, arguments, compilation);
             if (method is null)
+            {
+                candidateStatus = OverloadCandidateStatus.TypeInferenceFailed;
+                RecordCandidate(candidate, constructed, candidateStatus, candidateScore, isExtension: false, candidateComparisons);
                 continue;
+            }
 
+            constructed = method;
             var parameters = method.Parameters;
             var treatAsExtension = method.IsExtensionMethod && receiver is not null;
             var providedCount = arguments.Length + (treatAsExtension ? 1 : 0);
 
             if (!HasSufficientArguments(parameters, providedCount))
+            {
+                candidateStatus = OverloadCandidateStatus.InsufficientArguments;
+                RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension, candidateComparisons);
                 continue;
+            }
 
-            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, canBindLambda, out var score))
+            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, canBindLambda, candidateComparisons, out var score))
+            {
+                candidateStatus = OverloadCandidateStatus.ArgumentMismatch;
+                RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension, candidateComparisons);
                 continue;
+            }
+
+            candidateScore = score;
+            RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension, candidateComparisons);
 
             if (score < bestScore)
             {
@@ -79,10 +103,50 @@ internal sealed class OverloadResolver
             AddCandidateIfMissing(ambiguous, method);
         }
 
+        var ambiguousCandidates = ambiguous?.ToImmutable() ?? ImmutableArray<IMethodSymbol>.Empty;
+
+        if (logger is not null && candidateLogs is not null)
+        {
+            var resolvedCandidates = MarkCandidates(candidateLogs, bestMatch, ambiguousCandidates);
+            var argumentLogs = CreateArgumentLogs(arguments);
+
+            logger.Log(new OverloadResolutionLogEntry(
+                callSyntax,
+                receiver?.Type,
+                argumentLogs,
+                resolvedCandidates,
+                bestMatch,
+                ambiguousCandidates));
+        }
+
         if (ambiguous is { Count: > 0 })
             return OverloadResolutionResult.Ambiguous(ambiguous.ToImmutable());
 
         return new OverloadResolutionResult(bestMatch);
+
+        void RecordCandidate(
+            IMethodSymbol original,
+            IMethodSymbol? constructedMethod,
+            OverloadCandidateStatus status,
+            int? score,
+            bool isExtension,
+            List<OverloadArgumentComparisonLog>? comparisons)
+        {
+            if (candidateLogs is null)
+                return;
+
+            candidateLogs.Add(new OverloadCandidateLog(
+                original,
+                constructedMethod,
+                status,
+                score,
+                isExtension,
+                IsBest: false,
+                IsAmbiguous: false,
+                comparisons is null
+                    ? ImmutableArray<OverloadArgumentComparisonLog>.Empty
+                    : comparisons.ToImmutableArray()));
+        }
     }
 
     internal static IMethodSymbol? ApplyTypeArgumentInference(
@@ -206,22 +270,145 @@ internal sealed class OverloadResolver
         }
 
         var lambdaReturnType = lambda.ReturnType;
-        if (lambda.Symbol is ILambdaSymbol { IsAsync: true } &&
-            invoke.ReturnType is ITypeParameterSymbol &&
+        ITypeSymbol? collectedAsyncReturn = null;
+
+        bool ContainsTypeParameter(ITypeSymbol type)
+        {
+            switch (type)
+            {
+                case ITypeParameterSymbol:
+                    return true;
+                case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                    return named.TypeArguments.Any(ContainsTypeParameter);
+                case IArrayTypeSymbol array:
+                    return ContainsTypeParameter(array.ElementType);
+                case ByRefTypeSymbol byRef:
+                    return ContainsTypeParameter(byRef.ElementType);
+                case NullableTypeSymbol nullable:
+                    return ContainsTypeParameter(nullable.UnderlyingType);
+                case ITupleTypeSymbol tuple:
+                    return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
+                default:
+                    return false;
+            }
+        }
+
+        if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+        {
+            collectedAsyncReturn = ReturnTypeCollector.InferAsync(compilation, lambda.Body);
+
+            // Prefer the already computed async return over re-inferring from the raw body
+            // so we keep task-shaped inference (including nullable/Task<Unit> normalization)
+            // when replaying the lambda for generic inference.
+            if (lambdaReturnType is { TypeKind: not TypeKind.Error })
+            {
+                lambdaReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambdaReturnType);
+            }
+            else
+            {
+                lambdaReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+            }
+
+            // If the async return still contains type parameters (e.g., Task<T>), fall back to
+            // inferring the async return directly from the body so overload resolution can learn
+            // about concrete return values such as `int` from `return 42` in a block-bodied async
+            // lambda.
+            if (lambdaReturnType is { TypeKind: not TypeKind.Error } withTypeParams && ContainsTypeParameter(withTypeParams))
+            {
+                var inferredFromBody = collectedAsyncReturn ?? AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+                if (inferredFromBody is { TypeKind: not TypeKind.Error })
+                    lambdaReturnType = inferredFromBody;
+            }
+        }
+
+        if ((lambdaReturnType is null || lambdaReturnType.TypeKind == TypeKind.Error) &&
             lambda.Body.Type is { TypeKind: not TypeKind.Error } bodyType)
         {
             lambdaReturnType = bodyType;
         }
+
+        if (collectedAsyncReturn is { TypeKind: not TypeKind.Error })
+        {
+            if (lambdaReturnType is null || lambdaReturnType.TypeKind == TypeKind.Error || ContainsTypeParameter(lambdaReturnType))
+                lambdaReturnType = collectedAsyncReturn;
+        }
         if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
         {
-            if (lambdaReturnType is ITypeParameterSymbol)
-                return true;
+            if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+            {
+                var lambdaResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, lambdaReturnType)
+                    ?? lambdaReturnType;
+                var expectedResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, invoke.ReturnType)
+                    ?? invoke.ReturnType;
 
-            if (!TryInferFromTypes(compilation, invoke.ReturnType, lambdaReturnType, substitutions, inferenceMethod))
-                return false;
+                if (lambdaResult is ITypeParameterSymbol &&
+                    collectedAsyncReturn is { TypeKind: not TypeKind.Error })
+                {
+                    var collectedAsyncResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, collectedAsyncReturn)
+                        ?? collectedAsyncReturn;
+
+                    if (collectedAsyncResult is { TypeKind: not TypeKind.Error })
+                        lambdaResult = collectedAsyncResult;
+                }
+
+                if (lambdaResult is ITypeParameterSymbol)
+                    return true;
+
+                if (!TryInferFromTypes(compilation, expectedResult, lambdaResult, substitutions, inferenceMethod))
+                    return false;
+            }
+            else
+            {
+                if (lambdaReturnType is ITypeParameterSymbol)
+                    return true;
+
+                if (!TryInferFromTypes(compilation, invoke.ReturnType, lambdaReturnType, substitutions, inferenceMethod))
+                    return false;
+            }
         }
 
         return true;
+    }
+
+    private static ImmutableArray<OverloadCandidateLog> MarkCandidates(
+        List<OverloadCandidateLog> candidates,
+        IMethodSymbol? best,
+        ImmutableArray<IMethodSymbol> ambiguous)
+    {
+        if (candidates.Count == 0)
+            return ImmutableArray<OverloadCandidateLog>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<OverloadCandidateLog>(candidates.Count);
+
+        foreach (var candidate in candidates)
+        {
+            var constructed = candidate.ConstructedMethod ?? candidate.OriginalMethod;
+            var isBest = best is not null && SymbolEqualityComparer.Default.Equals(constructed, best);
+            var isAmbiguous = !ambiguous.IsDefaultOrEmpty && ambiguous.Any(a => SymbolEqualityComparer.Default.Equals(a, constructed));
+
+            builder.Add(candidate with { IsBest = isBest, IsAmbiguous = isAmbiguous });
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableArray<OverloadArgumentLog> CreateArgumentLogs(IReadOnlyList<BoundArgument> arguments)
+    {
+        if (arguments.Count == 0)
+            return ImmutableArray<OverloadArgumentLog>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<OverloadArgumentLog>(arguments.Count);
+
+        foreach (var argument in arguments)
+        {
+            builder.Add(new OverloadArgumentLog(
+                argument.Name,
+                argument.RefKind,
+                argument.Type,
+                argument.Syntax));
+        }
+
+        return builder.ToImmutable();
     }
 
     private static bool TryInferFromTypes(
@@ -574,6 +761,55 @@ internal sealed class OverloadResolver
         return conversion.Exists && conversion.IsImplicit;
     }
 
+    private static void LogComparison(
+        List<OverloadArgumentComparisonLog>? log,
+        IParameterSymbol parameter,
+        ITypeSymbol? argumentType,
+        OverloadArgumentComparisonResult result,
+        string? detail)
+    {
+        if (log is null)
+            return;
+
+        log.Add(new OverloadArgumentComparisonLog(
+            parameter.Name,
+            parameter.RefKind,
+            parameter.Type,
+            argumentType,
+            result,
+            detail));
+    }
+
+    private static string DescribeConversion(Conversion conversion)
+    {
+        if (!conversion.Exists)
+            return "conversion does not exist";
+
+        var parts = new List<string>();
+
+        if (conversion.IsIdentity)
+            parts.Add("identity");
+        if (conversion.IsNumeric)
+            parts.Add("numeric");
+        if (conversion.IsReference)
+            parts.Add("reference");
+        if (conversion.IsBoxing)
+            parts.Add("boxing");
+        if (conversion.IsUnboxing)
+            parts.Add("unboxing");
+        if (conversion.IsPointer)
+            parts.Add("pointer");
+        if (conversion.IsDiscriminatedUnion)
+            parts.Add("union");
+        if (conversion.IsUserDefined)
+            parts.Add("user-defined");
+        if (conversion.IsAlias)
+            parts.Add("alias");
+
+        var kind = parts.Count == 0 ? "implicit" : string.Join(", ", parts);
+        return conversion.IsImplicit ? kind : $"explicit {kind}";
+    }
+
     private static bool TryMatch(
         IMethodSymbol method,
         BoundArgument[] arguments,
@@ -581,6 +817,7 @@ internal sealed class OverloadResolver
         bool treatAsExtension,
         Compilation compilation,
         Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda,
+        List<OverloadArgumentComparisonLog>? comparisonLog,
         out int score)
     {
         score = 0;
@@ -590,9 +827,12 @@ internal sealed class OverloadResolver
         if (treatAsExtension)
         {
             if (receiver is null || receiver.Type is null)
+            {
+                LogComparison(comparisonLog, parameters[parameterIndex], receiver?.Type, OverloadArgumentComparisonResult.NullArgumentType, "receiver is missing or has no type");
                 return false;
+            }
 
-            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, compilation, canBindLambda, ref score))
+            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, compilation, canBindLambda, comparisonLog, ref score))
                 return false;
 
             parameterIndex++;
@@ -607,12 +847,17 @@ internal sealed class OverloadResolver
             if (mapped is null)
             {
                 if (!parameters[parameterIndex].HasExplicitDefaultValue)
+                {
+                    LogComparison(comparisonLog, parameters[parameterIndex], argumentType: null, OverloadArgumentComparisonResult.MissingArgument, "no argument supplied");
                     return false;
+                }
+
+                LogComparison(comparisonLog, parameters[parameterIndex], argumentType: null, OverloadArgumentComparisonResult.DefaultValueUsed, "default parameter value used");
 
                 continue;
             }
 
-            if (!TryEvaluateArgument(parameters[parameterIndex], mapped.Value.Expression, compilation, canBindLambda, ref score))
+            if (!TryEvaluateArgument(parameters[parameterIndex], mapped.Value.Expression, compilation, canBindLambda, comparisonLog, ref score))
                 return false;
         }
 
@@ -718,14 +963,21 @@ internal sealed class OverloadResolver
         BoundExpression argument,
         Compilation compilation,
         Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda,
+        List<OverloadArgumentComparisonLog>? comparisonLog,
         ref int score)
     {
         var argType = argument.Type;
         if (argType is null)
+        {
+            LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.NullArgumentType, "argument type is null");
             return false;
+        }
 
         if (argType.SpecialType == SpecialType.System_Void)
+        {
+            LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.VoidArgument, "argument type is void");
             return false;
+        }
 
         if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
         {
@@ -733,6 +985,7 @@ internal sealed class OverloadResolver
                 argType is not IAddressTypeSymbol addressType ||
                 argType.SpecialType == SpecialType.System_Void)
             {
+                LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.RefKindMismatch, "argument is not an address to match ref/out/in");
                 return false;
             }
 
@@ -742,12 +995,18 @@ internal sealed class OverloadResolver
             if (parameterType is ByRefTypeSymbol paramByRef)
             {
                 if (!SymbolEqualityComparer.Default.Equals(referencedType, paramByRef.ElementType))
+                {
+                    LogComparison(comparisonLog, parameter, referencedType, OverloadArgumentComparisonResult.RefKindMismatch, "by-ref element type mismatch");
                     return false;
+                }
             }
             else if (!SymbolEqualityComparer.Default.Equals(referencedType, parameterType))
             {
+                LogComparison(comparisonLog, parameter, referencedType, OverloadArgumentComparisonResult.RefKindMismatch, "address type does not match parameter type");
                 return false;
             }
+
+            LogComparison(comparisonLog, parameter, referencedType, OverloadArgumentComparisonResult.Success, "address argument matches ref/out/in parameter");
 
             return true;
         }
@@ -755,28 +1014,58 @@ internal sealed class OverloadResolver
         bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
+            if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+            {
+                var invoke = delegateType.GetDelegateInvokeMethod();
+                string? asyncDetail = null;
+                var asyncCompatible = invoke is not null && IsAsyncDelegateCompatible(lambda, invoke.ReturnType, compilation, out asyncDetail);
+
+                if (!asyncCompatible)
+                {
+                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, asyncDetail ?? "async delegate mismatch");
+                    return false;
+                }
+            }
+
             if (delegateType.IsGenericType && delegateType.TypeArguments.Any(static t => t is ITypeParameterSymbol))
             {
                 lambdaCompatible = true;
+                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda retained for generic delegate binding");
             }
             else if (canBindLambda is not null)
             {
                 if (!canBindLambda(parameter, lambda))
+                {
+                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda rejected by binder callback");
                     return false;
+                }
 
                 lambdaCompatible = true;
+                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda accepted via binder callback");
             }
             else if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
+            {
+                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda signature is incompatible with delegate");
                 return false;
+            }
+            else
+            {
+                lambdaCompatible = true;
+                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda compatible with delegate");
+            }
         }
 
         if (argument is BoundAddressOfExpression)
         {
             var conversion = compilation.ClassifyConversion(argType, parameter.Type);
             if (!conversion.IsImplicit)
+            {
+                LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.ConversionFailed, DescribeConversion(conversion));
                 return false;
+            }
 
             score += GetConversionScore(conversion);
+            LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.Success, DescribeConversion(conversion));
             return true;
         }
 
@@ -784,7 +1073,10 @@ internal sealed class OverloadResolver
         {
             var conversion = compilation.ClassifyConversion(argType, parameter.Type);
             if (!conversion.IsImplicit)
+            {
+                LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.ConversionFailed, DescribeConversion(conversion));
                 return false;
+            }
 
             var conversionScore = GetConversionScore(conversion);
 
@@ -798,8 +1090,58 @@ internal sealed class OverloadResolver
             }
 
             score += conversionScore;
+            LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.Success, DescribeConversion(conversion));
+        }
+        else
+        {
+            LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.Success, "lambda compatibility accepted");
         }
         return true;
+
+        static bool IsAsyncDelegateCompatible(
+            BoundLambdaExpression lambda,
+            ITypeSymbol delegateReturnType,
+            Compilation compilation,
+            out string? failureDetail)
+        {
+            failureDetail = null;
+            var lambdaAsyncReturn = AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, lambda.Body);
+            var lambdaAsyncResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, lambdaAsyncReturn)
+                ?? lambdaAsyncReturn;
+
+            if (delegateReturnType is NullableTypeSymbol nullable)
+                delegateReturnType = nullable.UnderlyingType;
+
+            if (delegateReturnType.SpecialType == SpecialType.System_Void)
+            {
+                var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+                var compatible = SymbolEqualityComparer.Default.Equals(lambdaAsyncResult, unitType);
+                if (!compatible)
+                    failureDetail = $"async lambda result {lambdaAsyncResult?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} does not map to void";
+
+                return compatible;
+            }
+
+            var result = IsAsyncReturn(delegateReturnType);
+            if (!result)
+                failureDetail = $"delegate return {delegateReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} is not task-shaped";
+
+            return result;
+
+            static bool IsAsyncReturn(ITypeSymbol type)
+            {
+                if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                    return true;
+
+                if (type is INamedTypeSymbol named &&
+                    named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
     }
 
     private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch
