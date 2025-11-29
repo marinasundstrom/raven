@@ -421,6 +421,40 @@ public static partial class SymbolExtensions
         return EscapeIdentifierIfNeeded(typeSymbol.Name, format);
     }
 
+    private static string FormatSimpleNamedType(INamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        var sb = new StringBuilder();
+
+        // Simple name
+        sb.Append(EscapeIdentifierIfNeeded(typeSymbol.Name, format));
+
+        // Generic arguments / parameters
+        if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
+            typeSymbol.Arity > 0)
+        {
+            IEnumerable<string> arguments;
+
+            if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
+                typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length)
+            {
+                // Constructed type: use actual type arguments
+                arguments = typeSymbol.TypeArguments.Select(a => FormatType(a, format));
+            }
+            else
+            {
+                // Unconstructed type: fall back to parameter names
+                arguments = typeSymbol.TypeParameters
+                    .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+            }
+
+            sb.Append('<');
+            sb.Append(string.Join(", ", arguments));
+            sb.Append('>');
+        }
+
+        return sb.ToString();
+    }
+
     private static string FormatNamedType(INamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         var sb = new StringBuilder();
@@ -458,30 +492,8 @@ public static partial class SymbolExtensions
             }
         }
 
-        // Simple name
-        sb.Append(EscapeIdentifierIfNeeded(typeSymbol.Name, format));
-
-        // Generic arguments / parameters
-        if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
-            typeSymbol.TypeParameters is { IsDefaultOrEmpty: false })
-        {
-            IEnumerable<string> arguments;
-
-            if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
-                typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length)
-            {
-                arguments = typeSymbol.TypeArguments.Select(a => FormatType(a, format));
-            }
-            else
-            {
-                arguments = typeSymbol.TypeParameters
-                    .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
-            }
-
-            sb.Append('<');
-            sb.Append(string.Join(", ", arguments));
-            sb.Append('>');
-        }
+        // Simple name + generic params/args
+        sb.Append(FormatSimpleNamedType(typeSymbol, format));
 
         return sb.ToString();
     }
@@ -690,7 +702,17 @@ public static partial class SymbolExtensions
 
         while (currentType is not null)
         {
-            types.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
+            if (currentType is INamedTypeSymbol named)
+            {
+                // Include generic type parameters/arguments for each containing type
+                types.Insert(0, FormatSimpleNamedType(named, format));
+            }
+            else
+            {
+                // Fallback: just the name
+                types.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
+            }
+
             currentType = currentType.ContainingType;
         }
 
