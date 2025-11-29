@@ -210,6 +210,17 @@ public static partial class SymbolExtensions
                 }
             }
         }
+        else if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
+        {
+            if (symbol.ContainingType is not null)
+            {
+                var type = GetFullType(symbol, format);
+                if (!string.IsNullOrEmpty(type))
+                {
+                    result.Append(type).Append('.');
+                }
+            }
+        }
 
         // Symbol name
         result.Append(EscapeIdentifierIfNeeded(symbol.Name, format));
