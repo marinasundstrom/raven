@@ -1,13 +1,9 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
-let t = await Task.Run(async () => 42)
+let value = 42;
 
-WriteLine(t)
-
-let t2 = await Task.Run(async () => { 
+let result = await Task.Run(async () => { 
     await Task.Delay(200)
-    return 42
+    return value
 })
-
-WriteLine(t2)

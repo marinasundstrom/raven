@@ -56,6 +56,8 @@ public partial class Compilation
 
     public ILoweringTraceSink? LoweringTrace => Options.LoweringTrace;
 
+    public IOverloadResolutionLogger? OverloadResolutionLogger => Options.OverloadResolutionLogger;
+
     public IAssemblySymbol Assembly { get; private set; }
 
     public IModuleSymbol Module { get; private set; }

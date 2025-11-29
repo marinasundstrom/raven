@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     private readonly Dictionary<DelegateSignature, SynthesizedDelegateTypeSymbol> _synthesizedDelegates = new(new DelegateSignatureComparer());
-    private readonly Dictionary<SourceMethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<IMethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<SourceMethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(ReferenceEqualityComparer.Instance);
     private int _synthesizedDelegateOrdinal;
     private int _synthesizedAsyncStateMachineOrdinal;
@@ -45,7 +45,7 @@ public partial class Compilation
     internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
         => _synthesizedDelegates.Values;
 
-    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(SourceMethodSymbol method)
+    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(IMethodSymbol method)
     {
         if (_synthesizedAsyncStateMachines.TryGetValue(method, out var existing))
             return existing;

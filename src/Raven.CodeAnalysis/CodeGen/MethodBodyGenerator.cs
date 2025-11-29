@@ -512,7 +512,10 @@ internal class MethodBodyGenerator
         return null;
     }
 
-    public void EmitLambda(BoundLambdaExpression lambda, TypeGenerator.LambdaClosure? closure)
+    public void EmitLambda(
+        BoundLambdaExpression lambda,
+        TypeGenerator.LambdaClosure? closure,
+        BoundBlockStatement? rewrittenBody = null)
     {
         baseGenerator = new BaseGenerator(this);
         scope = new Scope(baseGenerator);
@@ -526,21 +529,33 @@ internal class MethodBodyGenerator
             if (_lambdaClosure is not null)
                 InitializeCapturedParameters();
 
-            if (lambda.Body is BoundBlockExpression blockExpression)
-            {
-                var block = new BoundBlockStatement(blockExpression.Statements);
-                DeclareLocals(block);
-                EmitMethodBlock(block);
-                return;
-            }
-
-            var returnStatement = new BoundReturnStatement(lambda.Body);
-            EmitStatement(returnStatement);
+            var block = rewrittenBody ?? CreateLambdaBody(lambda);
+            DeclareLocals(block);
+            EmitMethodBlock(block);
         }
         finally
         {
             _lambdaClosure = null;
         }
+    }
+
+    private static BoundBlockStatement CreateLambdaBody(BoundLambdaExpression lambda)
+    {
+        if (lambda.Body is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        var statements = new List<BoundStatement>();
+
+        if (lambda.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            statements.Add(new BoundExpressionStatement(lambda.Body));
+        }
+        else
+        {
+            statements.Add(new BoundReturnStatement(lambda.Body));
+        }
+
+        return new BoundBlockStatement(statements);
     }
 
     private void InitializeCapturedParameters()

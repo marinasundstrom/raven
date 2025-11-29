@@ -119,8 +119,9 @@ internal sealed partial class BoundNodeFactory
     public BoundErrorExpression CreateErrorExpression(
         ITypeSymbol type,
         ISymbol? symbol = null,
-        BoundExpressionReason reason = BoundExpressionReason.None)
-        => new(type, symbol, reason);
+        BoundExpressionReason reason = BoundExpressionReason.None,
+        ImmutableArray<ISymbol> candidates = default)
+        => new(type, symbol, reason, candidates);
 
     public BoundExpressionStatement CreateExpressionStatement(BoundExpression expression)
         => new(expression);

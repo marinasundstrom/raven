@@ -19,11 +19,11 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _stateToAsyncTypeParameterMap;
     private readonly ImmutableArray<TypeParameterMapping> _typeParameterMappings;
     private readonly AsyncBuilderMemberMap _builderMemberMap;
-    private readonly Dictionary<SourceMethodSymbol, ConstructedMembers> _constructedMembersCache = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<IMethodSymbol, ConstructedMembers> _constructedMembersCache = new(ReferenceEqualityComparer.Instance);
 
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
-        SourceMethodSymbol asyncMethod,
+        IMethodSymbol asyncMethod,
         string name)
         : base(
             name,
@@ -43,7 +43,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             throw new ArgumentNullException(nameof(asyncMethod));
 
         Compilation = compilation;
-        AsyncMethod = asyncMethod;
+        AsyncMethod = asyncMethod ?? throw new ArgumentNullException(nameof(asyncMethod));
 
         (
             _asyncToStateTypeParameterMap,
@@ -72,7 +72,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     public Compilation Compilation { get; }
 
-    public SourceMethodSymbol AsyncMethod { get; }
+    public IMethodSymbol AsyncMethod { get; }
 
     public SourceFieldSymbol StateField { get; }
 
@@ -109,7 +109,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     public BoundBlockStatement? SetStateMachineBody { get; private set; }
 
-    public ConstructedMembers GetConstructedMembers(SourceMethodSymbol method)
+    public ConstructedMembers GetConstructedMembers(IMethodSymbol method)
     {
         if (method is null)
             throw new ArgumentNullException(nameof(method));
@@ -125,12 +125,12 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return members;
     }
 
-    public BuilderMembers GetBuilderMembers(SourceMethodSymbol method)
+    public BuilderMembers GetBuilderMembers(IMethodSymbol method)
     {
         return _builderMemberMap.StateMachineMembers;
     }
 
-    private ConstructedMembers CreateConstructedMembers(SourceMethodSymbol method)
+    private ConstructedMembers CreateConstructedMembers(IMethodSymbol method)
     {
         var stateMachineType = (INamedTypeSymbol)GetConstructedStateMachine(method);
         var constructor = GetConstructedMethod(Constructor, stateMachineType);
@@ -154,7 +154,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             asyncMethodBuilderMembers);
     }
 
-    public INamedTypeSymbol GetConstructedStateMachine(SourceMethodSymbol method)
+    public INamedTypeSymbol GetConstructedStateMachine(IMethodSymbol method)
     {
         if (method is null)
             throw new ArgumentNullException(nameof(method));
@@ -219,7 +219,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         SetStateMachineBody = body;
     }
 
-    private ImmutableArray<SourceFieldSymbol> CreateParameterFields(SourceMethodSymbol method, out ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> parameterFieldMap)
+    private ImmutableArray<SourceFieldSymbol> CreateParameterFields(IMethodSymbol method, out ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> parameterFieldMap)
     {
         if (method.Parameters.Length == 0)
         {
@@ -262,7 +262,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return field;
     }
 
-    private SourceFieldSymbol CreateBuilderField(Compilation compilation, SourceMethodSymbol asyncMethod)
+    private SourceFieldSymbol CreateBuilderField(Compilation compilation, IMethodSymbol asyncMethod)
     {
         var builderType = DetermineBuilderType(compilation, asyncMethod);
         return CreateField("_builder", builderType);
@@ -416,7 +416,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private (
         ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> AsyncToState,
         ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> StateToAsync,
-        ImmutableArray<TypeParameterMapping> Mappings) InitializeTypeParameters(SourceMethodSymbol asyncMethod)
+        ImmutableArray<TypeParameterMapping> Mappings) InitializeTypeParameters(IMethodSymbol asyncMethod)
     {
         if (asyncMethod.TypeParameters.IsDefaultOrEmpty || asyncMethod.TypeParameters.Length == 0)
         {
@@ -695,7 +695,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return !SymbolEqualityComparer.Default.Equals(substituted, type);
     }
 
-    private ITypeSymbol DetermineBuilderType(Compilation compilation, SourceMethodSymbol asyncMethod)
+    private ITypeSymbol DetermineBuilderType(Compilation compilation, IMethodSymbol asyncMethod)
     {
         var returnType = asyncMethod.ReturnType;
 
@@ -761,7 +761,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             };
     }
 
-    private SourceMethodSymbol CreateConstructor(Compilation compilation, SourceMethodSymbol asyncMethod)
+    private SourceMethodSymbol CreateConstructor(Compilation compilation, IMethodSymbol asyncMethod)
     {
         return new SourceMethodSymbol(
             ".ctor",
@@ -777,7 +777,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             declaredAccessibility: Accessibility.Public);
     }
 
-    private SourceMethodSymbol CreateMoveNextMethod(Compilation compilation, SourceMethodSymbol asyncMethod)
+    private SourceMethodSymbol CreateMoveNextMethod(Compilation compilation, IMethodSymbol asyncMethod)
     {
         var voidType = compilation.GetSpecialType(SpecialType.System_Void);
 
@@ -797,7 +797,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     private SourceMethodSymbol CreateSetStateMachineMethod(
         Compilation compilation,
-        SourceMethodSymbol asyncMethod,
+        IMethodSymbol asyncMethod,
         INamedTypeSymbol asyncStateMachineInterface)
     {
         var voidType = compilation.GetSpecialType(SpecialType.System_Void);

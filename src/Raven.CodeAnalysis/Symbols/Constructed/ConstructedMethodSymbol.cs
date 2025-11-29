@@ -20,7 +20,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ConstructedMethodSymbol(IMethodSymbol definition, ImmutableArray<ITypeSymbol> typeArguments)
     {
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
-        _typeArguments = typeArguments;
+        _typeArguments = typeArguments.IsDefault
+            ? []
+            : typeArguments;
 
         var typeParameters = definition.TypeParameters;
         if (typeParameters.Length != typeArguments.Length)
@@ -130,6 +132,16 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 return replacement;
         }
 
+        if (type is NullableTypeSymbol nullableTypeSymbol)
+        {
+            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType);
+
+            if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                return new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
+
+            return type;
+        }
+
         if (type is ByRefTypeSymbol byRef)
         {
             var substitutedElement = Substitute(byRef.ElementType);
@@ -152,19 +164,27 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
-            var substitutedArgs = named.TypeArguments.Select(Substitute).ToArray();
-            bool changed = false;
-            for (int i = 0; i < substitutedArgs.Length; i++)
+            var typeArguments = named.TypeArguments;
+            var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+            var changed = false;
+
+            for (int i = 0; i < typeArguments.Length; i++)
             {
-                if (!SymbolEqualityComparer.Default.Equals(substitutedArgs[i], named.TypeArguments[i]))
-                {
+                var originalArg = typeArguments[i];
+                var substitutedArg = Substitute(originalArg);
+
+                substitutedArgs[i] = substitutedArg;
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
                     changed = true;
-                    break;
-                }
             }
 
-            if (changed)
-                return named.Construct(substitutedArgs);
+            if (!changed)
+                return named;
+
+            // Avoid reusing a possibly already-constructed named
+            var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+            return constructedFrom.Construct(substitutedArgs);
         }
 
         return type;
@@ -242,7 +262,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
         var debug = ConstructedMethodDebugging.IsEnabled();
-        var runtimeTypeArguments = TypeArguments
+        var typeArguments = TypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : TypeArguments;
+        var runtimeTypeArguments = typeArguments
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 

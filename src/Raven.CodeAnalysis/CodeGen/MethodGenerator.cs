@@ -457,8 +457,29 @@ internal class MethodGenerator
             return;
 
         var bodyGenerator = new MethodBodyGenerator(this);
-        bodyGenerator.EmitLambda(lambda, closure);
+
+        BoundBlockStatement? rewrittenBody = null;
+
+        if (lambda.Symbol is SourceLambdaSymbol sourceLambda && sourceLambda.IsAsync)
+        {
+            var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
+            var rewritten = AsyncLowerer.Rewrite(sourceLambda, block);
+            rewrittenBody = rewritten.Body;
+        }
+
+        bodyGenerator.EmitLambda(lambda, closure, rewrittenBody);
         _bodyEmitted = true;
+    }
+
+    private static BoundBlockStatement ConvertToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)
+    {
+        if (body is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        if (lambda.ReturnType.SpecialType == SpecialType.System_Unit)
+            return new BoundBlockStatement(new[] { new BoundExpressionStatement(body) });
+
+        return new BoundBlockStatement(new[] { new BoundReturnStatement(body) });
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)

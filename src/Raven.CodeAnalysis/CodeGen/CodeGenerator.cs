@@ -1105,7 +1105,7 @@ internal class CodeGenerator
         if (topLevelBinder.MainMethod is not SourceMethodSymbol mainMethod)
             return;
 
-        if (!mainMethod.IsAsync || !processed.Add(mainMethod))
+        if (!processed.Add(mainMethod))
             return;
 
         var boundStatements = new List<BoundStatement>(globalStatements.Length);
@@ -1132,6 +1132,8 @@ internal class CodeGenerator
         }
 
         var body = new BoundBlockStatement(boundStatements, localsToDispose.ToImmutable());
+
+        RewriteAsyncLambdas(body);
 
         if (!AsyncLowerer.ShouldRewrite(mainMethod, body))
             return;
@@ -1163,12 +1165,11 @@ internal class CodeGenerator
         BlockStatementSyntax? bodySyntax,
         ArrowExpressionClauseSyntax? expressionBody)
     {
-        if (!methodSymbol.IsAsync)
-            return;
-
         var boundBody = TryGetBoundBody(semanticModel, methodSymbol, bodySyntax, expressionBody);
         if (boundBody is null)
             return;
+
+        RewriteAsyncLambdas(boundBody);
 
         if (!AsyncLowerer.ShouldRewrite(methodSymbol, boundBody))
             return;
@@ -1228,6 +1229,44 @@ internal class CodeGenerator
             default:
                 return null;
         }
+    }
+
+    private void RewriteAsyncLambdas(BoundNode node)
+    {
+        var collector = new AsyncLambdaCollector();
+        collector.Visit(node);
+
+        if (collector.AsyncLambdas.Count == 0)
+            return;
+
+        var rewritten = new HashSet<SourceLambdaSymbol>(ReferenceEqualityComparer.Instance);
+
+        foreach (var lambda in collector.AsyncLambdas)
+        {
+            if (lambda.Symbol is not SourceLambdaSymbol sourceLambda)
+                continue;
+
+            if (!rewritten.Add(sourceLambda))
+                continue;
+
+            var block = ConvertLambdaToBlockStatement(sourceLambda, lambda.Body);
+
+            if (!AsyncLowerer.ShouldRewrite(sourceLambda, block))
+                continue;
+
+            AsyncLowerer.Rewrite(sourceLambda, block);
+        }
+    }
+
+    private static BoundBlockStatement ConvertLambdaToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)
+    {
+        if (body is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        if (lambda.ReturnType.SpecialType == SpecialType.System_Unit)
+            return new BoundBlockStatement(new[] { new BoundExpressionStatement(body) });
+
+        return new BoundBlockStatement(new[] { new BoundReturnStatement(body) });
     }
 
     private void EnsureIteratorStateMachines()
@@ -1430,6 +1469,17 @@ internal class CodeGenerator
 
         type = null!;
         return false;
+    }
+
+    private sealed class AsyncLambdaCollector : BoundTreeWalker
+    {
+        public List<BoundLambdaExpression> AsyncLambdas { get; } = new();
+
+        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        {
+            AsyncLambdas.Add(node);
+            base.VisitLambdaExpression(node);
+        }
     }
 
 }

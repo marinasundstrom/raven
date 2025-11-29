@@ -45,8 +45,9 @@ internal abstract class Binder
     protected BoundErrorExpression ErrorExpression(
         ITypeSymbol? type = null,
         ISymbol? symbol = null,
-        BoundExpressionReason reason = BoundExpressionReason.None)
-        => BoundFactory.ErrorExpression(type, symbol, reason);
+        BoundExpressionReason reason = BoundExpressionReason.None,
+        ImmutableArray<ISymbol> candidates = default)
+        => BoundFactory.ErrorExpression(type, symbol, reason, candidates);
 
     protected internal bool IsSymbolAccessible(ISymbol symbol)
     {
@@ -1468,6 +1469,9 @@ internal abstract class Binder
 
         if (type.TypeKind == TypeKind.Error)
             return true;
+
+        if (type is NullableTypeSymbol nullable)
+            type = nullable.UnderlyingType;
 
         if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return true;
