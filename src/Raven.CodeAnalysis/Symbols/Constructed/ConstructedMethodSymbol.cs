@@ -20,7 +20,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ConstructedMethodSymbol(IMethodSymbol definition, ImmutableArray<ITypeSymbol> typeArguments)
     {
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
-        _typeArguments = typeArguments;
+        _typeArguments = typeArguments.IsDefault
+            ? ImmutableArray<ITypeSymbol>.Empty
+            : typeArguments;
 
         var typeParameters = definition.TypeParameters;
         if (typeParameters.Length != typeArguments.Length)
@@ -242,7 +244,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
         var debug = ConstructedMethodDebugging.IsEnabled();
-        var runtimeTypeArguments = TypeArguments
+        var typeArguments = TypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : TypeArguments;
+        var runtimeTypeArguments = typeArguments
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 
