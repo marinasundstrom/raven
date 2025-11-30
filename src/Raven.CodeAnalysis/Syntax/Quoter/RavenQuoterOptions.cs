@@ -29,6 +29,8 @@ public sealed class RavenQuoterOptions
 
     public bool GenerateUsingDirectives { get; init; } = true;
 
+    public bool UseNamedArguments { get; init; } = false;
+
     /// <summary>
     /// Name of the generated class when WrapInClass is true.
     /// </summary>

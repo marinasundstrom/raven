@@ -24,7 +24,8 @@ class Program
 
         var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
         {
-            UseStaticSyntaxFactoryImport = true
+            UseStaticSyntaxFactoryImport = true,
+            UseNamedArguments = true
         });
 
         Console.WriteLine("\n\nAST in C#:");
@@ -32,53 +33,53 @@ class Program
         Console.WriteLine(quoted);
 
         var cu = CompilationUnit(
-            List<AttributeListSyntax>(),
-            SingletonList<ImportDirectiveSyntax>(ImportDirective(
-                Token(SyntaxKind.ImportKeyword).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
-                QualifiedName(
-                    IdentifierName(
-                        Identifier("System")
+    attributeLists: List<AttributeListSyntax>(),
+    imports: SingletonList<ImportDirectiveSyntax>(ImportDirective(
+        importKeyword: Token(SyntaxKind.ImportKeyword).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+        name: QualifiedName(
+            left: IdentifierName(
+                identifier: Identifier("System")
+            ),
+            dotToken: Token(SyntaxKind.DotToken),
+            right: WildcardName(
+                startToken: Token(SyntaxKind.StarToken)
+            )
+        ),
+        terminatorToken: Token(SyntaxKind.NewLineToken)
+    )),
+    aliases: List<AliasDirectiveSyntax>(),
+    members: SingletonList<MemberDeclarationSyntax>(GlobalStatement(
+        attributeLists: List<AttributeListSyntax>(),
+        modifiers: TokenList(),
+        statement: ExpressionStatement(
+            expression: InvocationExpression(
+                expression: MemberAccessExpression(
+                    kind: SyntaxKind.SimpleMemberAccessExpression,
+                    expression: IdentifierName(
+                        identifier: Identifier("Console").WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n")))
                     ),
-                    Token(SyntaxKind.DotToken),
-                    WildcardName(
-                        Token(SyntaxKind.StarToken)
+                    operatorToken: Token(SyntaxKind.DotToken),
+                    name: IdentifierName(
+                        identifier: Identifier("WriteLine")
                     )
                 ),
-                Token(SyntaxKind.NewLineToken)
-            )),
-            List<AliasDirectiveSyntax>(),
-            SingletonList<MemberDeclarationSyntax>(GlobalStatement(
-                List<AttributeListSyntax>(),
-                TokenList(),
-                ExpressionStatement(
-                    InvocationExpression(
-                        MemberAccessExpression(
-                            SyntaxKind.SimpleMemberAccessExpression,
-                            IdentifierName(
-                                Identifier("Console").WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n")))
-                            ),
-                            Token(SyntaxKind.DotToken),
-                            IdentifierName(
-                                Identifier("WriteLine")
-                            )
-                        ),
-                        ArgumentList(
-                            Token(SyntaxKind.OpenParenToken),
-                            SingletonSeparatedList<ArgumentSyntax>(Argument(
-                                null,
-                                LiteralExpression(
-                                    SyntaxKind.StringLiteralExpression,
-                                    Literal("\"Hello, World!\"")
-                                )
-                            )),
-                            Token(SyntaxKind.CloseParenToken)
+                argumentList: ArgumentList(
+                    openParenToken: Token(SyntaxKind.OpenParenToken),
+                    arguments: SingletonSeparatedList<ArgumentSyntax>(Argument(
+                        nameColon: null,
+                        expression: LiteralExpression(
+                            kind: SyntaxKind.StringLiteralExpression,
+                            token: Literal("\"Hello, World!\"")
                         )
-                    ),
-                    Token(SyntaxKind.None)
+                    )),
+                    closeParenToken: Token(SyntaxKind.CloseParenToken)
                 )
-            )),
-            Token(SyntaxKind.EndOfFileToken)
-        ).NormalizeWhitespace();
+            ),
+            terminatorToken: Token(SyntaxKind.None)
+        )
+    )),
+    endOfFileToken: Token(SyntaxKind.EndOfFileToken)
+).NormalizeWhitespace();
 
         Console.WriteLine("\n\nAST to string:");
 

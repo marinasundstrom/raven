@@ -226,6 +226,12 @@ public static class RavenQuoter
                 for (int i = 0; i < paramValues.Count; i++)
                 {
                     var (p, value) = paramValues[i];
+
+                    if (_options.UseNamedArguments)
+                    {
+                        _w.Write($"{p.Name}: ");
+                    }
+
                     WriteValue(p.ParameterType, value);
 
                     if (i < paramValues.Count - 1)
