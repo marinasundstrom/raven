@@ -527,7 +527,22 @@ public static class RavenQuoter
             {
                 WriteFactoryMethodName("SingletonList");
                 _w.Write($"<{typeName}>(");
+
+                var hasChild = items[0] is SyntaxNode sn && sn.DescendantNodes().Any();
+
+                if (hasChild)
+                {
+                    _w.WriteLine();
+                    _w.Indent();
+                }
+
                 WriteValue(elemType, items[0]!);
+
+                if (hasChild)
+                {
+                    _w.Unindent();
+                }
+
                 _w.Write(")");
                 return;
             }
@@ -570,7 +585,22 @@ public static class RavenQuoter
             {
                 WriteFactoryMethodName("SingletonSeparatedList");
                 _w.Write($"<{typeName}>(");
+
+                var hasChild = items[0] is SyntaxNode sn && sn.DescendantNodesAndTokens().Any();
+
+                if (hasChild)
+                {
+                    _w.WriteLine();
+                    _w.Indent();
+                }
+
                 WriteValue(elemType, items[0]!);
+
+                if (hasChild)
+                {
+                    _w.Unindent();
+                }
+
                 _w.Write(")");
                 return;
             }
