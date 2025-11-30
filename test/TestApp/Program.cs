@@ -28,9 +28,9 @@ class Program
 
         var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
         {
-            IncludeTrivia = false,
+            IncludeTrivia = true,
             GenerateUsingDirectives = true,
-            UseStaticSyntaxFactoryImport = false,
+            UseStaticSyntaxFactoryImport = true,
             UseNamedArguments = true,
             IgnoreNullValue = true,
             UseFactoryPropsForSimpleTokens = true
@@ -42,51 +42,91 @@ class Program
 
         var cu = CompilationUnit(
     attributeLists: List<AttributeListSyntax>(),
-    imports: SingletonList<ImportDirectiveSyntax>(ImportDirective(
-        importKeyword: Token(SyntaxKind.ImportKeyword).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
-        name: QualifiedName(
-            left: IdentifierName(
-                identifier: Identifier("System")
-            ),
-            dotToken: Token(SyntaxKind.DotToken),
-            right: WildcardName(
-                startToken: Token(SyntaxKind.StarToken)
-            )
-        ),
-        terminatorToken: Token(SyntaxKind.NewLineToken)
-    )),
-    aliases: List<AliasDirectiveSyntax>(),
-    members: SingletonList<MemberDeclarationSyntax>(GlobalStatement(
-        attributeLists: List<AttributeListSyntax>(),
-        modifiers: TokenList(),
-        statement: ExpressionStatement(
-            expression: InvocationExpression(
-                expression: MemberAccessExpression(
-                    kind: SyntaxKind.SimpleMemberAccessExpression,
-                    expression: IdentifierName(
-                        identifier: Identifier("Console").WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n")))
-                    ),
-                    operatorToken: Token(SyntaxKind.DotToken),
-                    name: IdentifierName(
-                        identifier: Identifier("WriteLine")
-                    )
+    imports: SingletonList(
+        ImportDirective(
+            importKeyword: ImportKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+            name: QualifiedName(
+                left: IdentifierName(
+                    identifier: Identifier("System")
                 ),
-                argumentList: ArgumentList(
-                    openParenToken: Token(SyntaxKind.OpenParenToken),
-                    arguments: SingletonSeparatedList<ArgumentSyntax>(Argument(
-                        nameColon: null,
-                        expression: LiteralExpression(
-                            kind: SyntaxKind.StringLiteralExpression,
-                            token: Literal("\"Hello, World!\"")
-                        )
-                    )),
-                    closeParenToken: Token(SyntaxKind.CloseParenToken)
+                dotToken: DotToken,
+                right: WildcardName(
+                    startToken: StarToken
                 )
             ),
-            terminatorToken: Token(SyntaxKind.None)
-        )
-    )),
-    endOfFileToken: Token(SyntaxKind.EndOfFileToken)
+            terminatorToken: NewLineToken
+        )),
+    aliases: List<AliasDirectiveSyntax>(),
+    members: SingletonList<MemberDeclarationSyntax>(
+        GlobalStatement(
+            attributeLists: List<AttributeListSyntax>(),
+            modifiers: TokenList(),
+            statement: IfStatement(
+                ifKeyword: IfKeyword.WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n"))).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+                condition: LiteralExpression(
+                    kind: SyntaxKind.TrueLiteralExpression,
+                    token: TrueKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " ")))
+                ),
+                thenStatement: BlockStatement(
+                    openBraceToken: OpenBraceToken,
+                    statements: SingletonList<StatementSyntax>(
+                        ExpressionStatement(
+                            expression: InvocationExpression(
+                                expression: MemberAccessExpression(
+                                    kind: SyntaxKind.SimpleMemberAccessExpression,
+                                    expression: IdentifierName(
+                                        identifier: Identifier("Console").WithLeadingTrivia(TriviaList(
+                                            new[] {
+                                                Trivia(SyntaxKind.EndOfLineTrivia, "\n"),
+                                                Trivia(SyntaxKind.WhitespaceTrivia, "    ")
+                                            }
+                                        ))
+                                    ),
+                                    operatorToken: DotToken,
+                                    name: IdentifierName(
+                                        identifier: Identifier("WriteLine")
+                                    )
+                                ),
+                                argumentList: ArgumentList(
+                                    openParenToken: OpenParenToken,
+                                    arguments: SingletonSeparatedList<ArgumentSyntax>(
+                                        Argument(
+                                            expression: LiteralExpression(
+                                                kind: SyntaxKind.StringLiteralExpression,
+                                                token: Literal("\"Hello, World!\"", "Hello, World!")
+                                            )
+                                        )),
+                                    closeParenToken: CloseParenToken
+                                )
+                            ),
+                            terminatorToken: NewLineToken
+                        )),
+                    closeBraceToken: CloseBraceToken.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " ")))
+                ),
+                elseClause: ElseClause2(
+                    elseKeyword: ElseKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+                    statement: BlockStatement(
+                        openBraceToken: OpenBraceToken,
+                        statements: SingletonList<StatementSyntax>(
+                            ExpressionStatement(
+                                expression: LiteralExpression(
+                                    kind: SyntaxKind.NumericLiteralExpression,
+                                    token: Literal("42", 42).WithLeadingTrivia(TriviaList(
+                                        new[] {
+                                            Trivia(SyntaxKind.EndOfLineTrivia, "\n"),
+                                            Trivia(SyntaxKind.WhitespaceTrivia, "    ")
+                                        }
+                                    ))
+                                ),
+                                terminatorToken: NewLineToken
+                            )),
+                        closeBraceToken: CloseBraceToken
+                    )
+                ),
+                terminatorToken: Token(SyntaxKind.None)
+            )
+        )),
+    endOfFileToken: EndOfFileToken
 ).NormalizeWhitespace();
 
         Console.WriteLine("\n\nAST to string:");
