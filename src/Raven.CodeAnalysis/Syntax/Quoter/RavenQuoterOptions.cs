@@ -49,6 +49,12 @@ public sealed class RavenQuoterOptions
     public bool IgnoreNullValue { get; init; } = true;
 
     /// <summary>
+    /// If true, simple tokens are instantiated via their factory properties.
+    /// If false, simple tokens are instantiated via Token(SyntaxKind.<Kind>)
+    /// </summary>
+    public bool UseFactoryPropsForSimpleTokens { get; init; } = true;
+
+    /// <summary>
     /// Name of the generated class when WrapInClass is true.
     /// </summary>
     public string GeneratedClassName { get; init; } = "QuotedSyntax";

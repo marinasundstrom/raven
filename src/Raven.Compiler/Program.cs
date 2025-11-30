@@ -443,7 +443,8 @@ if (quote)
     {
         UseStaticSyntaxFactoryImport = true,
         UseNamedArguments = quoteWithNamedArgs,
-        IgnoreNullValue = true
+        IgnoreNullValue = true,
+        IncludeTrivia = false
     });
 
     Console.WriteLine(quoted);

@@ -379,10 +379,17 @@ public static class RavenQuoter
                 }
                 else
                 {
-                    WriteFactoryMethodName("Token");
-                    _w.Write("(SyntaxKind.");
-                    _w.Write(token.Kind.ToString());
-                    _w.Write(")");
+                    if (_options.UseFactoryPropsForSimpleTokens)
+                    {
+                        WriteFactoryMethodName($"{token.Kind.ToString()}");
+                    }
+                    else
+                    {
+                        WriteFactoryMethodName("Token");
+                        _w.Write("(SyntaxKind.");
+                        _w.Write(token.Kind.ToString());
+                        _w.Write(")");
+                    }
                 }
 
                 return;
