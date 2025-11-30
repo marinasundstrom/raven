@@ -27,9 +27,26 @@ public sealed class RavenQuoterOptions
     /// </summary>
     public bool UseStaticSyntaxFactoryImport { get; init; } = true;
 
+    /// <summary>
+    /// If true, using directives are generated:
+    ///   using Raven.CodeAnalysis.Syntax;
+    /// If false, no using directives are generated.
+    /// </summary>
+    /// <remarks>This also affects the UseStaticSyntaxFactoryImport option</remarks>
     public bool GenerateUsingDirectives { get; init; } = true;
 
+    /// <summary>
+    /// If true, named arguments are generated.
+    /// </summary>
     public bool UseNamedArguments { get; init; } = false;
+
+    /// <summary>
+    /// If true, named arguments that are null are not printed.
+    /// If false, named arguments that are null are printed.
+    ///     expression: null
+    /// </summary>
+    /// <remarks>When UseNamedArguments is enabled</remarks>
+    public bool IgnoreNullValue { get; init; } = true;
 
     /// <summary>
     /// Name of the generated class when WrapInClass is true.

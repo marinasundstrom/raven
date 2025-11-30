@@ -227,6 +227,11 @@ public static class RavenQuoter
                 {
                     var (p, value) = paramValues[i];
 
+                    if (value is null
+                        && _options.UseNamedArguments
+                        && _options.IgnoreNullValue)
+                        continue;
+
                     if (_options.UseNamedArguments)
                     {
                         _w.Write($"{p.Name}: ");

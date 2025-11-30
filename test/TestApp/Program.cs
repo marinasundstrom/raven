@@ -16,7 +16,9 @@ class Program
         var code = """
         import System.*
 
-        Console.WriteLine("Hello, World!")
+        if true {
+            Console.WriteLine("Hello, World!")
+        }
         """;
 
         Console.WriteLine("Input:");
@@ -25,7 +27,8 @@ class Program
         var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
         {
             UseStaticSyntaxFactoryImport = true,
-            UseNamedArguments = true
+            UseNamedArguments = true,
+            IgnoreNullValue = true
         });
 
         Console.WriteLine("\n\nAST in C#:");
