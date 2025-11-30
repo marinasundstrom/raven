@@ -36,7 +36,7 @@ public class Foo(ITestOutputHelper testOutputHelper)
         var f = root.DescendantNodes().OfType<LiteralExpressionSyntax>().First();
         var node = (LiteralExpressionSyntax)f.WithAdditionalAnnotations(new SyntaxAnnotation("test"));
 
-        var node2 = node.WithToken(SyntaxFactory.NumericLiteral(42));
+        var node2 = node.WithToken(SyntaxFactory.Literal(42));
 
         var newRoot = root.ReplaceNode(f, node2);
 

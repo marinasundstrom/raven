@@ -9,7 +9,7 @@ public partial class SyntaxNodeTest
     {
         var returnStatement = ReturnStatement(
             ReturnKeyword,
-            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(1)),
+            LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1)),
             NewLineToken);
 
         var span = returnStatement.Span;
@@ -24,7 +24,7 @@ public partial class SyntaxNodeTest
     {
         var returnStatement = ReturnStatement(
             ReturnKeyword,
-            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(1)),
+            LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1)),
             SemicolonToken);
 
         returnStatement.EffectiveSpan.ShouldBe(returnStatement.Span);

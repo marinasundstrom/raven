@@ -8,7 +8,7 @@ public class GreenTreeTest2
         var node = SyntaxFactory.ReturnStatement(
             SyntaxFactory.ReturnKeyword,
             SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
-                SyntaxFactory.NumericLiteral(2)),
+                SyntaxFactory.Literal(2)),
             SyntaxFactory.Token(SyntaxKind.None)
         );
 
@@ -22,7 +22,7 @@ public class GreenTreeTest2
         var node = SyntaxFactory.ReturnStatement(
             SyntaxFactory.ReturnKeyword,
             SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
-                SyntaxFactory.NumericLiteral(2)),
+                SyntaxFactory.Literal(2)),
             SyntaxFactory.SemicolonToken
         );
 

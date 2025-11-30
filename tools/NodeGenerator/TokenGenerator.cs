@@ -22,7 +22,8 @@ internal static class TokenGenerator
         sb.AppendLine("{");
         foreach (var t in tokens.Where(t => t.Text != null && !t.IsTrivia))
         {
-            var literal = t.Text!.Length == 0 ? "string.Empty" : $"\"{Escape(t.Text)}\"";
+            var v = t.Text ?? t.Value;
+            var literal = v!.Length == 0 ? "string.Empty" : $"\"{Escape(v)}\"";
             sb.AppendLine($"    public static readonly SyntaxToken {t.Name} = new SyntaxToken(SyntaxKind.{t.Name}, {literal});");
         }
         sb.AppendLine("}");

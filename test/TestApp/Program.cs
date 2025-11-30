@@ -3,11 +3,104 @@ using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
+
+using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
 class Program
 {
     private const string TargetFramework = "net9.0";
     static void Main()
+    {
+        var code = """
+        import System.*
+
+        Console.WriteLine("Hello, World!")
+        """;
+
+        Console.WriteLine("Input:");
+        Console.WriteLine(code);
+
+        var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
+        {
+            UseStaticSyntaxFactoryImport = true
+        });
+
+        Console.WriteLine("\n\nAST in C#:");
+
+        Console.WriteLine(quoted);
+
+        var cu = CompilationUnit(
+    List<AttributeListSyntax>(),
+    SingletonList<ImportDirectiveSyntax>(ImportDirective(
+        QualifiedName(
+            IdentifierName(
+                Identifier("System")
+            ),
+            WildcardName(Token(SyntaxKind.StarToken))
+        )
+    )
+        .WithImportKeyword(Token(SyntaxKind.ImportKeyword).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))))
+        .WithTerminatorToken(Token(SyntaxKind.NewLineToken))),
+    List<AliasDirectiveSyntax>(),
+    SingletonList<MemberDeclarationSyntax>(GlobalStatement(
+        List<AttributeListSyntax>(),
+        TokenList(),
+        ExpressionStatement(
+            InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName(
+                        Identifier("Console").WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n")))
+                    ),
+                    Token(SyntaxKind.DotToken),
+                    IdentifierName(
+                        Identifier("WriteLine")
+                    )
+                ),
+                ArgumentList(
+                    SingletonSeparatedList<ArgumentSyntax>(Argument(
+                        LiteralExpression(
+                            SyntaxKind.StringLiteralExpression,
+                            Literal("\"Hello, World!\"")
+                        )
+                    ))
+                )
+                    .WithOpenParenToken(Token(SyntaxKind.OpenParenToken))
+                    .WithCloseParenToken(Token(SyntaxKind.CloseParenToken))
+            )
+        )
+            .WithTerminatorToken(Token(SyntaxKind.None))
+    ))
+)
+    .WithEndOfFileToken(Token(SyntaxKind.EndOfFileToken)).NormalizeWhitespace();
+
+        Console.WriteLine("\n\nAST to string:");
+
+        Console.WriteLine(cu);
+
+        var syntaxTree = SyntaxTree.Create(cu);
+
+        var compilation = Compilation.Create("test", [syntaxTree], options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
+        var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
+        };
+        compilation = compilation.AddReferences(references);
+
+        Console.WriteLine("\n\nAST to highlighted syntax:");
+
+        Console.WriteLine(ConsoleSyntaxHighlighter.WriteNodeToText(syntaxTree.GetRoot(), compilation, true));
+    }
+
+    static void PrintMembers()
     {
         var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication));
         var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);

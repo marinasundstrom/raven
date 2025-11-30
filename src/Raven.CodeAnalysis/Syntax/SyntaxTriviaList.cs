@@ -165,5 +165,7 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>, IEquatable<SyntaxTri
 
 public static partial class SyntaxFactory
 {
+    public static SyntaxTriviaList TriviaList() => SyntaxTriviaList.Empty;
+
     public static SyntaxTriviaList TriviaList(params IEnumerable<SyntaxTrivia> trivias) => new SyntaxTriviaList(trivias);
 }

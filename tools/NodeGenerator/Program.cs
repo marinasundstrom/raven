@@ -251,6 +251,7 @@ List<TokenKindModel> LoadTokenKindsFromXml(string path)
         {
             Name = tokenElement.Attribute("Name")?.Value ?? throw new Exception("TokenKind missing Name"),
             Text = tokenElement.Attribute("Text")?.Value,
+            Value = tokenElement.Attribute("Value")?.Value,
             IsReservedWord = ParseBool(tokenElement.Attribute("IsReservedWord")),
             IsTrivia = ParseBool(tokenElement.Attribute("IsTrivia")),
             IsUnaryOperator = ParseBool(tokenElement.Attribute("IsUnaryOperator")),
@@ -291,6 +292,7 @@ record TokenKindModel
 {
     public required string Name { get; init; }
     public string? Text { get; init; }
+    public string? Value { get; init; }
     public bool IsReservedWord { get; init; }
     public bool IsTrivia { get; init; }
     public bool IsUnaryOperator { get; init; }

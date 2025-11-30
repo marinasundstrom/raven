@@ -8,6 +8,9 @@ public static partial class SyntaxFactory
 
     public static SyntaxToken Token(SyntaxKind kind) => (SyntaxToken)InternalSyntax.SyntaxFactory.Token(kind);
 
-    public static SyntaxToken IdentifierToken(string text) => (SyntaxToken)InternalSyntax.SyntaxFactory.IdentifierToken(text);
-    public static SyntaxToken NumericLiteral(int value) => (SyntaxToken)InternalSyntax.SyntaxFactory.NumericLiteral(value);
+    public static SyntaxToken Identifier(string text) => (SyntaxToken)InternalSyntax.SyntaxFactory.IdentifierToken(text);
+
+    public static SyntaxToken Literal(int value) => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(value);
+    public static SyntaxToken Literal(string value) => (SyntaxToken)InternalSyntax.SyntaxFactory.Literal(value);
+
 }
