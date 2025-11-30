@@ -461,9 +461,9 @@
   </Node>
   <Node Name="DefaultExpression" Inherits="Expression">
     <Slot Name="DefaultKeyword" Type="Token" DefaultToken="DefaultKeyword" />
-    <Slot Name="OpenParenToken" Type="Token" IsNullable="true" DefaultToken="OpenParenToken" />
+    <Slot Name="OpenParenToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Type" Type="Type" IsNullable="true" />
-    <Slot Name="CloseParenToken" Type="Token" IsNullable="true" DefaultToken="CloseParenToken" />
+    <Slot Name="CloseParenToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="TypeOfExpression" Inherits="Expression">
     <Slot Name="TypeOfKeyword" Type="Token" DefaultToken="TypeOfKeyword" />
