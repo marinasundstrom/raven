@@ -33,6 +33,14 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         greenList.ComputeSpanAndFullSpan(position, out _span, out _fullSpan);
     }
 
+    public SeparatedSyntaxList(SyntaxNodeOrToken item)
+    {
+        GreenNode[] p = [item.Green];
+        Green = new InternalSyntax.SyntaxList(p);
+
+        Green.ComputeSpanAndFullSpan(_position, out _span, out _fullSpan);
+    }
+
     public SeparatedSyntaxList(params SyntaxNodeOrToken[] items)
     {
         var p = items.Select(x => x.Green).ToArray();
@@ -140,11 +148,15 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
 public static partial class SyntaxFactory
 {
-    public static SeparatedSyntaxList<TNode> EmptySeparatedList<TNode>()
+    public static SeparatedSyntaxList<TNode> SeparatedList<TNode>()
         where TNode : SyntaxNode
         => new SeparatedSyntaxList<TNode>(null, (SyntaxNode)null);
 
     public static SeparatedSyntaxList<TNode> SeparatedList<TNode>(params SyntaxNodeOrToken[] items)
         where TNode : SyntaxNode
         => new SeparatedSyntaxList<TNode>(items);
+
+    public static SeparatedSyntaxList<TNode> SingletonSeparatedList<TNode>(SyntaxNodeOrToken item)
+        where TNode : SyntaxNode
+        => new SeparatedSyntaxList<TNode>(item);
 }

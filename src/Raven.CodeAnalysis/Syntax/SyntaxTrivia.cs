@@ -96,6 +96,8 @@ public abstract class StructuredTriviaSyntax : SyntaxNode
 
 public static partial class SyntaxFactory
 {
+    public static SyntaxTrivia Trivia(SyntaxKind kind, string text) => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Trivia(kind, text);
+
     public static SyntaxTrivia Trivia(StructuredTriviaSyntax structuredTrivia) => (SyntaxTrivia)InternalSyntax.SyntaxFactory.StructuredTrivia((InternalSyntax.SyntaxNode)structuredTrivia.Green);
 
     public static SkippedTokensTrivia SkippedTokensTrivia(SyntaxTokenList tokens) => new SkippedTokensTrivia(tokens);

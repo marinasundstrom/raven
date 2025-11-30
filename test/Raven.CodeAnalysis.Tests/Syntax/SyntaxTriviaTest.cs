@@ -79,7 +79,7 @@ public class StructuredSyntaxTriviaTest
             .WithTrailingTrivia(
                 Trivia(
                     SkippedTokensTrivia(
-                        TokenList(IdentifierToken("Foo")))));
+                        TokenList(Identifier("Foo")))));
 
         var z = x.TrailingTrivia.First();
         var y = z.GetStructure();

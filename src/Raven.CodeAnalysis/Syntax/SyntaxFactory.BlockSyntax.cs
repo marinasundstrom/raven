@@ -4,5 +4,5 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static partial class SyntaxFactory
 {
-    public static BlockSyntax Block() => new BlockSyntax(OpenBraceToken, EmptyList<StatementSyntax>(), CloseBraceToken);
+    public static BlockSyntax Block() => new BlockSyntax(OpenBraceToken, List<StatementSyntax>(), CloseBraceToken);
 }

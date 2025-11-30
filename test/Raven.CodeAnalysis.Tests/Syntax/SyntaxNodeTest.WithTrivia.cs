@@ -13,7 +13,7 @@ public partial class SyntaxNodeTest
             OpenBraceToken,
             List<StatementSyntax>(
                 ReturnStatement(ReturnKeyword,
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+                    LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)),
                     SemicolonToken)
             ),
             CloseBraceToken
@@ -31,7 +31,7 @@ public partial class SyntaxNodeTest
                 .WithTrailingTrivia(LineFeed),
             List<StatementSyntax>(
                 ReturnStatement(ReturnKeyword.WithLeadingTrivia(Whitespace("    ")),
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42).WithLeadingTrivia(Whitespace(" "))),
+                    LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42).WithLeadingTrivia(Whitespace(" "))),
                     SemicolonToken.WithTrailingTrivia(LineFeed))
                     .WithTrailingTrivia(LineFeed)
             ),
@@ -49,7 +49,7 @@ public partial class SyntaxNodeTest
             OpenBraceToken,
             List<StatementSyntax>(
                 ReturnStatement(ReturnKeyword,
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+                    LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)),
                     SemicolonToken)
             ),
             CloseBraceToken
@@ -70,7 +70,7 @@ public partial class SyntaxNodeTest
             OpenBraceToken,
             List<StatementSyntax>(
                 ReturnStatement(ReturnKeyword,
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+                    LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)),
                     SemicolonToken)
             ),
             CloseBraceToken
@@ -78,7 +78,7 @@ public partial class SyntaxNodeTest
 
         var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().First();
 
-        var newChild = ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(20)), NewLineToken);
+        var newChild = ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(20)), NewLineToken);
 
         var newBlock = block.ReplaceNode(returnStatement, newChild);
 

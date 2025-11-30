@@ -25,7 +25,7 @@ public class SyntaxTokenTest
     [Fact]
     public void IdentifierToken()
     {
-        var token = SyntaxFactory.IdentifierToken("test");
+        var token = SyntaxFactory.Identifier("test");
 
         token.Kind.ShouldBe(SyntaxKind.IdentifierToken);
 

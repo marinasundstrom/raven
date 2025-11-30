@@ -6,10 +6,11 @@ internal static partial class SyntaxFactory
 {
     public static SyntaxToken MissingToken(SyntaxKind kind) => SyntaxToken.Missing(kind);
 
-    public static SyntaxToken Token(SyntaxKind kind) => new SyntaxToken(kind, string.Empty);
+    public static SyntaxToken Token(SyntaxKind kind) => new SyntaxToken(kind, SyntaxFacts.GetSyntaxTokenText(kind) ?? string.Empty);
 
     public static SyntaxToken IdentifierToken(string text) => new SyntaxToken(SyntaxKind.IdentifierToken, text);
-    public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length);
+    public static SyntaxToken Literal(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length);
+    public static SyntaxToken Literal(string value) => new SyntaxToken(SyntaxKind.StringLiteralToken, value.ToString(), value, value.ToString().Length);
 
     public static SyntaxTrivia Whitespace(string text) => new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, text);
     public static readonly SyntaxTrivia LineFeed = new SyntaxTrivia(SyntaxKind.LineFeedTrivia, "\n");

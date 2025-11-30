@@ -128,12 +128,12 @@
   <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
 
   <TokenKind Name="Whitespace" Text=" " IsTrivia="true" />
-  <TokenKind Name="TabToken" Text="\t" IsTrivia="true" />
-  <TokenKind Name="LineFeedToken" Text="\n" IsTrivia="true" />
-  <TokenKind Name="CarriageReturnToken" Text="\r" IsTrivia="true" />
-  <TokenKind Name="CarriageReturnLineFeedToken" Text="\r\n" IsTrivia="true" />
-  <TokenKind Name="NewLineToken" Text="\n" />
-  <TokenKind Name="EndOfFileToken" Text="" />
+  <TokenKind Name="TabToken" Value="\t" IsTrivia="true" />
+  <TokenKind Name="LineFeedToken" Value="\n" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnToken" Value="\r" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnLineFeedToken" Value="\r\n" IsTrivia="true" />
+  <TokenKind Name="NewLineToken" Value="\n" />
+  <TokenKind Name="EndOfFileToken" Value="" />
 
   <!-- Tokens without fixed text -->
   <TokenKind Name="IdentifierToken" />

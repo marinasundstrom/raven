@@ -16,7 +16,7 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
     public void Create_WithOneNode()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>([
-            SyntaxFactory.Parameter(EmptyList<AttributeListSyntax>(), IdentifierToken("a")),
+            SyntaxFactory.Parameter(List<AttributeListSyntax>(), Identifier("a")),
         ]);
 
         separatedSyntaxList.Count.ShouldBe(1);
@@ -28,7 +28,7 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
     public void Create_WithOneNodeAndOneSeparator()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>([
-            SyntaxFactory.Parameter(EmptyList<AttributeListSyntax>(), IdentifierToken("a")),
+            SyntaxFactory.Parameter(List<AttributeListSyntax>(), Identifier("a")),
             CommaToken
         ]);
 
@@ -41,9 +41,9 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
     public void Create_WithTwoNodesAndOneSeparator()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>([
-            SyntaxFactory.Parameter(EmptyList<AttributeListSyntax>(), IdentifierToken("a")),
+            SyntaxFactory.Parameter(List<AttributeListSyntax>(), Identifier("a")),
             CommaToken,
-            SyntaxFactory.Parameter(EmptyList<AttributeListSyntax>(), IdentifierToken("b"))
+            SyntaxFactory.Parameter(List<AttributeListSyntax>(), Identifier("b"))
         ]);
 
         separatedSyntaxList.Count.ShouldBe(2);

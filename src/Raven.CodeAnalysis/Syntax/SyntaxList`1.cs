@@ -178,7 +178,7 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
 
 public static partial class SyntaxFactory
 {
-    public static SyntaxList<TNode> EmptyList<TNode>()
+    public static SyntaxList<TNode> List<TNode>()
         where TNode : SyntaxNode
          => new SyntaxList<TNode>(new InternalSyntax.SyntaxList([]), null, 0);
 

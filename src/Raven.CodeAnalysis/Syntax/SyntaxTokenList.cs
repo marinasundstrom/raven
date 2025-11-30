@@ -78,5 +78,7 @@ public readonly struct SyntaxTokenList : IEnumerable<SyntaxToken>
 
 public static partial class SyntaxFactory
 {
+    public static SyntaxTokenList TokenList() => SyntaxTokenList.Empty;
+
     public static SyntaxTokenList TokenList(params IEnumerable<SyntaxToken> tokens) => new SyntaxTokenList(InternalSyntax.SyntaxFactory.TokenList(tokens.Select(x => x.Green).ToArray()), null, 0);
 }

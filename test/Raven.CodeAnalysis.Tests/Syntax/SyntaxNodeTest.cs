@@ -11,13 +11,13 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     {
         var ifExpression = IfExpression(
             IfKeyword,
-            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+            LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)),
             Block(),
             null);
 
         var condition = ifExpression.Condition;
 
-        var newCondition = LiteralExpression(SyntaxKind.StringLiteralExpression, IdentifierToken("test"));
+        var newCondition = LiteralExpression(SyntaxKind.StringLiteralExpression, Identifier("test"));
 
         var newIfStatement = ifExpression.ReplaceNode(condition, newCondition);
 
@@ -32,13 +32,13 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var block = Block(
             OpenBraceToken,
             List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)), SemicolonToken),
-                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(24)), SemicolonToken)
+                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)), SemicolonToken),
+                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(24)), SemicolonToken)
             ),
             CloseBraceToken);
 
         var oldReturnStatement = block.Statements[1];
-        var newReturnStatement = ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(100)), SemicolonToken);
+        var newReturnStatement = ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(100)), SemicolonToken);
 
         var newBlock = block.ReplaceNode(oldReturnStatement, newReturnStatement);
 
@@ -53,11 +53,11 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     {
         var ifExpression = IfExpression(
             IfKeyword.WithTrailingTrivia(Space),
-            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+            LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)),
             Block(),
             null);
 
-        var newIfKeyword = IdentifierToken("test").WithTrailingTrivia(Space);
+        var newIfKeyword = Identifier("test").WithTrailingTrivia(Space);
 
         var newIfStatement = ifExpression.ReplaceToken(ifExpression.IfKeyword, newIfKeyword);
 
@@ -71,12 +71,12 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     {
         var ifExpression = IfExpression(
             IfKeyword,
-            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+            LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)),
             Block(),
             null);
 
         var oldToken = ifExpression.Condition.GetFirstToken();
-        var newToken = NumericLiteral(100);
+        var newToken = Literal(100);
 
         var newIfStatement = ifExpression.ReplaceToken(oldToken, newToken);
 
@@ -91,14 +91,14 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var block = Block(
             OpenBraceToken.WithTrailingTrivia(Space),
             List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)), SemicolonToken),
-                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(24)), SemicolonToken)
+                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)), SemicolonToken),
+                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(24)), SemicolonToken)
             ),
             CloseBraceToken);
 
         var newStatements = List<StatementSyntax>(
-            ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(100)), SemicolonToken),
-            ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(200)), SemicolonToken)
+            ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(100)), SemicolonToken),
+            ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(200)), SemicolonToken)
         );
 
         var newBlock = block.WithStatements(newStatements);
@@ -116,8 +116,8 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var block = Block(
             OpenBraceToken.WithTrailingTrivia(Space),
             List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)), SemicolonToken),
-                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(24)), SemicolonToken)
+                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)), SemicolonToken),
+                ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(24)), SemicolonToken)
             ),
             CloseBraceToken);
 
@@ -128,7 +128,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var oldToken = oldReturnStatement.Expression!.GetFirstToken();
 
         // Create the new token
-        var newToken = NumericLiteral(100);
+        var newToken = Literal(100);
 
         // Replace the token in the block
         var newBlock = block.ReplaceToken(oldToken, newToken);
@@ -152,15 +152,15 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var block = Block(
             OpenBraceToken,
             List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword, LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)), NewLineToken)
+                ReturnStatement(ReturnKeyword, LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)), NewLineToken)
             ),
             CloseBraceToken);
 
         // Nodes to replace the single return statement
         var newStatements = new List<SyntaxNode>
         {
-            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(100)), NewLineToken),
-            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(200)), NewLineToken)
+            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(100)), NewLineToken),
+            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(200)), NewLineToken)
         };
 
         // Perform the replacement
@@ -179,7 +179,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     {
         var ifExpression = IfExpression(
             IfKeyword,
-            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+            LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(42)),
             Block(),
             null);
 
