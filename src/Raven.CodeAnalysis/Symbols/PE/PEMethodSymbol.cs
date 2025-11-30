@@ -17,7 +17,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private ImmutableArray<ITypeSymbol>? _typeArguments;
     private Accessibility? _accessibility;
 
-    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _typeResolver = typeResolver;
@@ -60,9 +60,11 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         {
             MethodKind = MethodKind.Ordinary;
         }
+
+        AssociatedSymbol = associatedSymbol;
     }
 
-    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
+    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
     : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
         _typeResolver = typeResolver;
@@ -106,6 +108,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         {
             MethodKind = MethodKind.Ordinary;
         }
+
+        AssociatedSymbol = associatedSymbol;
     }
 
     public override SymbolKind Kind => SymbolKind.Method;
@@ -125,8 +129,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
                 }
                 else if (MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
                 {
-                    var declaringType = _methodInfo.DeclaringType ?? throw new InvalidOperationException($"Constructor '{_methodInfo}' is missing a declaring type.");
-                    _returnType = _typeResolver.ResolveType(declaringType, _methodInfo)!;
+                    _returnType = _typeResolver.ResolveType(typeof(void));
                 }
                 else
                 {
@@ -162,6 +165,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     public MethodKind MethodKind { get; }
 
     public IMethodSymbol? OriginalDefinition => this;
+
+    public ISymbol? AssociatedSymbol { get; }
 
     public bool IsAbstract => _methodInfo.IsAbstract;
 

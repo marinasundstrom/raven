@@ -52,6 +52,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public INamespaceSymbol? ContainingNamespace => _definition.ContainingNamespace;
     public IAssemblySymbol? ContainingAssembly => _definition.ContainingAssembly;
     public IModuleSymbol? ContainingModule => _definition.ContainingModule;
+    public ISymbol? AssociatedSymbol => _definition.AssociatedSymbol;
     public ImmutableArray<Location> Locations => _definition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _definition.DeclaringSyntaxReferences;
 
