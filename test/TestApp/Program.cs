@@ -18,6 +18,8 @@ class Program
 
         if true {
             Console.WriteLine("Hello, World!")
+        } else {
+            42
         }
         """;
 

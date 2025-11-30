@@ -165,9 +165,9 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 var thenReachable = _endPointIsReachable;
 
                 var elseReachable = beforeIf;
-                if (ifStatement.ElseStatement is { } elseStatement)
+                if (ifStatement.ElseClause is { } elseClause)
                 {
-                    _ = AnalyzeStatement(elseStatement, beforeIf);
+                    _ = AnalyzeStatement(elseClause.Statement, beforeIf);
                     elseReachable = _endPointIsReachable;
                 }
 
