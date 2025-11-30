@@ -28,9 +28,12 @@ class Program
 
         var quoted = RavenQuoter.QuoteText(code, new RavenQuoterOptions
         {
-            UseStaticSyntaxFactoryImport = true,
+            IncludeTrivia = false,
+            GenerateUsingDirectives = true,
+            UseStaticSyntaxFactoryImport = false,
             UseNamedArguments = true,
-            IgnoreNullValue = true
+            IgnoreNullValue = true,
+            UseFactoryPropsForSimpleTokens = true
         });
 
         Console.WriteLine("\n\nAST in C#:");
