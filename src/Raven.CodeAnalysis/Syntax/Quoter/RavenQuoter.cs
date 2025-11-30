@@ -220,8 +220,21 @@ public static class RavenQuoter
                 //     ...)
                 WriteFactoryMethodName(factory.Method.Name);
                 _w.Write("(");
-                _w.WriteLine();
-                _w.Indent();
+
+                var moreThanOneChild = paramValues.Count > 1;
+                var separateByNewline = moreThanOneChild
+                    || _options.UseNamedArguments;
+
+                if (!moreThanOneChild && !_options.InlineSingleArg)
+                {
+                    separateByNewline = true;
+                }
+
+                if (separateByNewline)
+                {
+                    _w.WriteLine();
+                    _w.Indent();
+                }
 
                 for (int i = 0; i < paramValues.Count; i++)
                 {
@@ -242,10 +255,18 @@ public static class RavenQuoter
                     if (i < paramValues.Count - 1)
                         _w.WriteLine(",");
                     else
-                        _w.WriteLine();
+                    {
+                        if (separateByNewline)
+                        {
+                            _w.WriteLine();
+                        }
+                    }
+                }
+                if (separateByNewline)
+                {
+                    _w.Unindent();
                 }
 
-                _w.Unindent();
                 _w.Write(")");
             }
             else
@@ -453,18 +474,30 @@ public static class RavenQuoter
                 }
             }
 
-            if (token.HasLeadingTrivia)
+            if (token.HasLeadingTrivia || token.HasTrailingTrivia)
             {
-                _w.Write(".WithLeadingTrivia(");
-                WriteTriviaList(token.LeadingTrivia);
-                _w.Write(")");
-            }
+                _w.WriteLine();
+                _w.Indent();
 
-            if (token.HasTrailingTrivia)
-            {
-                _w.Write(".WithTrailingTrivia(");
-                WriteTriviaList(token.TrailingTrivia);
-                _w.Write(")");
+                if (token.HasLeadingTrivia)
+                {
+                    _w.Write(".WithLeadingTrivia(");
+                    WriteTriviaList(token.LeadingTrivia);
+                    _w.Write(")");
+                }
+
+                if (token.HasTrailingTrivia)
+                {
+                    if (token.HasLeadingTrivia)
+                    {
+                        _w.WriteLine();
+                    }
+                    _w.Write(".WithTrailingTrivia(");
+                    WriteTriviaList(token.TrailingTrivia);
+                    _w.Write(")");
+                }
+
+                _w.Unindent();
             }
         }
 
@@ -578,9 +611,9 @@ public static class RavenQuoter
                 WriteFactoryMethodName("SingletonList");
                 _w.Write($"<{typeName}>(");
 
-                var hasChild = items[0] is SyntaxNode sn && sn.DescendantNodes().Any();
+                var hasMoreThanOneChild = items[0] is SyntaxNode sn && sn.DescendantNodes().Any();
 
-                if (hasChild)
+                if (hasMoreThanOneChild)
                 {
                     _w.WriteLine();
                     _w.Indent();
@@ -588,7 +621,7 @@ public static class RavenQuoter
 
                 WriteValue(elemType, items[0]!);
 
-                if (hasChild)
+                if (hasMoreThanOneChild)
                 {
                     _w.Unindent();
                 }
@@ -636,9 +669,9 @@ public static class RavenQuoter
                 WriteFactoryMethodName("SingletonSeparatedList");
                 _w.Write($"<{typeName}>(");
 
-                var hasChild = items[0] is SyntaxNode sn && sn.DescendantNodesAndTokens().Any();
+                var hasMoreThanOneChild = items[0] is SyntaxNode sn && sn.DescendantNodesAndTokens().Count() > 1;
 
-                if (hasChild)
+                if (hasMoreThanOneChild)
                 {
                     _w.WriteLine();
                     _w.Indent();
@@ -646,7 +679,7 @@ public static class RavenQuoter
 
                 WriteValue(elemType, items[0]!);
 
-                if (hasChild)
+                if (hasMoreThanOneChild)
                 {
                     _w.Unindent();
                 }

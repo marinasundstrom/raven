@@ -441,10 +441,13 @@ if (quote)
     var root = compilation.SyntaxTrees.First().GetRoot();
     var quoted = RavenQuoter.Quote(root, new RavenQuoterOptions
     {
+        IncludeTrivia = true,
+        GenerateUsingDirectives = true,
         UseStaticSyntaxFactoryImport = true,
         UseNamedArguments = quoteWithNamedArgs,
         IgnoreNullValue = true,
-        IncludeTrivia = false
+        InlineSingleArg = false,
+        UseFactoryPropsForSimpleTokens = true
     });
 
     Console.WriteLine(quoted);

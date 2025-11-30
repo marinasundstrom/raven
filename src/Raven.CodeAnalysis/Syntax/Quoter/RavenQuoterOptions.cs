@@ -42,11 +42,22 @@ public sealed class RavenQuoterOptions
 
     /// <summary>
     /// If true, named arguments that are null are not printed.
-    /// If false, named arguments that are null are printed.
+    /// If false, named arguments that are null are printed:
     ///     expression: null
     /// </summary>
     /// <remarks>When UseNamedArguments is enabled</remarks>
     public bool IgnoreNullValue { get; init; } = true;
+
+    /// <summary>
+    /// If true, single args will be inlined:
+    ///      IdentifierName(Identifier("Foo"))
+    /// If false, the default behavior:
+    ///     IdentifierName(
+    ///         Identifier("Foo")
+    ///     )
+    /// <summary>
+    /// <remarks>This is automatically disabled for named arguments</remarks>
+    public bool InlineSingleArg { get; init; } = false;
 
     /// <summary>
     /// If true, simple tokens are instantiated via their factory properties.
