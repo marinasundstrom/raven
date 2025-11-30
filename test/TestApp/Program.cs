@@ -32,49 +32,53 @@ class Program
         Console.WriteLine(quoted);
 
         var cu = CompilationUnit(
-    List<AttributeListSyntax>(),
-    SingletonList<ImportDirectiveSyntax>(ImportDirective(
-        QualifiedName(
-            IdentifierName(
-                Identifier("System")
-            ),
-            WildcardName(Token(SyntaxKind.StarToken))
-        )
-    )
-        .WithImportKeyword(Token(SyntaxKind.ImportKeyword).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))))
-        .WithTerminatorToken(Token(SyntaxKind.NewLineToken))),
-    List<AliasDirectiveSyntax>(),
-    SingletonList<MemberDeclarationSyntax>(GlobalStatement(
-        List<AttributeListSyntax>(),
-        TokenList(),
-        ExpressionStatement(
-            InvocationExpression(
-                MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
+            List<AttributeListSyntax>(),
+            SingletonList<ImportDirectiveSyntax>(ImportDirective(
+                Token(SyntaxKind.ImportKeyword).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+                QualifiedName(
                     IdentifierName(
-                        Identifier("Console").WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n")))
+                        Identifier("System")
                     ),
                     Token(SyntaxKind.DotToken),
-                    IdentifierName(
-                        Identifier("WriteLine")
+                    WildcardName(
+                        Token(SyntaxKind.StarToken)
                     )
                 ),
-                ArgumentList(
-                    SingletonSeparatedList<ArgumentSyntax>(Argument(
-                        LiteralExpression(
-                            SyntaxKind.StringLiteralExpression,
-                            Literal("\"Hello, World!\"")
+                Token(SyntaxKind.NewLineToken)
+            )),
+            List<AliasDirectiveSyntax>(),
+            SingletonList<MemberDeclarationSyntax>(GlobalStatement(
+                List<AttributeListSyntax>(),
+                TokenList(),
+                ExpressionStatement(
+                    InvocationExpression(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName(
+                                Identifier("Console").WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n")))
+                            ),
+                            Token(SyntaxKind.DotToken),
+                            IdentifierName(
+                                Identifier("WriteLine")
+                            )
+                        ),
+                        ArgumentList(
+                            Token(SyntaxKind.OpenParenToken),
+                            SingletonSeparatedList<ArgumentSyntax>(Argument(
+                                null,
+                                LiteralExpression(
+                                    SyntaxKind.StringLiteralExpression,
+                                    Literal("\"Hello, World!\"")
+                                )
+                            )),
+                            Token(SyntaxKind.CloseParenToken)
                         )
-                    ))
+                    ),
+                    Token(SyntaxKind.None)
                 )
-                    .WithOpenParenToken(Token(SyntaxKind.OpenParenToken))
-                    .WithCloseParenToken(Token(SyntaxKind.CloseParenToken))
-            )
-        )
-            .WithTerminatorToken(Token(SyntaxKind.None))
-    ))
-)
-    .WithEndOfFileToken(Token(SyntaxKind.EndOfFileToken)).NormalizeWhitespace();
+            )),
+            Token(SyntaxKind.EndOfFileToken)
+        ).NormalizeWhitespace();
 
         Console.WriteLine("\n\nAST to string:");
 

@@ -101,7 +101,7 @@ public static class RavenQuoter
         }
         else if (methods.Length > 1)
         {
-            selected = methods.OrderBy(m => m.GetParameters().Length).FirstOrDefault();
+            selected = methods.OrderByDescending(m => m.GetParameters().Length).FirstOrDefault();
         }
 
         var info = selected is null ? null : new FactoryInfo(selected);
