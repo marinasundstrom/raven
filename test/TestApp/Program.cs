@@ -178,20 +178,33 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var type = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
+        var type = compilation.GetTypeByMetadataName("System.String");
 
-        var arg = compilation.GetSpecialType(SpecialType.System_String);
-        type = (INamedTypeSymbol?)type.Construct(arg);
+        if (type.IsUnboundGenericType)
+        {
+            var arg = compilation.GetSpecialType(SpecialType.System_String);
+            type = (INamedTypeSymbol?)type.Construct(arg);
+        }
 
         if (type != null)
         {
-            var members = type.GetMembers()
-                .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
-                //.Where(x => x is IMethodSymbol mb && mb.MethodKind == MethodKind.Constructor)
-                .ToArray();
+            Console.WriteLine($"Base type: {type.BaseType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
 
-            Console.WriteLine($"Members: {members.Length}");
-            foreach (var m in members) Console.WriteLine(m.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
+            Console.WriteLine();
+
+            Console.WriteLine($"Implements:");
+
+            foreach (var iface in type.AllInterfaces) Console.WriteLine("• " + iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
+
+            Console.WriteLine();
+
+            var members = type.GetMembers()
+                    .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
+                    //.Where(x => x is IMethodSymbol mb && mb.MethodKind == MethodKind.Constructor)
+                    .ToArray();
+
+            Console.WriteLine($"Members ({members.Length}):");
+            foreach (var m in members) Console.WriteLine("• " + m.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
         }
     }
 
