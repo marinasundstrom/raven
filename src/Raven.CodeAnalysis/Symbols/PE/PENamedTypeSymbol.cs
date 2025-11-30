@@ -351,6 +351,14 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (methodInfo.IsSpecialName)
                 continue;
 
+            var name = methodInfo.Name;
+
+            if (name.StartsWith("get_")
+                || name.StartsWith("set_")
+                || name.StartsWith("add_")
+                || name.StartsWith("remove_"))
+                continue;
+
             new PEMethodSymbol(
                 _typeResolver,
                 methodInfo,
@@ -371,9 +379,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 property.GetMethod = new PEMethodSymbol(
                     _typeResolver,
                     propertyInfo.GetMethod,
-                    property,
                     this,
-                    [new MetadataLocation(ContainingModule!)]);
+                    this,
+                    [new MetadataLocation(ContainingModule!)],
+                    associatedSymbol: property);
             }
 
             if (propertyInfo.SetMethod is not null)
@@ -381,9 +390,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 property.SetMethod = new PEMethodSymbol(
                     _typeResolver,
                     propertyInfo.SetMethod,
-                    property,
                     this,
-                    [new MetadataLocation(ContainingModule!)]);
+                    this,
+                    [new MetadataLocation(ContainingModule!)],
+                    associatedSymbol: property);
             }
         }
 

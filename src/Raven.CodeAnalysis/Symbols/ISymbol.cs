@@ -255,6 +255,7 @@ public interface IMethodSymbol : ISymbol
     bool IsConstructor => MethodKind is MethodKind.Constructor;
     bool IsNamedConstructor => false;
     IMethodSymbol? OriginalDefinition { get; }
+    ISymbol? AssociatedSymbol => null;
 
     bool IsAbstract { get; }
     bool IsAsync { get; }

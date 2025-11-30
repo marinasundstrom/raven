@@ -13,6 +13,11 @@ class Program
     private const string TargetFramework = "net9.0";
     static void Main()
     {
+        PrintMembers();
+    }
+
+    static void QuoterTest()
+    {
         var code = """
         import System.*
 
@@ -171,6 +176,27 @@ class Program
         // force setup
         compilation.GetDiagnostics();
 
+        //ReadConsoleClass(compilation, refDir, references);
+
+        var type = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
+
+        var arg = compilation.GetSpecialType(SpecialType.System_String);
+        type = (INamedTypeSymbol?)type.Construct(arg);
+
+        if (type != null)
+        {
+            var members = type.GetMembers()
+                .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
+                //.Where(x => x is IMethodSymbol mb && mb.MethodKind == MethodKind.Constructor)
+                .ToArray();
+
+            Console.WriteLine($"Members: {members.Length}");
+            foreach (var m in members) Console.WriteLine(m.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
+        }
+    }
+
+    private static void ReadConsoleClass(Compilation compilation, string refDir, PortableExecutableReference[] references)
+    {
         var consoleType = compilation.GetTypeByMetadataName("System.Console");
         Console.WriteLine($"Console type found: {consoleType != null}");
         if (consoleType != null)
@@ -181,7 +207,7 @@ class Program
         }
 
         var resolver = new System.Reflection.PathAssemblyResolver(references.Select(r => r.FilePath));
-        using var mlc = new System.Reflection.MetadataLoadContext(resolver);
+        var mlc = new System.Reflection.MetadataLoadContext(resolver);
         var asm = mlc.LoadFromAssemblyPath(Path.Combine(refDir!, "System.Console.dll"));
         var consoleType2 = asm.GetType("System.Console", true);
         Console.WriteLine($"Reflection Console type null? {consoleType2 == null}");

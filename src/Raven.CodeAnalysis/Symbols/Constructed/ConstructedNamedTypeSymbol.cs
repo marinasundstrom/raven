@@ -79,11 +79,27 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
-            var args = named.TypeArguments.Select(Substitute).ToImmutableArray();
-            if (named.ConstructedFrom is INamedTypeSymbol original)
-                return new ConstructedNamedTypeSymbol(original, args);
+            var typeArguments = named.TypeArguments;
+            var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+            var changed = false;
 
-            return type;
+            for (int i = 0; i < typeArguments.Length; i++)
+            {
+                var originalArg = typeArguments[i];
+                var substitutedArg = Substitute(originalArg);
+
+                substitutedArgs[i] = substitutedArg;
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
+                    changed = true;
+            }
+
+            if (!changed)
+                return named;
+
+            // Avoid reusing a possibly already-constructed named
+            var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+            return constructedFrom.Construct(substitutedArgs);
         }
 
         return type;
@@ -669,6 +685,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public IModuleSymbol? ContainingModule => _original.ContainingModule;
     public INamedTypeSymbol? ContainingType => _constructed;
     public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
+    public ISymbol? AssociatedSymbol => _original.AssociatedSymbol;
     public ImmutableArray<Location> Locations => _original.Locations;
     public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
