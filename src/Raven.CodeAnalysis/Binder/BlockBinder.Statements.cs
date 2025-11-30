@@ -28,8 +28,8 @@ partial class BlockBinder
         var condition = BindExpression(ifStmt.Condition);
         var thenBound = BindStatement(ifStmt.ThenStatement);
         BoundStatement? elseBound = null;
-        if (ifStmt.ElseStatement is not null)
-            elseBound = BindStatement(ifStmt.ElseStatement);
+        if (ifStmt.ElseClause is not null)
+            elseBound = BindStatement(ifStmt.ElseClause.Statement);
         return new BoundIfStatement(condition, thenBound, elseBound);
     }
 

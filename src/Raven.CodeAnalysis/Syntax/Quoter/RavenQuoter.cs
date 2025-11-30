@@ -101,7 +101,7 @@ public static class RavenQuoter
         }
         else if (methods.Length > 1)
         {
-            selected = methods.OrderBy(m => m.GetParameters().Length).FirstOrDefault();
+            selected = methods.OrderByDescending(m => m.GetParameters().Length).FirstOrDefault();
         }
 
         var info = selected is null ? null : new FactoryInfo(selected);
@@ -226,6 +226,17 @@ public static class RavenQuoter
                 for (int i = 0; i < paramValues.Count; i++)
                 {
                     var (p, value) = paramValues[i];
+
+                    if (value is null
+                        && _options.UseNamedArguments
+                        && _options.IgnoreNullValue)
+                        continue;
+
+                    if (_options.UseNamedArguments)
+                    {
+                        _w.Write($"{p.Name}: ");
+                    }
+
                     WriteValue(p.ParameterType, value);
 
                     if (i < paramValues.Count - 1)
@@ -364,14 +375,35 @@ public static class RavenQuoter
                     WriteFactoryMethodName("Literal");
                     _w.Write("(");
                     _w.Write(Literal(token.Text));
+                    _w.Write(", ");
+                    _w.Write(Literal(token.Value));
                     _w.Write(")");
                 }
                 else
                 {
-                    WriteFactoryMethodName("Token");
-                    _w.Write("(SyntaxKind.");
-                    _w.Write(token.Kind.ToString());
-                    _w.Write(")");
+                    if (_options.UseFactoryPropsForSimpleTokens
+                        && token.Kind != SyntaxKind.None
+                        && !token.IsMissing)
+                    {
+                        WriteFactoryMethodName($"{token.Kind.ToString()}");
+                    }
+                    else
+                    {
+                        if (token.IsMissing)
+                        {
+                            WriteFactoryMethodName("MissingToken");
+                            _w.Write("(SyntaxKind.");
+                            _w.Write(token.Kind.ToString());
+                            _w.Write(")");
+                        }
+                        else
+                        {
+                            WriteFactoryMethodName("Token");
+                            _w.Write("(SyntaxKind.");
+                            _w.Write(token.Kind.ToString());
+                            _w.Write(")");
+                        }
+                    }
                 }
 
                 return;
@@ -384,12 +416,41 @@ public static class RavenQuoter
                 _w.Write(Literal(token.Text));
                 _w.Write(")");
             }
+            else if (token.Kind == SyntaxKind.NumericLiteralToken
+            || token.Kind == SyntaxKind.StringLiteralToken)
+            {
+                WriteFactoryMethodName("Literal");
+                _w.Write("(");
+                _w.Write(Literal(token.Text));
+                _w.Write(", ");
+                _w.Write(Literal(token.Value));
+                _w.Write(")");
+            }
             else
             {
-                WriteFactoryMethodName("Token");
-                _w.Write("(SyntaxKind.");
-                _w.Write(token.Kind.ToString());
-                _w.Write(")");
+                if (_options.UseFactoryPropsForSimpleTokens
+                                    && token.Kind != SyntaxKind.None
+                                    && !token.IsMissing)
+                {
+                    WriteFactoryMethodName($"{token.Kind.ToString()}");
+                }
+                else
+                {
+                    if (token.IsMissing)
+                    {
+                        WriteFactoryMethodName("MissingToken");
+                        _w.Write("(SyntaxKind.");
+                        _w.Write(token.Kind.ToString());
+                        _w.Write(")");
+                    }
+                    else
+                    {
+                        WriteFactoryMethodName("Token");
+                        _w.Write("(SyntaxKind.");
+                        _w.Write(token.Kind.ToString());
+                        _w.Write(")");
+                    }
+                }
             }
 
             if (token.HasLeadingTrivia)
@@ -516,7 +577,22 @@ public static class RavenQuoter
             {
                 WriteFactoryMethodName("SingletonList");
                 _w.Write($"<{typeName}>(");
+
+                var hasChild = items[0] is SyntaxNode sn && sn.DescendantNodes().Any();
+
+                if (hasChild)
+                {
+                    _w.WriteLine();
+                    _w.Indent();
+                }
+
                 WriteValue(elemType, items[0]!);
+
+                if (hasChild)
+                {
+                    _w.Unindent();
+                }
+
                 _w.Write(")");
                 return;
             }
@@ -559,7 +635,22 @@ public static class RavenQuoter
             {
                 WriteFactoryMethodName("SingletonSeparatedList");
                 _w.Write($"<{typeName}>(");
+
+                var hasChild = items[0] is SyntaxNode sn && sn.DescendantNodesAndTokens().Any();
+
+                if (hasChild)
+                {
+                    _w.WriteLine();
+                    _w.Indent();
+                }
+
                 WriteValue(elemType, items[0]!);
+
+                if (hasChild)
+                {
+                    _w.Unindent();
+                }
+
                 _w.Write(")");
                 return;
             }
@@ -595,18 +686,36 @@ public static class RavenQuoter
             return Equals(defaultVal, value);
         }
 
-        private static string Literal(string text)
+        private static string Literal(object value)
+        {
+            if (value is string text)
+            {
+                string escaped = EscapeStr(text);
+
+                return $"\"{escaped}\"";
+            }
+            else if (value is char ch)
+            {
+                string escaped = EscapeStr(ch.ToString());
+
+                return $"\'{escaped}\'";
+            }
+            else
+            {
+                return value.ToString();
+            }
+        }
+
+        private static string EscapeStr(string text)
         {
             // Escape backslashes, quotes, and control characters so the
             // generated C# is always valid.
-            var escaped = text
+            return text
                 .Replace("\\", "\\\\")
                 .Replace("\"", "\\\"")
                 .Replace("\r", "\\r")
                 .Replace("\n", "\\n")
                 .Replace("\t", "\\t");
-
-            return $"\"{escaped}\"";
         }
     }
 

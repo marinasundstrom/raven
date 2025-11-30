@@ -259,16 +259,20 @@ internal class StatementSyntaxParser : SyntaxParser
         SyntaxToken? elseKeyword = null;
         StatementSyntax? elseStatement = null;
 
+        ElseClause2Syntax? elseClause = null;
+
         if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseTok))
         {
             elseKeyword = elseTok;
             elseStatement = ParseStatement();
+
+            elseClause = ElseClause2(elseKeyword, elseStatement);
         }
 
         SetTreatNewlinesAsTokens(true);
         TryConsumeTerminator(out var terminatorToken);
 
-        return IfStatement(ifKeyword, condition!, thenStatement!, elseKeyword, elseStatement, terminatorToken);
+        return IfStatement(ifKeyword, condition!, thenStatement!, elseClause, terminatorToken);
     }
 
     private WhileStatementSyntax ParseWhileStatementSyntax()

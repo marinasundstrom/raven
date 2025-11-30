@@ -27,6 +27,7 @@ var stopwatch = Stopwatch.StartNew();
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
 // -bt               - print binder and bound tree (single file only)
+// -q                - print AST as C# compilable code
 // --symbols [list|hierarchy] - inspect symbols produced from source
 // --no-emit         - skip emitting the output assembly
 // --highlight       - display diagnostics with highlighted source
@@ -50,6 +51,8 @@ var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
 var highlightDiagnostics = false;
+var quote = false;
+var quoteWithNamedArgs = false;
 var runIlVerify = false;
 string? ilVerifyPath = null;
 var enableAsyncInvestigation = false;
@@ -123,6 +126,12 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--highlight":
             highlightDiagnostics = true;
+            break;
+        case "--quote":
+        case "-q":
+            quote = true;
+            if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                quoteWithNamedArgs = args[++i] == "1";
             break;
         case "--ilverify":
             runIlVerify = true;
@@ -453,6 +462,21 @@ if (symbolDumpMode != SymbolDumpMode.None)
     }
 }
 
+if (quote)
+{
+    var root = compilation.SyntaxTrees.First().GetRoot();
+    var quoted = RavenQuoter.Quote(root, new RavenQuoterOptions
+    {
+        UseStaticSyntaxFactoryImport = true,
+        UseNamedArguments = quoteWithNamedArgs,
+        IgnoreNullValue = true,
+        IncludeTrivia = false
+    });
+
+    Console.WriteLine(quoted);
+    Console.WriteLine();
+}
+
 if (runIlVerify)
 {
     if (noEmit)
@@ -552,6 +576,7 @@ static void PrintHelp()
     Console.WriteLine("  --overload-log [path]");
     Console.WriteLine("                     Log overload resolution details to the console or the provided file.");
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
+    Console.WriteLine("  -q                 Display AST as compilable C# code");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  --ilverify       Verify emitted IL using the 'ilverify' tool");
     Console.WriteLine("  --ilverify-path <path>");
