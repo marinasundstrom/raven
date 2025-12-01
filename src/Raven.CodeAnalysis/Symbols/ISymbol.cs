@@ -351,10 +351,13 @@ public interface IFieldSymbol : ISymbol
 
 public interface IPropertySymbol : ISymbol
 {
+    IPropertySymbol? OriginalDefinition => null;
+
     ITypeSymbol Type { get; }
     IMethodSymbol? GetMethod { get; }
     IMethodSymbol? SetMethod { get; }
     bool IsIndexer { get; }
+    ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => [];
 }
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol

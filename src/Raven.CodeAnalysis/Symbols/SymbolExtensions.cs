@@ -184,35 +184,64 @@ public static partial class SymbolExtensions
             return result.ToString();
         }
 
-        // Type qualification for non-type symbols (namespaces/types used as containers)
-        if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
+        if (symbol is IMethodSymbol methodSymbol2
+            && !methodSymbol2.ExplicitInterfaceImplementations.IsEmpty)
         {
-            if (symbol.ContainingNamespace is { } containingNamespace && !containingNamespace.IsGlobalNamespace)
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeExplicitInterface))
             {
-                var ns = GetFullNamespace(symbol, format);
-                if (!string.IsNullOrEmpty(ns))
-                {
-                    result.Append(ns).Append('.');
-                }
-            }
-
-            if (symbol.ContainingType is not null)
-            {
-                var type = GetFullType(symbol, format);
+                var t = methodSymbol2.ExplicitInterfaceImplementations[0];
+                var type = GetFullType(t, format);
                 if (!string.IsNullOrEmpty(type))
                 {
                     result.Append(type).Append('.');
                 }
             }
         }
-        else if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
+        else if (symbol is IPropertySymbol propertySymbol2
+            && !propertySymbol2.ExplicitInterfaceImplementations.IsEmpty)
         {
-            if (symbol.ContainingType is not null)
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeExplicitInterface))
             {
-                var type = GetFullType(symbol, format);
+                var t = propertySymbol2.ExplicitInterfaceImplementations[0];
+                var type = GetFullType(t, format);
                 if (!string.IsNullOrEmpty(type))
                 {
                     result.Append(type).Append('.');
+                }
+            }
+        }
+        else
+        {
+            // Type qualification for non-type symbols (namespaces/types used as containers)
+            if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
+            {
+                if (symbol.ContainingNamespace is { } containingNamespace && !containingNamespace.IsGlobalNamespace)
+                {
+                    var ns = GetFullNamespace(symbol, format);
+                    if (!string.IsNullOrEmpty(ns))
+                    {
+                        result.Append(ns).Append('.');
+                    }
+                }
+
+                if (symbol.ContainingType is not null)
+                {
+                    var type = GetFullType(symbol, format);
+                    if (!string.IsNullOrEmpty(type))
+                    {
+                        result.Append(type).Append('.');
+                    }
+                }
+            }
+            else if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
+            {
+                if (symbol.ContainingType is not null)
+                {
+                    var type = GetFullType(symbol, format);
+                    if (!string.IsNullOrEmpty(type))
+                    {
+                        result.Append(type).Append('.');
+                    }
                 }
             }
         }

@@ -195,17 +195,32 @@ class Program
 
             Console.WriteLine($"Implements:");
 
-            foreach (var iface in type.AllInterfaces) Console.WriteLine("• " + iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
+            //foreach (var iface in type.AllInterfaces) Console.WriteLine("• " + iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
 
             Console.WriteLine();
 
             var members = type.GetMembers()
                     .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
+                    //.Where(x => x is IMethodSymbol mb && mb.MethodKind == MethodKind.ExplicitInterfaceImplementation)
                     //.Where(x => x is IMethodSymbol mb && mb.MethodKind == MethodKind.Constructor)
                     .ToArray();
 
             Console.WriteLine($"Members ({members.Length}):");
-            foreach (var m in members) Console.WriteLine("• " + m.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
+
+            var displayOptions = SymbolDisplayFormat.FullyQualifiedFormat;
+            var format = SymbolDisplayFormat.FullyQualifiedFormat
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                .WithMemberOptions(displayOptions.MemberOptions | SymbolDisplayMemberOptions.IncludeExplicitInterface);
+
+            foreach (var m in members)
+            {
+                if (m is IMethodSymbol ms)
+                {
+                    var x = ms.ExplicitInterfaceImplementations;
+                }
+
+                Console.WriteLine("• " + m.ToDisplayString(format));
+            }
         }
     }
 

@@ -14,10 +14,24 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
     public static SymbolEqualityComparer IgnoringNullability { get; } = new(includeNullability: false);
 
     private readonly bool _includeNullability;
+    private readonly bool _ignoreContainingNamespaceOrType;
 
-    public SymbolEqualityComparer(bool includeNullability = true)
+    public SymbolEqualityComparer(
+        bool includeNullability = true,
+        bool ignoreContainingNamespaceOrType = false)
     {
         _includeNullability = includeNullability;
+        _ignoreContainingNamespaceOrType = ignoreContainingNamespaceOrType;
+    }
+
+    public SymbolEqualityComparer IgnoreContainingNamespaceOrType()
+    {
+        if (_ignoreContainingNamespaceOrType)
+            return this;
+
+        return new SymbolEqualityComparer(
+            includeNullability: _includeNullability,
+            ignoreContainingNamespaceOrType: true);
     }
 
     public bool Equals(ISymbol? x, ISymbol? y)
@@ -60,6 +74,48 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (!visited.Add(pair))
             return true;
         visited.Add(new SymbolPair(y, x));
+
+        // >>> NEW BLOCK: relaxed comparison for type parameters
+        if (_ignoreContainingNamespaceOrType &&
+            x is ITypeParameterSymbol tpx &&
+            y is ITypeParameterSymbol tpy)
+        {
+            if (!string.Equals(tpx.Name, tpy.Name, StringComparison.Ordinal))
+                return false;
+
+            // Ordinal usually matters for nested/outer type params
+            if (tpx.Ordinal != tpy.Ordinal)
+                return false;
+
+            // Optional but usually a good idea:
+            if (tpx.Variance != tpy.Variance)
+                return false;
+
+            /*
+            if (tpx.HasReferenceTypeConstraint != tpy.HasReferenceTypeConstraint ||
+                tpx.HasValueTypeConstraint != tpy.HasValueTypeConstraint ||
+                tpx.HasConstructorConstraint != tpy.HasConstructorConstraint)
+            {
+                return false;
+            }
+            */
+
+            var constraintsX = tpx.ConstraintTypes;
+            var constraintsY = tpy.ConstraintTypes;
+
+            if (constraintsX.Length != constraintsY.Length)
+                return false;
+
+            for (var i = 0; i < constraintsX.Length; i++)
+            {
+                if (!EqualsCore(constraintsX[i], constraintsY[i], visited))
+                    return false;
+            }
+
+            // NOTE: we *intentionally* do NOT compare containing symbol or namespace here.
+            return true;
+        }
+        // <<< END NEW BLOCK
 
         if (x is IParameterSymbol px && y is IParameterSymbol py)
         {
@@ -274,6 +330,26 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return hash.ToHashCode();
             }
         }
+
+        // >>> NEW BLOCK: type parameter hashing in relaxed mode
+        if (_ignoreContainingNamespaceOrType &&
+            obj is ITypeParameterSymbol tp)
+        {
+            hash.Add(tp.Name, StringComparer.Ordinal);
+            hash.Add(tp.Ordinal);
+            hash.Add((int)tp.Variance);
+            /*hash.Add(tp.HasReferenceTypeConstraint);
+            hash.Add(tp.HasValueTypeConstraint);
+            hash.Add(tp.HasConstructorConstraint); */
+
+            var constraints = tp.ConstraintTypes;
+            hash.Add(constraints.Length);
+            foreach (var c in constraints)
+                hash.Add(GetHashCodeCore(c, visited));
+
+            return hash.ToHashCode();
+        }
+        // <<< END NEW BLOCK
 
         hash.Add(obj.Name, StringComparer.Ordinal);
         hash.Add(obj.MetadataName, StringComparer.Ordinal);
