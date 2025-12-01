@@ -107,6 +107,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             return type;
         }
 
+        if (type is IArrayTypeSymbol arrayType)
+        {
+            var substitutedElement = Substitute(arrayType.ElementType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+
+            return type;
+        }
+
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
             var typeArguments = named.TypeArguments;
