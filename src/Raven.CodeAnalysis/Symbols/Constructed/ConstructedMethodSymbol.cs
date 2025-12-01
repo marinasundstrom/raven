@@ -15,6 +15,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     private readonly ImmutableArray<ITypeSymbol> _typeArguments;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
     private ImmutableArray<IParameterSymbol>? _parameters;
+    private ImmutableArray<IMethodSymbol>? _explicitImpls;
     private ITypeSymbol? _returnType;
 
     public ConstructedMethodSymbol(IMethodSymbol definition, ImmutableArray<ITypeSymbol> typeArguments)
@@ -56,6 +57,40 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ImmutableArray<Location> Locations => _definition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _definition.DeclaringSyntaxReferences;
 
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations
+    {
+        get
+        {
+            if (_explicitImpls.HasValue)
+                return _explicitImpls.Value;
+
+            var originals = _definition.ExplicitInterfaceImplementations;
+
+            if (originals.IsDefaultOrEmpty || originals.Length == 0)
+            {
+                _explicitImpls = originals;
+                return originals;
+            }
+
+            var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(originals.Length);
+
+            foreach (var orig in originals)
+            {
+                // If the interface method itself is generic, construct it with our method type args.
+                // If it’s not generic, Construct(...) should just return the same symbol (or you can guard).
+                IMethodSymbol constructedIfaceMethod =
+                    orig.IsGenericMethod && _typeArguments.Length == orig.TypeParameters.Length
+                        ? orig.Construct(_typeArguments.ToArray())
+                        : orig;
+
+                builder.Add(constructedIfaceMethod);
+            }
+
+            _explicitImpls = builder.ToImmutable();
+            return _explicitImpls.Value;
+        }
+    }
+
     public ImmutableArray<AttributeData> GetAttributes() => _definition.GetAttributes();
 
     public ITypeSymbol ReturnType => _returnType ??= Substitute(_definition.ReturnType);
@@ -86,7 +121,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsIterator => _definition.IsIterator;
     public IteratorMethodKind IteratorKind => _definition.IteratorKind;
     public ITypeSymbol? IteratorElementType => _definition.IteratorElementType;
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _definition.ExplicitInterfaceImplementations;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _definition.TypeParameters;
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
     public IMethodSymbol? ConstructedFrom => _definition;

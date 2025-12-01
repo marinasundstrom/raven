@@ -43,10 +43,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 .Zip(typeArguments, (p, a) => (p, a))
                 .ToDictionary(x => x.p, x => x.a);
 
-            return new Dictionary<ITypeParameterSymbol, ITypeSymbol>(map, SymbolEqualityComparer.Default);
+            return new Dictionary<ITypeParameterSymbol, ITypeSymbol>(map, SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType());
         }
 
-        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, SymbolEqualityComparer.Default);
+        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType());
         var typeParameters = originalDefinition.TypeParameters;
 
         if (!typeArguments.IsDefaultOrEmpty)
@@ -76,6 +76,36 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     {
         if (type is ITypeParameterSymbol tp && _substitutionMap.TryGetValue(tp, out var concrete))
             return concrete;
+
+        if (type is NullableTypeSymbol nullableTypeSymbol)
+        {
+            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType);
+
+            if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                return new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
+
+            return type;
+        }
+
+        if (type is ByRefTypeSymbol byRef)
+        {
+            var substitutedElement = Substitute(byRef.ElementType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                return new ByRefTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
+        if (type is IAddressTypeSymbol address)
+        {
+            var substitutedElement = Substitute(address.ReferencedType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                return new AddressTypeSymbol(substitutedElement);
+
+            return type;
+        }
 
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
@@ -642,6 +672,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     private readonly ConstructedNamedTypeSymbol _constructed;
     private ImmutableArray<IParameterSymbol>? _parameters;
     private Dictionary<ITypeParameterSymbol, ImmutableArray<ITypeSymbol>>? _constraintTypeMap;
+    private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
 
     public SubstitutedMethodSymbol(IMethodSymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -675,7 +706,65 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsIterator => _original.IsIterator;
     public IteratorMethodKind IteratorKind => _original.IteratorKind;
     public ITypeSymbol? IteratorElementType => _original.IteratorElementType;
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _original.ExplicitInterfaceImplementations;
+
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations
+    {
+        get
+        {
+            if (_explicitInterfaceImplementations.HasValue)
+                return _explicitInterfaceImplementations.Value;
+
+            var originals = _original.ExplicitInterfaceImplementations;
+
+            if (originals.IsDefaultOrEmpty || originals.Length == 0)
+            {
+                _explicitInterfaceImplementations = originals;
+                return originals;
+            }
+
+            var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(originals.Length);
+
+            foreach (var origImpl in originals)
+            {
+                var origIface = (INamedTypeSymbol?)origImpl.ContainingType;
+                if (origIface is null)
+                {
+                    builder.Add(origImpl);
+                    continue;
+                }
+
+                // Substitute the interface type with the constructed type’s substitution
+                var substitutedIface = _constructed.Substitute(origIface) as INamedTypeSymbol;
+
+                // If nothing changed, just reuse the original method
+                if (substitutedIface is null ||
+                    SymbolEqualityComparer.Default.Equals(origIface, substitutedIface))
+                {
+                    builder.Add(origImpl);
+                    continue;
+                }
+
+                // Find the corresponding method on the substituted interface
+                IMethodSymbol? substitutedMethod = null;
+
+                foreach (var candidate in substitutedIface.GetMembers(origImpl.Name).OfType<IMethodSymbol>())
+                {
+                    // Match via OriginalDefinition – this is the key
+                    if (SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, origImpl.OriginalDefinition))
+                    {
+                        substitutedMethod = candidate;
+                        break;
+                    }
+                }
+
+                builder.Add(substitutedMethod ?? origImpl);
+            }
+
+            _explicitInterfaceImplementations = builder.ToImmutable();
+            return _explicitInterfaceImplementations.Value;
+        }
+    }
+
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _original.TypeParameters;
     public ImmutableArray<ITypeSymbol> TypeArguments => _original.TypeArguments;
     public IMethodSymbol? ConstructedFrom => _original.ConstructedFrom ?? _original;
@@ -970,6 +1059,7 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
 {
     private readonly IPropertySymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
+    private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
 
     public SubstitutedPropertySymbol(IPropertySymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -980,7 +1070,7 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public string Name => _original.Name;
     public ITypeSymbol Type => _constructed.Substitute(_original.Type);
     public ISymbol ContainingSymbol => _constructed;
-
+    public IPropertySymbol? OriginalDefinition { get; }
     public IMethodSymbol? GetMethod => _original.GetMethod is null ? null : new SubstitutedMethodSymbol(_original.GetMethod, _constructed);
     public IMethodSymbol? SetMethod => _original.SetMethod is null ? null : new SubstitutedMethodSymbol(_original.SetMethod, _constructed);
     public bool IsIndexer => _original.IsIndexer;
@@ -998,6 +1088,64 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+
+    public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations
+    {
+        get
+        {
+            if (_explicitInterfaceImplementations.HasValue)
+                return _explicitInterfaceImplementations.Value;
+
+            var originals = _original.ExplicitInterfaceImplementations;
+
+            if (originals.IsDefaultOrEmpty || originals.Length == 0)
+            {
+                _explicitInterfaceImplementations = originals;
+                return originals;
+            }
+
+            var builder = ImmutableArray.CreateBuilder<IPropertySymbol>(originals.Length);
+
+            foreach (var origImpl in originals)
+            {
+                var origIface = (INamedTypeSymbol?)origImpl.ContainingType;
+                if (origIface is null)
+                {
+                    builder.Add(origImpl);
+                    continue;
+                }
+
+                // Substitute the interface type with the constructed type’s substitution
+                var substitutedIface = _constructed.Substitute(origIface) as INamedTypeSymbol;
+
+                // If nothing changed, just reuse the original property
+                if (substitutedIface is null ||
+                    SymbolEqualityComparer.Default.Equals(origIface, substitutedIface))
+                {
+                    builder.Add(origImpl);
+                    continue;
+                }
+
+                // Find the corresponding property on the substituted interface
+                IPropertySymbol? substitutedProperty = null;
+
+                foreach (var candidate in substitutedIface.GetMembers(origImpl.Name).OfType<IPropertySymbol>())
+                {
+                    // Match via OriginalDefinition – this is the key
+                    if (SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, origImpl.OriginalDefinition))
+                    {
+                        substitutedProperty = candidate;
+                        break;
+                    }
+                }
+
+                builder.Add(substitutedProperty ?? origImpl);
+            }
+
+            _explicitInterfaceImplementations = builder.ToImmutable();
+            return _explicitInterfaceImplementations.Value;
+        }
+    }
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitProperty(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitProperty(this);

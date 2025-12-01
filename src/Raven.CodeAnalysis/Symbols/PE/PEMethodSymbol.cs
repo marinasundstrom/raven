@@ -16,6 +16,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
     private ImmutableArray<ITypeSymbol>? _typeArguments;
     private Accessibility? _accessibility;
+    private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
 
     public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
@@ -24,37 +25,43 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         _methodInfo = methodInfo;
         _typeResolver.RegisterMethodSymbol(_methodInfo, this);
 
-        if (Name.StartsWith("op_Implicit") || Name.StartsWith("op_Explicit"))
+        var name = _methodInfo.Name;
+
+        if (name.StartsWith("op_Implicit") || name.StartsWith("op_Explicit"))
         {
             MethodKind = MethodKind.Conversion;
         }
-        else if (Name.StartsWith("op_"))
+        else if (name.StartsWith("op_"))
         {
             MethodKind = MethodKind.UserDefinedOperator;
         }
-        else if (Name.StartsWith(".ctor"))
+        else if (name.StartsWith(".ctor"))
         {
             MethodKind = MethodKind.Constructor;
         }
-        else if (Name.StartsWith(".cctor"))
+        else if (name.StartsWith(".cctor"))
         {
             MethodKind = MethodKind.StaticConstructor;
         }
-        else if (Name.StartsWith("get_"))
+        else if (name.StartsWith("get_"))
         {
             MethodKind = MethodKind.PropertyGet;
         }
-        else if (Name.StartsWith("set_"))
+        else if (name.StartsWith("set_"))
         {
             MethodKind = MethodKind.PropertySet;
         }
-        else if (Name.StartsWith("add_"))
+        else if (name.StartsWith("add_"))
         {
             MethodKind = MethodKind.EventAdd;
         }
-        else if (Name.StartsWith("remove_"))
+        else if (name.StartsWith("remove_"))
         {
             MethodKind = MethodKind.EventRemove;
+        }
+        else if (name.Contains('.'))
+        {
+            MethodKind = MethodKind.ExplicitInterfaceImplementation;
         }
         else
         {
@@ -71,38 +78,43 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         _methodInfo = methodInfo;
         _typeResolver.RegisterMethodSymbol(_methodInfo, this);
 
+        var name = _methodInfo.Name;
 
-        if (Name.StartsWith("op_Implicit") || Name.StartsWith("op_Explicit"))
+        if (name.StartsWith("op_Implicit") || name.StartsWith("op_Explicit"))
         {
             MethodKind = MethodKind.Conversion;
         }
-        else if (Name.StartsWith("op_"))
+        else if (name.StartsWith("op_"))
         {
             MethodKind = MethodKind.UserDefinedOperator;
         }
-        else if (Name.StartsWith(".ctor"))
+        else if (name.StartsWith(".ctor"))
         {
             MethodKind = MethodKind.Constructor;
         }
-        else if (Name.StartsWith(".cctor"))
+        else if (name.StartsWith(".cctor"))
         {
             MethodKind = MethodKind.StaticConstructor;
         }
-        else if (Name.StartsWith("get_"))
+        else if (name.StartsWith("get_"))
         {
             MethodKind = MethodKind.PropertyGet;
         }
-        else if (Name.StartsWith("set_"))
+        else if (name.StartsWith("set_"))
         {
             MethodKind = MethodKind.PropertySet;
         }
-        else if (Name.StartsWith("add_"))
+        else if (name.StartsWith("add_"))
         {
             MethodKind = MethodKind.EventAdd;
         }
-        else if (Name.StartsWith("remove_"))
+        else if (name.StartsWith("remove_"))
         {
             MethodKind = MethodKind.EventRemove;
+        }
+        else if (name.Contains('.'))
+        {
+            MethodKind = MethodKind.ExplicitInterfaceImplementation;
         }
         else
         {
@@ -113,7 +125,28 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     }
 
     public override SymbolKind Kind => SymbolKind.Method;
-    public override string Name => _methodInfo.Name;
+
+    public override string Name
+    {
+        get
+        {
+            if (_name is not null)
+            {
+                return _name;
+            }
+            if (!_methodInfo.Name.Contains(".ctor")
+                && !_methodInfo.Name.Contains(".cctor")
+                && _methodInfo.Name.Contains('.'))
+            {
+                _name = _methodInfo.Name.Split('.').Last();
+            }
+            else
+            {
+                _name = _methodInfo.Name;
+            }
+            return _name;
+        }
+    }
 
     public override string MetadataName => _methodInfo.Name;
     public ITypeSymbol ReturnType
@@ -180,6 +213,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     public bool IsDefinition => true; // Metadata methods are always definitions
 
     private bool? _lazyIsExtensionMethod;
+    private string? _name;
 
     public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
 
@@ -248,7 +282,131 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public ITypeSymbol? IteratorElementType => null;
 
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations
+    {
+        get
+        {
+            if (_explicitInterfaceImplementations.HasValue)
+                return _explicitInterfaceImplementations.Value;
+
+            // Fast-path: most methods are not explicit impls
+            if (!_methodInfo.Name.Contains('.'))
+            {
+                _explicitInterfaceImplementations = ImmutableArray<IMethodSymbol>.Empty;
+                return _explicitInterfaceImplementations.Value;
+            }
+
+            var declaringType = _methodInfo.DeclaringType;
+            if (declaringType is null)
+            {
+                _explicitInterfaceImplementations = ImmutableArray<IMethodSymbol>.Empty;
+                return _explicitInterfaceImplementations.Value;
+            }
+
+            // Metadata name is something like "Namespace.IFoo`1.Bar"
+            var metadataName = _methodInfo.Name;
+            var lastDot = metadataName.LastIndexOf('.');
+            if (lastDot <= 0)
+            {
+                _explicitInterfaceImplementations = ImmutableArray<IMethodSymbol>.Empty;
+                return _explicitInterfaceImplementations.Value;
+            }
+
+            var ifaceMetadataName = metadataName.Substring(0, lastDot);     // "Namespace.IFoo`1"
+            var memberName = metadataName.Substring(lastDot + 1);           // "Bar" or "get_Bar"
+
+            var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+            foreach (var iface in declaringType.GetInterfaces())
+            {
+                // Compare to generic *definition* name, because the metadata prefix uses that
+                var candidateName = GetFormattedTypeName(iface);
+                if (!string.Equals(candidateName, ifaceMetadataName, StringComparison.Ordinal))
+                    continue;
+
+                // We have the right interface. Now find the matching method on that interface.
+                foreach (var ifaceMethod in iface.GetMethods(
+                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (!string.Equals(ifaceMethod.Name, memberName, StringComparison.Ordinal))
+                        continue;
+
+                    if (!HasSameSignature((MethodInfo)_methodInfo, ifaceMethod))
+                        continue;
+
+                    // Map interface MethodInfo -> IMethodSymbol via TypeResolver
+                    var ifaceMethodSymbol = _typeResolver.ResolveMethodSymbol(ifaceMethod);
+                    if (ifaceMethodSymbol is not null)
+                        builder.Add(ifaceMethodSymbol);
+                }
+            }
+
+            _explicitInterfaceImplementations = builder.ToImmutable();
+            return _explicitInterfaceImplementations.Value;
+        }
+    }
+
+    private static string GetFormattedTypeName(Type t)
+    {
+        // For generic constructed interfaces, we want the definition name
+        if (t.IsGenericType && !t.IsGenericTypeDefinition)
+            t = t.GetGenericTypeDefinition();
+
+        // Metadata-style full name (includes `1, + for nested, etc.)
+        var name = t.FullName ?? t.Name;
+        var i = name.LastIndexOf('`');
+        if (i > -1)
+        {
+            name = name[..i];
+            var param = t.GetGenericArguments().Select(x => x.Name);
+            name = $"{name}<{string.Join(",", param)}>";
+        }
+
+        return name;
+
+        /*
+        // For generic constructed interfaces, we want the definition name
+        if (t.IsGenericType && !t.IsGenericTypeDefinition)
+            t = t.GetGenericTypeDefinition();
+
+        // Metadata-style full name (includes `1, + for nested, etc.)
+        return t.FullName ?? t.Name;
+        */
+    }
+
+    private static bool HasSameSignature(MethodInfo impl, MethodInfo iface)
+    {
+        // Generic arity
+        if (impl.IsGenericMethod != iface.IsGenericMethod)
+            return false;
+
+        if (impl.IsGenericMethod &&
+            impl.GetGenericArguments().Length != iface.GetGenericArguments().Length)
+            return false;
+
+        var implParams = impl.GetParameters();
+        var ifaceParams = iface.GetParameters();
+
+        if (implParams.Length != ifaceParams.Length)
+            return false;
+
+        for (int i = 0; i < implParams.Length; i++)
+        {
+            var pImpl = implParams[i].ParameterType;
+            var pIface = ifaceParams[i].ParameterType;
+
+            if (!TypesEqual(pImpl, pIface))
+                return false;
+        }
+
+        return TypesEqual(impl.ReturnType, iface.ReturnType);
+    }
+
+    private static bool TypesEqual(Type a, Type b)
+    {
+        // In MetadataLoadContext, Type objects from the same context are comparable by reference
+        return a == b;
+    }
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
         _typeParameters ??= !_methodInfo.IsGenericMethodDefinition
