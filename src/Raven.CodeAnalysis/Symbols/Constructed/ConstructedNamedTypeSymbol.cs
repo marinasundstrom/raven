@@ -77,6 +77,36 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         if (type is ITypeParameterSymbol tp && _substitutionMap.TryGetValue(tp, out var concrete))
             return concrete;
 
+        if (type is NullableTypeSymbol nullableTypeSymbol)
+        {
+            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType);
+
+            if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                return new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
+
+            return type;
+        }
+
+        if (type is ByRefTypeSymbol byRef)
+        {
+            var substitutedElement = Substitute(byRef.ElementType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                return new ByRefTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
+        if (type is IAddressTypeSymbol address)
+        {
+            var substitutedElement = Substitute(address.ReferencedType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                return new AddressTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
             var typeArguments = named.TypeArguments;
