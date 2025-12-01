@@ -10,6 +10,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     private ITypeSymbol _type;
     private Accessibility? _accessibility;
     private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
+    private string? _name;
 
     public PEPropertySymbol(TypeResolver typeResolver, PropertyInfo propertyInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
@@ -24,11 +25,19 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     {
         get
         {
+            if (_name is not null)
+            {
+                return _name;
+            }
             if (_propertyInfo.Name.Contains('.'))
             {
-                return _propertyInfo.Name.Split('.').Last();
+                _name = _propertyInfo.Name.Split('.').Last();
             }
-            return _propertyInfo.Name;
+            else
+            {
+                _name = _propertyInfo.Name;
+            }
+            return _name;
         }
     }
 

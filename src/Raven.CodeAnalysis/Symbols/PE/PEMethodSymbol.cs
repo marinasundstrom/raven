@@ -130,11 +130,21 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     {
         get
         {
-            if (_methodInfo.Name.Contains('.'))
+            if (_name is not null)
             {
-                return _methodInfo.Name.Split('.').Last();
+                return _name;
             }
-            return _methodInfo.Name;
+            if (!_methodInfo.Name.Contains(".ctor")
+                && !_methodInfo.Name.Contains(".cctor")
+                && _methodInfo.Name.Contains('.'))
+            {
+                _name = _methodInfo.Name.Split('.').Last();
+            }
+            else
+            {
+                _name = _methodInfo.Name;
+            }
+            return _name;
         }
     }
 
@@ -203,6 +213,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     public bool IsDefinition => true; // Metadata methods are always definitions
 
     private bool? _lazyIsExtensionMethod;
+    private string? _name;
 
     public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
 
