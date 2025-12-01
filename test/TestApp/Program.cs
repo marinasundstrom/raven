@@ -13,6 +13,7 @@ class Program
     private const string TargetFramework = "net9.0";
     static void Main()
     {
+        //QuoterTest();
         PrintMembers();
     }
 
@@ -178,7 +179,7 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var type = compilation.GetTypeByMetadataName("System.String");
+        var type = compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
 
         if (type.IsUnboundGenericType)
         {
