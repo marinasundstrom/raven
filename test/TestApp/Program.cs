@@ -180,6 +180,7 @@ class Program
         //ReadConsoleClass(compilation, refDir, references);
 
         var type = compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
+        var baseType = type;
 
         if (type.IsUnboundGenericType)
         {
@@ -189,13 +190,20 @@ class Program
 
         if (type != null)
         {
+            Console.WriteLine($"{type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
+
+            if (baseType is not null)
+            {
+                Console.WriteLine($"Constructed from: {baseType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
+            }
+
             Console.WriteLine($"Base type: {type.BaseType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
 
             Console.WriteLine();
 
             Console.WriteLine($"Implements:");
 
-            //foreach (var iface in type.AllInterfaces) Console.WriteLine("• " + iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
+            foreach (var iface in type.AllInterfaces) Console.WriteLine("• " + iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)));
 
             Console.WriteLine();
 
@@ -209,7 +217,7 @@ class Program
 
             var displayOptions = SymbolDisplayFormat.FullyQualifiedFormat;
             var format = SymbolDisplayFormat.FullyQualifiedFormat
-                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
                 .WithMemberOptions(displayOptions.MemberOptions | SymbolDisplayMemberOptions.IncludeExplicitInterface);
 
             foreach (var m in members)
