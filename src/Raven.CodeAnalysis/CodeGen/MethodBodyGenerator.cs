@@ -41,9 +41,24 @@ internal class MethodBodyGenerator
     public IILBuilder ILGenerator { get; private set; }
 
     internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder)
+        => TryGetCapturedField(symbol, out fieldBuilder, out _);
+
+    internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder, out bool fromStateMachine)
     {
+        fromStateMachine = false;
+
         if (_lambdaClosure is null)
         {
+            if (symbol is ILocalSymbol localSymbol &&
+                MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
+                asyncStateMachine.TryGetHoistedLocalField(localSymbol, out var hoistedField) &&
+                MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(hoistedField) is FieldBuilder hoistedBuilder)
+            {
+                fieldBuilder = hoistedBuilder;
+                fromStateMachine = true;
+                return true;
+            }
+
             fieldBuilder = default!;
             return false;
         }
@@ -104,6 +119,16 @@ internal class MethodBodyGenerator
         if (_lambdaClosure is null)
             throw new InvalidOperationException("No closure parameter available for this lambda.");
 
+        if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
+            asyncStateMachine.GetConstructedMembers(asyncStateMachine.AsyncMethod).ThisField is { } closureField)
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(
+                OpCodes.Ldfld,
+                closureField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen));
+            return;
+        }
+
         ILGenerator.Emit(OpCodes.Ldarg_0);
     }
 
@@ -113,6 +138,20 @@ internal class MethodBodyGenerator
         scope = new Scope(baseGenerator);
 
         ILGenerator = MethodGenerator.ILBuilderFactory.Create(MethodGenerator);
+
+        try
+        {
+            EmitCore();
+        }
+        finally
+        {
+            if (ILGenerator is ILabelTrackingILBuilder tracking)
+                tracking.MarkAllLabels();
+        }
+    }
+
+    private void EmitCore()
+    {
 
         if (MethodSymbol is SynthesizedMainMethodSymbol mainSymbol && mainSymbol.AsyncImplementation is { } asyncImplementation)
         {
@@ -456,9 +495,15 @@ internal class MethodBodyGenerator
 
     private void EmitAsyncStateMachineMethod(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
     {
+        var previousClosure = _lambdaClosure;
+
+        if (_lambdaClosure is null)
+            _lambdaClosure = GetAsyncLambdaClosure(asyncStateMachine);
+
         if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.Constructor))
         {
             ILGenerator.Emit(OpCodes.Ret);
+            _lambdaClosure = previousClosure;
             return;
         }
 
@@ -466,11 +511,47 @@ internal class MethodBodyGenerator
         if (body is null)
         {
             ILGenerator.Emit(OpCodes.Ret);
+            _lambdaClosure = previousClosure;
             return;
         }
 
-        DeclareLocals(body);
-        EmitMethodBlock(body);
+        try
+        {
+            DeclareLocals(body);
+            EmitMethodBlock(body);
+        }
+        finally
+        {
+            _lambdaClosure = previousClosure;
+        }
+    }
+
+    private TypeGenerator.LambdaClosure? GetAsyncLambdaClosure(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+    {
+        if (asyncStateMachine.AsyncMethod is not SourceLambdaSymbol { HasCaptures: true } lambda)
+            return null;
+
+        if (MethodGenerator.LambdaClosure is { } existing)
+            return existing;
+
+        if (lambda.ContainingType is null)
+            return null;
+
+        var containingType = asyncStateMachine.AsyncMethod.ContainingType ?? lambda.ContainingType;
+        var containingGenerator = MethodGenerator.TypeGenerator.CodeGen
+            .GetOrCreateTypeGenerator(containingType);
+
+        var lambdaMethodGenerator = containingGenerator.GetMethodGenerator(lambda);
+        if (lambdaMethodGenerator?.LambdaClosure is { } lambdaClosure)
+            return lambdaClosure;
+
+        if (containingGenerator.TryGetLambdaClosure(lambda, out var closure))
+            return closure;
+
+        if (containingGenerator.TypeBuilder is null)
+            return null;
+
+        return containingGenerator.EnsureLambdaClosure(lambda);
     }
 
     private BoundBlockStatement? GetAsyncStateMachineBody(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
@@ -512,7 +593,10 @@ internal class MethodBodyGenerator
         return null;
     }
 
-    public void EmitLambda(BoundLambdaExpression lambda, TypeGenerator.LambdaClosure? closure)
+    public void EmitLambda(
+        BoundLambdaExpression lambda,
+        TypeGenerator.LambdaClosure? closure,
+        BoundBlockStatement? rewrittenBody = null)
     {
         baseGenerator = new BaseGenerator(this);
         scope = new Scope(baseGenerator);
@@ -526,21 +610,33 @@ internal class MethodBodyGenerator
             if (_lambdaClosure is not null)
                 InitializeCapturedParameters();
 
-            if (lambda.Body is BoundBlockExpression blockExpression)
-            {
-                var block = new BoundBlockStatement(blockExpression.Statements);
-                DeclareLocals(block);
-                EmitMethodBlock(block);
-                return;
-            }
-
-            var returnStatement = new BoundReturnStatement(lambda.Body);
-            EmitStatement(returnStatement);
+            var block = rewrittenBody ?? CreateLambdaBody(lambda);
+            DeclareLocals(block);
+            EmitMethodBlock(block);
         }
         finally
         {
             _lambdaClosure = null;
         }
+    }
+
+    private static BoundBlockStatement CreateLambdaBody(BoundLambdaExpression lambda)
+    {
+        if (lambda.Body is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        var statements = new List<BoundStatement>();
+
+        if (lambda.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            statements.Add(new BoundExpressionStatement(lambda.Body));
+        }
+        else
+        {
+            statements.Add(new BoundReturnStatement(lambda.Body));
+        }
+
+        return new BoundBlockStatement(statements);
     }
 
     private void InitializeCapturedParameters()
@@ -1447,6 +1543,12 @@ internal class MethodBodyGenerator
             }
 
             var clrType = ResolveClrType(localSymbol.Type);
+            if (clrType is null)
+            {
+                var typeDisplay = localSymbol.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                throw new InvalidOperationException($"Failed to resolve CLR type for local '{localSymbol.Name}' of type '{typeDisplay}' in method '{MethodSymbol}'.");
+            }
+
             var builder = ILGenerator.DeclareLocal(clrType);
             builder.SetLocalSymInfo(localSymbol.Name);
             targetScope.AddLocal(localSymbol, builder);
@@ -1498,19 +1600,22 @@ internal class MethodBodyGenerator
 
         blockScope.EmitDispose(block.LocalsToDispose);
 
-        if (!treatAsMethodBody || !includeImplicitReturn)
-            return;
-
         if (_returnLabel is ILLabel exitLabel)
         {
             ILGenerator.MarkLabel(exitLabel);
 
-            if (TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
-                ILGenerator.Emit(OpCodes.Ldloc, returnValueLocal);
+            if (treatAsMethodBody && includeImplicitReturn)
+            {
+                if (TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
+                    ILGenerator.Emit(OpCodes.Ldloc, returnValueLocal);
 
-            ILGenerator.Emit(OpCodes.Ret);
-            return;
+                ILGenerator.Emit(OpCodes.Ret);
+                return;
+            }
         }
+
+        if (!treatAsMethodBody || !includeImplicitReturn)
+            return;
 
         var endsWithTerminator = statements.Count > 0 &&
             statements[^1] is BoundReturnStatement or BoundThrowStatement;

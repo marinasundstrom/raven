@@ -181,6 +181,11 @@ partial class BlockBinder
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
 
         var inferred = bodyExpr.Type;
+        var collectedReturn = ReturnTypeCollector.Infer(bodyExpr);
+        var collectedAsyncReturn = isAsyncLambda
+            ? AsyncReturnTypeUtilities.InferAsyncReturnType(Compilation, collectedReturn)
+            : null;
+
         if (returnTypeSyntax is null &&
             inferred is not null &&
             inferred.TypeKind != TypeKind.Error)
@@ -189,44 +194,54 @@ partial class BlockBinder
         }
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
 
-        ITypeSymbol InferAsyncReturnType(ITypeSymbol? bodyType, ITypeSymbol unit)
-        {
-            var taskType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
-
-            if (bodyType is null ||
-                bodyType.TypeKind == TypeKind.Error ||
-                SymbolEqualityComparer.Default.Equals(bodyType, unit) ||
-                bodyType.SpecialType == SpecialType.System_Void)
-            {
-                return taskType;
-            }
-
-            if (Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is INamedTypeSymbol taskGeneric)
-                return taskGeneric.Construct(bodyType);
-
-            return taskType;
-        }
-
-        ITypeSymbol? ExtractAsyncResultType(ITypeSymbol asyncReturnType)
-        {
-            if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
-                return unitType;
-
-            if (asyncReturnType is INamedTypeSymbol named &&
-                named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
-                named.TypeArguments.Length == 1)
-            {
-                return named.TypeArguments[0];
-            }
-
-            return null;
-        }
         if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
         {
-            var collected = ReturnTypeCollector.Infer(bodyExpr);
-            if (collected is not null)
-                inferred = collected;
+            if (collectedReturn is not null)
+                inferred = collectedReturn;
         }
+
+        if (isAsyncLambda && inferred is IUnionTypeSymbol union)
+        {
+            var unionTypes = union.Types.ToImmutableArray();
+            if (!unionTypes.IsDefaultOrEmpty)
+            {
+                var nonUnitTypes = unionTypes
+                    .Where(t => !SymbolEqualityComparer.Default.Equals(t, unitType))
+                    .ToImmutableArray();
+
+                if (!nonUnitTypes.IsDefaultOrEmpty)
+                {
+                    inferred = nonUnitTypes.Length == 1
+                        ? nonUnitTypes[0]
+                        : TypeSymbolNormalization.NormalizeUnion(nonUnitTypes);
+                }
+            }
+        }
+
+        var inferredAsyncReturnInput = inferred;
+
+        if (isAsyncLambda)
+        {
+            if (collectedReturn is { TypeKind: not TypeKind.Error })
+            {
+                inferredAsyncReturnInput = collectedReturn;
+            }
+            else if (inferredAsyncReturnInput is null ||
+                     inferredAsyncReturnInput.TypeKind == TypeKind.Error ||
+                     SymbolEqualityComparer.Default.Equals(inferredAsyncReturnInput, unitType))
+            {
+                if (collectedReturn is not null)
+                    inferredAsyncReturnInput = collectedReturn;
+            }
+        }
+
+        var inferredAsyncReturn = isAsyncLambda
+            ? collectedAsyncReturn ?? AsyncReturnTypeUtilities.InferAsyncReturnType(Compilation, inferredAsyncReturnInput)
+            : null;
+
+        var inferredAsyncResult = inferredAsyncReturn is not null
+            ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, inferredAsyncReturn)
+            : null;
 
         bool ContainsTypeParameter(ITypeSymbol type)
         {
@@ -251,11 +266,60 @@ partial class BlockBinder
 
         INamedTypeSymbol? SelectBestDelegate(ITypeSymbol? inferredReturn)
         {
+            if (isAsyncLambda)
+            {
+                var taskGeneric = candidateDelegates.FirstOrDefault(candidate =>
+                {
+                    var invoke = candidate.GetDelegateInvokeMethod();
+                    var candidateReturn = invoke?.ReturnType;
+
+                    if (candidateReturn is NullableTypeSymbol nullable)
+                        candidateReturn = nullable.UnderlyingType;
+
+                    return candidateReturn is INamedTypeSymbol named &&
+                        named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T;
+                });
+
+                if (taskGeneric is not null)
+                    return taskGeneric;
+            }
+
+            var asyncResult = isAsyncLambda
+                ? inferredAsyncResult ?? inferred
+                : null;
+
+            var returnForSelection = inferredReturn ?? asyncResult;
+
             if (candidateDelegates.IsDefaultOrEmpty)
                 return primaryDelegate;
 
-            if (inferredReturn is null || inferredReturn.TypeKind == TypeKind.Error)
+            if (returnForSelection is null || returnForSelection.TypeKind == TypeKind.Error)
                 return primaryDelegate ?? candidateDelegates.FirstOrDefault();
+
+            bool IsAsyncDelegateReturn(ITypeSymbol? candidateReturn)
+            {
+                if (!isAsyncLambda || candidateReturn is null)
+                    return false;
+
+                if (candidateReturn is NullableTypeSymbol nullable)
+                    candidateReturn = nullable.UnderlyingType;
+
+                return IsValidAsyncReturnType(candidateReturn);
+            }
+
+            bool IsConvertibleToExpected(ITypeSymbol expectedBody)
+            {
+                var conversion = Compilation.ClassifyConversion(
+                    returnForSelection,
+                    expectedBody);
+
+                return conversion.Exists && conversion.IsImplicit;
+            }
+
+            INamedTypeSymbol? asyncMatch = null;
+            INamedTypeSymbol? syncMatch = null;
+            INamedTypeSymbol? bestAsyncByResult = null;
+            Conversion bestAsyncConversion = default;
 
             foreach (var candidate in candidateDelegates)
             {
@@ -264,28 +328,85 @@ partial class BlockBinder
                     continue;
 
                 var candidateReturn = invoke.ReturnType;
+                if (isAsyncLambda &&
+                    candidateReturn.SpecialType != SpecialType.System_Void &&
+                    !IsAsyncDelegateReturn(candidateReturn))
+                {
+                    continue;
+                }
+
                 var expectedBody = isAsyncLambda
-                    ? ExtractAsyncResultType(candidateReturn) ?? candidateReturn
+                    ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, candidateReturn) ?? candidateReturn
                     : candidateReturn;
 
                 if (expectedBody is null || expectedBody.TypeKind == TypeKind.Error)
                     continue;
 
+                if (asyncResult is { TypeKind: not TypeKind.Error })
+                {
+                    var conversion = Compilation.ClassifyConversion(asyncResult, expectedBody);
+                    if (conversion.Exists && conversion.IsImplicit)
+                    {
+                        var prefer = bestAsyncByResult is null ||
+                                     (!bestAsyncConversion.IsIdentity && conversion.IsIdentity);
+
+                        if (prefer)
+                        {
+                            bestAsyncByResult = candidate;
+                            bestAsyncConversion = conversion;
+                        }
+                    }
+                }
+
                 if (expectedBody is ITypeParameterSymbol)
-                    return candidate;
+                {
+                    // Keep generic async delegates (e.g., Task<T> Run(Func<Task<T>?>)) eligible even
+                    // when the expected body is a type parameter. If we already inferred an async
+                    // result, prefer this candidate up front instead of discarding it due to the
+                    // unconstrained type parameter comparison.
+                    if (asyncResult is { TypeKind: not TypeKind.Error })
+                    {
+                        bestAsyncByResult ??= candidate;
+                        asyncMatch ??= candidate;
+                    }
+                    else if (IsAsyncDelegateReturn(candidateReturn))
+                    {
+                        asyncMatch ??= candidate;
+                    }
+                    else
+                    {
+                        syncMatch ??= candidate;
+                    }
 
-                var conversion = Compilation.ClassifyConversion(
-                    inferredReturn,
-                    expectedBody);
+                    continue;
+                }
 
-                if (conversion.Exists && conversion.IsImplicit)
-                    return candidate;
+                if (!IsConvertibleToExpected(expectedBody))
+                    continue;
+
+                if (IsAsyncDelegateReturn(candidateReturn))
+                    asyncMatch ??= candidate;
+                else
+                    syncMatch ??= candidate;
             }
+
+            if (bestAsyncByResult is not null)
+                return bestAsyncByResult;
+
+            if (asyncMatch is not null)
+                return asyncMatch;
+
+            if (syncMatch is not null)
+                return syncMatch;
 
             return primaryDelegate ?? candidateDelegates.FirstOrDefault();
         }
 
-        primaryDelegate = SelectBestDelegate(inferred);
+        var delegateSelectionType = isAsyncLambda
+            ? inferredAsyncResult ?? inferred
+            : inferred;
+
+        primaryDelegate = SelectBestDelegate(delegateSelectionType);
         targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
 
         var targetReturn = targetSignature?.ReturnType;
@@ -293,19 +414,57 @@ partial class BlockBinder
             targetReturn = null;
 
         ITypeSymbol returnType;
+        bool IsAsyncReturnCompatibleWithLambda(ITypeSymbol? candidateReturn)
+        {
+            if (!isAsyncLambda || candidateReturn is null)
+                return false;
+
+            if (candidateReturn.SpecialType == SpecialType.System_Void)
+                return SymbolEqualityComparer.Default.Equals(inferredAsyncResult, unitType);
+
+            if (candidateReturn is NullableTypeSymbol nullable)
+                candidateReturn = nullable.UnderlyingType;
+
+            return IsValidAsyncReturnType(candidateReturn);
+        }
+
         if (annotatedReturnType is { TypeKind: not TypeKind.Error })
         {
             returnType = annotatedReturnType;
         }
+        else if (isAsyncLambda)
+        {
+            if (inferredAsyncReturn is { TypeKind: not TypeKind.Error })
+            {
+                returnType = inferredAsyncReturn;
+            }
+            else if (targetReturn is not null && ContainsTypeParameter(targetReturn))
+            {
+                // Avoid flowing type-parameterized delegate returns into the lambda's
+                // return type when we already have async inference inputs. Doing so
+                // keeps the lambda shaped like its async body (e.g., Task<int>)
+                // instead of inheriting Task<T> and re-wrapping to Task<Task<T>>
+                // during replay.
+                var inferredAsync = AsyncReturnTypeUtilities.InferAsyncReturnType(
+                    Compilation,
+                    inferredAsyncReturnInput ?? inferred ?? collectedReturn ?? targetReturn);
+
+                returnType = inferredAsync;
+            }
+            else if (IsAsyncReturnCompatibleWithLambda(targetReturn))
+            {
+                returnType = targetReturn!;
+            }
+            else
+            {
+                returnType = Compilation.ErrorTypeSymbol;
+            }
+        }
         else if (targetReturn is not null)
         {
             returnType = ContainsTypeParameter(targetReturn)
-                ? (isAsyncLambda ? InferAsyncReturnType(inferred, unitType) : inferred ?? targetReturn)
+                ? inferred ?? targetReturn
                 : targetReturn;
-        }
-        else if (isAsyncLambda)
-        {
-            returnType = InferAsyncReturnType(inferred, unitType);
         }
         else
         {
@@ -315,7 +474,7 @@ partial class BlockBinder
         ITypeSymbol? expectedBodyType = returnType;
         if (isAsyncLambda)
         {
-            expectedBodyType = ExtractAsyncResultType(returnType) ?? expectedBodyType;
+            expectedBodyType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) ?? expectedBodyType;
         }
 
         if (expectedBodyType is not null &&
@@ -815,14 +974,66 @@ partial class BlockBinder
             lambdaBinder.DeclareParameter(parameter);
 
         var body = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
-        var inferred = body.Type ?? ReturnTypeCollector.Infer(body);
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var collectedReturn = unbound.LambdaSymbol.IsAsync
+            ? ReturnTypeCollector.InferAsync(Compilation, body)
+            : ReturnTypeCollector.Infer(body);
+
+        var inferred = body.Type;
+        if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
+            inferred = collectedReturn;
+
+        if (inferred is null)
+            inferred = collectedReturn;
+
         if (inferred is not null && inferred.TypeKind != TypeKind.Error)
             inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
+
+        bool ContainsTypeParameter(ITypeSymbol type)
+        {
+            switch (type)
+            {
+                case ITypeParameterSymbol:
+                    return true;
+                case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                    return named.TypeArguments.Any(ContainsTypeParameter);
+                case IArrayTypeSymbol array:
+                    return ContainsTypeParameter(array.ElementType);
+                case ByRefTypeSymbol byRef:
+                    return ContainsTypeParameter(byRef.ElementType);
+                case NullableTypeSymbol nullable:
+                    return ContainsTypeParameter(nullable.UnderlyingType);
+                case ITupleTypeSymbol tuple:
+                    return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
+                default:
+                    return false;
+            }
+        }
+
         var returnType = invoke.ReturnType;
-        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        ITypeSymbol? inferredAsyncReturn = null;
+
+        if (unbound.LambdaSymbol.IsAsync)
+        {
+            inferredAsyncReturn = collectedReturn ??
+                AsyncReturnTypeUtilities.InferAsyncReturnType(
+                    Compilation,
+                    inferred ?? returnType);
+
+            if (inferredAsyncReturn is { TypeKind: not TypeKind.Error } &&
+                (returnType is null ||
+                 returnType.TypeKind == TypeKind.Error ||
+                 ContainsTypeParameter(returnType)))
+            {
+                returnType = inferredAsyncReturn;
+            }
+        }
 
         ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol asyncReturnType)
         {
+            if (asyncReturnType is NullableTypeSymbol nullable)
+                asyncReturnType = nullable.UnderlyingType;
+
             if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
                 return unitType;
 
@@ -840,12 +1051,21 @@ partial class BlockBinder
         if (unbound.LambdaSymbol.IsAsync)
             expectedBodyType = ExtractAsyncResultTypeForReplay(returnType) ?? expectedBodyType;
 
-        if (inferred is not null &&
-            inferred.TypeKind != TypeKind.Error &&
+        var conversionSource = inferred;
+
+        if (unbound.LambdaSymbol.IsAsync && conversionSource is not null)
+            conversionSource = ExtractAsyncResultTypeForReplay(conversionSource) ?? conversionSource;
+
+        var shouldApplyConversion =
+            conversionSource is not null &&
+            conversionSource.TypeKind != TypeKind.Error &&
             expectedBodyType is not null &&
-            expectedBodyType.TypeKind != TypeKind.Error)
+            expectedBodyType.TypeKind != TypeKind.Error &&
+            expectedBodyType is not ITypeParameterSymbol;
+
+        if (shouldApplyConversion)
         {
-            if (!IsAssignable(expectedBodyType, inferred, out var conversion))
+            if (!IsAssignable(expectedBodyType, conversionSource!, out var conversion))
             {
                 instrumentation.RecordBindingFailure();
                 return null;

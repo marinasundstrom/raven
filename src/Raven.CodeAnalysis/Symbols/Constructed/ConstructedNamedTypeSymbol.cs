@@ -37,22 +37,26 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         ImmutableArray<ITypeSymbol> typeArguments,
         Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
     {
+        var comparer = ReferenceEqualityComparer.Instance;
+
         if (inheritedSubstitution is null)
         {
-            var map = originalDefinition.TypeParameters
-                .Zip(typeArguments, (p, a) => (p, a))
-                .ToDictionary(x => x.p, x => x.a);
+            var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(comparer);
 
-            return new Dictionary<ITypeParameterSymbol, ITypeSymbol>(map, SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType());
+            var typeParameters = originalDefinition.TypeParameters;
+            for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
+                map[typeParameters[i]] = typeArguments[i];
+
+            return map;
         }
 
-        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType());
-        var typeParameters = originalDefinition.TypeParameters;
+        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, comparer);
+        var inheritedParameters = originalDefinition.TypeParameters;
 
         if (!typeArguments.IsDefaultOrEmpty)
         {
-            for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
-                substitution[typeParameters[i]] = typeArguments[i];
+            for (var i = 0; i < inheritedParameters.Length && i < typeArguments.Length; i++)
+                substitution[inheritedParameters[i]] = typeArguments[i];
         }
 
         return substitution;
@@ -72,9 +76,27 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         _substitutionMap = CreateSubstitutionMap(originalDefinition, typeArguments, inheritedSubstitution);
     }
 
+    private bool TryGetSubstitution(ITypeParameterSymbol parameter, out ITypeSymbol replacement)
+    {
+        if (_substitutionMap.TryGetValue(parameter, out replacement!))
+            return true;
+
+        foreach (var (key, value) in _substitutionMap)
+        {
+            if (SymbolEqualityComparer.Default.Equals(key, parameter))
+            {
+                replacement = value;
+                return true;
+            }
+        }
+
+        replacement = null!;
+        return false;
+    }
+
     public ITypeSymbol Substitute(ITypeSymbol type)
     {
-        if (type is ITypeParameterSymbol tp && _substitutionMap.TryGetValue(tp, out var concrete))
+        if (type is ITypeParameterSymbol tp && TryGetSubstitution(tp, out var concrete))
             return concrete;
 
         if (type is NullableTypeSymbol nullableTypeSymbol)
@@ -217,7 +239,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         for (var i = 0; i < typeParameters.Length; i++)
         {
             var parameter = typeParameters[i];
-            if (_substitutionMap.TryGetValue(parameter, out var replacement))
+            if (TryGetSubstitution(parameter, out var replacement))
             {
                 typeArguments[i] = replacement;
             }

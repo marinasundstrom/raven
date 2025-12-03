@@ -179,7 +179,7 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var typeName = "System.Threading.Tasks.Task`1";
+        var typeName = "System.Char";
 
         var type = compilation.GetTypeByMetadataName(typeName);
 

@@ -457,8 +457,47 @@ internal class MethodGenerator
             return;
 
         var bodyGenerator = new MethodBodyGenerator(this);
-        bodyGenerator.EmitLambda(lambda, closure);
+
+        BoundBlockStatement? rewrittenBody = null;
+        ITypeSymbol? closureSelfType = null;
+
+        if (lambda.Symbol is SourceLambdaSymbol sourceLambda && sourceLambda.IsAsync)
+        {
+            var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
+            if (closure is not null)
+            {
+                closureSelfType = closure.Symbol;
+            }
+
+            var rewritten = AsyncLowerer.Rewrite(sourceLambda, block, selfType: closureSelfType);
+            if (rewritten.StateMachine is not null)
+            {
+                if (!TypeGenerator.CodeGen.TryGetRuntimeTypeForSymbol(rewritten.StateMachine, out _))
+                {
+                    var stateMachineGenerator = TypeGenerator.CodeGen.GetOrCreateTypeGenerator(rewritten.StateMachine);
+                    stateMachineGenerator.DefineTypeBuilder();
+                    stateMachineGenerator.DefineMemberBuilders();
+                    stateMachineGenerator.EmitMemberILBodies();
+                    stateMachineGenerator.CreateType();
+                }
+            }
+
+            rewrittenBody = rewritten.Body;
+        }
+
+        bodyGenerator.EmitLambda(lambda, closure, rewrittenBody);
         _bodyEmitted = true;
+    }
+
+    private static BoundBlockStatement ConvertToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)
+    {
+        if (body is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        if (lambda.ReturnType.SpecialType == SpecialType.System_Unit)
+            return new BoundBlockStatement(new[] { new BoundExpressionStatement(body) });
+
+        return new BoundBlockStatement(new[] { new BoundReturnStatement(body) });
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)

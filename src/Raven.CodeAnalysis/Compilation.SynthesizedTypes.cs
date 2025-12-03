@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     private readonly Dictionary<DelegateSignature, SynthesizedDelegateTypeSymbol> _synthesizedDelegates = new(new DelegateSignatureComparer());
-    private readonly Dictionary<SourceMethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<IMethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<SourceMethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(ReferenceEqualityComparer.Instance);
     private int _synthesizedDelegateOrdinal;
     private int _synthesizedAsyncStateMachineOrdinal;
@@ -45,13 +45,38 @@ public partial class Compilation
     internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
         => _synthesizedDelegates.Values;
 
-    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(SourceMethodSymbol method)
+    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(
+        IMethodSymbol method,
+        ITypeSymbol? selfType = null)
     {
         if (_synthesizedAsyncStateMachines.TryGetValue(method, out var existing))
             return existing;
 
+        existing = _synthesizedAsyncStateMachines.Values
+            .FirstOrDefault(machine => SymbolEqualityComparer.Default.Equals(machine.AsyncMethod, method));
+
+        if (existing is not null)
+        {
+            _synthesizedAsyncStateMachines[method] = existing;
+            return existing;
+        }
+
+        var syntaxReference = method.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is not null)
+        {
+            existing = _synthesizedAsyncStateMachines.Values
+                .FirstOrDefault(machine => machine.AsyncMethod.DeclaringSyntaxReferences
+                    .Any(reference => reference.SyntaxTree == syntaxReference.SyntaxTree && reference.Span == syntaxReference.Span));
+
+            if (existing is not null)
+            {
+                _synthesizedAsyncStateMachines[method] = existing;
+                return existing;
+            }
+        }
+
         var name = $"<>c__AsyncStateMachine{_synthesizedAsyncStateMachineOrdinal++}";
-        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(this, method, name);
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(this, method, name, selfType);
         _synthesizedAsyncStateMachines[method] = stateMachine;
         return stateMachine;
     }
