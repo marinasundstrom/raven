@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    protected readonly TypeResolver _typeResolver;
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
@@ -19,6 +19,47 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
     private readonly ITypeSymbol? _constructedFrom;
     private readonly ITypeSymbol? _originalDefinition;
+
+    internal static PENamedTypeSymbol Create(
+        TypeResolver typeResolver,
+        System.Reflection.TypeInfo typeInfo,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations)
+    {
+        foreach (var attribute in typeInfo.GetCustomAttributesData())
+        {
+            if (attribute.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
+                return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+
+            if (attribute.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
+            {
+                IDiscriminatedUnionSymbol? unionSymbol = null;
+
+                if (containingType is IDiscriminatedUnionSymbol containingUnion)
+                {
+                    unionSymbol = containingUnion;
+                }
+
+                if (attribute.ConstructorArguments is [{ Value: Type unionType }])
+                {
+                    unionSymbol = typeResolver.ResolveType(unionType) as IDiscriminatedUnionSymbol;
+                }
+
+                return new PEDiscriminatedUnionCaseSymbol(
+                    typeResolver,
+                    typeInfo,
+                    containingSymbol,
+                    containingType,
+                    containingNamespace,
+                    locations,
+                    unionSymbol);
+            }
+        }
+
+        return new PENamedTypeSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+    }
 
     public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -420,13 +461,12 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
         {
-            new PENamedTypeSymbol(
-                _typeResolver,
+            var module = (PEModuleSymbol)ContainingModule;
+            module.CreateMetadataTypeSymbol(
                 nestedTypeInfo,
+                ContainingNamespace!,
                 this,
-                this,
-                this.ContainingNamespace,
-                [new MetadataLocation(ContainingModule!)]);
+                this);
         }
     }
 
