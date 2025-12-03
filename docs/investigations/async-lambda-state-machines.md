@@ -45,7 +45,8 @@
 - [ ] **Rebuild diagnostics and dumps**: Update bound-tree/binder diagnostics to surface full candidate signatures (including extension methods) when ambiguities remain, aiding future debugging of LINQ and `Task.Run` overload picks.
 - [ ] **Cross-validate with samples/tests**: After redoing the inference stack, rerun `async/async-inference.rav` with `-bt` and the samples test procedure, and add LINQ-centric regression tests that assert correct overload binding for async lambdas.
 - [x] **Honor `Unit`/`void` equivalence during inference**: Treat `Unit` and `void` as interchangeable in conversion checks so delegate selection can pick void-returning delegates (e.g., `Action`) when the lambda result is `Unit`.
-- [ ] **Stabilize async lambda emission**: Ensure async lambda state machines are fully constructed before IL emission so open generic results (e.g., `TResult` from `Task.Run`) no longer surface as unresolved runtime types.
+- [x] **Harden async lambda emission**: Fix the null closure capture when emitting async lambda state machines so `ExpressionGenerator.EmitCapturedValue` can load captured locals after async lowering, preventing the current emission crash for `Task.Run(async () => ...)`.
+- [x] **Stabilize async lambda emission**: Ensure async lambda state machines are fully constructed before IL emission so open generic results (e.g., `TResult` from `Task.Run`) no longer surface as unresolved runtime types.
 
 ### Updated implementation path
 - [x] **Extend async rewriter entry points**: Added `AsyncLowerer.Rewrite(SourceLambdaSymbol, …)` plus an `AsyncRewriteResult` wrapper so async-aware callers can flow analysis, state-machine handles, and rewritten bodies for lambdas alongside the existing method overloads.
@@ -229,3 +230,58 @@
 - Normalized constructed method symbols to treat missing type arguments as an empty list so generic projections no longer explode when a constructed method is created with a default `ImmutableArray` of type parameters.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L21-L41】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L226-L248】
 - Re-running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt --no-emit --overload-log /tmp/over.log` now shows both `Task.Run` invocations selecting the generic overload with `TResult=Int32`, confirming that constructed method symbols are being created with the inferred return type instead of staying open.【53e33a†L1-L87】
 - The bound tree still prints the block-bodied async lambda’s delegate as `Func<System.Threading.Tasks.Task<TResult>?>` even though the lambda symbol returns `Task<int>`, and full emission still fails while projecting the lambda delegate to a CLR type (`TypeSymbolExtensionsForCodeGen.GetClrTypeInternal`), indicating the delegate flowing into codegen retains an unresolved type parameter despite the constructed `Task.Run<int>` method selection.【6e11f4†L6-L34】【d82f2d†L1-L55】
+
+### Findings after step 45
+- With the constructed symbol substitution and display fixes applied, running the full `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` build now crashes during emission with a null dereference in `ExpressionGenerator.EmitCapturedValue` while emitting the async lambda’s state machine, indicating the closure slot for the captured variable is still missing when the rewritten lambda is emitted.【30c547†L1-L78】
+- Re-running the sample with `--no-emit` shows binding succeeding: the async lambda is inferred as `() -> Task<int>?`, `Task.Run<int>(function: () -> Task<int>?)` is selected, and the await on `Task.Delay` plus the captured `value` flow through the bound tree without ambiguity, so inference now matches the intended delegate shape and generic substitution.【eaa092†L1-L31】
+
+### Findings after step 46
+- Hardened async state-machine emission by reusing the lambda closure when available, mapping hoisted locals back to state-machine fields, and teaching captured-variable emitters to load from the state machine when a hoisted local is captured instead of expecting a closure field.【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L28-L67】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L960-L1007】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L15-L79】
+- Added label-tracking to the reflection IL builder and marked any unmarked labels after method emission to prevent emission-time `Label has not been marked` failures when lowering introduces auxiliary labels without marks.【F:src/Raven.CodeAnalysis/CodeGen/IILBuilderFactory.cs†L8-L94】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L126-L150】
+- Running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -bt` now completes successfully, confirming that async lambda emission for the sample survives through state-machine generation and metadata emission.【97fa42†L1-L5】
+
+### Findings after step 47
+- Async lambda rewriting now reuses the async entry stub (`RewriteAsyncBody`) and forces codegen to synthesize the lambda's async state machine before emission so delegates can spin up their own builders instead of inlining `MoveNext` bodies directly.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L117-L151】【F:src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs†L453-L470】
+- Emitting `samples/async/async-inference.rav` succeeds, but running the DLL still throws `InvalidProgramException` because the async lambda closure method continues to access fields on the top-level state machine (`Program.<>c__AsyncStateMachine0`) instead of a lambda-specific machine, leaving a dedicated async lambda state machine unmaterialized.【a9ab51†L1-L7】【03f898†L19-L59】
+
+### Findings after step 48
+- Async async-lambda state machines are now synthesized while type builders are being defined by walking all lambda syntax in the compilation and invoking the async rewriter up front, preventing lambda state machines from being skipped during type generation.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L971-L1008】
+- Async lambda state-machine synthesis now captures the closure type inferred from captured variables or `self` expressions so the generated `_this` field points at the hoisted closure instead of the containing method type.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L124-L136】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L41-L75】
+- Full builds succeed and the sample emits, but running `async-inference.dll` still raises `InvalidProgramException` from `Program.<>c__AsyncStateMachine1.MoveNext`, indicating the async lambda’s closure wiring inside the outer state machine remains incorrect despite the dedicated lambda state machine now being present.【ced794†L1-L7】【04cd25†L1-L7】
+
+### Findings after step 49
+- Attempted to remap captured async-lambda fields onto hoisted state-machine locals by rewriting closure field accesses during async state-machine lowering (including a second rewrite after await lowering to catch hoisted locals created later).【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L246-L277】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L592-L627】
+- Despite the rewrite, running the emitted `async-inference.dll` still throws `InvalidProgramException` from `Program.<>c__AsyncStateMachine1.MoveNext`, so closure field accesses are still being emitted against the wrong receiver and the async lambda remains invalid at runtime.【a9fd6f†L1-L7】
+
+### Findings after step 50
+- Nested async lambdas now bypass the enclosing async state machine’s await rewriter so they retain independently lowered bodies instead of reusing outer builder/awaiter fields.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L174-L182】
+- Added eager async-lambda state-machine registration while defining type builders so lambda machines get `TypeBuilder` definitions before emission, but full emission still fails: generating `Program.<>c__AsyncStateMachine1.MoveNext` cannot resolve the CLR type for the lambda’s state-machine local (`Program.<>c__AsyncStateMachine2`), so the emitted DLL is still blocked earlier than the prior `InvalidProgramException`.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L1033-L1140】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L1524-L1540】【b21bef†L1-L43】
+
+### Findings after step 51
+- Async lambda rewriting over bound trees now materializes the lambda state machine’s `TypeBuilder` during rewrite so emission can resolve captured state-machine locals instead of discovering them late during IL generation.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L1090-L1109】
+- As a fallback, emitting an async lambda will synthesize and emit its state machine on the fly if no runtime type was registered, allowing `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -o /tmp/async-inference.dll` to complete; however, running the DLL still fails with `TypeLoadException` because `Program.<>c__AsyncStateMachine2.MoveNext` has no implementation, indicating the lambda state machine’s method bodies remain missing at runtime.【F:src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs†L454-L475】【b3f97f†L1-L72】【880b27†L1-L13】
+
+### Findings after step 52
+- Async lambda state machines were instantiating `AsyncTaskMethodBuilder` instead of `AsyncTaskMethodBuilder<T>` when the delegate return was `Task<T>?`, skipping `SetResult` emission and hanging the generated lambda at runtime. Unwrapping nullable return types before choosing the builder now selects the generic builder, threads the captured `value` back into `SetResult`, and lets the emitted `async-inference` sample complete successfully.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L713-L758】【d011cb†L1-L2】
+
+### Findings after step 53
+- The emitted `async-inference.dll` now runs but still prints `-2` instead of `42`. Disassembly shows the async lambda state machine stores its `_this` field as `Program.<>c__AsyncStateMachine1.<>c__LambdaClosure0` while `SetResult` loads `<value>__0` from `Program.<>c__LambdaClosure1`, a closure type that is never instantiated, so the captured value remains unset at runtime.【6be72e†L1-L43】【3c3400†L1-L5】
+- Redirected async-lambda closure creation from nested state-machine generators back to their host type generators and threaded the closure self type into async rewriting, but the closure mapping is still split across two synthesized types. The next fix needs to align closure instantiation and async-lambda state-machine receivers so `SetResult` reads from the same closure instance that captures `value` in `Program.<>c__AsyncStateMachine1.MoveNext`.
+
+### Findings after step 54
+- Async lambda closure rewriting now accepts constructed `_this` fields from state-machine members and emits captured field loads through the state-machine closure when the receiver is missing or typed as the async state machine, preventing direct loads of closure fields from the lambda state machine instance.
+- Even with the redirected emission path, running `dotnet /tmp/async-inference.dll` still prints `-2`, showing that the rewritten `SetResult` path continues to fetch the wrong value at runtime and further closure/receiver alignment is required.【0d3a7c†L1-L3】
+
+### Findings after step 55
+- Adjusted closure loading during async state-machine emission so `MethodBodyGenerator.EmitLoadClosure` now retrieves the hoisted closure through the state machine’s `_this` field, letting captured fields load from the correct closure instance even when no receiver is present in the bound tree.
+- Rebuilding and running `samples/async/async-inference.rav` now prints the expected `42`, confirming the async lambda state machine reads the captured `value` from the proper closure and completes successfully.【692d20†L1-L10】【7179c0†L1-L2】
+
+### Findings after step 56
+- Reused synthesized async state-machine symbols when the same lambda syntax is revisited by different symbol instances, mapping repeated rewrite calls back to the original state machine instead of creating additional types.【F:src/Raven.CodeAnalysis/Compilation.SynthesizedTypes.cs†L17-L52】
+- Running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -o /tmp/async-inference.dll -d pretty` now emits exactly two async state machines (`Program.<>c__AsyncStateMachine0` for the lambda and `Program.<>c__AsyncStateMachine1` for the entry point) while the executable still prints `42`.【b35e46†L1-L17】【69dbec†L1-L1】
+
+### Findings after step 57
+- Re-ran `samples/async/async-inference.rav` after the conversion guard change to ensure lambda state-machine emission still succeeds; the generated DLL continues to print `42`, confirming the closure rewrite remains intact.【fc30ef†L1-L2】
+
+### Findings after step 58
+- Revalidated `samples/async/async-inference.rav` after enabling assignment expressions in expression contexts; rebuilding and running the emitted DLL still prints `42`, so the async lambda state-machine wiring remains stable after the latest binder changes.

@@ -3,7 +3,13 @@ import System.Threading.Tasks.*
 
 let value = 42;
 
+WriteLine("Value: ${value}")
+
 let result = await Task.Run(async () => { 
+    WriteLine("Entered")
     await Task.Delay(200)
+    WriteLine("Waited")
     return value
 })
+
+WriteLine("Result: ${result}")

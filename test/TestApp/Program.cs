@@ -179,11 +179,22 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var type = compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
-        var baseType = type;
+        var typeName = "System.Char";
+
+        var type = compilation.GetTypeByMetadataName(typeName);
+
+        if (type is null)
+        {
+            Console.WriteLine($"Type '{typeName}' was not found");
+            return;
+        }
+
+        ITypeSymbol? constructedFrom = null;
 
         if (type.IsUnboundGenericType)
         {
+            constructedFrom = type;
+
             var arg = compilation.GetSpecialType(SpecialType.System_String);
             type = (INamedTypeSymbol?)type.Construct(arg);
         }
@@ -192,9 +203,9 @@ class Program
         {
             Console.WriteLine($"{type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
 
-            if (baseType is not null)
+            if (constructedFrom is not null)
             {
-                Console.WriteLine($"Constructed from: {baseType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
+                Console.WriteLine($"Constructed from: {constructedFrom?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
             }
 
             Console.WriteLine($"Base type: {type.BaseType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
@@ -217,7 +228,7 @@ class Program
 
             var displayOptions = SymbolDisplayFormat.FullyQualifiedFormat;
             var format = SymbolDisplayFormat.FullyQualifiedFormat
-                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
                 .WithMemberOptions(displayOptions.MemberOptions | SymbolDisplayMemberOptions.IncludeExplicitInterface);
 
             foreach (var m in members)

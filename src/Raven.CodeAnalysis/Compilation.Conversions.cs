@@ -11,6 +11,9 @@ public partial class Compilation
 {
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        if (source is null || destination is null)
+            return Conversion.None;
+
         static ITypeSymbol Unalias(ITypeSymbol type, ref bool wasAlias)
         {
             while (true)
@@ -68,21 +71,23 @@ public partial class Compilation
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
 
-        if (source is INamedTypeSymbol taskSourceNamed &&
+        if (source is INamedTypeSymbol { OriginalDefinition: { } taskSourceDefinition } taskSourceNamed &&
             taskSourceNamed.TypeKind != TypeKind.Error &&
-            taskSourceNamed.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            taskSourceDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             taskSourceNamed.TypeArguments.Length == 1 &&
-            taskSourceNamed.TypeArguments[0].SpecialType == SpecialType.System_Unit &&
+            taskSourceNamed.TypeArguments[0] is { } taskSourceArgument &&
+            taskSourceArgument.SpecialType == SpecialType.System_Unit &&
             destination.SpecialType == SpecialType.System_Threading_Tasks_Task)
         {
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
-        if (destination is INamedTypeSymbol taskDestinationNamed &&
+        if (destination is INamedTypeSymbol { OriginalDefinition: { } taskDestinationDefinition } taskDestinationNamed &&
             taskDestinationNamed.TypeKind != TypeKind.Error &&
-            taskDestinationNamed.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            taskDestinationDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             taskDestinationNamed.TypeArguments.Length == 1 &&
-            taskDestinationNamed.TypeArguments[0].SpecialType == SpecialType.System_Unit &&
+            taskDestinationNamed.TypeArguments[0] is { } taskDestinationArgument &&
+            taskDestinationArgument.SpecialType == SpecialType.System_Unit &&
             source.SpecialType == SpecialType.System_Threading_Tasks_Task)
         {
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));

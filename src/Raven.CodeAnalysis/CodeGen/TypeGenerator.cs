@@ -623,7 +623,15 @@ internal class TypeGenerator
 
             foreach (var methodGenerator in pending)
             {
-                methodGenerator.EmitBody();
+                CodeGen.CurrentEmittingMethod = methodGenerator.MethodSymbol;
+                try
+                {
+                    methodGenerator.EmitBody();
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to emit method '{methodGenerator.MethodSymbol.ToDisplayString()}'", ex);
+                }
             }
         }
     }
@@ -673,6 +681,23 @@ internal class TypeGenerator
 
     internal LambdaClosure EnsureLambdaClosure(SourceLambdaSymbol lambdaSymbol)
     {
+        if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
+            asyncStateMachine.AsyncMethod.ContainingType is { } containingType &&
+            !SymbolEqualityComparer.Default.Equals(containingType, TypeSymbol))
+        {
+            var hostGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
+            if (!ReferenceEquals(hostGenerator, this))
+                return hostGenerator.EnsureLambdaClosure(lambdaSymbol);
+        }
+
+        if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol { AsyncMethod.ContainingSymbol: INamedTypeSymbol hostType } &&
+            !SymbolEqualityComparer.Default.Equals(hostType, TypeSymbol))
+        {
+            var hostGenerator = CodeGen.GetOrCreateTypeGenerator(hostType);
+            if (!ReferenceEquals(hostGenerator, this))
+                return hostGenerator.EnsureLambdaClosure(lambdaSymbol);
+        }
+
         if (_lambdaClosures.TryGetValue(lambdaSymbol, out var existing))
             return existing;
 
@@ -681,10 +706,25 @@ internal class TypeGenerator
 
         var closureName = $"<>c__LambdaClosure{_lambdaClosureOrdinal++}";
         var objectType = ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object));
-        var closureBuilder = TypeBuilder.DefineNestedType(
+        var baseType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var closureSymbol = new SourceNamedTypeSymbol(
             closureName,
-            TypeAttributes.NestedPrivate | TypeAttributes.Sealed | TypeAttributes.Class,
-            objectType);
+            baseType,
+            TypeKind.Class,
+            lambdaSymbol.ContainingSymbol,
+            containingType: TypeSymbol as INamedTypeSymbol,
+            containingNamespace: TypeSymbol.ContainingNamespace,
+            locations: lambdaSymbol.Locations.ToArray(),
+            declaringSyntaxReferences: lambdaSymbol.DeclaringSyntaxReferences.ToArray(),
+            isSealed: true,
+            declaredAccessibility: Accessibility.Private);
+
+        var closureGenerator = CodeGen.GetOrCreateTypeGenerator(closureSymbol);
+        if (closureGenerator.TypeBuilder is null)
+            closureGenerator.DefineTypeBuilder();
+
+        var closureBuilder = closureGenerator.TypeBuilder
+            ?? throw new InvalidOperationException("Failed to define closure type builder.");
 
         var ctor = closureBuilder.DefineDefaultConstructor(MethodAttributes.Public);
 
@@ -704,7 +744,7 @@ internal class TypeGenerator
             fields[captured] = fieldBuilder;
         }
 
-        var closure = new LambdaClosure(closureBuilder, ctor, fields);
+        var closure = new LambdaClosure(closureSymbol, closureBuilder, ctor, fields);
         _lambdaClosures[lambdaSymbol] = closure;
         return closure;
     }
@@ -750,13 +790,19 @@ internal class TypeGenerator
         private readonly Dictionary<ISymbol, FieldBuilder> _fields;
         private Type? _createdType;
 
-        public LambdaClosure(TypeBuilder typeBuilder, ConstructorBuilder constructor, Dictionary<ISymbol, FieldBuilder> fields)
+        public LambdaClosure(
+            SourceNamedTypeSymbol symbol,
+            TypeBuilder typeBuilder,
+            ConstructorBuilder constructor,
+            Dictionary<ISymbol, FieldBuilder> fields)
         {
+            Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
             TypeBuilder = typeBuilder;
             Constructor = constructor;
             _fields = fields;
         }
 
+        public SourceNamedTypeSymbol Symbol { get; }
         public TypeBuilder TypeBuilder { get; }
 
         public ConstructorBuilder Constructor { get; }
@@ -764,6 +810,12 @@ internal class TypeGenerator
         public bool TryGetField(ISymbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
 
         public FieldBuilder GetField(ISymbol symbol) => _fields[symbol];
+
+        public Type EnsureCreatedType()
+        {
+            CreateType();
+            return _createdType ?? throw new InvalidOperationException("Lambda closure type was not created.");
+        }
 
         public void CreateType()
         {

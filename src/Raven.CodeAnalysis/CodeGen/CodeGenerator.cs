@@ -25,6 +25,8 @@ internal class CodeGenerator
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
 
+    internal IMethodSymbol? CurrentEmittingMethod { get; set; }
+
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo)
         => AddMemberBuilder(symbol, memberInfo, substitution: default);
 
@@ -643,85 +645,95 @@ internal class CodeGenerator
 
     public void Emit(Stream peStream, Stream? pdbStream)
     {
-        var assemblyName = new AssemblyName(_compilation.AssemblyName)
+        try
         {
-            Version = new Version(1, 0, 0, 0)
-        };
-
-        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
-        ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
-
-        DetermineShimTypeRequirements();
-
-        if (_emitTypeUnionAttribute)
-            CreateTypeUnionAttribute();
-        if (_emitNullType)
-            CreateNullStruct();
-        CreateUnitStruct();
-
-        DefineTypeBuilders();
-
-        DefineMemberBuilders();
-
-        EmitMemberILBodies();
-
-        CreateTypes();
-
-        var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
-            ? _compilation.GetEntryPoint()
-            : null;
-        MethodGenerator? entryPointGenerator = null;
-
-        if (entryPointSymbol is not null)
-        {
-            foreach (var typeGenerator in _typeGenerators.Values)
+            var assemblyName = new AssemblyName(_compilation.AssemblyName)
             {
-                var generator = typeGenerator.GetMethodGenerator(entryPointSymbol);
-                if (generator is not null)
+                Version = new Version(1, 0, 0, 0)
+            };
+
+            AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
+            ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
+
+            DetermineShimTypeRequirements();
+
+            if (_emitTypeUnionAttribute)
+                CreateTypeUnionAttribute();
+            if (_emitNullType)
+                CreateNullStruct();
+            CreateUnitStruct();
+
+            DefineTypeBuilders();
+
+            DefineMemberBuilders();
+
+            EmitMemberILBodies();
+
+            CreateTypes();
+
+            var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
+                ? _compilation.GetEntryPoint()
+                : null;
+            MethodGenerator? entryPointGenerator = null;
+
+            if (entryPointSymbol is not null)
+            {
+                foreach (var typeGenerator in _typeGenerators.Values)
                 {
-                    entryPointGenerator = generator;
-                    break;
+                    var generator = typeGenerator.GetMethodGenerator(entryPointSymbol);
+                    if (generator is not null)
+                    {
+                        entryPointGenerator = generator;
+                        break;
+                    }
+                }
+
+                if (entryPointGenerator is null)
+                {
+                    throw new InvalidOperationException("Failed to locate entry point method.");
                 }
             }
-
-            if (entryPointGenerator is null)
+            else
             {
-                throw new InvalidOperationException("Failed to locate entry point method.");
+                entryPointGenerator = _typeGenerators.Values
+                    .SelectMany(x => x.MethodGenerators)
+                    .FirstOrDefault(x => x.IsEntryPointCandidate);
             }
+
+            EntryPoint = entryPointGenerator?.MethodBase;
+
+            MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
+            MethodDefinitionHandle entryPointHandle = EntryPoint is not null
+                ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
+                : default;
+            DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
+
+            Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
+            {
+                OutputKind.ConsoleApplication => Characteristics.ExecutableImage,
+                OutputKind.DynamicallyLinkedLibrary => Characteristics.Dll,
+                _ => Characteristics.Dll,
+            };
+
+            ManagedPEBuilder peBuilder = new ManagedPEBuilder(
+                            header: new PEHeaderBuilder(imageCharacteristics: imageCharacteristics, subsystem: Subsystem.WindowsCui),
+                            metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
+                            ilStream: ilStream,
+                            debugDirectoryBuilder: debugDirectoryBuilder,
+                            entryPoint: entryPointHandle);
+
+            BlobBuilder peBlob = new BlobBuilder();
+            peBuilder.Serialize(peBlob);
+
+            peBlob.WriteContentTo(peStream);
         }
-        else
+        catch (Exception ex)
         {
-            entryPointGenerator = _typeGenerators.Values
-                .SelectMany(x => x.MethodGenerators)
-                .FirstOrDefault(x => x.IsEntryPointCandidate);
+            if (CurrentEmittingMethod is { } method)
+                throw new InvalidOperationException($"Emission failed while processing method '{method.ToDisplayString()}'", ex);
+
+            throw;
         }
-
-        EntryPoint = entryPointGenerator?.MethodBase;
-
-        MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
-        MethodDefinitionHandle entryPointHandle = EntryPoint is not null
-            ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
-            : default;
-        DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
-
-        Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
-        {
-            OutputKind.ConsoleApplication => Characteristics.ExecutableImage,
-            OutputKind.DynamicallyLinkedLibrary => Characteristics.Dll,
-            _ => Characteristics.Dll,
-        };
-
-        ManagedPEBuilder peBuilder = new ManagedPEBuilder(
-                        header: new PEHeaderBuilder(imageCharacteristics: imageCharacteristics, subsystem: Subsystem.WindowsCui),
-                        metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
-                        ilStream: ilStream,
-                        debugDirectoryBuilder: debugDirectoryBuilder,
-                        entryPoint: entryPointHandle);
-
-        BlobBuilder peBlob = new BlobBuilder();
-        peBuilder.Serialize(peBlob);
-
-        peBlob.WriteContentTo(peStream);
     }
 
     private void DetermineShimTypeRequirements()
@@ -1030,6 +1042,8 @@ internal class CodeGenerator
             var semanticModel = Compilation.GetSemanticModel(tree);
             var root = tree.GetRoot();
 
+            RewriteAsyncLambdas(semanticModel, root);
+
             foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
             {
                 if (semanticModel.GetDeclaredSymbol(methodDeclaration) is not SourceMethodSymbol methodSymbol)
@@ -1071,6 +1085,41 @@ internal class CodeGenerator
                 TryRewriteTopLevelAsyncMethod(semanticModel, compilationUnit, processedTopLevelMethods);
             }
         }
+    }
+
+    private void RewriteAsyncLambdas(SemanticModel semanticModel, SyntaxNode root)
+    {
+        foreach (var lambdaSyntax in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
+        {
+            if (semanticModel.GetBoundNode(lambdaSyntax) is not BoundLambdaExpression boundLambda)
+                continue;
+
+            if (boundLambda.Symbol is not SourceLambdaSymbol sourceLambda || !sourceLambda.IsAsync)
+                continue;
+
+            var lambdaBody = ConvertToBlockStatement(sourceLambda, boundLambda.Body);
+            if (!AsyncLowerer.ShouldRewrite(sourceLambda, lambdaBody))
+                continue;
+
+            var closureSelfType = TryGetAsyncLambdaClosureType(sourceLambda);
+            var rewritten = AsyncLowerer.Rewrite(sourceLambda, lambdaBody, selfType: closureSelfType);
+            if (rewritten.StateMachine is not null)
+            {
+                var generator = GetOrCreateTypeGenerator(rewritten.StateMachine);
+                generator.DefineTypeBuilder();
+            }
+        }
+    }
+
+    private static BoundBlockStatement ConvertToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)
+    {
+        if (body is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        if (lambda.ReturnType.SpecialType == SpecialType.System_Unit)
+            return new BoundBlockStatement(new[] { new BoundExpressionStatement(body) });
+
+        return new BoundBlockStatement(new[] { new BoundReturnStatement(body) });
     }
 
     private void TryRewriteTopLevelAsyncMethod(
@@ -1254,8 +1303,34 @@ internal class CodeGenerator
             if (!AsyncLowerer.ShouldRewrite(sourceLambda, block))
                 continue;
 
-            AsyncLowerer.Rewrite(sourceLambda, block);
+            var closureSelfType = TryGetAsyncLambdaClosureType(sourceLambda);
+            var rewrittenLambda = AsyncLowerer.Rewrite(sourceLambda, block, selfType: closureSelfType);
+
+            if (rewrittenLambda.StateMachine is not null)
+            {
+                var generator = GetOrCreateTypeGenerator(rewrittenLambda.StateMachine);
+                generator.DefineTypeBuilder();
+            }
         }
+    }
+
+    private ITypeSymbol? TryGetAsyncLambdaClosureType(SourceLambdaSymbol lambda)
+    {
+        if (!lambda.HasCaptures)
+            return null;
+
+        if (lambda.ContainingType is null)
+            return null;
+
+        var containingGenerator = GetOrCreateTypeGenerator(lambda.ContainingType);
+
+        if (containingGenerator.TypeBuilder is null)
+            containingGenerator.DefineTypeBuilder();
+
+        if (containingGenerator.TryGetLambdaClosure(lambda, out var closure))
+            return closure.Symbol;
+
+        return containingGenerator.EnsureLambdaClosure(lambda).Symbol;
     }
 
     private static BoundBlockStatement ConvertLambdaToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)
@@ -1380,7 +1455,7 @@ internal class CodeGenerator
 
     private void EmitMemberILBodies()
     {
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in _typeGenerators.Values.ToArray())
         {
             typeGenerator.EmitMemberILBodies();
         }

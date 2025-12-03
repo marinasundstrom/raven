@@ -12,6 +12,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private static readonly Location[] s_emptyLocations = Array.Empty<Location>();
     private static readonly SyntaxReference[] s_emptySyntax = Array.Empty<SyntaxReference>();
 
+    private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocalMap = new(SymbolEqualityComparer.Default);
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
     private ImmutableArray<SourceFieldSymbol> _hoistedLocalsToDispose;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
@@ -24,7 +25,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
         IMethodSymbol asyncMethod,
-        string name)
+        string name,
+        ITypeSymbol? selfType = null)
         : base(
             name,
             compilation.GetSpecialType(SpecialType.System_ValueType),
@@ -45,7 +47,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod ?? throw new ArgumentNullException(nameof(asyncMethod));
 
-        (
+        ( 
             _asyncToStateTypeParameterMap,
             _stateToAsyncTypeParameterMap,
             _typeParameterMappings) = InitializeTypeParameters(asyncMethod);
@@ -53,7 +55,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
 
         if (!asyncMethod.IsStatic)
-            ThisField = CreateField("_this", asyncMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object));
+        {
+            var thisType = selfType ?? asyncMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object);
+            ThisField = CreateField("_this", thisType);
+        }
 
         ParameterFields = CreateParameterFields(asyncMethod, out _parameterFieldMap);
         _hoistedLocals = ImmutableArray<SourceFieldSymbol>.Empty;
@@ -172,7 +177,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return new ConstructedNamedTypeSymbol(this, typeArguments);
     }
 
-    public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false)
+    public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false, ILocalSymbol? local = null)
     {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Field name cannot be null or empty.", nameof(name));
@@ -180,10 +185,20 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             throw new ArgumentNullException(nameof(type));
 
         var field = CreateField(name, type);
+        if (local is not null)
+            _hoistedLocalMap[local] = field;
         _hoistedLocals = _hoistedLocals.Add(field);
         if (requiresDispose)
             _hoistedLocalsToDispose = _hoistedLocalsToDispose.Add(field);
         return field;
+    }
+
+    internal bool TryGetHoistedLocalField(ILocalSymbol local, out SourceFieldSymbol field)
+    {
+        if (local is null)
+            throw new ArgumentNullException(nameof(local));
+
+        return _hoistedLocalMap.TryGetValue(local, out field!);
     }
 
     public void SetMoveNextBody(BoundBlockStatement body)
@@ -697,7 +712,9 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     private ITypeSymbol DetermineBuilderType(Compilation compilation, IMethodSymbol asyncMethod)
     {
-        var returnType = asyncMethod.ReturnType;
+        var returnType = asyncMethod.ReturnType is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : asyncMethod.ReturnType;
 
         if (asyncMethod is SynthesizedMainAsyncMethodSymbol { ReturnsInt: true } mainAsync)
         {
@@ -792,7 +809,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             s_emptySyntax,
             isStatic: false,
             methodKind: MethodKind.Ordinary,
-            declaredAccessibility: Accessibility.Internal);
+            declaredAccessibility: Accessibility.Public);
     }
 
     private SourceMethodSymbol CreateSetStateMachineMethod(
@@ -821,7 +838,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             s_emptySyntax,
             isStatic: false,
             methodKind: MethodKind.Ordinary,
-            declaredAccessibility: Accessibility.Internal);
+            declaredAccessibility: Accessibility.Public);
     }
 
     private static IMethodSymbol? FindParameterlessStaticMethod(INamedTypeSymbol type, string name)

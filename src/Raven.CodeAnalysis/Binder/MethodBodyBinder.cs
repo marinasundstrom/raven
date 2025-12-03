@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -19,7 +20,34 @@ class MethodBodyBinder : BlockBinder
     public override BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
     {
         var bound = base.BindBlockStatement(block);
+        return FinalizeMethodBody(block, bound, () => base.BindBlockStatement(block));
+    }
 
+    private BoundBlockStatement BindArrowExpressionClause(ArrowExpressionClauseSyntax clause)
+    {
+        if (TryGetCachedBoundNode(clause) is BoundBlockStatement cached)
+            return cached;
+
+        var bound = BindArrowExpressionClauseCore(clause);
+        return FinalizeMethodBody(clause, bound, () => BindArrowExpressionClauseCore(clause));
+    }
+
+    private BoundBlockStatement BindArrowExpressionClauseCore(ArrowExpressionClauseSyntax clause)
+    {
+        var expression = BindExpression(clause.Expression);
+
+        if (expression is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        BoundStatement statement = _methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+            ? new BoundExpressionStatement(expression)
+            : new BoundReturnStatement(expression);
+
+        return new BoundBlockStatement([statement]);
+    }
+
+    private BoundBlockStatement FinalizeMethodBody(SyntaxNode bodySyntax, BoundBlockStatement bound, Func<BoundBlockStatement> rebind)
+    {
         if (_methodSymbol is SourceMethodSymbol
             {
                 RequiresAsyncReturnTypeInference: true,
@@ -30,8 +58,8 @@ class MethodBodyBinder : BlockBinder
             sourceMethod.SetReturnType(inferredReturnType);
             sourceMethod.CompleteAsyncReturnTypeInference();
 
-            RemoveCachedBoundNode(block);
-            bound = base.BindBlockStatement(block);
+            RemoveCachedBoundNode(bodySyntax);
+            bound = rebind();
         }
 
         if (_methodSymbol.IsNamedConstructor && !_namedConstructorRewritten)
@@ -43,8 +71,8 @@ class MethodBodyBinder : BlockBinder
                 _methodSymbol,
                 _methodSymbol.ContainingType,
                 _methodSymbol.ContainingNamespace,
-                [block.GetLocation()],
-                [block.GetReference()]);
+                [bodySyntax.GetLocation()],
+                [bodySyntax.GetReference()]);
 
             var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal, Compilation);
             bound = rewriter.Rewrite(bound);
@@ -62,18 +90,18 @@ class MethodBodyBinder : BlockBinder
                 _diagnostics.ReportCannotConvertFromTypeToType(
                     t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     _methodSymbol.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    block.Statements.Last().GetLocation());
+                    bodySyntax.GetLocation());
             }
         }
 
         if (_methodSymbol is SourceMethodSymbol { IsAsync: true } asyncMethod)
-            AnalyzeAsyncBody(block, asyncMethod, bound);
+            AnalyzeAsyncBody(bodySyntax, asyncMethod, bound);
 
-        CacheBoundNode(block, bound);
+        CacheBoundNode(bodySyntax, bound);
         return bound;
     }
 
-    private void AnalyzeAsyncBody(BlockStatementSyntax block, SourceMethodSymbol asyncMethod, BoundBlockStatement bound)
+    private void AnalyzeAsyncBody(SyntaxNode bodySyntax, SourceMethodSymbol asyncMethod, BoundBlockStatement bound)
     {
         var containsAwait = AsyncLowerer.ContainsAwait(bound);
         asyncMethod.SetContainsAwait(containsAwait);
@@ -82,7 +110,7 @@ class MethodBodyBinder : BlockBinder
             return;
 
         var memberDescription = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
-        var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, block);
+        var location = AsyncDiagnosticUtilities.GetAsyncKeywordLocation(asyncMethod, bodySyntax);
 
         _diagnostics.ReportAsyncLacksAwait(memberDescription, location);
     }
@@ -121,6 +149,8 @@ class MethodBodyBinder : BlockBinder
             return BindBlockStatement(blockStmt);
         if (node is BlockSyntax block)
             return BindBlock(block, allowReturn: true);
+        if (node is ArrowExpressionClauseSyntax arrow)
+            return BindArrowExpressionClause(arrow);
 
         return base.GetOrBind(node);
     }

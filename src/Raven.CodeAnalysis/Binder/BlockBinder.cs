@@ -4120,6 +4120,18 @@ partial class BlockBinder : Binder
 
     private IMethodSymbol? ResolveUserDefinedOperator(SyntaxKind opKind, ITypeSymbol leftType, ITypeSymbol rightType)
     {
+        static ITypeSymbol UnwrapLiteral(ITypeSymbol type) =>
+            type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
+
+        leftType = UnwrapLiteral(leftType);
+        rightType = UnwrapLiteral(rightType);
+
+        if (leftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_String or SpecialType.System_Boolean ||
+            rightType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_String or SpecialType.System_Boolean)
+        {
+            return null;
+        }
+
         var opName = GetOperatorMethodName(opKind); // e.g. "op_Addition" for +
         if (opName is null)
             return null;
@@ -5187,9 +5199,6 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
     {
-        if (syntax.Parent is not AssignmentStatementSyntax)
-            _diagnostics.ReportAssignmentExpressionMustBeStatement(syntax.GetLocation());
-
         return BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
     }
 
