@@ -248,6 +248,24 @@ if (!string.IsNullOrWhiteSpace(ravenCorePath))
 
 var assemblyName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
 
+outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : assemblyName;
+if (!Path.HasExtension(outputPath))
+    outputPath = $"{outputPath}.dll";
+var outputFilePath = Path.GetFullPath(outputPath);
+var outputDirectory = Path.GetDirectoryName(outputFilePath);
+if (string.IsNullOrEmpty(outputDirectory))
+    outputDirectory = Directory.GetCurrentDirectory();
+if (!string.IsNullOrEmpty(ravenCorePath))
+{
+    Directory.CreateDirectory(outputDirectory!);
+    var ravenCoreDestination = Path.Combine(outputDirectory!, Path.GetFileName(ravenCorePath));
+    if (!string.Equals(ravenCoreDestination, ravenCorePath, StringComparison.OrdinalIgnoreCase))
+    {
+        File.Copy(ravenCorePath, ravenCoreDestination, overwrite: true);
+        ravenCorePath = ravenCoreDestination;
+    }
+}
+
 var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 
@@ -316,10 +334,6 @@ project = workspace.CurrentSolution.GetProject(projectId)!;
 var compilation = workspace.GetCompilation(projectId);
 
 var diagnostics = workspace.GetDiagnostics(projectId);
-
-outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
-outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
-var outputFilePath = Path.GetFullPath(outputPath);
 
 EmitResult? result = null;
 if (!noEmit)
