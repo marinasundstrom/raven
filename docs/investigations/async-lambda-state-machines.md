@@ -275,3 +275,7 @@
 ### Findings after step 55
 - Adjusted closure loading during async state-machine emission so `MethodBodyGenerator.EmitLoadClosure` now retrieves the hoisted closure through the state machine’s `_this` field, letting captured fields load from the correct closure instance even when no receiver is present in the bound tree.
 - Rebuilding and running `samples/async/async-inference.rav` now prints the expected `42`, confirming the async lambda state machine reads the captured `value` from the proper closure and completes successfully.【692d20†L1-L10】【7179c0†L1-L2】
+
+### Findings after step 56
+- Reused synthesized async state-machine symbols when the same lambda syntax is revisited by different symbol instances, mapping repeated rewrite calls back to the original state machine instead of creating additional types.【F:src/Raven.CodeAnalysis/Compilation.SynthesizedTypes.cs†L17-L52】
+- Running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -o /tmp/async-inference.dll -d pretty` now emits exactly two async state machines (`Program.<>c__AsyncStateMachine0` for the lambda and `Program.<>c__AsyncStateMachine1` for the entry point) while the executable still prints `42`.【b35e46†L1-L17】【69dbec†L1-L1】
