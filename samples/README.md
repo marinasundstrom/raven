@@ -23,25 +23,22 @@ These are the main options available for when debugging the compiler:
 
 ## Sample compilation and execution status
 
-The latest sweep compiled every sample with `../src/Raven.Compiler/bin/Debug/net9.0/ravc` (60s timeout per file) and left DLLs under `samples/output3/`. Execution was not attempted because several samples no longer compile cleanly.
-
-* ✅ 46 samples compiled successfully (DLLs preserved under `output3/`).
-* ❌ 20 samples failed to compile; the table below lists the first failure observed for each.
+After adding binder support for arrow-expression bodies, the arrow-heavy samples were rerun from the `samples/` directory with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` and executed with `dotnet <file>.dll` where applicable. The table highlights the latest failures observed; rows not mentioned above still reflect the previous ravc sweep.
 
 | Sample | Status | Notes |
 | --- | --- | --- |
-| `classes.rav` | ❌ Compile | Expression-bodied member lowering rejects `ArrowExpressionClause` while preparing async state machines. |
-| `extensions.rav` | ❌ Compile | Same `ArrowExpressionClause` binder crash as `classes.rav`. |
+| `classes.rav` | ⚠️ Run | Compiles, but running `/tmp/classes.dll` raises `MethodAccessException` when invoking the indexer. |
+| `extensions.rav` | ⚠️ Run | Compiles, but running `/tmp/extensions.dll` hits `MethodAccessException` while calling `CountItems`. |
 | `foo.rav` | ❌ Compile | Stack overflow in metadata type resolution during generic constraint projection. |
 | `general.rav` | ❌ Compile | Stack overflow while resolving metadata type names. |
-| `interfaces.rav` | ❌ Compile | `ArrowExpressionClause` remains unsupported during async state-machine synthesis. |
+| `interfaces.rav` | ✅ Run | Compiles and executes successfully. |
 | `introduction.rav` | ❌ Compile | Stack overflow when resolving metadata types. |
 | `io.rav` | ❌ Compile | Stack overflow when resolving metadata types. |
 | `linq.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
 | `main.rav` | ❌ Compile | Null reference in `Compilation.ClassifyConversion` while binding locals. |
 | `pattern-matching.rav` | ❌ Compile | Null reference while validating match arm conversions. |
 | `reflection.rav` | ❌ Compile | Stack overflow when resolving metadata types. |
-| `test-result.rav` | ❌ Compile | `ArrowExpressionClause` unsupported during async state-machine setup. |
+| `test-result.rav` | ❌ Compile | Stack overflow while resolving metadata types during emission. |
 | `test-result2.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
 | `test10.rav` | ❌ Compile | Null reference in `Compilation.ClassifyConversion` while binding locals. |
 | `test9.rav` | ❌ Compile | Still rejected with RAV0135 (“Assignment expressions are only allowed as statements”). |
