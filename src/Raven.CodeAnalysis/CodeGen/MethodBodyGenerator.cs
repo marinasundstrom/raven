@@ -119,6 +119,16 @@ internal class MethodBodyGenerator
         if (_lambdaClosure is null)
             throw new InvalidOperationException("No closure parameter available for this lambda.");
 
+        if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
+            asyncStateMachine.GetConstructedMembers(asyncStateMachine.AsyncMethod).ThisField is { } closureField)
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(
+                OpCodes.Ldfld,
+                closureField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen));
+            return;
+        }
+
         ILGenerator.Emit(OpCodes.Ldarg_0);
     }
 

@@ -263,9 +263,16 @@ internal static class AsyncLowerer
 
         AsyncLambdaClosureRewriter? closureRewriter = null;
 
-        if (stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is IFieldSymbol closureField)
+        var constructedMembers = stateMachine.GetConstructedMembers(stateMachine.AsyncMethod);
+
+        if (constructedMembers.ThisField is IFieldSymbol closureField)
         {
             closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
+            originalBody = closureRewriter.Rewrite(originalBody);
+        }
+        else if (stateMachine.ThisField is IFieldSymbol definitionClosureField)
+        {
+            closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, definitionClosureField);
             originalBody = closureRewriter.Rewrite(originalBody);
         }
 
@@ -300,6 +307,9 @@ internal static class AsyncLowerer
 
         entryStatements.AddRange(CreateCompletionStatements(context));
         var entryBlock = new BoundBlockStatement(entryStatements, rewrittenBody.LocalsToDispose);
+
+        if (closureRewriter is not null)
+            entryBlock = closureRewriter.Rewrite(entryBlock);
 
         tryStatements.Add(new BoundLabeledStatement(entryLabel, entryBlock));
 
@@ -539,7 +549,9 @@ internal static class AsyncLowerer
 
         public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
         {
-            if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true })
+            if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
+                node.Type is { } type &&
+                !SymbolEqualityComparer.Default.Equals(type, _stateMachine))
             {
                 var receiver = new BoundSelfExpression(_stateMachine);
                 return new BoundMemberAccessExpression(receiver, _closureField);
@@ -596,7 +608,8 @@ internal static class AsyncLowerer
             if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
                 _closureField.Type is { } closureType &&
                 field.ContainingType is { } containingType &&
-                SymbolEqualityComparer.Default.Equals(containingType, closureType))
+                (SymbolEqualityComparer.Default.Equals(containingType, closureType) ||
+                 containingType.Name.Contains("LambdaClosure", StringComparison.Ordinal)))
             {
                 var closureReceiver = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _closureField);
                 rewritten = new BoundMemberAccessExpression(closureReceiver, field, reason);

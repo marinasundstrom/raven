@@ -271,3 +271,7 @@
 ### Findings after step 54
 - Async lambda closure rewriting now accepts constructed `_this` fields from state-machine members and emits captured field loads through the state-machine closure when the receiver is missing or typed as the async state machine, preventing direct loads of closure fields from the lambda state machine instance.
 - Even with the redirected emission path, running `dotnet /tmp/async-inference.dll` still prints `-2`, showing that the rewritten `SetResult` path continues to fetch the wrong value at runtime and further closure/receiver alignment is required.【0d3a7c†L1-L3】
+
+### Findings after step 55
+- Adjusted closure loading during async state-machine emission so `MethodBodyGenerator.EmitLoadClosure` now retrieves the hoisted closure through the state machine’s `_this` field, letting captured fields load from the correct closure instance even when no receiver is present in the bound tree.
+- Rebuilding and running `samples/async/async-inference.rav` now prints the expected `42`, confirming the async lambda state machine reads the captured `value` from the proper closure and completes successfully.【692d20†L1-L10】【7179c0†L1-L2】

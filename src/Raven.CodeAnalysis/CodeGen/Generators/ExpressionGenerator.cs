@@ -2549,6 +2549,45 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case IFieldSymbol fieldSymbol:
+                if (!fieldSymbol.IsStatic &&
+                    fieldSymbol.ContainingType is { } memberFieldContainingType &&
+                    (!SymbolEqualityComparer.Default.Equals(receiver?.Type, memberFieldContainingType)) &&
+                    MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol memberStateMachine &&
+                    memberStateMachine.GetConstructedMembers(memberStateMachine.AsyncMethod).ThisField is { } memberClosureField &&
+                    memberFieldContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    ILGenerator.Emit(OpCodes.Ldfld, GetField(memberClosureField));
+
+                    var memberFieldInfo = fieldSymbol switch
+                    {
+                        SourceFieldSymbol sfs => (FieldInfo)GetMemberBuilder(sfs)!,
+                        _ => fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen)
+                    };
+
+                    ILGenerator.Emit(OpCodes.Ldfld, memberFieldInfo);
+                    break;
+                }
+
+                if (!fieldSymbol.IsStatic &&
+                    fieldSymbol.ContainingType is { } closureContainingType &&
+                    receiver is BoundSelfExpression self &&
+                    MethodGenerator.LambdaClosure is not null &&
+                    !SymbolEqualityComparer.Default.Equals(self.Type, closureContainingType) &&
+                    closureContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+                {
+                    MethodBodyGenerator.EmitLoadClosure();
+
+                    var closureFieldInfo = fieldSymbol switch
+                    {
+                        SourceFieldSymbol sfs => (FieldInfo)GetMemberBuilder(sfs)!,
+                        _ => fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen)
+                    };
+
+                    ILGenerator.Emit(OpCodes.Ldfld, closureFieldInfo);
+                    break;
+                }
+
                 if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType!.IsValueType)
                 {
                     var containingType = fieldSymbol.ContainingType!;
@@ -3325,6 +3364,18 @@ internal class ExpressionGenerator : Generator
     private void EmitFieldAccess(BoundFieldAccess fieldAccess)
     {
         var fieldSymbol = fieldAccess.Field;
+
+        if (!fieldSymbol.IsStatic &&
+            MethodGenerator.TypeGenerator.TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
+            asyncStateMachine.GetConstructedMembers(asyncStateMachine.AsyncMethod).ThisField is { } asyncClosureField &&
+            fieldSymbol.ContainingType is { } closureContainingType &&
+            closureContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldfld, GetField(asyncClosureField));
+            ILGenerator.Emit(OpCodes.Ldfld, GetField(fieldSymbol));
+            return;
+        }
         if (fieldSymbol.IsLiteral)
         {
             var constant = fieldSymbol.GetConstantValue();
@@ -3377,7 +3428,8 @@ internal class ExpressionGenerator : Generator
             if (MethodGenerator.TypeGenerator.TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
                 stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is { } thisField &&
                 fieldSymbol.ContainingType is { } fieldContainingType &&
-                SymbolEqualityComparer.Default.Equals(fieldContainingType, thisField.Type))
+                (SymbolEqualityComparer.Default.Equals(fieldContainingType, thisField.Type) ||
+                 fieldContainingType.Name.Contains("LambdaClosure", StringComparison.Ordinal)))
             {
                 var receiverType = fieldAccess.Receiver?.Type;
                 if (receiverType is null || !SymbolEqualityComparer.Default.Equals(receiverType, fieldContainingType))
