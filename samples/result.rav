@@ -4,7 +4,7 @@
 
 import System.*
 
-let unwrapped3 = test(4).UnwrapOrThrow()
+let unwrapped3 = test(4).UnwrapOr(10)
 Console.WriteLine(unwrapped3)
 
 func test(value: int) -> Result<int> {
@@ -40,5 +40,12 @@ extension ResultExtensions<T> for Result<T> {
             error = error2
         }
         throw new System.InvalidOperationException("${error}")
+    }
+
+    UnwrapOr(defaultValue: T) -> T {
+        if self is .Ok(value) {
+            return value
+        }
+        return defaultValue
     }
 }
