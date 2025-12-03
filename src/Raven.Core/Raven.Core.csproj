@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>false</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <OutputPath>$(MSBuildThisFileDirectory)bin/$(Configuration)/$(TargetFramework)/</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <RavenSource Include="Option.rav" />
+    <RavenSource Include="Result.rav" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Raven.Compiler\Raven.Compiler.csproj" />
+  </ItemGroup>
+
+  <Target Name="Build" DependsOnTargets="CompileRavenCore" />
+
+  <Target Name="CompileRavenCore"
+          DependsOnTargets="Restore"
+          Inputs="@(RavenSource)"
+          Outputs="$(OutputPath)Raven.Core.dll">
+    <MSBuild Projects="@(ProjectReference)" Targets="Build" />
+    <MakeDir Directories="$(OutputPath)" />
+    <Exec Command="dotnet run --project ..\Raven.Compiler\Raven.Compiler.csproj -- --framework $(TargetFramework) --output-type classlib -o &quot;$(OutputPath)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
+  </Target>
+
+  <Target Name="Clean">
+    <RemoveDir Directories="$(OutputPath)" />
+  </Target>
+</Project>

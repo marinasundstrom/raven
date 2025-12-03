@@ -1,0 +1,32 @@
+import System.*
+
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+extension OptionExtensions<T> for Option<T> {
+    UnwrapOrDefault() -> T {
+        if self is .Some(value) {
+            return value
+        }
+
+        return default(T)
+    }
+
+    UnwrapOrThrow() -> T {
+        if self is .Some(value) {
+            return value
+        }
+
+        throw new InvalidOperationException("Option is None")
+    }
+
+    UnwrapOr(defaultValue: T) -> T {
+        if self is .Some(value) {
+            return value
+        }
+
+        return defaultValue
+    }
+}

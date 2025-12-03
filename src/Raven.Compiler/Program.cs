@@ -20,6 +20,7 @@ var stopwatch = Stopwatch.StartNew();
 // Options:
 // --framework <tfm> - target framework
 // --refs <path>     - additional metadata reference (repeatable)
+// --raven-core <path> - path to a prebuilt Raven.Core.dll (skips embedded core types)
 // --output-type <console|classlib> - output kind
 // -o <path>         - output assembly path
 // -s [flat|group]   - display the syntax tree (single file only)
@@ -38,6 +39,8 @@ var additionalRefs = new List<string>();
 string? targetFrameworkTfm = null;
 string? outputPath = null;
 var outputKind = OutputKind.ConsoleApplication;
+string? ravenCorePath = null;
+var embedCoreTypes = true;
 
 var printSyntaxTree = false;
 var syntaxTreeFormat = SyntaxTreeFormat.Flat;
@@ -175,6 +178,17 @@ for (int i = 0; i < args.Length; i++)
             if (i + 1 < args.Length)
                 additionalRefs.Add(args[++i]);
             break;
+        case "--raven-core":
+            if (i + 1 < args.Length)
+            {
+                ravenCorePath = args[++i];
+                embedCoreTypes = false;
+            }
+            else
+            {
+                hasInvalidOption = true;
+            }
+            break;
         case "--output-type":
             if (!TryParseOutputKind(args, ref i, out var kind))
                 hasInvalidOption = true;
@@ -221,6 +235,17 @@ for (int i = 0; i < sourceFiles.Count; i++)
     }
 }
 
+if (!string.IsNullOrWhiteSpace(ravenCorePath))
+{
+    ravenCorePath = Path.GetFullPath(ravenCorePath);
+    if (!File.Exists(ravenCorePath))
+    {
+        AnsiConsole.MarkupLine($"[red]Raven core assembly '{ravenCorePath}' doesn't exist.[/]");
+        Environment.ExitCode = 1;
+        return;
+    }
+}
+
 var assemblyName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
 
 var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
@@ -230,6 +255,7 @@ var options = new CompilationOptions(outputKind);
 if (enableAsyncInvestigation)
     options = options.WithAsyncInvestigation(
         AsyncInvestigationOptions.Enable(asyncInvestigationLabel, asyncInvestigationScope));
+options = options.WithEmbedCoreTypes(embedCoreTypes);
 if (enableOverloadLog)
 {
     TextWriter writer;
@@ -267,6 +293,11 @@ var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version
 foreach (var reference in frameworkReferences)
 {
     project = project.AddMetadataReference(reference);
+}
+
+if (!string.IsNullOrWhiteSpace(ravenCorePath))
+{
+    project = project.AddMetadataReference(MetadataReference.CreateFromFile(ravenCorePath));
 }
 
 project = project.AddMetadataReference(
@@ -562,6 +593,7 @@ static void PrintHelp()
     Console.WriteLine("Options:");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
+    Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  -o <path>          Output assembly path");
