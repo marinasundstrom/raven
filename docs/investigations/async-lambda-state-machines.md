@@ -45,8 +45,8 @@
 - [ ] **Rebuild diagnostics and dumps**: Update bound-tree/binder diagnostics to surface full candidate signatures (including extension methods) when ambiguities remain, aiding future debugging of LINQ and `Task.Run` overload picks.
 - [ ] **Cross-validate with samples/tests**: After redoing the inference stack, rerun `async/async-inference.rav` with `-bt` and the samples test procedure, and add LINQ-centric regression tests that assert correct overload binding for async lambdas.
 - [x] **Honor `Unit`/`void` equivalence during inference**: Treat `Unit` and `void` as interchangeable in conversion checks so delegate selection can pick void-returning delegates (e.g., `Action`) when the lambda result is `Unit`.
-- [ ] **Harden async lambda emission**: Fix the null closure capture when emitting async lambda state machines so `ExpressionGenerator.EmitCapturedValue` can load captured locals after async lowering, preventing the current emission crash for `Task.Run(async () => ...)`.
-- [ ] **Stabilize async lambda emission**: Ensure async lambda state machines are fully constructed before IL emission so open generic results (e.g., `TResult` from `Task.Run`) no longer surface as unresolved runtime types.
+- [x] **Harden async lambda emission**: Fix the null closure capture when emitting async lambda state machines so `ExpressionGenerator.EmitCapturedValue` can load captured locals after async lowering, preventing the current emission crash for `Task.Run(async () => ...)`.
+- [x] **Stabilize async lambda emission**: Ensure async lambda state machines are fully constructed before IL emission so open generic results (e.g., `TResult` from `Task.Run`) no longer surface as unresolved runtime types.
 
 ### Updated implementation path
 - [x] **Extend async rewriter entry points**: Added `AsyncLowerer.Rewrite(SourceLambdaSymbol, …)` plus an `AsyncRewriteResult` wrapper so async-aware callers can flow analysis, state-machine handles, and rewritten bodies for lambdas alongside the existing method overloads.
@@ -260,3 +260,6 @@
 ### Findings after step 51
 - Async lambda rewriting over bound trees now materializes the lambda state machine’s `TypeBuilder` during rewrite so emission can resolve captured state-machine locals instead of discovering them late during IL generation.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L1090-L1109】
 - As a fallback, emitting an async lambda will synthesize and emit its state machine on the fly if no runtime type was registered, allowing `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -o /tmp/async-inference.dll` to complete; however, running the DLL still fails with `TypeLoadException` because `Program.<>c__AsyncStateMachine2.MoveNext` has no implementation, indicating the lambda state machine’s method bodies remain missing at runtime.【F:src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs†L454-L475】【b3f97f†L1-L72】【880b27†L1-L13】
+
+### Findings after step 52
+- Async lambda state machines were instantiating `AsyncTaskMethodBuilder` instead of `AsyncTaskMethodBuilder<T>` when the delegate return was `Task<T>?`, skipping `SetResult` emission and hanging the generated lambda at runtime. Unwrapping nullable return types before choosing the builder now selects the generic builder, threads the captured `value` back into `SetResult`, and lets the emitted `async-inference` sample complete successfully.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L713-L758】【d011cb†L1-L2】

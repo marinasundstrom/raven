@@ -712,7 +712,9 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     private ITypeSymbol DetermineBuilderType(Compilation compilation, IMethodSymbol asyncMethod)
     {
-        var returnType = asyncMethod.ReturnType;
+        var returnType = asyncMethod.ReturnType is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : asyncMethod.ReturnType;
 
         if (asyncMethod is SynthesizedMainAsyncMethodSymbol { ReturnsInt: true } mainAsync)
         {
@@ -807,7 +809,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             s_emptySyntax,
             isStatic: false,
             methodKind: MethodKind.Ordinary,
-            declaredAccessibility: Accessibility.Internal);
+            declaredAccessibility: Accessibility.Public);
     }
 
     private SourceMethodSymbol CreateSetStateMachineMethod(
@@ -836,7 +838,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             s_emptySyntax,
             isStatic: false,
             methodKind: MethodKind.Ordinary,
-            declaredAccessibility: Accessibility.Internal);
+            declaredAccessibility: Accessibility.Public);
     }
 
     private static IMethodSymbol? FindParameterlessStaticMethod(INamedTypeSymbol type, string name)
