@@ -279,3 +279,6 @@
 ### Findings after step 56
 - Reused synthesized async state-machine symbols when the same lambda syntax is revisited by different symbol instances, mapping repeated rewrite calls back to the original state machine instead of creating additional types.【F:src/Raven.CodeAnalysis/Compilation.SynthesizedTypes.cs†L17-L52】
 - Running `dotnet run --project src/Raven.Compiler -- samples/async/async-inference.rav -o /tmp/async-inference.dll -d pretty` now emits exactly two async state machines (`Program.<>c__AsyncStateMachine0` for the lambda and `Program.<>c__AsyncStateMachine1` for the entry point) while the executable still prints `42`.【b35e46†L1-L17】【69dbec†L1-L1】
+
+### Findings after step 57
+- Re-ran `samples/async/async-inference.rav` after the conversion guard change to ensure lambda state-machine emission still succeeds; the generated DLL continues to print `42`, confirming the closure rewrite remains intact.【fc30ef†L1-L2】

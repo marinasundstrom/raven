@@ -23,7 +23,7 @@ These are the main options available for when debugging the compiler:
 
 ## Sample compilation and execution status
 
-After adding binder support for arrow-expression bodies, the arrow-heavy samples were rerun from the `samples/` directory with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` and executed with `dotnet <file>.dll` where applicable. The table highlights the latest failures observed; rows not mentioned above still reflect the previous ravc sweep. A recent fix to generic member substitution now lets the `List<T>` samples bind and run.
+After adding binder support for arrow-expression bodies, the arrow-heavy samples were rerun from the `samples/` directory with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` and executed with `dotnet <file>.dll` where applicable. The table highlights the latest failures observed; rows not mentioned above still reflect the previous ravc sweep. A recent fix to generic member substitution now lets the `List<T>` samples bind and run. Samples that call `UnwrapOrThrow` are expected to throw when the result is an error case.
 
 | Sample | Status | Notes |
 | --- | --- | --- |
@@ -35,15 +35,15 @@ After adding binder support for arrow-expression bodies, the arrow-heavy samples
 | `introduction.rav` | ✅ Run | Compiles and executes successfully. |
 | `io.rav` | ✅ Run | Compiles and runs (expects an argument, otherwise reports zero files). |
 | `linq.rav` | ✅ Run | Compiles and runs (prints the reversed list). |
-| `main.rav` | ❌ Compile | Null reference in `Compilation.ClassifyConversion` while binding locals. |
-| `pattern-matching.rav` | ❌ Compile | Null reference while validating match arm conversions. |
+| `main.rav` | ✅ Run | Executes after the conversion fix; tuple element names still print an unexpected `id` value. |
+| `pattern-matching.rav` | ✅ Run | Compiles and prints `else`. |
 | `reflection.rav` | ❌ Compile | Stack overflow when resolving metadata types. |
-| `test-result.rav` | ❌ Run | Compiles, but crashes at runtime with `InvalidOperationException` parsing "foo". |
+| `test-result.rav` | ❌ Run (expected) | Throws `InvalidOperationException` when `UnwrapOrThrow` observes the `Error` case. |
 | `test-result2.rav` | ✅ Run | Compiles and executes successfully (prints `23`). |
-| `test10.rav` | ❌ Compile | Null reference in `Compilation.ClassifyConversion` while binding locals. |
+| `test10.rav` | ✅ Run | Compiles and prints `(2, test)`. |
 | `test9.rav` | ❌ Compile | Still rejected with RAV0135 (“Assignment expressions are only allowed as statements”). |
 | `try-match.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
-| `tuples.rav` | ❌ Compile | Null reference in `Compilation.ClassifyConversion` while binding locals. |
-| `tuples2.rav` | ❌ Compile | Null reference in `Compilation.ClassifyConversion` while binding locals. |
+| `tuples.rav` | ✅ Run | Compiles and prints tuple element values. |
+| `tuples2.rav` | ✅ Run | Compiles and prints `tuple False foo`. |
 | `type-unions.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
 | `async/try-match-async.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
