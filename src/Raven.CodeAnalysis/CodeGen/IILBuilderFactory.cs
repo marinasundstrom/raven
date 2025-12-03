@@ -9,6 +9,11 @@ internal interface IILBuilderFactory
     IILBuilder Create(MethodGenerator methodGenerator);
 }
 
+internal interface ILabelTrackingILBuilder
+{
+    void MarkAllLabels();
+}
+
 internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
 {
     public static ReflectionEmitILBuilderFactory Instance { get; } = new();
@@ -30,24 +35,36 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
         return new ReflectionEmitILBuilder(ilGenerator);
     }
 
-    private sealed class ReflectionEmitILBuilder : IILBuilder
+    private sealed class ReflectionEmitILBuilder : IILBuilder, ILabelTrackingILBuilder
     {
         private readonly ILGenerator _inner;
+        private readonly List<LabelAdapter> _definedLabels = new();
+        private readonly HashSet<LabelAdapter> _markedLabels = new();
 
         public ReflectionEmitILBuilder(ILGenerator inner)
         {
             _inner = inner;
         }
 
-        public ILLabel DefineLabel() => new LabelAdapter(_inner.DefineLabel());
+        public ILLabel DefineLabel()
+        {
+            var adapter = new LabelAdapter(_inner.DefineLabel());
+            _definedLabels.Add(adapter);
+            return adapter;
+        }
 
-        public void MarkLabel(ILLabel label) => _inner.MarkLabel(Unwrap(label));
+        public void MarkLabel(ILLabel label)
+        {
+            var adapter = Unwrap(label);
+            _markedLabels.Add(adapter);
+            _inner.MarkLabel(adapter.Label);
+        }
 
         public IILocal DeclareLocal(Type type) => new LocalAdapter(_inner.DeclareLocal(type));
 
         public void Emit(OpCode opcode) => _inner.Emit(opcode);
 
-        public void Emit(OpCode opcode, ILLabel label) => _inner.Emit(opcode, Unwrap(label));
+        public void Emit(OpCode opcode, ILLabel label) => _inner.Emit(opcode, Unwrap(label).Label);
 
         public void Emit(OpCode opcode, IILocal local) => _inner.Emit(opcode, Unwrap(local));
 
@@ -79,10 +96,21 @@ internal sealed class ReflectionEmitILBuilderFactory : IILBuilderFactory
 
         public void EndExceptionBlock() => _inner.EndExceptionBlock();
 
-        private static Label Unwrap(ILLabel label)
+        public void MarkAllLabels()
+        {
+            foreach (var label in _definedLabels)
+            {
+                if (_markedLabels.Contains(label))
+                    continue;
+
+                _inner.MarkLabel(label.Label);
+            }
+        }
+
+        private static LabelAdapter Unwrap(ILLabel label)
         {
             if (label is LabelAdapter adapter)
-                return adapter.Label;
+                return adapter;
 
             throw new InvalidOperationException("Label was not created by this IL builder.");
         }

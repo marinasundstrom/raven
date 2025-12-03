@@ -25,6 +25,8 @@ internal class CodeGenerator
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
 
+    internal IMethodSymbol? CurrentEmittingMethod { get; set; }
+
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo)
         => AddMemberBuilder(symbol, memberInfo, substitution: default);
 
@@ -643,85 +645,95 @@ internal class CodeGenerator
 
     public void Emit(Stream peStream, Stream? pdbStream)
     {
-        var assemblyName = new AssemblyName(_compilation.AssemblyName)
+        try
         {
-            Version = new Version(1, 0, 0, 0)
-        };
-
-        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
-        ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
-
-        DetermineShimTypeRequirements();
-
-        if (_emitTypeUnionAttribute)
-            CreateTypeUnionAttribute();
-        if (_emitNullType)
-            CreateNullStruct();
-        CreateUnitStruct();
-
-        DefineTypeBuilders();
-
-        DefineMemberBuilders();
-
-        EmitMemberILBodies();
-
-        CreateTypes();
-
-        var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
-            ? _compilation.GetEntryPoint()
-            : null;
-        MethodGenerator? entryPointGenerator = null;
-
-        if (entryPointSymbol is not null)
-        {
-            foreach (var typeGenerator in _typeGenerators.Values)
+            var assemblyName = new AssemblyName(_compilation.AssemblyName)
             {
-                var generator = typeGenerator.GetMethodGenerator(entryPointSymbol);
-                if (generator is not null)
+                Version = new Version(1, 0, 0, 0)
+            };
+
+            AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
+            ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
+
+            DetermineShimTypeRequirements();
+
+            if (_emitTypeUnionAttribute)
+                CreateTypeUnionAttribute();
+            if (_emitNullType)
+                CreateNullStruct();
+            CreateUnitStruct();
+
+            DefineTypeBuilders();
+
+            DefineMemberBuilders();
+
+            EmitMemberILBodies();
+
+            CreateTypes();
+
+            var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
+                ? _compilation.GetEntryPoint()
+                : null;
+            MethodGenerator? entryPointGenerator = null;
+
+            if (entryPointSymbol is not null)
+            {
+                foreach (var typeGenerator in _typeGenerators.Values)
                 {
-                    entryPointGenerator = generator;
-                    break;
+                    var generator = typeGenerator.GetMethodGenerator(entryPointSymbol);
+                    if (generator is not null)
+                    {
+                        entryPointGenerator = generator;
+                        break;
+                    }
+                }
+
+                if (entryPointGenerator is null)
+                {
+                    throw new InvalidOperationException("Failed to locate entry point method.");
                 }
             }
-
-            if (entryPointGenerator is null)
+            else
             {
-                throw new InvalidOperationException("Failed to locate entry point method.");
+                entryPointGenerator = _typeGenerators.Values
+                    .SelectMany(x => x.MethodGenerators)
+                    .FirstOrDefault(x => x.IsEntryPointCandidate);
             }
+
+            EntryPoint = entryPointGenerator?.MethodBase;
+
+            MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
+            MethodDefinitionHandle entryPointHandle = EntryPoint is not null
+                ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
+                : default;
+            DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
+
+            Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
+            {
+                OutputKind.ConsoleApplication => Characteristics.ExecutableImage,
+                OutputKind.DynamicallyLinkedLibrary => Characteristics.Dll,
+                _ => Characteristics.Dll,
+            };
+
+            ManagedPEBuilder peBuilder = new ManagedPEBuilder(
+                            header: new PEHeaderBuilder(imageCharacteristics: imageCharacteristics, subsystem: Subsystem.WindowsCui),
+                            metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
+                            ilStream: ilStream,
+                            debugDirectoryBuilder: debugDirectoryBuilder,
+                            entryPoint: entryPointHandle);
+
+            BlobBuilder peBlob = new BlobBuilder();
+            peBuilder.Serialize(peBlob);
+
+            peBlob.WriteContentTo(peStream);
         }
-        else
+        catch (Exception ex)
         {
-            entryPointGenerator = _typeGenerators.Values
-                .SelectMany(x => x.MethodGenerators)
-                .FirstOrDefault(x => x.IsEntryPointCandidate);
+            if (CurrentEmittingMethod is { } method)
+                throw new InvalidOperationException($"Emission failed while processing method '{method.ToDisplayString()}'", ex);
+
+            throw;
         }
-
-        EntryPoint = entryPointGenerator?.MethodBase;
-
-        MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
-        MethodDefinitionHandle entryPointHandle = EntryPoint is not null
-            ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
-            : default;
-        DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
-
-        Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
-        {
-            OutputKind.ConsoleApplication => Characteristics.ExecutableImage,
-            OutputKind.DynamicallyLinkedLibrary => Characteristics.Dll,
-            _ => Characteristics.Dll,
-        };
-
-        ManagedPEBuilder peBuilder = new ManagedPEBuilder(
-                        header: new PEHeaderBuilder(imageCharacteristics: imageCharacteristics, subsystem: Subsystem.WindowsCui),
-                        metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
-                        ilStream: ilStream,
-                        debugDirectoryBuilder: debugDirectoryBuilder,
-                        entryPoint: entryPointHandle);
-
-        BlobBuilder peBlob = new BlobBuilder();
-        peBuilder.Serialize(peBlob);
-
-        peBlob.WriteContentTo(peStream);
     }
 
     private void DetermineShimTypeRequirements()

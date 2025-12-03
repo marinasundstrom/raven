@@ -1888,7 +1888,7 @@ internal static class AsyncLowerer
             type = SubstituteAsyncMethodTypeParameters(type);
             var fieldName = $"<>local{_nextHoistedLocalId++}";
             var requiresDispose = _hoistableLocals.TryGetValue(local, out var dispose) && dispose;
-            var field = _stateMachine.AddHoistedLocal(fieldName, type, requiresDispose);
+            var field = _stateMachine.AddHoistedLocal(fieldName, type, requiresDispose, local);
             _hoistedLocals.Add(local, field);
             return field;
         }

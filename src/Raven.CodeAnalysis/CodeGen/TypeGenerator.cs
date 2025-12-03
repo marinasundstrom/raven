@@ -623,7 +623,15 @@ internal class TypeGenerator
 
             foreach (var methodGenerator in pending)
             {
-                methodGenerator.EmitBody();
+                CodeGen.CurrentEmittingMethod = methodGenerator.MethodSymbol;
+                try
+                {
+                    methodGenerator.EmitBody();
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to emit method '{methodGenerator.MethodSymbol.ToDisplayString()}'", ex);
+                }
             }
         }
     }

@@ -383,10 +383,13 @@ internal class ExpressionGenerator : Generator
 
     private bool TryEmitCapturedClosureField(ISymbol symbol)
     {
-        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder))
+        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder, out var fromStateMachine))
             return false;
 
-        MethodBodyGenerator.EmitLoadClosure();
+        if (fromStateMachine)
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+        else
+            MethodBodyGenerator.EmitLoadClosure();
         ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
         return true;
     }
@@ -396,20 +399,26 @@ internal class ExpressionGenerator : Generator
         if (symbol is null)
             return false;
 
-        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder))
+        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder, out var fromStateMachine))
             return false;
 
-        MethodBodyGenerator.EmitLoadClosure();
+        if (fromStateMachine)
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+        else
+            MethodBodyGenerator.EmitLoadClosure();
         ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
         return true;
     }
 
     private bool TryEmitCapturedAssignment(ISymbol symbol, BoundExpression value)
     {
-        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder))
+        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder, out var fromStateMachine))
             return false;
 
-        MethodBodyGenerator.EmitLoadClosure();
+        if (fromStateMachine)
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+        else
+            MethodBodyGenerator.EmitLoadClosure();
         EmitExpression(value);
 
         if (symbol is ILocalSymbol localSymbol &&
