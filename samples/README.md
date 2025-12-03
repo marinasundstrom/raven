@@ -27,8 +27,8 @@ After adding binder support for arrow-expression bodies, the arrow-heavy samples
 
 | Sample | Status | Notes |
 | --- | --- | --- |
-| `classes.rav` | ⚠️ Run | Compiles, but running `/tmp/classes.dll` raises `MethodAccessException` when invoking the indexer. |
-| `extensions.rav` | ⚠️ Run | Compiles, but running `/tmp/extensions.dll` hits `MethodAccessException` while calling `CountItems`. |
+| `classes.rav` | ✅ Run | Executes successfully; the MethodAccessException in the indexer and invocation operator is resolved. |
+| `extensions.rav` | ✅ Run | Executes successfully; the previous `MethodAccessException` in `CountItems` is resolved. |
 | `foo.rav` | ❌ Compile | Stack overflow in metadata type resolution during generic constraint projection. |
 | `general.rav` | ❌ Compile | Stack overflow while resolving metadata type names. |
 | `interfaces.rav` | ✅ Run | Compiles and executes successfully. |
