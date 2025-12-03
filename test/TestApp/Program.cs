@@ -201,7 +201,18 @@ class Program
 
         if (type != null)
         {
-            Console.WriteLine($"{type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)) ?? "<None>"}");
+            var noSpecialName = SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.None);
+
+            Console.Write($"{type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)) ?? "<None>"}");
+
+            if (type.SpecialType != SpecialType.None)
+            {
+                Console.WriteLine($" ({type?.ToDisplayString(noSpecialName) ?? "<None>"})");
+            }
+            else
+            {
+                Console.WriteLine();
+            }
 
             if (constructedFrom is not null)
             {
