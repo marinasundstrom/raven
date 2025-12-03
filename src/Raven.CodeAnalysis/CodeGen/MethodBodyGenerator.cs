@@ -527,8 +527,9 @@ internal class MethodBodyGenerator
         if (lambda.ContainingType is null)
             return null;
 
+        var containingType = asyncStateMachine.AsyncMethod.ContainingType ?? lambda.ContainingType;
         var containingGenerator = MethodGenerator.TypeGenerator.CodeGen
-            .GetOrCreateTypeGenerator(lambda.ContainingType);
+            .GetOrCreateTypeGenerator(containingType);
 
         var lambdaMethodGenerator = containingGenerator.GetMethodGenerator(lambda);
         if (lambdaMethodGenerator?.LambdaClosure is { } lambdaClosure)

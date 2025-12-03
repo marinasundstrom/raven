@@ -263,3 +263,7 @@
 
 ### Findings after step 52
 - Async lambda state machines were instantiating `AsyncTaskMethodBuilder` instead of `AsyncTaskMethodBuilder<T>` when the delegate return was `Task<T>?`, skipping `SetResult` emission and hanging the generated lambda at runtime. Unwrapping nullable return types before choosing the builder now selects the generic builder, threads the captured `value` back into `SetResult`, and lets the emitted `async-inference` sample complete successfully.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L713-L758】【d011cb†L1-L2】
+
+### Findings after step 53
+- The emitted `async-inference.dll` now runs but still prints `-2` instead of `42`. Disassembly shows the async lambda state machine stores its `_this` field as `Program.<>c__AsyncStateMachine1.<>c__LambdaClosure0` while `SetResult` loads `<value>__0` from `Program.<>c__LambdaClosure1`, a closure type that is never instantiated, so the captured value remains unset at runtime.【6be72e†L1-L43】【3c3400†L1-L5】
+- Redirected async-lambda closure creation from nested state-machine generators back to their host type generators and threaded the closure self type into async rewriting, but the closure mapping is still split across two synthesized types. The next fix needs to align closure instantiation and async-lambda state-machine receivers so `SetResult` reads from the same closure instance that captures `value` in `Program.<>c__AsyncStateMachine1.MoveNext`.

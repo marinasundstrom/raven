@@ -459,11 +459,17 @@ internal class MethodGenerator
         var bodyGenerator = new MethodBodyGenerator(this);
 
         BoundBlockStatement? rewrittenBody = null;
+        ITypeSymbol? closureSelfType = null;
 
         if (lambda.Symbol is SourceLambdaSymbol sourceLambda && sourceLambda.IsAsync)
         {
             var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
-            var rewritten = AsyncLowerer.Rewrite(sourceLambda, block);
+            if (closure is not null)
+            {
+                closureSelfType = closure.Symbol;
+            }
+
+            var rewritten = AsyncLowerer.Rewrite(sourceLambda, block, selfType: closureSelfType);
             if (rewritten.StateMachine is not null)
             {
                 if (!TypeGenerator.CodeGen.TryGetRuntimeTypeForSymbol(rewritten.StateMachine, out _))

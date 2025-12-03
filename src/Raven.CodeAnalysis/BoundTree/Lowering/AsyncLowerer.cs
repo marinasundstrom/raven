@@ -116,7 +116,8 @@ internal static class AsyncLowerer
     public static AsyncRewriteResult Rewrite(
         SourceLambdaSymbol lambda,
         BoundBlockStatement body,
-        SynthesizedAsyncStateMachineTypeSymbol? stateMachine = null)
+        SynthesizedAsyncStateMachineTypeSymbol? stateMachine = null,
+        ITypeSymbol? selfType = null)
     {
         if (lambda is null)
             throw new ArgumentNullException(nameof(lambda));
@@ -132,24 +133,25 @@ internal static class AsyncLowerer
         if (!analysis.RequiresStateMachine)
             return new AsyncRewriteResult(body, stateMachine, analysis);
 
-        ITypeSymbol? selfType = null;
+        var closureSelfType = selfType;
 
         if (lambda.HasCaptures)
         {
-            selfType = lambda.CapturedVariables
+            closureSelfType ??= lambda.CapturedVariables
                 .OfType<IFieldSymbol>()
                 .Select(field => field.ContainingType)
                 .FirstOrDefault(type => type is not null);
 
-            selfType ??= lambda.CapturedVariables
+            closureSelfType ??= lambda.CapturedVariables
                 .Select(captured => captured.ContainingType)
                 .FirstOrDefault(type => type is not null);
 
-            selfType ??= FindSelfType(body);
-            selfType ??= FindCapturedClosureType(body);
+            closureSelfType ??= FindSelfType(body);
         }
 
-        stateMachine ??= compilation.CreateAsyncStateMachine(lambda, selfType);
+        closureSelfType ??= FindCapturedClosureType(body);
+
+        stateMachine ??= compilation.CreateAsyncStateMachine(lambda, closureSelfType);
 
         if (stateMachine.OriginalBody is null)
             stateMachine.SetOriginalBody(body);
