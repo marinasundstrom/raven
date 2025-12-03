@@ -146,6 +146,7 @@ internal static class AsyncLowerer
                 .FirstOrDefault(type => type is not null);
 
             selfType ??= FindSelfType(body);
+            selfType ??= FindCapturedClosureType(body);
         }
 
         stateMachine ??= compilation.CreateAsyncStateMachine(lambda, selfType);
@@ -258,10 +259,11 @@ internal static class AsyncLowerer
         var context = new MoveNextLoweringContext(compilation, stateMachine);
         var originalBody = stateMachine.OriginalBody ?? new BoundBlockStatement(Array.Empty<BoundStatement>());
 
-        if (stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
-            stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is SourceFieldSymbol closureField)
+        AsyncLambdaClosureRewriter? closureRewriter = null;
+
+        if (stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is SourceFieldSymbol closureField)
         {
-            var closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
+            closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
             originalBody = closureRewriter.Rewrite(originalBody);
         }
 
@@ -269,6 +271,9 @@ internal static class AsyncLowerer
 
         var awaitRewriter = new AwaitLoweringRewriter(stateMachine, context.BuilderMembers);
         var rewrittenBody = awaitRewriter.Rewrite(originalBody);
+
+        if (closureRewriter is not null)
+            rewrittenBody = closureRewriter.Rewrite(rewrittenBody);
         rewrittenBody = StateDispatchInjector.Inject(
             rewrittenBody,
             stateMachine,
@@ -505,6 +510,8 @@ internal static class AsyncLowerer
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
         private readonly SourceFieldSymbol _closureField;
+        private readonly Dictionary<string, ILocalSymbol> _capturedLocals = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, SourceFieldSymbol> _capturedHoists = new(StringComparer.Ordinal);
 
         public AsyncLambdaClosureRewriter(
             SynthesizedAsyncStateMachineTypeSymbol stateMachine,
@@ -512,6 +519,12 @@ internal static class AsyncLowerer
         {
             _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
             _closureField = closureField ?? throw new ArgumentNullException(nameof(closureField));
+
+            if (stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } lambda)
+            {
+                foreach (var captured in lambda.CapturedVariables.OfType<ILocalSymbol>())
+                    _capturedLocals[captured.Name] = captured;
+            }
         }
 
         public BoundBlockStatement Rewrite(BoundBlockStatement body)
@@ -532,6 +545,98 @@ internal static class AsyncLowerer
 
             return (BoundExpression?)base.VisitSelfExpression(node);
         }
+
+        public override BoundExpression? VisitFieldAccess(BoundFieldAccess node)
+        {
+            var visited = (BoundExpression?)base.VisitFieldAccess(node);
+
+            if (visited is BoundFieldAccess fieldAccess)
+            {
+                if (TryRewriteCapturedField(fieldAccess.Field, fieldAccess.Reason, out var rewritten))
+                    return rewritten;
+
+                if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
+                    fieldAccess.Field.ContainingType is { } containingType &&
+                    SymbolEqualityComparer.Default.Equals(containingType, _closureField.Type))
+                {
+                    var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _closureField);
+                    return new BoundMemberAccessExpression(receiver, fieldAccess.Field, fieldAccess.Reason);
+                }
+            }
+
+            return visited;
+        }
+
+        public override BoundExpression? VisitMemberAccessExpression(BoundMemberAccessExpression node)
+        {
+            var visitedReceiver = (BoundExpression?)Visit(node.Receiver);
+
+            if (node.Member is IFieldSymbol field &&
+                TryRewriteCapturedField(field, node.Reason, out var rewritten))
+            {
+                return rewritten;
+            }
+
+            if (!ReferenceEquals(visitedReceiver, node.Receiver))
+                return new BoundMemberAccessExpression(visitedReceiver, node.Member, node.Reason);
+
+            return node;
+        }
+
+        private bool TryRewriteCapturedField(IFieldSymbol field, BoundExpressionReason reason, out BoundExpression? rewritten)
+        {
+            rewritten = null;
+
+            var capturedName = ExtractCapturedName(field.Name);
+            if (capturedName is null)
+                return false;
+
+            if (!_capturedLocals.TryGetValue(capturedName, out var capturedLocal))
+            {
+                if (!_capturedHoists.TryGetValue(capturedName, out var hoistedField))
+                {
+                    var hoistedType = field.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
+                    var hoistedName = $"<>local{_stateMachine.HoistedLocals.Length}";
+                    hoistedField = _stateMachine.AddHoistedLocal(hoistedName, hoistedType, requiresDispose: false);
+                    _capturedHoists[capturedName] = hoistedField;
+                }
+
+                var hoistReceiver = new BoundSelfExpression(_stateMachine);
+                rewritten = new BoundMemberAccessExpression(hoistReceiver, hoistedField, reason);
+                return true;
+            }
+
+            if (!_capturedHoists.TryGetValue(capturedName, out var hoisted))
+            {
+                if (!_stateMachine.TryGetHoistedLocalField(capturedLocal, out hoisted))
+                {
+                    var type = capturedLocal.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
+                    var fieldName = $"<>local{_stateMachine.HoistedLocals.Length}";
+                    hoisted = _stateMachine.AddHoistedLocal(fieldName, type, requiresDispose: false, capturedLocal);
+                }
+
+                _capturedHoists[capturedName] = hoisted;
+            }
+
+            var stateReceiver = new BoundSelfExpression(_stateMachine);
+            rewritten = new BoundMemberAccessExpression(stateReceiver, hoisted, reason);
+            return true;
+        }
+
+        private static string? ExtractCapturedName(string fieldName)
+        {
+            if (string.IsNullOrEmpty(fieldName))
+                return null;
+
+            if (fieldName.Length > 2 && fieldName[0] == '<')
+            {
+                var closing = fieldName.IndexOf('>');
+                if (closing > 1)
+                    return fieldName.Substring(1, closing - 1);
+            }
+
+            return null;
+        }
     }
 
     private sealed class SelfTypeFinder : BoundTreeVisitor
@@ -542,6 +647,31 @@ internal static class AsyncLowerer
         {
             SelfType ??= node.Type;
             base.VisitSelfExpression(node);
+        }
+    }
+
+    private static ITypeSymbol? FindCapturedClosureType(BoundBlockStatement body)
+    {
+        var finder = new CapturedClosureTypeFinder();
+        finder.VisitBlockStatement(body);
+        return finder.ClosureType;
+    }
+
+    private sealed class CapturedClosureTypeFinder : BoundTreeVisitor
+    {
+        public ITypeSymbol? ClosureType { get; private set; }
+
+        public override void VisitFieldAccess(BoundFieldAccess node)
+        {
+            if (ClosureType is null &&
+                node.Field.ContainingType is { } containingType &&
+                containingType.Name.Contains("LambdaClosure", StringComparison.Ordinal))
+            {
+                ClosureType = containingType;
+                return;
+            }
+
+            base.VisitFieldAccess(node);
         }
     }
 
