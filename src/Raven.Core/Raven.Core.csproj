@@ -4,6 +4,7 @@
     <ImplicitUsings>false</ImplicitUsings>
     <Nullable>disable</Nullable>
     <OutputPath>$(MSBuildThisFileDirectory)bin/$(Configuration)/$(TargetFramework)/</OutputPath>
+    <AssemblyName>None</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,18 +16,17 @@
     <ProjectReference Include="..\Raven.Compiler\Raven.Compiler.csproj" />
   </ItemGroup>
 
-  <Target Name="Build" DependsOnTargets="CompileRavenCore" />
-
   <Target Name="CompileRavenCore"
-          DependsOnTargets="Restore"
-          Inputs="@(RavenSource)"
-          Outputs="$(OutputPath)Raven.Core.dll">
-    <MSBuild Projects="@(ProjectReference)" Targets="Build" />
+    BeforeTargets="Build"
+    Inputs="@(RavenSource)"
+    Outputs="$(OutputPath)Raven.Core.dll">
     <MakeDir Directories="$(OutputPath)" />
-    <Exec Command="dotnet run --project ..\Raven.Compiler\Raven.Compiler.csproj -- --framework $(TargetFramework) --output-type classlib -o &quot;$(OutputPath)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
+    <Exec
+      Command="dotnet run --project ../Raven.Compiler/Raven.Compiler.csproj -- --framework $(TargetFramework) --output-type classlib -o &quot;$(OutputPath)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
   </Target>
 
-  <Target Name="Clean">
+  <Target Name="CleanRavenCore"
+    BeforeTargets="Clean">
     <RemoveDir Directories="$(OutputPath)" />
   </Target>
 </Project>
