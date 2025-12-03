@@ -23,18 +23,18 @@ These are the main options available for when debugging the compiler:
 
 ## Sample compilation and execution status
 
-After adding binder support for arrow-expression bodies, the arrow-heavy samples were rerun from the `samples/` directory with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` and executed with `dotnet <file>.dll` where applicable. The table highlights the latest failures observed; rows not mentioned above still reflect the previous ravc sweep.
+After adding binder support for arrow-expression bodies, the arrow-heavy samples were rerun from the `samples/` directory with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` and executed with `dotnet <file>.dll` where applicable. The table highlights the latest failures observed; rows not mentioned above still reflect the previous ravc sweep. A recent fix to generic member substitution now lets the `List<T>` samples bind and run.
 
 | Sample | Status | Notes |
 | --- | --- | --- |
 | `classes.rav` | ✅ Run | Executes successfully; the MethodAccessException in the indexer and invocation operator is resolved. |
 | `extensions.rav` | ✅ Run | Executes successfully; the previous `MethodAccessException` in `CountItems` is resolved. |
 | `foo.rav` | ✅ Run | Executes successfully (prints `1`) after fixing metadata-generic constraint resolution. |
-| `general.rav` | ❌ Compile | Binder errors for `List<T>.Add` overload resolution and generic constraints remain. |
+| `general.rav` | ✅ Run | Executes successfully (prints the List contents and "Hello, World!"). |
 | `interfaces.rav` | ✅ Run | Compiles and executes successfully. |
 | `introduction.rav` | ✅ Run | Compiles and executes successfully. |
-| `io.rav` | ❌ Compile | `List<T>.Add` overload resolution fails for `Directory.GetFiles` results. |
-| `linq.rav` | ❌ Compile | `List<T>.Add` overload resolution fails when populating the query source. |
+| `io.rav` | ✅ Run | Compiles and runs (expects an argument, otherwise reports zero files). |
+| `linq.rav` | ✅ Run | Compiles and runs (prints the reversed list). |
 | `main.rav` | ❌ Compile | Null reference in `Compilation.ClassifyConversion` while binding locals. |
 | `pattern-matching.rav` | ❌ Compile | Null reference while validating match arm conversions. |
 | `reflection.rav` | ❌ Compile | Stack overflow when resolving metadata types. |
