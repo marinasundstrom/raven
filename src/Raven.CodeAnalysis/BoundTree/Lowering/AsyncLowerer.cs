@@ -1766,6 +1766,11 @@ internal static class AsyncLowerer
                         return tupleExpression;
                     }
 
+                case BoundLambdaExpression:
+                    // Nested lambdas are lowered separately; avoid rewriting them with the enclosing
+                    // async state machine's builder/awaiter fields.
+                    return node;
+
                 case BoundCollectionExpression collectionExpression:
                     {
                         var originalElements = collectionExpression.Elements.ToArray();

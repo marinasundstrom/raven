@@ -1532,6 +1532,12 @@ internal class MethodBodyGenerator
             }
 
             var clrType = ResolveClrType(localSymbol.Type);
+            if (clrType is null)
+            {
+                var typeDisplay = localSymbol.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                throw new InvalidOperationException($"Failed to resolve CLR type for local '{localSymbol.Name}' of type '{typeDisplay}' in method '{MethodSymbol}'.");
+            }
+
             var builder = ILGenerator.DeclareLocal(clrType);
             builder.SetLocalSymInfo(localSymbol.Name);
             targetScope.AddLocal(localSymbol, builder);

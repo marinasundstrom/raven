@@ -1087,7 +1087,7 @@ internal class CodeGenerator
         }
     }
 
-    private static void RewriteAsyncLambdas(SemanticModel semanticModel, SyntaxNode root)
+    private void RewriteAsyncLambdas(SemanticModel semanticModel, SyntaxNode root)
     {
         foreach (var lambdaSyntax in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
         {
@@ -1101,7 +1101,12 @@ internal class CodeGenerator
             if (!AsyncLowerer.ShouldRewrite(sourceLambda, lambdaBody))
                 continue;
 
-            AsyncLowerer.Rewrite(sourceLambda, lambdaBody);
+            var rewritten = AsyncLowerer.Rewrite(sourceLambda, lambdaBody);
+            if (rewritten.StateMachine is not null)
+            {
+                var generator = GetOrCreateTypeGenerator(rewritten.StateMachine);
+                generator.DefineTypeBuilder();
+            }
         }
     }
 

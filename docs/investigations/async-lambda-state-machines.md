@@ -252,3 +252,7 @@
 ### Findings after step 49
 - Attempted to remap captured async-lambda fields onto hoisted state-machine locals by rewriting closure field accesses during async state-machine lowering (including a second rewrite after await lowering to catch hoisted locals created later).【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L246-L277】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L592-L627】
 - Despite the rewrite, running the emitted `async-inference.dll` still throws `InvalidProgramException` from `Program.<>c__AsyncStateMachine1.MoveNext`, so closure field accesses are still being emitted against the wrong receiver and the async lambda remains invalid at runtime.【a9fd6f†L1-L7】
+
+### Findings after step 50
+- Nested async lambdas now bypass the enclosing async state machine’s await rewriter so they retain independently lowered bodies instead of reusing outer builder/awaiter fields.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L174-L182】
+- Added eager async-lambda state-machine registration while defining type builders so lambda machines get `TypeBuilder` definitions before emission, but full emission still fails: generating `Program.<>c__AsyncStateMachine1.MoveNext` cannot resolve the CLR type for the lambda’s state-machine local (`Program.<>c__AsyncStateMachine2`), so the emitted DLL is still blocked earlier than the prior `InvalidProgramException`.【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L1033-L1140】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L1524-L1540】【b21bef†L1-L43】
