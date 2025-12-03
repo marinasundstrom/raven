@@ -37,22 +37,26 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         ImmutableArray<ITypeSymbol> typeArguments,
         Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
     {
+        var comparer = ReferenceEqualityComparer.Instance;
+
         if (inheritedSubstitution is null)
         {
-            var map = originalDefinition.TypeParameters
-                .Zip(typeArguments, (p, a) => (p, a))
-                .ToDictionary(x => x.p, x => x.a);
+            var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(comparer);
 
-            return new Dictionary<ITypeParameterSymbol, ITypeSymbol>(map, SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType());
+            var typeParameters = originalDefinition.TypeParameters;
+            for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
+                map[typeParameters[i]] = typeArguments[i];
+
+            return map;
         }
 
-        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType());
-        var typeParameters = originalDefinition.TypeParameters;
+        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, comparer);
+        var inheritedParameters = originalDefinition.TypeParameters;
 
         if (!typeArguments.IsDefaultOrEmpty)
         {
-            for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
-                substitution[typeParameters[i]] = typeArguments[i];
+            for (var i = 0; i < inheritedParameters.Length && i < typeArguments.Length; i++)
+                substitution[inheritedParameters[i]] = typeArguments[i];
         }
 
         return substitution;
