@@ -465,7 +465,16 @@ internal class MethodGenerator
             var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
             var rewritten = AsyncLowerer.Rewrite(sourceLambda, block);
             if (rewritten.StateMachine is not null)
-                TypeGenerator.CodeGen.GetOrCreateTypeGenerator(rewritten.StateMachine);
+            {
+                if (!TypeGenerator.CodeGen.TryGetRuntimeTypeForSymbol(rewritten.StateMachine, out _))
+                {
+                    var stateMachineGenerator = TypeGenerator.CodeGen.GetOrCreateTypeGenerator(rewritten.StateMachine);
+                    stateMachineGenerator.DefineTypeBuilder();
+                    stateMachineGenerator.DefineMemberBuilders();
+                    stateMachineGenerator.EmitMemberILBodies();
+                    stateMachineGenerator.CreateType();
+                }
+            }
 
             rewrittenBody = rewritten.Body;
         }

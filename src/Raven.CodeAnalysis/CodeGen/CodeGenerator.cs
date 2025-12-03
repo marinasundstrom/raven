@@ -1302,7 +1302,13 @@ internal class CodeGenerator
             if (!AsyncLowerer.ShouldRewrite(sourceLambda, block))
                 continue;
 
-            AsyncLowerer.Rewrite(sourceLambda, block);
+            var rewrittenLambda = AsyncLowerer.Rewrite(sourceLambda, block);
+
+            if (rewrittenLambda.StateMachine is not null)
+            {
+                var generator = GetOrCreateTypeGenerator(rewrittenLambda.StateMachine);
+                generator.DefineTypeBuilder();
+            }
         }
     }
 
@@ -1428,7 +1434,7 @@ internal class CodeGenerator
 
     private void EmitMemberILBodies()
     {
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in _typeGenerators.Values.ToArray())
         {
             typeGenerator.EmitMemberILBodies();
         }
