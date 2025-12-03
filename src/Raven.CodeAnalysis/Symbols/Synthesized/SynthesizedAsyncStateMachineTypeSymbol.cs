@@ -25,7 +25,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
         IMethodSymbol asyncMethod,
-        string name)
+        string name,
+        ITypeSymbol? selfType = null)
         : base(
             name,
             compilation.GetSpecialType(SpecialType.System_ValueType),
@@ -46,7 +47,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod ?? throw new ArgumentNullException(nameof(asyncMethod));
 
-        (
+        ( 
             _asyncToStateTypeParameterMap,
             _stateToAsyncTypeParameterMap,
             _typeParameterMappings) = InitializeTypeParameters(asyncMethod);
@@ -54,7 +55,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
 
         if (!asyncMethod.IsStatic)
-            ThisField = CreateField("_this", asyncMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object));
+        {
+            var thisType = selfType ?? asyncMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object);
+            ThisField = CreateField("_this", thisType);
+        }
 
         ParameterFields = CreateParameterFields(asyncMethod, out _parameterFieldMap);
         _hoistedLocals = ImmutableArray<SourceFieldSymbol>.Empty;

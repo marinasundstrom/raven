@@ -72,6 +72,13 @@ internal static class AsyncLowerer
         return finder.FoundAwait;
     }
 
+    private static ITypeSymbol? FindSelfType(BoundNode node)
+    {
+        var finder = new SelfTypeFinder();
+        finder.Visit(node);
+        return finder.SelfType;
+    }
+
     public static BoundExpression RewriteAwaitlessLambdaBody(SourceLambdaSymbol lambda, BoundExpression body)
     {
         if (lambda is null)
@@ -125,7 +132,23 @@ internal static class AsyncLowerer
         if (!analysis.RequiresStateMachine)
             return new AsyncRewriteResult(body, stateMachine, analysis);
 
-        stateMachine ??= compilation.CreateAsyncStateMachine(lambda);
+        ITypeSymbol? selfType = null;
+
+        if (lambda.HasCaptures)
+        {
+            selfType = lambda.CapturedVariables
+                .OfType<IFieldSymbol>()
+                .Select(field => field.ContainingType)
+                .FirstOrDefault(type => type is not null);
+
+            selfType ??= lambda.CapturedVariables
+                .Select(captured => captured.ContainingType)
+                .FirstOrDefault(type => type is not null);
+
+            selfType ??= FindSelfType(body);
+        }
+
+        stateMachine ??= compilation.CreateAsyncStateMachine(lambda, selfType);
 
         if (stateMachine.OriginalBody is null)
             stateMachine.SetOriginalBody(body);
@@ -508,6 +531,17 @@ internal static class AsyncLowerer
             }
 
             return (BoundExpression?)base.VisitSelfExpression(node);
+        }
+    }
+
+    private sealed class SelfTypeFinder : BoundTreeVisitor
+    {
+        public ITypeSymbol? SelfType { get; private set; }
+
+        public override void VisitSelfExpression(BoundSelfExpression node)
+        {
+            SelfType ??= node.Type;
+            base.VisitSelfExpression(node);
         }
     }
 

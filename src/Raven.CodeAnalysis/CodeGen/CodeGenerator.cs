@@ -1042,6 +1042,8 @@ internal class CodeGenerator
             var semanticModel = Compilation.GetSemanticModel(tree);
             var root = tree.GetRoot();
 
+            RewriteAsyncLambdas(semanticModel, root);
+
             foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
             {
                 if (semanticModel.GetDeclaredSymbol(methodDeclaration) is not SourceMethodSymbol methodSymbol)
@@ -1083,6 +1085,35 @@ internal class CodeGenerator
                 TryRewriteTopLevelAsyncMethod(semanticModel, compilationUnit, processedTopLevelMethods);
             }
         }
+    }
+
+    private static void RewriteAsyncLambdas(SemanticModel semanticModel, SyntaxNode root)
+    {
+        foreach (var lambdaSyntax in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
+        {
+            if (semanticModel.GetBoundNode(lambdaSyntax) is not BoundLambdaExpression boundLambda)
+                continue;
+
+            if (boundLambda.Symbol is not SourceLambdaSymbol sourceLambda || !sourceLambda.IsAsync)
+                continue;
+
+            var lambdaBody = ConvertToBlockStatement(sourceLambda, boundLambda.Body);
+            if (!AsyncLowerer.ShouldRewrite(sourceLambda, lambdaBody))
+                continue;
+
+            AsyncLowerer.Rewrite(sourceLambda, lambdaBody);
+        }
+    }
+
+    private static BoundBlockStatement ConvertToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)
+    {
+        if (body is BoundBlockExpression blockExpression)
+            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+
+        if (lambda.ReturnType.SpecialType == SpecialType.System_Unit)
+            return new BoundBlockStatement(new[] { new BoundExpressionStatement(body) });
+
+        return new BoundBlockStatement(new[] { new BoundReturnStatement(body) });
     }
 
     private void TryRewriteTopLevelAsyncMethod(

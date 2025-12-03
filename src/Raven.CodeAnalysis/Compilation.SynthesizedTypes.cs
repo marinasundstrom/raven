@@ -45,13 +45,15 @@ public partial class Compilation
     internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
         => _synthesizedDelegates.Values;
 
-    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(IMethodSymbol method)
+    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(
+        IMethodSymbol method,
+        ITypeSymbol? selfType = null)
     {
         if (_synthesizedAsyncStateMachines.TryGetValue(method, out var existing))
             return existing;
 
         var name = $"<>c__AsyncStateMachine{_synthesizedAsyncStateMachineOrdinal++}";
-        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(this, method, name);
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(this, method, name, selfType);
         _synthesizedAsyncStateMachines[method] = stateMachine;
         return stateMachine;
     }
