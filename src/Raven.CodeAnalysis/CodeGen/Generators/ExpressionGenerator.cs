@@ -3371,7 +3371,31 @@ internal class ExpressionGenerator : Generator
 
         if (!loadedByReference)
         {
-            if (fieldAccess.Receiver is not null)
+            var shouldLoadClosureReceiver = false;
+            FieldInfo? closureFieldInfo = null;
+
+            if (MethodGenerator.TypeGenerator.TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+                stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is { } thisField &&
+                fieldSymbol.ContainingType is { } fieldContainingType &&
+                SymbolEqualityComparer.Default.Equals(fieldContainingType, thisField.Type))
+            {
+                var receiverType = fieldAccess.Receiver?.Type;
+                if (receiverType is null || !SymbolEqualityComparer.Default.Equals(receiverType, fieldContainingType))
+                {
+                    shouldLoadClosureReceiver = true;
+                    closureFieldInfo = GetField(thisField);
+                }
+            }
+
+            if (shouldLoadClosureReceiver && closureFieldInfo is not null)
+            {
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldfld, closureFieldInfo);
+
+                if (requiresReceiverAddress)
+                    EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType, containingType);
+            }
+            else if (fieldAccess.Receiver is not null)
             {
                 EmitExpression(fieldAccess.Receiver);
 

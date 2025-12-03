@@ -267,3 +267,7 @@
 ### Findings after step 53
 - The emitted `async-inference.dll` now runs but still prints `-2` instead of `42`. Disassembly shows the async lambda state machine stores its `_this` field as `Program.<>c__AsyncStateMachine1.<>c__LambdaClosure0` while `SetResult` loads `<value>__0` from `Program.<>c__LambdaClosure1`, a closure type that is never instantiated, so the captured value remains unset at runtime.【6be72e†L1-L43】【3c3400†L1-L5】
 - Redirected async-lambda closure creation from nested state-machine generators back to their host type generators and threaded the closure self type into async rewriting, but the closure mapping is still split across two synthesized types. The next fix needs to align closure instantiation and async-lambda state-machine receivers so `SetResult` reads from the same closure instance that captures `value` in `Program.<>c__AsyncStateMachine1.MoveNext`.
+
+### Findings after step 54
+- Async lambda closure rewriting now accepts constructed `_this` fields from state-machine members and emits captured field loads through the state-machine closure when the receiver is missing or typed as the async state machine, preventing direct loads of closure fields from the lambda state machine instance.
+- Even with the redirected emission path, running `dotnet /tmp/async-inference.dll` still prints `-2`, showing that the rewritten `SetResult` path continues to fetch the wrong value at runtime and further closure/receiver alignment is required.【0d3a7c†L1-L3】

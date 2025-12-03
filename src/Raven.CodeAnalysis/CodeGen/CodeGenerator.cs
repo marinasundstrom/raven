@@ -1101,7 +1101,8 @@ internal class CodeGenerator
             if (!AsyncLowerer.ShouldRewrite(sourceLambda, lambdaBody))
                 continue;
 
-            var rewritten = AsyncLowerer.Rewrite(sourceLambda, lambdaBody);
+            var closureSelfType = TryGetAsyncLambdaClosureType(sourceLambda);
+            var rewritten = AsyncLowerer.Rewrite(sourceLambda, lambdaBody, selfType: closureSelfType);
             if (rewritten.StateMachine is not null)
             {
                 var generator = GetOrCreateTypeGenerator(rewritten.StateMachine);
@@ -1302,7 +1303,8 @@ internal class CodeGenerator
             if (!AsyncLowerer.ShouldRewrite(sourceLambda, block))
                 continue;
 
-            var rewrittenLambda = AsyncLowerer.Rewrite(sourceLambda, block);
+            var closureSelfType = TryGetAsyncLambdaClosureType(sourceLambda);
+            var rewrittenLambda = AsyncLowerer.Rewrite(sourceLambda, block, selfType: closureSelfType);
 
             if (rewrittenLambda.StateMachine is not null)
             {
@@ -1310,6 +1312,25 @@ internal class CodeGenerator
                 generator.DefineTypeBuilder();
             }
         }
+    }
+
+    private ITypeSymbol? TryGetAsyncLambdaClosureType(SourceLambdaSymbol lambda)
+    {
+        if (!lambda.HasCaptures)
+            return null;
+
+        if (lambda.ContainingType is null)
+            return null;
+
+        var containingGenerator = GetOrCreateTypeGenerator(lambda.ContainingType);
+
+        if (containingGenerator.TypeBuilder is null)
+            containingGenerator.DefineTypeBuilder();
+
+        if (containingGenerator.TryGetLambdaClosure(lambda, out var closure))
+            return closure.Symbol;
+
+        return containingGenerator.EnsureLambdaClosure(lambda).Symbol;
     }
 
     private static BoundBlockStatement ConvertLambdaToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)

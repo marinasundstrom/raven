@@ -263,7 +263,7 @@ internal static class AsyncLowerer
 
         AsyncLambdaClosureRewriter? closureRewriter = null;
 
-        if (stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is SourceFieldSymbol closureField)
+        if (stateMachine.GetConstructedMembers(stateMachine.AsyncMethod).ThisField is IFieldSymbol closureField)
         {
             closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
             originalBody = closureRewriter.Rewrite(originalBody);
@@ -511,13 +511,13 @@ internal static class AsyncLowerer
     private sealed class AsyncLambdaClosureRewriter : BoundTreeRewriter
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
-        private readonly SourceFieldSymbol _closureField;
+        private readonly IFieldSymbol _closureField;
         private readonly Dictionary<string, ILocalSymbol> _capturedLocals = new(StringComparer.Ordinal);
         private readonly Dictionary<string, SourceFieldSymbol> _capturedHoists = new(StringComparer.Ordinal);
 
         public AsyncLambdaClosureRewriter(
             SynthesizedAsyncStateMachineTypeSymbol stateMachine,
-            SourceFieldSymbol closureField)
+            IFieldSymbol closureField)
         {
             _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
             _closureField = closureField ?? throw new ArgumentNullException(nameof(closureField));
@@ -592,6 +592,16 @@ internal static class AsyncLowerer
             var capturedName = ExtractCapturedName(field.Name);
             if (capturedName is null)
                 return false;
+
+            if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
+                _closureField.Type is { } closureType &&
+                field.ContainingType is { } containingType &&
+                SymbolEqualityComparer.Default.Equals(containingType, closureType))
+            {
+                var closureReceiver = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _closureField);
+                rewritten = new BoundMemberAccessExpression(closureReceiver, field, reason);
+                return true;
+            }
 
             if (!_capturedLocals.TryGetValue(capturedName, out var capturedLocal))
             {
