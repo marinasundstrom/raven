@@ -23,7 +23,7 @@ These are the main options available for when debugging the compiler:
 
 ## Sample compilation and execution status
 
-After adding binder support for arrow-expression bodies, the arrow-heavy samples were rerun from the `samples/` directory with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` and executed with `dotnet <file>.dll` where applicable. The table highlights the latest failures observed; rows not mentioned above still reflect the previous ravc sweep. A recent fix to generic member substitution now lets the `List<T>` samples bind and run. Samples that call `UnwrapOrThrow` are expected to throw when the result is an error case.
+After enabling binder support for arrow-expression bodies and allowing assignment expressions in expression contexts, the previously failing samples were rerun from the `samples/` directory with `dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll` and executed with `dotnet <file>.dll` where applicable. The table highlights the latest outcomes; rows not mentioned above still reflect the previous ravc sweep. A recent fix to generic member substitution now lets the `List<T>` samples bind and run. Samples that call `UnwrapOrThrow` are expected to throw when the result is an error case. The `type-unions.rav` sample depends on `TestDep.dll` from `src/TestDep/bin/Debug/net9.0`; copy that DLL next to the emitted assembly before running.
 
 | Sample | Status | Notes |
 | --- | --- | --- |
@@ -37,13 +37,13 @@ After adding binder support for arrow-expression bodies, the arrow-heavy samples
 | `linq.rav` | ✅ Run | Compiles and runs (prints the reversed list). |
 | `main.rav` | ✅ Run | Executes after the conversion fix; tuple element names still print an unexpected `id` value. |
 | `pattern-matching.rav` | ✅ Run | Compiles and prints `else`. |
-| `reflection.rav` | ❌ Compile | Stack overflow when resolving metadata types. |
+| `reflection.rav` | ✅ Run | Compiles and prints the reflected `System.Object` member list. |
 | `test-result.rav` | ❌ Run (expected) | Throws `InvalidOperationException` when `UnwrapOrThrow` observes the `Error` case. |
 | `test-result2.rav` | ✅ Run | Compiles and executes successfully (prints `23`). |
 | `test10.rav` | ✅ Run | Compiles and prints `(2, test)`. |
-| `test9.rav` | ❌ Compile | Still rejected with RAV0135 (“Assignment expressions are only allowed as statements”). |
-| `try-match.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
+| `test9.rav` | ✅ Run | Compiles and prints `()`, allowing assignment expressions in expression contexts. |
+| `try-match.rav` | ✅ Run | Compiles and prints the formatted exception message (`Format invalid: ...`). |
 | `tuples.rav` | ✅ Run | Compiles and prints tuple element values. |
 | `tuples2.rav` | ✅ Run | Compiles and prints `tuple False foo`. |
-| `type-unions.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
-| `async/try-match-async.rav` | ❌ Compile | Stack overflow while resolving metadata types. |
+| `type-unions.rav` | ✅ Run | Compiles and runs once `TestDep.dll` is copied beside the output assembly. |
+| `async/try-match-async.rav` | ✅ Run | Compiles and prints `boom` from the awaited exception branch. |

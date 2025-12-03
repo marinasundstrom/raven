@@ -282,3 +282,6 @@
 
 ### Findings after step 57
 - Re-ran `samples/async/async-inference.rav` after the conversion guard change to ensure lambda state-machine emission still succeeds; the generated DLL continues to print `42`, confirming the closure rewrite remains intact.【fc30ef†L1-L2】
+
+### Findings after step 58
+- Revalidated `samples/async/async-inference.rav` after enabling assignment expressions in expression contexts; rebuilding and running the emitted DLL still prints `42`, so the async lambda state-machine wiring remains stable after the latest binder changes.

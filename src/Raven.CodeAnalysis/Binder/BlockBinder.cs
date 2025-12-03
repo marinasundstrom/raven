@@ -5199,9 +5199,6 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
     {
-        if (syntax.Parent is not AssignmentStatementSyntax)
-            _diagnostics.ReportAssignmentExpressionMustBeStatement(syntax.GetLocation());
-
         return BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
     }
 
