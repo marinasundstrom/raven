@@ -143,7 +143,7 @@ internal static class AsyncLowerer
                 stateMachine.SetSetStateMachineBody(setStateMachineBody);
         }
 
-        var rewrittenBody = RewriteLambdaBody(compilation, lambda, stateMachine, body);
+        var rewrittenBody = RewriteAsyncBody(compilation, lambda, stateMachine);
         return new AsyncRewriteResult(rewrittenBody, stateMachine, analysis);
     }
 

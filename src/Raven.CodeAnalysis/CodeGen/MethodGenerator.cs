@@ -464,6 +464,9 @@ internal class MethodGenerator
         {
             var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
             var rewritten = AsyncLowerer.Rewrite(sourceLambda, block);
+            if (rewritten.StateMachine is not null)
+                TypeGenerator.CodeGen.GetOrCreateTypeGenerator(rewritten.StateMachine);
+
             rewrittenBody = rewritten.Body;
         }
 
