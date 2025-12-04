@@ -1,4 +1,7 @@
+using System;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -151,16 +154,17 @@ class Outer<T>
         var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedOuter.LookupType("Inner"));
         var constructedInner = Assert.IsAssignableFrom<ConstructedNamedTypeSymbol>(innerDefinition.Construct(stringType));
 
-        var explicitArguments = constructedInner.TypeArguments;
-        // SymbolQuery currently preserves only the explicit inner argument on TypeArguments;
-        // the inherited outer instantiation shows up only through GetAllTypeArguments.
-        Assert.Equal(1, explicitArguments.Length);
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, explicitArguments[0]));
-
         var runtimeArguments = constructedInner.GetAllTypeArguments();
-        Assert.Equal(2, runtimeArguments.Length);
+        Assert.Equal(constructedInner.TypeParameters.Length, runtimeArguments.Length);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, runtimeArguments[0]));
         Assert.True(SymbolEqualityComparer.Default.Equals(stringType, runtimeArguments[1]));
+
+        var display = constructedInner.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        Assert.Equal("Outer<int>.Inner<string>", display);
+
+        var metadataName = constructedInner.ToFullyQualifiedMetadataName();
+        Assert.Equal("Outer`1+Inner`1", metadataName);
+        Assert.Equal(1, constructedInner.Arity);
     }
 
     [Fact]
@@ -212,6 +216,49 @@ class Container<T>
     }
 
     [Fact]
+    public void ConstructedType_ToStringAndDebuggerDisplay_UseDisplayStrings()
+    {
+        var source = """
+class Outer<T>
+{
+    public class Inner<U>
+    {
+        var value: T;
+        var data: U;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "constructed-debugger-display-nested",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Outer"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
+
+        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedOuter.LookupType("Inner"));
+        var constructedInner = Assert.IsAssignableFrom<ConstructedNamedTypeSymbol>(innerDefinition.Construct(stringType));
+
+        var errorDisplay = constructedInner.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        Assert.Equal(errorDisplay, constructedInner.ToString());
+
+        var debuggerMethod = typeof(ConstructedNamedTypeSymbol).GetMethod(
+            "GetDebuggerDisplay",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        var debuggerDisplay = Assert.IsType<string>(debuggerMethod!.Invoke(constructedInner, null));
+        var fullyQualified = constructedInner.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        Assert.Equal($"{constructedInner.Kind}: {fullyQualified}", debuggerDisplay);
+    }
+
+    [Fact]
     public void LookupType_SubstitutesOuterTypeArguments()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -228,6 +275,32 @@ class Container<T>
         Assert.Equal("Enumerator", enumeratorType.Name);
         Assert.Equal(1, enumeratorType.Arity);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, enumeratorType.TypeArguments[0]));
+    }
+
+    [Fact]
+    public void ConstructedMetadataType_DisplayAndMetadataNamesStayClosed()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+
+        var enumerator = Assert.IsAssignableFrom<INamedTypeSymbol>(listOfInt.LookupType("Enumerator"));
+
+        var errorDisplay = enumerator.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        Assert.Equal("List<int>.Enumerator<int>", errorDisplay);
+
+        var fullyQualified = enumerator.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        Assert.Equal("System.Collections.Generic.List<int>.Enumerator<int>", fullyQualified);
+
+        Assert.Equal(errorDisplay, enumerator.ToString());
+
+        var metadataName = enumerator.ToFullyQualifiedMetadataName();
+        Assert.Equal("System.Collections.Generic.List`1+Enumerator", metadataName);
     }
 
     [Fact]
@@ -295,6 +368,80 @@ class Container<T>
 
         Assert.Equal("Predicate", predicateType.Name);
         Assert.True(SymbolEqualityComparer.Default.Equals(stringType, predicateType.TypeArguments[0]));
+    }
+
+    [Fact]
+    public void MetadataDiscriminatedUnion_UsesConstructedConstructors()
+    {
+        var ravenCoreSourcePath = Path.GetFullPath(Path.Combine(
+            "..", "..", "..", "..", "..", "src", "Raven.Core", "Result.rav"));
+        var ravenCoreSource = File.ReadAllText(ravenCoreSourcePath);
+
+        var ravenCoreTree = SyntaxTree.ParseText(ravenCoreSource);
+        var ravenCoreCompilation = Compilation.Create(
+            "raven-core-fixture",
+            [ravenCoreTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var ravenCoreAssemblyPath = Path.Combine(Path.GetTempPath(), $"raven-core-fixture-{Guid.NewGuid():N}.dll");
+
+        try
+        {
+            using var ravenCoreStream = new MemoryStream();
+            var ravenCoreEmit = ravenCoreCompilation.Emit(ravenCoreStream);
+            Assert.True(ravenCoreEmit.Success, string.Join(Environment.NewLine, ravenCoreEmit.Diagnostics));
+
+            File.WriteAllBytes(ravenCoreAssemblyPath, ravenCoreStream.ToArray());
+
+            var ravenCoreReference = MetadataReference.CreateFromFile(ravenCoreAssemblyPath);
+
+            var consumerSource = """
+import System.*
+
+class Program
+{
+    public static Main() -> unit
+    {
+        let result: Result<int> = .Ok(42)
+        Console.WriteLine(result)
+    }
+}
+""";
+
+            var consumerTree = SyntaxTree.ParseText(consumerSource);
+            var consumerCompilation = Compilation.Create(
+                "metadata-union-consumer",
+                [consumerTree],
+                [.. TestMetadataReferences.Default, ravenCoreReference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            using var consumerStream = new MemoryStream();
+            var consumerEmit = consumerCompilation.Emit(consumerStream);
+            Assert.True(consumerEmit.Success, string.Join(Environment.NewLine, consumerEmit.Diagnostics));
+
+            var systemNamespace = consumerCompilation.GlobalNamespace.LookupNamespace("System")
+                ?? consumerCompilation.GlobalNamespace;
+            var resultDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+                systemNamespace
+                    .GetMembers("Result")
+                    .OfType<INamedTypeSymbol>()
+                    .First(symbol => symbol.Arity == 1));
+
+            var intType = consumerCompilation.GetSpecialType(SpecialType.System_Int32);
+            var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Construct(intType));
+
+            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.LookupType("Ok"));
+            var constructor = Assert.Single(okCase.Constructors);
+
+            var parameterType = Assert.Single(constructor.Parameters).Type;
+            Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameterType));
+        }
+        finally
+        {
+            if (File.Exists(ravenCoreAssemblyPath))
+                File.Delete(ravenCoreAssemblyPath);
+        }
     }
 
     [Fact]
