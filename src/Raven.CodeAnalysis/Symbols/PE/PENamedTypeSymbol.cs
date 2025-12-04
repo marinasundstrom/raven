@@ -85,7 +85,25 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         try
         {
             var fields = typeInfo.DeclaredFields;
-            return fields.Any(f => f.Name == "<Tag>") && fields.Any(f => f.Name == "<Payload>");
+
+            static string Normalize(string name)
+            {
+                Span<char> buffer = stackalloc char[name.Length];
+                var index = 0;
+
+                foreach (var ch in name)
+                {
+                    if (ch is '<' or '>' or '_')
+                        continue;
+
+                    buffer[index++] = ch;
+                }
+
+                return new string(buffer[..index]);
+            }
+
+            return fields.Any(f => Normalize(f.Name) == "Tag")
+                && fields.Any(f => Normalize(f.Name) == "Payload");
         }
         catch (ArgumentException)
         {

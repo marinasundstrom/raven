@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -37,16 +38,44 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
     }
 
     public IFieldSymbol DiscriminatorField =>
-        _discriminatorField ??= GetMembers()
-            .OfType<IFieldSymbol>()
-            .FirstOrDefault(f => f.Name == "<Tag>")
+        _discriminatorField ??= FindUnionField("Tag")
             ?? throw new InvalidOperationException($"Missing discriminator field on discriminated union '{Name}'.");
 
     public IFieldSymbol PayloadField =>
-        _payloadField ??= GetMembers()
-            .OfType<IFieldSymbol>()
-            .FirstOrDefault(f => f.Name == "<Payload>")
+        _payloadField ??= FindUnionField("Payload")
             ?? throw new InvalidOperationException($"Missing payload field on discriminated union '{Name}'.");
+
+    private IFieldSymbol? FindUnionField(string target)
+    {
+        var fields = GetMembers()
+            .OfType<IFieldSymbol>();
+
+        foreach (var field in fields)
+        {
+            var normalized = NormalizeFieldName(field.Name);
+            if (normalized == target)
+                return field;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeFieldName(string name)
+    {
+        // Drop common punctuation so variants like "<Tag>", "_Tag" or "Tag" all match.
+        Span<char> buffer = stackalloc char[name.Length];
+        var index = 0;
+
+        foreach (var ch in name)
+        {
+            if (ch is '<' or '>' or '_')
+                continue;
+
+            buffer[index++] = ch;
+        }
+
+        return new string(buffer[..index]);
+    }
 }
 
 internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscriminatedUnionCaseSymbol
