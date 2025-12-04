@@ -222,7 +222,9 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/async/async-inference{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/result{RavenFileExtensions.Raven}");
+
+ravenCorePath ??= "../../../../../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll";
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {
