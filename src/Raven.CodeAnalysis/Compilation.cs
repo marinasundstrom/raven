@@ -709,19 +709,19 @@ public partial class Compilation
             switch (metadataReference)
             {
                 case PortableExecutableReference per:
-                {
-                    var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
-                    RegisterRuntimeAssembly(assembly, per.FilePath);
-                    symbol = GetAssembly(assembly);
-                    break;
-                }
+                    {
+                        var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
+                        RegisterRuntimeAssembly(assembly, per.FilePath);
+                        symbol = GetAssembly(assembly);
+                        break;
+                    }
                 case CompilationReference cr:
-                {
-                    var compilation = cr.Compilation;
-                    compilation.EnsureSetup();
-                    symbol = compilation.Assembly;
-                    break;
-                }
+                    {
+                        var compilation = cr.Compilation;
+                        compilation.EnsureSetup();
+                        symbol = compilation.Assembly;
+                        break;
+                    }
                 default:
                     throw new InvalidOperationException();
             }
@@ -1105,7 +1105,7 @@ public partial class Compilation
         if (RuntimeCoreAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false) is { } coreType)
             return coreType;
 
-        foreach (var runtimeAssembly in _runtimeAssemblyCache.Values)
+        foreach (var (key, runtimeAssembly) in _runtimeAssemblyCache)
         {
             var candidate = runtimeAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
             if (candidate is not null)

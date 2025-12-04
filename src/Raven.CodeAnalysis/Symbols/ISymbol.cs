@@ -385,7 +385,8 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
             {
                 var segment = current.Name;
 
-                if (current.IsGenericType)
+                // Only types that *declare* type parameters get the `N suffix
+                if (current.Arity > 0)
                     segment = $"{segment}`{current.Arity}";
 
                 segments.Push(segment);

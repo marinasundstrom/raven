@@ -582,19 +582,19 @@ public partial class SemanticModel
 
         var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
 
-            void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
+        void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
+        {
+            var seenNonGlobal = false;
+            foreach (var member in members)
             {
-                var seenNonGlobal = false;
-                foreach (var member in members)
-                {
-                    if (member is ExtensionDeclarationSyntax)
-                        continue;
+                if (member is ExtensionDeclarationSyntax)
+                    continue;
 
-                    if (member is GlobalStatementSyntax gs)
-                    {
-                        if (seenNonGlobal)
-                            parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
-                    }
+                if (member is GlobalStatementSyntax gs)
+                {
+                    if (seenNonGlobal)
+                        parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
+                }
                 else
                 {
                     seenNonGlobal = true;
@@ -1043,19 +1043,19 @@ public partial class SemanticModel
                         var parameterName = parameterSyntax.Identifier.ValueText;
                         var propertyName = GetUnionCasePropertyName(parameterName);
 
-                    var backingField = new SourceFieldSymbol(
-                        $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
-                        parameterType,
-                            isStatic: false,
-                            isLiteral: false,
-                            constantValue: null,
-                            caseSymbol,
-                            caseSymbol,
-                            namespaceSymbol,
-                            [parameterSyntax.GetLocation()],
-                            [parameterSyntax.GetReference()],
-                            new BoundParameterAccess(parameterSymbol),
-                            declaredAccessibility: Accessibility.Private);
+                        var backingField = new SourceFieldSymbol(
+                            $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
+                            parameterType,
+                                isStatic: false,
+                                isLiteral: false,
+                                constantValue: null,
+                                caseSymbol,
+                                caseSymbol,
+                                namespaceSymbol,
+                                [parameterSyntax.GetLocation()],
+                                [parameterSyntax.GetReference()],
+                                new BoundParameterAccess(parameterSymbol),
+                                declaredAccessibility: Accessibility.Private);
 
                         RegisterCaseMember(backingField);
 

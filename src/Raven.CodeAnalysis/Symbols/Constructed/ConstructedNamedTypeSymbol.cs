@@ -33,30 +33,54 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     }
 
     private static Dictionary<ITypeParameterSymbol, ITypeSymbol> CreateSubstitutionMap(
-        INamedTypeSymbol originalDefinition,
-        ImmutableArray<ITypeSymbol> typeArguments,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
+     INamedTypeSymbol originalDefinition,
+     ImmutableArray<ITypeSymbol> typeArguments,
+     Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
     {
-        var comparer = ReferenceEqualityComparer.Instance;
+        static ITypeParameterSymbol NormalizeKey(ITypeParameterSymbol parameter) =>
+            (ITypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
 
-        if (inheritedSubstitution is null)
+        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(
+            TypeParameterSubstitutionComparer.Instance);
+
+        if (inheritedSubstitution is not null)
         {
-            var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(comparer);
-
-            var typeParameters = originalDefinition.TypeParameters;
-            for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
-                map[typeParameters[i]] = typeArguments[i];
-
-            return map;
+            foreach (var (key, value) in inheritedSubstitution)
+                substitution[NormalizeKey(key)] = value;
         }
-
-        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, comparer);
-        var inheritedParameters = originalDefinition.TypeParameters;
 
         if (!typeArguments.IsDefaultOrEmpty)
         {
-            for (var i = 0; i < inheritedParameters.Length && i < typeArguments.Length; i++)
-                substitution[inheritedParameters[i]] = typeArguments[i];
+            var typeParameters = originalDefinition.TypeParameters;
+            var argIndex = 0;
+
+            foreach (var rawParam in typeParameters)
+            {
+                // Only treat params whose containing symbol is *this* type as local.
+                // This filters out outer type parameters that may appear in PE metadata.
+                if (!SymbolEqualityComparer.Default.Equals(rawParam.ContainingSymbol, originalDefinition))
+                    continue;
+
+                if (argIndex >= typeArguments.Length)
+                    break;
+
+                var parameter = NormalizeKey(rawParam);
+                var argument = typeArguments[argIndex++];
+
+                if (substitution.TryGetValue(parameter, out var existing))
+                {
+                    // If they’re logically equal, nothing to do
+                    if (SymbolEqualityComparer.Default.Equals(existing, argument))
+                        continue;
+
+                    // If we already have a concrete type and the new one is still a TP,
+                    // keep the existing mapping.
+                    if (existing is not ITypeParameterSymbol && argument is ITypeParameterSymbol)
+                        continue;
+                }
+
+                substitution[parameter] = argument;
+            }
         }
 
         return substitution;
@@ -78,20 +102,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
     private bool TryGetSubstitution(ITypeParameterSymbol parameter, out ITypeSymbol replacement)
     {
-        if (_substitutionMap.TryGetValue(parameter, out replacement!))
-            return true;
-
-        foreach (var (key, value) in _substitutionMap)
-        {
-            if (SymbolEqualityComparer.Default.Equals(key, parameter))
-            {
-                replacement = value;
-                return true;
-            }
-        }
-
-        replacement = null!;
-        return false;
+        var lookup = (ITypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
+        return _substitutionMap.TryGetValue(lookup, out replacement!);
     }
 
     public ITypeSymbol Substitute(ITypeSymbol type)
@@ -846,7 +858,8 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
         if (!_original.TypeParameters.Contains(typeParameter))
             return false;
 
-        _constraintTypeMap ??= new Dictionary<ITypeParameterSymbol, ImmutableArray<ITypeSymbol>>(SymbolEqualityComparer.Default);
+        _constraintTypeMap ??= new Dictionary<ITypeParameterSymbol, ImmutableArray<ITypeSymbol>>(
+            TypeParameterSubstitutionComparer.Instance);
 
         if (_constraintTypeMap.TryGetValue(typeParameter, out substituted))
             return true;
@@ -1241,5 +1254,31 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public override string ToString()
     {
         return this.ToDisplayString();
+    }
+}
+
+internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITypeParameterSymbol>
+{
+    public static readonly TypeParameterSubstitutionComparer Instance = new();
+
+    private TypeParameterSubstitutionComparer() { }
+
+    public bool Equals(ITypeParameterSymbol? x, ITypeParameterSymbol? y)
+    {
+        if (ReferenceEquals(x, y))
+            return true;
+        if (x is null || y is null)
+            return false;
+
+        var defX = (ITypeParameterSymbol)(x.OriginalDefinition ?? x);
+        var defY = (ITypeParameterSymbol)(y.OriginalDefinition ?? y);
+
+        return SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType().Equals(defX, defY);
+    }
+
+    public int GetHashCode(ITypeParameterSymbol obj)
+    {
+        var def = (ITypeParameterSymbol)(obj.OriginalDefinition ?? obj);
+        return SymbolEqualityComparer.Default.GetHashCode(def);
     }
 }

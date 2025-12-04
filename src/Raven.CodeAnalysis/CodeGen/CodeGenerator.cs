@@ -483,10 +483,12 @@ internal class CodeGenerator
                 return;
         }
 
+        var attributeType = Compilation.GetTypeByMetadataName("System.Attribute").GetClrType(this);
+
         var attrBuilder = ModuleBuilder.DefineType(
             "System.Runtime.CompilerServices.DiscriminatedUnionAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
-            typeof(Attribute));
+            attributeType);
 
         var ctorBuilder = attrBuilder.DefineConstructor(
             MethodAttributes.Public,
@@ -494,7 +496,7 @@ internal class CodeGenerator
             Type.EmptyTypes);
 
         var il = ctorBuilder.GetILGenerator();
-        var baseCtor = typeof(Attribute).GetConstructor(
+        var baseCtor = attributeType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
             types: Type.EmptyTypes,
@@ -523,26 +525,29 @@ internal class CodeGenerator
                 return;
         }
 
+        var attributeType = Compilation.GetTypeByMetadataName("System.Attribute").GetClrType(this);
+        var typeType = Compilation.GetSpecialType(SpecialType.System_Type).GetClrType(this);
+
         var attrBuilder = ModuleBuilder.DefineType(
             "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
-            typeof(Attribute));
+            attributeType);
 
         var unionTypeField = attrBuilder.DefineField(
             "_discriminatedUnionType",
-            typeof(Type),
+            typeType,
             FieldAttributes.Private | FieldAttributes.InitOnly);
 
         var propertyBuilder = attrBuilder.DefineProperty(
             "DiscriminatedUnionType",
             PropertyAttributes.None,
-            typeof(Type),
+            typeType,
             null);
 
         var getterMethod = attrBuilder.DefineMethod(
             "get_DiscriminatedUnionType",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
-            typeof(Type),
+            typeType,
             Type.EmptyTypes);
 
         var getterIl = getterMethod.GetILGenerator();
@@ -555,10 +560,10 @@ internal class CodeGenerator
         var ctorBuilder = attrBuilder.DefineConstructor(
             MethodAttributes.Public,
             CallingConventions.Standard,
-            new[] { typeof(Type) });
+            new[] { typeType });
 
         var il = ctorBuilder.GetILGenerator();
-        var baseCtor = typeof(Attribute).GetConstructor(
+        var baseCtor = attributeType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
             types: Type.EmptyTypes,
@@ -574,7 +579,7 @@ internal class CodeGenerator
         il.Emit(OpCodes.Ret);
 
         DiscriminatedUnionCaseAttributeType = attrBuilder.CreateType();
-        _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType.GetConstructor(new[] { typeof(Type) })
+        _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType.GetConstructor(new[] { typeType })
             ?? throw new InvalidOperationException("Missing DiscriminatedUnionCaseAttribute(Type) constructor.");
     }
 
@@ -840,7 +845,10 @@ internal class CodeGenerator
         {
             DiscriminatedUnionCaseAttributeType = Compilation.ResolveRuntimeType(
                 "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
-            _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType?.GetConstructor(new[] { typeof(Type) });
+
+            var typeType = Compilation.GetSpecialType(SpecialType.System_Type).GetClrType(this);
+
+            _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType?.GetConstructor(new[] { typeType });
         }
     }
 

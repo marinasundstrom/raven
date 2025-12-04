@@ -222,11 +222,67 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
+
     public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
-        _typeParameters ??=
-            _typeInfo.GenericTypeParameters
-                .Select(t => (ITypeParameterSymbol)_typeResolver.ResolveType(t)!)
-                .ToImmutableArray();
+        _typeParameters ??= ComputeTypeParameters();
+
+    public int Arity => GetMetadataArity();
+
+    private int GetMetadataArity()
+    {
+        var name = _typeInfo.Name;
+        var index = name.IndexOf('`');
+        if (index < 0)
+            return 0;
+
+        if (int.TryParse(name.AsSpan(index + 1), out var arity))
+            return arity;
+
+        return 0;
+    }
+
+    private ImmutableArray<ITypeParameterSymbol> ComputeTypeParameters()
+    {
+        var declaredArity = GetMetadataArity();
+
+        // Non-generic or no params: trivial
+        if (declaredArity == 0)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        var allParams = _typeInfo.GenericTypeParameters;
+        if (allParams.Length == 0)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        // For nested generic type definitions, reflection gives you:
+        //   [outer generic params..., inner generic params...]
+        //
+        // So: inner *declared* parameters are the LAST `declaredArity` ones.
+        //
+        // Example:
+        //   class Outer<TOuter>
+        //   {
+        //       class Inner<TInner> { }
+        //   }
+        //
+        // typeof(Outer<,>.Inner<>).GenericTypeParameters:
+        //   [TOuter, TInner]
+        // Name "Inner`1" -> declaredArity = 1 -> take last 1 -> [TInner]
+
+        int start = Math.Max(0, allParams.Length - declaredArity);
+        var slice = allParams
+            .AsSpan(start, declaredArity)
+            .ToArray();
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(slice.Length);
+        foreach (var tp in slice)
+        {
+            var paramSymbol = (ITypeParameterSymbol)_typeResolver.ResolveType(tp)!;
+            builder.Add(paramSymbol);
+        }
+
+        return builder.ToImmutable();
+    }
+
     public ITypeSymbol? ConstructedFrom => _constructedFrom;
 
     private (ITypeSymbol constructedFrom, ITypeSymbol originalDefinition) ResolveGenericOrigins()
@@ -420,8 +476,6 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ITypeSymbol? OriginalDefinition => _originalDefinition;
 
-    public int Arity => _typeInfo.GenericTypeParameters.Length;
-
     private ImmutableArray<IFieldSymbol>? _tupleElements;
 
     public INamedTypeSymbol UnderlyingTupleType => this;
@@ -584,8 +638,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
     {
-        if (typeArguments.Length != Arity)
-            throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");
+        // if (typeArguments.Length != Arity)
+        //   throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");
 
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
     }
