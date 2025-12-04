@@ -260,12 +260,13 @@ if (!string.IsNullOrWhiteSpace(ravenCorePath))
     }
 }
 
-var assemblyName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
+var defaultAssemblyBaseName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
 
-outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : assemblyName;
+outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : defaultAssemblyBaseName;
 if (!Path.HasExtension(outputPath))
     outputPath = $"{outputPath}.dll";
 var outputFilePath = Path.GetFullPath(outputPath);
+var assemblyName = Path.GetFileNameWithoutExtension(outputFilePath);
 var outputDirectory = Path.GetDirectoryName(outputFilePath);
 if (string.IsNullOrEmpty(outputDirectory))
     outputDirectory = Directory.GetCurrentDirectory();

@@ -180,7 +180,8 @@ public partial class Compilation
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
 
-        InitializeTopLevelPrograms();
+        if (Options.OutputKind == OutputKind.ConsoleApplication)
+            InitializeTopLevelPrograms();
     }
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);

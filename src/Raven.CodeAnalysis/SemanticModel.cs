@@ -630,6 +630,9 @@ public partial class SemanticModel
                 parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(bindableGlobals[0].GetLocation());
         }
 
+        if (bindableGlobals.Count == 0)
+            return parentBinder;
+
         var (programClass, mainMethod, asyncImplementation) = Compilation.GetOrCreateTopLevelProgram(
             cu,
             namespaceSymbol.AsSourceNamespace()!,

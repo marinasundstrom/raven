@@ -60,4 +60,24 @@ class App {
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
     }
+
+    [Fact]
+    public void ClassLibrary_DoesNotSynthesizeTopLevelProgram()
+    {
+        var tree = SyntaxTree.ParseText("");
+        var compilation = Compilation.Create(
+            "lib",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
+
+        var global = compilation.SourceGlobalNamespace;
+        Assert.NotNull(global);
+
+        var program = global.LookupType("Program");
+        Assert.Null(program);
+    }
 }
