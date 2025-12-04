@@ -62,7 +62,35 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             }
         }
 
+        if (LooksLikeDiscriminatedUnion(typeInfo))
+            return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+
+        if (containingType is IDiscriminatedUnionSymbol parentUnion)
+        {
+            return new PEDiscriminatedUnionCaseSymbol(
+                typeResolver,
+                typeInfo,
+                containingSymbol,
+                containingType,
+                containingNamespace,
+                locations,
+                parentUnion);
+        }
+
         return new PENamedTypeSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+    }
+
+    private static bool LooksLikeDiscriminatedUnion(System.Reflection.TypeInfo typeInfo)
+    {
+        try
+        {
+            var fields = typeInfo.DeclaredFields;
+            return fields.Any(f => f.Name == "<Tag>") && fields.Any(f => f.Name == "<Payload>");
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     internal static IEnumerable<CustomAttributeData> GetCustomAttributesSafe(System.Reflection.TypeInfo typeInfo)
