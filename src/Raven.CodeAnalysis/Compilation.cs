@@ -155,6 +155,10 @@ public partial class Compilation
             .Select(portableExecutableReference => portableExecutableReference.FilePath)
             .ToList();
 
+        var runtimeCorePath = typeof(object).Assembly.Location;
+        if (!string.IsNullOrEmpty(runtimeCorePath) && !paths.Contains(runtimeCorePath, StringComparer.OrdinalIgnoreCase))
+            paths.Add(runtimeCorePath);
+
         var resolver = new PathAssemblyResolver(paths);
         _metadataLoadContext = new MetadataLoadContext(resolver);
 

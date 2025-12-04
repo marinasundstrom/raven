@@ -37,26 +37,23 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         ImmutableArray<ITypeSymbol> typeArguments,
         Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
     {
+        static ITypeParameterSymbol NormalizeKey(ITypeParameterSymbol parameter) =>
+            parameter.OriginalDefinition as ITypeParameterSymbol ?? parameter;
+
         var comparer = ReferenceEqualityComparer.Instance;
+        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(comparer);
 
-        if (inheritedSubstitution is null)
+        if (inheritedSubstitution is not null)
         {
-            var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(comparer);
-
-            var typeParameters = originalDefinition.TypeParameters;
-            for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
-                map[typeParameters[i]] = typeArguments[i];
-
-            return map;
+            foreach (var (key, value) in inheritedSubstitution)
+                substitution[NormalizeKey(key)] = value;
         }
 
-        var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(inheritedSubstitution, comparer);
-        var inheritedParameters = originalDefinition.TypeParameters;
-
-        if (!typeArguments.IsDefaultOrEmpty)
+        var typeParameters = originalDefinition.TypeParameters;
+        for (var i = 0; i < typeParameters.Length && i < typeArguments.Length; i++)
         {
-            for (var i = 0; i < inheritedParameters.Length && i < typeArguments.Length; i++)
-                substitution[inheritedParameters[i]] = typeArguments[i];
+            var parameter = typeParameters[i];
+            substitution[NormalizeKey(parameter)] = typeArguments[i];
         }
 
         return substitution;
@@ -78,7 +75,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
     private bool TryGetSubstitution(ITypeParameterSymbol parameter, out ITypeSymbol replacement)
     {
-        if (_substitutionMap.TryGetValue(parameter, out replacement!))
+        var lookup = parameter.OriginalDefinition as ITypeParameterSymbol ?? parameter;
+
+        if (_substitutionMap.TryGetValue(lookup, out replacement!))
             return true;
 
         foreach (var (key, value) in _substitutionMap)

@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    protected readonly TypeResolver _typeResolver;
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
@@ -19,6 +19,157 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
     private readonly ITypeSymbol? _constructedFrom;
     private readonly ITypeSymbol? _originalDefinition;
+
+    internal static PENamedTypeSymbol Create(
+        TypeResolver typeResolver,
+        System.Reflection.TypeInfo typeInfo,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations)
+    {
+        foreach (var attribute in GetCustomAttributesSafe(typeInfo))
+        {
+            var attributeName = GetAttributeTypeName(attribute);
+            if (attributeName is null)
+                continue;
+
+            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
+                return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+
+            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
+            {
+                IDiscriminatedUnionSymbol? unionSymbol = null;
+
+                if (containingType is IDiscriminatedUnionSymbol containingUnion)
+                {
+                    unionSymbol = containingUnion;
+                }
+
+                if (TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
+                {
+                    unionSymbol = typeResolver.ResolveType(unionType) as IDiscriminatedUnionSymbol;
+                }
+
+                return new PEDiscriminatedUnionCaseSymbol(
+                    typeResolver,
+                    typeInfo,
+                    containingSymbol,
+                    containingType,
+                    containingNamespace,
+                    locations,
+                    unionSymbol);
+            }
+        }
+
+        if (LooksLikeDiscriminatedUnion(typeInfo))
+            return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+
+        if (containingType is IDiscriminatedUnionSymbol parentUnion)
+        {
+            return new PEDiscriminatedUnionCaseSymbol(
+                typeResolver,
+                typeInfo,
+                containingSymbol,
+                containingType,
+                containingNamespace,
+                locations,
+                parentUnion);
+        }
+
+        return new PENamedTypeSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+    }
+
+    private static bool LooksLikeDiscriminatedUnion(System.Reflection.TypeInfo typeInfo)
+    {
+        try
+        {
+            var fields = typeInfo.DeclaredFields;
+
+            static string Normalize(string name)
+            {
+                Span<char> buffer = stackalloc char[name.Length];
+                var index = 0;
+
+                foreach (var ch in name)
+                {
+                    if (ch is '<' or '>' or '_')
+                        continue;
+
+                    buffer[index++] = ch;
+                }
+
+                return new string(buffer[..index]);
+            }
+
+            return fields.Any(f => Normalize(f.Name) == "Tag")
+                && fields.Any(f => Normalize(f.Name) == "Payload");
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    internal static IEnumerable<CustomAttributeData> GetCustomAttributesSafe(System.Reflection.TypeInfo typeInfo)
+    {
+        IList<CustomAttributeData> attributes;
+        try
+        {
+            attributes = typeInfo.GetCustomAttributesData();
+        }
+        catch (ArgumentException)
+        {
+            yield break;
+        }
+
+        foreach (var attribute in attributes)
+        {
+            CustomAttributeData? safeAttribute;
+            try
+            {
+                safeAttribute = attribute;
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+
+            yield return safeAttribute;
+        }
+    }
+
+    private static string? GetAttributeTypeName(CustomAttributeData attribute)
+    {
+        try
+        {
+            return attribute.AttributeType.FullName;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TryGetAttributeConstructorTypeArgument(CustomAttributeData attribute, out Type unionType)
+    {
+        unionType = null!;
+
+        try
+        {
+            if (attribute.ConstructorArguments is [{ Value: Type unionTypeValue }])
+            {
+                unionType = unionTypeValue;
+                return true;
+            }
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        return false;
+    }
 
     public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -420,13 +571,12 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
         {
-            new PENamedTypeSymbol(
-                _typeResolver,
+            var module = (PEModuleSymbol)ContainingModule;
+            module.CreateMetadataTypeSymbol(
                 nestedTypeInfo,
+                ContainingNamespace!,
                 this,
-                this,
-                this.ContainingNamespace,
-                [new MetadataLocation(ContainingModule!)]);
+                this);
         }
     }
 
