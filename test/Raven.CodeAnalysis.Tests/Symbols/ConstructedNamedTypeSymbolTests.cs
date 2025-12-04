@@ -2,6 +2,9 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -420,6 +423,8 @@ class Program
             var consumerEmit = consumerCompilation.Emit(consumerStream);
             Assert.True(consumerEmit.Success, string.Join(Environment.NewLine, consumerEmit.Diagnostics));
 
+            var consumerImage = consumerStream.ToArray();
+
             var systemNamespace = consumerCompilation.GlobalNamespace.LookupNamespace("System")
                 ?? consumerCompilation.GlobalNamespace;
             var resultDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
@@ -428,14 +433,24 @@ class Program
                     .OfType<INamedTypeSymbol>()
                     .First(symbol => symbol.Arity == 1));
 
+            Assert.Equal(TypeKind.Struct, resultDefinition.TypeKind);
+            Assert.True(resultDefinition.IsValueType);
+
             var intType = consumerCompilation.GetSpecialType(SpecialType.System_Int32);
             var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Construct(intType));
+
+            Assert.True(constructedResult.IsValueType);
 
             var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.LookupType("Ok"));
             var constructor = Assert.Single(okCase.Constructors);
 
             var parameterType = Assert.Single(constructor.Parameters).Type;
             Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameterType));
+
+            Assert.True(okCase.IsValueType);
+
+            var mainIl = GetMethodIl(consumerImage, "Program", "Main");
+            Assert.True(ContainsOpCode(mainIl, ILOpCode.Box), "Expected Main to box Result<int> before calling Console.WriteLine(object).");
         }
         finally
         {
@@ -464,5 +479,49 @@ class Program
         Assert.Equal(2, elements.Length);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, elements[0].Type));
         Assert.True(SymbolEqualityComparer.Default.Equals(stringType, elements[1].Type));
+    }
+
+    private static byte[] GetMethodIl(byte[] peImage, string typeName, string methodName)
+    {
+        using var peReader = new PEReader(new MemoryStream(peImage, writable: false));
+        var reader = peReader.GetMetadataReader();
+
+        foreach (var methodHandle in reader.MethodDefinitions)
+        {
+            var methodDefinition = reader.GetMethodDefinition(methodHandle);
+            var name = reader.GetString(methodDefinition.Name);
+
+            if (!string.Equals(name, methodName, StringComparison.Ordinal))
+                continue;
+
+            var typeDefinition = reader.GetTypeDefinition(methodDefinition.GetDeclaringType());
+            var declaredTypeName = reader.GetString(typeDefinition.Name);
+
+            if (!string.Equals(declaredTypeName, typeName, StringComparison.Ordinal))
+                continue;
+
+            var body = peReader.GetMethodBody(methodDefinition.RelativeVirtualAddress);
+            var ilReader = body.GetILReader();
+            return ilReader.ReadBytes(ilReader.Length);
+        }
+
+        throw new InvalidOperationException($"Method {typeName}.{methodName} not found in PE image.");
+    }
+
+    private static bool ContainsOpCode(byte[] ilBytes, ILOpCode opcode)
+    {
+        var opcodeByte = (byte)opcode;
+
+        for (int i = 0; i < ilBytes.Length; i++)
+        {
+            if (ilBytes[i] == opcodeByte)
+                return true;
+
+            // Skip two-byte instruction prefix when present
+            if (ilBytes[i] == 0xFE && i + 1 < ilBytes.Length && ilBytes[i + 1] == opcodeByte)
+                return true;
+        }
+
+        return false;
     }
 }
