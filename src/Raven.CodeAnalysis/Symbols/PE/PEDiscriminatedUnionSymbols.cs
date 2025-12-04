@@ -122,12 +122,13 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
 
     private IDiscriminatedUnionSymbol? ResolveUnionFromAttribute()
     {
-        foreach (var attribute in _typeInfo.GetCustomAttributesData())
+        foreach (var attribute in PENamedTypeSymbol.GetCustomAttributesSafe(_typeInfo))
         {
-            if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
+            var attributeName = GetAttributeTypeName(attribute);
+            if (attributeName != "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
                 continue;
 
-            if (attribute.ConstructorArguments is not [{ Value: Type unionType }])
+            if (!TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
                 continue;
 
             var resolvedUnion = _typeResolver.ResolveType(unionType);
@@ -135,5 +136,37 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
         }
 
         return null;
+    }
+
+    private static string? GetAttributeTypeName(CustomAttributeData attribute)
+    {
+        try
+        {
+            return attribute.AttributeType.FullName;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TryGetAttributeConstructorTypeArgument(CustomAttributeData attribute, out Type unionType)
+    {
+        unionType = null!;
+
+        try
+        {
+            if (attribute.ConstructorArguments is [{ Value: Type unionTypeValue }])
+            {
+                unionType = unionTypeValue;
+                return true;
+            }
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        return false;
     }
 }

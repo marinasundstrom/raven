@@ -28,12 +28,16 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         INamespaceSymbol? containingNamespace,
         Location[] locations)
     {
-        foreach (var attribute in typeInfo.GetCustomAttributesData())
+        foreach (var attribute in GetCustomAttributesSafe(typeInfo))
         {
-            if (attribute.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
+            var attributeName = GetAttributeTypeName(attribute);
+            if (attributeName is null)
+                continue;
+
+            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
                 return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
 
-            if (attribute.AttributeType.FullName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
+            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
             {
                 IDiscriminatedUnionSymbol? unionSymbol = null;
 
@@ -42,7 +46,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                     unionSymbol = containingUnion;
                 }
 
-                if (attribute.ConstructorArguments is [{ Value: Type unionType }])
+                if (TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
                 {
                     unionSymbol = typeResolver.ResolveType(unionType) as IDiscriminatedUnionSymbol;
                 }
@@ -59,6 +63,66 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         }
 
         return new PENamedTypeSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+    }
+
+    internal static IEnumerable<CustomAttributeData> GetCustomAttributesSafe(System.Reflection.TypeInfo typeInfo)
+    {
+        IList<CustomAttributeData> attributes;
+        try
+        {
+            attributes = typeInfo.GetCustomAttributesData();
+        }
+        catch (ArgumentException)
+        {
+            yield break;
+        }
+
+        foreach (var attribute in attributes)
+        {
+            CustomAttributeData? safeAttribute;
+            try
+            {
+                safeAttribute = attribute;
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+
+            yield return safeAttribute;
+        }
+    }
+
+    private static string? GetAttributeTypeName(CustomAttributeData attribute)
+    {
+        try
+        {
+            return attribute.AttributeType.FullName;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TryGetAttributeConstructorTypeArgument(CustomAttributeData attribute, out Type unionType)
+    {
+        unionType = null!;
+
+        try
+        {
+            if (attribute.ConstructorArguments is [{ Value: Type unionTypeValue }])
+            {
+                unionType = unionTypeValue;
+                return true;
+            }
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        return false;
     }
 
     public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
