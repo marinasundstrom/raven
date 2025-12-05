@@ -13,6 +13,14 @@ public union Result<T, E> {
 }
 
 public extension ResultExtensions<T> for Result<T> {
+    public IsOk: bool {
+        get => self is .Ok(message)
+    }
+
+    public IsError: bool {
+        get => self is .Error(message)
+    }
+
     public UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value

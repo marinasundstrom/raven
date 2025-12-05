@@ -15,32 +15,3 @@ public class IntHelpers {
         }
     }
 }
-
-public union Result<T> {
-    Ok(value: T)
-    Error(message: string)
-}
-
-public union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
-}
-
-extension ResultExtensions<T> for Result<T> {
-    public UnwrapOrDefault() -> T {
-        if self is .Ok(value) {
-            return value
-        }
-        return default(T)
-    }
-
-    public UnwrapOrThrow() -> T {
-        var error: string = ""
-        if self is .Ok(value) {
-            return value
-        } else if self is .Error(error2) {
-            error = error2
-        }
-        throw new System.InvalidOperationException("${error}")
-    }
-}
