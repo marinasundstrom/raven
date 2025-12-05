@@ -178,8 +178,6 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.ExtensionKeyword)
             {
-                checkpoint.Dispose();
-
                 var extensionDeclaration = new ExtensionDeclarationParser(this).Parse(attributeLists, modifiers);
 
                 memberDeclarations.Add(extensionDeclaration);
