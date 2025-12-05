@@ -889,7 +889,7 @@ internal class TypeMemberBinder : Binder
         return type;
     }
 
-    public Dictionary<SyntaxNode, MethodBinder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
+    public Dictionary<SyntaxNode, Binder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
     {
         var propertyType = ResolveType(propertyDecl.Type.Type);
         var modifiers = propertyDecl.Modifiers;
@@ -1119,7 +1119,7 @@ internal class TypeMemberBinder : Binder
             }
         }
 
-        var binders = new Dictionary<SyntaxNode, MethodBinder>();
+        var binders = new Dictionary<SyntaxNode, Binder>();
 
         SourceMethodSymbol? getMethod = null;
         SourceMethodSymbol? setMethod = null;
@@ -1296,7 +1296,9 @@ internal class TypeMemberBinder : Binder
                 methodSymbol.SetOverriddenMethod(overriddenGetter);
 
             var binder = new MethodBinder(methodSymbol, this);
-            binders[propertyDecl.ExpressionBody!] = binder;
+            var expressionBodyBinder = new MethodBodyBinder(methodSymbol, binder);
+
+            binders[propertyDecl.ExpressionBody!] = expressionBodyBinder;
 
             getMethod = methodSymbol;
         }
