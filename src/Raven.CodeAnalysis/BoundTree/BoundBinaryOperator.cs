@@ -42,16 +42,31 @@ internal partial class BoundBinaryOperator
 
         if (left.TypeKind == TypeKind.Enum && right.TypeKind == TypeKind.Enum)
         {
-            if (kind == SyntaxKind.EqualsEqualsToken)
+            if (SymbolEqualityComparer.Default.Equals(left, right))
             {
-                op = new BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType);
-                return true;
-            }
+                if (kind == SyntaxKind.EqualsEqualsToken)
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType);
+                    return true;
+                }
 
-            if (kind == SyntaxKind.NotEqualsToken)
-            {
-                op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType);
-                return true;
+                if (kind == SyntaxKind.NotEqualsToken)
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType);
+                    return true;
+                }
+
+                if (kind == SyntaxKind.AmpersandToken)
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, left, right, left);
+                    return true;
+                }
+
+                if (kind == SyntaxKind.BarToken)
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, left, right, left);
+                    return true;
+                }
             }
         }
 
@@ -63,6 +78,8 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  intType, intType, intType),
             new BoundBinaryOperator(BinaryOperatorKind.Division,        intType, intType, intType),
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       intType, intType, intType),
 
             // int (left) with long (right)
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        intType, int64,  int64),
@@ -70,6 +87,8 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  intType, int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.Division,        intType, int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      intType, int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       intType, int64,  int64),
 
             // long arithmetic
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  int64,  int64),
@@ -77,6 +96,8 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  int64,  int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.Division,        int64,  int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      int64,  int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       int64,  int64,  int64),
 
             // long (left) with int (right)
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  intType, int64),
@@ -84,6 +105,8 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Multiplication,  int64,  intType, int64),
             new BoundBinaryOperator(BinaryOperatorKind.Division,        int64,  intType, int64),
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       int64,  intType, int64),
 
             // string
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        stringType, stringType, stringType),
@@ -172,6 +195,8 @@ internal partial class BoundBinaryOperator
             SyntaxKind.LessThanToken => operatorKind == BinaryOperatorKind.LessThan,
             SyntaxKind.GreaterThanOrEqualsToken => operatorKind == BinaryOperatorKind.GreaterThanOrEqual,
             SyntaxKind.LessThanOrEqualsToken => operatorKind == BinaryOperatorKind.LessThanOrEqual,
+            SyntaxKind.AmpersandToken => operatorKind == BinaryOperatorKind.BitwiseAnd,
+            SyntaxKind.BarToken => operatorKind == BinaryOperatorKind.BitwiseOr,
             SyntaxKind.AmpersandAmpersandToken => operatorKind == BinaryOperatorKind.LogicalAnd,
             SyntaxKind.BarBarToken => operatorKind == BinaryOperatorKind.LogicalOr,
             _ => false,
@@ -203,6 +228,8 @@ internal enum BinaryOperatorKind
     GreaterThanOrEqual,
     LessThanOrEqual,
     Modulo,
+    BitwiseAnd,
+    BitwiseOr,
     LogicalAnd,
     LogicalOr,
     StringConcatenation,

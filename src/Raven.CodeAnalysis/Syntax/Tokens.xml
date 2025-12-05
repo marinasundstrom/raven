@@ -94,9 +94,9 @@
   <TokenKind Name="SlashEqualsToken" Text="/=" />
   <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="5" />
   <TokenKind Name="CaretToken" Text="^" />
-  <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" />
+  <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="2" />
   <TokenKind Name="AmpersandAmpersandToken" Text="&amp;&amp;" />
-  <TokenKind Name="BarToken" Text="|" />
+  <TokenKind Name="BarToken" Text="|" IsBinaryOperator="true" Precedence="1" />
   <TokenKind Name="BarBarToken" Text="||" />
   <TokenKind Name="PipeToken" Text="|>" IsBinaryOperator="true" Precedence="0" />
   <TokenKind Name="UnderscoreToken" Text="_" />

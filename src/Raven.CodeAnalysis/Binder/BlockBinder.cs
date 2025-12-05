@@ -2765,9 +2765,15 @@ partial class BlockBinder : Binder
                     break;
 
                 case BinaryExpressionSyntax binary when binary.Left == node:
+                    if (GetTargetType(binary) is { } binaryTargetLeft)
+                        return binaryTargetLeft;
+
                     return BindExpression(binary.Right).Type;
 
                 case BinaryExpressionSyntax binary when binary.Right == node:
+                    if (GetTargetType(binary) is { } binaryTargetRight)
+                        return binaryTargetRight;
+
                     return BindExpression(binary.Left).Type;
 
                 case ArgumentSyntax arg:

@@ -37,6 +37,8 @@
   <NodeKind Name="MultiplyExpression" Type="BinaryExpression" />
   <NodeKind Name="DivideExpression" Type="BinaryExpression" />
   <NodeKind Name="ModuloExpression" Type="BinaryExpression" />
+  <NodeKind Name="BitwiseAndExpression" Type="BinaryExpression" />
+  <NodeKind Name="BitwiseOrExpression" Type="BinaryExpression" />
   <NodeKind Name="PowerExpression" Type="BinaryExpression" />
   <NodeKind Name="PipeExpression" Type="BinaryExpression" />
   <NodeKind Name="EqualsExpression" Type="BinaryExpression" />
