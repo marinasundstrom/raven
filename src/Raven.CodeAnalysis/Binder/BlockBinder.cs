@@ -728,6 +728,8 @@ partial class BlockBinder : Binder
             SyntaxKind.MinusEqualsToken => SyntaxKind.MinusToken,
             SyntaxKind.StarEqualsToken => SyntaxKind.StarToken,
             SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
+            SyntaxKind.AmpersandEqualsToken => SyntaxKind.AmpersandToken,
+            SyntaxKind.BarEqualsToken => SyntaxKind.BarToken,
             _ => null,
         };
     }
@@ -2758,9 +2760,15 @@ partial class BlockBinder : Binder
                     break;
 
                 case BinaryExpressionSyntax binary when binary.Left == node:
+                    if (GetTargetType(binary) is { } binaryTargetLeft)
+                        return binaryTargetLeft;
+
                     return BindExpression(binary.Right).Type;
 
                 case BinaryExpressionSyntax binary when binary.Right == node:
+                    if (GetTargetType(binary) is { } binaryTargetRight)
+                        return binaryTargetRight;
+
                     return BindExpression(binary.Left).Type;
 
                 case ArgumentSyntax arg:

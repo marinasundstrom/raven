@@ -2486,6 +2486,14 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Rem);
                 break;
 
+            case BinaryOperatorKind.BitwiseAnd:
+                ILGenerator.Emit(OpCodes.And);
+                break;
+
+            case BinaryOperatorKind.BitwiseOr:
+                ILGenerator.Emit(OpCodes.Or);
+                break;
+
             case BinaryOperatorKind.Equality:
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;

@@ -299,6 +299,11 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.BarBarToken, "||");
                         }
+                        else if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.BarEqualsToken, "|=");
+                        }
                         else if (PeekChar(out ch2) && ch2 == '>')
                         {
                             ReadChar();
@@ -322,6 +327,11 @@ internal class Lexer : ILexer
                         {
                             ReadChar();
                             return new Token(SyntaxKind.AmpersandAmpersandToken, "&&");
+                        }
+                        else if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.AmpersandEqualsToken, "&=");
                         }
                         return new Token(SyntaxKind.AmpersandToken, chStr);
 

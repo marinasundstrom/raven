@@ -75,4 +75,23 @@ class Program {
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
+
+    [Fact]
+    public void TargetTypedMemberBinding_AllowsBinaryOperators()
+    {
+        string testCode = """
+import System.Reflection.*
+
+class Program {
+    static Use(flags: BindingFlags) -> unit {}
+
+    static Run() -> unit {
+        let flags: BindingFlags = .NonPublic | .Static
+        Use(.Public & .Static)
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
 }

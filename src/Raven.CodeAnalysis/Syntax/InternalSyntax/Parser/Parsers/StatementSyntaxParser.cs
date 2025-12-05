@@ -681,6 +681,8 @@ internal class StatementSyntaxParser : SyntaxParser
             SyntaxKind.SubtractAssignmentExpression => SyntaxKind.SubtractAssignmentStatement,
             SyntaxKind.MultiplyAssignmentExpression => SyntaxKind.MultiplyAssignmentStatement,
             SyntaxKind.DivideAssignmentExpression => SyntaxKind.DivideAssignmentStatement,
+            SyntaxKind.BitwiseAndAssignmentExpression => SyntaxKind.BitwiseAndAssignmentStatement,
+            SyntaxKind.BitwiseOrAssignmentExpression => SyntaxKind.BitwiseOrAssignmentStatement,
             _ => SyntaxKind.SimpleAssignmentStatement,
         };
     }
