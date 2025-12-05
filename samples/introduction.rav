@@ -24,7 +24,7 @@ func summarize(readings: List<int>) -> string {
     else
         "balanced"
 
-    return "processed ${shaped.Count} items -> ${verdict} (${total})"
+    return "processed ${shaped.Count} items -> $verdict ($total)"
 }
 
 var ledger = List<int>()
