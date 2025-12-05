@@ -1,3 +1,0 @@
-Step20: dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0 -- src/Raven.Compiler/samples/test8.rav -o test.dll -d pretty
-Step20: dotnet exec test.dll
-# Completed without TypeLoadException; generic async entry returned successfully.
