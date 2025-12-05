@@ -39,4 +39,31 @@ public class BoundBinaryOperatorTests : CompilationTestBase
 
         Assert.Equal("Operator '<' cannot be applied to operands of type 'bool' and 'int'", diagnostic.GetMessage());
     }
+
+    [Fact]
+    public void TryLookup_BoolBitwiseOperators_Succeeds()
+    {
+        var compilation = CreateCompilation();
+        var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
+
+        var andSuccess = BoundBinaryOperator.TryLookup(compilation, SyntaxKind.AmpersandToken, boolType, boolType, out var and);
+        var orSuccess = BoundBinaryOperator.TryLookup(compilation, SyntaxKind.BarToken, boolType, boolType, out var or);
+
+        Assert.True(andSuccess);
+        Assert.Equal(BinaryOperatorKind.BitwiseAnd, and.OperatorKind);
+        Assert.Equal(boolType, and.ResultType);
+
+        Assert.True(orSuccess);
+        Assert.Equal(BinaryOperatorKind.BitwiseOr, or.OperatorKind);
+        Assert.Equal(boolType, or.ResultType);
+    }
+
+    [Fact]
+    public void Bind_BoolBitwiseCompoundAssignment_NoDiagnostics()
+    {
+        var source = "var b = true\nb &= false\nlet c = b | false";
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

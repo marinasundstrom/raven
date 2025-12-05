@@ -81,6 +81,10 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      intType, intType, intType),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       intType, intType, intType),
 
+            // bool non-short-circuit operators
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      boolType, boolType, boolType),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       boolType, boolType, boolType),
+
             // int (left) with long (right)
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        intType, int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.Subtraction,     intType, int64,  int64),
