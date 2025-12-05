@@ -1,3 +1,4 @@
+import System.*
 import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
@@ -12,11 +13,6 @@ let str = res match {
 
 WriteLine(str)
 
-union Result<T> {
-    Ok(value: T)
-    Error(message: string)
-}
-
 extension HttpClientExtensions for HttpClient {
     public async FetchAsync(url: string) -> Task<Result<string>> {
         try {
@@ -29,4 +25,3 @@ extension HttpClientExtensions for HttpClient {
         }
     }
 }
-
