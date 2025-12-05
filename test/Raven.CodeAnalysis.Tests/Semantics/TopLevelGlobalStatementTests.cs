@@ -73,4 +73,22 @@ enum Shade {
         var enumMember = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(enumAccess).Symbol);
         Assert.Same(enumSymbol, enumMember.ContainingType);
     }
+
+    [Fact]
+    public void EmptyTopLevelProgram_EmitsEmptyMain()
+    {
+        var tree = SyntaxTree.ParseText(string.Empty);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+
+        var entryPoint = compilation.GetEntryPoint();
+        Assert.NotNull(entryPoint);
+        Assert.Equal("Main", entryPoint!.Name);
+        Assert.Equal("Program", entryPoint.ContainingType?.Name);
+        Assert.Equal(SpecialType.System_Unit, entryPoint.ReturnType.SpecialType);
+    }
 }
