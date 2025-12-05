@@ -475,17 +475,22 @@ emoji.
 ### String interpolation
 
 Embed expressions directly into strings using `${...}` without requiring a prefix.
+For simple identifiers, a shorthand `$identifier` form avoids the braces.
 
 ```raven
 let name = "Alice"
 let age = 30
+let greeting = "Hello $name!"
 let msg = "Name: ${name}, Age: ${age}"
 Console.WriteLine(msg)
 ```
 
 Escapes inside the literal portions of an interpolated string follow the same
 rules as ordinary string literals, ensuring Unicode escapes work uniformly in
-both forms.
+both forms. Use `\$` to emit a literal dollar sign when the following characters
+would otherwise start an interpolation. For instance, `"Price: \$${amount}"`
+produces `Price: $` followed by the `amount` value instead of treating the
+escaped dollar as the start of its own interpolation.
 
 Interpolated strings preserve Unicode content from both left-to-right and
 right-to-left scripts. Literal segments keep their original characters so that
