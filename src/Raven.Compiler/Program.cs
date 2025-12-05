@@ -34,6 +34,7 @@ var stopwatch = Stopwatch.StartNew();
 // --no-emit         - skip emitting the output assembly
 // --highlight       - display diagnostics with highlighted source
 // -h, --help        - display help
+// --run             - execute the produced assembly when compilation succeeds (console apps only)
 
 var sourceFiles = new List<string>();
 var additionalRefs = new List<string>();
@@ -68,6 +69,7 @@ var enableOverloadLog = false;
 string? overloadLogPath = null;
 var overloadLogOwnsWriter = false;
 OverloadResolutionLog? overloadResolutionLog = null;
+var run = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -198,6 +200,9 @@ for (int i = 0; i < args.Length; i++)
             skipDefaultRavenCoreLookup = true;
             ravenCorePath = null;
             break;
+        case "--run":
+            run = true;
+            break;
         case "--output-type":
             if (!TryParseOutputKind(args, ref i, out var kind))
                 hasInvalidOption = true;
@@ -232,6 +237,13 @@ if (showHelp || hasInvalidOption)
 
 if (sourceFiles.Count == 0)
     sourceFiles.Add($"../../../../../samples/result{RavenFileExtensions.Raven}");
+
+if (run && outputKind != OutputKind.ConsoleApplication)
+{
+    AnsiConsole.MarkupLine("[red]--run is only supported for console applications. Class libraries cannot be executed.[/]");
+    Environment.ExitCode = 1;
+    return;
+}
 
 if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
 {
@@ -622,6 +634,18 @@ else
 
     if (result is not null)
         CreateAppHost(compilation, outputFilePath, targetFramework);
+
+    if (run)
+    {
+        if (noEmit || result is null)
+        {
+            AnsiConsole.MarkupLine("[yellow]--run was specified but no assembly was emitted to execute.[/]");
+        }
+        else if (result.Success)
+        {
+            RunAssembly(outputFilePath);
+        }
+    }
 }
 
 overloadResolutionLog?.Dispose();
@@ -672,7 +696,28 @@ static void PrintHelp()
     Console.WriteLine("  --ilverify       Verify emitted IL using the 'ilverify' tool");
     Console.WriteLine("  --ilverify-path <path>");
     Console.WriteLine("                    Path to the ilverify executable when not on PATH");
+    Console.WriteLine("  --run             Execute the produced assembly after a successful compilation (console apps only)");
     Console.WriteLine("  -h, --help         Display help");
+}
+
+static void RunAssembly(string outputFilePath)
+{
+    using var process = Process.Start(new ProcessStartInfo
+    {
+        FileName = "dotnet",
+        ArgumentList = { outputFilePath },
+        UseShellExecute = false,
+    });
+
+    if (process is null)
+    {
+        AnsiConsole.MarkupLine("[red]Failed to start the produced assembly.[/]");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    process.WaitForExit();
+    Environment.ExitCode = process.ExitCode;
 }
 
 static bool TryParseSyntaxTreeFormat(string[] args, ref int index, out SyntaxTreeFormat format)
