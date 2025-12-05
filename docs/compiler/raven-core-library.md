@@ -2,7 +2,9 @@
 
 `Raven.Core` is the standard library that ships with the compiler. It contains
 foundational types implemented in Raven and compiled into `Raven.Core.dll` so
-programs can rely on a consistent Option/Result vocabulary across projects.
+programs can rely on a consistent Option/Result vocabulary across projects,
+plus a handful of generated shims the compiler produces automatically when it
+builds the library.
 
 ## How Raven.Core is built
 
@@ -49,3 +51,27 @@ Two result shapes are available:
 
 These unions provide lightweight error-handling primitives while keeping Raven
 programs compatible with the .NET type system.
+
+### `Unit`
+
+`unit` is Raven's "no meaningful value" type. The compiler represents it as a
+`System.Unit` struct with a single static `Value` field so callers can observe a
+unit value even though the underlying IL maps the type to `void`. Code that
+returns `unit` emits `Unit.Value` as needed to bridge the gap between the
+expression-oriented language semantics and .NET metadata.
+
+### Generated types
+
+When the compiler builds Raven.Core (and when it embeds core shims for
+standalone compilations) it also synthesizes a few supporting types that aren't
+hand-written in `src/Raven.Core`:
+
+- `System.Runtime.CompilerServices.DiscriminatedUnionAttribute` and
+  `DiscriminatedUnionCaseAttribute` annotate union types and their cases so the
+  emitted IL retains union metadata.
+- `TypeUnionAttribute` marks union-typed fields and parameters.
+- `Null` provides a concrete type for the language's `null` literal when
+  unions mention a null case.
+- `System.Unit` is emitted whenever a project depends on the `unit` type,
+  ensuring the `Unit.Value` shim is available even when compiling without an
+  existing Raven.Core reference.
