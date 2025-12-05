@@ -197,10 +197,12 @@ public partial class Compilation
                 continue;
 
             var bindableGlobals = CollectBindableGlobalStatements(compilationUnit);
-            if (bindableGlobals.Count == 0)
+            var hasNonGlobalMembers = HasNonGlobalMembers(compilationUnit);
+
+            if (bindableGlobals.Count == 0 && hasNonGlobalMembers)
                 continue;
 
-            if (SyntaxTreeWithFileScopedCode is null)
+            if (bindableGlobals.Count > 0 && SyntaxTreeWithFileScopedCode is null)
                 SyntaxTreeWithFileScopedCode = tree;
 
             var fileScopedNamespace = compilationUnit.Members
@@ -274,6 +276,35 @@ public partial class Compilation
         }
 
         return bindableGlobals;
+    }
+
+    internal static bool HasNonGlobalMembers(CompilationUnitSyntax compilationUnit)
+    {
+        foreach (var member in compilationUnit.Members)
+        {
+            switch (member)
+            {
+                case GlobalStatementSyntax:
+                    continue;
+                case FileScopedNamespaceDeclarationSyntax fileScoped when ContainsOnlyGlobalStatements(fileScoped):
+                    continue;
+                default:
+                    return true;
+            }
+        }
+
+        return false;
+
+        static bool ContainsOnlyGlobalStatements(FileScopedNamespaceDeclarationSyntax fileScoped)
+        {
+            foreach (var nested in fileScoped.Members)
+            {
+                if (nested is not GlobalStatementSyntax)
+                    return false;
+            }
+
+            return true;
+        }
     }
 
     internal static bool ContainsAwaitExpressionOutsideNestedFunctions(StatementSyntax statement)

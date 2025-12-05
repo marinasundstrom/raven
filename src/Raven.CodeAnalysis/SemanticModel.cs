@@ -581,6 +581,10 @@ public partial class SemanticModel
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
 
         var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
+        var hasNonGlobalMembers = Compilation.HasNonGlobalMembers(cu);
+
+        var shouldCreateTopLevelProgram = bindableGlobals.Count > 0
+            || (!hasNonGlobalMembers && Compilation.Options.OutputKind == OutputKind.ConsoleApplication);
 
         void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
         {
@@ -630,7 +634,7 @@ public partial class SemanticModel
                 parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(bindableGlobals[0].GetLocation());
         }
 
-        if (bindableGlobals.Count == 0)
+        if (!shouldCreateTopLevelProgram)
             return parentBinder;
 
         var (programClass, mainMethod, asyncImplementation) = Compilation.GetOrCreateTopLevelProgram(
@@ -644,22 +648,19 @@ public partial class SemanticModel
 
         var topLevelBinder = new TopLevelBinder(parentBinder, this, scriptMethod, mainMethod, cu);
 
-        if (bindableGlobals.Count > 0)
-        {
-            // Cache the compilation unit and its global statements before binding.
-            //
-            // Binding the statements will request declared symbols, which rely on
-            // binder lookup through SemanticModel.GetBinder. Without priming the
-            // cache, any attempt to resolve the compilation unit binder re-enters
-            // BindCompilationUnit, causing unbounded recursion (see stack trace in
-            // bug report). By caching eagerly we guarantee re-entrant lookups
-            // retrieve the partially constructed top-level binder instead of
-            // rebuilding it.
-            _binderCache[cu] = topLevelBinder;
+        // Cache the compilation unit and its global statements before binding.
+        //
+        // Binding the statements will request declared symbols, which rely on
+        // binder lookup through SemanticModel.GetBinder. Without priming the
+        // cache, any attempt to resolve the compilation unit binder re-enters
+        // BindCompilationUnit, causing unbounded recursion (see stack trace in
+        // bug report). By caching eagerly we guarantee re-entrant lookups
+        // retrieve the partially constructed top-level binder instead of
+        // rebuilding it.
+        _binderCache[cu] = topLevelBinder;
 
-            foreach (var stmt in bindableGlobals)
-                _binderCache[stmt] = topLevelBinder;
-        }
+        foreach (var stmt in bindableGlobals)
+            _binderCache[stmt] = topLevelBinder;
 
         topLevelBinder.BindGlobalStatements(bindableGlobals);
 
