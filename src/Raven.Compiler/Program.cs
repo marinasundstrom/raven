@@ -236,7 +236,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/result{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/classes{RavenFileExtensions.Raven}");
 
 if (run && outputKind != OutputKind.ConsoleApplication)
 {
