@@ -1282,24 +1282,14 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
     {
-        var boundType = BindTypeSyntax(typeOfExpression.Type);
+        var operandType = ResolveType(typeOfExpression.Type);
 
-        if (boundType is BoundErrorExpression)
-            return boundType;
-
-        if (boundType is BoundNamespaceExpression namespaceExpression)
-        {
-            var operandDisplay = typeOfExpression.Type.ToString();
-            _diagnostics.ReportNamespaceUsedLikeAType(operandDisplay, typeOfExpression.Type.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
-        }
-
-        if (boundType is not BoundTypeExpression typeExpression)
-            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        if (operandType.ContainsErrorType())
+            return ErrorExpression(operandType, reason: BoundExpressionReason.NotFound);
 
         var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
 
-        return new BoundTypeOfExpression(typeExpression.TypeSymbol, systemType);
+        return new BoundTypeOfExpression(operandType, systemType);
     }
 
     private BoundExpression ConvertMethodGroupToDelegate(BoundMethodGroupExpression methodGroup, ITypeSymbol targetType, SyntaxNode? syntax)
@@ -2394,6 +2384,9 @@ partial class BlockBinder : Binder
             return receiver is BoundErrorExpression boundError
                 ? boundError
                 : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+
+        if (receiver.Type is { } boundReceiverType && boundReceiverType.ContainsErrorType())
+            return new BoundErrorExpression(boundReceiverType, receiver.Symbol, BoundExpressionReason.OtherError);
 
         var simpleName = memberAccess.Name;
         if (simpleName.Identifier.IsMissing)
