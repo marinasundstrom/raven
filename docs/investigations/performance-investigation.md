@@ -27,4 +27,10 @@ This document summarizes near-term options for improving the Raven compiler's pe
 *Risks.* Sharing state across compilations complicates ownership of caches like `_topLevelProgramMembers` and `_metadataReferenceSymbols`; without careful isolation, mutations or delayed initialization could bleed across compilations and lead to hard-to-reproduce correctness bugs.
 
 ## Recommendation
-Prototype a profiler-backed spike focused on incremental reuse (items 1 and 3) to measure the payoff in editing workloads, and gate the lazy top-level program discovery behind an option to validate diagnostic stability before adopting it broadly.
+Follow a phased, measurable plan to de-risk the improvements:
+
+1. **Establish a profiling baseline.** Capture representative traces for IDE-like edit/build loops to quantify time in metadata setup, binder construction, and top-level discovery.
+2. **Spike metadata/context reuse.** Prototype caching of `MetadataLoadContext` and related symbol state across derived compilations; measure effect on repeated `AddSyntaxTrees`/`AddReferences` flows and validate reference-change invalidation paths.
+3. **Prototype incremental binder/declaration reuse.** Persist immutable declaration tables and binder caches between compilations created via `With*` methods; compare per-edit latency and ensure isolation of mutable caches (e.g., top-level program dictionaries).
+4. **Introduce optional lazy top-level discovery.** Guard the lazy path behind a feature flag, exercise diagnostics to confirm stability, and assess threading behavior around shared caches.
+5. **Decide on rollout.** Based on measured wins and diagnostic parity, promote the most effective options behind defaults, documenting remaining risks and required safeguards.
