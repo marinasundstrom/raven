@@ -15,7 +15,11 @@ let str = res match {
 
 Console.WriteLine(str)
 
-let res2 = parseNumber("foo").UnwrapOrThrow()
+try {
+    let res2 = parseNumber("foo").UnwrapOrThrow()
+} catch (Exception e) {
+    Console.WriteLine("\'parseNumber\' threw: ${e.Message}")
+}
 
 func parseNumber(str: string) -> Result<int> {
     return try int.Parse(str) match {
