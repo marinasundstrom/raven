@@ -2,20 +2,22 @@ import System.*
 import System.Console.*
 import System.Linq.*
 
-let r = typeof(System.Object)
+let r = typeof(String)
 WriteLine(r)
 
-let members = r.GetMembers()
+let members = r.GetMembers(.Public | .Static)
 
-for member in members.Where(x => x.Name.Equals("Equals")) {
+for member in members.Where(x => x.Name.Equals("Intern")) {
     WriteLine(member.Name)
 }
 
 let member = members[1]
 
-WriteLine(member.Name)
+WriteLine("First ${member.Name}")
 
+/*
 let method = (System.Reflection.MethodInfo)member
 let type = method.Invoke(member, null)
 
 WriteLine(type)
+*/
