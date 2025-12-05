@@ -356,6 +356,9 @@ internal class TypeGenerator
         if (fieldSymbol.IsLiteral)
             attributes |= FieldAttributes.Literal;
 
+        if (!fieldSymbol.IsMutable && !fieldSymbol.IsLiteral)
+            attributes |= FieldAttributes.InitOnly;
+
         if (fieldSymbol.IsStatic)
             attributes |= FieldAttributes.Static;
 

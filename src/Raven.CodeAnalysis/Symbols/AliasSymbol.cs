@@ -335,6 +335,8 @@ internal sealed class AliasFieldSymbol : AliasSymbol, IFieldSymbol
 
     public bool IsLiteral => _field.IsLiteral;
 
+    public bool IsMutable => _field.IsMutable;
+
     public object? GetConstantValue() => _field.GetConstantValue();
 }
 

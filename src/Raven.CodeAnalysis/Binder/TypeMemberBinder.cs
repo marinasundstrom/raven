@@ -191,6 +191,7 @@ internal class TypeMemberBinder : Binder
             var isLiteral = isConstDeclaration && constantValueComputed;
             var initializerForSymbol = isLiteral ? null : initializer;
             var constantValueForSymbol = isLiteral ? constantValue : null;
+            var isMutable = bindingKeyword.Kind == SyntaxKind.VarKeyword;
 
             var fieldTypeLocation = decl.TypeAnnotation?.Type.GetLocation() ?? decl.Identifier.GetLocation();
             ValidateTypeAccessibility(
@@ -205,6 +206,7 @@ internal class TypeMemberBinder : Binder
                 decl.Identifier.ValueText,
                 fieldType,
                 isStatic: isStatic,
+                isMutable: isMutable,
                 isLiteral: isLiteral,
                 constantValue: constantValueForSymbol,
                 _containingType,
@@ -1030,15 +1032,16 @@ internal class TypeMemberBinder : Binder
         if (isExtensionContainer)
             propertySymbol.MarkDeclaredInExtension(receiverType);
 
-        if (!isExtensionContainer &&
-            _containingType.TypeKind != TypeKind.Interface &&
-            propertyDecl.AccessorList is { } accessorList &&
-            accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null))
+            if (!isExtensionContainer &&
+                _containingType.TypeKind != TypeKind.Interface &&
+                propertyDecl.AccessorList is { } accessorList &&
+                accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null))
         {
             var backingField = new SourceFieldSymbol(
                 $"<{propertySymbol.Name}>k__BackingField",
                 propertyType,
                 isStatic: isStatic,
+                isMutable: true,
                 isLiteral: false,
                 constantValue: null,
                 _containingType,

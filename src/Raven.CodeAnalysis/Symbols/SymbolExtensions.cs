@@ -830,23 +830,21 @@ public static partial class SymbolExtensions
                 break;
 
             case IFieldSymbol field:
-                /* if (field.IsConst)
-                {
-                    parts.Add("const");
-                }
-                else
-                { */
                 if (field.IsStatic)
                     parts.Add("static");
 
-                /*
-                if (field.IsReadOnly)
-                    parts.Add("readonly");
-
-                if (field.IsVolatile)
-                    parts.Add("volatile");
-                */
-                //}
+                if (field.IsLiteral)
+                {
+                    parts.Add("const");
+                }
+                else if (field.IsMutable)
+                {
+                    parts.Add("var");
+                }
+                else
+                {
+                    parts.Add("let");
+                }
 
                 break;
 

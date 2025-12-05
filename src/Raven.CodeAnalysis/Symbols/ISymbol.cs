@@ -346,6 +346,8 @@ public interface IFieldSymbol : ISymbol
 
     bool IsLiteral { get; }
 
+    bool IsMutable { get; }
+
     object? GetConstantValue();
 }
 

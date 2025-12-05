@@ -33,6 +33,8 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     public override bool IsStatic => _fieldInfo.IsStatic;
     public virtual bool IsLiteral => _fieldInfo.IsLiteral;
 
+    public virtual bool IsMutable => !_fieldInfo.IsInitOnly && !_fieldInfo.IsLiteral;
+
     public object? GetConstantValue() => _fieldInfo.GetRawConstantValue();
 
     public virtual FieldInfo GetFieldInfo()
