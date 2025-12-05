@@ -1142,7 +1142,7 @@ public partial class SemanticModel
                 isStatic: false,
                 methodKind: MethodKind.Ordinary,
                 isOverride: true,
-                declaredAccessibility: unionAccessibility);
+                declaredAccessibility: Accessibility.Public);
 
             RegisterCaseMember(caseToString);
 
