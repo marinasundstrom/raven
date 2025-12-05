@@ -9,7 +9,7 @@ let res = parseNumber("foo")
 Console.WriteLine("Is error: ${res.IsError}")
 
 let str = res match {
-    .Ok(v) => "Number is: ${v}"
+    .Ok(v) => "Number is: $v"
     .Error(message) => message
 }
 

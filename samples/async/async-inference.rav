@@ -3,7 +3,7 @@ import System.Threading.Tasks.*
 
 let value = 42;
 
-WriteLine("Value: ${value}")
+WriteLine("Value: $value")
 
 let result = await Task.Run(async () => { 
     WriteLine("Entered")
@@ -12,4 +12,4 @@ let result = await Task.Run(async () => {
     return value
 })
 
-WriteLine("Result: ${result}")
+WriteLine("Result: $result")

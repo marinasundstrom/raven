@@ -14,8 +14,8 @@ Console.WriteLine(token)
 let token2 = lexer.ReadToken()
 
 let value = token match {
-    .Number(text, value) => "Number ${value}"
-    .Identifier(text) => "Identifier ${text}"
+    .Number(text, value) => "Number $value"
+    .Identifier(text) => "Identifier $text"
     _ => "Misc"
 }
 

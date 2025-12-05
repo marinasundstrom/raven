@@ -1,7 +1,7 @@
 let x : bool | (a: bool, b: string) = (false, "foo")
 
 let r = x match {
-    (a: bool, b: string) => "tuple ${a} ${b}"
+    (a: bool, b: string) => "tuple $a $b"
     _ => "none"
 }
 

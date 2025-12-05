@@ -6,8 +6,8 @@ import System.Threading.Tasks.*
 let res = await fetch("http://www.contoso.com/")
 
 let str = res match {
-    .Ok(str) => "Response is: ${str}"
-    .Error(message) => "Error is: ${message}"
+    .Ok(str) => "Response is: $str"
+    .Error(message) => "Error is: $message"
 }
 
 WriteLine(str)

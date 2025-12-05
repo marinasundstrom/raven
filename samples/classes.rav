@@ -62,7 +62,7 @@ class Person : Base {
 
     // Invocation operator: e.g., person(2025)
     public self(year: int) -> string {
-        "Name: ${name}, Age in ${year}: ${year - (System.DateTime.Now.Year - age)}"
+        "Name: $name, Age in $year: ${year - (System.DateTime.Now.Year - age)}"
     }
 
     public self(str: string) {

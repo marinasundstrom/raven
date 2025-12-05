@@ -7,13 +7,13 @@ items.Add(2)
 let count = items.CountItems()
 let sum = items.SumNumbers()
 
-WriteLine("Count: ${count}");
-WriteLine("Sum: ${sum}");
+WriteLine("Count: $count");
+WriteLine("Sum: $sum");
 
 items.CountPlusOne = 5
 let value = items.CountPlusOne
 
-WriteLine("Value: ${value}");
+WriteLine("Value: $value");
 
 extension MyEnumerableExt<T> for IEnumerable<T> {
     CountItems() -> int {

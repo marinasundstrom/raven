@@ -3,7 +3,7 @@ import MathHelpers.*
 
 let result = 5 |> Increment(2)
 
-WriteLine("Result: ${result}");
+WriteLine("Result: $result");
 
 public static class MathHelpers {
     public static Increment(x: int, amount: int) -> int {

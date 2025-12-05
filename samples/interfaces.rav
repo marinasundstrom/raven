@@ -10,5 +10,5 @@ class Foo : IDisposable {
 
     public Do() -> () => Console.WriteLine("Do")
 
-    public Dispose() -> () => Console.WriteLine("Dispose ${x}")
+    public Dispose() -> () => Console.WriteLine("Dispose $x")
 }

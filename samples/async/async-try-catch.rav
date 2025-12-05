@@ -7,7 +7,7 @@ try {
     using let stream = MemoryStream()
     let value = await Task.FromResult(42)
     stream.WriteByte(Convert.ToByte(value))
-    WriteLine("value:${value}")
+    WriteLine("value:$value")
     throw InvalidOperationException("boom")
 } catch (Exception e) {
     WriteLine("caught:${e.Message}")

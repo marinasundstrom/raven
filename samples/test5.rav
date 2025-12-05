@@ -2,4 +2,4 @@ import System.Console.*
 
 let x = 3;
 
-WriteLine("Foo: ${ "Hej" + "test ${2} " + x }")
+WriteLine("Foo: ${ "Hej" + "test $2 " + x }")
