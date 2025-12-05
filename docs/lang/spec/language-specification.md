@@ -485,7 +485,9 @@ Console.WriteLine(msg)
 Escapes inside the literal portions of an interpolated string follow the same
 rules as ordinary string literals, ensuring Unicode escapes work uniformly in
 both forms. Use `\$` to emit a literal dollar sign when the following characters
-would otherwise start an interpolation.
+would otherwise start an interpolation. For instance, `"Price: \$${amount}"`
+produces `Price: $` followed by the `amount` value instead of treating the
+escaped dollar as the start of its own interpolation.
 
 Interpolated strings preserve Unicode content from both left-to-right and
 right-to-left scripts. Literal segments keep their original characters so that

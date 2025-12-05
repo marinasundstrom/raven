@@ -62,6 +62,33 @@ public class InterpolatedStringTests
     }
 
     [Fact]
+    public void InterpolatedStringText_AllowsEscapedDollarBeforeInterpolation()
+    {
+        var source = @"let s = ""Cost \$${value}!"";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var leading = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Cost $", leading.Token.ValueText);
+            },
+            second =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(second);
+                Assert.Equal("value", interpolation.Expression.ToString());
+            },
+            third =>
+            {
+                var trailing = Assert.IsType<InterpolatedStringTextSyntax>(third);
+                Assert.Equal("!", trailing.Token.ValueText);
+            });
+    }
+
+    [Fact]
     public void InterpolatedStringText_TrailingSegmentDecodesUnicode()
     {
         var source = "let s = \"${value} \\u0041\";";
