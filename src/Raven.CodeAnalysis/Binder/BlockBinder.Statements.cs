@@ -302,6 +302,9 @@ partial class BlockBinder
     private ForIterationInfo ClassifyForIteration(BoundExpression collection)
     {
         var collectionType = collection.Type;
+        if (collectionType?.ContainsErrorType() == true)
+            return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+
         var elementType = InferForElementType(collectionType, out var enumerableInterface);
 
         if (collectionType is IArrayTypeSymbol arrayType)
