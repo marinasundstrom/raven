@@ -2384,8 +2384,10 @@ partial class BlockBinder : Binder
         // Binding for explicit receiver
         var receiver = BindExpression(memberAccess.Expression);
 
-        if (receiver is BoundErrorExpression)
-            return receiver;
+        if (IsErrorExpression(receiver))
+            return receiver is BoundErrorExpression boundError
+                ? boundError
+                : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
         var simpleName = memberAccess.Name;
         if (simpleName.Identifier.IsMissing)
@@ -3191,8 +3193,28 @@ partial class BlockBinder : Binder
         {
             var right = BindExpression(rightSyntax);
 
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
             var receiver = BindExpression(elementAccess.Expression);
             var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
+
+            if (IsErrorExpression(receiver))
+                return receiver is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(
+                        receiver.Type ?? Compilation.ErrorTypeSymbol,
+                        null,
+                        BoundExpressionReason.OtherError);
+
+            var firstErrorArg = args.FirstOrDefault(IsErrorExpression);
+            if (firstErrorArg is not null)
+                return firstErrorArg is BoundErrorExpression errorArg
+                    ? errorArg
+                    : new BoundErrorExpression(
+                        firstErrorArg.Type ?? Compilation.ErrorTypeSymbol,
+                        null,
+                        BoundExpressionReason.OtherError);
 
             if (receiver.Type is IArrayTypeSymbol arrayType)
             {
@@ -3216,11 +3238,17 @@ partial class BlockBinder : Binder
 
         var left = BindExpression(leftSyntax);
 
+        if (IsErrorExpression(left))
+            return AsErrorExpression(left);
+
         if (left is BoundLocalAccess localAccess)
         {
             var localSymbol = localAccess.Local;
             var localType = localSymbol.Type;
             var right = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
 
             if (localType is ByRefTypeSymbol byRefLocalType)
             {
@@ -3245,6 +3273,9 @@ partial class BlockBinder : Binder
             var parameterSymbol = parameterAccess.Parameter;
             var parameterType = parameterSymbol.Type;
             var right = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
 
             if (!parameterSymbol.IsMutable)
             {
@@ -3273,6 +3304,10 @@ partial class BlockBinder : Binder
             }
 
             var right = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
             var access = new BoundFieldAccess(GetReceiver(left), fieldSymbol);
 
             var fieldRight = BindCompoundAssignmentValue(access, right, fieldSymbol.Type, binaryOperator.Value, rightSyntax);
@@ -3292,6 +3327,9 @@ partial class BlockBinder : Binder
             }
 
             var right = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
 
             if (backingField is not null)
             {
@@ -4176,8 +4214,10 @@ partial class BlockBinder : Binder
         {
             var boundMember = BindMemberAccessExpression(memberAccess);
 
-            if (boundMember is BoundErrorExpression)
-                return boundMember;
+            if (IsErrorExpression(boundMember))
+                return boundMember is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(boundMember.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
             if (boundMember is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
@@ -4189,7 +4229,7 @@ partial class BlockBinder : Binder
                 foreach (var arg in syntax.ArgumentList.Arguments)
                 {
                     var boundArg = BindExpression(arg.Expression);
-                    if (boundArg is BoundErrorExpression)
+                    if (IsErrorExpression(boundArg))
                         argErrors = true;
                     var name = arg.NameColon?.Name.Identifier.ValueText;
                     if (string.IsNullOrEmpty(name))
@@ -4218,7 +4258,7 @@ partial class BlockBinder : Binder
                 foreach (var arg in syntax.ArgumentList.Arguments)
                 {
                     var boundArg = BindExpression(arg.Expression);
-                    if (boundArg is BoundErrorExpression)
+                    if (IsErrorExpression(boundArg))
                         argErrors = true;
                     var name = arg.NameColon?.Name.Identifier.ValueText;
                     if (string.IsNullOrEmpty(name))
@@ -4241,8 +4281,10 @@ partial class BlockBinder : Binder
         {
             var boundMember = BindMemberBindingExpression(memberBinding);
 
-            if (boundMember is BoundErrorExpression)
-                return boundMember;
+            if (IsErrorExpression(boundMember))
+                return boundMember is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(boundMember.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
             if (boundMember is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
@@ -4254,7 +4296,7 @@ partial class BlockBinder : Binder
                 foreach (var arg in syntax.ArgumentList.Arguments)
                 {
                     var boundArg = BindExpression(arg.Expression);
-                    if (boundArg is BoundErrorExpression)
+                    if (IsErrorExpression(boundArg))
                         argErrors = true;
                     var name = arg.NameColon?.Name.Identifier.ValueText;
                     if (string.IsNullOrEmpty(name))
@@ -4283,7 +4325,7 @@ partial class BlockBinder : Binder
                 foreach (var arg in syntax.ArgumentList.Arguments)
                 {
                     var boundArg = BindExpression(arg.Expression);
-                    if (boundArg is BoundErrorExpression)
+                    if (IsErrorExpression(boundArg))
                         argErrors = true;
                     var name = arg.NameColon?.Name.Identifier.ValueText;
                     if (string.IsNullOrEmpty(name))
@@ -4305,9 +4347,10 @@ partial class BlockBinder : Binder
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
             var boundIdentifier = BindIdentifierName(id);
-
-            if (boundIdentifier is BoundErrorExpression)
-                return boundIdentifier;
+            if (IsErrorExpression(boundIdentifier))
+                return boundIdentifier is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(boundIdentifier.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
             if (boundIdentifier is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
@@ -4349,7 +4392,7 @@ partial class BlockBinder : Binder
             foreach (var arg in syntax.ArgumentList.Arguments)
             {
                 var boundArg = BindExpression(arg.Expression);
-                if (boundArg is BoundErrorExpression)
+                if (IsErrorExpression(boundArg))
                     genericHasErrors = true;
                 var name = arg.NameColon?.Name.Identifier.ValueText;
                 if (string.IsNullOrEmpty(name))
@@ -4369,8 +4412,10 @@ partial class BlockBinder : Binder
         else
         {
             receiver = BindExpression(syntax.Expression);
-            if (receiver is BoundErrorExpression)
-                return receiver;
+            if (IsErrorExpression(receiver))
+                return receiver is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
             methodName = "Invoke";
         }
@@ -4381,7 +4426,7 @@ partial class BlockBinder : Binder
         foreach (var arg in syntax.ArgumentList.Arguments)
         {
             var boundArg = BindExpression(arg.Expression);
-            if (boundArg is BoundErrorExpression)
+            if (IsErrorExpression(boundArg))
                 hasErrors = true;
             var name = arg.NameColon?.Name.Identifier.ValueText;
             if (string.IsNullOrEmpty(name))
@@ -4589,7 +4634,7 @@ partial class BlockBinder : Binder
         {
             var syntax = arguments[i];
             var boundArg = BindExpression(syntax.Expression);
-            if (boundArg is BoundErrorExpression)
+            if (IsErrorExpression(boundArg))
                 seenErrors = true;
 
             var name = syntax.NameColon?.Name.Identifier.ValueText;
@@ -4603,10 +4648,22 @@ partial class BlockBinder : Binder
         return boundArguments;
     }
 
+    private static bool IsErrorExpression(BoundExpression expression)
+        => expression is BoundErrorExpression;
+
+    private BoundErrorExpression AsErrorExpression(BoundExpression expression)
+    {
+        return expression as BoundErrorExpression
+            ?? new BoundErrorExpression(
+                expression.Type ?? Compilation.ErrorTypeSymbol,
+                null,
+                BoundExpressionReason.OtherError);
+    }
+
     private BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
     {
         var boundArguments = BindInvocationArguments(syntax.ArgumentList.Arguments, out var hasErrors);
-        if (hasErrors)
+        if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
             return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
         var methodName = methodGroup.Methods[0].Name;
@@ -4672,6 +4729,9 @@ partial class BlockBinder : Binder
         InvocationExpressionSyntax syntax,
         BoundExpression? receiver = null)
     {
+        if (typeSymbol.TypeKind == TypeKind.Error)
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+
         var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
         if (resolution.Success)
         {
@@ -4725,12 +4785,12 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        if (typeSymbol.TypeKind != TypeKind.Error)
-        {
-            var validatedType = EnsureTypeAccessible(typeSymbol, syntax.Type.GetLocation());
-            if (validatedType.TypeKind == TypeKind.Error)
-                return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
-        }
+        if (typeSymbol.TypeKind == TypeKind.Error)
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+
+        var validatedType = EnsureTypeAccessible(typeSymbol, syntax.Type.GetLocation());
+        if (validatedType.TypeKind == TypeKind.Error)
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
 
         // Bind arguments
         var boundArguments = new BoundArgument[syntax.ArgumentList.Arguments.Count];
@@ -4739,7 +4799,7 @@ partial class BlockBinder : Binder
         foreach (var arg in syntax.ArgumentList.Arguments)
         {
             var boundArg = BindExpression(arg.Expression);
-            if (boundArg is BoundErrorExpression)
+            if (IsErrorExpression(boundArg))
                 hasErrors = true;
             var name = arg.NameColon?.Name.Identifier.ValueText;
             if (string.IsNullOrEmpty(name))
@@ -4918,6 +4978,20 @@ partial class BlockBinder : Binder
         var receiver = BindExpression(syntax.Expression);
         var argumentExprs = syntax.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
+        if (IsErrorExpression(receiver))
+            return receiver is BoundErrorExpression boundError
+                ? boundError
+                : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+
+        var firstErrorArg = argumentExprs.FirstOrDefault(IsErrorExpression);
+        if (firstErrorArg is not null)
+            return firstErrorArg is BoundErrorExpression errorArg
+                ? errorArg
+                : new BoundErrorExpression(
+                    firstErrorArg.Type ?? Compilation.ErrorTypeSymbol,
+                    null,
+                    BoundExpressionReason.OtherError);
+
         var receiverType = receiver.Type;
         if (receiverType is null)
         {
@@ -4974,8 +5048,28 @@ partial class BlockBinder : Binder
         {
             var right = BindExpression(rightSyntax);
 
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
             var receiver = BindExpression(elementAccess.Expression);
             var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
+
+            if (IsErrorExpression(receiver))
+                return receiver is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(
+                        receiver.Type ?? Compilation.ErrorTypeSymbol,
+                        null,
+                        BoundExpressionReason.OtherError);
+
+            var firstErrorArg = args.FirstOrDefault(IsErrorExpression);
+            if (firstErrorArg is not null)
+                return firstErrorArg is BoundErrorExpression errorArg
+                    ? errorArg
+                    : new BoundErrorExpression(
+                        firstErrorArg.Type ?? Compilation.ErrorTypeSymbol,
+                        null,
+                        BoundExpressionReason.OtherError);
 
             if (receiver.Type is IArrayTypeSymbol arrayType)
             {
@@ -5029,12 +5123,18 @@ partial class BlockBinder : Binder
         // Fall back to normal variable/property assignment
         var left = BindExpression(leftSyntax);
 
+        if (IsErrorExpression(left))
+            return AsErrorExpression(left);
+
         if (left is BoundLocalAccess localAccess)
         {
             var localSymbol = localAccess.Local;
             var localType = localSymbol.Type;
 
             var right2 = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right2))
+                return AsErrorExpression(right2);
 
             if (localType is ByRefTypeSymbol byRefLocalType)
             {
@@ -5085,6 +5185,10 @@ partial class BlockBinder : Binder
             }
 
             var right2 = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right2))
+                return AsErrorExpression(right2);
+
             if (parameterType is ByRefTypeSymbol byRefParameterType &&
                 parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
             {
@@ -5122,6 +5226,9 @@ partial class BlockBinder : Binder
 
             var right2 = BindExpression(rightSyntax);
 
+            if (IsErrorExpression(right2))
+                return AsErrorExpression(right2);
+
             if (right2 is BoundEmptyCollectionExpression)
             {
                 return BoundFactory.CreateFieldAssignmentExpression(right2, fieldSymbol, BoundFactory.CreateEmptyCollectionExpression(fieldSymbol.Type));
@@ -5158,6 +5265,9 @@ partial class BlockBinder : Binder
             }
 
             var right2 = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right2))
+                return AsErrorExpression(right2);
 
             if (right2 is BoundEmptyCollectionExpression)
             {
