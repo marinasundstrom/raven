@@ -241,6 +241,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public bool IsInterface => _typeInfo.IsInterface;
 
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
+    public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 

@@ -517,6 +517,7 @@ public interface INamedTypeSymbol : ITypeSymbol
 {
     int Arity { get; }
     ImmutableArray<IMethodSymbol> Constructors { get; }
+    ImmutableArray<IMethodSymbol> InstanceConstructors { get; }
     IMethodSymbol? StaticConstructor { get; }
     INamedTypeSymbol UnderlyingTupleType { get; }
     ImmutableArray<IFieldSymbol> TupleElements { get; }

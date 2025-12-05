@@ -49,6 +49,8 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ImmutableArray<IMethodSymbol> Constructors => [];
 
+    public ImmutableArray<IMethodSymbol> InstanceConstructors => [];
+
     public IMethodSymbol? StaticConstructor => null;
 
     public INamedTypeSymbol UnderlyingTupleType => this;

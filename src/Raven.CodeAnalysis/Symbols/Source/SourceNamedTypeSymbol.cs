@@ -53,6 +53,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         .Cast<IMethodSymbol>()
         .ToImmutableArray();
 
+    public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
+
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;

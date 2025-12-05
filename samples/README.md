@@ -23,7 +23,16 @@ These are the main options available for when debugging the compiler:
 
 ## Sample compilation and execution status
 
-Running `RAVEN_CORE=../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll bash build.sh` produced 64/64 compilation successes (the script copies the referenced Raven.Core.dll into `output/`). Running `OUTPUT_DIR=output bash run.sh` succeeded for all 62 emitted DLLs (skipping only the excluded `goto.dll`, `parse-number.dll`, `Raven.Core.dll`, and `TestDep.dll`).
+Running `RAVEN_CORE=../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll bash build.sh` (which copies the referenced Raven.Core.dll into `output/`) currently produces 36/64 compilation successes and 28 failures, most of which stem from unresolved `Error` types during code generation. Running `OUTPUT_DIR=output bash run.sh` against the successfully emitted DLLs still completes, but the failing samples listed below are skipped.
+
+### Current failure investigation (Raven.Core reference)
+
+The 28 failing samples from the latest run fall into two buckets:
+
+* **Emission crashes caused by `Error` types flowing into code generation** — 22 samples (such as `catch.rav`, `classes.rav`, `extensions.rav`, `foo2.rav`, `function-types.rav`, `generator.rav`, `io.rav`, `linq.rav`, `option.rav`, `parse-number.rav`, `reflection.rav`, `try-match.rav`, `type-unions.rav`, `unit.rav`, `async-file-io.rav`, `async-generic-compute.rav`, `async-inference.rav`, `async-task-return.rav`, `async-try-catch.rav`, `http-client.rav`, `test-result2.rav`, and `test10.rav`) abort while emitting because `ErrorTypeSymbol` reaches the back-end. This aligns with the recent short-circuiting changes that preserve `BoundErrorExpression`/`ErrorTypeSymbol` instead of fabricating placeholder bindings, so codegen now needs to tolerate or skip these error-typed members.
+* **Front-end diagnostics from invalid discriminated-union/pattern usage** — 6 samples (`introduction.rav`, `main.rav`, `test-result.rav`, `async/async-await.rav`, `async/http-client-result-extension.rav`, and `async/http-client-result.rav`) fail with binding diagnostics such as `RAV0024` and `RAV2104`. These predate the short-circuit changes and indicate missing union cases or error operands in the source rather than codegen crashes.
+
+The table below reflects the intended pass status; update entries as failures are fixed.
 
 | Sample | Status | Notes |
 | --- | --- | --- |
