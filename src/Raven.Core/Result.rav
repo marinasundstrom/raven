@@ -13,7 +13,7 @@ public union Result<T, E> {
 }
 
 public extension ResultExtensions<T> for Result<T> {
-    UnwrapOrDefault() -> T {
+    public UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value
         }
@@ -21,7 +21,7 @@ public extension ResultExtensions<T> for Result<T> {
         return default(T)
     }
 
-    UnwrapOrThrow() -> T {
+    public UnwrapOrThrow() -> T {
         var error: string = ""
         if self is .Ok(value) {
             return value
@@ -32,7 +32,7 @@ public extension ResultExtensions<T> for Result<T> {
         throw new InvalidOperationException(error)
     }
 
-    UnwrapOr(defaultValue: T) -> T {
+    public UnwrapOr(defaultValue: T) -> T {
         if self is .Ok(value) {
             return value
         }

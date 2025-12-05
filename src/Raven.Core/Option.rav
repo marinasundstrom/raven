@@ -8,7 +8,7 @@ public union Option<T> {
 }
 
 public extension OptionExtensions<T> for Option<T> {
-    UnwrapOrDefault() -> T {
+    public UnwrapOrDefault() -> T {
         if self is .Some(value) {
             return value
         }
@@ -16,7 +16,7 @@ public extension OptionExtensions<T> for Option<T> {
         return default(T)
     }
 
-    UnwrapOrThrow() -> T {
+    public UnwrapOrThrow() -> T {
         if self is .Some(value) {
             return value
         }
@@ -24,7 +24,7 @@ public extension OptionExtensions<T> for Option<T> {
         throw new InvalidOperationException("Option is None")
     }
 
-    UnwrapOr(defaultValue: T) -> T {
+    public UnwrapOr(defaultValue: T) -> T {
         if self is .Some(value) {
             return value
         }
