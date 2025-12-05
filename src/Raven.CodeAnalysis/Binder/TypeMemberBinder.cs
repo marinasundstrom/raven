@@ -1296,7 +1296,7 @@ internal class TypeMemberBinder : Binder
                 methodSymbol.SetOverriddenMethod(overriddenGetter);
 
             var binder = new MethodBinder(methodSymbol, this);
-            binders[propertyDecl] = binder;
+            binders[propertyDecl.ExpressionBody!] = binder;
 
             getMethod = methodSymbol;
         }
