@@ -188,9 +188,9 @@ internal class TypeMemberBinder : Binder
                     _diagnostics.ReportConstFieldRequiresInitializer(decl.Identifier.ValueText, decl.Identifier.GetLocation());
             }
 
-            var isLiteral = isConstDeclaration && constantValueComputed;
-            var initializerForSymbol = isLiteral ? null : initializer;
-            var constantValueForSymbol = isLiteral ? constantValue : null;
+            var isConst = isConstDeclaration && constantValueComputed;
+            var initializerForSymbol = isConst ? null : initializer;
+            var constantValueForSymbol = isConst ? constantValue : null;
             var isMutable = bindingKeyword.Kind == SyntaxKind.VarKeyword;
 
             var fieldTypeLocation = decl.TypeAnnotation?.Type.GetLocation() ?? decl.Identifier.GetLocation();
@@ -207,7 +207,7 @@ internal class TypeMemberBinder : Binder
                 fieldType,
                 isStatic: isStatic,
                 isMutable: isMutable,
-                isLiteral: isLiteral,
+                isConst: isConst,
                 constantValue: constantValueForSymbol,
                 _containingType,
                 _containingType,
@@ -1042,7 +1042,7 @@ internal class TypeMemberBinder : Binder
                 propertyType,
                 isStatic: isStatic,
                 isMutable: true,
-                isLiteral: false,
+                isConst: false,
                 constantValue: null,
                 _containingType,
                 _containingType,

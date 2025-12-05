@@ -928,7 +928,7 @@ partial class BlockBinder : Binder
     {
         var fieldSymbol = fieldAccess.Field;
 
-        if (fieldSymbol.IsLiteral)
+        if (fieldSymbol.IsConst)
         {
             _diagnostics.ReportThisValueIsNotMutable(operandSyntax.GetLocation());
             return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
@@ -3303,7 +3303,7 @@ partial class BlockBinder : Binder
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
-            if (fieldSymbol.IsLiteral)
+            if (fieldSymbol.IsConst)
             {
                 _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
@@ -5357,7 +5357,7 @@ partial class BlockBinder : Binder
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
-            if (fieldSymbol.IsLiteral)
+            if (fieldSymbol.IsConst)
             {
                 _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);

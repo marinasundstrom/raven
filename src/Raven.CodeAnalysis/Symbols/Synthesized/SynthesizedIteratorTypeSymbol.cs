@@ -240,7 +240,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             type,
             isStatic: false,
             isMutable: true,
-            isLiteral: false,
+            isConst: false,
             constantValue: null,
             this,
             this,

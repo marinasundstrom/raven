@@ -353,10 +353,10 @@ internal class TypeGenerator
         var fieldType = ResolveFieldClrType(fieldSymbol);
         var attributes = GetFieldAccessibilityAttributes(fieldSymbol);
 
-        if (fieldSymbol.IsLiteral)
+        if (fieldSymbol.IsConst)
             attributes |= FieldAttributes.Literal;
 
-        if (!fieldSymbol.IsMutable && !fieldSymbol.IsLiteral)
+        if (!fieldSymbol.IsMutable && !fieldSymbol.IsConst)
             attributes |= FieldAttributes.InitOnly;
 
         if (fieldSymbol.IsStatic)
@@ -364,7 +364,7 @@ internal class TypeGenerator
 
         var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, fieldType, attributes);
 
-        if (fieldSymbol.IsLiteral)
+        if (fieldSymbol.IsConst)
             fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
 
         var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);

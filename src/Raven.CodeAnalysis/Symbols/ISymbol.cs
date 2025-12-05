@@ -344,7 +344,7 @@ public interface IFieldSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
 
-    bool IsLiteral { get; }
+    bool IsConst { get; }
 
     bool IsMutable { get; }
 

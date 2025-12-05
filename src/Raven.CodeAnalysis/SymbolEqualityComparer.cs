@@ -212,7 +212,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             if (!EqualsCore(fieldX.Type, fieldY.Type, visited))
                 return false;
 
-            if (fieldX.IsLiteral != fieldY.IsLiteral)
+            if (fieldX.IsConst != fieldY.IsConst)
                 return false;
         }
 
@@ -407,7 +407,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (obj is IFieldSymbol field)
         {
             hash.Add(GetHashCodeCore(field.Type, visited));
-            hash.Add(field.IsLiteral);
+            hash.Add(field.IsConst);
         }
 
         if (obj is IPropertySymbol property)

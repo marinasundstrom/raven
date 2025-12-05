@@ -227,8 +227,8 @@ public static class SymbolExtensions
 
             case IFieldSymbol fieldSymbol:
                 AppendProperty(builder, "Type", fieldSymbol.Type.ToDisplayString(displayFormat));
-                AppendBooleanProperty(builder, "IsLiteral", fieldSymbol.IsLiteral);
-                if (fieldSymbol.IsLiteral)
+                AppendBooleanProperty(builder, "IsConst", fieldSymbol.IsConst);
+                if (fieldSymbol.IsConst)
                 {
                     var constantValue = fieldSymbol.GetConstantValue();
                     AppendProperty(builder, "ConstantValue", constantValue?.ToString() ?? "<null>");

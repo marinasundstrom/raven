@@ -333,7 +333,7 @@ internal sealed class AliasFieldSymbol : AliasSymbol, IFieldSymbol
 
     public ITypeSymbol Type => _field.Type;
 
-    public bool IsLiteral => _field.IsLiteral;
+    public bool IsConst => _field.IsConst;
 
     public bool IsMutable => _field.IsMutable;
 

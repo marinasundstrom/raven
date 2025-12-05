@@ -265,7 +265,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             substitutedType,
             isStatic: false,
             isMutable: true,
-            isLiteral: false,
+            isConst: false,
             constantValue: null,
             this,
             this,
