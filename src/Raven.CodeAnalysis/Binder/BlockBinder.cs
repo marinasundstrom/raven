@@ -4238,7 +4238,14 @@ partial class BlockBinder : Binder
                 }
 
                 if (argErrors)
-                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+                {
+                    var candidates = ImmutableArray.Create(method);
+                    return ErrorExpression(
+                        method.ReturnType,
+                        method,
+                        BoundExpressionReason.ArgumentBindingFailed,
+                        AsSymbolCandidates(candidates));
+                }
 
                 var argArray = argExprs.ToArray();
 
@@ -4267,7 +4274,15 @@ partial class BlockBinder : Binder
                 }
 
                 if (argErrors)
-                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+                {
+                    var constructors = namedType.Constructors.Where(static ctor => !ctor.IsStatic).ToImmutableArray();
+                    var symbol = constructors.IsDefaultOrEmpty ? (ISymbol)namedType : constructors[0];
+                    return ErrorExpression(
+                        namedType,
+                        symbol,
+                        BoundExpressionReason.ArgumentBindingFailed,
+                        AsSymbolCandidates(constructors));
+                }
 
                 return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax);
             }
@@ -4305,7 +4320,14 @@ partial class BlockBinder : Binder
                 }
 
                 if (argErrors)
-                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+                {
+                    var candidates = ImmutableArray.Create(method);
+                    return ErrorExpression(
+                        method.ReturnType,
+                        method,
+                        BoundExpressionReason.ArgumentBindingFailed,
+                        AsSymbolCandidates(candidates));
+                }
 
                 var argArray = argExprs.ToArray();
 
@@ -4334,7 +4356,15 @@ partial class BlockBinder : Binder
                 }
 
                 if (argErrors)
-                    return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+                {
+                    var constructors = namedType.Constructors.Where(static ctor => !ctor.IsStatic).ToImmutableArray();
+                    var symbol = constructors.IsDefaultOrEmpty ? (ISymbol)namedType : constructors[0];
+                    return ErrorExpression(
+                        namedType,
+                        symbol,
+                        BoundExpressionReason.ArgumentBindingFailed,
+                        AsSymbolCandidates(constructors));
+                }
 
                 return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax);
             }
@@ -4435,7 +4465,7 @@ partial class BlockBinder : Binder
         }
 
         if (hasErrors)
-            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
         var boundArguments = boundArgumentsList.ToArray();
 
@@ -4660,11 +4690,99 @@ partial class BlockBinder : Binder
                 BoundExpressionReason.OtherError);
     }
 
+    private BoundErrorExpression InvocationError(
+        BoundExpression? receiver,
+        string methodName,
+        BoundExpressionReason reason)
+    {
+        ImmutableArray<IMethodSymbol> candidates = default;
+        ITypeSymbol? resultType = null;
+        ISymbol? symbol = null;
+
+        if (receiver is BoundNamespaceExpression nsReceiver)
+        {
+            var typeInNamespace = nsReceiver.Namespace
+                .GetMembers(methodName)
+                .OfType<INamedTypeSymbol>()
+                .FirstOrDefault();
+
+            if (typeInNamespace is not null)
+            {
+                candidates = typeInNamespace.Constructors
+                    .Where(static ctor => !ctor.IsStatic)
+                    .ToImmutableArray();
+                symbol = candidates.IsDefaultOrEmpty ? typeInNamespace : candidates[0];
+                resultType = typeInNamespace;
+            }
+        }
+        else if (receiver is BoundTypeExpression typeReceiver)
+        {
+            candidates = new SymbolQuery(methodName, typeReceiver.Type, IsStatic: true)
+                .LookupMethods(this)
+                .ToImmutableArray();
+
+            if (!candidates.IsDefaultOrEmpty)
+            {
+                symbol = candidates[0];
+                resultType = candidates[0].ReturnType;
+            }
+            else
+            {
+                symbol = typeReceiver.Type;
+                resultType = typeReceiver.Type;
+            }
+        }
+        else if (receiver is not null)
+        {
+            candidates = new SymbolQuery(methodName, receiver.Type, IsStatic: false)
+                .LookupMethods(this)
+                .ToImmutableArray();
+
+            if (!candidates.IsDefaultOrEmpty)
+            {
+                symbol = candidates[0];
+                resultType = candidates[0].ReturnType;
+            }
+            else
+            {
+                resultType = receiver.Type;
+            }
+        }
+        else
+        {
+            candidates = new SymbolQuery(methodName)
+                .LookupMethods(this)
+                .ToImmutableArray();
+
+            if (!candidates.IsDefaultOrEmpty)
+            {
+                symbol = candidates[0];
+                resultType = candidates[0].ReturnType;
+            }
+        }
+
+        return ErrorExpression(
+            resultType ?? Compilation.ErrorTypeSymbol,
+            symbol,
+            reason,
+            AsSymbolCandidates(candidates));
+    }
+
     private BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
     {
         var boundArguments = BindInvocationArguments(syntax.ArgumentList.Arguments, out var hasErrors);
         if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
-            return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+        {
+            var selectedForError = methodGroup.SelectedMethod;
+            var symbol = selectedForError ?? methodGroup.Methods.FirstOrDefault();
+            var returnType = symbol?.ReturnType ?? Compilation.ErrorTypeSymbol;
+
+            return ErrorExpression(
+                returnType,
+                symbol,
+                BoundExpressionReason.ArgumentBindingFailed,
+                AsSymbolCandidates(methodGroup.Methods));
+        }
 
         var methodName = methodGroup.Methods[0].Name;
         var selected = methodGroup.SelectedMethod;
