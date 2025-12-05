@@ -97,7 +97,8 @@ public partial class Compilation
         var destinationUnion = destination.TryGetDiscriminatedUnion();
         if (sourceUnionCase is not null &&
             destinationUnion is not null &&
-            SymbolEqualityComparer.Default.Equals(sourceUnionCase.Union, destinationUnion))
+            (SymbolEqualityComparer.Default.Equals(sourceUnionCase.Union, destinationUnion) ||
+             SymbolEqualityComparer.Default.Equals(sourceUnionCase.Union.OriginalDefinition, destinationUnion.OriginalDefinition)))
         {
             var conversionMethod = FindDiscriminatedUnionConversionMethod(source, destination);
             return Finalize(new Conversion(
@@ -333,8 +334,10 @@ public partial class Compilation
             {
                 if (method.MethodKind is MethodKind.Conversion &&
                     method.Parameters.Length == 1 &&
-                    method.Parameters[0].Type.MetadataIdentityEquals(source) &&
-                    method.ReturnType.MetadataIdentityEquals(destination))
+                    (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, source)
+                        || method.Parameters[0].Type.MetadataIdentityEquals(source)) &&
+                    (SymbolEqualityComparer.Default.Equals(method.ReturnType, destination)
+                        || method.ReturnType.MetadataIdentityEquals(destination)))
                 {
                     var isImplicit = method.Name == "op_Implicit";
                     return Finalize(new Conversion(isImplicit: isImplicit, isUserDefined: true, methodSymbol: method));
