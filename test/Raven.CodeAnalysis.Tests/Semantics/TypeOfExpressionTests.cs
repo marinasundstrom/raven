@@ -25,4 +25,30 @@ let members = t.GetMembers()
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void TypeOf_WithMissingType_ShortCircuitsDependentExpressions()
+    {
+        const string testCode = """
+import System.Console.*
+
+let t = typeof(System.DoesNotExist)
+WriteLine(t)
+
+let members = t.GetMembers()
+for member in members {
+    WriteLine(member.Name)
+}
+""";
+
+        var verifier = CreateVerifier(testCode, expectedDiagnostics: new[]
+        {
+            new DiagnosticResult("RAV0103")
+                .WithSeverity(DiagnosticSeverity.Error)
+                .WithLocation(3, 16)
+                .WithArguments("System.DoesNotExist"),
+        });
+
+        verifier.Verify();
+    }
 }
