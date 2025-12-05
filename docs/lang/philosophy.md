@@ -209,6 +209,16 @@ By default, specificity waits until the developer actually needs it. That restra
 
 ---
 
+### 13. **Interop and Tooling as First-Class Citizens**
+
+Raven runs on .NET, and the language treats that runtime as an asset rather than an afterthought. Interop is expected, not exotic:
+importing BCL namespaces, consuming LINQ pipelines, and compiling to IL are all core experiences. Compiler services mirror Roslyn's
+shape so that IDEs, analyzers, and refactorings can lean on the same immutable trees and binding infrastructure. Features that
+complicate debuggability or diagnostics must justify their weight; the happy path includes actionable errors, consistent symbol
+metadata, and a syntax tree designed for analysis.
+
+---
+
 ## 🛠️ Raven Is:
 
 * A language where **form serves meaning**
