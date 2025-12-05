@@ -100,7 +100,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
             if (type.Namespace != MetadataName)
                 continue;
 
-            var typeSymbol = new PENamedTypeSymbol(
+            var typeSymbol = PENamedTypeSymbol.Create(
                 _typeResolver,
                 type.GetTypeInfo(),
                 this,
