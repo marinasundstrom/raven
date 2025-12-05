@@ -517,6 +517,16 @@ partial class BlockBinder
                 returnType
             );
 
+        if (targetDelegate is not null &&
+            targetSignature is not null &&
+            targetSignature.Parameters.Length != parameterSymbols.Count)
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                delegateType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetDelegate.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+        }
+
         if (lambdaSymbol is SourceLambdaSymbol mutable)
         {
             mutable.SetReturnType(returnType);

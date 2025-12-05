@@ -28,4 +28,15 @@ public class BoundBinaryOperatorTests : CompilationTestBase
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes, diagnostic.Descriptor);
     }
+
+    [Fact]
+    public void Bind_InvalidOperator_UsesOperatorText()
+    {
+        var source = "let x = true < 1";
+        var (compilation, _) = CreateCompilation(source);
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+
+        Assert.Equal("Operator '<' cannot be applied to operands of type 'bool' and 'int'", diagnostic.GetMessage());
+    }
 }

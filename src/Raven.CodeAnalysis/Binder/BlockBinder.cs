@@ -3728,8 +3728,9 @@ partial class BlockBinder : Binder
         }
 
         // 4. Fel
+        var operatorText = SyntaxFacts.GetSyntaxTokenText(opKind) ?? opKind.ToString();
         _diagnostics.ReportOperatorCannotBeAppliedToOperandsOfTypes(
-            opKind.ToString(),
+            operatorText,
             left.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             diagnosticLocation ?? Location.None);
