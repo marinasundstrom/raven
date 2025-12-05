@@ -228,8 +228,8 @@ internal class CodeGenerator
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _discriminatedUnionCaseCtor;
 
-    bool _emitTypeUnionAttribute;
-    bool _emitNullType;
+    bool _emitTypeUnionAttribute = true;
+    bool _emitNullType = true;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
     {
@@ -476,10 +476,19 @@ internal class CodeGenerator
         if (DiscriminatedUnionAttributeType is not null)
             return;
 
+        if (!_compilation.Options.EmbedCoreTypes)
+        {
+            TryBindRuntimeCoreTypes();
+            if (DiscriminatedUnionAttributeType is not null)
+                return;
+        }
+
+        var attributeType = Compilation.GetTypeByMetadataName("System.Attribute").GetClrType(this);
+
         var attrBuilder = ModuleBuilder.DefineType(
             "System.Runtime.CompilerServices.DiscriminatedUnionAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
-            typeof(Attribute));
+            attributeType);
 
         var ctorBuilder = attrBuilder.DefineConstructor(
             MethodAttributes.Public,
@@ -487,7 +496,7 @@ internal class CodeGenerator
             Type.EmptyTypes);
 
         var il = ctorBuilder.GetILGenerator();
-        var baseCtor = typeof(Attribute).GetConstructor(
+        var baseCtor = attributeType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
             types: Type.EmptyTypes,
@@ -509,26 +518,36 @@ internal class CodeGenerator
         if (DiscriminatedUnionCaseAttributeType is not null)
             return;
 
+        if (!_compilation.Options.EmbedCoreTypes)
+        {
+            TryBindRuntimeCoreTypes();
+            if (DiscriminatedUnionCaseAttributeType is not null)
+                return;
+        }
+
+        var attributeType = Compilation.GetTypeByMetadataName("System.Attribute").GetClrType(this);
+        var typeType = Compilation.GetSpecialType(SpecialType.System_Type).GetClrType(this);
+
         var attrBuilder = ModuleBuilder.DefineType(
             "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
-            typeof(Attribute));
+            attributeType);
 
         var unionTypeField = attrBuilder.DefineField(
             "_discriminatedUnionType",
-            typeof(Type),
+            typeType,
             FieldAttributes.Private | FieldAttributes.InitOnly);
 
         var propertyBuilder = attrBuilder.DefineProperty(
             "DiscriminatedUnionType",
             PropertyAttributes.None,
-            typeof(Type),
+            typeType,
             null);
 
         var getterMethod = attrBuilder.DefineMethod(
             "get_DiscriminatedUnionType",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
-            typeof(Type),
+            typeType,
             Type.EmptyTypes);
 
         var getterIl = getterMethod.GetILGenerator();
@@ -541,10 +560,10 @@ internal class CodeGenerator
         var ctorBuilder = attrBuilder.DefineConstructor(
             MethodAttributes.Public,
             CallingConventions.Standard,
-            new[] { typeof(Type) });
+            new[] { typeType });
 
         var il = ctorBuilder.GetILGenerator();
-        var baseCtor = typeof(Attribute).GetConstructor(
+        var baseCtor = attributeType.GetConstructor(
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
             types: Type.EmptyTypes,
@@ -560,7 +579,7 @@ internal class CodeGenerator
         il.Emit(OpCodes.Ret);
 
         DiscriminatedUnionCaseAttributeType = attrBuilder.CreateType();
-        _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType.GetConstructor(new[] { typeof(Type) })
+        _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType.GetConstructor(new[] { typeType })
             ?? throw new InvalidOperationException("Missing DiscriminatedUnionCaseAttribute(Type) constructor.");
     }
 
@@ -657,11 +676,15 @@ internal class CodeGenerator
 
             DetermineShimTypeRequirements();
 
-            if (_emitTypeUnionAttribute)
+            if (!_compilation.Options.EmbedCoreTypes)
+                TryBindRuntimeCoreTypes();
+
+            if (_emitTypeUnionAttribute && (TypeUnionAttributeType is null || _compilation.Options.EmbedCoreTypes))
                 CreateTypeUnionAttribute();
-            if (_emitNullType)
+            if (_emitNullType && (NullType is null || _compilation.Options.EmbedCoreTypes))
                 CreateNullStruct();
-            CreateUnitStruct();
+            if (UnitType is null || _compilation.Options.EmbedCoreTypes)
+                CreateUnitStruct();
 
             DefineTypeBuilders();
 
@@ -764,7 +787,7 @@ internal class CodeGenerator
             }
         }
 
-        void CheckType(ITypeSymbol typeSymbol)
+        static void CheckType(ITypeSymbol typeSymbol)
         {
             if (typeSymbol is null)
                 return;
@@ -775,23 +798,26 @@ internal class CodeGenerator
                 return;
             }
 
-            if (typeSymbol.IsTypeUnion && typeSymbol is IUnionTypeSymbol union)
-            {
-                _emitTypeUnionAttribute = true;
-                foreach (var t in union.Types)
-                {
-                    if (t.TypeKind == TypeKind.Null)
-                        _emitNullType = true;
-                    CheckType(t);
-                }
-                return;
-            }
 
-            if (typeSymbol.TypeKind == TypeKind.Null)
-            {
-                _emitNullType = true;
-                return;
-            }
+            /*
+                            if (typeSymbol.IsTypeUnion && typeSymbol is IUnionTypeSymbol union)
+                            {
+                                _emitTypeUnionAttribute = true;
+                                foreach (var t in union.Types)
+                                {
+                                    if (t.TypeKind == TypeKind.Null)
+                                        _emitNullType = true;
+                                    CheckType(t);
+                                }
+                                return;
+                            }
+
+                            if (typeSymbol.TypeKind == TypeKind.Null)
+                            {
+                                _emitNullType = true;
+                                return;
+                            }
+            */
 
             if (typeSymbol is INamedTypeSymbol named && named.IsGenericType)
             {
@@ -805,8 +831,35 @@ internal class CodeGenerator
         }
     }
 
+    private void TryBindRuntimeCoreTypes()
+    {
+        TypeUnionAttributeType ??= Compilation.ResolveRuntimeType("TypeUnionAttribute");
+        NullType ??= Compilation.ResolveRuntimeType("Null");
+        UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
+
+        if (DiscriminatedUnionAttributeType is null)
+        {
+            DiscriminatedUnionAttributeType = Compilation.ResolveRuntimeType(
+                "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
+            _discriminatedUnionCtor = DiscriminatedUnionAttributeType?.GetConstructor(Type.EmptyTypes);
+        }
+
+        if (DiscriminatedUnionCaseAttributeType is null)
+        {
+            DiscriminatedUnionCaseAttributeType = Compilation.ResolveRuntimeType(
+                "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
+
+            var typeType = Compilation.GetSpecialType(SpecialType.System_Type).GetClrType(this);
+
+            _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType?.GetConstructor(new[] { typeType });
+        }
+    }
+
     private void CreateTypeUnionAttribute()
     {
+        if (TypeUnionAttributeType is not null)
+            return;
+
         // Define the attribute class
         var attrBuilder = ModuleBuilder.DefineType(
             "TypeUnionAttribute",
@@ -878,6 +931,9 @@ internal class CodeGenerator
 
     private void CreateNullStruct()
     {
+        if (NullType is not null)
+            return;
+
         var nullBuilder = ModuleBuilder.DefineType(
             "Null",
             TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
@@ -888,6 +944,9 @@ internal class CodeGenerator
 
     private void CreateUnitStruct()
     {
+        if (UnitType is not null)
+            return;
+
         var unitBuilder = ModuleBuilder.DefineType(
             "System.Unit",
             TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,

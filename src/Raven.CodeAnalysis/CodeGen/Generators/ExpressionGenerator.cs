@@ -771,6 +771,61 @@ internal class ExpressionGenerator : Generator
             return;
         }
 
+        if (conversion.IsDiscriminatedUnion)
+        {
+            if (conversion.MethodSymbol is IMethodSymbol methodSymbol)
+            {
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(methodSymbol));
+                return;
+            }
+
+            if (to is INamedTypeSymbol toNamed)
+            {
+                var symbolMatch = toNamed
+                    .GetMembers("op_Implicit")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(m =>
+                        m.Parameters.Length == 1 &&
+                        ParameterMatchesSource(m.Parameters[0].Type, from));
+
+                if (symbolMatch is not null)
+                {
+                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(symbolMatch));
+                    return;
+                }
+            }
+
+            if (IsDynamicBuilderType(toClrType) || IsDynamicBuilderType(fromClrType))
+            {
+                if (fromClrType == toClrType)
+                    return;
+
+                throw new NotSupportedException("Discriminated-union conversion method not found.");
+            }
+
+            var candidate = toClrType.GetMethod(
+                               "op_Implicit",
+                               BindingFlags.Public | BindingFlags.Static,
+                               binder: null,
+                               types: new[] { fromClrType },
+                               modifiers: null)
+                           ?? fromClrType.GetMethod(
+                               "op_Implicit",
+                               BindingFlags.Public | BindingFlags.Static,
+                               binder: null,
+                               types: new[] { fromClrType },
+                               modifiers: null);
+
+            if (candidate is not null)
+            {
+                ILGenerator.Emit(OpCodes.Call, candidate);
+                return;
+            }
+
+            if (fromClrType == toClrType)
+                return;
+        }
+
         if (conversion.IsNumeric)
         {
             EmitNumericConversion(to);
@@ -3887,6 +3942,31 @@ internal class ExpressionGenerator : Generator
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
         return methodSymbol.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+    }
+
+    private static bool IsDynamicBuilderType(Type type)
+    {
+        var fullName = type.FullName;
+        return fullName is not null &&
+               fullName.StartsWith("System.Reflection.Emit.TypeBuilder", StringComparison.Ordinal);
+    }
+
+    private static bool ParameterMatchesSource(ITypeSymbol parameterType, ITypeSymbol sourceType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(parameterType, sourceType))
+            return true;
+
+        if (parameterType.MetadataIdentityEquals(sourceType))
+            return true;
+
+        if (parameterType is INamedTypeSymbol parameterNamed &&
+            sourceType is INamedTypeSymbol sourceNamed &&
+            SymbolEqualityComparer.Default.Equals(parameterNamed.OriginalDefinition, sourceNamed.OriginalDefinition))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private readonly struct DelegateConstructorCacheKey

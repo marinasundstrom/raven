@@ -155,6 +155,10 @@ public partial class Compilation
             .Select(portableExecutableReference => portableExecutableReference.FilePath)
             .ToList();
 
+        var runtimeCorePath = typeof(object).Assembly.Location;
+        if (!string.IsNullOrEmpty(runtimeCorePath) && !paths.Contains(runtimeCorePath, StringComparer.OrdinalIgnoreCase))
+            paths.Add(runtimeCorePath);
+
         var resolver = new PathAssemblyResolver(paths);
         _metadataLoadContext = new MetadataLoadContext(resolver);
 
@@ -176,7 +180,8 @@ public partial class Compilation
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
 
-        InitializeTopLevelPrograms();
+        if (Options.OutputKind == OutputKind.ConsoleApplication)
+            InitializeTopLevelPrograms();
     }
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
@@ -705,19 +710,19 @@ public partial class Compilation
             switch (metadataReference)
             {
                 case PortableExecutableReference per:
-                {
-                    var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
-                    RegisterRuntimeAssembly(assembly, per.FilePath);
-                    symbol = GetAssembly(assembly);
-                    break;
-                }
+                    {
+                        var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
+                        RegisterRuntimeAssembly(assembly, per.FilePath);
+                        symbol = GetAssembly(assembly);
+                        break;
+                    }
                 case CompilationReference cr:
-                {
-                    var compilation = cr.Compilation;
-                    compilation.EnsureSetup();
-                    symbol = compilation.Assembly;
-                    break;
-                }
+                    {
+                        var compilation = cr.Compilation;
+                        compilation.EnsureSetup();
+                        symbol = compilation.Assembly;
+                        break;
+                    }
                 default:
                     throw new InvalidOperationException();
             }
@@ -1101,7 +1106,7 @@ public partial class Compilation
         if (RuntimeCoreAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false) is { } coreType)
             return coreType;
 
-        foreach (var runtimeAssembly in _runtimeAssemblyCache.Values)
+        foreach (var (key, runtimeAssembly) in _runtimeAssemblyCache)
         {
             var candidate = runtimeAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
             if (candidate is not null)

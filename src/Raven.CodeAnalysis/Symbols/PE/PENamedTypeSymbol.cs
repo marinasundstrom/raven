@@ -8,8 +8,9 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    protected readonly TypeResolver _typeResolver;
     protected readonly System.Reflection.TypeInfo _typeInfo;
+    private readonly bool _isValueType;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
@@ -20,11 +21,182 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private readonly ITypeSymbol? _constructedFrom;
     private readonly ITypeSymbol? _originalDefinition;
 
+    internal static PENamedTypeSymbol Create(
+        TypeResolver typeResolver,
+        System.Reflection.TypeInfo typeInfo,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations)
+    {
+        foreach (var attribute in GetCustomAttributesSafe(typeInfo))
+        {
+            var attributeName = GetAttributeTypeName(attribute);
+            if (attributeName is null)
+                continue;
+
+            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
+                return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+
+            if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
+            {
+                IDiscriminatedUnionSymbol? unionSymbol = null;
+
+                if (containingType is IDiscriminatedUnionSymbol containingUnion)
+                {
+                    unionSymbol = containingUnion;
+                }
+
+                if (TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
+                {
+                    unionSymbol = typeResolver.ResolveType(unionType) as IDiscriminatedUnionSymbol;
+                }
+
+                return new PEDiscriminatedUnionCaseSymbol(
+                    typeResolver,
+                    typeInfo,
+                    containingSymbol,
+                    containingType,
+                    containingNamespace,
+                    locations,
+                    unionSymbol);
+            }
+        }
+
+        if (LooksLikeDiscriminatedUnion(typeInfo))
+            return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+
+        if (containingType is IDiscriminatedUnionSymbol parentUnion)
+        {
+            return new PEDiscriminatedUnionCaseSymbol(
+                typeResolver,
+                typeInfo,
+                containingSymbol,
+                containingType,
+                containingNamespace,
+                locations,
+                parentUnion);
+        }
+
+        return new PENamedTypeSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+    }
+
+    private static bool LooksLikeDiscriminatedUnion(System.Reflection.TypeInfo typeInfo)
+    {
+        try
+        {
+            var fields = typeInfo.DeclaredFields;
+
+            static string Normalize(string name)
+            {
+                Span<char> buffer = stackalloc char[name.Length];
+                var index = 0;
+
+                foreach (var ch in name)
+                {
+                    if (ch is '<' or '>' or '_')
+                        continue;
+
+                    buffer[index++] = ch;
+                }
+
+                return new string(buffer[..index]);
+            }
+
+            return fields.Any(f => Normalize(f.Name) == "Tag")
+                && fields.Any(f => Normalize(f.Name) == "Payload");
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsValueTypeLike(System.Reflection.TypeInfo typeInfo)
+    {
+        try
+        {
+            if (typeInfo.IsValueType)
+                return true;
+
+            if (!typeInfo.IsGenericTypeDefinition)
+                return false;
+
+            return typeInfo.BaseType?.FullName == "System.ValueType";
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    internal static IEnumerable<CustomAttributeData> GetCustomAttributesSafe(System.Reflection.TypeInfo typeInfo)
+    {
+        IList<CustomAttributeData> attributes;
+        try
+        {
+            attributes = typeInfo.GetCustomAttributesData();
+        }
+        catch (ArgumentException)
+        {
+            yield break;
+        }
+
+        foreach (var attribute in attributes)
+        {
+            CustomAttributeData? safeAttribute;
+            try
+            {
+                safeAttribute = attribute;
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+
+            yield return safeAttribute;
+        }
+    }
+
+    private static string? GetAttributeTypeName(CustomAttributeData attribute)
+    {
+        try
+        {
+            return attribute.AttributeType.FullName;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TryGetAttributeConstructorTypeArgument(CustomAttributeData attribute, out Type unionType)
+    {
+        unionType = null!;
+
+        try
+        {
+            if (attribute.ConstructorArguments is [{ Value: Type unionTypeValue }])
+            {
+                unionType = unionTypeValue;
+                return true;
+            }
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        return false;
+    }
+
     public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _typeResolver = typeResolver;
         _typeInfo = typeInfo;
+
+        _isValueType = IsValueTypeLike(typeInfo);
 
         if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
         {
@@ -37,7 +209,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             TypeKind = TypeKind.Enum;
         else if (IsDelegateType(typeInfo))
             TypeKind = TypeKind.Delegate;
-        else if (typeInfo.IsValueType)
+        else if (_isValueType)
             TypeKind = TypeKind.Struct;
         else if (typeInfo.IsInterface)
             TypeKind = TypeKind.Interface;
@@ -64,18 +236,74 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
-    public bool IsValueType => _typeInfo.IsValueType;
-    public bool IsReferenceType => !_typeInfo.IsValueType;
+    public bool IsValueType => _isValueType;
+    public bool IsReferenceType => !_isValueType;
     public bool IsInterface => _typeInfo.IsInterface;
 
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
+
     public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
-        _typeParameters ??=
-            _typeInfo.GenericTypeParameters
-                .Select(t => (ITypeParameterSymbol)_typeResolver.ResolveType(t)!)
-                .ToImmutableArray();
+        _typeParameters ??= ComputeTypeParameters();
+
+    public int Arity => GetMetadataArity();
+
+    private int GetMetadataArity()
+    {
+        var name = _typeInfo.Name;
+        var index = name.IndexOf('`');
+        if (index < 0)
+            return 0;
+
+        if (int.TryParse(name.AsSpan(index + 1), out var arity))
+            return arity;
+
+        return 0;
+    }
+
+    private ImmutableArray<ITypeParameterSymbol> ComputeTypeParameters()
+    {
+        var declaredArity = GetMetadataArity();
+
+        // Non-generic or no params: trivial
+        if (declaredArity == 0)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        var allParams = _typeInfo.GenericTypeParameters;
+        if (allParams.Length == 0)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        // For nested generic type definitions, reflection gives you:
+        //   [outer generic params..., inner generic params...]
+        //
+        // So: inner *declared* parameters are the LAST `declaredArity` ones.
+        //
+        // Example:
+        //   class Outer<TOuter>
+        //   {
+        //       class Inner<TInner> { }
+        //   }
+        //
+        // typeof(Outer<,>.Inner<>).GenericTypeParameters:
+        //   [TOuter, TInner]
+        // Name "Inner`1" -> declaredArity = 1 -> take last 1 -> [TInner]
+
+        int start = Math.Max(0, allParams.Length - declaredArity);
+        var slice = allParams
+            .AsSpan(start, declaredArity)
+            .ToArray();
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(slice.Length);
+        foreach (var tp in slice)
+        {
+            var paramSymbol = (ITypeParameterSymbol)_typeResolver.ResolveType(tp)!;
+            builder.Add(paramSymbol);
+        }
+
+        return builder.ToImmutable();
+    }
+
     public ITypeSymbol? ConstructedFrom => _constructedFrom;
 
     private (ITypeSymbol constructedFrom, ITypeSymbol originalDefinition) ResolveGenericOrigins()
@@ -269,8 +497,6 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ITypeSymbol? OriginalDefinition => _originalDefinition;
 
-    public int Arity => _typeInfo.GenericTypeParameters.Length;
-
     private ImmutableArray<IFieldSymbol>? _tupleElements;
 
     public INamedTypeSymbol UnderlyingTupleType => this;
@@ -420,13 +646,12 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
         {
-            new PENamedTypeSymbol(
-                _typeResolver,
+            var module = (PEModuleSymbol)ContainingModule;
+            module.CreateMetadataTypeSymbol(
                 nestedTypeInfo,
+                ContainingNamespace!,
                 this,
-                this,
-                this.ContainingNamespace,
-                [new MetadataLocation(ContainingModule!)]);
+                this);
         }
     }
 
@@ -434,8 +659,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
     {
-        if (typeArguments.Length != Arity)
-            throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");
+        // if (typeArguments.Length != Arity)
+        //   throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");
 
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
     }

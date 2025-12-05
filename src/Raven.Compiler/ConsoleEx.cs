@@ -112,22 +112,31 @@ static class ConsoleEx
         foreach (var diagnostic in diagnostics)
         {
             var descriptor = diagnostic.Descriptor;
-            var location = diagnostic.Location.GetLineSpan();
+            var lineSpan = diagnostic.Location.GetLineSpan();
+            var path = lineSpan.Path;
 
-            var fileDirectory = Path.GetDirectoryName(location.Path);
+            string? fileDirectory = null;
+            string fileName = "";
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                fileDirectory = Path.GetDirectoryName(path);
+                fileName = Path.GetFileName(path);
 
 #if DEBUG
-            fileDirectory = Path.GetRelativePath(Environment.CurrentDirectory, fileDirectory!);
+                if (fileDirectory is not null)
+                    fileDirectory = Path.GetRelativePath(Environment.CurrentDirectory, fileDirectory);
 #endif
+            }
 
             if (!string.IsNullOrEmpty(fileDirectory))
             {
                 fileDirectory += "/";
             }
 
-            var fileName = Path.GetFileName(location.Path);
+            fileName = string.IsNullOrEmpty(fileName) ? "<unknown>" : fileName;
 
-            var fileLocation = $"({location.StartLinePosition.Line + 1},{location.StartLinePosition.Character + 1})";
+            var fileLocation = $"({lineSpan.StartLinePosition.Line + 1},{lineSpan.StartLinePosition.Character + 1})";
 
             var color = diagnostic.Severity switch
             {

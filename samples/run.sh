@@ -16,6 +16,7 @@ fi
 # List of dlls to exclude (filenames only)
 EXCLUDE=(
   "TestDep.dll"
+  "Raven.Core.dll"
   "goto.dll"
   "parse-number.dll"
   # add others as needed

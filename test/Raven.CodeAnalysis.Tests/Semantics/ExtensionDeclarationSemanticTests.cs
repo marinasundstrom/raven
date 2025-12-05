@@ -132,4 +132,31 @@ extension IntExtensions for int {
         Assert.NotNull(boundInvocation.ExtensionReceiver);
     }
 
+    [Fact]
+    public void ExtensionDeclaration_AllowsAccessibilityModifiers()
+    {
+        const string source = """
+public extension PublicExt for int {
+    public Increment() -> int {
+        return self + 1
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var extensionDecl = tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single();
+        var extensionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
+        Assert.Equal(Accessibility.Public, extensionSymbol.DeclaredAccessibility);
+
+        var methodDecl = extensionDecl.Members.OfType<MethodDeclarationSyntax>().Single();
+        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+        Assert.Equal(Accessibility.Public, methodSymbol.DeclaredAccessibility);
+    }
+
 }

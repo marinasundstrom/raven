@@ -1,0 +1,50 @@
+namespace System
+
+import System.*
+
+public union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+
+public union Result<T, E> {
+    Ok(value: T)
+    Error(data: E)
+}
+
+public extension ResultExtensions<T> for Result<T> {
+    public IsOk: bool {
+        get => self is .Ok(message)
+    }
+
+    public IsError: bool {
+        get => self is .Error(message)
+    }
+
+    public UnwrapOrDefault() -> T {
+        if self is .Ok(value) {
+            return value
+        }
+
+        return default(T)
+    }
+
+    public UnwrapOrThrow() -> T {
+        var error: string = ""
+        if self is .Ok(value) {
+            return value
+        } else if self is .Error(error2) {
+            error = error2
+        }
+
+        throw new InvalidOperationException(error)
+    }
+
+    public UnwrapOr(defaultValue: T) -> T {
+        if self is .Ok(value) {
+            return value
+        }
+
+        return defaultValue
+    }
+}

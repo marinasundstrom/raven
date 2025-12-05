@@ -135,27 +135,41 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
     private PENamedTypeSymbol CreateMetadataTypeSymbol(Type type)
     {
         var ns = GetOrCreateNamespaceSymbol(type.Namespace);
+        return CreateMetadataTypeSymbol(type.GetTypeInfo(), ns, containingType: null, containingSymbol: ns);
+    }
 
-        var typeInfo = type.GetTypeInfo();
+    internal PENamedTypeSymbol CreateMetadataTypeSymbol(
+        System.Reflection.TypeInfo typeInfo,
+        INamespaceSymbol containingNamespace,
+        INamedTypeSymbol? containingType,
+        ISymbol containingSymbol)
+    {
+        if (_typeSymbolTypeInfoMapping.TryGetValue(typeInfo.AsType(), out var existingSymbol))
+        {
+            return (PENamedTypeSymbol)existingSymbol;
+        }
+
+        PENamedTypeSymbol typeSymbol;
 
         if (typeInfo.IsArray)
         {
-            var typeSymbol2 = new PEArrayTypeSymbol(
+            typeSymbol = new PEArrayTypeSymbol(
                 _typeResolver,
-                typeInfo, ns, null, ns,
-                [new MetadataLocation(ns.ContainingModule!)]);
-
-            _typeSymbolTypeInfoMapping[typeInfo] = typeSymbol2;
-
-            return typeSymbol2;
+                typeInfo, containingSymbol, containingType, containingNamespace,
+                [new MetadataLocation(containingNamespace.ContainingModule!)]);
+        }
+        else
+        {
+            typeSymbol = PENamedTypeSymbol.Create(
+                _typeResolver,
+                typeInfo,
+                containingSymbol,
+                containingType,
+                containingNamespace,
+                [new MetadataLocation(containingNamespace.ContainingModule!)]);
         }
 
-        var typeSymbol = new PENamedTypeSymbol(
-            _typeResolver,
-            typeInfo, ns, null, ns,
-            [new MetadataLocation(ns.ContainingModule!)]);
-
-        _typeSymbolTypeInfoMapping[typeInfo] = typeSymbol;
+        _typeSymbolTypeInfoMapping[typeInfo.AsType()] = typeSymbol;
 
         return typeSymbol;
     }

@@ -38,4 +38,28 @@ class C {
         Assert.Contains(values, v => v is Type t && t == typeof(int));
         Assert.Contains(values, v => v is string s && s == "yes");
     }
+
+    [Fact]
+    public void EmbedCoreTypes_ProducesTypeUnionAttribute()
+    {
+        var source = """
+class C {
+    M(x: int | string) -> unit { }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithEmbedCoreTypes(true);
+        var compilation = Compilation.Create("lib", [tree], options)
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var attrType = assembly.GetType("TypeUnionAttribute");
+        Assert.NotNull(attrType);
+        Assert.True(attrType!.IsPublic);
+    }
 }

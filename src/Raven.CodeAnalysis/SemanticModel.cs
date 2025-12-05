@@ -582,19 +582,19 @@ public partial class SemanticModel
 
         var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
 
-            void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
+        void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
+        {
+            var seenNonGlobal = false;
+            foreach (var member in members)
             {
-                var seenNonGlobal = false;
-                foreach (var member in members)
-                {
-                    if (member is ExtensionDeclarationSyntax)
-                        continue;
+                if (member is ExtensionDeclarationSyntax)
+                    continue;
 
-                    if (member is GlobalStatementSyntax gs)
-                    {
-                        if (seenNonGlobal)
-                            parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
-                    }
+                if (member is GlobalStatementSyntax gs)
+                {
+                    if (seenNonGlobal)
+                        parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
+                }
                 else
                 {
                     seenNonGlobal = true;
@@ -629,6 +629,9 @@ public partial class SemanticModel
             else if (Compilation.SyntaxTreeWithFileScopedCode != cu.SyntaxTree)
                 parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(bindableGlobals[0].GetLocation());
         }
+
+        if (bindableGlobals.Count == 0)
+            return parentBinder;
 
         var (programClass, mainMethod, asyncImplementation) = Compilation.GetOrCreateTopLevelProgram(
             cu,
@@ -728,6 +731,12 @@ public partial class SemanticModel
                         SourceNamedTypeSymbol classSymbol;
                         var isNewSymbol = true;
 
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            classDecl.Identifier,
+                            classDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
+
                         if (parentSourceNamespace is not null &&
                             parentSourceNamespace.IsMemberDefined(classDecl.Identifier.ValueText, out var existingMember) &&
                             existingMember is SourceNamedTypeSymbol existingType &&
@@ -797,6 +806,11 @@ public partial class SemanticModel
                     {
                         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
                         var namespaceSymbol = parentNamespace.AsSourceNamespace();
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            unionDecl.Identifier,
+                            unionDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
                         var (unionBinder, unionSymbol) = RegisterUnionDeclaration(unionDecl, parentBinder, declaringSymbol, namespaceSymbol);
                         unionBinders.Add((unionDecl, unionBinder, unionSymbol));
                         break;
@@ -818,6 +832,12 @@ public partial class SemanticModel
                             if (builder.Count > 0)
                                 interfaceList = builder.ToImmutable();
                         }
+
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            interfaceDecl.Identifier,
+                            interfaceDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
 
                         var interfaceSymbol = new SourceNamedTypeSymbol(
                             interfaceDecl.Identifier.ValueText,
@@ -853,6 +873,12 @@ public partial class SemanticModel
                             extensionDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
 
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            extensionDecl.Identifier,
+                            extensionDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
+
                         var extensionSymbol = new SourceNamedTypeSymbol(
                             extensionDecl.Identifier.ValueText,
                             baseType!,
@@ -883,6 +909,12 @@ public partial class SemanticModel
                         var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             enumDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            enumDecl.Identifier,
+                            arity: 0,
+                            parentBinder.Diagnostics);
+
                         var enumSymbol = new SourceNamedTypeSymbol(
                             enumDecl.Identifier.ValueText,
                             Compilation.GetTypeByMetadataName("System.Enum"),
@@ -962,6 +994,8 @@ public partial class SemanticModel
             RegisterMember((SourceNamedTypeSymbol)member.ContainingType!, member);
         }
 
+        var unionAccessibility = unionSymbol.DeclaredAccessibility;
+
         foreach (var caseClause in unionDecl.Cases)
         {
             var caseSymbol = new SourceDiscriminatedUnionCaseTypeSymbol(
@@ -972,7 +1006,8 @@ public partial class SemanticModel
                 unionSymbol,
                 namespaceSymbol,
                 [caseClause.GetLocation()],
-                [caseClause.GetReference()]);
+                [caseClause.GetReference()],
+                unionAccessibility);
 
             RegisterMember(unionSymbol, caseSymbol);
 
@@ -1043,19 +1078,19 @@ public partial class SemanticModel
                         var parameterName = parameterSyntax.Identifier.ValueText;
                         var propertyName = GetUnionCasePropertyName(parameterName);
 
-                    var backingField = new SourceFieldSymbol(
-                        $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
-                        parameterType,
-                            isStatic: false,
-                            isLiteral: false,
-                            constantValue: null,
-                            caseSymbol,
-                            caseSymbol,
-                            namespaceSymbol,
-                            [parameterSyntax.GetLocation()],
-                            [parameterSyntax.GetReference()],
-                            new BoundParameterAccess(parameterSymbol),
-                            declaredAccessibility: Accessibility.Private);
+                        var backingField = new SourceFieldSymbol(
+                            $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
+                            parameterType,
+                                isStatic: false,
+                                isLiteral: false,
+                                constantValue: null,
+                                caseSymbol,
+                                caseSymbol,
+                                namespaceSymbol,
+                                [parameterSyntax.GetLocation()],
+                                [parameterSyntax.GetReference()],
+                                new BoundParameterAccess(parameterSymbol),
+                                declaredAccessibility: Accessibility.Private);
 
                         RegisterCaseMember(backingField);
 
@@ -1067,7 +1102,7 @@ public partial class SemanticModel
                             namespaceSymbol,
                             [parameterSyntax.GetLocation()],
                             [parameterSyntax.GetReference()],
-                            declaredAccessibility: Accessibility.Public);
+                            declaredAccessibility: Accessibility.Private);
 
                         RegisterCaseMember(propertySymbol);
 
@@ -1184,6 +1219,50 @@ public partial class SemanticModel
         parameterName.AsSpan().CopyTo(buffer);
         buffer[0] = char.ToUpperInvariant(buffer[0]);
         return new string(buffer);
+    }
+
+    private void ReportExternalTypeRedeclaration(
+        INamespaceSymbol? namespaceSymbol,
+        SyntaxToken identifier,
+        int arity,
+        DiagnosticBag diagnostics)
+    {
+        var mergedNamespace = GetMergedNamespace(namespaceSymbol);
+        if (mergedNamespace is null)
+            return;
+
+        foreach (var member in mergedNamespace.GetMembers(identifier.ValueText).OfType<INamedTypeSymbol>())
+        {
+            if (member.Arity == arity && member.ContainingAssembly != Compilation.Assembly)
+            {
+                diagnostics.ReportTypeAlreadyDefined(identifier.ValueText, identifier.GetLocation());
+                break;
+            }
+        }
+    }
+
+    private INamespaceSymbol? GetMergedNamespace(INamespaceSymbol? namespaceSymbol)
+    {
+        if (namespaceSymbol is null)
+            return null;
+
+        var merged = Compilation.GlobalNamespace;
+        if (namespaceSymbol.IsGlobalNamespace)
+            return merged;
+
+        var namespaceName = namespaceSymbol.ToMetadataName();
+        if (string.IsNullOrEmpty(namespaceName))
+            return merged;
+
+        foreach (var part in namespaceName.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            merged = merged.LookupNamespace(part);
+
+            if (merged is null)
+                break;
+        }
+
+        return merged;
     }
 
     private (UnionDeclarationBinder Binder, SourceDiscriminatedUnionSymbol Symbol) RegisterUnionDeclaration(

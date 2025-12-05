@@ -4,3 +4,4 @@ test.exe
 test
 test.runtimeconfig.json
 TestDep.dll
+Raven.Core.dll

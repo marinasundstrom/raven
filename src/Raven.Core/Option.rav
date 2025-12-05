@@ -1,0 +1,34 @@
+namespace System
+
+import System.*
+
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+public extension OptionExtensions<T> for Option<T> {
+    public UnwrapOrDefault() -> T {
+        if self is .Some(value) {
+            return value
+        }
+
+        return default(T)
+    }
+
+    public UnwrapOrThrow() -> T {
+        if self is .Some(value) {
+            return value
+        }
+
+        throw new InvalidOperationException("Option is None")
+    }
+
+    public UnwrapOr(defaultValue: T) -> T {
+        if self is .Some(value) {
+            return value
+        }
+
+        return defaultValue
+    }
+}

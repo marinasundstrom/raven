@@ -11,6 +11,15 @@ cd "$SCRIPT_DIR"
 
 PROJECT_DIR="$REPO_ROOT/src/Raven.Compiler"
 
+RAVEN_CORE="${RAVEN_CORE:-$SCRIPT_DIR/Raven.Core.dll}"
+
+if [[ ! -f "$RAVEN_CORE" ]]; then
+  BUILD_RAVEN_CORE="$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"
+  if [[ -f "$BUILD_RAVEN_CORE" ]]; then
+    RAVEN_CORE="$BUILD_RAVEN_CORE"
+  fi
+fi
+
 OUTPUT_DIR="${OUTPUT_DIR:-output}"
 if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
@@ -56,6 +65,10 @@ COMPILER_BIN="$PROJECT_DIR/bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC"
 failures=()
 successes=()
 
+if [[ ! -f "$RAVEN_CORE" ]]; then
+  echo "Warning: Raven.Core.dll not found; samples will be built without --raven-core"
+fi
+
 for file in "${rav_files[@]}"; do
   filename=$(basename "$file")
 
@@ -68,8 +81,13 @@ for file in "${rav_files[@]}"; do
   output="$OUTPUT_DIR/$base.dll"
 
   echo "Compiling: $file -> $output"
-  
-  if ! "$COMPILER_BIN" -- "$file" -o "$output"; then
+
+  cmd=("$COMPILER_BIN" -- "$file" -o "$output")
+  if [[ -f "$RAVEN_CORE" ]]; then
+    cmd+=(--raven-core "$RAVEN_CORE")
+  fi
+
+  if ! "${cmd[@]}"; then
     rc=$?
     echo "❌ Compile failed ($rc): $filename"
     failures+=("$filename (exit $rc)")
@@ -84,6 +102,11 @@ done
 TEST_DEP_DLL="$REPO_ROOT/src/TestDep/bin/$BUILD_CONFIG/$DOTNET_VERSION/TestDep.dll"
 cp "$TEST_DEP_DLL" "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
   echo "Warning: Could not copy TestDep.dll"
+
+if [[ -f "$RAVEN_CORE" ]]; then
+  cp "$RAVEN_CORE" "$OUTPUT_DIR"/ 2>/dev/null || \
+    echo "Warning: Could not copy Raven.Core.dll"
+fi
 
 echo "===== Compile Summary ====="
 echo "Succeeded: ${#successes[@]}"

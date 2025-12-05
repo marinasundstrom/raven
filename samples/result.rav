@@ -4,48 +4,13 @@
 
 import System.*
 
-let unwrapped3 = test(4).UnwrapOr(10)
-Console.WriteLine(unwrapped3)
+let test: Result<int> = .Ok(42)
 
-func test(value: int) -> Result<int> {
-    if value == 42 {
-        return .Ok(42)
-    }
-    return .Error("Wrong number")
-}
+Console.WriteLine(test)
 
+/*
 union Result<T> {
     Ok(value: T)
     Error(message: string)
 }
-
-union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
-}
-
-extension ResultExtensions<T> for Result<T> {
-    UnwrapOrDefault() -> T {
-        if self is .Ok(value) {
-            return value
-        }
-        return default(T)
-    }
-
-    UnwrapOrThrow() -> T {
-        var error: string = ""
-        if self is .Ok(value) {
-            return value
-        } else if self is .Error(error2) {
-            error = error2
-        }
-        throw new System.InvalidOperationException("${error}")
-    }
-
-    UnwrapOr(defaultValue: T) -> T {
-        if self is .Ok(value) {
-            return value
-        }
-        return defaultValue
-    }
-}
+*/

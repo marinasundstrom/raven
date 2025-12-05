@@ -75,7 +75,8 @@ public class SymbolDisplayFormat
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
         MemberOptions = SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
-                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers,
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType
     };
 
