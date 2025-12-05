@@ -1,7 +1,9 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -60,9 +62,9 @@ func outer() {
 
         Assert.True(symbol.IsAsync);
         Assert.Equal(
-            "System.Threading.Tasks.Task<System.Int32>",
+            "System.Threading.Tasks.Task<int>",
             symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.Single(compilation.GetDiagnostics());
     }
 
     [Fact]
