@@ -23,6 +23,11 @@ public static class TypeSymbolExtensionsForCodeGen
         if (codeGen == null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (typeSymbol.IsAlias && typeSymbol is IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasUnderlying })
+        {
+            return GetClrTypeInternal(aliasUnderlying, codeGen, treatUnitAsVoid, isTopLevel);
+        }
+
         var compilation = codeGen.Compilation;
         var debugConstructedMethod = ConstructedMethodDebugging.IsEnabled();
 
