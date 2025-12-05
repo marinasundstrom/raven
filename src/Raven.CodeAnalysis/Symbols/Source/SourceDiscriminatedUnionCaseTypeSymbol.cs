@@ -13,8 +13,9 @@ internal sealed class SourceDiscriminatedUnionCaseTypeSymbol : SourceNamedTypeSy
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
-        SyntaxReference[] declaringSyntaxReferences)
-        : base(name, baseType, TypeKind.Struct, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: Accessibility.Public)
+        SyntaxReference[] declaringSyntaxReferences,
+        Accessibility declaredAccessibility)
+        : base(name, baseType, TypeKind.Struct, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility)
     {
         Ordinal = ordinal;
     }

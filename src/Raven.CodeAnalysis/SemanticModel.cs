@@ -965,6 +965,8 @@ public partial class SemanticModel
             RegisterMember((SourceNamedTypeSymbol)member.ContainingType!, member);
         }
 
+        var unionAccessibility = unionSymbol.DeclaredAccessibility;
+
         foreach (var caseClause in unionDecl.Cases)
         {
             var caseSymbol = new SourceDiscriminatedUnionCaseTypeSymbol(
@@ -975,7 +977,8 @@ public partial class SemanticModel
                 unionSymbol,
                 namespaceSymbol,
                 [caseClause.GetLocation()],
-                [caseClause.GetReference()]);
+                [caseClause.GetReference()],
+                unionAccessibility);
 
             RegisterMember(unionSymbol, caseSymbol);
 
@@ -990,7 +993,7 @@ public partial class SemanticModel
                 [caseClause.GetReference()],
                 isStatic: false,
                 methodKind: MethodKind.Constructor,
-                declaredAccessibility: Accessibility.Public);
+                declaredAccessibility: unionAccessibility);
 
             RegisterCaseMember(constructor);
 
@@ -1070,7 +1073,7 @@ public partial class SemanticModel
                             namespaceSymbol,
                             [parameterSyntax.GetLocation()],
                             [parameterSyntax.GetReference()],
-                            declaredAccessibility: Accessibility.Public);
+                            declaredAccessibility: unionAccessibility);
 
                         RegisterCaseMember(propertySymbol);
 
@@ -1085,7 +1088,7 @@ public partial class SemanticModel
                             [parameterSyntax.GetReference()],
                             isStatic: false,
                             methodKind: MethodKind.PropertyGet,
-                            declaredAccessibility: Accessibility.Public);
+                            declaredAccessibility: unionAccessibility);
 
                         RegisterCaseMember(getterSymbol);
 
@@ -1110,7 +1113,7 @@ public partial class SemanticModel
                 isStatic: false,
                 methodKind: MethodKind.Ordinary,
                 isOverride: true,
-                declaredAccessibility: Accessibility.Public);
+                declaredAccessibility: unionAccessibility);
 
             RegisterCaseMember(caseToString);
 
@@ -1129,7 +1132,7 @@ public partial class SemanticModel
                 Array.Empty<SyntaxReference>(),
                 isStatic: true,
                 methodKind: MethodKind.Conversion,
-                declaredAccessibility: Accessibility.Public);
+                declaredAccessibility: unionAccessibility);
 
             var conversionParameter = new SourceParameterSymbol(
                 "value",
@@ -1155,7 +1158,7 @@ public partial class SemanticModel
                 Array.Empty<SyntaxReference>(),
                 isStatic: false,
                 methodKind: MethodKind.Ordinary,
-                declaredAccessibility: Accessibility.Public);
+                declaredAccessibility: unionAccessibility);
 
             var tryGetParameter = new SourceParameterSymbol(
                 "value",

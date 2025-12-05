@@ -71,6 +71,81 @@ class Container {
     }
 
     [Fact]
+    public void PublicUnionCases_AreEmittedAsPublicNestedStructs()
+    {
+        const string code = """
+import System.*
+
+public union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "public-union",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+
+        var unionDefinition = assembly.GetType("Result`1", throwOnError: true)!;
+        var closedUnion = unionDefinition.MakeGenericType(typeof(int));
+
+        var okCase = closedUnion.GetNestedType("Ok", BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.True(okCase.IsNestedPublic);
+        var okCtor = okCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
+        Assert.NotNull(okCtor);
+
+        var errorCase = closedUnion.GetNestedType("Error", BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.True(errorCase.IsNestedPublic);
+        var errorCtor = errorCase.GetConstructor(BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(string) }, modifiers: null);
+        Assert.NotNull(errorCtor);
+    }
+
+    [Fact]
+    public void InternalUnionCases_AreEmittedWithInternalAccessibility()
+    {
+        const string code = """
+union Hidden<T> {
+    Case(value: T)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "internal-union",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+
+        var unionDefinition = assembly.GetType("Hidden`1", throwOnError: true)!;
+        Assert.False(unionDefinition.IsPublic);
+
+        var closedUnion = unionDefinition.MakeGenericType(typeof(int));
+        var caseType = closedUnion.GetNestedType("Case", BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        Assert.True(caseType.IsNestedAssembly);
+        var ctor = caseType.GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null);
+        Assert.NotNull(ctor);
+        Assert.True(ctor!.IsAssembly);
+    }
+
+    [Fact]
     public void DiscriminatedUnionStruct_AnnotatedWithMarkerAttribute()
     {
         var code = """
@@ -775,6 +850,51 @@ class Container {
 
         var isError = (bool)check.Invoke(instance, Array.Empty<object?>())!;
         Assert.True(isError);
+    }
+
+    [Fact]
+    public void ExtensionAccessibility_IsPreservedInMetadata()
+    {
+        const string code = """
+import System.*
+
+public extension IntExtensions for int {
+    public Double() -> int {
+        return self * 2
+    }
+}
+
+internal extension StringExtensions for string {
+    internal Echo() -> string {
+        return self
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "extension-accessibility",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+
+        var publicExtensions = assembly.GetType("IntExtensions", throwOnError: true)!;
+        Assert.True(publicExtensions.IsPublic);
+        var doubleMethod = publicExtensions.GetMethod("Double", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(doubleMethod);
+
+        var internalExtensions = assembly.GetType("StringExtensions", throwOnError: true)!;
+        Assert.True(internalExtensions.IsNotPublic);
+        var echoMethod = internalExtensions.GetMethod("Echo", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(echoMethod);
+        Assert.True(echoMethod!.IsAssembly);
     }
 
     [Fact]
