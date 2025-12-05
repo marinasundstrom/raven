@@ -934,6 +934,9 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
         }
 
+        if (!CanAssignToField(fieldSymbol, fieldAccess.Receiver, operandSyntax))
+            return new BoundErrorExpression(fieldSymbol.Type, fieldSymbol, BoundExpressionReason.NotFound);
+
         var targetType = fieldSymbol.Type ?? Compilation.ErrorTypeSymbol;
 
         return BindIncrementCore(
@@ -942,7 +945,7 @@ partial class BlockBinder : Binder
             targetType,
             binaryOperatorKind,
             isPostfix,
-            value => BoundFactory.CreateFieldAssignmentExpression(fieldAccess.Receiver, fieldSymbol, value));
+            value => CreateFieldAssignmentExpression(fieldAccess.Receiver, fieldSymbol, value));
     }
 
     private BoundExpression BindIncrementForProperty(
@@ -964,13 +967,16 @@ partial class BlockBinder : Binder
 
             var backingAccess = new BoundFieldAccess(memberAccess.Receiver, backingField);
 
+            if (!CanAssignToField(backingField, memberAccess.Receiver, operandSyntax))
+                return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
             return BindIncrementCore(
                 operandSyntax,
                 backingAccess,
                 propertySymbol.Type,
                 binaryOperatorKind,
                 isPostfix,
-                value => BoundFactory.CreateFieldAssignmentExpression(memberAccess.Receiver, backingField, value));
+                value => CreateFieldAssignmentExpression(memberAccess.Receiver, backingField, value));
         }
 
         return BindIncrementCore(
@@ -3303,19 +3309,26 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
             }
 
+            var receiver = GetReceiver(left);
+
             var right = BindExpression(rightSyntax);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
 
-            var access = new BoundFieldAccess(GetReceiver(left), fieldSymbol);
+            if (!CanAssignToField(fieldSymbol, receiver, leftSyntax))
+                return new BoundErrorExpression(fieldSymbol.Type, fieldSymbol, BoundExpressionReason.NotFound);
+
+            var access = new BoundFieldAccess(receiver, fieldSymbol);
 
             var fieldRight = BindCompoundAssignmentValue(access, right, fieldSymbol.Type, binaryOperator.Value, rightSyntax);
-            return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), fieldSymbol, fieldRight);
+            return CreateFieldAssignmentExpression(receiver, fieldSymbol, fieldRight);
         }
         else if (left.Symbol is IPropertySymbol propertySymbol)
         {
             SourceFieldSymbol? backingField = null;
+
+            var receiver = GetReceiver(left);
 
             if (propertySymbol.SetMethod is null)
             {
@@ -3333,14 +3346,16 @@ partial class BlockBinder : Binder
 
             if (backingField is not null)
             {
-                var backingAccess = new BoundFieldAccess(GetReceiver(left), backingField);
+                var backingAccess = new BoundFieldAccess(receiver, backingField);
+                if (!CanAssignToField(backingField, receiver, leftSyntax))
+                    return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
                 var backingRight = BindCompoundAssignmentValue(backingAccess, right, propertySymbol.Type, binaryOperator.Value, rightSyntax);
-                return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), backingField, backingRight);
+                return CreateFieldAssignmentExpression(receiver, backingField, backingRight);
             }
 
-            var propertyAccess = new BoundMemberAccessExpression(GetReceiver(left), propertySymbol);
+            var propertyAccess = new BoundMemberAccessExpression(receiver, propertySymbol);
             var result = BindCompoundAssignmentValue(propertyAccess, right, propertySymbol.Type, binaryOperator.Value, rightSyntax);
-            return BoundFactory.CreatePropertyAssignmentExpression(GetReceiver(left), propertySymbol, result);
+            return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, result);
         }
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -3874,7 +3889,12 @@ partial class BlockBinder : Binder
         var receiver = GetReceiver(target);
 
         if (backingField is not null)
-            return BoundFactory.CreateFieldAssignmentExpression(receiver, backingField, pipelineValue);
+        {
+            if (!CanAssignToField(backingField, receiver, pipelineSyntax))
+                return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+            return CreateFieldAssignmentExpression(receiver, backingField, pipelineValue);
+        }
 
         return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, pipelineValue);
     }
@@ -5343,14 +5363,19 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.NotFound);
             }
 
+            var receiver = GetReceiver(left);
+
             var right2 = BindExpression(rightSyntax);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
 
+            if (!CanAssignToField(fieldSymbol, receiver, leftSyntax))
+                return new BoundErrorExpression(fieldSymbol.Type, fieldSymbol, BoundExpressionReason.NotFound);
+
             if (right2 is BoundEmptyCollectionExpression)
             {
-                return BoundFactory.CreateFieldAssignmentExpression(right2, fieldSymbol, BoundFactory.CreateEmptyCollectionExpression(fieldSymbol.Type));
+                return CreateFieldAssignmentExpression(receiver, fieldSymbol, BoundFactory.CreateEmptyCollectionExpression(fieldSymbol.Type));
             }
 
             if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
@@ -5368,11 +5393,13 @@ partial class BlockBinder : Binder
                 right2 = ApplyConversion(right2, fieldSymbol.Type, conversion, rightSyntax);
             }
 
-            return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), fieldSymbol, right2);
+            return CreateFieldAssignmentExpression(receiver, fieldSymbol, right2);
         }
         else if (left.Symbol is IPropertySymbol propertySymbol)
         {
             SourceFieldSymbol? backingField = null;
+
+            var receiver = GetReceiver(left);
 
             if (propertySymbol.SetMethod is null)
             {
@@ -5394,10 +5421,13 @@ partial class BlockBinder : Binder
 
                 if (backingField is not null)
                 {
-                    return BoundFactory.CreateFieldAssignmentExpression(right2, backingField, empty);
+                    if (!CanAssignToField(backingField, receiver, leftSyntax))
+                        return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+                    return CreateFieldAssignmentExpression(receiver, backingField, empty);
                 }
 
-                return BoundFactory.CreatePropertyAssignmentExpression(right2, propertySymbol, empty);
+                return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, empty);
             }
 
             if (propertySymbol.Type.TypeKind != TypeKind.Error &&
@@ -5417,10 +5447,13 @@ partial class BlockBinder : Binder
 
             if (backingField is not null)
             {
-                return BoundFactory.CreateFieldAssignmentExpression(GetReceiver(left), backingField, right2);
+                if (!CanAssignToField(backingField, receiver, leftSyntax))
+                    return new BoundErrorExpression(backingField.Type, backingField, BoundExpressionReason.NotFound);
+
+                return CreateFieldAssignmentExpression(receiver, backingField, right2);
             }
 
-            return BoundFactory.CreatePropertyAssignmentExpression(GetReceiver(left), propertySymbol, right2);
+            return BoundFactory.CreatePropertyAssignmentExpression(receiver, propertySymbol, right2);
         }
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -5889,6 +5922,42 @@ partial class BlockBinder : Binder
             return null;
 
         return left;
+    }
+
+    private BoundAssignmentExpression CreateFieldAssignmentExpression(
+        BoundExpression? receiver,
+        IFieldSymbol fieldSymbol,
+        BoundExpression value)
+    {
+        return BoundFactory.CreateFieldAssignmentExpression(receiver, fieldSymbol, value);
+    }
+
+    private bool CanAssignToField(IFieldSymbol fieldSymbol, BoundExpression? receiver, SyntaxNode syntax)
+    {
+        if (fieldSymbol.IsMutable)
+            return true;
+
+        if (_containingSymbol is IMethodSymbol methodSymbol)
+        {
+            if (fieldSymbol.IsStatic)
+            {
+                if (methodSymbol.MethodKind == MethodKind.StaticConstructor &&
+                    SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, fieldSymbol.ContainingType))
+                {
+                    return true;
+                }
+            }
+            else if (methodSymbol.MethodKind == MethodKind.Constructor &&
+                     !methodSymbol.IsStatic &&
+                     SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, fieldSymbol.ContainingType) &&
+                     IsConstructorSelfReceiver(methodSymbol, receiver))
+            {
+                return true;
+            }
+        }
+
+        _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(syntax.GetLocation());
+        return false;
     }
 
     protected bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType, out Conversion conversion)
