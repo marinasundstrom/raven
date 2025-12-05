@@ -145,8 +145,8 @@ internal class TypeMemberBinder : Binder
 
         foreach (var decl in fieldDecl.Declaration.Declarators)
         {
-            var fieldType = decl.TypeAnnotation is null
-                ? Compilation.GetSpecialType(SpecialType.System_Object)
+            ITypeSymbol? fieldType = decl.TypeAnnotation is null
+                ? null
                 : ResolveType(decl.TypeAnnotation.Type);
 
             BoundExpression? initializer = null;
@@ -161,8 +161,10 @@ internal class TypeMemberBinder : Binder
                 foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
                     _diagnostics.Report(diag);
 
-                if (isConstDeclaration && decl.TypeAnnotation is null && initializer?.Type is { } inferred)
+                if (decl.TypeAnnotation is null && initializer?.Type is { } inferred)
                     fieldType = TypeSymbolNormalization.NormalizeForInference(inferred);
+
+                fieldType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
                 if (isConstDeclaration && initializer is not BoundErrorExpression)
                 {
@@ -187,6 +189,8 @@ internal class TypeMemberBinder : Binder
                 if (isConstDeclaration)
                     _diagnostics.ReportConstFieldRequiresInitializer(decl.Identifier.ValueText, decl.Identifier.GetLocation());
             }
+
+            fieldType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
             var isConst = isConstDeclaration && constantValueComputed;
             var initializerForSymbol = isConst ? null : initializer;
