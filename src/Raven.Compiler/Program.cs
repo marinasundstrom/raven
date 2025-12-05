@@ -21,6 +21,7 @@ var stopwatch = Stopwatch.StartNew();
 // --framework <tfm> - target framework
 // --refs <path>     - additional metadata reference (repeatable)
 // --raven-core <path> - path to a prebuilt Raven.Core.dll (skips embedded core types)
+// --emit-core-types-only - embed the Raven.Core shims instead of referencing Raven.Core.dll
 // --output-type <console|classlib> - output kind
 // -o <path>         - output assembly path
 // -s [flat|group]   - display the syntax tree (single file only)
@@ -41,7 +42,8 @@ string? outputPath = null;
 var outputKind = OutputKind.ConsoleApplication;
 string? ravenCorePath = null;
 var ravenCoreExplicitlyProvided = false;
-var embedCoreTypes = true;
+var embedCoreTypes = false;
+var skipDefaultRavenCoreLookup = false;
 
 var printSyntaxTree = false;
 var syntaxTreeFormat = SyntaxTreeFormat.Flat;
@@ -191,6 +193,11 @@ for (int i = 0; i < args.Length; i++)
                 hasInvalidOption = true;
             }
             break;
+        case "--emit-core-types-only":
+            embedCoreTypes = true;
+            skipDefaultRavenCoreLookup = true;
+            ravenCorePath = null;
+            break;
         case "--output-type":
             if (!TryParseOutputKind(args, ref i, out var kind))
                 hasInvalidOption = true;
@@ -226,11 +233,30 @@ if (showHelp || hasInvalidOption)
 if (sourceFiles.Count == 0)
     sourceFiles.Add($"../../../../../samples/result{RavenFileExtensions.Raven}");
 
-if (!ravenCoreExplicitlyProvided)
+if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
 {
-    var defaultRavenCorePath = Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll");
-    if (File.Exists(defaultRavenCorePath))
-        ravenCorePath = defaultRavenCorePath;
+    var ravenCoreCandidates = new[]
+    {
+        Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll"),
+        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/Raven.Core.dll"),
+        Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"),
+    };
+
+    foreach (var candidate in ravenCoreCandidates)
+    {
+        if (File.Exists(candidate))
+        {
+            ravenCorePath = candidate;
+            break;
+        }
+    }
+
+    if (string.IsNullOrWhiteSpace(ravenCorePath))
+        embedCoreTypes = true;
+}
+else if (string.IsNullOrWhiteSpace(ravenCorePath))
+{
+    embedCoreTypes = true;
 }
 
 for (int i = 0; i < sourceFiles.Count; i++)
@@ -623,6 +649,7 @@ static void PrintHelp()
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
     Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
+    Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  -o <path>          Output assembly path");

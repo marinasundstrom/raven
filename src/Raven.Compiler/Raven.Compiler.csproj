@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <WarningsAsErrors>Nullable</WarningsAsErrors>
     <AssemblyName>ravc</AssemblyName>
+    <UseRavenCoreReference Condition="'$(UseRavenCoreReference)' == ''">true</UseRavenCoreReference>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Raven.Core\Raven.Core.csproj" Condition="'$(UseRavenCoreReference)' == 'true'" />
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
     <ProjectReference Include="..\Raven.CodeAnalysis.Console\Raven.CodeAnalysis.Console.csproj" />
   </ItemGroup>

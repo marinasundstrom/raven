@@ -147,6 +147,8 @@ Options:
 
 - `--framework <tfm>` &ndash; target framework
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
+- `--raven-core <path>` &ndash; reference a specific `Raven.Core.dll`
+- `--emit-core-types-only` &ndash; embed Raven core shims instead of using `Raven.Core.dll`
 - `-o <path>` &ndash; output assembly path
 - `-s` &ndash; display the syntax tree (single file only)
 - `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` for raw text, `pretty` for highlighted syntax; append `:no-diagnostics` to skip underlines, single file only)
@@ -157,6 +159,8 @@ Options:
 - `-bt` &ndash; print the binder and bound tree (single file only)
 - `--symbols [list|hierarchy]` &ndash; inspect source symbols (`list` dumps properties, `hierarchy` prints the tree)
 - `-h`, `--help` &ndash; show help
+
+`ravc` now ships with and references `Raven.Core.dll` by default. The library is copied next to `ravc` during build, and any compilation also copies it to the output directory of the produced assembly. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed the shimmed core types instead of referencing the DLL.
 
 Creating a `.debug/` directory in the current or parent folder causes the
 compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,

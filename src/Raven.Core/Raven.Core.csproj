@@ -3,8 +3,11 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>false</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <OutputPath>$(MSBuildThisFileDirectory)bin/$(Configuration)/$(TargetFramework)/</OutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory)bin/$(Configuration)/</OutputPath>
     <AssemblyName>None</AssemblyName>
+    <RavenCoreOutputDirectory>$(OutputPath)$(TargetFramework)/</RavenCoreOutputDirectory>
+    <TargetPath>$(RavenCoreOutputDirectory)Raven.Core.dll</TargetPath>
+    <BuiltProjectOutputGroupDependsOn>$(BuiltProjectOutputGroupDependsOn);CollectRavenCoreOutput</BuiltProjectOutputGroupDependsOn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,21 +15,30 @@
     <RavenSource Include="Result.rav" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Raven.Compiler\Raven.Compiler.csproj" />
-  </ItemGroup>
-
   <Target Name="CompileRavenCore"
     BeforeTargets="Build"
     Inputs="@(RavenSource)"
-    Outputs="$(OutputPath)Raven.Core.dll">
-    <MakeDir Directories="$(OutputPath)" />
+    Outputs="$(RavenCoreOutputDirectory)Raven.Core.dll">
+    <MakeDir Directories="$(RavenCoreOutputDirectory)" />
     <Exec
-      Command="dotnet run --project ../Raven.Compiler/Raven.Compiler.csproj -- --framework $(TargetFramework) --embed-core-types --output-type classlib -o &quot;$(OutputPath)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
+      Command="dotnet run --project ../Raven.Compiler/Raven.Compiler.csproj -p:UseRavenCoreReference=false -- --emit-core-types-only --framework $(TargetFramework) --output-type classlib -o &quot;$(RavenCoreOutputDirectory)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
   </Target>
 
   <Target Name="CleanRavenCore"
     BeforeTargets="Clean">
-    <RemoveDir Directories="$(OutputPath)" />
+    <RemoveDir Directories="$(RavenCoreOutputDirectory)" />
+  </Target>
+
+  <Target Name="CollectRavenCoreOutput">
+    <ItemGroup>
+      <BuiltProjectOutputGroupOutput Include="$(RavenCoreOutputDirectory)Raven.Core.dll">
+        <TargetPath>Raven.Core.dll</TargetPath>
+      </BuiltProjectOutputGroupOutput>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="RemoveNoneAssembly" AfterTargets="Build">
+    <Delete Files="$(RavenCoreOutputDirectory)None.dll" />
+    <Delete Files="$(OutputPath)None.dll" />
   </Target>
 </Project>
