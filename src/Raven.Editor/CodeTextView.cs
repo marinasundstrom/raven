@@ -191,6 +191,7 @@ public class CodeTextView : TextView
         {
             SemanticClassification.Keyword => new(Color.BrightBlue, background),
             SemanticClassification.StringLiteral => new(Color.BrightGreen, background),
+            SemanticClassification.Interpolation => new(Color.Cyan, background),
             SemanticClassification.NumericLiteral => new(Color.BrightYellow, background),
             SemanticClassification.Comment => new(Color.Green, background),
             SemanticClassification.Method => new(Color.BrightYellow, background),

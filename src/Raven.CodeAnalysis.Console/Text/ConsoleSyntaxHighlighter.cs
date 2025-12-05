@@ -19,6 +19,7 @@ public class ColorScheme
     public AnsiColor Type { get; internal set; }
     public AnsiColor Keyword { get; internal set; }
     public AnsiColor StringLiteral { get; internal set; }
+    public AnsiColor Interpolation { get; internal set; }
     public AnsiColor NumericLiteral { get; internal set; }
     public AnsiColor Comment { get; internal set; }
     public AnsiColor Field { get; internal set; }
@@ -38,6 +39,7 @@ public class ColorScheme
         Type = AnsiColor.Magenta,
         Keyword = AnsiColor.BrightBlue,
         StringLiteral = AnsiColor.BrightYellow,
+        Interpolation = AnsiColor.Cyan,
         NumericLiteral = AnsiColor.Yellow,
         Comment = AnsiColor.Green,
         Field = AnsiColor.Cyan,
@@ -58,6 +60,7 @@ public class ColorScheme
         Type = AnsiColor.BrightMagenta,
         Keyword = AnsiColor.BrightBlue,
         StringLiteral = AnsiColor.BrightRed,
+        Interpolation = AnsiColor.BrightCyan,
         NumericLiteral = AnsiColor.Red,
         Comment = AnsiColor.BrightGreen,
         Field = AnsiColor.Cyan,
@@ -365,6 +368,7 @@ public static class ConsoleSyntaxHighlighter
     {
         SemanticClassification.Keyword => ColorScheme.Keyword,
         SemanticClassification.StringLiteral => ColorScheme.StringLiteral,
+        SemanticClassification.Interpolation => ColorScheme.Interpolation,
         SemanticClassification.NumericLiteral => ColorScheme.NumericLiteral,
         SemanticClassification.Comment => ColorScheme.Comment,
         SemanticClassification.Method => ColorScheme.Method,
