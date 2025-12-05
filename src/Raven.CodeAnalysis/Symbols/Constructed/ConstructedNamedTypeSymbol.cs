@@ -1266,7 +1266,8 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     public ITypeSymbol Type => _constructed.Substitute(_original.Type);
     public ISymbol ContainingSymbol => _constructed;
 
-    public bool IsLiteral => _original.IsLiteral;
+    public bool IsConst => _original.IsConst;
+    public bool IsMutable => _original.IsMutable;
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;

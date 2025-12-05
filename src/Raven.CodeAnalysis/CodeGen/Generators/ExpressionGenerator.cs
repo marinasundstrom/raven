@@ -2669,7 +2669,7 @@ internal class ExpressionGenerator : Generator
                     EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
                 }
 
-                if (fieldSymbol.IsLiteral)
+                if (fieldSymbol.IsConst)
                 {
                     EmitLiteral(fieldSymbol.GetConstantValue());
                 }
@@ -3431,7 +3431,7 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Ldfld, GetField(fieldSymbol));
             return;
         }
-        if (fieldSymbol.IsLiteral)
+        if (fieldSymbol.IsConst)
         {
             var constant = fieldSymbol.GetConstantValue();
             switch (constant)

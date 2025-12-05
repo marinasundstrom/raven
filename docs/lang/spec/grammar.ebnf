@@ -90,7 +90,7 @@ ClassMember              ::= FieldDeclaration
                            | IndexerDeclaration ;
 
 FieldDeclaration         ::= MemberModifiers? FieldKind VariableDeclarators ';' ;
-FieldKind                ::= 'let' | 'var' ;
+FieldKind                ::= 'let' | 'var' | 'const' ;
 
 VariableDeclarators      ::= VariableDeclarator {',' VariableDeclarator} ;
 VariableDeclarator       ::= Identifier (':' Type)? ['=' Expression] ;

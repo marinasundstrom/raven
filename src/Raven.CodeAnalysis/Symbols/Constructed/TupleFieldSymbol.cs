@@ -15,7 +15,7 @@ internal sealed class TupleFieldSymbol : PEFieldSymbol, IFieldSymbol
     public override string Name { get; }
 
     public override bool IsStatic => _underlyingField.IsStatic;
-    public override bool IsLiteral => _underlyingField.IsLiteral;
+    public override bool IsConst => _underlyingField.IsConst;
 
     public override ITypeSymbol Type => _underlyingField.Type;
 

@@ -336,6 +336,16 @@ public static partial class SymbolExtensions
                 result.Append(": ");
                 result.Append(typeDisplay);
             }
+
+            if (format.PropertyStyle == SymbolDisplayPropertyStyle.ShowReadWriteDescriptor)
+            {
+                var accessorDisplay = FormatPropertyAccessors(propertySymbol, format);
+                if (!string.IsNullOrEmpty(accessorDisplay))
+                {
+                    result.Append(' ');
+                    result.Append(accessorDisplay);
+                }
+            }
         }
         else if (symbol is IFieldSymbol fieldSymbol)
         {
@@ -734,6 +744,47 @@ public static partial class SymbolExtensions
         return core;
     }
 
+    private static string FormatPropertyAccessors(IPropertySymbol propertySymbol, SymbolDisplayFormat format)
+    {
+        var accessors = new List<string>();
+
+        var getter = FormatPropertyAccessor(propertySymbol.GetMethod, propertySymbol, format, "get");
+        if (getter is not null)
+            accessors.Add(getter);
+
+        var setter = FormatPropertyAccessor(propertySymbol.SetMethod, propertySymbol, format, "set");
+        if (setter is not null)
+            accessors.Add(setter);
+
+        if (accessors.Count == 0)
+            return string.Empty;
+
+        return "{ " + string.Join(" ", accessors) + " }";
+    }
+
+    private static string? FormatPropertyAccessor(
+        IMethodSymbol? accessor,
+        IPropertySymbol propertySymbol,
+        SymbolDisplayFormat format,
+        string keyword)
+    {
+        if (accessor is null)
+            return null;
+
+        var parts = new List<string>();
+
+        var includeAccessibility = format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility);
+        if (includeAccessibility &&
+            accessor.DeclaredAccessibility != Accessibility.NotApplicable &&
+            accessor.DeclaredAccessibility != propertySymbol.DeclaredAccessibility)
+        {
+            parts.Add(accessor.DeclaredAccessibility.ToString().ToLower());
+        }
+
+        parts.Add(keyword);
+        return string.Join(" ", parts) + ";";
+    }
+
     private static string EscapeIdentifier(string identifier)
     {
         // Could HTML-escape here if needed
@@ -830,23 +881,24 @@ public static partial class SymbolExtensions
                 break;
 
             case IFieldSymbol field:
-                /* if (field.IsConst)
+                if (field.IsConst)
                 {
                     parts.Add("const");
                 }
                 else
-                { */
-                if (field.IsStatic)
-                    parts.Add("static");
+                {
+                    if (field.IsStatic)
+                        parts.Add("static");
 
-                /*
-                if (field.IsReadOnly)
-                    parts.Add("readonly");
-
-                if (field.IsVolatile)
-                    parts.Add("volatile");
-                */
-                //}
+                    if (field.IsMutable)
+                    {
+                        parts.Add("var");
+                    }
+                    else
+                    {
+                        parts.Add("let");
+                    }
+                }
 
                 break;
 

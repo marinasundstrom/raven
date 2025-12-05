@@ -144,7 +144,7 @@ class C {
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
 
-        Assert.True(field.IsLiteral);
+        Assert.True(field.IsConst);
         Assert.True(field.IsStatic);
         Assert.Equal("Hello", field.GetConstantValue());
         Assert.Equal(SpecialType.System_String, field.Type.SpecialType);
@@ -170,13 +170,13 @@ class C {
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
 
         var total = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[0]));
-        Assert.True(total.IsLiteral);
+        Assert.True(total.IsConst);
         Assert.True(total.IsStatic);
         Assert.Equal(SpecialType.System_Int64, total.Type.SpecialType);
         Assert.Equal(1L, total.GetConstantValue());
 
         var small = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[1]));
-        Assert.True(small.IsLiteral);
+        Assert.True(small.IsConst);
         Assert.True(small.IsStatic);
         Assert.Equal(SpecialType.System_Byte, small.Type.SpecialType);
         Assert.Equal((byte)5, small.GetConstantValue());
