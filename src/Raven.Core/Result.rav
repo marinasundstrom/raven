@@ -2,17 +2,17 @@ namespace System
 
 import System.*
 
-union Result<T> {
+public union Result<T> {
     Ok(value: T)
     Error(message: string)
 }
 
-union Result<T, E> {
+public union Result<T, E> {
     Ok(value: T)
     Error(data: E)
 }
 
-extension ResultExtensions<T> for Result<T> {
+public extension ResultExtensions<T> for Result<T> {
     UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value

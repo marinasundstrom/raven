@@ -2,12 +2,12 @@ namespace System
 
 import System.*
 
-union Option<T> {
+public union Option<T> {
     Some(value: T)
     None
 }
 
-extension OptionExtensions<T> for Option<T> {
+public extension OptionExtensions<T> for Option<T> {
     UnwrapOrDefault() -> T {
         if self is .Some(value) {
             return value

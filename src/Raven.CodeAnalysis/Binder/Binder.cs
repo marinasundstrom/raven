@@ -66,7 +66,7 @@ internal abstract class Binder
                 return current.ContainingSymbol;
         }
 
-        return null;
+        return Compilation.Assembly;
     }
 
     public virtual SemanticModel SemanticModel
@@ -875,7 +875,7 @@ internal abstract class Binder
             if (type is INamedTypeSymbol named)
             {
                 if (named.IsAlias)
-                    return ApplyRefKindHint(named, refKindHint);
+                    return ApplyAccessibilityAndRefKind(named, ident.Identifier.GetLocation(), refKindHint);
 
                 if (named.Arity > 0 && named.IsUnboundGenericType)
                 {
@@ -886,14 +886,23 @@ internal abstract class Binder
                         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
                     }
 
-                    return ApplyRefKindHint(zeroArity, refKindHint);
+                    return ApplyAccessibilityAndRefKind(zeroArity, ident.Identifier.GetLocation(), refKindHint);
                 }
 
-                return ApplyRefKindHint(NormalizeDefinition(named), refKindHint);
+                var normalized = NormalizeDefinition(named);
+                if (!IsSymbolAccessible(normalized))
+                    return ReportInaccessibleType(normalized, ident.Identifier.GetLocation(), refKindHint);
+
+                return ApplyRefKindHint(normalized, refKindHint);
             }
 
             if (type is not null)
+            {
+                if (!IsSymbolAccessible(type))
+                    return ReportInaccessibleType(type, ident.Identifier.GetLocation(), refKindHint);
+
                 return ApplyRefKindHint(type, refKindHint);
+            }
         }
 
         if (typeSyntax is GenericNameSyntax generic)
@@ -914,16 +923,21 @@ internal abstract class Binder
 
             var constructed = TryConstructGeneric(symbol, typeArgs, arity);
             if (constructed is not null)
-                return ApplyRefKindHint(constructed, refKindHint);
+                return ApplyAccessibilityAndRefKind(constructed, generic.Identifier.GetLocation(), refKindHint);
 
-            return ApplyRefKindHint(symbol, refKindHint);
+            return ApplyAccessibilityAndRefKind(symbol, generic.Identifier.GetLocation(), refKindHint);
         }
 
         if (typeSyntax is QualifiedNameSyntax qualified)
         {
             var symbol = ResolveQualifiedType(qualified);
             if (symbol is not null)
+            {
+                if (!IsSymbolAccessible(symbol))
+                    return ReportInaccessibleType(symbol, qualified.GetLocation(), refKindHint);
+
                 return ApplyRefKindHint(symbol, refKindHint);
+            }
         }
 
         var name = typeSyntax switch
@@ -945,6 +959,27 @@ internal abstract class Binder
             return existing;
 
         return new ByRefTypeSymbol(type);
+    }
+
+    private ITypeSymbol ApplyAccessibilityAndRefKind(
+        ITypeSymbol type,
+        Location location,
+        RefKind? refKindHint)
+    {
+        if (IsSymbolAccessible(type))
+            return ApplyRefKindHint(type, refKindHint);
+
+        return ReportInaccessibleType(type, location, refKindHint);
+    }
+
+    private ITypeSymbol ReportInaccessibleType(
+        ITypeSymbol type,
+        Location location,
+        RefKind? refKindHint)
+    {
+        var display = type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportSymbolIsInaccessible("type", display, location);
+        return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
 
     private ITypeSymbol? ResolveQualifiedType(QualifiedNameSyntax qualified)
@@ -1206,7 +1241,7 @@ internal abstract class Binder
             if (symbol is INamedTypeSymbol named)
             {
                 var candidate = NormalizeDefinition(named);
-                if (candidate.Arity == arity)
+                if (candidate.Arity == arity && IsSymbolAccessible(candidate))
                     return candidate;
             }
         }
@@ -1214,7 +1249,7 @@ internal abstract class Binder
         if (LookupType(name) is INamedTypeSymbol fallback)
         {
             var candidate = NormalizeDefinition(fallback);
-            if (candidate.Arity == arity)
+            if (candidate.Arity == arity && IsSymbolAccessible(candidate))
                 return candidate;
         }
 
