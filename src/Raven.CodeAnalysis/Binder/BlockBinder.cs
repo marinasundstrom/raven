@@ -728,6 +728,8 @@ partial class BlockBinder : Binder
             SyntaxKind.MinusEqualsToken => SyntaxKind.MinusToken,
             SyntaxKind.StarEqualsToken => SyntaxKind.StarToken,
             SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
+            SyntaxKind.AmpersandEqualsToken => SyntaxKind.AmpersandToken,
+            SyntaxKind.BarEqualsToken => SyntaxKind.BarToken,
             _ => null,
         };
     }

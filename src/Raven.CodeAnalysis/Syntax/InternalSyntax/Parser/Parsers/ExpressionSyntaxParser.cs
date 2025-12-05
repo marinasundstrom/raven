@@ -345,6 +345,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.MinusEqualsToken => SyntaxKind.SubtractAssignmentExpression,
             SyntaxKind.StarEqualsToken => SyntaxKind.MultiplyAssignmentExpression,
             SyntaxKind.SlashEqualsToken => SyntaxKind.DivideAssignmentExpression,
+            SyntaxKind.AmpersandEqualsToken => SyntaxKind.BitwiseAndAssignmentExpression,
+            SyntaxKind.BarEqualsToken => SyntaxKind.BitwiseOrAssignmentExpression,
             _ => SyntaxKind.SimpleAssignmentExpression,
         };
     }
@@ -367,7 +369,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
             or SyntaxKind.PlusEqualsToken
             or SyntaxKind.MinusEqualsToken
             or SyntaxKind.StarEqualsToken
-            or SyntaxKind.SlashEqualsToken;
+            or SyntaxKind.SlashEqualsToken
+            or SyntaxKind.AmpersandEqualsToken
+            or SyntaxKind.BarEqualsToken;
     }
 
     private static bool IsPossibleAssignmentPatternStart(SyntaxToken token)

@@ -54,6 +54,8 @@
   <NodeKind Name="SubtractAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="MultiplyAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="DivideAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="BitwiseAndAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="BitwiseOrAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="SimpleAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="DiscardAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="MidAssignmentStatement" Type="AssignmentStatement" />
@@ -61,6 +63,8 @@
   <NodeKind Name="SubtractAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="MultiplyAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="DivideAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="BitwiseAndAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="BitwiseOrAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="IntegerDivideAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="ExponentiateAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="LeftShiftAssignmentStatement" Type="AssignmentStatement" />
