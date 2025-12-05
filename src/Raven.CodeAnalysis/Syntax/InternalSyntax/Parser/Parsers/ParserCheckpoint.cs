@@ -20,11 +20,16 @@ internal struct ParserCheckpoint : IDisposable
 
     public string DebugName => _debugName;
 
-    public void Dispose()
+    public readonly void Rewind()
     {
         _context.RewindToPosition(_position);
         _context._lastToken = _lastToken;
         _context._pendingTrivia.Clear();
         _context._pendingTrivia.AddRange(_pendingTriviaSnapshot);
+    }
+
+    public void Dispose()
+    {
+        Rewind();
     }
 }
