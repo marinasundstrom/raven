@@ -52,6 +52,8 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
 
     public ImmutableArray<IMethodSymbol> Constructors { get; } = [];
 
+    public ImmutableArray<IMethodSymbol> InstanceConstructors { get; } = [];
+
     public IMethodSymbol? StaticConstructor { get; } = null;
 
     public INamedTypeSymbol UnderlyingTupleType { get; }

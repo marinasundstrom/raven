@@ -17,6 +17,8 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 
     public ImmutableArray<IMethodSymbol> Constructors => [];
 
+    public ImmutableArray<IMethodSymbol> InstanceConstructors => [];
+
     public IMethodSymbol? StaticConstructor => null;
 
     public ImmutableArray<ITypeSymbol> TypeArguments => [];
