@@ -23,6 +23,38 @@ internal class SyntaxParser : ParseContext
         return token.Kind == SyntaxKind.IdentifierToken;
     }
 
+    protected SyntaxList ParseTypeMemberModifiers()
+    {
+        SyntaxList modifiers = SyntaxList.Empty;
+
+        while (true)
+        {
+            var kind = PeekToken().Kind;
+
+            if (kind is SyntaxKind.PublicKeyword or
+                     SyntaxKind.PrivateKeyword or
+                     SyntaxKind.InternalKeyword or
+                     SyntaxKind.ProtectedKeyword or
+                     SyntaxKind.StaticKeyword or
+                     SyntaxKind.AbstractKeyword or
+                     SyntaxKind.SealedKeyword or
+                     SyntaxKind.PartialKeyword or
+                     SyntaxKind.VirtualKeyword or
+                     SyntaxKind.AsyncKeyword or
+                     SyntaxKind.OpenKeyword or
+                     SyntaxKind.OverrideKeyword)
+            {
+                modifiers = modifiers.Add(ReadToken());
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return modifiers;
+    }
+
     protected static bool HasLeadingEndOfLineTrivia(SyntaxToken token)
     {
         return token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia));
