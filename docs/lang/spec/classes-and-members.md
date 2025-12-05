@@ -47,6 +47,14 @@ metadata. Raven treats these declarations as implicitly `static` even if the
 modifier is omitted, and any attempt to reassign the field produces a diagnostic
 just like rebinding an immutable local.
 
+`let` fields are immutable after initialization. Instance `let` fields may only
+be assigned inline or within instance constructors of the declaring type (on the
+`self` receiver); static `let` fields may only be assigned inline or inside the
+type's static constructor. Any other assignment is rejected in the same way as a
+`readonly` field in C#.
+
+`var` fields are mutable and can be reassigned anywhere the field is accessible.
+
 ### Generic types
 
 Classes and structs optionally declare type parameters immediately after the
