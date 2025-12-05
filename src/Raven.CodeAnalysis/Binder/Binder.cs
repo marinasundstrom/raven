@@ -991,60 +991,50 @@ internal abstract class Binder
     private INamespaceOrTypeSymbol? ResolveQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
     {
         var left = ResolveQualifiedLeft(qualified.Left);
+        INamespaceOrTypeSymbol? resolved = null;
 
         if (left is INamespaceSymbol ns)
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
-                var namespaceMember = ns.LookupNamespace(id.Identifier.ValueText);
-                if (namespaceMember is not null)
-                    return namespaceMember;
-
-                var type = SelectByArity(ns.GetMembers(id.Identifier.ValueText)
-                        .OfType<INamedTypeSymbol>(), 0)
+                resolved = (INamespaceOrTypeSymbol?)ns.LookupNamespace(id.Identifier.ValueText)
+                    ?? SelectByArity(ns.GetMembers(id.Identifier.ValueText).OfType<INamedTypeSymbol>(), 0)
                     ?? ns.LookupType(id.Identifier.ValueText);
 
-                if (type is INamedTypeSymbol named && NormalizeDefinition(named).Arity > 0)
+                if (resolved is INamedTypeSymbol named && NormalizeDefinition(named).Arity > 0)
                 {
                     _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
                     return Compilation.ErrorTypeSymbol;
                 }
-
-                return type;
             }
-
-            if (qualified.Right is GenericNameSyntax gen)
+            else if (qualified.Right is GenericNameSyntax gen)
             {
-                return ResolveGenericMember(ns, gen);
+                resolved = ResolveGenericMember(ns, gen);
             }
-
-            return null;
         }
-
-        if (left is ITypeSymbol leftType)
+        else if (left is ITypeSymbol leftType)
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
-                return SelectByArity(leftType.GetMembers(id.Identifier.ValueText)
+                resolved = SelectByArity(leftType.GetMembers(id.Identifier.ValueText)
                     .OfType<INamedTypeSymbol>(), 0);
             }
-
-            if (qualified.Right is GenericNameSyntax gen)
+            else if (qualified.Right is GenericNameSyntax gen)
             {
-                return ResolveGenericMember(leftType, gen);
+                resolved = ResolveGenericMember(leftType, gen);
             }
-
-            return null;
         }
 
-        var metadataName = qualified.ToString();
-        if (!string.IsNullOrEmpty(metadataName))
+        if (resolved is null)
         {
-            if (Compilation.GetTypeByMetadataName(metadataName) is { } metadataType)
+            var metadataName = qualified.ToString();
+            if (!string.IsNullOrEmpty(metadataName) && Compilation.GetTypeByMetadataName(metadataName) is { } metadataType)
                 return metadataType;
+
+            return left;
         }
 
-        return left;
+        return resolved;
     }
 
     private INamespaceOrTypeSymbol? ResolveQualifiedLeft(TypeSyntax left)

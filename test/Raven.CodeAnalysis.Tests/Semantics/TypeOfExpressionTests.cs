@@ -51,4 +51,19 @@ for member in members {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void TypeOf_WithQualifiedFrameworkType_BindsSuccessfully()
+    {
+        const string testCode = """
+import System.*
+
+let t = typeof(System.String)
+let members = t.GetMembers(.Public)
+""";
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
