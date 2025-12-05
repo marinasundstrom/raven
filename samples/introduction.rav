@@ -1,20 +1,36 @@
+import System.Collections.Generic.List<int>
 import System.Console.*
+import System.Linq.*
 
-func describe(input: string | int | null) -> string {
-    input match {
-        null => "Nothing to report."
-        string text when text.Length > 0 => "Saw \"${text}\""
-        int number => "Counted ${number}"
-        _ => "Empty input."
+alias LedgerEntry = (label: string, value: int)
+
+func shape(values: List<int>) -> List<LedgerEntry> {
+    let result = List<LedgerEntry>()
+    for each value in values {
+        let label = if value < 0 "debit" else "credit"
+        result.Add((label: label, value: value))
     }
+    return result
 }
 
-let first = describe("Raven")
-let second = describe(3)
-let third = describe(null)
+func summarize(readings: List<int>) -> string {
+    let shaped = shape(readings)
+    let total = shaped.Aggregate(0, (acc, entry) => acc + entry.value)
 
-WriteLine(describe(""))
+    let verdict = if total > 0
+        "net positive"
+    else if total < 0
+        "net negative"
+    else
+        "balanced"
 
-let summary = "${first}; ${second}; ${third}"
+    return "processed ${shaped.Count} items -> ${verdict} (${total})"
+}
 
-WriteLine(summary)
+var ledger = List<int>()
+ledger.Add(25)
+ledger.Add(-10)
+ledger.Add(5)
+ledger.Add(0)
+
+WriteLine(summarize(ledger))
