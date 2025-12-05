@@ -443,15 +443,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             if (!TryGetCaseDefinition(out var caseDefinition))
                 throw new InvalidOperationException("Constructed type is not a discriminated union case.");
 
-            var substituted = SubstituteNamedType((INamedTypeSymbol)caseDefinition.Union);
-
-            if (substituted is IDiscriminatedUnionSymbol substitutedUnion)
-                return _union = substitutedUnion;
-
-            if (_containingTypeOverride is IDiscriminatedUnionSymbol containingOverride)
-                return _union = containingOverride;
-
-            return _union = (IDiscriminatedUnionSymbol)caseDefinition.Union;
+            return _union = (IDiscriminatedUnionSymbol)SubstituteNamedType((INamedTypeSymbol)caseDefinition.Union);
         }
     }
 
