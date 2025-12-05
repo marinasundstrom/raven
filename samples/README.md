@@ -23,27 +23,27 @@ These are the main options available for when debugging the compiler:
 
 ## Sample compilation and execution status
 
-Running `bash build.sh` (which now passes `--raven-core` when `Raven.Core.dll` is available) produced 61 successes and 3 failures (`test-result.rav`, `test-result2.rav`, and `test3.rav`). `bash run.sh` succeeded for 37 of the emitted DLLs; the remaining executions failed with `System.Unit` type load errors in the generated option/result assemblies, access-reduction `TypeLoadException`s on generated `ToString` overrides in discriminated union cases, or a missing `TestDep.dll` dependency for `type-unions.rav`.
+Running `RAVEN_CORE=../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll bash build.sh` produced 64/64 compilation successes (the script copies the referenced Raven.Core.dll into `output/`). Running `OUTPUT_DIR=output bash run.sh` succeeded for all 62 emitted DLLs (skipping only the excluded `goto.dll`, `parse-number.dll`, `Raven.Core.dll`, and `TestDep.dll`).
 
 | Sample | Status | Notes |
 | --- | --- | --- |
-| `classes.rav` | ❌ Run | Fails at runtime with a `System.Unit` type load error in the generated option assembly. |
-| `extensions.rav` | ✅ Run | Executes successfully; the previous `MethodAccessException` in `CountItems` is resolved. |
-| `foo.rav` | ✅ Run | Executes successfully (prints `1`) after fixing metadata-generic constraint resolution. |
-| `general.rav` | ✅ Run | Executes successfully (prints the List contents and "Hello, World!"). |
-| `interfaces.rav` | ❌ Run | Fails at runtime with a `System.Unit` type load error in the generated option assembly. |
+| `classes.rav` | ✅ Run | Executes successfully when built with `--raven-core` (prints a `Name` report and unit values). |
+| `extensions.rav` | ✅ Run | Executes successfully; `CountItems` works as expected. |
+| `foo.rav` | ✅ Run | Executes successfully (prints `1`). |
+| `general.rav` | ✅ Run | Executes successfully (prints the list contents and "Hello, World!"). |
+| `interfaces.rav` | ✅ Run | Executes successfully (shows init/do/dispose output). |
 | `introduction.rav` | ✅ Run | Compiles and executes successfully. |
 | `io.rav` | ✅ Run | Compiles and runs (expects an argument, otherwise reports zero files). |
 | `linq.rav` | ✅ Run | Compiles and runs (prints the reversed list). |
-| `main.rav` | ✅ Run | Executes after the conversion fix; tuple element names still print an unexpected `id` value. |
+| `main.rav` | ✅ Run | Executes successfully, emitting the critical value report and tuple output. |
 | `pattern-matching.rav` | ✅ Run | Compiles and prints `else`. |
 | `reflection.rav` | ✅ Run | Compiles and prints the reflected `System.Object` member list. |
-| `test-result.rav` | ❌ Compile | Emission fails with an unsupported union conversion in `parseNumber`. |
-| `test-result2.rav` | ❌ Compile | Emission fails with an unsupported union conversion in `IntHelpers.ParseNumber`. |
+| `test-result.rav` | ✅ Run | Compiles and prints union/error handling output when Raven.Core is referenced. |
+| `test-result2.rav` | ✅ Run | Compiles and prints parsed value output when Raven.Core is referenced. |
 | `test10.rav` | ✅ Run | Compiles and prints `(2, test)`. |
-| `test9.rav` | ❌ Run | Fails at runtime with a `System.Unit` type load error in the generated option assembly. |
+| `test9.rav` | ✅ Run | Compiles and prints `()` once Raven.Core types are available. |
 | `try-match.rav` | ✅ Run | Compiles and prints the formatted exception message (`Format invalid: ...`). |
 | `tuples.rav` | ✅ Run | Compiles and prints tuple element values. |
 | `tuples2.rav` | ✅ Run | Compiles and prints `tuple False foo`. |
-| `type-unions.rav` | ❌ Run | Fails at runtime without `TestDep.dll` beside the output assembly. |
-| `async/try-match-async.rav` | ❌ Run | Fails at runtime with a `System.Unit` type load error in the generated option assembly. |
+| `type-unions.rav` | ✅ Run | Compiles and runs successfully with `TestDep.dll` copied by `build.sh`. |
+| `async/try-match-async.rav` | ✅ Run | Compiles and prints the handled exception output when built with Raven.Core. |
