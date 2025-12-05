@@ -196,6 +196,135 @@ let result = await Test(42)
     }
 
     [Fact]
+    public void Analyze_AsyncMethodWithAwaitInUsingDeclaration_FindsAwait()
+    {
+        const string source = """
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+class C {
+    async Fetch(url: string) -> Task<string> {
+        using let client = HttpClient()
+        using let response = await client.GetAsync(url)
+        return await response.Content.ReadAsStringAsync()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        var analysis = AsyncLowerer.Analyze(methodSymbol, boundBody);
+
+        Assert.True(analysis.ContainsAwait);
+        Assert.True(methodSymbol.ContainsAwait);
+    }
+
+    [Fact]
+    public void Analyze_TopLevelAsyncFunctionWithAwaitInTry_FindsAwait()
+    {
+        const string source = """
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+async func Fetch(url: string) -> Task<string> {
+    using let client = HttpClient()
+
+    try {
+        using let response = await client.GetAsync(url)
+        return await response.Content.ReadAsStringAsync()
+    } catch (HttpRequestException e) {
+        return e.Message
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var functionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(functionSyntax.Body!));
+
+        var analysis = AsyncLowerer.Analyze(methodSymbol, boundBody);
+
+        Assert.True(analysis.ContainsAwait);
+        Assert.True(methodSymbol.ContainsAwait);
+    }
+
+    [Fact]
+    public void Analyze_TopLevelAsyncFunctionWithAwaitAndUnionMatch_FindsAwait()
+    {
+        const string source = """
+import System.Console.*
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+let res = await fetch("http://www.contoso.com/")
+
+let str = res match {
+    .Ok(str) => "Response is: ${str}"
+    .Error(message) => "Error is: ${message}"
+}
+
+WriteLine(str)
+
+async func fetch(url: string) -> Task<Result<string>> {
+    using let client = HttpClient()
+
+    try {
+        using let response = await client.GetAsync(url)
+        response.EnsureSuccessStatusCode()
+        let responseBody = await response.Content.ReadAsStringAsync()
+        return .Ok(responseBody)
+    } catch (HttpRequestException e) {
+        return .Error(e.Message)
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var functionSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "fetch");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(Compilation.ContainsAwaitExpressionOutsideNestedFunctions(functionSyntax.Body!));
+        Assert.True(methodSymbol.ContainsAwait);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV2706");
+
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(functionSyntax.Body!));
+        var analysis = AsyncLowerer.Analyze(methodSymbol, boundBody);
+
+        Assert.True(analysis.ContainsAwait);
+    }
+
+    [Fact]
     public void Rewrite_AwaitInReturnExpression_LowersToBlockExpression()
     {
         const string source = """

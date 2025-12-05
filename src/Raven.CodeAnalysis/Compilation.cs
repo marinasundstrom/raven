@@ -279,21 +279,26 @@ public partial class Compilation
     internal static bool ContainsAwaitExpressionOutsideNestedFunctions(StatementSyntax statement)
     {
         return ContainsAwaitExpressionOutsideNestedFunctions((SyntaxNode)statement);
+    }
 
-        static bool ContainsAwaitExpressionOutsideNestedFunctions(SyntaxNode node)
+    internal static bool ContainsAwaitExpressionOutsideNestedFunctions(SyntaxNode node)
+    {
+        return ContainsAwaitExpressionOutsideNestedFunctionsCore(node);
+
+        static bool ContainsAwaitExpressionOutsideNestedFunctionsCore(SyntaxNode current)
         {
-            if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
+            if (current is FunctionStatementSyntax or LambdaExpressionSyntax)
                 return false;
 
-            if (node.Kind == SyntaxKind.AwaitExpression)
+            if (current.Kind == SyntaxKind.AwaitExpression)
                 return true;
 
-            foreach (var child in node.ChildNodes())
+            foreach (var child in current.ChildNodes())
             {
                 if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
                     continue;
 
-                if (ContainsAwaitExpressionOutsideNestedFunctions(child))
+                if (ContainsAwaitExpressionOutsideNestedFunctionsCore(child))
                     return true;
             }
 
