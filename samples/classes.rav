@@ -42,7 +42,9 @@ class Person : Base {
         self
     }
 
-    // public Test() -> int => 2
+    public Test() -> int => 2
+
+    public Test2: int => 2
 
     // Computed property
     public Name: string {

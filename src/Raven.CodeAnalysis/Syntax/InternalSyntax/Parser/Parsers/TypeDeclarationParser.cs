@@ -68,7 +68,6 @@ internal class TypeDeclarationParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseBraceToken))
                 break;
 
-
             var member = ParseMember();
 
             memberList.Add(member);
@@ -621,22 +620,22 @@ internal class TypeDeclarationParser : SyntaxParser
                 break;
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
-        SyntaxList modifiers = SyntaxList.Empty;
-        SyntaxToken modifier;
+            SyntaxList modifiers = SyntaxList.Empty;
+            SyntaxToken modifier;
 
-        while (true)
-        {
-            if (ConsumeToken(SyntaxKind.AsyncKeyword, out modifier) ||
-                ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
-                ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
-                ConsumeToken(SyntaxKind.InKeyword, out modifier))
+            while (true)
             {
-                modifiers = modifiers.Add(modifier);
-                continue;
-            }
+                if (ConsumeToken(SyntaxKind.AsyncKeyword, out modifier) ||
+                    ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
+                    ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
+                    ConsumeToken(SyntaxKind.InKeyword, out modifier))
+                {
+                    modifiers = modifiers.Add(modifier);
+                    continue;
+                }
 
-            break;
-        }
+                break;
+            }
 
             SyntaxToken name;
 
