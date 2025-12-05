@@ -1145,7 +1145,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
             return DefaultExpression(defaultKeyword, openParenToken, type, closeParenToken);
         }
 
-        return DefaultExpression(defaultKeyword, null, null, null);
+        var missingOpenParen = MissingToken(SyntaxKind.OpenParenToken);
+        var missingCloseParen = MissingToken(SyntaxKind.CloseParenToken);
+
+        return DefaultExpression(defaultKeyword, missingOpenParen, null, missingCloseParen);
     }
 
     private ExpressionSyntax ParseTypeOfExpression()
