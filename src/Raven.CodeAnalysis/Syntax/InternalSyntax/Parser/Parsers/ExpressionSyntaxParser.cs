@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Text;
 
+using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
+
 using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -1365,25 +1367,45 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 }
 
                 var dollarToken = new SyntaxToken(SyntaxKind.DollarToken, "$");
-                var openBraceToken = new SyntaxToken(SyntaxKind.OpenBraceToken, "{");
 
-                i += 2; // skip ${
-                int depth = 1;
-                int start = i;
-                while (i < inner.Length && depth > 0)
+                if (inner[i + 1] == '{')
                 {
-                    if (inner[i] == '{')
-                        depth++;
-                    else if (inner[i] == '}')
-                        depth--;
-                    i++;
-                }
+                    var openBraceToken = new SyntaxToken(SyntaxKind.OpenBraceToken, "{");
 
-                int end = i - 1;
-                var exprText = end >= start ? inner.Substring(start, end - start) : string.Empty;
-                var exprSyntax = ParseExpressionFromText(exprText);
-                var closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
-                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                    i += 2; // skip ${
+                    int depth = 1;
+                    int start = i;
+                    while (i < inner.Length && depth > 0)
+                    {
+                        if (inner[i] == '{')
+                            depth++;
+                        else if (inner[i] == '}')
+                            depth--;
+                        i++;
+                    }
+
+                    int end = i - 1;
+                    var exprText = end >= start ? inner.Substring(start, end - start) : string.Empty;
+                    var exprSyntax = ParseExpressionFromText(exprText);
+                    var closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
+                    contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                }
+                else
+                {
+                    var openBraceToken = SyntaxToken.Missing(SyntaxKind.OpenBraceToken);
+
+                    i++; // skip $
+                    int start = i;
+                    while (i < inner.Length && SyntaxFacts.IsIdentifierPartCharacter(inner[i]))
+                    {
+                        i++;
+                    }
+
+                    var exprText = inner.Substring(start, i - start);
+                    var exprSyntax = ParseExpressionFromText(exprText);
+                    var closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken);
+                    contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                }
 
                 segmentStart = i;
             }
@@ -1434,7 +1456,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         for (int i = 0; i < text.Length - 1; i++)
         {
-            if (text[i] == '$' && text[i + 1] == '{' && !IsEscaped(text, i))
+            if (IsInterpolationStart(text, i))
             {
                 return true;
             }
@@ -1445,7 +1467,18 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private static bool IsInterpolationStart(string text, int index)
     {
-        return index + 1 < text.Length && text[index] == '$' && text[index + 1] == '{' && !IsEscaped(text, index);
+        if (index + 1 >= text.Length)
+        {
+            return false;
+        }
+
+        if (text[index] != '$' || IsEscaped(text, index))
+        {
+            return false;
+        }
+
+        var next = text[index + 1];
+        return next == '{' || SyntaxFacts.IsIdentifierStartCharacter(next);
     }
 
     private static bool IsEscaped(string text, int index)

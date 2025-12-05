@@ -20,6 +20,48 @@ public class InterpolatedStringTests
     }
 
     [Fact]
+    public void InterpolatedStringText_AllowsIdentifierShorthand()
+    {
+        var source = "let s = \"Hello $name!\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var leading = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Hello ", leading.Token.ValueText);
+            },
+            second =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(second);
+                Assert.True(interpolation.OpenBraceToken.IsMissing);
+                Assert.Equal("name", interpolation.Expression.ToString());
+                Assert.True(interpolation.CloseBraceToken.IsMissing);
+            },
+            third =>
+            {
+                var trailing = Assert.IsType<InterpolatedStringTextSyntax>(third);
+                Assert.Equal("!", trailing.Token.ValueText);
+            });
+    }
+
+    [Fact]
+    public void InterpolatedStringText_AllowsEscapedIdentifierShorthand()
+    {
+        var source = "let s = \"Cost \\\\$value\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Empty(root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>());
+
+        var literal = root.DescendantNodes().OfType<LiteralExpressionSyntax>().Single();
+        Assert.Equal("Cost $value", literal.Token.ValueText);
+    }
+
+    [Fact]
     public void InterpolatedStringText_TrailingSegmentDecodesUnicode()
     {
         var source = "let s = \"${value} \\u0041\";";

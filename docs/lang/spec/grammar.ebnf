@@ -345,4 +345,6 @@ QualifiedName            ::= Identifier {'.' Identifier} ;
 Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, digits, '_' or '$'.
                                The single '_' token is reserved for discards. */ ;
 NumericLiteral           ::= /* int | float | hex | bin (lexically resolved) */ ;
-StringLiteral            ::= '"' /* content with escapes */ '"' ;
+StringLiteral            ::= '"' {InterpolatedStringText | Interpolation} '"' ;
+InterpolatedStringText   ::= /* content with escapes */ ;
+Interpolation            ::= '$' Identifier | '$' '{' Expression '}' ;
