@@ -27,6 +27,10 @@ class ImportBinder : Binder
         if (_aliases.TryGetValue(name, out var aliasSymbols))
             return aliasSymbols.OfType<ITypeSymbol>().FirstOrDefault();
 
+        var declared = CurrentNamespace?.LookupType(name);
+        if (declared is not null)
+            return declared;
+
         var type = _typeImports.FirstOrDefault(x => x.Name == name);
         if (type is not null)
             return type;
@@ -45,6 +49,10 @@ class ImportBinder : Binder
     {
         if (_aliases.TryGetValue(name, out var symbols))
             return symbols.FirstOrDefault();
+
+        var declared = CurrentNamespace?.GetMembers(name).FirstOrDefault();
+        if (declared is not null)
+            return declared;
 
         var matchingType = _typeImports.FirstOrDefault(x => x.Name == name);
         if (matchingType is not null)

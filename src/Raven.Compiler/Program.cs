@@ -40,6 +40,7 @@ string? targetFrameworkTfm = null;
 string? outputPath = null;
 var outputKind = OutputKind.ConsoleApplication;
 string? ravenCorePath = null;
+var ravenCoreExplicitlyProvided = false;
 var embedCoreTypes = true;
 
 var printSyntaxTree = false;
@@ -183,6 +184,7 @@ for (int i = 0; i < args.Length; i++)
             {
                 ravenCorePath = args[++i];
                 embedCoreTypes = false;
+                ravenCoreExplicitlyProvided = true;
             }
             else
             {
@@ -224,7 +226,12 @@ if (showHelp || hasInvalidOption)
 if (sourceFiles.Count == 0)
     sourceFiles.Add($"../../../../../samples/result{RavenFileExtensions.Raven}");
 
-ravenCorePath ??= "../../../../../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll";
+if (!ravenCoreExplicitlyProvided)
+{
+    var defaultRavenCorePath = Path.GetFullPath("../../../../../src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll");
+    if (File.Exists(defaultRavenCorePath))
+        ravenCorePath = defaultRavenCorePath;
+}
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {
@@ -242,18 +249,24 @@ if (!string.IsNullOrWhiteSpace(ravenCorePath))
     ravenCorePath = Path.GetFullPath(ravenCorePath);
     if (!File.Exists(ravenCorePath))
     {
-        AnsiConsole.MarkupLine($"[red]Raven core assembly '{ravenCorePath}' doesn't exist.[/]");
-        Environment.ExitCode = 1;
-        return;
+        if (ravenCoreExplicitlyProvided)
+        {
+            AnsiConsole.MarkupLine($"[red]Raven core assembly '{ravenCorePath}' doesn't exist.[/]");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        ravenCorePath = null;
     }
 }
 
-var assemblyName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
+var defaultAssemblyBaseName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
 
-outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : assemblyName;
+outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : defaultAssemblyBaseName;
 if (!Path.HasExtension(outputPath))
     outputPath = $"{outputPath}.dll";
 var outputFilePath = Path.GetFullPath(outputPath);
+var assemblyName = Path.GetFileNameWithoutExtension(outputFilePath);
 var outputDirectory = Path.GetDirectoryName(outputFilePath);
 if (string.IsNullOrEmpty(outputDirectory))
     outputDirectory = Directory.GetCurrentDirectory();

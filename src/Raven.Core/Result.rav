@@ -2,18 +2,26 @@ namespace System
 
 import System.*
 
-union Result<T> {
+public union Result<T> {
     Ok(value: T)
     Error(message: string)
 }
 
-union Result<T, E> {
+public union Result<T, E> {
     Ok(value: T)
     Error(data: E)
 }
 
-extension ResultExtensions<T> for Result<T> {
-    UnwrapOrDefault() -> T {
+public extension ResultExtensions<T> for Result<T> {
+    public IsOk: bool {
+        get => self is .Ok(message)
+    }
+
+    public IsError: bool {
+        get => self is .Error(message)
+    }
+
+    public UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value
         }
@@ -21,7 +29,7 @@ extension ResultExtensions<T> for Result<T> {
         return default(T)
     }
 
-    UnwrapOrThrow() -> T {
+    public UnwrapOrThrow() -> T {
         var error: string = ""
         if self is .Ok(value) {
             return value
@@ -32,7 +40,7 @@ extension ResultExtensions<T> for Result<T> {
         throw new InvalidOperationException(error)
     }
 
-    UnwrapOr(defaultValue: T) -> T {
+    public UnwrapOr(defaultValue: T) -> T {
         if self is .Ok(value) {
             return value
         }

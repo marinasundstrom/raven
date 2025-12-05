@@ -228,8 +228,8 @@ internal class CodeGenerator
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _discriminatedUnionCaseCtor;
 
-    bool _emitTypeUnionAttribute;
-    bool _emitNullType;
+    bool _emitTypeUnionAttribute = true;
+    bool _emitNullType = true;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
     {
@@ -787,7 +787,7 @@ internal class CodeGenerator
             }
         }
 
-        void CheckType(ITypeSymbol typeSymbol)
+        static void CheckType(ITypeSymbol typeSymbol)
         {
             if (typeSymbol is null)
                 return;
@@ -798,23 +798,26 @@ internal class CodeGenerator
                 return;
             }
 
-            if (typeSymbol.IsTypeUnion && typeSymbol is IUnionTypeSymbol union)
-            {
-                _emitTypeUnionAttribute = true;
-                foreach (var t in union.Types)
-                {
-                    if (t.TypeKind == TypeKind.Null)
-                        _emitNullType = true;
-                    CheckType(t);
-                }
-                return;
-            }
 
-            if (typeSymbol.TypeKind == TypeKind.Null)
-            {
-                _emitNullType = true;
-                return;
-            }
+            /*
+                            if (typeSymbol.IsTypeUnion && typeSymbol is IUnionTypeSymbol union)
+                            {
+                                _emitTypeUnionAttribute = true;
+                                foreach (var t in union.Types)
+                                {
+                                    if (t.TypeKind == TypeKind.Null)
+                                        _emitNullType = true;
+                                    CheckType(t);
+                                }
+                                return;
+                            }
+
+                            if (typeSymbol.TypeKind == TypeKind.Null)
+                            {
+                                _emitNullType = true;
+                                return;
+                            }
+            */
 
             if (typeSymbol is INamedTypeSymbol named && named.IsGenericType)
             {

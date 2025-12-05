@@ -10,6 +10,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
     protected readonly TypeResolver _typeResolver;
     protected readonly System.Reflection.TypeInfo _typeInfo;
+    private readonly bool _isValueType;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
@@ -111,6 +112,24 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         }
     }
 
+    private static bool IsValueTypeLike(System.Reflection.TypeInfo typeInfo)
+    {
+        try
+        {
+            if (typeInfo.IsValueType)
+                return true;
+
+            if (!typeInfo.IsGenericTypeDefinition)
+                return false;
+
+            return typeInfo.BaseType?.FullName == "System.ValueType";
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
     internal static IEnumerable<CustomAttributeData> GetCustomAttributesSafe(System.Reflection.TypeInfo typeInfo)
     {
         IList<CustomAttributeData> attributes;
@@ -177,6 +196,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         _typeResolver = typeResolver;
         _typeInfo = typeInfo;
 
+        _isValueType = IsValueTypeLike(typeInfo);
+
         if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
         {
             TypeKind = TypeKind.Class;
@@ -188,7 +209,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             TypeKind = TypeKind.Enum;
         else if (IsDelegateType(typeInfo))
             TypeKind = TypeKind.Delegate;
-        else if (typeInfo.IsValueType)
+        else if (_isValueType)
             TypeKind = TypeKind.Struct;
         else if (typeInfo.IsInterface)
             TypeKind = TypeKind.Interface;
@@ -215,8 +236,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
-    public bool IsValueType => _typeInfo.IsValueType;
-    public bool IsReferenceType => !_typeInfo.IsValueType;
+    public bool IsValueType => _isValueType;
+    public bool IsReferenceType => !_isValueType;
     public bool IsInterface => _typeInfo.IsInterface;
 
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();

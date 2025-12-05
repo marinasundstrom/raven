@@ -22,7 +22,7 @@
     Outputs="$(OutputPath)Raven.Core.dll">
     <MakeDir Directories="$(OutputPath)" />
     <Exec
-      Command="dotnet run --project ../Raven.Compiler/Raven.Compiler.csproj -- --framework $(TargetFramework) --output-type classlib -o &quot;$(OutputPath)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
+      Command="dotnet run --project ../Raven.Compiler/Raven.Compiler.csproj -- --framework $(TargetFramework) --embed-core-types --output-type classlib -o &quot;$(OutputPath)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
   </Target>
 
   <Target Name="CleanRavenCore"

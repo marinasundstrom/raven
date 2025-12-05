@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace Raven.CodeAnalysis;
 
 public abstract class MetadataReference : IEquatable<MetadataReference>
@@ -7,19 +9,18 @@ public abstract class MetadataReference : IEquatable<MetadataReference>
         return new PortableExecutableReference(filePath);
     }
 
-    /*
-
-    public static PortableExecutableReference CreateFromStream(Stream peStream, string? filePath = null)
-    {
-        throw new NotImplementedException();
-    }
-
     public static PortableExecutableReference CreateFromImage(byte[] peBytes, string? filePath = null)
     {
-        throw new NotImplementedException();
-    }
+        var path = filePath;
 
-    */
+        if (string.IsNullOrEmpty(path))
+        {
+            path = Path.GetTempFileName();
+        }
+
+        File.WriteAllBytes(path!, peBytes);
+        return CreateFromFile(path!);
+    }
 
     public abstract override bool Equals(object? obj);
     public abstract bool Equals(MetadataReference? other);

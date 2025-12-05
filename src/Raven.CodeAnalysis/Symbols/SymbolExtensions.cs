@@ -32,6 +32,14 @@ public static partial class SymbolExtensions
         ["System.Unit"] = "unit"
     };
 
+    public static string ToFullyQualifiedMetadataName(this INamedTypeSymbol typeSymbol)
+    {
+        if (typeSymbol is null)
+            throw new ArgumentNullException(nameof(typeSymbol));
+
+        return ((ITypeSymbol)typeSymbol).ToFullyQualifiedMetadataName();
+    }
+
     public static bool MetadataIdentityEquals(this ITypeSymbol? left, ITypeSymbol? right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
@@ -495,18 +503,24 @@ public static partial class SymbolExtensions
         if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
             typeSymbol.Arity > 0)
         {
+            var declaredArity = typeSymbol.Arity;
             IEnumerable<string> arguments;
 
             if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
                 typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length)
             {
                 // Constructed type: use actual type arguments
-                arguments = typeSymbol.TypeArguments.Select(a => FormatType(a, format));
+                var offset = typeSymbol.TypeArguments.Length - declaredArity;
+                arguments = typeSymbol.TypeArguments
+                    .Skip(offset)
+                    .Take(declaredArity)
+                    .Select(a => FormatType(a, format));
             }
             else
             {
-                // Unconstructed type: fall back to parameter names
+                // Unconstructed type: fall back to parameter names declared on this type
                 arguments = typeSymbol.TypeParameters
+                    .Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, typeSymbol))
                     .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
             }
 

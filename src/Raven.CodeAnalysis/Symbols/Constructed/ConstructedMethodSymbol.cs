@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -9,21 +10,30 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal sealed class ConstructedMethodSymbol : IMethodSymbol
 {
     private readonly IMethodSymbol _definition;
     private readonly ImmutableArray<ITypeSymbol> _typeArguments;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
+    private readonly ISymbol? _containingSymbol;
+    private readonly INamedTypeSymbol? _containingType;
     private ImmutableArray<IParameterSymbol>? _parameters;
     private ImmutableArray<IMethodSymbol>? _explicitImpls;
     private ITypeSymbol? _returnType;
 
-    public ConstructedMethodSymbol(IMethodSymbol definition, ImmutableArray<ITypeSymbol> typeArguments)
+    public ConstructedMethodSymbol(
+        IMethodSymbol definition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        INamedTypeSymbol? constructedContainingType = null)
     {
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         _typeArguments = typeArguments.IsDefault
             ? []
             : typeArguments;
+
+        _containingType = constructedContainingType ?? definition.ContainingType;
+        _containingSymbol = constructedContainingType ?? definition.ContainingSymbol;
 
         var typeParameters = definition.TypeParameters;
         if (typeParameters.Length != typeArguments.Length)
@@ -48,11 +58,14 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ISymbol? UnderlyingSymbol => this;
     public Accessibility DeclaredAccessibility => _definition.DeclaredAccessibility;
     public bool IsStatic => _definition.IsStatic;
-    public ISymbol? ContainingSymbol => _definition.ContainingSymbol;
-    public INamedTypeSymbol? ContainingType => _definition.ContainingType;
-    public INamespaceSymbol? ContainingNamespace => _definition.ContainingNamespace;
-    public IAssemblySymbol? ContainingAssembly => _definition.ContainingAssembly;
-    public IModuleSymbol? ContainingModule => _definition.ContainingModule;
+    public ISymbol? ContainingSymbol => _containingSymbol ?? _definition.ContainingSymbol;
+    public INamedTypeSymbol? ContainingType => _containingType ?? _definition.ContainingType;
+    public INamespaceSymbol? ContainingNamespace =>
+        _containingType?.ContainingNamespace ?? _definition.ContainingNamespace;
+    public IAssemblySymbol? ContainingAssembly =>
+        _containingType?.ContainingAssembly ?? _definition.ContainingAssembly;
+    public IModuleSymbol? ContainingModule =>
+        _containingType?.ContainingModule ?? _definition.ContainingModule;
     public ISymbol? AssociatedSymbol => _definition.AssociatedSymbol;
     public ImmutableArray<Location> Locations => _definition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _definition.DeclaringSyntaxReferences;
@@ -155,7 +168,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (typeArguments is null)
             throw new ArgumentNullException(nameof(typeArguments));
 
-        return new ConstructedMethodSymbol(_definition, typeArguments.ToImmutableArray());
+        return new ConstructedMethodSymbol(_definition, typeArguments.ToImmutableArray(), _containingType);
     }
 
     private ITypeSymbol Substitute(ITypeSymbol type)
@@ -247,6 +260,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return typeParameter;
     }
 
+    [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
     private sealed class ConstructedParameterSymbol : IParameterSymbol
     {
         private readonly IParameterSymbol _original;
@@ -286,6 +300,40 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
 
         public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+
+        private string GetDebuggerDisplay()
+        {
+            try
+            {
+                return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
+            }
+            catch (Exception exc)
+            {
+                return $"{Kind}: <{exc.GetType().Name}>";
+            }
+        }
+
+        public override string ToString()
+        {
+            return this.ToDisplayString();
+        }
+    }
+
+    private string GetDebuggerDisplay()
+    {
+        try
+        {
+            return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
+        }
+        catch (Exception exc)
+        {
+            return $"{Kind}: <{exc.GetType().Name}>";
+        }
+    }
+
+    public override string ToString()
+    {
+        return this.ToDisplayString();
     }
 
     internal MethodInfo GetMethodInfo(CodeGen.CodeGenerator codeGen)
@@ -293,7 +341,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
-        var containingType = _definition.ContainingType
+        var containingType = _containingType ?? _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
