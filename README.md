@@ -130,7 +130,7 @@ cd src/Raven.CodeAnalysis/Syntax
 dotnet run --project ../../../tools/NodeGenerator   # add `-- -f` to force regeneration
 cd ../../..
 
-# Build and test
+# Build the compiler, tests, and Raven.Core (the Option/Result standard library built with ravc)
 dotnet build Raven.sln
 dotnet test
 ```
