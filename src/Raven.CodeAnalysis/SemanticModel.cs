@@ -731,16 +731,16 @@ public partial class SemanticModel
                         SourceNamedTypeSymbol classSymbol;
                         var isNewSymbol = true;
 
-                    ReportExternalTypeRedeclaration(
-                        parentNamespace,
-                        classDecl.Identifier,
-                        classDecl.TypeParameterList?.Parameters.Count ?? 0,
-                        parentBinder.Diagnostics);
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            classDecl.Identifier,
+                            classDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
 
-                    if (parentSourceNamespace is not null &&
-                        parentSourceNamespace.IsMemberDefined(classDecl.Identifier.ValueText, out var existingMember) &&
-                        existingMember is SourceNamedTypeSymbol existingType &&
-                        existingType.TypeKind == TypeKind.Class)
+                        if (parentSourceNamespace is not null &&
+                            parentSourceNamespace.IsMemberDefined(classDecl.Identifier.ValueText, out var existingMember) &&
+                            existingMember is SourceNamedTypeSymbol existingType &&
+                            existingType.TypeKind == TypeKind.Class)
                         {
                             var hadPartial = existingType.HasPartialModifier;
                             var hadNonPartial = existingType.HasNonPartialDeclaration;
@@ -802,7 +802,7 @@ public partial class SemanticModel
                         break;
                     }
 
-                    case UnionDeclarationSyntax unionDecl:
+                case UnionDeclarationSyntax unionDecl:
                     {
                         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
                         var namespaceSymbol = parentNamespace.AsSourceNamespace();
@@ -1022,7 +1022,7 @@ public partial class SemanticModel
                 [caseClause.GetReference()],
                 isStatic: false,
                 methodKind: MethodKind.Constructor,
-                declaredAccessibility: unionAccessibility);
+                declaredAccessibility: Accessibility.Public);
 
             RegisterCaseMember(constructor);
 
@@ -1102,7 +1102,7 @@ public partial class SemanticModel
                             namespaceSymbol,
                             [parameterSyntax.GetLocation()],
                             [parameterSyntax.GetReference()],
-                            declaredAccessibility: unionAccessibility);
+                            declaredAccessibility: Accessibility.Private);
 
                         RegisterCaseMember(propertySymbol);
 
@@ -1117,7 +1117,7 @@ public partial class SemanticModel
                             [parameterSyntax.GetReference()],
                             isStatic: false,
                             methodKind: MethodKind.PropertyGet,
-                            declaredAccessibility: unionAccessibility);
+                            declaredAccessibility: Accessibility.Public);
 
                         RegisterCaseMember(getterSymbol);
 
@@ -1161,7 +1161,7 @@ public partial class SemanticModel
                 Array.Empty<SyntaxReference>(),
                 isStatic: true,
                 methodKind: MethodKind.Conversion,
-                declaredAccessibility: unionAccessibility);
+                declaredAccessibility: Accessibility.Public);
 
             var conversionParameter = new SourceParameterSymbol(
                 "value",
@@ -1187,7 +1187,7 @@ public partial class SemanticModel
                 Array.Empty<SyntaxReference>(),
                 isStatic: false,
                 methodKind: MethodKind.Ordinary,
-                declaredAccessibility: unionAccessibility);
+                declaredAccessibility: Accessibility.Public);
 
             var tryGetParameter = new SourceParameterSymbol(
                 "value",
