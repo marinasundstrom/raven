@@ -21,12 +21,15 @@ public static class SemanticClassifier
             // Literals
             else if (kind == SyntaxKind.StringLiteralToken ||
                      kind == SyntaxKind.StringStartToken ||
-                     kind == SyntaxKind.StringEndToken ||
-                     kind == SyntaxKind.DollarToken ||
+                     kind == SyntaxKind.StringEndToken)
+            {
+                tokenMap[descendant] = SemanticClassification.StringLiteral;
+            }
+            else if (kind == SyntaxKind.DollarToken ||
                      (kind == SyntaxKind.OpenBraceToken && descendant.Parent is InterpolationSyntax) ||
                      (kind == SyntaxKind.CloseBraceToken && descendant.Parent is InterpolationSyntax))
             {
-                tokenMap[descendant] = SemanticClassification.StringLiteral;
+                tokenMap[descendant] = SemanticClassification.Interpolation;
             }
             else if (kind == SyntaxKind.NumericLiteralToken)
             {
@@ -128,6 +131,7 @@ public enum SemanticClassification
     Keyword,
     NumericLiteral,
     StringLiteral,
+    Interpolation,
     Comment,
     Namespace,
     Type,

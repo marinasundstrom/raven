@@ -34,9 +34,9 @@ class C {
 
         result.Tokens[startQuote].ShouldBe(SemanticClassification.StringLiteral);
         result.Tokens[endQuote].ShouldBe(SemanticClassification.StringLiteral);
-        result.Tokens[dollar].ShouldBe(SemanticClassification.StringLiteral);
-        result.Tokens[openBrace].ShouldBe(SemanticClassification.StringLiteral);
-        result.Tokens[closeBrace].ShouldBe(SemanticClassification.StringLiteral);
+        result.Tokens[dollar].ShouldBe(SemanticClassification.Interpolation);
+        result.Tokens[openBrace].ShouldBe(SemanticClassification.Interpolation);
+        result.Tokens[closeBrace].ShouldBe(SemanticClassification.Interpolation);
     }
 
     [Fact]

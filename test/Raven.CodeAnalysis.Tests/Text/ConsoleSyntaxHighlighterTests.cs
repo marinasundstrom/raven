@@ -80,6 +80,41 @@ class Test {
     }
 
     [Fact]
+    public void InterpolatedString_UsesDistinctInterpolationColor()
+    {
+        var source = """
+class Test {
+    GetInfo(name: string) -> string {
+        return "Hello ${name}";
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
+        try
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+
+            var text = root.WriteNodeToText(compilation);
+
+            var interpolationAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Interpolation}m";
+            var stringAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.StringLiteral}m";
+
+            Assert.Contains(interpolationAnsi, text);
+            Assert.Contains(stringAnsi, text);
+            Assert.Contains($"{interpolationAnsi}$", text);
+            Assert.DoesNotContain($"{stringAnsi}$", text);
+        }
+        finally
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
+        }
+    }
+
+    [Fact]
     public void MethodInvocation_UsesMethodColor()
     {
         var source = """
