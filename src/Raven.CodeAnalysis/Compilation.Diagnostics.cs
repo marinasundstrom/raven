@@ -27,6 +27,8 @@ public partial class Compilation
         foreach (var diagnostic in entryPointDiagnostics)
             Add(diagnostic);
 
+        diagnostics.RemoveAll(ShouldSuppressAsyncLacksAwait);
+
         if (Options.OutputKind == OutputKind.ConsoleApplication
             && entryPointDiagnostics.IsDefaultOrEmpty
             && GetEntryPoint(cancellationToken) is null)
@@ -41,6 +43,42 @@ public partial class Compilation
             var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
             if (mapped is not null)
                 diagnostics.Add(mapped);
+        }
+
+        bool ShouldSuppressAsyncLacksAwait(Diagnostic diagnostic)
+        {
+            if (diagnostic.Id != CompilerDiagnostics.AsyncLacksAwait.Id)
+                return false;
+
+            var sourceTree = diagnostic.Location.SourceTree;
+            if (sourceTree is null)
+                return false;
+
+            var root = sourceTree.GetRoot(cancellationToken);
+            var node = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
+
+            var asyncNode = node.AncestorsAndSelf()
+                .FirstOrDefault(n => n is FunctionStatementSyntax or MethodDeclarationSyntax or AccessorDeclarationSyntax);
+
+            if (asyncNode is null)
+                return false;
+
+            var model = GetSemanticModel(sourceTree);
+            SyntaxNode? bodySyntax = asyncNode switch
+            {
+                FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody?.Expression,
+                MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression,
+                AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody?.Expression,
+                _ => null,
+            };
+
+            if (bodySyntax is null)
+                return false;
+
+            var hasAwaitSyntax = ContainsAwaitExpressionOutsideNestedFunctions(bodySyntax);
+            var hasAwaitBound = model.GetBoundNode(bodySyntax) is BoundNode bound && AsyncLowerer.ContainsAwait(bound);
+
+            return hasAwaitSyntax || hasAwaitBound;
         }
     }
 

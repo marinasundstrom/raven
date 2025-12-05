@@ -6508,7 +6508,8 @@ partial class BlockBinder : Binder
 
             if (symbol is SourceMethodSymbol { IsAsync: true } asyncMethod)
             {
-                var containsAwait = AsyncLowerer.ContainsAwait(boundBlock);
+                var containsAwait = AsyncLowerer.ContainsAwait(boundBlock) ||
+                    Compilation.ContainsAwaitExpressionOutsideNestedFunctions(function.ExpressionBody);
                 asyncMethod.SetContainsAwait(containsAwait);
 
                 if (!containsAwait)

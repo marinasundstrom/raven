@@ -525,7 +525,8 @@ partial class BlockBinder
 
         if (isAsyncLambda && lambdaSymbol is SourceLambdaSymbol asyncLambda)
         {
-            var containsAwait = AsyncLowerer.ContainsAwait(bodyExpr);
+            var containsAwait = AsyncLowerer.ContainsAwait(bodyExpr) ||
+                Compilation.ContainsAwaitExpressionOutsideNestedFunctions(syntax.ExpressionBody);
             asyncLambda.SetContainsAwait(containsAwait);
 
             if (!containsAwait)

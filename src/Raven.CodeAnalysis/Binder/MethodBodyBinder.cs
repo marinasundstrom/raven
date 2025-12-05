@@ -103,7 +103,8 @@ class MethodBodyBinder : BlockBinder
 
     private void AnalyzeAsyncBody(SyntaxNode bodySyntax, SourceMethodSymbol asyncMethod, BoundBlockStatement bound)
     {
-        var containsAwait = AsyncLowerer.ContainsAwait(bound);
+        var containsAwait = AsyncLowerer.ContainsAwait(bound) ||
+            Compilation.ContainsAwaitExpressionOutsideNestedFunctions(bodySyntax);
         asyncMethod.SetContainsAwait(containsAwait);
 
         if (containsAwait)
