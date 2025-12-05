@@ -731,6 +731,22 @@ well as top-level `func` declarations. Because overload resolution still sees
 the piped value as the first argument, generic methods can infer type arguments
 from that value without any additional annotations.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2724-L2768】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L1396-L1507】
 
+### Bitwise operators
+
+The binary `&` and `|` operators perform bitwise combination on `int`, `long`, and matching enum operands. When both operands are `bool`, they evaluate **without** short-circuiting and return `bool`, allowing direct use in non-conditional contexts or within compound assignments. Operands must share the same enum type when applied to enums; the result has that enum type.
+
+Compound assignments `&=` and `|=` are available and apply the corresponding binary operator after evaluating the left-hand side once. These operators share left-to-right associativity with other Raven binary operators, and their precedence sits between the logical (`||`, `&&`) and equality operators.
+
+Enum member accesses support **leading-dot** syntax when a target type is already known, including inside bitwise combinations and argument lists:
+
+```raven
+let flags: BindingFlags = .NonPublic | .Static
+
+func WithBinding(flags: BindingFlags) { /* ... */ }
+
+WithBinding(.Public | .Instance)
+```
+
 ### Object creation
 
 Objects are created by **calling the type name** directly, just like any
@@ -2076,18 +2092,20 @@ For guidance on declaring classes, structs, members, and interfaces, see
 
 Lowest → highest (all left-associative unless noted):
 
-1. Assignment: `=  +=  -=  *=  /=  %=`
+1. Assignment: `=  +=  -=  *=  /=  %=  &=  |=`
 2. Null-coalescing: `??`
 3. Logical OR: `||`
 4. Logical AND: `&&`
-5. Equality: `==  !=`
-6. Relational: `<  >  <=  >=`
-7. Type tests: `is  as` (binds after relational)
-8. Additive: `+  -`
-9. Multiplicative: `*  /  %`
-10. Cast: `(T)expr`
-11. Unary (prefix): `+  -  !  typeof`
-12. Postfix trailers: call `()`, member `.`, index `[]`
+5. Bitwise OR: `|`
+6. Bitwise AND: `&`
+7. Equality: `==  !=`
+8. Relational: `<  >  <=  >=`
+9. Type tests: `is  as` (binds after relational)
+10. Additive: `+  -`
+11. Multiplicative: `*  /  %`
+12. Cast: `(T)expr`
+13. Unary (prefix): `+  -  !  typeof`
+14. Postfix trailers: call `()`, member `.`, index `[]`
 
 > **Disambiguation notes**
 >

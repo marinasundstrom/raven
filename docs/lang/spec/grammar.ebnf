@@ -189,7 +189,7 @@ MatchArmTerminator       ::= NewLineToken | ';' ;
 AssignmentExpression     ::= AssignmentTarget AssignmentOperator AssignmentExpression
                            | ConditionalNullCoalesceExpression ;
 
-AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' ;
+AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' ;
 
 AssignmentTarget         ::= Assignable | Pattern ;
 
@@ -228,7 +228,9 @@ ConditionalNullCoalesceExpression
                            ::= LogicalOrExpression {'??' LogicalOrExpression} ;
 
 LogicalOrExpression      ::= LogicalAndExpression {'||' LogicalAndExpression} ;
-LogicalAndExpression     ::= EqualityExpression {'&&' EqualityExpression} ;
+LogicalAndExpression     ::= BitwiseOrExpression {'&&' BitwiseOrExpression} ;
+BitwiseOrExpression      ::= BitwiseAndExpression {'|' BitwiseAndExpression} ;
+BitwiseAndExpression     ::= EqualityExpression {'&' EqualityExpression} ;
 EqualityExpression       ::= RelationalExpression {('==' | '!=') RelationalExpression} ;
 RelationalExpression     ::= TypeTestExpression
                              {('<' | '>' | '<=' | '>=') TypeTestExpression} ;
