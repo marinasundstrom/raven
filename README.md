@@ -27,41 +27,50 @@ Raven is a general-purpose, expression-oriented language with an expression-firs
 ### Example
 
 ```raven
-import System.*
 import System.Console.*
-import System.Collections.Generic.List<>
-alias SB = System.Text.StringBuilder
+import System.Collections.Generic.List<int>
+import System.Linq.*
 
-let list = List<int>()
-list.Add(1)
-list.Add(42)
-list.Add(3)
-var i = 0
+alias LedgerEntry = (label: string, value: int)
 
-let stringBuilder = SB()
-
-while i < list.Count {
-    let x = list[i]
-    stringBuilder.AppendLine(x.ToString())
-    if x > 3 {
-        WriteLine("Hello, World!")
-        list[i] = 42
+func shape(values: List<int>) -> List<LedgerEntry> {
+    let result = List<LedgerEntry>()
+    for each value in values {
+        let label = if value < 0 "debit" else "credit"
+        result.Add((label: label, value: value))
     }
-    i = {
-        let next = i + 1
-        next
-    }
+    return result
 }
 
-WriteLine(stringBuilder.ToString())
+func summarize(readings: List<int>) -> string {
+    let shaped = shape(readings)
+    let total = shaped.Aggregate(0, (acc, entry) => acc + entry.value)
+
+    let verdict = if total > 0
+        "net positive"
+    else if total < 0
+        "net negative"
+    else
+        "balanced"
+
+    return $"processed ${shaped.Count()} items -> ${verdict} (${total})"
+}
+
+var ledger = List<int>()
+ledger.Add(25)
+ledger.Add(-10)
+ledger.Add(5)
+ledger.Add(0)
+
+WriteLine(summarize(ledger))
 ```
 
 **Highlights**:
 
-* Control flow as expressions (`if`, `while`)
-* `let` vs `var` (immutable vs mutable)
-* Implicit returns (no `return` keyword)
-* Array/index access
+* Expression-first control flow and file-scope functions
+* `let` vs `var` (immutable vs mutable) with tuple-shaped data
+* Lambdas and LINQ interop against .NET collection types
+* String interpolation with tuple element access
 * Direct interop with .NET libraries
 
 Read the full [Introduction](docs/introduction.md) for a more detailed overview.

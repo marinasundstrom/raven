@@ -15,7 +15,10 @@ An overview of available types, literal semantics, and conversions can be found 
 
 ## Code samples
 
-You find them [here](../../../src/Raven.Compiler/samples/).
+Representative sample programs live in the repository's [`samples/`](../../../samples/) directory alongside runnable CLI demos.
+Each sample intentionally exercises language features such as pattern matching, pipe operators, tuple flow, and .NET interop so
+changes to the language can be validated with real code, not just unit tests. The top-level `samples/README.md` explains how to
+run them with the Raven CLI.
 
 ## Proposals
 
