@@ -2908,7 +2908,7 @@ internal class ExpressionGenerator : Generator
 
                     var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter);
                     var position = parameterBuilder.Position;
-                    if (!MethodSymbol.IsStatic)
+                    if (MethodSymbol.IsStatic)
                         position -= 1;
                     ILGenerator.Emit(OpCodes.Ldarga, position);
                     return true;
