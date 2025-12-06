@@ -94,7 +94,7 @@ public class SymbolDisplayFormat
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeTypeConstraints,
         GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Included,
         KindOptions = SymbolDisplayKindOptions.IncludeNamespaceKeyword | SymbolDisplayKindOptions.IncludeTypeKeyword,
-        LocalOptions = SymbolDisplayLocalOptions.IncludeType,
+        LocalOptions = SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeBinding,
         MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
         PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
