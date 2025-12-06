@@ -4704,7 +4704,15 @@ partial class BlockBinder : Binder
         => expression is BoundErrorExpression;
 
     private static bool HasExpressionErrors(BoundExpression expression)
-        => IsErrorExpression(expression) || expression.Type?.ContainsErrorType() == true;
+    {
+        if (IsErrorExpression(expression))
+            return true;
+
+        if (expression is BoundLambdaExpression)
+            return false;
+
+        return expression.Type?.ContainsErrorType() == true;
+    }
 
     private BoundErrorExpression AsErrorExpression(BoundExpression expression)
     {
