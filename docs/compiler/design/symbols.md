@@ -26,11 +26,11 @@ The representation of an array type is `ArrayTypeSymbol`.
 
 Closed generic types are `ConstructedNamedTypeSymbols` that have "SubstituteMember" with the type parameters substituted by the type arguments.
 
-Some type symbols are specialized, exist in the language or only during semantic analysis, and thus have no equivalent in .NET. These include `UnionTypeSymbol` and `TupleTypeSymbol`, both implementing `INamedTypeSymbol`.
+Some type symbols are specialized, exist in the language or only during semantic analysis, and thus have no equivalent in .NET. These include `TypeUnionSymbol` and `TupleTypeSymbol`. `TypeUnionSymbol` implements `ITypeUnionSymbol`, and represents an anonymous union of constituent member types, while `TupleTypeSymbol` implements `INamedTypeSymbol`.
 
 Other constructed type symbols serve particular purposes:
 
-* `UnionTypeSymbol` – models a value whose type can be any of its constituent types.
+* `TypeUnionSymbol` – models a value whose type can be any of its constituent types.
 * `TupleTypeSymbol` – packs named elements into a fixed-size tuple backed by `System.ValueTuple`.
 * `NullableTypeSymbol` – wraps an underlying type in `T?`.
 * `ByRefTypeSymbol` – represents a `ref` or `out` type.

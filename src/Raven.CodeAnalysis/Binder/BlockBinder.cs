@@ -1687,7 +1687,7 @@ partial class BlockBinder : Binder
         if (scrutineeType.TypeKind == TypeKind.Error || patternType.TypeKind == TypeKind.Error)
             return true;
 
-        if (scrutineeType is IUnionTypeSymbol scrutineeUnion)
+        if (scrutineeType is ITypeUnionSymbol scrutineeUnion)
         {
             foreach (var member in scrutineeUnion.Types)
             {
@@ -1698,7 +1698,7 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        if (patternType is IUnionTypeSymbol patternUnion)
+        if (patternType is ITypeUnionSymbol patternUnion)
         {
             foreach (var member in patternUnion.Types)
             {
@@ -1808,7 +1808,7 @@ partial class BlockBinder : Binder
             return;
         }
 
-        if (scrutineeType is not IUnionTypeSymbol union)
+        if (scrutineeType is not ITypeUnionSymbol union)
         {
             if (catchAllIndex >= 0)
                 return;
@@ -2158,8 +2158,8 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            if (patternType is IUnionTypeSymbol patternUnion &&
-                candidateType is IUnionTypeSymbol candidateUnion &&
+            if (patternType is ITypeUnionSymbol patternUnion &&
+                candidateType is ITypeUnionSymbol candidateUnion &&
                 TypeCoverageHelper.UnionIsCoveredByTypes(patternUnion, candidateUnion.Types))
             {
                 remaining.Remove(candidate);
@@ -2168,11 +2168,11 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static IEnumerable<ITypeSymbol> GetUnionMembers(IUnionTypeSymbol union)
+    private static IEnumerable<ITypeSymbol> GetUnionMembers(ITypeUnionSymbol union)
     {
         foreach (var member in union.Types)
         {
-            if (member is IUnionTypeSymbol nested)
+            if (member is ITypeUnionSymbol nested)
             {
                 foreach (var nestedMember in GetUnionMembers(nested))
                     yield return UnwrapAlias(nestedMember);

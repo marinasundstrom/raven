@@ -62,7 +62,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var memoryStream = compilation.GetTypeByMetadataName("System.IO.MemoryStream") ?? throw new InvalidOperationException("Missing System.IO.MemoryStream");
         var fileStream = compilation.GetTypeByMetadataName("System.IO.FileStream") ?? throw new InvalidOperationException("Missing System.IO.FileStream");
 
-        var union = new UnionTypeSymbol(new[] { memoryStream, fileStream }, compilation.Assembly, null, null, Array.Empty<Location>());
+        var union = new TypeUnionSymbol(new[] { memoryStream, fileStream }, compilation.Assembly, null, null, Array.Empty<Location>());
         var stream = CreateMethod(compilation, "Stream", streamType);
         var obj = CreateMethod(compilation, "Object", objectType);
 

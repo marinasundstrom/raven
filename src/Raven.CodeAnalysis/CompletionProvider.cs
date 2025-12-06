@@ -194,7 +194,7 @@ public static class CompletionProvider
                     results.Add(nullType);
                     return true;
 
-                case IUnionTypeSymbol union:
+                case ITypeUnionSymbol union:
                 {
                     var start = results.Count;
                     foreach (var member in union.Types)

@@ -65,7 +65,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new UnionTypeSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
+        var union = new TypeUnionSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
 
         var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
 
@@ -331,7 +331,7 @@ class Comparer : IComparer<object>
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new UnionTypeSymbol([intType, stringType], compilation.Assembly, null, null, []);
+        var union = new TypeUnionSymbol([intType, stringType], compilation.Assembly, null, null, []);
 
         var conversion = compilation.ClassifyConversion(intType, union);
 
@@ -347,7 +347,7 @@ class Comparer : IComparer<object>
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new UnionTypeSymbol([intType, stringType], compilation.Assembly, null, null, []);
+        var union = new TypeUnionSymbol([intType, stringType], compilation.Assembly, null, null, []);
 
         var conversion = compilation.ClassifyConversion(stringType, union);
 
@@ -363,7 +363,7 @@ class Comparer : IComparer<object>
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var fortyTwo = new LiteralTypeSymbol(intType, 42, compilation);
         var thirteen = new LiteralTypeSymbol(intType, 13, compilation);
-        var union = new UnionTypeSymbol(new[] { fortyTwo, thirteen }, compilation.Assembly, null, null, []);
+        var union = new TypeUnionSymbol(new[] { fortyTwo, thirteen }, compilation.Assembly, null, null, []);
 
         var conversion = compilation.ClassifyConversion(union, intType);
 

@@ -59,7 +59,7 @@ internal static class TypeCoverageHelper
         return targetType.SpecialType == SpecialType.System_Boolean;
     }
 
-    public static bool UnionIsCoveredByTypes(IUnionTypeSymbol union, IEnumerable<ITypeSymbol> coveringTypes)
+    public static bool UnionIsCoveredByTypes(ITypeUnionSymbol union, IEnumerable<ITypeSymbol> coveringTypes)
     {
         var remaining = new HashSet<ITypeSymbol>(GetUnionMembers(union), SymbolEqualityComparer.Default);
         var literalBuckets = new Dictionary<ITypeSymbol, HashSet<object?>>(SymbolEqualityComparer.Default);
@@ -100,13 +100,13 @@ internal static class TypeCoverageHelper
         return remaining.Count == 0;
     }
 
-    private static IEnumerable<ITypeSymbol> GetUnionMembers(IUnionTypeSymbol union)
+    private static IEnumerable<ITypeSymbol> GetUnionMembers(ITypeUnionSymbol union)
     {
         foreach (var member in union.Types)
         {
             var normalized = UnwrapAlias(member);
 
-            if (normalized is IUnionTypeSymbol nested)
+            if (normalized is ITypeUnionSymbol nested)
             {
                 foreach (var nestedMember in GetUnionMembers(nested))
                     yield return nestedMember;

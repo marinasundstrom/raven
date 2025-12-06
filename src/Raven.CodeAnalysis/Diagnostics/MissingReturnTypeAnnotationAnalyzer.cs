@@ -51,7 +51,7 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
                 inferred.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
                 return;
 
-            if (inferred is IUnionTypeSymbol union &&
+            if (inferred is ITypeUnionSymbol union &&
                 union.Types.All(t => t.SpecialType != SpecialType.System_Unit && t.SpecialType != SpecialType.System_Void))
             {
                 var commonBase = FindCommonBase(union.Types);
@@ -79,7 +79,7 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
 
     private static string FormatType(ITypeSymbol type)
     {
-        if (type is IUnionTypeSymbol union)
+        if (type is ITypeUnionSymbol union)
         {
             var parts = union.Types
                 .Select(t => t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))

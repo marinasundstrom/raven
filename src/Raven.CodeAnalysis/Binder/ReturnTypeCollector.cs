@@ -99,7 +99,7 @@ internal static class ReturnTypeCollector
             if (type is LiteralTypeSymbol literal)
                 type = literal.UnderlyingType;
 
-            if (type is IUnionTypeSymbol union)
+            if (type is ITypeUnionSymbol union)
             {
                 foreach (var t in union.Types)
                     AddType(t);

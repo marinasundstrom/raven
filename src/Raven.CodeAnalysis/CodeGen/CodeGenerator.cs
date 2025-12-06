@@ -378,7 +378,7 @@ internal class CodeGenerator
         {
             needsNullable = true;
         }
-        else if (type is IUnionTypeSymbol u)
+        else if (type is ITypeUnionSymbol u)
         {
             var flat = Flatten(u.Types).ToArray();
             if (flat.Any(t => t.TypeKind == TypeKind.Null))
@@ -425,7 +425,7 @@ internal class CodeGenerator
     }
 
     static IEnumerable<ITypeSymbol> Flatten(IEnumerable<ITypeSymbol> types)
-        => types.SelectMany(t => t is IUnionTypeSymbol u ? Flatten(u.Types) : new[] { t });
+        => types.SelectMany(t => t is ITypeUnionSymbol u ? Flatten(u.Types) : new[] { t });
 
     void EnsureNullableAttributeType()
     {
@@ -627,7 +627,7 @@ internal class CodeGenerator
             case IAddressTypeSymbol addressType:
                 hasAnyNames |= TryCollectTupleElementNames(addressType.ReferencedType, transformNames);
                 break;
-            case IUnionTypeSymbol unionType:
+            case ITypeUnionSymbol unionType:
                 foreach (var member in unionType.Types)
                     hasAnyNames |= TryCollectTupleElementNames(member, transformNames);
                 break;
@@ -800,7 +800,7 @@ internal class CodeGenerator
 
 
             /*
-                            if (typeSymbol.IsTypeUnion && typeSymbol is IUnionTypeSymbol union)
+                            if (typeSymbol.IsTypeUnion && typeSymbol is ITypeUnionSymbol union)
                             {
                                 _emitTypeUnionAttribute = true;
                                 foreach (var t in union.Types)
@@ -833,7 +833,8 @@ internal class CodeGenerator
 
     private void TryBindRuntimeCoreTypes()
     {
-        TypeUnionAttributeType ??= Compilation.ResolveRuntimeType("TypeUnionAttribute");
+        TypeUnionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TypeUnionAttribute")
+            ?? Compilation.ResolveRuntimeType("TypeUnionAttribute");
         NullType ??= Compilation.ResolveRuntimeType("Null");
         UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
 
@@ -862,7 +863,7 @@ internal class CodeGenerator
 
         // Define the attribute class
         var attrBuilder = ModuleBuilder.DefineType(
-            "TypeUnionAttribute",
+            "System.Runtime.CompilerServices.TypeUnionAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
             typeof(Attribute));
 

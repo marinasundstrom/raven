@@ -16,7 +16,7 @@ internal static class TypeSymbolNormalization
             return new ByRefTypeSymbol(referenced);
         }
 
-        if (type is IUnionTypeSymbol union)
+        if (type is ITypeUnionSymbol union)
             return NormalizeUnion(union.Types);
 
         if (type is LiteralTypeSymbol literal)
@@ -43,14 +43,14 @@ internal static class TypeSymbolNormalization
         if (filtered.Length == 1)
             return NormalizeForInference(filtered[0]);
 
-        return new UnionTypeSymbol(filtered, null, null, null, []);
+        return new TypeUnionSymbol(filtered, null, null, null, []);
     }
 
     private static void AddNormalizedUnionMember(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol member)
     {
         switch (member)
         {
-            case IUnionTypeSymbol nested:
+            case ITypeUnionSymbol nested:
                 foreach (var nestedMember in nested.Types)
                     AddNormalizedUnionMember(builder, nestedMember);
                 break;

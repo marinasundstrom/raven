@@ -97,7 +97,7 @@ public static partial class SymbolExtensions
             case IAddressTypeSymbol address:
                 return address.ReferencedType.ContainsErrorType();
 
-            case IUnionTypeSymbol union:
+            case ITypeUnionSymbol union:
                 foreach (var member in union.Types)
                 {
                     if (member.ContainsErrorType())
@@ -477,7 +477,7 @@ public static partial class SymbolExtensions
         }
 
         // Unions (if you want pipe-style display)
-        if (typeSymbol is IUnionTypeSymbol unionType)
+        if (typeSymbol is ITypeUnionSymbol unionType)
         {
             var members = unionType.Types.Select(t => FormatType(t, format));
             return string.Join(" | ", members);

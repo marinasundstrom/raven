@@ -56,7 +56,7 @@ class C {
 
         var assembly = Assembly.Load(peStream.ToArray());
         Assert.Null(assembly.GetType("Null"));
-        Assert.Null(assembly.GetType("TypeUnionAttribute"));
+        Assert.Null(assembly.GetType("System.Runtime.CompilerServices.TypeUnionAttribute"));
     }
 
     [Fact]

@@ -32,7 +32,7 @@ class Foo {
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
         Assert.NotNull(inferred);
-        var union = Assert.IsAssignableFrom<IUnionTypeSymbol>(inferred);
+        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(inferred);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
     }
@@ -63,7 +63,7 @@ class Foo {
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
         Assert.NotNull(inferred);
-        var union = Assert.IsAssignableFrom<IUnionTypeSymbol>(inferred);
+        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(inferred);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
     }

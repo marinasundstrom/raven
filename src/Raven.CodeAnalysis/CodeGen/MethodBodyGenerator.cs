@@ -1479,7 +1479,7 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Pop);
         }
         else if (expression.Type is { IsValueType: true } expressionType &&
-                 (returnType.SpecialType is SpecialType.System_Object || returnType is IUnionTypeSymbol))
+                 (returnType.SpecialType is SpecialType.System_Object || returnType is ITypeUnionSymbol))
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
         }

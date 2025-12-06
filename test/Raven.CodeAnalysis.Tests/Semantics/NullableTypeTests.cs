@@ -157,7 +157,7 @@ public class NullableTypeTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new UnionTypeSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
+        var union = new TypeUnionSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
 
         var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
 
@@ -171,7 +171,7 @@ public class NullableTypeTests : CompilationTestBase
         var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var union = new UnionTypeSymbol([stringType, intType], compilation.Assembly, null, null, []);
+        var union = new TypeUnionSymbol([stringType, intType], compilation.Assembly, null, null, []);
 
         var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
 
@@ -268,7 +268,7 @@ public class NullableTypeTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var union = new UnionTypeSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
+        var union = new TypeUnionSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
         var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
 
         var conv = compilation.ClassifyConversion(union, nullableString);

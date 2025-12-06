@@ -713,7 +713,7 @@ internal abstract class Binder
                 return ContainsTypeParameters(array.ElementType);
             case NullableTypeSymbol nullable:
                 return ContainsTypeParameters(nullable.UnderlyingType);
-            case IUnionTypeSymbol union:
+            case ITypeUnionSymbol union:
                 foreach (var member in union.Types)
                 {
                     if (ContainsTypeParameters(member))
@@ -815,7 +815,7 @@ internal abstract class Binder
                 types.Add(ResolveTypeInternal(t, refKindHint: null));
             }
 
-            return ApplyRefKindHint(new UnionTypeSymbol(types, null, null, null, []), refKindHint);
+            return ApplyRefKindHint(new TypeUnionSymbol(types, null, null, null, []), refKindHint);
         }
 
         if (typeSyntax is ArrayTypeSyntax arrayTypeSyntax)

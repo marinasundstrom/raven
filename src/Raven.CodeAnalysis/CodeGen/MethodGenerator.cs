@@ -407,7 +407,7 @@ internal class MethodGenerator
 
     private CustomAttributeBuilder CreateUnionTypeAttribute(ITypeSymbol type)
     {
-        var types = (type as IUnionTypeSymbol).Types
+        var types = (type as ITypeUnionSymbol).Types
             .Select(x => x is LiteralTypeSymbol lit ? lit.ConstantValue : (object)ResolveClrType(x))
             .ToArray();
         var constructor = TypeGenerator.CodeGen.TypeUnionAttributeType!.

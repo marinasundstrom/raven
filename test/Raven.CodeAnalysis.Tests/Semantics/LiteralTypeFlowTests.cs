@@ -272,7 +272,7 @@ let x = if true { "true" } else { 1 }
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
-        var union = Assert.IsAssignableFrom<IUnionTypeSymbol>(local.Type);
+        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
 
         Assert.Contains(union.Types, t => t is LiteralTypeSymbol lt && Equals(lt.ConstantValue, "true"));
         Assert.Contains(union.Types, t => t is LiteralTypeSymbol lt && Equals(lt.ConstantValue, 1));
