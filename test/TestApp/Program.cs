@@ -14,7 +14,8 @@ class Program
     static void Main()
     {
         //QuoterTest();
-        PrintMembers();
+        //PrintMembers();
+        ReadType();
     }
 
     static void QuoterTest()
@@ -179,7 +180,7 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var typeName = "System.Collections.Generic.List`1";
+        var typeName = "System.Int32";
 
         var type = compilation.GetTypeByMetadataName(typeName);
 
@@ -252,6 +253,43 @@ class Program
                 Console.WriteLine("• " + m.ToDisplayString(format));
             }
         }
+    }
+
+    static void ReadType()
+    {
+        string sourceCode = """
+        var x = 4
+        """;
+
+        SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+
+        var compilation = Compilation.Create("test", [syntaxTree], options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
+        var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
+        };
+        compilation = compilation.AddReferences(references);
+
+        // force setup
+        compilation.GetDiagnostics();
+
+        var tree = compilation.SyntaxTrees.First();
+        var root = tree.GetRoot();
+
+        var localDeclaration = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().FirstOrDefault();
+
+        var semanticModel = compilation.GetSemanticModel(tree);
+
+        var symbol = semanticModel.GetDeclaredSymbol(localDeclaration);
+
+        var format = SymbolDisplayFormat.FullyQualifiedFormat;
+        Console.WriteLine(symbol.ToDisplayString(format.WithLocalOptions(format.LocalOptions | SymbolDisplayLocalOptions.IncludeBinding)));
     }
 
     private static void ReadConsoleClass(Compilation compilation, string refDir, PortableExecutableReference[] references)

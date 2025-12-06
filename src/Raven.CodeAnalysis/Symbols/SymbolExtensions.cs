@@ -169,6 +169,25 @@ public static partial class SymbolExtensions
 
         if (symbol is ILocalSymbol localSymbol)
         {
+            if (format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeBinding))
+            {
+                if (localSymbol.IsConst)
+                {
+                    result.Append("const ");
+                }
+                else
+                {
+                    if (localSymbol.IsMutable)
+                    {
+                        result.Append("var ");
+                    }
+                    else
+                    {
+                        result.Append("val ");
+                    }
+                }
+            }
+
             var display = FormatNamedSymbol(
                 localSymbol.Name,
                 localSymbol.Type,
@@ -896,7 +915,7 @@ public static partial class SymbolExtensions
                     }
                     else
                     {
-                        parts.Add("let");
+                        parts.Add("val");
                     }
                 }
 
@@ -974,6 +993,10 @@ public static partial class SymbolExtensions
 
                 break;
             */
+
+            case ILocalSymbol localSymbol:
+
+                break;
 
             case INamedTypeSymbol type:
                 // Class / struct / interface / delegate modifiers
