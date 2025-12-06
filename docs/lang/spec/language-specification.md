@@ -53,7 +53,7 @@ classifies each keyword as either reserved or contextual.
 | Kind | Keywords |
 | --- | --- |
 | Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `catch`, `char`, `class`, `const`, `continue`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `var`, `when`, `while`, `yield` |
-| Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
+| Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `val`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
 their presence optional (for example, omitting `each` in a `for` expression). Contextual keywords behave like ordinary
@@ -152,17 +152,23 @@ Structured exception handling is covered in [Error handling](error-handling.md).
 
 ### Variable bindings
 
-`let` introduces an immutable binding, `var` introduces a mutable one, and `const`
+`let` (or alternatively `val`) introduces an immutable binding, `var` introduces a mutable one, and `const`
 produces an immutable binding whose value is baked in at compile time. A binding may
 declare its type explicitly or rely on the compiler to infer it from the initializer
 expression.
 
 ```raven
 let answer = 42         // inferred int
+val answer = 42         // alternative to 'let': inferred int
+
 var name = "Alice"    // inferred string, mutable
+
 const greeting = "Hi"  // inferred string constant
+
 let count: long = 0     // explicit type
 ```
+
+> **Note:** We should decide upon whether to prefer `val` over `let`.
 
 If the type annotation is omitted, an initializer is required so the compiler can
 determine the variable's type. Const bindings always require an initializer, even when

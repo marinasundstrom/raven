@@ -40,7 +40,7 @@ partial class BlockBinder : Binder
             {
                 Identifier.ValueText: "_",
                 Identifier.IsMissing: false,
-                Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword }
+                Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword or SyntaxKind.ValKeyword }
             } => null,
             VariableDeclaratorSyntax v => BindLocalDeclaration(v).Symbol,
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
@@ -528,7 +528,7 @@ partial class BlockBinder : Binder
         var declaration = localDeclaration.Declaration;
         var declarator = declaration.Declarators[0];
 
-        if (declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) &&
+        if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
             IsDiscardDeclarator(declarator))
         {
             return BindDiscardDeclarator(declarator, isUsingDeclaration: false);
@@ -542,7 +542,7 @@ partial class BlockBinder : Binder
         var declaration = usingDeclaration.Declaration;
         var declarator = declaration.Declarators[0];
 
-        if (declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) &&
+        if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
             IsDiscardDeclarator(declarator))
         {
             return BindDiscardDeclarator(declarator, isUsingDeclaration: true);
@@ -4645,13 +4645,13 @@ partial class BlockBinder : Binder
                 return new BoundInvocationExpression(method, convertedArgs, null);
             }
 
-        if (resolution.IsAmbiguous)
-        {
-            _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-            return ErrorExpression(
-                reason: BoundExpressionReason.Ambiguous,
-                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
-        }
+            if (resolution.IsAmbiguous)
+            {
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                return ErrorExpression(
+                    reason: BoundExpressionReason.Ambiguous,
+                    candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+            }
 
             // Fall back to type if overload resolution failed
             var typeFallback = LookupType(methodName) as INamedTypeSymbol;
@@ -5088,7 +5088,7 @@ partial class BlockBinder : Binder
                         }
                         else
                         {
-                        var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: invocation);
+                            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: invocation);
                             if (resolution.Success)
                             {
                                 var converted = ConvertArguments(resolution.Method!.Parameters, boundArguments);

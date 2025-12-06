@@ -21,7 +21,7 @@ PrintLine(user2("test"));
 open class Base {}
 
 class Person : Base {
-    let species = "Homo sapiens"
+    val species = "Homo sapiens"
     var age: int = 0
     var name: string
     var roles: StringList = []

@@ -380,6 +380,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             SyntaxKind.OpenParenToken => true,
             SyntaxKind.LetKeyword => true,
+            SyntaxKind.ValKeyword => true,
             SyntaxKind.VarKeyword => true,
             SyntaxKind.UnderscoreToken => true,
             _ => false,
@@ -601,6 +602,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         SyntaxToken? bindingKeyword = null;
         if (ConsumeToken(SyntaxKind.LetKeyword, out var binding)
+            || ConsumeToken(SyntaxKind.ValKeyword, out binding)
             || ConsumeToken(SyntaxKind.VarKeyword, out binding)
             || ConsumeToken(SyntaxKind.ConstKeyword, out binding))
         {

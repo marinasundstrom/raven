@@ -4,12 +4,12 @@
 
 import System.*
 
-let test: Result<int> = .Ok(42)
+val test: Result<int> = .Ok(42)
 
 Console.WriteLine(test)
 
-let x = test match {
-    .Ok(val) => val.ToString()
+val x = test match {
+    .Ok(v) => v.ToString()
     .Error(msg) => msg 
 }
 

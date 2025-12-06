@@ -271,7 +271,7 @@ internal class TypeDeclarationParser : SyntaxParser
             return new UnionDeclarationParser(this).Parse();
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ValKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))
         {
             return ParseFieldDeclarationSyntax(attributeLists, modifiers);
         }
@@ -709,7 +709,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 refKindKeyword = ReadToken();
 
             SyntaxToken? bindingKeyword = null;
-            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                 bindingKeyword = ReadToken();
 
             SyntaxToken name;
@@ -763,7 +763,7 @@ internal class TypeDeclarationParser : SyntaxParser
         SyntaxToken bindingKeyword;
         SyntaxToken identifier;
 
-        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
         {
             bindingKeyword = firstToken;
 
@@ -847,7 +847,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 refKindKeyword = ReadToken();
 
             SyntaxToken? bindingKeyword = null;
-            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                 bindingKeyword = ReadToken();
 
             SyntaxToken name;

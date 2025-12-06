@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -49,7 +50,7 @@ internal sealed class DeclarationTable
             case VariableDeclaratorSyntax
             {
                 Identifier.ValueText: "_",
-                Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword }
+                Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword or SyntaxKind.ValKeyword }
             }:
                 key = default;
                 return false;

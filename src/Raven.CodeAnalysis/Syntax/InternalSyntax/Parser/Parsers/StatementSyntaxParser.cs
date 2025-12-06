@@ -521,7 +521,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 refKindKeyword = ReadToken();
 
             SyntaxToken? bindingKeyword = null;
-            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
                 bindingKeyword = ReadToken();
 
             SyntaxToken name;
@@ -636,6 +636,7 @@ internal class StatementSyntaxParser : SyntaxParser
         switch (token.Kind)
         {
             case SyntaxKind.LetKeyword:
+            case SyntaxKind.ValKeyword:
             case SyntaxKind.VarKeyword:
             case SyntaxKind.ConstKeyword:
                 if (PeekToken(1).Kind != SyntaxKind.OpenParenToken)

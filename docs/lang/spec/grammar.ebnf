@@ -90,7 +90,7 @@ ClassMember              ::= FieldDeclaration
                            | IndexerDeclaration ;
 
 FieldDeclaration         ::= MemberModifiers? FieldKind VariableDeclarators ';' ;
-FieldKind                ::= 'let' | 'var' | 'const' ;
+FieldKind                ::= 'let' | 'val' | 'var' | 'const' ;
 
 VariableDeclarators      ::= VariableDeclarator {',' VariableDeclarator} ;
 VariableDeclarator       ::= Identifier (':' Type)? ['=' Expression] ;
@@ -147,7 +147,7 @@ Statement                ::= LocalDeclaration
                            | AssignmentStatement
                            | ExpressionStatement ;
 
-LocalDeclaration         ::= ('let' | 'var' | 'const') LocalVariableDeclarators ;
+LocalDeclaration         ::= ('let' | 'val' | 'var' | 'const') LocalVariableDeclarators ;
 LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
@@ -205,7 +205,7 @@ UnaryPattern             ::= 'not' UnaryPattern | PrimaryPattern ;
 PrimaryPattern           ::= ConstantPattern | VariablePattern | DeclarationPattern | TuplePattern | DiscardPattern | CasePattern ;
 
 ConstantPattern          ::= Literal ;
-VariablePattern          ::= ('let' | 'var') VariableDesignation ;
+VariablePattern          ::= ('let' | 'val'| 'var') VariableDesignation ;
 DeclarationPattern       ::= Type [VariableDesignation] ;
 TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [Identifier ':'] Pattern ;

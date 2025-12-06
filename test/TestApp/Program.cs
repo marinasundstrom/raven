@@ -13,9 +13,9 @@ class Program
     private const string TargetFramework = "net9.0";
     static void Main()
     {
-        QuoterTest();
+        //QuoterTest();
         //PrintMembers();
-        //ReadType();
+        ReadType();
     }
 
     static void QuoterTest()
@@ -258,7 +258,7 @@ class Program
     static void ReadType()
     {
         string sourceCode = """
-        var x = 42
+        val x = 42
         """;
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);

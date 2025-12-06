@@ -6,10 +6,10 @@
 2. Compile from the sample directory with:
 
    ```
-   dotnet run --project ../src/Raven.Compiler -- <file>.rav -o <file>.dll
+   dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file>.rav -o <file>.dll
    ```
 
-   Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler -- async/async-await.rav -o async-await.dll`).
+   Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler  --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
 3. Execute the emitted assembly with `dotnet <file>.dll` (or rely on `build.sh`/`run.sh` for batch work).
 
 ### Compiler options

@@ -14,6 +14,7 @@
   <TokenKind Name="UsingKeyword" Text="using" IsReservedWord="false" />
   <TokenKind Name="NamespaceKeyword" Text="namespace" IsReservedWord="false" />
   <TokenKind Name="LetKeyword" Text="let" IsReservedWord="true" />
+  <TokenKind Name="ValKeyword" Text="val" IsReservedWord="true" />
   <TokenKind Name="VarKeyword" Text="var" IsReservedWord="true" />
   <TokenKind Name="ConstKeyword" Text="const" IsReservedWord="true" />
   <TokenKind Name="FuncKeyword" Text="func" IsReservedWord="true" />
@@ -95,7 +96,8 @@
   <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="5" />
   <TokenKind Name="CaretToken" Text="^" />
   <TokenKind Name="AmpersandEqualsToken" Text="&amp;=" />
-  <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="2" />
+  <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" IsBinaryOperator="true"
+    Precedence="2" />
   <TokenKind Name="AmpersandAmpersandToken" Text="&amp;&amp;" />
   <TokenKind Name="BarEqualsToken" Text="|=" />
   <TokenKind Name="BarToken" Text="|" IsBinaryOperator="true" Precedence="1" />

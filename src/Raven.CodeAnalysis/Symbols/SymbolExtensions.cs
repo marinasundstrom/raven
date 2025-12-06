@@ -755,6 +755,21 @@ public static partial class SymbolExtensions
     {
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
+        var includeBinding = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeBinding);
+
+        var builder = new StringBuilder();
+
+        if (includeBinding)
+        {
+            if (parameter.IsMutable)
+            {
+                builder.Append("var ");
+            }
+            else
+            {
+                builder.Append("val ");
+            }
+        }
 
         // Core "name: type" (or just type / just name depending on options)
         var core = FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
@@ -763,8 +778,6 @@ public static partial class SymbolExtensions
         {
             core = ".." + core;
         }
-
-        var builder = new StringBuilder();
 
         // Optionally prepend modifiers (out / val / var / etc.) when requested
         if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeModifiers))
@@ -959,14 +972,6 @@ public static partial class SymbolExtensions
                 if (param.RefKind == RefKind.Out)
                 {
                     parts.Add("out");
-                }
-                if (param.IsMutable)
-                {
-                    parts.Add("var");
-                }
-                else
-                {
-                    parts.Add("val");
                 }
                 break;
 

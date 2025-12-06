@@ -269,7 +269,7 @@ public enum SymbolDisplayLocalOptions
     IncludeConstantValue = 2,
     IncludeModifiers = 4,
     IncludeRef = 4,
-    IncludeBinding = 5
+    IncludeBinding = 8
 }
 
 [Flags]
@@ -314,5 +314,6 @@ public enum SymbolDisplayParameterOptions
     IncludeType = 4,
     IncludeName = 8,
     IncludeDefaultValue = 16,
-    IncludeOptionalBrackets = 32
+    IncludeOptionalBrackets = 32,
+    IncludeBinding = 64
 }

@@ -69,7 +69,7 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParseTuplePattern();
         }
 
-        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword)
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
         {
             return ParseVariablePattern();
         }
