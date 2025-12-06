@@ -3,13 +3,13 @@ import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-let numbers = List<int>()
+val numbers = List<int>()
 numbers.Add(3)
 numbers.Add(-1)
 numbers.Add(2)
 numbers.Add(1)
 
-let positives = numbers.Where(value => value > 0)
+val positives = numbers.Where(value => value > 0)
 
 for each value in positives {
     WriteLine(value)

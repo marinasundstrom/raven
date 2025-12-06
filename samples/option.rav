@@ -4,7 +4,7 @@
 
 import System.Console.*
 
-let unwrapped = returnsNone(42).UnwrapOr(10)
+val unwrapped = returnsNone(42).UnwrapOr(10)
 WriteLine(unwrapped)
 
 func returnsNone(value: int) -> Option<int> {

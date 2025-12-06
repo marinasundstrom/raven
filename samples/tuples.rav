@@ -1,8 +1,8 @@
-let tuple = (a: 42, b: 2)
+val tuple = (a: 42, b: 2)
 
 System.Console.WriteLine(tuple)
 
-let foo = tuple.a; System.Console
+val foo = tuple.a; System.Console
     .WriteLine(
     tuple.a)
 
@@ -10,13 +10,13 @@ System.Console.WriteLine(tuple.Item1)
 
 System.Console.WriteLine(tuple.GetType())
 
-let tuple2 : (id: int, name: string) = (42, "Bar")
+val tuple2 : (id: int, name: string) = (42, "Bar")
 
-let name = tuple2.name
+val name = tuple2.name
 
-let x : bool | (a: bool, b: string) = false
+val x : bool | (a: bool, b: string) = false
 
-let r = x match {
+val r = x match {
     false => "false"
     true => "true"
     //bool => "bool"

@@ -1,6 +1,6 @@
-let name = "דניאל"
-let city = "תל אביב"
-let welcome = 
+val name = "דניאל"
+val city = "תל אביב"
+val welcome = 
     "שלום $name! ברוך הבא ל$city"
 
 System.Console.WriteLine(welcome)

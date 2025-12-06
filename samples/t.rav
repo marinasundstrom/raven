@@ -11,12 +11,12 @@ Otherwise, for multiple parameter, the parameters should be included: (a: int, b
 */ 
 
 /*
-let a: (a: int, b: int) -> (int, int) = null
+val a: (a: int, b: int) -> (int, int) = null
 
-let b: (()) -> (() -> (int, int)) = null
+val b: (()) -> (() -> (int, int)) = null
 
-let c: int -> (() -> ()) = null
+val c: int -> (() -> ()) = null
 */
 
-let z = () => ()
+val z = () => ()
 System.Console.WriteLine(z)

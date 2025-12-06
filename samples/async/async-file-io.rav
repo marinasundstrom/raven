@@ -3,11 +3,11 @@ import System.Console.*
 import System.IO.*
 import System.Threading.Tasks.*
 
-let tempFile = Path.GetTempFileName()
-let sample = ["alpha", "beta", "gamma"]
+val tempFile = Path.GetTempFileName()
+val sample = ["alpha", "beta", "gamma"]
 
 await File.WriteAllLinesAsync(tempFile, sample)
-let file = await File.ReadAllLinesAsync(tempFile)
+val file = await File.ReadAllLinesAsync(tempFile)
 
 await Task.Delay(100)
 

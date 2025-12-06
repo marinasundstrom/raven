@@ -1,4 +1,4 @@
 var x = 2;
-let y = (x = 5); // y : unit
+val y = (x = 5); // y : unit
 
 System.Console.WriteLine(y)

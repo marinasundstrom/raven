@@ -4,9 +4,9 @@
 
 import System.*
 
-let first = Token.Identifier("alpha")
-let second : Token = .Number(42)
-let third = Token.Unknown
+val first = Token.Identifier("alpha")
+val second : Token = .Number(42)
+val third = Token.Unknown
 
 Console.WriteLine(first)
 Console.WriteLine(second)

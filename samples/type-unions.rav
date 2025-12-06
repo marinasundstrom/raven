@@ -4,13 +4,13 @@
 
 import System.*
 
-let w = 352342342
+val w = 352342342
 
 Console.WriteLine(w.GetType().Name)
 
-let x = 1 + 2
+val x = 1 + 2
 
-let y = if x > 2 { 40 + w; } else { true; }
+val y = if x > 2 { 40 + w; } else { true; }
 
 test(y)
 
@@ -23,7 +23,7 @@ TestDep.Foo.TestProp = 2
 //TestDep.Foo.TestProp = true
 TestDep.Foo.TestProp = "OK"
 
-let v = TestDep.Foo.Test2(true)
+val v = TestDep.Foo.Test2(true)
 
 Console.WriteLine(v.ToString())
 

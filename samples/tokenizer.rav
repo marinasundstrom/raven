@@ -4,16 +4,16 @@ import System.*
 import System.Text.*
 import System.IO.*
 
-using let sr = StreamReader("test.txt");
+using val sr = StreamReader("test.txt");
 
-let lexer = Lexer.WithSource(sr)
-let token = lexer.ReadToken()
+val lexer = Lexer.WithSource(sr)
+val token = lexer.ReadToken()
 
 Console.WriteLine(token)
 
-let token2 = lexer.ReadToken()
+val token2 = lexer.ReadToken()
 
-let value = token match {
+val value = token match {
     .Number(text, value) => "Number $value"
     .Identifier(text) => "Identifier $text"
     _ => "Misc"
@@ -22,8 +22,8 @@ let value = token match {
 Console.WriteLine(value)
 
 public class Lexer {
-    let _textReader: TextReader
-    let _stringBuilder: StringBuilder = StringBuilder()
+    val _textReader: TextReader
+    val _stringBuilder: StringBuilder = StringBuilder()
 
     public init WithSource(textReader : TextReader) {
         self._textReader = textReader
@@ -45,7 +45,7 @@ public class Lexer {
             var ch = Convert.ToChar(no);
             if int.TryParse(ch.ToString(), &number) {
                 _stringBuilder.Append(ch)
-                let noStr = _stringBuilder.ToString();
+                val noStr = _stringBuilder.ToString();
                 return .Number(noStr, number)
             } else if char.IsLetter(Convert.ToChar(ch)) { //(char)ch
                 _stringBuilder.Append(ch)

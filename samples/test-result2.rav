@@ -4,7 +4,7 @@
 
 import System.*
 
-let unwrapped3 = IntHelpers.ParseNumber("23").UnwrapOrThrow()
+val unwrapped3 = IntHelpers.ParseNumber("23").UnwrapOrThrow()
 Console.WriteLine(unwrapped3)
 
 public class IntHelpers {

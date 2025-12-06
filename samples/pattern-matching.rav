@@ -1,6 +1,6 @@
-let x : bool | (a: bool, b: string) = false
+val x : bool | (a: bool, b: string) = false
 
-let r = x match {
+val r = x match {
     true => "true"
     (a: bool, b: string) => "tuple $a $b"
     _ => "else"

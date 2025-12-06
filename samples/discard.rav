@@ -1,2 +1,2 @@
 _ = System.Console.WriteLine("Test")
-let _ = System.Console.WriteLine("Test")
+val _ = System.Console.WriteLine("Test")

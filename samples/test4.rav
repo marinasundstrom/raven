@@ -1,5 +1,5 @@
-let u: D1 | D2 = D1()
-let x = u.P      // ok (getter common)
+val u: D1 | D2 = D1()
+val x = u.P      // ok (getter common)
 u.P = 3          // error (setter not common)
 
 open class Base { virtual P: int { get; set; } }

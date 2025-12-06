@@ -1,11 +1,11 @@
 import System.Console.*
 import System.Threading.Tasks.*
 
-let value = 42;
+val value = 42;
 
 WriteLine("Value: $value")
 
-let result = await Task.Run(async () => { 
+val result = await Task.Run(async () => { 
     WriteLine("Entered")
     await Task.Delay(200)
     WriteLine("Waited")

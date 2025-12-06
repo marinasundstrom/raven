@@ -2,7 +2,7 @@ import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-let items = test()
+val items = test()
 
 for item in items.Where(x => x > 2) {
     WriteLine(item)

@@ -2,9 +2,9 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 async func Test(value: int) -> Task<int> {
-    let intermediate = await Task.FromResult(value + 1)
+    val intermediate = await Task.FromResult(value + 1)
     return intermediate
 }
 
-let x = await Test(42)
+val x = await Test(42)
 WriteLine(x)

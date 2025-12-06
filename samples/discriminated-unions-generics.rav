@@ -4,8 +4,8 @@
 
 import System.*
 
-let ok : Result<int> = .Ok(99)
-let err = Result<int>.Error("boom")
+val ok : Result<int> = .Ok(99)
+val err = Result<int>.Error("boom")
 
 Console.WriteLine(ok)
 Console.WriteLine(err)

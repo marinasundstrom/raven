@@ -3,7 +3,7 @@ import System.Console.*
 var foo : Grades = .B
 foo = .C
 
-let x : string = .Empty
+val x : string = .Empty
 
 WriteLine(foo)
 WriteLine(foo.GetType())

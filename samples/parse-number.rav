@@ -1,6 +1,6 @@
 import System.*
 
-let arg = if args.Length > 0 { args[0]; } else { "0"; }
+val arg = if args.Length > 0 { args[0]; } else { "0"; }
 
 var total = 0
 
@@ -10,7 +10,7 @@ if !int.TryParse(arg, &total) {
 
 while true {
     Console.Write("Write number: ")
-    let inputStr = Console.ReadLine()
+    val inputStr = Console.ReadLine()
     
     var number = 0
 

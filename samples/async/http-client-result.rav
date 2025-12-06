@@ -3,9 +3,9 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-let res = await fetch("http://www.contoso.com/")
+val res = await fetch("http://www.contoso.com/")
 
-let str = res match {
+val str = res match {
     .Ok(str) => "Response is: $str"
     .Error(message) => "Error is: $message"
 }
@@ -13,12 +13,12 @@ let str = res match {
 WriteLine(str)
 
 async func fetch(url: string) -> Task<Result<string>> {
-    using let client = HttpClient()
+    using val client = HttpClient()
 
     try {
-        using let response = await client.GetAsync(url)
+        using val response = await client.GetAsync(url)
         response.EnsureSuccessStatusCode()
-        let responseBody = await response.Content.ReadAsStringAsync()
+        val responseBody = await response.Content.ReadAsStringAsync()
         return .Ok(responseBody)
     } catch (HttpRequestException e) {
         return .Error(e.Message)

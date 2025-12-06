@@ -7,7 +7,7 @@ async func Foo() -> Task<int> {
     return 0
 }
 
-let result = try await Foo() match {
+val result = try await Foo() match {
     int value => value.ToString()
     Exception ex => ex.Message
 }

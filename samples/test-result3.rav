@@ -1,5 +1,5 @@
 import System.*
 
-let res: Result<int> = .Error("Bang")
+val res: Result<int> = .Error("Bang")
 
 Console.WriteLine("Is error: ${res.IsError}")

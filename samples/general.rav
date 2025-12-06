@@ -7,16 +7,16 @@ import System.Console.*
 import System.Collections.Generic.List<>
 alias SB = System.Text.StringBuilder
 
-let list = List<int>()
+val list = List<int>()
 list.Add(1)
 list.Add(42)
 list.Add(3)
 var i = 0
 
-let stringBuilder = SB()
+val stringBuilder = SB()
 
 while i < list.Count {
-    let x = list[i]
+    val x = list[i]
     stringBuilder.AppendLine(x.ToString())
     list[i] = if x > 3 {
         WriteLine("Hello, World!")
@@ -25,7 +25,7 @@ while i < list.Count {
         x
     }
     i = {
-        let next = i + 1
+        val next = i + 1
         next
     }
 }

@@ -2,22 +2,22 @@ import System.*
 import System.Console.*
 import System.Linq.*
 
-let r = typeof(String)
+val r = typeof(String)
 WriteLine(r)
 
-let members = r.GetMembers(.Public | .Static)
+val members = r.GetMembers(.Public | .Static)
 
 for member in members.Where(x => x.Name.Equals("Intern")) {
     WriteLine(member.Name)
 }
 
-let member = members[1]
+val member = members[1]
 
 WriteLine("First ${member.Name}")
 
 /*
-let method = (System.Reflection.MethodInfo)member
-let type = method.Invoke(member, null)
+val method = (System.Reflection.MethodInfo)member
+val type = method.Invoke(member, null)
 
 WriteLine(type)
 */

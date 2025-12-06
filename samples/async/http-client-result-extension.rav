@@ -3,10 +3,10 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-using let client = HttpClient()
-let res = await client.FetchAsync("http://www.contoso.com/")
+using val client = HttpClient()
+val res = await client.FetchAsync("http://www.contoso.com/")
 
-let str = res match {
+val str = res match {
     .Ok(str) => "Response is: $str"
     .Error(message) => "Error is: $message"
 }
@@ -16,9 +16,9 @@ WriteLine(str)
 extension HttpClientExtensions for HttpClient {
     public async FetchAsync(url: string) -> Task<Result<string>> {
         try {
-            using let response = await self.GetAsync(url)
+            using val response = await self.GetAsync(url)
             response.EnsureSuccessStatusCode()
-            let responseBody = await response.Content.ReadAsStringAsync()
+            val responseBody = await response.Content.ReadAsStringAsync()
             return .Ok(responseBody)
         } catch (HttpRequestException e) {
             return .Error(e.Message)

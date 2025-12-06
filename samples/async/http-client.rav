@@ -3,12 +3,12 @@
 import System.Console.*
 import System.Net.Http.*
 
-using let client = HttpClient()
+using val client = HttpClient()
 
 try {
-    using let response = await client.GetAsync("http://www.contoso.com/")
+    using val response = await client.GetAsync("http://www.contoso.com/")
     response.EnsureSuccessStatusCode()
-    let responseBody = await response.Content.ReadAsStringAsync()
+    val responseBody = await response.Content.ReadAsStringAsync()
     // Above three lines can be replaced with new helper method below
     // string responseBody = await client.GetStringAsync(uri);
 

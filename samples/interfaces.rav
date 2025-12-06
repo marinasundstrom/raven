@@ -1,10 +1,10 @@
 import System.*
 
-using let foo = Foo()
+using val foo = Foo()
 foo.Do()
 
 class Foo : IDisposable {
-    let x = 1
+    val x = 1
     
     public init() => Console.WriteLine("Init")
 

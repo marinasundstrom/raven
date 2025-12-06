@@ -1,4 +1,4 @@
-let tuple = getTuple() //(a: 2, b: 3)
+val tuple = getTuple() //(a: 2, b: 3)
 
 System.Console.WriteLine(tuple)
 

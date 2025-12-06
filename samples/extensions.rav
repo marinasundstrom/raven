@@ -1,17 +1,17 @@
 import System.Console.*
 import System.Collections.Generic.*
 
-let items = List<int>()
+val items = List<int>()
 items.Add(1)
 items.Add(2)
-let count = items.CountItems()
-let sum = items.SumNumbers()
+val count = items.CountItems()
+val sum = items.SumNumbers()
 
 WriteLine("Count: $count");
 WriteLine("Sum: $sum");
 
 items.CountPlusOne = 5
-let value = items.CountPlusOne
+val value = items.CountPlusOne
 
 WriteLine("Value: $value");
 

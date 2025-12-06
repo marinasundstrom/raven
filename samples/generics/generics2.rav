@@ -1,7 +1,7 @@
 import System.*
 
-let ints = Box<int>(1)
-let words = Box<string>("ok")
+val ints = Box<int>(1)
+val words = Box<string>("ok")
 
 Console.WriteLine(words.Value)
 

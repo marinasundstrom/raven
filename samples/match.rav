@@ -1,10 +1,10 @@
 import System.Console.*
 
-let value = 42
+val value = 42
 
 WriteLine(value.GetType().Name)
 
-let result = value match {
+val result = value match {
     //"foo" => "it's foo"
     int x => "foo"
     //string str => str

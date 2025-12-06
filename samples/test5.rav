@@ -1,5 +1,5 @@
 import System.Console.*
 
-let x = 3;
+val x = 3;
 
 WriteLine("Foo: ${ "Hej" + "test $2 " + x }")

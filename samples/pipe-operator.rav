@@ -1,7 +1,7 @@
 import System.Console.*
 import MathHelpers.*
 
-let result = 5 |> Increment(2)
+val result = 5 |> Increment(2)
 
 WriteLine("Result: $result");
 

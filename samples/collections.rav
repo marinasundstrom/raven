@@ -1,8 +1,8 @@
 import System.Console.*
 
-let marvel = ["Tony Stark", "Spiderman", "Thor"]
-let dc = ["Superman", "Batman", "Flash"]
-let comicCharacters = [..marvel, "Black Widow", ..dc]
+val marvel = ["Tony Stark", "Spiderman", "Thor"]
+val dc = ["Superman", "Batman", "Flash"]
+val comicCharacters = [..marvel, "Black Widow", ..dc]
 
 for character in comicCharacters {
     WriteLine(character)

@@ -4,6 +4,6 @@ func do(op: (int, int) -> int) -> int {
   return op(2, 3)
 }
 
-let result = do((a, b) => 1 + b)
+val result = do((a, b) => 1 + b)
 
 WriteLine(result)

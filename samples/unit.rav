@@ -2,7 +2,7 @@ import System.*
 
 var test = Console.WriteLine("Hello"); Console.WriteLine(test)
 
-let x = ()
+val x = ()
 Console.WriteLine(x)
 
 Console.WriteLine(())

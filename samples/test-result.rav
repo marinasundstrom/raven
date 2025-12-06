@@ -4,11 +4,11 @@
 
 import System.*
 
-let res = parseNumber("foo")
+val res = parseNumber("foo")
 
 Console.WriteLine("Is error: ${res.IsError}")
 
-let str = res match {
+val str = res match {
     .Ok(v) => "Number is: $v"
     .Error(message) => message
 }
@@ -16,7 +16,7 @@ let str = res match {
 Console.WriteLine(str)
 
 try {
-    let res2 = parseNumber("foo").UnwrapOrThrow()
+    val res2 = parseNumber("foo").UnwrapOrThrow()
 } catch (Exception e) {
     Console.WriteLine("\'parseNumber\' threw: ${e.Message}")
 }

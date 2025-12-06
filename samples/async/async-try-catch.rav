@@ -4,8 +4,8 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 try {
-    using let stream = MemoryStream()
-    let value = await Task.FromResult(42)
+    using val stream = MemoryStream()
+    val value = await Task.FromResult(42)
     stream.WriteByte(Convert.ToByte(value))
     WriteLine("value:$value")
     throw InvalidOperationException("boom")

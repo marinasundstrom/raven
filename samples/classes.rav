@@ -5,12 +5,12 @@ import System.Collections.Generic.List<>
 alias StringList = System.Collections.Generic.List<string>
 alias PrintLine = System.Console.WriteLine
 
-WriteLine("Hello"); let x = 2
+WriteLine("Hello"); val x = 2
 
-let user = Person(42)
+val user = Person(42)
 user.AddRole("admin")
 
-let user2 = Person.WithName("John")
+val user2 = Person.WithName("John")
     .AddRole("admin");
 
 PrintLine(user2.Name)
