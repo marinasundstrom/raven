@@ -13,8 +13,8 @@ class Program
     private const string TargetFramework = "net9.0";
     static void Main()
     {
-        //QuoterTest();
-        PrintMembers();
+        QuoterTest();
+        //PrintMembers();
         //ReadType();
     }
 
@@ -23,11 +23,7 @@ class Program
         var code = """
         import System.*
 
-        if true {
-            Console.WriteLine("Hello, World!")
-        } else {
-            42
-        }
+        var x? = 42
         """;
 
         Console.WriteLine("Input:");
@@ -49,9 +45,10 @@ class Program
 
         var cu = CompilationUnit(
     attributeLists: List<AttributeListSyntax>(),
-    imports: SingletonList(
+    imports: SingletonList<ImportDirectiveSyntax>(
         ImportDirective(
-            importKeyword: ImportKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+            importKeyword: ImportKeyword
+                .WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
             name: QualifiedName(
                 left: IdentifierName(
                     identifier: Identifier("System")
@@ -68,67 +65,26 @@ class Program
         GlobalStatement(
             attributeLists: List<AttributeListSyntax>(),
             modifiers: TokenList(),
-            statement: IfStatement(
-                ifKeyword: IfKeyword.WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n"))).WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
-                condition: LiteralExpression(
-                    kind: SyntaxKind.TrueLiteralExpression,
-                    token: TrueKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " ")))
-                ),
-                thenStatement: BlockStatement(
-                    openBraceToken: OpenBraceToken,
-                    statements: SingletonList<StatementSyntax>(
-                        ExpressionStatement(
-                            expression: InvocationExpression(
-                                expression: MemberAccessExpression(
-                                    kind: SyntaxKind.SimpleMemberAccessExpression,
-                                    expression: IdentifierName(
-                                        identifier: Identifier("Console").WithLeadingTrivia(TriviaList(
-                                            new[] {
-                                                Trivia(SyntaxKind.EndOfLineTrivia, "\n"),
-                                                Trivia(SyntaxKind.WhitespaceTrivia, "    ")
-                                            }
-                                        ))
-                                    ),
-                                    operatorToken: DotToken,
-                                    name: IdentifierName(
-                                        identifier: Identifier("WriteLine")
-                                    )
-                                ),
-                                argumentList: ArgumentList(
-                                    openParenToken: OpenParenToken,
-                                    arguments: SingletonSeparatedList<ArgumentSyntax>(
-                                        Argument(
-                                            expression: LiteralExpression(
-                                                kind: SyntaxKind.StringLiteralExpression,
-                                                token: Literal("\"Hello, World!\"", "Hello, World!")
-                                            )
-                                        )),
-                                    closeParenToken: CloseParenToken
-                                )
-                            ),
-                            terminatorToken: NewLineToken
-                        )),
-                    closeBraceToken: CloseBraceToken.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " ")))
-                ),
-                elseClause: ElseClause2(
-                    elseKeyword: ElseKeyword.WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
-                    statement: BlockStatement(
-                        openBraceToken: OpenBraceToken,
-                        statements: SingletonList<StatementSyntax>(
-                            ExpressionStatement(
-                                expression: LiteralExpression(
+            statement: LocalDeclarationStatement(
+                declaration: VariableDeclaration(
+                    bindingKeyword: VarKeyword
+                        .WithLeadingTrivia(TriviaList(Trivia(SyntaxKind.EndOfLineTrivia, "\n")))
+                        .WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+                    declarators: SingletonSeparatedList<VariableDeclaratorSyntax>(
+                        VariableDeclarator(
+                            identifier: Identifier("x"),
+                            questionToken: QuestionToken
+                                .WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+                            typeAnnotation: null,
+                            initializer: EqualsValueClause(
+                                equalsToken: EqualsToken
+                                    .WithTrailingTrivia(TriviaList(Trivia(SyntaxKind.WhitespaceTrivia, " "))),
+                                value: LiteralExpression(
                                     kind: SyntaxKind.NumericLiteralExpression,
-                                    token: Literal("42", 42).WithLeadingTrivia(TriviaList(
-                                        new[] {
-                                            Trivia(SyntaxKind.EndOfLineTrivia, "\n"),
-                                            Trivia(SyntaxKind.WhitespaceTrivia, "    ")
-                                        }
-                                    ))
-                                ),
-                                terminatorToken: NewLineToken
-                            )),
-                        closeBraceToken: CloseBraceToken
-                    )
+                                    token: Literal("42", 42)
+                                )
+                            )
+                        ))
                 ),
                 terminatorToken: Token(SyntaxKind.None)
             )
@@ -180,7 +136,7 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var typeName = "System.Collections.Generic.List`1";
+        var typeName = "System.Int32";
 
         var type = compilation.GetTypeByMetadataName(typeName);
 
