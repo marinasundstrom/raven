@@ -1194,13 +1194,13 @@ public partial class SemanticModel
 
             var tryGetParameter = new SourceParameterSymbol(
                 "value",
-                caseSymbol,
+                caseSymbol, // Should be nullable?
                 tryGetMethod,
                 unionSymbol,
                 namespaceSymbol,
                 new[] { caseClause.GetLocation() },
                 Array.Empty<SyntaxReference>(),
-                RefKind.Ref);
+                RefKind.Out);
 
             tryGetMethod.SetParameters(new[] { tryGetParameter });
 

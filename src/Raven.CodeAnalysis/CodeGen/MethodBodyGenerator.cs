@@ -193,7 +193,7 @@ internal class MethodBodyGenerator
         if (MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol tryGetUnion &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
             MethodSymbol.Parameters.Length == 1 &&
-            MethodSymbol.Parameters[0].RefKind == RefKind.Ref &&
+            MethodSymbol.Parameters[0].RefKind == RefKind.Out &&
             MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is { } tryGetCase &&
             MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
             MethodSymbol.Name.StartsWith("TryGet", StringComparison.Ordinal))

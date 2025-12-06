@@ -8,6 +8,13 @@ let test: Result<int> = .Ok(42)
 
 Console.WriteLine(test)
 
+let x = test match {
+    .Ok(val) => val.ToString()
+    .Error(msg) => msg 
+}
+
+Console.WriteLine(x.GetType())
+
 /*
 union Result<T> {
     Ok(value: T)
