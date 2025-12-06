@@ -34,19 +34,19 @@ import System.Linq.*
 alias LedgerEntry = (label: string, value: int)
 
 func shape(values: List<int>) -> List<LedgerEntry> {
-    let result = List<LedgerEntry>()
+    val result = List<LedgerEntry>()
     for each value in values {
-        let label = if value < 0 "debit" else "credit"
+        val label = if value < 0 "debit" else "credit"
         result.Add((label: label, value: value))
     }
     return result
 }
 
 func summarize(readings: List<int>) -> string {
-    let shaped = shape(readings)
-    let total = shaped.Aggregate(0, (acc, entry) => acc + entry.value)
+    val shaped = shape(readings)
+    val total = shaped.Aggregate(0, (acc, entry) => acc + entry.value)
 
-    let verdict = if total > 0
+    val verdict = if total > 0
         "net positive"
     else if total < 0
         "net negative"
@@ -68,7 +68,7 @@ WriteLine(summarize(ledger))
 **Highlights**:
 
 * Expression-first control flow and file-scope functions
-* `let` vs `var` (immutable vs mutable) with tuple-shaped data
+* `val` vs `var` (immutable vs mutable) with tuple-shaped data
 * Lambdas and LINQ interop against .NET collection types
 * String interpolation with tuple element access
 * Direct interop with .NET libraries
