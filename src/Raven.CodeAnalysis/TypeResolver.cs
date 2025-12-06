@@ -28,7 +28,7 @@ internal class TypeResolver(Compilation compilation)
                 return null;
 
             if (unionAttribute is not null)
-                return CreateUnionTypeSymbol(unionAttribute, elementType);
+                return CreateTypeUnionSymbol(unionAttribute, elementType);
 
             var nullInfo = _nullabilityContext.Create(parameterInfo);
             if (nullInfo.ElementType is not null)
@@ -41,7 +41,7 @@ internal class TypeResolver(Compilation compilation)
 
         if (unionAttribute is not null)
         {
-            return CreateUnionTypeSymbol(unionAttribute, declaredType);
+            return CreateTypeUnionSymbol(unionAttribute, declaredType);
         }
 
         var type = declaredType;
@@ -104,7 +104,7 @@ internal class TypeResolver(Compilation compilation)
         return runtimeType.GetField(fieldInfo.Name, bindingFlags);
     }
 
-    private bool TryGetUnion(MemberInfo memberInfo, out IUnionTypeSymbol? unionType)
+    private bool TryGetUnion(MemberInfo memberInfo, out ITypeUnionSymbol? unionType)
     {
         unionType = null;
         var unionAttribute = memberInfo.GetCustomAttributesData()
@@ -120,12 +120,12 @@ internal class TypeResolver(Compilation compilation)
                 _ => null
             };
 
-            unionType = CreateUnionTypeSymbol(unionAttribute, declaredType);
+            unionType = CreateTypeUnionSymbol(unionAttribute, declaredType);
         }
         return unionType is not null;
     }
 
-    private IUnionTypeSymbol CreateUnionTypeSymbol(CustomAttributeData unionAttribute, ITypeSymbol? declaredUnderlyingType)
+    private ITypeUnionSymbol CreateTypeUnionSymbol(CustomAttributeData unionAttribute, ITypeSymbol? declaredUnderlyingType)
     {
         var args = (IEnumerable<CustomAttributeTypedArgument>)unionAttribute
             .ConstructorArguments.First().Value!;
@@ -144,7 +144,7 @@ internal class TypeResolver(Compilation compilation)
             }
         }
 
-        return new UnionTypeSymbol(types.ToArray(), null, null, null, [], declaredUnderlyingType);
+        return new TypeUnionSymbol(types.ToArray(), null, null, null, [], declaredUnderlyingType);
     }
 
     public void RegisterMethodSymbol(MethodBase method, PEMethodSymbol symbol)

@@ -556,7 +556,7 @@ public interface ITupleTypeSymbol : INamedTypeSymbol
 
 }
 
-public interface IUnionTypeSymbol : ITypeSymbol
+public interface ITypeUnionSymbol : ITypeSymbol
 {
     IEnumerable<ITypeSymbol> Types { get; }
 

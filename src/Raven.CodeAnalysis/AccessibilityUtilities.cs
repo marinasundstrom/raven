@@ -258,7 +258,7 @@ internal static class AccessibilityUtilities
             accessibility = Min(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType, cache, visiting));
         else if (type is IAddressTypeSymbol addressType)
             accessibility = Min(accessibility, GetEffectiveAccessibility(addressType.ReferencedType, cache, visiting));
-        else if (type is IUnionTypeSymbol unionType)
+        else if (type is ITypeUnionSymbol unionType)
         {
             foreach (var unionMember in unionType.Types)
                 accessibility = Min(accessibility, GetEffectiveAccessibility(unionMember, cache, visiting));

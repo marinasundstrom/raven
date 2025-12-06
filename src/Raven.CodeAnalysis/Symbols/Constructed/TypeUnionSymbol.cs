@@ -4,11 +4,11 @@ using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
+internal partial class TypeUnionSymbol : SourceSymbol, ITypeUnionSymbol
 {
     private readonly ImmutableArray<ITypeSymbol> _types;
 
-    public UnionTypeSymbol(
+    public TypeUnionSymbol(
         IEnumerable<ITypeSymbol> types,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
@@ -114,7 +114,7 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
     {
         foreach (var type in types)
         {
-            if (type is IUnionTypeSymbol union)
+            if (type is ITypeUnionSymbol union)
             {
                 foreach (var nested in FlattenTypes(union.Types))
                     yield return nested;

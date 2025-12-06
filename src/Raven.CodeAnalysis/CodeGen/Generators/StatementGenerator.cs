@@ -131,7 +131,7 @@ internal class StatementGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
 
             if (expressionType?.IsValueType == true &&
-                (returnType.SpecialType is SpecialType.System_Object || returnType is IUnionTypeSymbol))
+                (returnType.SpecialType is SpecialType.System_Object || returnType is ITypeUnionSymbol))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
             }
@@ -656,7 +656,7 @@ internal class StatementGenerator : Generator
             if (expressionType is not null &&
                 localSymbol.Type is not null &&
                 expressionType.IsValueType &&
-                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
             }

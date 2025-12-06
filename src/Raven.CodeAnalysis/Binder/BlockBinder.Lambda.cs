@@ -200,7 +200,7 @@ partial class BlockBinder
                 inferred = collectedReturn;
         }
 
-        if (isAsyncLambda && inferred is IUnionTypeSymbol union)
+        if (isAsyncLambda && inferred is ITypeUnionSymbol union)
         {
             var unionTypes = union.Types.ToImmutableArray();
             if (!unionTypes.IsDefaultOrEmpty)

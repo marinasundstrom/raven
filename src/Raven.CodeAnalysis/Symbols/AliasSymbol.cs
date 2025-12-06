@@ -161,11 +161,11 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => _type.Construct(typeArguments);
 }
 
-internal sealed class AliasUnionTypeSymbol : AliasSymbol, IUnionTypeSymbol
+internal sealed class AliasTypeUnionSymbol : AliasSymbol, ITypeUnionSymbol
 {
-    private readonly IUnionTypeSymbol _type;
+    private readonly ITypeUnionSymbol _type;
 
-    public AliasUnionTypeSymbol(string name, IUnionTypeSymbol underlying)
+    public AliasTypeUnionSymbol(string name, ITypeUnionSymbol underlying)
         : base(name, underlying)
     {
         _type = underlying;
@@ -345,7 +345,7 @@ internal static class AliasSymbolFactory
     public static IAliasSymbol Create(string name, ISymbol underlying) => underlying switch
     {
         INamespaceSymbol n => new AliasNamespaceSymbol(name, n),
-        IUnionTypeSymbol u => new AliasUnionTypeSymbol(name, u),
+        ITypeUnionSymbol u => new AliasTypeUnionSymbol(name, u),
         INamedTypeSymbol t => new AliasNamedTypeSymbol(name, t),
         LiteralTypeSymbol l => new AliasLiteralTypeSymbol(name, l),
         IMethodSymbol m => new AliasMethodSymbol(name, m),

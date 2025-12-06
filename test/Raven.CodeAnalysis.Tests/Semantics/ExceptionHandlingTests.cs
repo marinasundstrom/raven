@@ -56,7 +56,7 @@ let value = try int.Parse("foo")
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "value");
         var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        var union = Assert.IsAssignableFrom<IUnionTypeSymbol>(local.Type);
+        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
 
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
 
@@ -104,7 +104,7 @@ class C {
             .Single(node => node.Identifier.Text == "attempt");
 
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var union = Assert.IsAssignableFrom<IUnionTypeSymbol>(local.Type);
+        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
 
         Assert.Contains(
             union.Types,
@@ -150,7 +150,7 @@ class C {
             .OfType<TryExpressionSyntax>()
             .Single();
 
-        var tryType = Assert.IsAssignableFrom<IUnionTypeSymbol>(model.GetTypeInfo(tryExpression).Type);
+        var tryType = Assert.IsAssignableFrom<ITypeUnionSymbol>(model.GetTypeInfo(tryExpression).Type);
         Assert.Contains(
             tryType.Types,
             type => type.SpecialType == SpecialType.System_Int32);

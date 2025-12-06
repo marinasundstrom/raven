@@ -69,7 +69,7 @@ hand-written in `src/Raven.Core`:
 - `System.Runtime.CompilerServices.DiscriminatedUnionAttribute` and
   `DiscriminatedUnionCaseAttribute` annotate union types and their cases so the
   emitted IL retains union metadata.
-- `TypeUnionAttribute` marks union-typed fields and parameters.
+- `System.Runtime.CompilerServices.TypeUnionAttribute` marks union-typed fields and parameters. The compiler emits this namespaced attribute in generated metadata but will also honor user-defined `TypeUnionAttribute` types with the same constructor signature, regardless of their namespace.
 - `Null` provides a concrete type for the language's `null` literal when
   unions mention a null case.
 - `System.Unit` is emitted whenever a project depends on the `unit` type,

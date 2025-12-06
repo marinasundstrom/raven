@@ -64,7 +64,7 @@ public static class TypeSymbolExtensions
         }
 
         // Handle dynamic type
-        if (typeSymbol is IUnionTypeSymbol)
+        if (typeSymbol is ITypeUnionSymbol)
         {
             return GetFrameworkType(SpecialType.System_Object, compilation);
         }

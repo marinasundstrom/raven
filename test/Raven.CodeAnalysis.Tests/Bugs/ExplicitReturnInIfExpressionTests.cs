@@ -34,7 +34,7 @@ class Foo {
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
         var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        var union = Assert.IsAssignableFrom<IUnionTypeSymbol>(local.Type);
+        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
 
@@ -63,7 +63,7 @@ let x = if true {
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
         var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        var union = Assert.IsAssignableFrom<IUnionTypeSymbol>(local.Type);
+        var union = Assert.IsAssignableFrom<ITypeUnionSymbol>(local.Type);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Int32);
         Assert.Contains(union.Types, t => t.SpecialType == SpecialType.System_Unit);
 

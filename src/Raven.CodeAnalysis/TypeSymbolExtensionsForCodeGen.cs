@@ -171,7 +171,7 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
         }
 
-        if (typeSymbol is IUnionTypeSymbol union)
+        if (typeSymbol is ITypeUnionSymbol union)
         {
             var emission = union.GetUnionEmissionInfo(compilation);
             var underlyingClr = GetClrTypeInternal(emission.UnderlyingTypeSymbol, codeGen, treatUnitAsVoid, isTopLevel: false);
@@ -336,7 +336,7 @@ public static class TypeSymbolExtensionsForCodeGen
         return false;
     }
 
-    internal static UnionEmissionInfo GetUnionEmissionInfo(this IUnionTypeSymbol union, Compilation compilation)
+    internal static UnionEmissionInfo GetUnionEmissionInfo(this ITypeUnionSymbol union, Compilation compilation)
     {
         if (union is null)
             throw new ArgumentNullException(nameof(union));
@@ -431,7 +431,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
     private static IEnumerable<ITypeSymbol> FlattenUnionMembers(ITypeSymbol type)
     {
-        if (type is IUnionTypeSymbol union)
+        if (type is ITypeUnionSymbol union)
         {
             foreach (var member in union.Types)
             {

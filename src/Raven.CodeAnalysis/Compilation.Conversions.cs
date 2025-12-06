@@ -154,14 +154,14 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
-        static bool UnionContainsNull(IUnionTypeSymbol union)
+        static bool UnionContainsNull(ITypeUnionSymbol union)
         {
             foreach (var member in union.Types)
             {
                 if (member.TypeKind == TypeKind.Null)
                     return true;
 
-                if (member is IUnionTypeSymbol nested && UnionContainsNull(nested))
+                if (member is ITypeUnionSymbol nested && UnionContainsNull(nested))
                     return true;
             }
 
@@ -173,7 +173,7 @@ public partial class Compilation
             if (destination.TypeKind == TypeKind.Nullable)
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
-            if (destination is IUnionTypeSymbol unionDest && UnionContainsNull(unionDest))
+            if (destination is ITypeUnionSymbol unionDest && UnionContainsNull(unionDest))
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             return Conversion.None;
@@ -200,7 +200,7 @@ public partial class Compilation
 
         if (destination is NullableTypeSymbol nullableDest)
         {
-            if (source is IUnionTypeSymbol unionSource &&
+            if (source is ITypeUnionSymbol unionSource &&
                 unionSource.Types.Count() == 2 &&
                 unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
                 unionSource.Types.Any(t => t.MetadataIdentityEquals(nullableDest.UnderlyingType)))
@@ -222,7 +222,7 @@ public partial class Compilation
                     methodSymbol: conv.MethodSymbol));
         }
 
-        if (source is IUnionTypeSymbol unionSource2)
+        if (source is ITypeUnionSymbol unionSource2)
         {
             var conversions = unionSource2.Types.Select(t => ClassifyConversion(t, destination)).ToArray();
             if (conversions.All(c => c.Exists))
@@ -259,7 +259,7 @@ public partial class Compilation
                 isBoxing: source.IsValueType));
         }
 
-        if (destination is IUnionTypeSymbol unionType)
+        if (destination is ITypeUnionSymbol unionType)
         {
             Conversion matchConversion = default;
             var foundMatch = false;

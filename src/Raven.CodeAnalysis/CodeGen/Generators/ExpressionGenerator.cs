@@ -424,7 +424,7 @@ internal class ExpressionGenerator : Generator
         if (symbol is ILocalSymbol localSymbol &&
             value.Type is { IsValueType: true } &&
             localSymbol.Type is not null &&
-            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(value.Type));
         }
@@ -765,7 +765,7 @@ internal class ExpressionGenerator : Generator
             return;
         }
 
-        if (to is IUnionTypeSymbol unionTo)
+        if (to is ITypeUnionSymbol unionTo)
         {
             EmitUnionConversion(from, unionTo);
             return;
@@ -882,7 +882,7 @@ internal class ExpressionGenerator : Generator
         throw new NotSupportedException("Unsupported conversion");
     }
 
-    private void EmitUnionConversion(ITypeSymbol from, IUnionTypeSymbol unionTo)
+    private void EmitUnionConversion(ITypeSymbol from, ITypeUnionSymbol unionTo)
     {
         var emission = unionTo.GetUnionEmissionInfo(Compilation);
         var targetClrType = ResolveClrType(unionTo);
@@ -899,7 +899,7 @@ internal class ExpressionGenerator : Generator
 
     private void EmitNullableUnionConversion(
         ITypeSymbol from,
-        IUnionTypeSymbol unionTo,
+        ITypeUnionSymbol unionTo,
         ITypeSymbol underlyingSymbol,
         Type nullableClrType)
     {
@@ -2378,7 +2378,7 @@ internal class ExpressionGenerator : Generator
 
             if (storedType is not null && storedType.IsValueType &&
                 localSymbol.Type is not null &&
-                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(storedType));
             }
@@ -2395,7 +2395,7 @@ internal class ExpressionGenerator : Generator
 
         if (finalType is not null && finalType.IsValueType &&
             localSymbol.Type is not null &&
-            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
         }
