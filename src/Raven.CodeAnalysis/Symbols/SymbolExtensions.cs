@@ -195,6 +195,12 @@ public static partial class SymbolExtensions
                 format,
                 useNameOption: true);
             result.Append(display);
+            // Append constant value for const locals
+            if (localSymbol.IsConst)
+            {
+                result.Append(" = ");
+                result.Append(FormatConstant(localSymbol.ConstantValue, localSymbol.Type, format));
+            }
             return result.ToString();
         }
 
@@ -373,6 +379,12 @@ public static partial class SymbolExtensions
                 var typeDisplay = FormatType(fieldSymbol.Type, format);
                 result.Append(": ");
                 result.Append(typeDisplay);
+            }
+            // Append constant value for const fields
+            if (fieldSymbol.IsConst)
+            {
+                result.Append(" = ");
+                result.Append(FormatConstant(fieldSymbol.GetConstantValue(), fieldSymbol.Type, format));
             }
         }
 

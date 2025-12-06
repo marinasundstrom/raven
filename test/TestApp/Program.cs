@@ -258,7 +258,7 @@ class Program
     static void ReadType()
     {
         string sourceCode = """
-        var x = 4
+        var x = 42
         """;
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
