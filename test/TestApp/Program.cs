@@ -14,8 +14,8 @@ class Program
     static void Main()
     {
         //QuoterTest();
-        //PrintMembers();
-        ReadType();
+        PrintMembers();
+        //ReadType();
     }
 
     static void QuoterTest()

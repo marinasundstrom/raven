@@ -744,7 +744,7 @@ public static partial class SymbolExtensions
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName);
 
-        // Core "type name" (or just type / just name depending on options)
+        // Core "name: type" (or just type / just name depending on options)
         var core = FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
 
         if (parameter.IsParams)
@@ -752,15 +752,70 @@ public static partial class SymbolExtensions
             core = ".." + core;
         }
 
-        // Optionally prepend modifiers (var / .. etc.) when requested
+        var builder = new StringBuilder();
+
+        // Optionally prepend modifiers (out / val / var / etc.) when requested
         if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeModifiers))
         {
             var modifiers = GetMemberModifiers(parameter);
             if (!string.IsNullOrEmpty(modifiers))
-                return modifiers + " " + core;
+            {
+                builder.Append(modifiers);
+                builder.Append(' ');
+            }
         }
 
-        return core;
+        // Append the core parameter text
+        builder.Append(core);
+
+        // Append explicit default value, if any
+        if (parameter.HasExplicitDefaultValue)
+        {
+            builder.Append(" = ");
+            builder.Append(FormatConstant(parameter.ExplicitDefaultValue, parameter.Type, format));
+        }
+
+        return builder.ToString();
+    }
+
+    private static string FormatConstant(object? value, ITypeSymbol type, SymbolDisplayFormat format)
+    {
+        if (value is null)
+            return "null";
+
+        // Strings
+        if (value is string s)
+        {
+            // Basic escaping for backslash and quote
+            var escaped = s
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"");
+            return $"\"{escaped}\"";
+        }
+
+        // Chars
+        if (value is char c)
+        {
+            var text = c.ToString()
+                .Replace("\\", "\\\\")
+                .Replace("'", "\\'");
+            return $"'{text}'";
+        }
+
+        // Booleans
+        if (value is bool b)
+            return b ? "true" : "false";
+
+        // Enums: use the enum member name if possible
+        if (value is Enum e)
+            return e.ToString();
+
+        // Numeric and other IFormattable values
+        if (value is IFormattable f)
+            return f.ToString(null, CultureInfo.InvariantCulture) ?? "0";
+
+        // Fallback
+        return value.ToString() ?? "null";
     }
 
     private static string FormatPropertyAccessors(IPropertySymbol propertySymbol, SymbolDisplayFormat format)
@@ -896,6 +951,10 @@ public static partial class SymbolExtensions
                 if (param.IsMutable)
                 {
                     parts.Add("var");
+                }
+                else
+                {
+                    parts.Add("val");
                 }
                 break;
 
