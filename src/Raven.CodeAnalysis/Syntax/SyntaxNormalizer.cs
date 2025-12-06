@@ -157,7 +157,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
-        return node.Update(node.Identifier
+        if (node.QuestionToken.Kind == SyntaxKind.None)
+        {
+            return node.Update(node.Identifier
+             .WithTrailingTrivia(SyntaxFactory.Space), node.QuestionToken, (TypeAnnotationClauseSyntax)VisitTypeAnnotationClause(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
+        }
+        return node.Update(node.Identifier, node.QuestionToken
             .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationClauseSyntax)VisitTypeAnnotationClause(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
     }
 

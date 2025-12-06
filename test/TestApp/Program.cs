@@ -258,7 +258,7 @@ class Program
     static void ReadType()
     {
         string sourceCode = """
-        val x : (int -> bool)[] = 42
+        var x? = 42
         """;
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);

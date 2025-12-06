@@ -282,7 +282,9 @@ partial class BlockBinder : Binder
             }
         }
 
-        var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue), boundInitializer);
+        var isNullable = variableDeclarator.QuestionToken.IsKind(SyntaxKind.QuestionToken);
+
+        var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, isNullable, constantValue), boundInitializer);
 
         if (shouldDispose)
             _localsToDispose.Add((declarator.Local, _scopeDepth));
@@ -454,7 +456,7 @@ partial class BlockBinder : Binder
         };
     }
 
-    private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type, bool isConst = false, object? constantValue = null)
+    private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type, bool isConst = false, bool isNullable = false, object? constantValue = null)
     {
         var symbol = new SourceLocalSymbol(
             name,
@@ -466,6 +468,7 @@ partial class BlockBinder : Binder
             [declaringSyntax.GetLocation()],
             [declaringSyntax.GetReference()],
             isConst,
+            isNullable,
             constantValue);
 
         _locals[name] = (symbol, _scopeDepth);

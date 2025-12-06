@@ -149,7 +149,7 @@ Statement                ::= LocalDeclaration
 
 LocalDeclaration         ::= ('let' | 'val' | 'var' | 'const') LocalVariableDeclarators ;
 LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
-LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
+LocalVariableDeclarator  ::= Identifier ('?')? (':' Type)? '=' Expression ;
 
 ReturnStatement          ::= 'return' Expression? ;
 
