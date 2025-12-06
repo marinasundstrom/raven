@@ -332,6 +332,9 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitTypeAnnotationClause(TypeAnnotationClauseSyntax node)
     {
+        if (node is null)
+            return null;
+
         var colonToken = node.ColonToken.WithTrailingTrivia(SyntaxFactory.Space);
 
         return node.Update(colonToken, (TypeSyntax)VisitType(node.Type)!);
