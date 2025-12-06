@@ -833,7 +833,8 @@ internal class CodeGenerator
 
     private void TryBindRuntimeCoreTypes()
     {
-        TypeUnionAttributeType ??= Compilation.ResolveRuntimeType("TypeUnionAttribute");
+        TypeUnionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TypeUnionAttribute")
+            ?? Compilation.ResolveRuntimeType("TypeUnionAttribute");
         NullType ??= Compilation.ResolveRuntimeType("Null");
         UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
 
@@ -862,7 +863,7 @@ internal class CodeGenerator
 
         // Define the attribute class
         var attrBuilder = ModuleBuilder.DefineType(
-            "TypeUnionAttribute",
+            "System.Runtime.CompilerServices.TypeUnionAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
             typeof(Attribute));
 

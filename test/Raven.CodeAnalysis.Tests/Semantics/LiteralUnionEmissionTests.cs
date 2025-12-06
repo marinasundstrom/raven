@@ -58,7 +58,7 @@ class C {
         Assert.True(result.Success);
 
         var assembly = Assembly.Load(peStream.ToArray());
-        var attrType = assembly.GetType("TypeUnionAttribute");
+        var attrType = assembly.GetType("System.Runtime.CompilerServices.TypeUnionAttribute");
         Assert.NotNull(attrType);
         Assert.True(attrType!.IsPublic);
     }
