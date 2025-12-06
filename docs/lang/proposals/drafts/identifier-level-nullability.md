@@ -1,83 +1,144 @@
+Nice, this slots really cleanly into your existing grammar. Here’s the **updated proposal**, with a new section that ties the syntax explicitly to the EBNF you pasted.
+
+I’ve only changed wording where it needed to line up with the grammar (e.g. `let/var/const`, `VariableDeclarator`, `LocalVariableDeclarator`, `Parameter`, etc.) and added a **“Grammar Integration”** section at the end.
+
+---
+
 # Proposal: Identifier-Level Nullability
 
 ## Summary
 
-Move Raven’s primary nullability declaration from the *type* to the *declared symbol* by placing `?` after the identifier in declarations. For example:
+Raven moves primary nullability from the **type syntax** to the **declared symbol**, by placing the nullability marker `?` after the identifier rather than after the type. Example:
 
 ```raven
 let x? : int
 ```
 
-declares `x` as nullable and desugars to a nullable type for `x` (e.g. `NullableTypeSymbol(int)` for value types) while keeping the annotated type syntax (`int`) non-nullable. The compiler exposes this via an `IsNullable` flag on declared symbols and adjusts the effective type accordingly. Declaring nullability both on the identifier and the type is disallowed:
+declares `x` as **nullable**, while the annotated type `int` remains *logically non-nullable*. The compiler attaches nullability information to the declared symbol (`IsNullable`) and adjusts its **effective CLR type** accordingly (e.g. wrapping value types in `System.Nullable<T>`).
+
+Type-level nullability (`int?`) remains legal, **but only inside complex type constructs** (e.g. generic arguments). Using both identifier-level and type-level nullability at the same time is disallowed:
 
 ```raven
-let x? : int? // error
+let x? : int?  // error: nullability must appear only once
 ```
 
-This aligns Raven’s model with .NET’s underlying `NullableAttribute` encoding, which is attached to the declared symbol rather than the type itself.
+This model matches .NET metadata, where `NullableAttribute` attaches to **symbols**, while preserving a clean, Raven-friendly syntax.
 
-## Motivation
+---
 
-Nullability in .NET is conceptually tied to **declared symbols**: fields, properties, parameters, locals, and returns carry nullability via `NullableAttribute` and `NullableContextAttribute`. Treating nullability as a property of the *type syntax* obscures this and leads to confusion such as “is `int?` the same as `x?`?” or “where does the attribute actually go?”
+# Motivation
 
-By shifting focus to identifier-level nullability, we can:
+C# projects nullability onto **types** (`string?`), but .NET metadata encodes nullability on **declared symbols** (locals, parameters, fields, properties, return values) via attributes. This mismatch leads to well-known confusion:
 
-* Match how .NET actually encodes nullability in metadata.
-* Make it explicit that *the variable/field/parameter* is nullable, not the “bare” type.
-* Provide a clear, uniform place for nullability semantics (symbols) that plays nicely with flow/data-flow analysis.
-* Avoid double-annotated constructs (`int?` plus a nullable symbol) that are hard to reason about.
+* Is `string?` a *different type* than `string`?
+* Does nullability belong to the type, or to the variable?
+* How do `T?` and `[Nullable]` interplay in generics?
 
-## Design
+Raven avoids these problems by making nullability:
 
-### Surface syntax
+* **syntactically** tied to the declared symbol (`x?`)
+* **semantically** tied to the declared symbol (`IsNullable`)
+* **internally** projected onto existing .NET constructs (`Nullable<T>`, `NullableAttribute`)
 
-* Nullability is declared by appending `?` to the **identifier** in declarations:
+Benefits:
 
-  ```raven
-  let x? : int
-  field value? : MyStruct
-  func f(x? : int, y : string) -> int
-  property Name? : string
-  ```
+* A clean mental model: *the binding* (variable/field/param/property) is nullable.
+* Flow analysis and exhaustiveness checks become simpler and more intuitive.
+* Raven code favors `Option<T>` while still interoperating smoothly with CLR nulls.
+* No “double-nullability” scenarios.
+* Type syntax remains clean and concise.
 
-* The annotated type (`int`, `MyStruct`, `string`, etc.) is written in its **non-nullable** form for this feature.
+---
 
-* Double-nullability is rejected:
+# Design
 
-  ```raven
-  let x? : int?    // illegal
-  func f(x? : int?) // illegal
-  ```
+## 1. Surface syntax
 
-* Existing type-level nullability (`T?`) remains valid where needed (especially for generic arguments and nested types):
+### Identifier-level nullability (preferred)
 
-  ```raven
-  let list : List<int?>  // still allowed
-  ```
+Nullability is expressed on the declared identifier:
 
-* For *simple* declarations, `x? : T` is considered the canonical form going forward, with `T?` being primarily used inside compound types.
+```raven
+// locals
+let x? : int
+var currentUser? : User
 
-### Symbol model
+// fields
+let value? : Payload
 
-* Introduce an `IsNullable` flag on declared symbols:
+// parameters
+func f(x? : User, y : string) -> int
 
-  * `ILocalSymbol.IsNullable`
-  * `IParameterSymbol.IsNullable`
-  * `IFieldSymbol.IsNullable`
-  * `IPropertySymbol.IsNullable`
-  * (Later) `IMethodSymbol.ReturnsNullable` or similar for return values.
+// properties
+property Title? : string
+```
 
-* Semantics:
+In statements with type inference, the same form applies:
 
-  * `IsNullable == true` means the **declaration** allows `null` for that symbol.
-  * The **effective type** of the symbol is adjusted:
+```raven
+let x? = ComputeValue()
+var name? = readLine()
+```
 
-    * For value types, the compiler wraps the underlying type in a `NullableTypeSymbol` (backed by `System.Nullable<T>`).
-    * For reference types, `IsNullable` captures their nullability state; the exact representation (`NullableReferenceTypeSymbol` vs state on symbol) remains an internal design choice.
+Here:
 
-### Binding rules
+* the type flows from the right-hand side (`ComputeValue()`, `readLine()`),
+* the `?` on the identifier marks the binding as nullable.
 
-When binding a declaration like:
+### Type-level nullability (`T?`) kept only for complex type positions
+
+Allowed **only** inside:
+
+* generic type arguments
+* nested type syntax
+* low-level interoperability cases
+
+Examples:
+
+```raven
+let cache : List<int?>
+let state : Map<string, List<int?>>
+let ptrs : List<*int>         // pointer types are also type-level
+```
+
+### Illegal combinations
+
+Declaring nullability in both places is an error:
+
+```raven
+let x? : int?           // ❌ double nullability
+func f(x? : T?) -> T    // ❌
+```
+
+Identifier-level nullability is the canonical Raven style for simple declarations.
+Type-level `T?` is not used for plain locals/parameters/fields/properties.
+
+---
+
+## 2. Symbol Model
+
+All declared symbols gain an explicit nullability flag:
+
+* `ILocalSymbol.IsNullable`
+* `IParameterSymbol.IsNullable`
+* `IFieldSymbol.IsNullable`
+* `IPropertySymbol.IsNullable`
+* `IMethodSymbol.ReturnIsNullable` (return nullability)
+
+**Symbol semantics:**
+
+* `IsNullable` expresses the declared nullability of the **binding**.
+* The underlying type symbol (`ITypeSymbol`) stays non-nullable syntactically.
+* The **effective CLR type** of the symbol is computed by the compiler:
+
+  * If underlying type is a non-nullable value type → lifted to `Nullable<T>`.
+  * If underlying type is a reference type → remains as is, but metadata attributes reflect nullability (`NullableAttribute` / `NullableContextAttribute`).
+
+---
+
+## 3. Binding Rules
+
+When binding:
 
 ```raven
 let x? : int
@@ -85,59 +146,364 @@ let x? : int
 
 the binder:
 
-1. Binds the type syntax `int` to a **non-nullable** `ITypeSymbol`.
+1. Binds `int` to a non-nullable `ITypeSymbol`.
+2. Observes the nullable identifier `x?`.
+3. Marks the symbol as `IsNullable = true`.
+4. Produces an **effective type**:
 
-2. Sees the nullable marker on the identifier (`x?`).
+   * value type → `NullableTypeSymbol(int)` (i.e. `System.Nullable<int>`),
+   * reference type → `User` + `IsNullable = true` on the symbol.
+5. Emits diagnostics if both identifier and type attempt to encode nullability:
 
-3. Sets `IsNullable = true` on the resulting symbol.
+   ```raven
+   let x? : int?    // error: nullability specified on both identifier and type
+   ```
 
-4. Computes the symbol’s effective type:
+Identifier-level nullability applies uniformly across:
 
-   * If underlying type is a non-nullable value type, wraps with `NullableTypeSymbol`.
-   * If underlying type is already nullable (`NullableTypeSymbol`, or `T?`), reports a diagnostic:
+* locals
+* parameters
+* fields
+* properties
+* pattern variables
+* deconstruction variables
 
-     > Nullability cannot be specified both on the variable and the type.
+---
 
-5. For reference types, uses `IsNullable` to represent the nullability of that reference in semantic and flow analysis.
+## 4. Type-Level Nullability Restrictions
 
-These rules apply uniformly to locals, fields, parameters, and properties (and later, pattern variables, deconstruction, etc.).
+`NullableTypeSyntax` (`T?` in the `Type` grammar) is **restricted** by contextual rules (outside the core EBNF):
 
-### Metadata representation
+### Allowed:
 
-Identifier-level nullability is largely *syntactic and semantic sugar* over the existing .NET nullability encoding:
+* **generic type arguments**:
 
-* Value types:
+  ```raven
+  let values : List<int?>
+  ```
 
-  * Effective type is emitted as `System.Nullable<T>` when `IsNullable` is true.
-* Reference types:
+* **nested types**:
 
-  * The type remains the same (e.g. `System.String`), but the compiler emits `NullableAttribute` (and/or `NullableContextAttribute`) on the declared symbol to represent its nullability.
-* IL and metadata continue to expose standard .NET types; Raven tooling and debugger displays are free to show the nicer identifier-level syntax (`let x? : int`) when mapping back to source.
+  ```raven
+  let map : Map<string, List<int?>>
+  ```
 
-### Examples
+* **interop constructs** (e.g. APIs that explicitly expose `Nullable<T>` shapes).
+
+### Disallowed:
+
+* **top-level declarations** where identifier-level nullability is available:
+
+  ```raven
+  let x : int?        // ❌ use: let x? : int
+  func f() -> int?    // ❌ use: Option<int>
+  ```
+
+Motivation: Raven prefers `Option<T>` and DU-based modeling for “maybe” semantics in user code. `T?` is treated as a low-level interop/tooling feature and appears mainly inside composite types.
+
+---
+
+## 5. Metadata Representation
+
+### For value types
+
+Identifier-level `x? : int` maps to:
+
+* Effective CLR type: `System.Nullable<int>`
+* Debugger and tooling are free to display it as `let x? : int` in Raven source terms.
+* The compiler **prevents** constructing nested nullable-of-nullable (`Nullable<Nullable<T>>`) and double-nullability (`x? : int?`).
+
+### For reference types
+
+Identifier-level `x? : User` becomes:
+
+* Type: `User`
+* Metadata: `NullableAttribute` (and/or `NullableContextAttribute`) on the symbol representing that it may be null.
+
+### For generics
+
+Raven produces:
+
+* `Dictionary<string, int?>` → `Dictionary<string, System.Nullable<int>>`
+* `List<*int>` → `List<int*>`
+* `let current? : Dictionary<string, int>` → nullable binding whose type is `Dictionary<string, int>`.
+
+The source-level Raven notation (`let x? : T`) is preserved in tooling and formatting.
+
+---
+
+## 6. Flow Analysis
+
+Flow nullability derives from:
+
+* the declared nullability (`IsNullable`)
+* control flow (conditionals, `match`, `when` guards, etc.)
+* inferred non-null states after checks:
+
+  ```raven
+  if x? : int {
+      if x != null {
+          // x is non-null in this branch
+      }
+  }
+
+  match userOpt {
+      Some(u) => u.Name  // u is non-null
+      None    => ...
+  }
+  ```
+
+Non-nullable symbols (`IsNullable = false`) cannot be assigned `null` and produce diagnostics on suspicious uses (e.g. dereferencing without checks if analysis concludes a possible null state).
+
+---
+
+## 7. Interop with `Option<T>` and `T?`
+
+Raven’s *idiomatic* “maybe” representation in user code is `Option<T>` (and other unions like `Result<T, E>`). CLR-style `T?` (nullable value types and annotated reference types) is primarily used for:
+
+* .NET interop
+* generic shapes that must match existing APIs
+* low-level or boundary code
+
+To make it easy to expose Raven APIs to C# and other .NET consumers while keeping Raven internally `Option`-driven, the language defines a **built-in implicit conversion**:
 
 ```raven
-// Locals
-let count? : int    // nullable int
-let name  : string  // non-nullable string
-
-// Parameters and returns
-func tryFind(key: string, value? : string) -> bool
-
-// Properties and fields
-property Title? : string
-field payload? : MyStruct
-
-// Interplay with type-level nullability in generics
-let cache : Dictionary<string, int?>
-let current? : Dictionary<string, int>  // nullable symbol holding a non-nullable dictionary
+Option<T>  →  T?
 ```
 
-## Implementation notes
+### Semantics
 
-* **Parser**: Extend declaration grammars so that identifiers may carry an optional trailing `?` before the `:` type separator. Treat this as a nullable flag on the declarator rather than part of the type syntax.
-* **Symbols**: Add `IsNullable` to declared symbol interfaces and implementations. Ensure symbol constructors (for source) accept an `isNullable` flag and that metadata-backed symbols read nullability from `NullableAttribute` where available.
-* **Type system**: Reuse `NullableTypeSymbol` (or equivalent) for value types and enforce that nested/nullability-of-nullable combinations are not created.
-* **Diagnostics**: Introduce a nullability diagnostic for “double nullability” (identifier **and** type), e.g. `let x? : int?`. Optionally, in the future, warn when using simple `T?` where `x? : T` is preferred.
-* **Semantic model**: `GetTypeInfo` should return the effective nullable type for expressions referring to nullable symbols. Tooling (Quick Info, navigation) should include both the type and the symbol’s `IsNullable` state, formatting it in Raven’s identifier-level notation.
-* **Flow analysis**: Where Raven tracks null-state, use `IsNullable` as the declaration’s initial state—non-nullable symbols can be checked more strictly against `null` assignments and uses, while nullable ones allow `null` without diagnostics.
+For any `T`:
+
+```raven
+Some(v)  => v          // value or reference
+None     => null       // default(Nullable<T>) / null
+```
+
+* For **value types**:
+
+  * `Option<int> -> int?`
+  * `Some(42)` becomes `new Nullable<int>(42)`
+  * `None` becomes `default(Nullable<int>)`
+
+* For **reference types**:
+
+  * `Option<User> -> User?`
+  * `Some(user)` becomes `user`
+  * `None` becomes `null`
+
+### Where the conversion applies
+
+The `Option<T> -> T?` implicit conversion is available in any **target-typed** context where the expected type is a nullable type (`T?`):
+
+* assignment:
+
+  ```raven
+  let opt : Option<int> = ...
+  let x   : int? = opt
+  ```
+
+* parameter passing:
+
+  ```raven
+  func accept(x : int?) { ... }
+
+  let o : Option<int> = ...
+  accept(o)     // Option<int> -> int?
+  ```
+
+* returns:
+
+  ```raven
+  func getOrNull() -> int? {
+      let o : Option<int> = compute()
+      return o           // implicit conversion
+  }
+  ```
+
+* generic instantiations where a `T?` is expected.
+
+This allows Raven code to remain `Option<T>`-centric internally while still exposing familiar `T?` APIs to C# consumers when desired.
+
+### No implicit `T? -> Option<T>`
+
+The reverse conversion is **not implicit**:
+
+```raven
+let n : int? = ...
+let o : Option<int> = n   // ❌ no implicit conversion
+```
+
+`T? -> Option<T>` is intentionally **explicit**, via helpers such as:
+
+```raven
+let o = Option.FromNullable(n)
+```
+
+Rationale:
+
+* Keeps the “boundary” from CLR-null-land into Raven’s safer `Option<T>` world **visible and intentional**.
+* Avoids ambiguity for reference types between `None` and `Some(null)`.
+* Makes it clear where external null-heavy APIs are “normalized” into Raven’s union-based style.
+
+---
+
+# Implementation Notes (addendum for interop)
+
+In addition to the earlier notes:
+
+* **Built-in conversion**:
+  The compiler (or core library) provides a well-known implicit conversion from `Option<T>` to `T?`:
+
+  * For value types: implemented in terms of `System.Nullable<T>`.
+  * For reference types: implemented in terms of the underlying reference type plus `null`.
+
+* **Semantic model**:
+  `GetConversion` should report a standard implicit conversion from `Option<T>` to `T?` when the target type is nullable and the source type is `Option<T>`.
+
+* **Display**:
+  When showing signatures in Raven, prefer:
+
+  ```raven
+  func findUser(id : Guid) -> Option<User>
+  func getUserOrNull(id : Guid) -> User?
+  ```
+
+  rather than surfacing `Nullable<T>` directly.
+
+That’s the only addition; the rest of the proposal stands as-is.
+
+---
+
+# Examples
+
+### Locals
+
+```raven
+let count? : int
+let name : string
+let active? = getState()   // inferred type + nullable binding
+```
+
+### Parameters / returns
+
+```raven
+func tryFind(key : string, result? : string) -> bool
+
+func parse(text : string) -> Option<int>
+func tryGetToken(input : string, token? : Token) -> bool
+```
+
+### Properties / fields
+
+```raven
+Title? : string { get; set; }
+var payload? : Payload
+var id : int         // always non-null
+```
+
+
+> **Note:**
+Fields can be bound using `let`, `var`, and `const` for binding statements. The binding keywords `val` (from `let`), `var`, `const` is used in signatures for variables. In the future we might drop `let` for `val`.
+
+### Interplay with generics
+
+```raven
+let cache : Dictionary<string, int?>
+let current? : Dictionary<string, int>  // nullable binding holding a non-nullable dictionary
+let pointers : List<*int>
+```
+
+---
+
+# Implementation Notes
+
+## Parser
+
+The existing grammar already introduces identifier-level nullability for locals:
+
+```ebnf
+LocalVariableDeclarator  ::= Identifier ('?')? (':' Type)? '=' Expression ;
+```
+
+We extend the same pattern to parameters, fields, and properties:
+
+```ebnf
+Parameter                ::= ['out'] Identifier ('?')? ':' Type ['=' Expression] ;
+
+VariableDeclarator       ::= Identifier ('?')? (':' Type)? ['=' Expression] ;
+
+PropertyDeclaration      ::= MemberModifiers?
+                             ExplicitInterfaceSpecifier? Identifier ('?')? ':' Type AccessorList ;
+
+IndexerDeclaration       ::= MemberModifiers?
+                             ExplicitInterfaceSpecifier? Identifier ('?')?
+                             BracketedParameterList ':' Type AccessorList ;
+```
+
+Optionally, pattern variable designations may also support identifier-level `?` (for pattern-bound nullable locals), e.g.:
+
+```ebnf
+VariableDesignationCore  ::= Identifier ('?')? | ParenthesizedVariableDesignation ;
+```
+
+This keeps the EBNF structurally simple while pushing context-sensitive validation into the binder (as the grammar comment already notes).
+
+`NullableType` in the type grammar remains:
+
+```ebnf
+Type                     ::= ByRefType | PointerType | UnionType ;
+
+ByRefType                ::= '&' Type ;
+PointerType              ::= '*' Type ;
+
+UnionType                ::= FunctionType {'|' FunctionType} ;
+
+FunctionType             ::= FunctionParameterClause '->' Type
+                           | NullableType ;
+
+FunctionParameterClause  ::= FunctionTypeParameterList | NullableType ;
+
+NullableType             ::= PrimaryType ['?'] ;
+```
+
+**But** its *use* is restricted by semantic rules (see Section 4: “Type-Level Nullability Restrictions”).
+
+## Symbols
+
+* Add `IsNullable` (and `ReturnIsNullable`) to relevant symbol interfaces.
+* Source symbols get `isNullable` from the syntax (`Identifier ('?')?`).
+* Metadata-backed symbols read nullability from `NullableAttribute` / `NullableContextAttribute` and map this onto `IsNullable`.
+
+## Types
+
+* Keep `NullableTypeSymbol` and `PointerTypeSymbol` for CLR correctness and generic instantiation.
+* Enforce:
+
+  * no nested `Nullable<Nullable<T>>` in symbol construction,
+  * no double-nullability via both identifier and type.
+
+## Diagnostics
+
+* Errors for `let x? : T?` and similar “double nullability” forms.
+* Errors (or at least non-idiomatic warnings) for `let x : T?` and `func f() -> T?` when `x? : T` or `Option<T>` is the preferred style.
+* Diagnostics for illegal usage of `NullableType` in top-level declaration positions.
+
+## Semantic Model
+
+* `SemanticModel.GetTypeInfo` on a nullable symbol returns the **effective CLR type** (i.e. `Nullable<T>` for value types).
+* Symbol display and Quick Info format types using identifier-level notation where possible:
+
+  ```text
+  let x? : int
+  property Name? : string
+  ```
+
+rather than raw `Nullable<T>` / null-annotated reference types.
+
+## Flow Analysis
+
+* Uses `IsNullable` as the declaration’s initial nullability contract.
+* Tracks null-state per symbol and per branch.
+* Enforces that non-nullable symbols are not assigned `null` and are checked before dereference where analysis cannot prove non-null.
+
