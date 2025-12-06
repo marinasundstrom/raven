@@ -5966,6 +5966,11 @@ partial class BlockBinder : Binder
             {
                 return true;
             }
+            else if (methodSymbol.MethodKind == MethodKind.NamedConstructor &&
+                  SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, fieldSymbol.ContainingType))
+            {
+                return true;
+            }
         }
 
         _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(syntax.GetLocation());
