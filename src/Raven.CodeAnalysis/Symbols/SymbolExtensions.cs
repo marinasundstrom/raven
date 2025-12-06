@@ -193,8 +193,11 @@ public static partial class SymbolExtensions
                 localSymbol.Type,
                 format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType),
                 format,
-                useNameOption: true);
+                useNameOption: true,
+                isNullable: localSymbol.IsNullable);
+
             result.Append(display);
+
             // Append constant value for const locals
             if (localSymbol.IsConst)
             {
@@ -882,13 +885,19 @@ public static partial class SymbolExtensions
         ITypeSymbol type,
         bool includeType,
         SymbolDisplayFormat format,
-        bool useNameOption)
+        bool useNameOption,
+        bool isNullable = false)
     {
         var sb = new StringBuilder();
 
         if (useNameOption)
         {
             sb.Append(EscapeIdentifierIfNeeded(name, format));
+
+            if (isNullable)
+            {
+                sb.Append('?');
+            }
 
             if (includeType)
             {

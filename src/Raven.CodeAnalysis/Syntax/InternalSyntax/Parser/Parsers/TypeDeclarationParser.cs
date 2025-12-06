@@ -800,6 +800,15 @@ internal class TypeDeclarationParser : SyntaxParser
             }
         }
 
+        SyntaxToken questionToken = Token(SyntaxKind.None);
+
+        var next = PeekToken();
+
+        if (next.Kind == SyntaxKind.QuestionToken)
+        {
+            questionToken = ReadToken();
+        }
+
         EqualsValueClauseSyntax? initializer = null;
 
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
@@ -810,7 +819,7 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         var declarators = new SyntaxList(
-            [VariableDeclarator(identifier, typeAnnotation, initializer)]);
+            [VariableDeclarator(identifier, questionToken, typeAnnotation, initializer)]);
 
         return new VariableDeclarationSyntax(bindingKeyword, declarators);
     }

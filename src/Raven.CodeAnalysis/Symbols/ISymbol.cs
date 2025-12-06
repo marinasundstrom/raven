@@ -606,6 +606,8 @@ public interface ILocalSymbol : ISymbol
 
     bool IsConst { get; }
 
+    bool IsNullable => false;
+
     object? ConstantValue { get; }
 }
 

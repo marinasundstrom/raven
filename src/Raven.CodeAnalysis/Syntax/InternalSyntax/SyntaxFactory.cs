@@ -4,9 +4,18 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal static partial class SyntaxFactory
 {
+    private static SyntaxToken _noneToken = new(SyntaxKind.None, SyntaxFacts.GetSyntaxTokenText(SyntaxKind.None) ?? string.Empty);
+
     public static SyntaxToken MissingToken(SyntaxKind kind) => SyntaxToken.Missing(kind);
 
-    public static SyntaxToken Token(SyntaxKind kind) => new(kind, SyntaxFacts.GetSyntaxTokenText(kind) ?? string.Empty);
+    public static SyntaxToken Token(SyntaxKind kind)
+    {
+        if (kind == SyntaxKind.None)
+        {
+            return _noneToken;
+        }
+        return new(kind, SyntaxFacts.GetSyntaxTokenText(kind) ?? string.Empty);
+    }
 
     public static SyntaxToken IdentifierToken(string text) => new(SyntaxKind.IdentifierToken, text);
     public static SyntaxToken Literal(int value) => new(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length);
