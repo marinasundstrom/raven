@@ -323,6 +323,8 @@ public interface IParameterSymbol : ISymbol
 
     bool IsMutable { get; }
 
+    bool IsNullable => false;
+
     bool HasExplicitDefaultValue { get; }
 
     object? ExplicitDefaultValue { get; }

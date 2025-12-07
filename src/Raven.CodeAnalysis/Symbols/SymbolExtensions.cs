@@ -1,11 +1,8 @@
-using System;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 using Raven.CodeAnalysis.Symbols;
-using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -230,7 +227,7 @@ public static partial class SymbolExtensions
                 return EscapeIdentifier(text);
             }
 
-            return text;
+            return result.ToString();
         }
 
         if (symbol is ILabelSymbol labelSymbol)
@@ -274,7 +271,7 @@ public static partial class SymbolExtensions
             }
         }
         else if (symbol is IPropertySymbol propertySymbol2
-            && !propertySymbol2.ExplicitInterfaceImplementations.IsEmpty)
+                 && !propertySymbol2.ExplicitInterfaceImplementations.IsEmpty)
         {
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeExplicitInterface))
             {
@@ -355,7 +352,6 @@ public static partial class SymbolExtensions
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters)
                 && (!methodSymbol.TypeParameters.IsDefaultOrEmpty || !methodSymbol.TypeArguments.IsDefaultOrEmpty))
             {
-
                 IEnumerable<string> arguments;
 
                 if (!methodSymbol.TypeArguments.IsDefaultOrEmpty &&
@@ -513,21 +509,12 @@ public static partial class SymbolExtensions
         if (typeSymbol is LiteralTypeSymbol literal)
             return FormatType(literal.UnderlyingType, format);
 
-        // Nullable<T> => T?
+        // Legacy Nullable<T> pseudo-type: render as T | null in Raven surface model.
         if (typeSymbol is NullableTypeSymbol nullable)
         {
             var underlying = nullable.UnderlyingType;
-
-            // Nullable of function type => (A -> B)?
-            // Nullable of type union => (A | B)?
-            if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion } &&
-                TryFormatFunctionType(underlying, format, out var funcDisplay))
-            {
-                return $"({funcDisplay})?";
-            }
-
             var underlyingDisplay = FormatType(underlying, format);
-            return underlyingDisplay + "?";
+            return underlyingDisplay + " | null";
         }
 
         // Delegate function sugar (synthesized + System.Func/Action)
@@ -541,19 +528,20 @@ public static partial class SymbolExtensions
         // Arrays
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
-            var elementDisplay = FormatType(arrayType.ElementType, format);
+            var elementType = arrayType.ElementType;
+            var elementDisplay = FormatType(elementType, format);
+
+            // Array of function type => (A -> B)[]
+            // Array of union type   => (A | B)[]
+            var needsParens =
+                elementType is ITypeUnionSymbol ||
+                elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate };
+
+            if (needsParens)
+                elementDisplay = $"({elementDisplay})";
 
             if (arrayType.Rank == 1)
                 return elementDisplay + "[]";
-
-            var elementType = arrayType.ElementType;
-
-            // Array of of function type => (A -> B)[]
-            // Array of of type union => (A | B)[]
-            if (elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion })
-            {
-                elementDisplay = $"({elementDisplay})";
-            }
 
             return elementDisplay + "[" + new string(',', arrayType.Rank - 1) + "]";
         }
@@ -586,11 +574,11 @@ public static partial class SymbolExtensions
             return "(" + string.Join(", ", elementTypes) + ")";
         }
 
-        // Unions (if you want pipe-style display)
+        // Unions: canonical pipe-style display
         if (typeSymbol is ITypeUnionSymbol unionType)
         {
-            var members = unionType.Types.Select(t => FormatType(t, format));
-            return string.Join(" | ", members);
+            var memberStrings = unionType.Types.Select(t => FormatType(t, format));
+            return string.Join(" | ", memberStrings);
         }
 
         // Special types => keywords
@@ -852,8 +840,14 @@ public static partial class SymbolExtensions
             }
         }
 
-        // Core "name: type" (or just type / just name depending on options)
-        var core = FormatNamedSymbol(parameter.Name, parameter.Type, includeType, format, includeName);
+        // Core "name? : type" (or just type / just name depending on options)
+        var core = FormatNamedSymbol(
+            parameter.Name,
+            parameter.Type,
+            includeType,
+            format,
+            useNameOption: includeName,
+            isNullable: parameter.IsNullable);
 
         if (parameter.IsParams)
         {
@@ -988,7 +982,10 @@ public static partial class SymbolExtensions
         {
             sb.Append(EscapeIdentifierIfNeeded(name, format));
 
-            if (isNullable)
+            var sugarNullability = format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSugaredNullability);
+
+            // Append ? after the name if we're sugaring a nullable binding
+            if (sugarNullability && isNullable)
             {
                 sb.Append('?');
             }
@@ -997,7 +994,26 @@ public static partial class SymbolExtensions
             {
                 sb.Append(": ");
                 var typeFormat = WithoutTypeAccessibility(format);
-                var typeDisplay = FormatType(type, typeFormat);
+
+                ITypeSymbol displayType = type;
+
+                // If this binding is nullable and we are using sugared nullability,
+                // and the type is exactly (T | null), show only T here.
+                if (sugarNullability && isNullable && type is ITypeUnionSymbol union)
+                {
+                    var nonNullMembers = union.Types.Where(t => t is not NullTypeSymbol).ToImmutableArray();
+
+                    if (nonNullMembers.Length == 1)
+                    {
+                        displayType = nonNullMembers[0];
+                    }
+                    else
+                    {
+                        displayType = type;
+                    }
+                }
+
+                var typeDisplay = FormatType(displayType, typeFormat);
                 sb.Append(typeDisplay);
             }
 
@@ -1088,7 +1104,6 @@ public static partial class SymbolExtensions
                 break;
 
             case IMethodSymbol method:
-                // Local functions will also show these correctly.
                 if (method.IsStatic)
                     parts.Add("static");
 
@@ -1108,64 +1123,17 @@ public static partial class SymbolExtensions
                 if (method.IsAsync)
                     parts.Add("async");
 
-                //if (method.IsPartialDefinition || method.IsPartialImplementation)
-                //    parts.Add("partial");
-
                 break;
 
             case IPropertySymbol property:
                 if (property.IsStatic)
                     parts.Add("static");
-
-                /*
-                if (property.IsAbstract)
-                    parts.Add("abstract");
-
-                if (property.IsSealed && property.IsOverride)
-                    parts.Add("sealed");
-
-                if (property.IsVirtual)
-                    parts.Add("virtual");
-
-                if (property.IsOverride)
-                    parts.Add("override");
-
-                // If Raven has required / readonly properties:
-                if (property.IsRequired)
-                    parts.Add("required");
-
-                if (property.IsReadOnly)
-                    parts.Add("readonly");
-                */
-
                 break;
-
-            /*
-            case IEventSymbol @event:
-                if (@event.IsStatic)
-                    parts.Add("static");
-
-                if (@event.IsAbstract)
-                    parts.Add("abstract");
-
-                if (@event.IsSealed && @event.IsOverride)
-                    parts.Add("sealed");
-
-                if (@event.IsVirtual)
-                    parts.Add("virtual");
-
-                if (@event.IsOverride)
-                    parts.Add("override");
-
-                break;
-            */
 
             case ILocalSymbol localSymbol:
-
                 break;
 
             case INamedTypeSymbol type:
-                // Class / struct / interface / delegate modifiers
                 switch (type.TypeKind)
                 {
                     case TypeKind.Class:

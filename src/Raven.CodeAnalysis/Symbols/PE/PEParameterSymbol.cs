@@ -49,6 +49,8 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
 
     public bool IsMutable => RefKind is RefKind.Ref or RefKind.Out;
 
+    public bool IsNullable => Type is ITypeUnionSymbol tu && tu.Types.Any(x => x is NullTypeSymbol);
+
     public ParameterInfo GetParameterInfo() => _parameterInfo;
 
     public bool HasExplicitDefaultValue

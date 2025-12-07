@@ -13,8 +13,8 @@ class Program
     private const string TargetFramework = "net9.0";
     static void Main()
     {
-        QuoterTest();
-        //PrintMembers();
+        //QuoterTest();
+        PrintMembers();
         //ReadType();
     }
 
@@ -136,7 +136,7 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var typeName = "System.Int32";
+        var typeName = "System.Text.StringBuilder";
 
         var type = compilation.GetTypeByMetadataName(typeName);
 
@@ -197,7 +197,8 @@ class Program
             var displayOptions = SymbolDisplayFormat.FullyQualifiedFormat;
             var format = SymbolDisplayFormat.FullyQualifiedFormat
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-                .WithMemberOptions(displayOptions.MemberOptions | SymbolDisplayMemberOptions.IncludeExplicitInterface);
+                .WithMemberOptions(displayOptions.MemberOptions | SymbolDisplayMemberOptions.IncludeExplicitInterface)
+                .WithMiscellaneousOptions(displayOptions.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.UseSugaredNullability);
 
             foreach (var m in members)
             {

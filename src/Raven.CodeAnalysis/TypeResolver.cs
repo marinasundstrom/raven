@@ -281,7 +281,7 @@ internal class TypeResolver(Compilation compilation)
             && !typeSymbol.IsValueType
             && typeSymbol is not ITypeParameterSymbol)
         {
-            typeSymbol = new NullableTypeSymbol(typeSymbol, null, null, null, []);
+            typeSymbol = new TypeUnionSymbol([typeSymbol, compilation.NullTypeSymbol], null, null, null, []);
         }
 
         return typeSymbol;
