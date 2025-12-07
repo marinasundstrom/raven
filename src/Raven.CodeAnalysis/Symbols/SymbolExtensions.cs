@@ -786,7 +786,7 @@ public static partial class SymbolExtensions
 
         if (parameter.IsParams)
         {
-            core = ".." + core;
+            core = "..." + core;
         }
 
         // Optionally prepend modifiers (out / val / var / etc.) when requested
