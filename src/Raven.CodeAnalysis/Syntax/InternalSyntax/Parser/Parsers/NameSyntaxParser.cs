@@ -27,69 +27,16 @@ internal class NameSyntaxParser : SyntaxParser
 
     public TypeSyntax ParseTypeName()
     {
-        if (ConsumeToken(SyntaxKind.AmpersandToken, out var ampToken))
-        {
-            var elementType = ParseTypeName();
-            return ByRefType(ampToken, elementType);
-        }
+        // First: handle prefix arrays ( []T ) and atomic types
+        TypeSyntax name = ParseArrayTypePrefix();
 
-        if (ConsumeToken(SyntaxKind.StarToken, out var starToken))
-        {
-            var elementType = ParseTypeName();
-            return PointerType(starToken, elementType);
-        }
-
-        var signedLiteral = TryParseSignedNumericLiteralType();
-        if (signedLiteral is not null)
-        {
-            return signedLiteral;
-        }
-
-        TypeSyntax name;
-
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-        {
-            var functionType = TryParseFunctionType();
-            if (functionType is not null)
-            {
-                name = functionType;
-            }
-            else if (PeekToken(1).IsKind(SyntaxKind.CloseParenToken))
-            {
-                var open = ReadToken();
-                var close = ReadToken();
-                name = UnitType(open, close);
-            }
-            else
-            {
-                name = ParseTupleType();
-            }
-        }
-        else
-        {
-            name = ParseNameCore();
-        }
-
-        name = ParseArrayTypeSuffix(name);
-
-        if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
-        {
-            name = NullableType(name, questionToken);
-        }
-
-        if (ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
-        {
-            var returnType = new NameSyntaxParser(this).ParseTypeName();
-            name = FunctionType(name, null, arrowToken, returnType);
-        }
-
+        // Then: handle union types T | U | V
         SyntaxList types = SyntaxList.Empty;
-
-        bool IsTypeUnion = false;
+        bool isTypeUnion = false;
 
         if (IsNextToken(SyntaxKind.BarToken))
         {
-            IsTypeUnion = true;
+            isTypeUnion = true;
             types = types.Add(name);
         }
 
@@ -99,7 +46,7 @@ internal class NameSyntaxParser : SyntaxParser
             types = types.Add(ParseTypeName());
         }
 
-        if (IsTypeUnion)
+        if (isTypeUnion)
         {
             return UnionType(types);
         }
@@ -279,15 +226,81 @@ internal class NameSyntaxParser : SyntaxParser
         return left;
     }
 
-    private TypeSyntax ParseArrayTypeSuffix(TypeSyntax elementType)
+    // NEW: parses a single, non-union, non-prefix-array type
+    private TypeSyntax ParseAtomicTypeName()
+    {
+        if (ConsumeToken(SyntaxKind.AmpersandToken, out var ampToken))
+        {
+            var elementType = ParseTypeName(); // by-ref still binds as prefix
+            return ByRefType(ampToken, elementType);
+        }
+
+        if (ConsumeToken(SyntaxKind.StarToken, out var starToken))
+        {
+            var elementType = ParseTypeName(); // pointer still binds as prefix
+            return PointerType(starToken, elementType);
+        }
+
+        var signedLiteral = TryParseSignedNumericLiteralType();
+        if (signedLiteral is not null)
+        {
+            return signedLiteral;
+        }
+
+        TypeSyntax name;
+
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            var functionType = TryParseFunctionType();
+            if (functionType is not null)
+            {
+                name = functionType;
+            }
+            else if (PeekToken(1).IsKind(SyntaxKind.CloseParenToken))
+            {
+                var open = ReadToken();
+                var close = ReadToken();
+                name = UnitType(open, close);
+            }
+            else
+            {
+                name = ParseTupleType();
+            }
+        }
+        else
+        {
+            name = ParseNameCore();
+        }
+
+        // NOTE: no array suffix here anymore
+        // name = ParseArrayTypeSuffix(name);
+
+        if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
+        {
+            name = NullableType(name, questionToken);
+        }
+
+        if (ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
+        {
+            var returnType = new NameSyntaxParser(this).ParseTypeName();
+            name = FunctionType(name, null, arrowToken, returnType);
+        }
+
+        return name;
+    }
+
+    // NEW: prefix-style array parsing: []T, [][]T, [,,]T, etc.
+    private TypeSyntax ParseArrayTypePrefix()
     {
         if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
         {
-            return elementType;
+            // no array prefix: just parse the atomic type
+            return ParseAtomicTypeName();
         }
 
         var rankSpecifiers = new List<GreenNode>();
 
+        // Collect one or more leading [ ... ] specifiers
         while (PeekToken().IsKind(SyntaxKind.OpenBracketToken))
         {
             var checkpoint = CreateCheckpoint("array-rank-specifier");
@@ -302,9 +315,13 @@ internal class NameSyntaxParser : SyntaxParser
             rankSpecifiers.Add(rankSpecifier);
         }
 
+        // After the prefix [..] groups, parse the element type normally
+        var elementType = ParseAtomicTypeName();
+
         if (rankSpecifiers.Count == 0)
             return elementType;
 
+        // Same shape as before: elementType + list of rank specifiers
         return ArrayType(elementType, List(rankSpecifiers.ToArray()));
     }
 

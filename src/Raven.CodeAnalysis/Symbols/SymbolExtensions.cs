@@ -541,9 +541,9 @@ public static partial class SymbolExtensions
                 elementDisplay = $"({elementDisplay})";
 
             if (arrayType.Rank == 1)
-                return elementDisplay + "[]";
+                return "[]" + elementDisplay;
 
-            return elementDisplay + "[" + new string(',', arrayType.Rank - 1) + "]";
+            return "[" + new string(',', arrayType.Rank - 1) + "]" + elementDisplay;
         }
 
         // Pointers

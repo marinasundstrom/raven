@@ -14,8 +14,8 @@ class Program
     static void Main()
     {
         //QuoterTest();
-        PrintMembers();
-        //ReadType();
+        //PrintMembers();
+        ReadType();
     }
 
     static void QuoterTest()
@@ -215,7 +215,7 @@ class Program
     static void ReadType()
     {
         string sourceCode = """
-        var x? = 42
+        var x : [](int | null) = 42
         """;
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
@@ -234,7 +234,14 @@ class Program
         compilation = compilation.AddReferences(references);
 
         // force setup
-        compilation.GetDiagnostics();
+        var diagnostics = compilation.GetDiagnostics();
+
+        foreach (var diagnostic in diagnostics)
+        {
+            Console.WriteLine(diagnostic.GetMessage());
+        }
+
+        Console.WriteLine();
 
         var tree = compilation.SyntaxTrees.First();
         var root = tree.GetRoot();
