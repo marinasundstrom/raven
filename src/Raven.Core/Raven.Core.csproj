@@ -21,7 +21,7 @@
     Outputs="$(RavenCoreOutputDirectory)Raven.Core.dll">
     <MakeDir Directories="$(RavenCoreOutputDirectory)" />
     <Exec
-      Command="dotnet run --project ../Raven.Compiler/Raven.Compiler.csproj -p:UseRavenCoreReference=false -- --emit-core-types-only --framework $(TargetFramework) --output-type classlib -o &quot;$(RavenCoreOutputDirectory)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
+      Command="dotnet run --property WarningLevel=0 --project ../Raven.Compiler/Raven.Compiler.csproj -p:UseRavenCoreReference=false -- --emit-core-types-only --framework $(TargetFramework) --output-type classlib -o &quot;$(RavenCoreOutputDirectory)Raven.Core.dll&quot; @(RavenSource->'&quot;%(FullPath)&quot;', ' ')" />
   </Target>
 
   <Target Name="CleanRavenCore"
