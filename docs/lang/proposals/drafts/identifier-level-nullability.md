@@ -1,69 +1,72 @@
-# Proposal: Identifier-Level Nullability in Raven
+# Proposal: Identifier-Level and Union-Based Nullability in Raven
 
 ## Summary
 
-Raven moves primary nullability from *type syntax* to the *declaration* itself.
-Nullability is expressed by placing `?` **after the declared identifier**, not after the type:
+Raven eliminates C#-style nullable types (`T?`) from user-facing syntax.
+Nullability is instead expressed through:
 
-```raven
-val x? : int
-func f(user? : User) -> int
-Title? : string { get; set; }
-```
+1. **Binding-level syntax**
 
-This marks the *binding* as nullable. The underlying type (`int`, `User`, …) remains non-nullable in syntax.
-The compiler sets symbol-level nullability (`IsNullable`, `ReturnIsNullable`) and maps this to CLR nullability (`Nullable<T>` or reference-type attributes).
+   ```raven
+   val x? : int
+   Title? : string { get; set; }
+   ```
 
-Type-level `T?` remains valid Raven syntax — especially for **generic arguments**, **type parameters**, and **return types** — but is not used for ordinary variable, parameter, field, or property declarations.
+2. **Union types**
 
-This model aligns with .NET metadata, simplifies flow analysis, and encourages idiomatic Raven code that uses `Option<T>` for high-level “maybe” semantics.
+   ```raven
+   val y : int | null = null
+   func getUser() -> User | null
+   ```
+
+The binding syntax `name? : T` is **sugar** for `name : T | null`.
+`null` is simply a union case; `T | null` is the canonical nullable *type* form in Raven.
+
+The compiler maps these to CLR shapes (`Nullable<T>` and nullable reference metadata), but Raven itself has:
+
+* **no `T?` syntax**,
+* **explicit union nullability**,
+* **binding contracts**, and
+* `Option<T>` as the idiomatic high-level “maybe” type.
+
+This model is simpler, clearer, and more consistent than C#’s model while maintaining perfect interop.
 
 ---
 
 # Background: Problems With C#-Style Nullability
 
-The C# ecosystem accumulated several overlapping nullability systems:
+The .NET ecosystem carries several overlapping nullability systems:
 
-### 1. Reference types (pre-NRT)
+### 1. Implicitly nullable reference types (pre-NRT)
 
-All reference types (`string`, `User`, etc.) were implicitly nullable.
-The code didn’t show this; it was simply assumed.
-Understanding whether `x` can be null requires knowing whether `T` is a reference type.
+Reference types were always nullable, but never indicated in code.
 
-### 2. Distinction between value types and reference types
+### 2. Value vs reference type distinctions
 
-Value types are structurally non-nullable and gain nullability through `Nullable<T>` (`int?`).
-Reference types are inherently nullable.
-Thus the meaning of `T?` depends on whether `T` is a value type or reference type — a source of constant cognitive overhead.
+Value types are structurally non-nullable; reference types are inherently nullable.
+Code must mentally track which types “allow `null`.”
 
 ### 3. Nullable Reference Types (NRT)
 
-Microsoft attempted to retrofit “non-nullable by default” onto a runtime where everything was nullable:
+C# added `string?` vs `string`, but:
 
-* Requires opt-in project settings.
-* Adds a major analyzer layer.
-* Produces warnings rather than enforced semantics.
-* Frequently ignored or suppressed in real-world codebases.
+* The system is opt-in,
+* Enforced only by warnings,
+* Commonly ignored by developers,
+* Conceptually treats nullability as a **type modifier**, which is misleading.
 
-Developers often experience C# nullability as:
+### Core conceptual flaw in C#:
 
-> “Sometimes useful, often annoying, frequently ignored.”
+> “Nullability is a property of the type.”
 
-And conceptually, the model reinforces a fiction:
+This is false.
+A **binding** (variable, field, parameter, property) is nullable — not the type itself.
 
-> “The *type* is nullable.”
+Raven corrects this by:
 
-But in reality, the **binding** — the slot that holds the value — is what may or may not contain `null`.
-A type like `User` is not inherently nullable or non-nullable; only the declared symbol is.
-
-Raven corrects this misunderstanding by making nullability explicit in the declaration:
-
-```raven
-val user? : User
-Title? : string { get; set; }
-```
-
-Nullability becomes a **contract of the binding**, not a modification of the type.
+* Removing nullable type syntax (`T?`),
+* Making nullability a **binding contract** (`name? : T`),
+* Or a **union shape** (`T | null`).
 
 ---
 
@@ -71,7 +74,7 @@ Nullability becomes a **contract of the binding**, not a modification of the typ
 
 ## 1. Declaration-Level Nullability (`name? : T`)
 
-Nullability is placed directly on the identifier:
+Binding-level nullable syntax:
 
 ```raven
 val count? : int
@@ -80,218 +83,349 @@ func tryFind(key : string, result? : string) -> bool
 Title? : string { get; set; }
 ```
 
-Meaning:
+This is exactly equivalent to:
 
-* The **symbol** is nullable (`IsNullable = true`).
-* The **type syntax** remains non-nullable (`int`, `string`, `User`).
-* For value types, the effective CLR type becomes `Nullable<T>`.
-* For reference types, nullability is encoded using attributes.
+```raven
+count  : int | null
+payload: Payload | null
+result : string | null
+Title  : string | null
+```
 
-### Inference rules
+### Semantics
+
+* Adds `IsNullable = true` to the symbol.
+* Underlying type is unchanged (`int`, `string`, `User`).
+* CLR mapping:
+
+  * value types → `Nullable<T>`
+  * ref types → nullable metadata (`[Nullable]`/`[NullableContext]`)
+
+### Desugaring rule
+
+```text
+name? : T
+⟶ name : T | null
+```
+
+---
+
+## 2. Union-Based Nullability (`T | null`)
+
+Raven treats `null` as just another union case:
+
+```raven
+val x : int | null
+func h() -> User | null
+```
+
+This is the **canonical type form** for nullability.
+
+### Purpose
+
+* Allows nullable types everywhere unions are valid,
+* Integrates perfectly with `Option<T>` and algebraic typing,
+* Avoids clutter and special-case semantics.
+
+### Relation to binding sugar
+
+```raven
+val a? : int        // sugar
+val b  : int | null // explicit union
+```
+
+These two are identical to the compiler.
+
+---
+
+## 3. Removal of `T?` From User-Facing Syntax
+
+Raven does **not** expose `T?` as a type-level nullability operator.
+
+### Why?
+
+* Avoids C#-style confusion (value vs reference).
+* Removes redundant nullable representations:
+
+  * `T?`
+  * `T | null`
+  * `Option<T>`
+* Leaves a single canonical type shape: **`T | null`**.
+* Strengthens the binding-first philosophy.
+
+### Interop
+
+Internally:
+
+* `T | null` on value types maps to `Nullable<T>`.
+* `T | null` on reference types maps to nullable context attributes.
+
+The Raven developer never writes `T?`, but interop still works seamlessly.
+
+---
+
+## 4. Updated Inference Rules
 
 ```raven
 val x? = GetNullable()        // OK: binding explicitly nullable
+val x  = GetNonNullable()     // OK: inferred non-nullable
 
 val x? : int = GetNullable()  // OK
-val x? : int = 5              // OK
+val x? : int = 5              // OK: sugar for int | null
+var x : int | null = 5        // OK: same as above
 
-val x = GetNonNullable()      // OK: inferred non-nullable
-val x : int = GetNonNullable()// OK: explicit non-nullable
+var x? : int | null = 5       // ERROR: nullable on already-nullable type
 
-val x = GetNullable()         // ERROR: nullable initializer requires explicit `?`
+val x = GetNullable()         // ERROR: nullable initializer requires `?` or `| null`
 val x : int = GetNullable()   // ERROR: nullable → non-nullable
 ```
 
-`?` on the declaration **forces** the binding to be nullable regardless of RHS.
+### Rule
 
-If no explicit type is given, only the **type** is inferred; **nullability must always be declared explicitly** on the binding (via `?` or a nullable/union type).
----
+> **Nullability is never inferred.**
+> Only the type may be inferred.
+> If the initializer is nullable, the binding must explicitly say so using `?` or `T | null`.
 
-## 2. Type-Level Nullability (`T?`) — Still Supported
-
-Raven retains full support for `T?`, `int?`, and `string?` as **type syntax**.
-
-### Allowed and encouraged in:
-
-* **generic type arguments**
-
-  ```raven
-  val cache : List<int?>
-  val map   : Map<string, List<int?>>
-  ```
-
-* **nested type positions**
-
-* **return types**
-
-  ```raven
-  func getOrNull() -> int?
-  func findUser(id : Guid) -> User?
-  func tryLookup() -> Dictionary<string, int?>?
-  ```
-
-These are essential for interop and structured nullable shapes.
-
-### Discouraged in simple declarations
-
-```raven
-val x? : int       // preferred
-val x  : int?      // discouraged (interop-only style)
-```
-
-### Illegal combinations
-
-```raven
-val x? : int?   // ❌ nullability specified twice
-func f(x? : T?) // ❌
-```
+This keeps binding contracts explicit and visible.
 
 ---
 
-## 3. Union-Based Nullability (`T | null`)
+## 5. Symbol Model
 
-Raven also allows nullability to be expressed as a **true union type**:
-
-```raven
-var x : int | null = null
-```
-
-Here, the union explicitly includes the `null` case.
-
-This approach is aligned with Raven’s general union philosophy:
-
-```raven
-type Result<T> = T | Error
-type Maybe<T>  = T | None
-```
-
-### Relationship with `x? : T` and `T?`
-
-All three are valid and interoperable:
-
-```raven
-var a? : int         // declaration-level nullable
-var b  : int?        // type-level nullable (interop)
-var c  : int | null  // union with explicit null case
-```
-
-* `x? : T` is **binding-level** semantics.
-* `T?` is **CLR-shape semantics**.
-* `T | null` is **union semantics**.
-
-Flow analysis treats all three as nullable, and `if x != null` refines them appropriately.
-
-### When to use what
-
-* Prefer **`Option<T>`** and unions (`T | None`) for idiomatic “maybe” logic.
-* Use **`name? : T`** for explicit binding contracts and properties/parameters.
-* Use **`T?`** when you need direct `Nullable<T>` shapes for .NET interop.
-* Use **`T | null`** when working inside union-heavy type constructs.
-
----
-
-## 4. Symbol Model
-
-Symbols that hold values gain:
+Symbols holding values gain:
 
 * `IsNullable`
 * `ReturnIsNullable`
 
-The symbol’s **type** remains the base type (`T`).
-The **effective CLR type** is computed based on declared nullability.
+Symbol type is always the “base” shape (`T` or a union) — never `T?`.
 
-Examples:
+In practice:
 
+```raven
+val n? : int   // symbol type: int | null, IsNullable = true
+val u? : User  // symbol type: User | null, IsNullable = true
 ```
-val n? : int        → Type=int,  IsNullable=true, CLR=Nullable<int>
-val u? : User       → Type=User, IsNullable=true, CLR=User with attributes
-func f() -> int?    → ReturnType=int?, ReturnIsNullable=true
-```
+
+At the CLR level:
+
+* `int | null` → `Nullable<int>`
+* `User | null` → `User` + nullable metadata
 
 ---
 
-## 5. Flow Analysis
+## 6. Signature Display Rules
 
-Flow nullability is determined from:
+There are two useful perspectives:
 
-* declared nullability,
-* inferred nullability,
-* control-flow (conditions, guards, matches).
+* **Binding-centric view** (what you *wrote* / what you *see in declarations*),
+* **Type-centric view** (what the *type system* reasons about).
+
+Raven’s display rules reflect that.
+
+### 6.1 Default display for signatures (binding-centric)
+
+For locals, parameters, fields, and properties, the **default symbol display** uses the binding sugar form:
+
+```raven
+val name? : string
+func f(user? : User) -> string?
+```
+
+Examples:
+
+Declaration:
+
+```raven
+val name? : string
+```
+
+Signature display (default):
+
+```raven
+val name? : string
+```
+
+Declaration:
+
+```raven
+func f(a? : User, b : int | null) -> string | null
+```
+
+Signature display (default):
+
+```raven
+func f(a? : User, b : int | null) -> string | null
+```
+
+So:
+
+* **Bindings** (things with names): shown as `name? : T` when nullable.
+* **Types** inside other types / return positions: shown as `T | null`.
+
+### 6.2 Type-centric / tool view
+
+When tooling focuses on the *type itself* (e.g. `GetTypeInfo`, type-only displays, debugger “type” column), the canonical form is always:
+
+```raven
+T | null
+```
+
+So for the same declaration:
+
+```raven
+val name? : string
+```
+
+* Signature view: `val name? : string`
+* TypeInfo view: `string | null`
+
+This makes the ergonomics binding-first for humans, but keeps the type system and tools anchored on the union form.
+
+---
+
+## 7. Flow Analysis
+
+Since nullability is represented as `T | null`, flow analysis is algebraic:
+
+* A union containing `null` is nullable.
+* A check like `if x != null` **narrows** the union to remove the `null` case.
 
 Example:
 
 ```raven
 if user? : User {
     if user != null {
-        user.Name   // proven safe here
+        user.Name   // safe; type narrowed to User
     }
 }
 ```
 
-Raven enforces safety on non-nullable bindings.
+The narrowing rules apply equally to:
+
+* `name? : T` (desugared to `T | null`)
+* `T | null` written explicitly.
 
 ---
 
-## 6. Interop With `Option<T>`
+## 8. Interop With `Option<T>`
 
-Raven’s semantic “maybe” type is **Option<T>**.
-Interop with .NET APIs expecting `T?` is enabled through a built-in implicit conversion:
+Raven’s idiomatic maybe type is:
 
 ```raven
-Option<T> → T?
+Option<T>
 ```
+
+To interoperate with nullable types (`T | null`), Raven will rely on **user-defined conversions** written in Raven itself once the language supports them:
+
+```raven
+// In Raven stdlib, eventually:
+implicit func (o : Option<T>) -> T | null { ... }
+```
+
+Conceptually:
 
 * `Some(v)` → `v`
-* `None` → `null` / `default(Nullable<T>)`
+* `None` → `null`
 
-Applies in assignments, arguments, return statements, generics.
+This is implemented *in Raven*, not hard-coded into the compiler, since `Option<T>` is just a normal Raven union type.
 
-```raven
-func getOrNull() -> int? {
-    let opt : Option<int> = compute()
-    return opt
-}
-```
+### No implicit reverse
 
-### No implicit `T? → Option<T>`
-
-This conversion is explicit to avoid conflating `null` with meaningful union cases.
+`T | null → Option<T>` must be explicit to avoid ambiguity.
 
 ---
 
-## 7. Note on `&` and `*` in Declarations
+## 9. Note on `&` and `*` in Declarations
 
-A variant was considered where ref/pointer modifiers would appear on identifiers:
+Pointer/reference modifiers remain type-level:
 
 ```raven
-// Not adopted:
-val p* = GetPointer()
-val r& = GetRef()
+val p : *int
+val r : &User
 ```
 
-Rejected because:
+Declaration-level forms are rejected:
 
-* It interacts poorly with type inference,
-* It obscures ref/pointer shape (IL-level detail),
-* Nullability is a contract; `&`/`*` are representation details.
+```raven
+val p* = ...
+val r& = ...
+```
 
-Final decision:
+Nullability combines with them through the same union model:
 
-* **`?` applies to declarations**,
-* **`&` and `*` remain type-level (`&T`, `*T`)**.
+```raven
+val r? = &x        // r : &int | null
+val p  : *int | null
+```
+
+---
+
+# Comparison With Other Languages
+
+## TypeScript
+
+* Uses unions for nullability: `T | null` / `T | undefined`.
+* Identifier `?` in object types desugars into union with `undefined`.
+* Raven is similar: `name?` is sugar for `T | null`.
+
+## F#
+
+* Idiomatic: `Option<T>`.
+* Unions increasingly used: `int | null`.
+* Raven follows this closely but adds `name?` for binding clarity and uses `null` as a specific union case for .NET interop.
+
+## Swift
+
+* `T?` is sugar for an enum `Optional<T>`.
+* No general union types; nullability is via optionals.
+* Raven is more general: supports unions *and* `Option<T>` explicitly.
+
+## Rust
+
+* No nulls; only `Option<T>`.
+* Raven must keep `null` for .NET interop but treats it as a union case: `T | null`.
+
+## Kotlin
+
+* Uses type-level `T?`.
+* Nullability attached to the type.
+* Raven rejects this, attaching nullability to the binding (`name?`) or to the union type (`T | null`) instead.
+
+## ML-family (Haskell, OCaml, Elm)
+
+* Use `Maybe<T>` / `option<T>`.
+* No null except at FFI boundaries.
+* Raven’s `Option<T>` mirrors this, but unions permit explicit `null` for interop.
+
+### Summary Table
+
+Language   | Nullability Model   | Union? | Option? | Nullability belongs to… |
+| ---------- | ------------------- | ------ | ------- | ----------------------- |
+| C#         | T?, implicit refs   | ❌      | ❌       | Type + analyzer         |
+| TypeScript | T | null            | ✅      | ❌       | Type (union)            |
+| F#         | Option + unions     | ✅      | ✅       | Type (union/option)     |
+| Swift      | Optional<T>         | ❌      | (enum)  | Type                    |
+| Rust       | Option only         | ❌      | ✅       | Binding via Option      |
+| Kotlin     | T?                  | ❌      | ❌       | Type                    |
+| Raven      | name? : T, T | null | ✅      | ✅       | Binding + union type    |
 
 ---
 
 # Conclusion
 
-Raven’s identifier-level nullability model:
+With C#-style `T?` removed from Raven source, nullability becomes:
 
-* aligns with actual runtime semantics,
-* makes nullability a clear contract of the binding,
-* avoids the pitfalls of C#’s type-based approach,
-* works cleanly with inference and flow analysis,
-* and embraces `Option<T>` and union types for idiomatic “maybe” logic.
+* **explicit**,
+* **algebraic**,
+* **binding-first**,
+* and **consistent**.
 
-Meanwhile, type-level `T?` remains available for interop scenarios, and union types (`T | null`) provide a powerful expressive alternative when needed.
+Raven uses:
 
-This hybrid model gives Raven the **clarity of functional languages**, the **interoperability of C#**, and a **principled, modern approach** to nullability.
+1. **Binding sugar** (`name? : T`) for declarations,
+2. **Canonical nullable types** (`T | null`) for the type system,
+3. **Idiomatic `Option<T>`** for “maybe” semantics,
+
+while preserving flawless .NET interop.
+
+Tooling *analyzes* nullability as `T | null`, and *displays* nullable bindings as `name? : T` by default — giving developers a model that is both mathematically clean and human-friendly.
