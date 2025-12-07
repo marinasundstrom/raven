@@ -423,7 +423,7 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsTupleType => MetadataName.Contains("System.ValueTuple");
 
-    bool IsTypeUnion => TypeKind == TypeKind.Union;
+    bool IsTypeUnion => TypeKind == TypeKind.TypeUnion;
 
     bool IsDiscriminatedUnion
     {
@@ -492,7 +492,7 @@ public enum TypeKind
     Struct,
     TypeParameter,
     FunctionPointer,
-    Union,
+    TypeUnion,
     Tuple,
     Nullable,
     Null,

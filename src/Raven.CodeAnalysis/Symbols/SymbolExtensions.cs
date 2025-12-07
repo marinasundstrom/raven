@@ -450,7 +450,8 @@ public static partial class SymbolExtensions
             var underlying = nullable.UnderlyingType;
 
             // Nullable of function type => (A -> B)?
-            if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
+            // Nullable of type union => (A | B)?
+            if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion } &&
                 TryFormatFunctionType(underlying, format, out var funcDisplay))
             {
                 return $"({funcDisplay})?";
@@ -475,6 +476,15 @@ public static partial class SymbolExtensions
 
             if (arrayType.Rank == 1)
                 return elementDisplay + "[]";
+
+            var elementType = arrayType.ElementType;
+
+            // Array of of function type => (A -> B)[]
+            // Array of of type union => (A | B)[]
+            if (elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion })
+            {
+                elementDisplay = $"({elementDisplay})";
+            }
 
             return elementDisplay + "[" + new string(',', arrayType.Rank - 1) + "]";
         }
@@ -805,6 +815,9 @@ public static partial class SymbolExtensions
 
     private static string FormatConstant(object? value, ITypeSymbol type, SymbolDisplayFormat format)
     {
+        if (type.IsValueType && value is null)
+            return "default";
+
         if (value is null)
             return "null";
 

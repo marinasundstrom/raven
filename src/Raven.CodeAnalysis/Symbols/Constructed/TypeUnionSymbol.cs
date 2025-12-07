@@ -23,7 +23,7 @@ internal partial class TypeUnionSymbol : SourceSymbol, ITypeUnionSymbol
 
         BaseType = declaredUnderlyingType as INamedTypeSymbol ?? ComputeBaseType(_types);
 
-        TypeKind = TypeKind.Union;
+        TypeKind = TypeKind.TypeUnion;
     }
 
     public override string Name => string.Join(" | ", Types.Select(x => x.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat)));
