@@ -788,6 +788,7 @@
   <Node Name="ExpressionOrPattern" Inherits="Node" IsAbstract="true" />
   <Node Name="VariableDeclarator" Inherits="Node">
     <Slot Name="Identifier" Type="Token" />
+    <Slot Name="AmpersandToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />
     <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
   </Node>

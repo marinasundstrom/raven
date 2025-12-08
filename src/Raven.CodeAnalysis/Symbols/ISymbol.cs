@@ -319,6 +319,8 @@ public interface IParameterSymbol : ISymbol
 
     bool IsParams { get; }
 
+    public bool IsReference => false;
+
     RefKind RefKind { get; }
 
     bool IsMutable { get; }
@@ -607,6 +609,10 @@ public interface ILocalSymbol : ISymbol
     bool IsConst { get; }
 
     object? ConstantValue { get; }
+
+    public bool IsReference => RefKind != RefKind.None;
+
+    public RefKind RefKind => RefKind.None;
 }
 
 public interface IErrorTypeSymbol : INamedTypeSymbol

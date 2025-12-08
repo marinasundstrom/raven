@@ -1476,6 +1476,7 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
     public bool IsParams => _original.IsParams;
+    public bool IsReference => _original.IsReference;
     public RefKind RefKind => _original.RefKind;
     public bool IsMutable => _original.IsMutable;
     public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;

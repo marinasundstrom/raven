@@ -36,6 +36,8 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         }
     }
 
+    public bool IsReference => RefKind != RefKind.None;
+
     public RefKind RefKind
     {
         get

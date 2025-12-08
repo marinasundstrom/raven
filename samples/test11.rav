@@ -1,0 +1,11 @@
+import System.*
+
+var x : int | null = 0
+
+foo(&x)
+
+Console.WriteLine(x)
+
+func foo(var &y: int | null) -> () {
+    y = 42
+}
