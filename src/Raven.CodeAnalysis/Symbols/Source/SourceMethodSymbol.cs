@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -60,6 +61,31 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _isOverride = isOverride;
         _isVirtual = isVirtual || isOverride;
         _isSealed = isSealed;
+    }
+
+    /// <summary>
+    /// Metadata name as it appears in CLI metadata:
+    /// - For non-generic methods, just <see cref="Name"/>.
+    /// - For generic methods, <c>Name``arity</c> (double-backtick + arity).
+    /// 
+    /// We do NOT include parameter types or containing type here; that belongs
+    /// in higher-level identity/display helpers (e.g. symbol keys).
+    /// </summary>
+    public override string MetadataName
+    {
+        get
+        {
+            var name = Name;
+
+            // Generic method arity is encoded with ``N (double backtick),
+            // e.g. "M``2" for a method with 2 type parameters.
+            if (!_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0)
+            {
+                name += "``" + _typeParameters.Length.ToString(CultureInfo.InvariantCulture);
+            }
+
+            return name;
+        }
     }
 
     public ITypeSymbol ReturnType => _returnType;
