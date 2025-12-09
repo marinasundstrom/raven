@@ -114,6 +114,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsVirtual => _isVirtual;
 
+    public ISymbol? AssociatedSymbol => ContainingSymbol?.Kind == SymbolKind.Property ? ContainingSymbol : null;
+
     public IMethodSymbol? OverriddenMethod { get; private set; }
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; private set; } = ImmutableArray<IMethodSymbol>.Empty;

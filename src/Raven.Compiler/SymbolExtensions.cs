@@ -220,6 +220,10 @@ public static class SymbolExtensions
                 AppendBooleanProperty(builder, "IsVirtual", methodSymbol.IsVirtual);
                 AppendBooleanProperty(builder, "IsSealed", methodSymbol.IsSealed);
                 AppendBooleanProperty(builder, "IsExtensionMethod", methodSymbol.IsExtensionMethod);
+                if (methodSymbol.ExplicitInterfaceImplementations.Length > 0)
+                    AppendSequence(builder, "ExplicitInterfaceImplementations", methodSymbol.ExplicitInterfaceImplementations.Select(tp => tp.ToDisplayString(displayFormat)));
+                if (methodSymbol.AssociatedSymbol is not null)
+                    AppendProperty(builder, "AssociatedSymbol", methodSymbol.AssociatedSymbol?.ToDisplayString(displayFormat) ?? "<null>");
                 break;
 
             case IPropertySymbol propertySymbol:
@@ -227,6 +231,8 @@ public static class SymbolExtensions
                 AppendBooleanProperty(builder, "IsIndexer", propertySymbol.IsIndexer);
                 AppendProperty(builder, "Getter", FormatDisplay(propertySymbol.GetMethod, displayFormat));
                 AppendProperty(builder, "Setter", FormatDisplay(propertySymbol.SetMethod, displayFormat));
+                if (propertySymbol.ExplicitInterfaceImplementations.Length > 0)
+                    AppendSequence(builder, "ExplicitInterfaceImplementations", propertySymbol.ExplicitInterfaceImplementations.Select(tp => tp.ToDisplayString(displayFormat)));
                 break;
 
             case IFieldSymbol fieldSymbol:
