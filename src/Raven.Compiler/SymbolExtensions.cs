@@ -114,7 +114,8 @@ public static class SymbolExtensions
 
             AppendProperty(builder, "Kind", symbol.Kind.ToString());
             AppendProperty(builder, "Name", FormatString(symbol.Name));
-            AppendProperty(builder, "MetadataName", FormatString(symbol.MetadataName));
+            if (symbol.MetadataName is not null)
+                AppendProperty(builder, "MetadataName", FormatString(symbol.MetadataName));
             AppendProperty(builder, "DeclaredAccessibility", symbol.DeclaredAccessibility.ToString());
             AppendBooleanProperty(builder, "IsStatic", symbol.IsStatic);
             AppendBooleanProperty(builder, "IsImplicitlyDeclared", symbol.IsImplicitlyDeclared);
