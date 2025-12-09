@@ -623,6 +623,16 @@ public static partial class SymbolExtensions
         // Simple name + generic params/args
         sb.Append(FormatSimpleNamedType(typeSymbol, format));
 
+        // Optional type keyword (class / struct / interface / enum / delegate / union)
+        if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword))
+        {
+            var keyword = GetTypeKeyword(typeSymbol);
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                sb.Insert(0, keyword + " ");
+            }
+        }
+
         return sb.ToString();
     }
 
@@ -1126,5 +1136,31 @@ public static partial class SymbolExtensions
             .GetMembers("Invoke")
             .OfType<IMethodSymbol>()
             .FirstOrDefault();
+    }
+
+    private static string? GetTypeKeyword(INamedTypeSymbol typeSymbol)
+    {
+        return typeSymbol.TypeKind switch
+        {
+            TypeKind.Class => "class",
+            TypeKind.Struct => "struct",
+            TypeKind.Interface => "interface",
+            TypeKind.Enum => "enum",
+            TypeKind.Delegate => "delegate",
+            //TypeKind.TypeUnion => "union",
+            _ => null
+        };
+    }
+
+    private static string? GetMemberKindKeyword(ISymbol symbol)
+    {
+        return symbol switch
+        {
+            // IFieldSymbol => "field",
+            // IPropertySymbol => "property",
+            // IMethodSymbol => "method",
+            // IEventSymbol => "event",
+            _ => null
+        };
     }
 }

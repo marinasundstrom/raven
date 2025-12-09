@@ -14,8 +14,8 @@ class Program
     static void Main()
     {
         //QuoterTest();
-        //PrintMembers();
-        ReadType();
+        PrintMembers();
+        //ReadType();
     }
 
     static void QuoterTest()
@@ -180,7 +180,7 @@ class Program
 
         //ReadConsoleClass(compilation, refDir, references);
 
-        var typeName = "System.Int32";
+        var typeName = "System.Collections.Generic.List`1";
 
         var type = compilation.GetTypeByMetadataName(typeName);
 

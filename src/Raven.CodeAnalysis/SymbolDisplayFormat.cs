@@ -102,12 +102,42 @@ public class SymbolDisplayFormat
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeExtensionThis
     };
 
-    public static SymbolDisplayFormat MinimallyQualifiedFormat { get; } = new SymbolDisplayFormat
-    {
-        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
-        GenericsOptions = SymbolDisplayGenericsOptions.None,
-        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes
-    };
+    public static SymbolDisplayFormat MinimallyQualifiedFormat { get; } =
+        new SymbolDisplayFormat
+        {
+            DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+            ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
+
+            // Minimal → show type parameters, but not constraints
+            GenericsOptions =
+                SymbolDisplayGenericsOptions.IncludeTypeParameters,
+
+            // Minimal → no global:: prefix
+            GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Omitted,
+
+            // Minimal → no "class", "namespace", etc.
+            KindOptions = SymbolDisplayKindOptions.None,
+
+            // Reasonable minimal → show the type of locals, but not binding info
+            LocalOptions = SymbolDisplayLocalOptions.IncludeType,
+
+            MemberOptions =
+                SymbolDisplayMemberOptions.IncludeParameters     // still show method signature
+                | SymbolDisplayMemberOptions.IncludeType         // include return type
+                | SymbolDisplayMemberOptions.IncludeModifiers,   // e.g. static
+
+            MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
+
+            PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
+
+            // ⭐ Key difference: types *never* include namespaces
+            TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
+
+            ParameterOptions =
+                SymbolDisplayParameterOptions.IncludeType
+                | SymbolDisplayParameterOptions.IncludeName
+                | SymbolDisplayParameterOptions.IncludeExtensionThis
+        };
 
     public SymbolDisplayDelegateStyle DelegateStyle { get; private set; }
 
