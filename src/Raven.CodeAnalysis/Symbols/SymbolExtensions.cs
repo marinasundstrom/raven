@@ -161,9 +161,28 @@ public static partial class SymbolExtensions
     {
         format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
 
-        // Single entry point for types
+        // Single entry point for top-level types – we can prepend type keyword here
         if (symbol is ITypeSymbol typeSymbol)
-            return FormatType(typeSymbol, format);
+        {
+            var text = FormatType(typeSymbol, format);
+
+            if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
+                symbol is INamedTypeSymbol namedTypeSymbol)
+            {
+                var keyword = GetTypeKeyword(namedTypeSymbol);
+                if (!string.IsNullOrEmpty(keyword))
+                {
+                    text = keyword + " " + text;
+                }
+            }
+
+            if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
+            {
+                return EscapeIdentifier(text);
+            }
+
+            return text;
+        }
 
         var result = new StringBuilder();
 
@@ -201,20 +220,41 @@ public static partial class SymbolExtensions
                 result.Append(" = ");
                 result.Append(FormatConstant(localSymbol.ConstantValue, localSymbol.Type, format));
             }
-            return result.ToString();
+
+            var text = result.ToString();
+            if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
+            {
+                return EscapeIdentifier(text);
+            }
+
+            return text;
         }
 
         if (symbol is ILabelSymbol labelSymbol)
         {
             result.Append(EscapeIdentifierIfNeeded(labelSymbol.Name, format));
-            return result.ToString();
+
+            var text = result.ToString();
+            if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
+            {
+                return EscapeIdentifier(text);
+            }
+
+            return text;
         }
 
         if (symbol is IParameterSymbol parameterSymbol)
         {
             var display = FormatParameter(parameterSymbol, format);
             result.Append(display);
-            return result.ToString();
+
+            var text = result.ToString();
+            if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
+            {
+                return EscapeIdentifier(text);
+            }
+
+            return text;
         }
 
         if (symbol is IMethodSymbol methodSymbol2
@@ -388,7 +428,7 @@ public static partial class SymbolExtensions
             }
         }
 
-        // Prefix: accessibility + modifiers
+        // Prefix: accessibility + modifiers + kind keyword (top-level only)
         string? accessibilityPrefix = null;
         if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility) &&
             symbol.DeclaredAccessibility is not Accessibility.NotApplicable)
@@ -402,7 +442,24 @@ public static partial class SymbolExtensions
             modifiersPrefix = GetMemberModifiers(symbol);
         }
 
-        if (!string.IsNullOrEmpty(accessibilityPrefix) || !string.IsNullOrEmpty(modifiersPrefix))
+        string? kindPrefix = null;
+
+        // namespace keyword
+        if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeNamespaceKeyword) &&
+            symbol is INamespaceSymbol namespaceSymbol &&
+            !namespaceSymbol.IsGlobalNamespace)
+        {
+            kindPrefix = "namespace";
+        }
+        // member keyword (currently disabled; GetMemberKindKeyword returns null)
+        else if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword))
+        {
+            kindPrefix = GetMemberKindKeyword(symbol);
+        }
+
+        if (!string.IsNullOrEmpty(accessibilityPrefix) ||
+            !string.IsNullOrEmpty(modifiersPrefix) ||
+            !string.IsNullOrEmpty(kindPrefix))
         {
             var prefixBuilder = new StringBuilder();
 
@@ -419,6 +476,14 @@ public static partial class SymbolExtensions
                 prefixBuilder.Append(modifiersPrefix);
             }
 
+            if (!string.IsNullOrEmpty(kindPrefix))
+            {
+                if (prefixBuilder.Length > 0)
+                    prefixBuilder.Append(' ');
+
+                prefixBuilder.Append(kindPrefix);
+            }
+
             if (prefixBuilder.Length > 0)
             {
                 prefixBuilder.Append(' ');
@@ -426,12 +491,13 @@ public static partial class SymbolExtensions
             }
         }
 
+        var finalText = result.ToString();
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
         {
-            return EscapeIdentifier(result.ToString());
+            return EscapeIdentifier(finalText);
         }
 
-        return result.ToString();
+        return finalText;
     }
 
     // =========================
@@ -623,15 +689,7 @@ public static partial class SymbolExtensions
         // Simple name + generic params/args
         sb.Append(FormatSimpleNamedType(typeSymbol, format));
 
-        // Optional type keyword (class / struct / interface / enum / delegate / union)
-        if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword))
-        {
-            var keyword = GetTypeKeyword(typeSymbol);
-            if (!string.IsNullOrEmpty(keyword))
-            {
-                sb.Insert(0, keyword + " ");
-            }
-        }
+        // NOTE: no KindOptions here – nested type usage must not get type keyword.
 
         return sb.ToString();
     }

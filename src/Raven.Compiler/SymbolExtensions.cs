@@ -9,6 +9,10 @@ using Raven.CodeAnalysis;
 
 public static class SymbolExtensions
 {
+    static readonly SymbolDisplayFormat format = SymbolDisplayFormat.FullyQualifiedFormat
+        .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly);
+    // .WithKindOptions(SymbolDisplayKindOptions.None);
+
     public static string ToSymbolHierarchyString(this ISymbol symbol, int maxDepth = int.MaxValue)
     {
         return symbol.ToSymbolHierarchyString(static _ => true, maxDepth);
@@ -32,7 +36,7 @@ public static class SymbolExtensions
         try
         {
             builder.Append(new string(' ', indent * 2));
-            builder.AppendLine($"{symbol.Kind}: {symbol.Name ?? "<null>"}");
+            builder.AppendLine($"{symbol.Kind}: {symbol.ToDisplayString(format)}");
 
             switch (symbol)
             {
@@ -227,6 +231,7 @@ public static class SymbolExtensions
 
             case IFieldSymbol fieldSymbol:
                 AppendProperty(builder, "Type", fieldSymbol.Type.ToDisplayString(displayFormat));
+                AppendBooleanProperty(builder, "IsMutable", fieldSymbol.IsMutable);
                 AppendBooleanProperty(builder, "IsConst", fieldSymbol.IsConst);
                 if (fieldSymbol.IsConst)
                 {
@@ -237,6 +242,7 @@ public static class SymbolExtensions
 
             case IParameterSymbol parameterSymbol:
                 AppendProperty(builder, "Type", parameterSymbol.Type.ToDisplayString(displayFormat));
+                AppendBooleanProperty(builder, "IsMutable", parameterSymbol.IsMutable);
                 AppendProperty(builder, "RefKind", parameterSymbol.RefKind.ToString());
                 AppendBooleanProperty(builder, "IsParams", parameterSymbol.IsParams);
                 AppendBooleanProperty(builder, "IsMutable", parameterSymbol.IsMutable);
