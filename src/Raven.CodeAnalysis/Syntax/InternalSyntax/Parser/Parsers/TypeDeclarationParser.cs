@@ -722,6 +722,15 @@ internal class TypeDeclarationParser : SyntaxParser
                 name = ExpectToken(SyntaxKind.IdentifierToken);
             }
 
+            SyntaxToken ampersandToken = Token(SyntaxKind.None);
+
+            var next = PeekToken();
+
+            if (next.Kind == SyntaxKind.AmpersandToken)
+            {
+                ampersandToken = ReadToken();
+            }
+
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
             EqualsValueClauseSyntax? defaultValue = null;
@@ -730,7 +739,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, ampersandToken, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -800,13 +809,13 @@ internal class TypeDeclarationParser : SyntaxParser
             }
         }
 
-        SyntaxToken questionToken = Token(SyntaxKind.None);
+        SyntaxToken ampersandToken = Token(SyntaxKind.None);
 
         var next = PeekToken();
 
-        if (next.Kind == SyntaxKind.QuestionToken)
+        if (next.Kind == SyntaxKind.AmpersandToken)
         {
-            questionToken = ReadToken();
+            ampersandToken = ReadToken();
         }
 
         EqualsValueClauseSyntax? initializer = null;
@@ -819,7 +828,7 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         var declarators = new SyntaxList(
-            [VariableDeclarator(identifier, questionToken, typeAnnotation, initializer)]);
+            [VariableDeclarator(identifier, ampersandToken, typeAnnotation, initializer)]);
 
         return new VariableDeclarationSyntax(bindingKeyword, declarators);
     }
@@ -877,7 +886,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, Token(SyntaxKind.None), typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

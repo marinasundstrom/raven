@@ -17,14 +17,26 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         bool isReference = false)
         : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        Type = parameterType;
+        DeclaredType = parameterType;
         RefKind = refKind;
         HasExplicitDefaultValue = hasExplicitDefaultValue;
         ExplicitDefaultValue = explicitDefaultValue;
         IsMutable = isMutable;
     }
 
-    public ITypeSymbol Type { get; }
+    public ITypeSymbol DeclaredType { get; }
+
+    public ITypeSymbol Type
+    {
+        get
+        {
+            if (IsReference)
+            {
+                return new ByRefTypeSymbol(DeclaredType);
+            }
+            return DeclaredType;
+        }
+    }
 
     public bool IsParams => false;
 

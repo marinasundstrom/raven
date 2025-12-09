@@ -635,7 +635,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 
-        var parameter = Parameter(attributeLists, refKindKeyword, bindingKeyword, identifier, typeAnnotation, defaultValue);
+        var parameter = Parameter(attributeLists, refKindKeyword, bindingKeyword, identifier, Token(SyntaxKind.None), typeAnnotation, defaultValue);
 
         lambda = SimpleLambdaExpression(asyncKeyword, parameter, returnType, fatArrowToken, body);
 

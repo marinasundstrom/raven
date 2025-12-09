@@ -5,14 +5,26 @@ internal partial class SourceLocalSymbol : SourceSymbol, ILocalSymbol
     public SourceLocalSymbol(string name, ITypeSymbol type, bool isMutable, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isConst = false, bool isReference = false, object? constantValue = null)
         : base(SymbolKind.Local, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        Type = type;
+        DeclaredType = type;
         IsMutable = isMutable;
         IsConst = isConst;
         IsReference = isReference;
         ConstantValue = constantValue;
     }
 
-    public ITypeSymbol Type { get; }
+    public ITypeSymbol DeclaredType { get; }
+
+    public ITypeSymbol Type
+    {
+        get
+        {
+            if (IsReference)
+            {
+                return new ByRefTypeSymbol(DeclaredType);
+            }
+            return DeclaredType;
+        }
+    }
 
     public bool IsMutable { get; }
 

@@ -1,11 +1,11 @@
 import System.*
 
-var x : int | null = 0
+var x : int? = 0
 
 foo(&x)
 
 Console.WriteLine(x)
 
-func foo(var &y: int | null) -> () {
+func foo(var y&: int?) -> () {
     y = 42
 }

@@ -550,6 +550,15 @@ internal class StatementSyntaxParser : SyntaxParser
                 }
             }
 
+            SyntaxToken ampersandToken = Token(SyntaxKind.None);
+
+            var next = PeekToken();
+
+            if (next.Kind == SyntaxKind.AmpersandToken)
+            {
+                ampersandToken = ReadToken();
+            }
+
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
             EqualsValueClauseSyntax? defaultValue = null;
@@ -558,7 +567,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, ampersandToken, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

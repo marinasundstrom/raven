@@ -584,6 +584,7 @@
     <Slot Name="RefKindKeyword" Type="Token" IsNullable="true" />
     <Slot Name="BindingKeyword" Type="Token" IsNullable="true" />
     <Slot Name="Identifier" Type="Token" />
+    <Slot Name="AmpersandToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />
     <Slot Name="DefaultValue" Type="EqualsValueClause" IsNullable="true" />
   </Node>

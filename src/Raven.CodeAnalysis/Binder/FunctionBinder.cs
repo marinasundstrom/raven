@@ -172,7 +172,8 @@ class FunctionBinder : Binder
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
-                isMutable));
+                isMutable,
+                p.AmpersandToken.Kind != SyntaxKind.None));
         }
 
         _methodSymbol.SetParameters(parameters);
