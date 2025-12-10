@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Xunit;
@@ -64,5 +66,25 @@ WriteLine("Result: $result")
         Assert.DoesNotContain(
             tree.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ParserMadeNoProgress);
+    }
+
+    [Fact]
+    public void BlockExpression_MissingCloseBrace_CompletesWithDiagnostic()
+    {
+        const string code = """
+let f = {
+    WriteLine("hello")
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var diagnostics = tree.GetDiagnostics().ToList();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
+
+        Assert.Contains(
+            tree.GetRoot().DescendantTokens(),
+            token => token.Kind == SyntaxKind.CloseBraceToken && token.IsMissing);
     }
 }

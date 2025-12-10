@@ -40,8 +40,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
         EnterParens(); // Treat block as a nesting construct
         var statements = new List<StatementSyntax>();
 
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        var blockProgress = StartLoopProgress("ParseExpressionBlock");
+        var needsCloseBraceDiagnostic = false;
+
+        while (true)
         {
+            blockProgress.EnsureProgress();
+
+            if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                break;
+
+            if (IsNextToken(SyntaxKind.EndOfFileToken, out _))
+            {
+                needsCloseBraceDiagnostic = true;
+                break;
+            }
+
             var stmt = new StatementSyntaxParser(this).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
@@ -50,7 +64,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
         ExitParens();
 
-        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
+        if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBrace))
+        {
+            needsCloseBraceDiagnostic = true;
+        }
+
+        if (needsCloseBraceDiagnostic)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetEndOfLastToken(),
+                    ['}']));
+        }
 
         return Block(openBrace, List(statements), closeBrace);
     }
