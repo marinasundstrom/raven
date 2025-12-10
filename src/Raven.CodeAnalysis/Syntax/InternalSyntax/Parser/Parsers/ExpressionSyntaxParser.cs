@@ -926,6 +926,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
             var expression = new ExpressionSyntaxParser(this).ParseExpression();
             if (expression is null)
                 break;
@@ -1267,6 +1270,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 SetTreatNewlinesAsTokens(false);
 
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                    break;
+
+                if (IsNextToken(SyntaxKind.EndOfFileToken, out _))
                     break;
 
                 var pattern = new PatternSyntaxParser(this).ParsePattern();

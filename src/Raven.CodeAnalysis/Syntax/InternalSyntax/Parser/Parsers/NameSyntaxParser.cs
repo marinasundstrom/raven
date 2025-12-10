@@ -398,6 +398,9 @@ internal class NameSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.GreaterThanToken))
                 break;
 
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
             var typeName = new NameSyntaxParser(this).ParseTypeName();
             if (typeName is null)
                 break;
@@ -432,6 +435,9 @@ internal class NameSyntaxParser : SyntaxParser
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             NameColonSyntax? nameColon = null;

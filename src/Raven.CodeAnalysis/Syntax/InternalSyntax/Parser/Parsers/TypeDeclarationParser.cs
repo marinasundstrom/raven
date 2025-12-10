@@ -124,6 +124,9 @@ internal class TypeDeclarationParser : SyntaxParser
             if (token.IsKind(SyntaxKind.GreaterThanToken))
                 break;
 
+            if (token.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
             SyntaxToken? varianceKeyword = null;
             if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
             {
@@ -220,6 +223,9 @@ internal class TypeDeclarationParser : SyntaxParser
 
                 var type = new NameSyntaxParser(this).ParseTypeName();
                 types.Add(type);
+
+                if (PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                    break;
 
                 var commaToken = PeekToken();
                 if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -736,6 +742,9 @@ internal class TypeDeclarationParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
             SyntaxToken? refKindKeyword = null;
@@ -876,6 +885,9 @@ internal class TypeDeclarationParser : SyntaxParser
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBracketToken))
+                break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);

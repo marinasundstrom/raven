@@ -549,6 +549,9 @@ internal class StatementSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
             SyntaxToken? refKindKeyword = null;
