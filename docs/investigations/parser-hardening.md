@@ -26,3 +26,4 @@
 * Added loop-level progress guards across parsing hot spots to force forward motion when a loop stops advancing. Stalled iterations now skip a token with `SkippedTokensTrivia` and emit a parser diagnostic so recovery continues instead of hanging indefinitely.
 * Introduced shared recovery token sets for statements, expressions, and member lists, and wired them into statement terminator recovery plus type/extension/enum member loops so resynchronization always targets known boundaries instead of relying on ad-hoc skip conditions.
 * Capped skipped-token trivia batches during recovery and loop stalls to flush large invalid regions in smaller chunks, preventing giant `SkippedTokensTrivia` payloads from slowing down parsing and later phases.
+* When recovery hits a statement boundary without a terminator, the parser now inserts a missing semicolon token and reports a diagnostic so subsequent phases see a well-formed tree instead of a placeholder `None` token.

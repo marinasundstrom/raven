@@ -225,7 +225,7 @@ internal class SyntaxParser : ParseContext
 
         if (ParserRecoverySets.IsStatementRecovery(current.Kind))
         {
-            token = Token(SyntaxKind.None);
+            token = CreateMissingTerminatorToken();
             SetTreatNewlinesAsTokens(previous);
             return true;
         }
@@ -254,13 +254,20 @@ internal class SyntaxParser : ParseContext
                 {
                     AddSkippedToPending(skippedTokens);
                     GetBaseContext()._lookaheadTokens.Clear();
-                    token = Token(SyntaxKind.None);
+                    token = CreateMissingTerminatorToken();
                 }
 
                 SetTreatNewlinesAsTokens(previous);
                 return true;
             }
         }
+    }
+
+    private SyntaxToken CreateMissingTerminatorToken()
+    {
+        var missing = MissingToken(SyntaxKind.SemicolonToken);
+        AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.SemicolonExpected, GetEndOfLastToken()));
+        return missing;
     }
 
     private static bool IsPotentialStatementStart(SyntaxToken token)
