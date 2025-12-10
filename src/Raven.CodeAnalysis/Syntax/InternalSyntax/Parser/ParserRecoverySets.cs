@@ -72,6 +72,10 @@ internal static class ParserRecoverySets
         SyntaxKind.CloseBracketToken,
         SyntaxKind.CloseBraceToken,
         SyntaxKind.SemicolonToken,
+        SyntaxKind.LineFeedToken,
+        SyntaxKind.CarriageReturnToken,
+        SyntaxKind.CarriageReturnLineFeedToken,
+        SyntaxKind.NewLineToken,
         SyntaxKind.EndOfFileToken,
     };
 

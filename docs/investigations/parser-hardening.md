@@ -29,3 +29,4 @@
 * When recovery hits a statement boundary without a terminator, the parser now inserts a missing semicolon token and reports a diagnostic so subsequent phases see a well-formed tree instead of a placeholder `None` token.
 * Block parsing now inserts a missing `}` and reports a diagnostic when the closing brace is absent, avoiding unbounded reads to end-of-file while keeping statement blocks well-formed for later phases.
 * Parenthesized, tuple, and collection constructs now emit missing-delimiter diagnostics when recovery inserts placeholder `)` or `]` tokens so the tree remains well-formed and the user sees an actionable error at the gap.
+* Statement terminator recovery now treats blank lines as implicit boundaries and bails out of expressions at newlines, inserting a semicolon diagnostic so blocks advance even when delimiters are omitted across lines.

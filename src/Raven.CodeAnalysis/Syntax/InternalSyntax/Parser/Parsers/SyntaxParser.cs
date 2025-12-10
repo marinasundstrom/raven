@@ -226,6 +226,17 @@ internal class SyntaxParser : ParseContext
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
         bool previous = TreatNewlinesAsTokens;
+
+        if (!previous)
+        {
+            var lookahead = PeekToken();
+            if (ContainsBlankLine(lookahead.LeadingTrivia) && IsPotentialStatementStart(lookahead))
+            {
+                token = CreateMissingTerminatorToken();
+                return true;
+            }
+        }
+
         SetTreatNewlinesAsTokens(true);
 
         var current = PeekToken();
@@ -283,6 +294,28 @@ internal class SyntaxParser : ParseContext
         var missing = MissingToken(SyntaxKind.SemicolonToken);
         AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.SemicolonExpected, GetEndOfLastToken()));
         return missing;
+    }
+
+    private static bool ContainsBlankLine(SyntaxTriviaList trivia)
+    {
+        int lineBreaks = 0;
+
+        foreach (var triviaItem in trivia)
+        {
+            if (triviaItem.Kind is SyntaxKind.EndOfLineTrivia or SyntaxKind.LineFeedTrivia or SyntaxKind.CarriageReturnTrivia or SyntaxKind.CarriageReturnLineFeedTrivia)
+            {
+                lineBreaks++;
+
+                if (lineBreaks > 1)
+                    return true;
+            }
+            else if (triviaItem.Kind != SyntaxKind.WhitespaceTrivia)
+            {
+                lineBreaks = 0;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsPotentialStatementStart(SyntaxToken token)
