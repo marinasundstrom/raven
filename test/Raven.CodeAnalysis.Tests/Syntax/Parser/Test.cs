@@ -532,4 +532,26 @@ public class ParserNewlineTests
 
         diagnostics.ShouldContain(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.SemicolonExpected);
     }
+
+    [Fact]
+    public void BlockStatement_MissingTerminator_ProducesDiagnosticWithoutSkippingNextStatement()
+    {
+        var source = """
+                     func main() {
+                         WriteLine("Value: $value") WriteLine("Result: $value")
+                     }
+                     """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+
+        var diagnostics = syntaxTree.GetDiagnostics().ToArray();
+
+        diagnostics.Count(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.SemicolonExpected).ShouldBe(1);
+
+        var compilationUnit = (CompilationUnitSyntax)syntaxTree.GetRoot();
+        var function = Assert.IsType<FunctionStatementSyntax>(compilationUnit.Members.Single());
+        var block = Assert.IsType<BlockSyntax>(function.Body);
+
+        block.Statements.Count.ShouldBe(2);
+    }
 }

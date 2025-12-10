@@ -227,9 +227,17 @@ internal class SyntaxParser : ParseContext
     {
         bool previous = TreatNewlinesAsTokens;
 
+        var lookahead = PeekToken();
+
+        if (!HasNewlineBoundary(lookahead.LeadingTrivia)
+            && IsPotentialStatementStart(lookahead))
+        {
+            token = CreateMissingTerminatorToken();
+            return true;
+        }
+
         if (!previous)
         {
-            var lookahead = PeekToken();
             if (ContainsBlankLine(lookahead.LeadingTrivia) && IsPotentialStatementStart(lookahead))
             {
                 token = CreateMissingTerminatorToken();
@@ -302,7 +310,8 @@ internal class SyntaxParser : ParseContext
                     || current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken
                     || ParserRecoverySets.IsTypeMemberStartOrRecovery(current.Kind))
                 {
-                    token = Token(SyntaxKind.None);
+                    AddSkippedToPending(skippedTokens);
+                    token = CreateMissingTerminatorToken();
                 }
                 else
                 {
@@ -319,7 +328,14 @@ internal class SyntaxParser : ParseContext
 
     private SyntaxToken CreateMissingTerminatorToken()
     {
-        return MissingToken(SyntaxKind.SemicolonToken);
+        var missingTerminator = MissingToken(SyntaxKind.SemicolonToken);
+
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.SemicolonExpected,
+                GetEndOfLastToken()));
+
+        return missingTerminator;
     }
 
     private bool HasNewlineBoundary(SyntaxTriviaList leadingTrivia)
