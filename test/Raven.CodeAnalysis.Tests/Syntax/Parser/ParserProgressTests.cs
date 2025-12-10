@@ -63,6 +63,13 @@ WriteLine("Result: $result")
 
         Assert.Contains(root.DescendantTokens(), token => token.IsMissing);
 
+        var tokens = root.DescendantTokens().ToList();
+        var lastRealToken = tokens.Last(token => token.Kind != SyntaxKind.EndOfFileToken);
+
+        Assert.Contains(
+            lastRealToken.TrailingTrivia,
+            trivia => trivia.HasStructure && trivia.GetStructure() is SkippedTokensTrivia);
+
         Assert.DoesNotContain(
             tree.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ParserMadeNoProgress);

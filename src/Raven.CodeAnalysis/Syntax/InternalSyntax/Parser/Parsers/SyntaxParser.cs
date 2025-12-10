@@ -2,6 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -463,7 +464,15 @@ internal class SyntaxParser : ParseContext
             baseContext._pendingTrivia.AddRange(skippedTrivia);
 
         if (token.Kind == SyntaxKind.EndOfFileToken)
+        {
+            if (skippedTrivia.Count > 0 && baseContext.LastToken is { Kind: not SyntaxKind.None } last)
+            {
+                var trailing = new SyntaxTriviaList(last.TrailingTrivia.Concat(skippedTrivia).ToArray());
+                baseContext._lastToken = last.WithTrailingTrivia(trailing);
+            }
+
             return Token(SyntaxKind.None);
+        }
 
         return token;
     }

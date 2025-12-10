@@ -521,7 +521,15 @@ internal class BaseParseContext : ParseContext
 
             if (skippedTrivia.Count > 0)
             {
-                _pendingTrivia.AddRange(skippedTrivia);
+                if (_lastToken is { Kind: not SyntaxKind.None })
+                {
+                    var trailing = new SyntaxTriviaList(_lastToken.TrailingTrivia.Concat(skippedTrivia).ToArray());
+                    _lastToken = _lastToken.WithTrailingTrivia(trailing);
+                }
+                else
+                {
+                    _pendingTrivia.AddRange(skippedTrivia);
+                }
             }
 
             return SyntaxFactory.Token(SyntaxKind.None);

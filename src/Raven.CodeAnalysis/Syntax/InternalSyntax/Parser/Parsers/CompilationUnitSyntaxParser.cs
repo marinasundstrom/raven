@@ -2,6 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 using GreenNode = Raven.CodeAnalysis.Syntax.GreenNode;
@@ -53,6 +54,14 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         }
 
         var attributeLists = List(compilationAttributeLists);
+
+        var baseContext = GetBaseContext();
+        if (baseContext._pendingTrivia.Count > 0 && baseContext.LastToken is { Kind: not SyntaxKind.None } lastToken)
+        {
+            var trailing = new SyntaxTriviaList(lastToken.TrailingTrivia.Concat(baseContext._pendingTrivia).ToArray());
+            baseContext._lastToken = lastToken.WithTrailingTrivia(trailing);
+            baseContext._pendingTrivia.Clear();
+        }
 
         return CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken, Diagnostics);
     }
