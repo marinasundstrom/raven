@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal abstract class ParseContext
@@ -25,6 +27,8 @@ internal abstract class ParseContext
     }
 
     public ParseContext? Parent { get; protected set; }
+
+    public virtual CancellationToken CancellationToken => Parent?.CancellationToken ?? CancellationToken.None;
 
     public virtual int Position => Parent?.Position ?? throw new InvalidOperationException("No base or parent set");
 

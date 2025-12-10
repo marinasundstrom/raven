@@ -19,3 +19,6 @@
 4. **Trace logging hooks**: provide opt-in verbose tracing around critical parse loops and `SkipUntil` calls, with counters for skipped tokens and recovery hits to spot hotspots that could hang.
 5. **Benchmark + heap guardrails**: add benchmarks that parse pathological inputs (deep nesting, unmatched delimiters) while measuring allocations from `SkippedTokensTrivia`; flag regressions that correlate with hangs or excessive memory use.
 6. **Crash dumps for hangs**: when watchdogs/CI detect a hang, automatically capture stack traces (e.g., `dotnet-trace`/`dotnet-dump`) and store them as artifacts to speed up root-cause analysis.
+
+## Progress
+* Parser entry points now accept cancellation and timeout inputs. `SyntaxTree.ParseText` links caller tokens with an optional wall-clock timeout so hung parses terminate promptly, and the CLI exposes `--parse-timeout` to enforce the same budget when invoking `ravenc` from CI or editor integrations.

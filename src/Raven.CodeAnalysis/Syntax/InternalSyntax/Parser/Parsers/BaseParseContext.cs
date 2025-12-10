@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
@@ -9,21 +10,25 @@ internal class BaseParseContext : ParseContext
 {
     internal SyntaxToken? _lastToken;
     private readonly ILexer _lexer;
+    private readonly CancellationToken _cancellationToken;
     private int _position;
     private bool _treatNewlinesAsTokens;
     internal readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
     internal readonly List<SyntaxTrivia> _pendingTrivia = new();
     private readonly StringBuilder _stringBuilder = new StringBuilder();
 
-    public BaseParseContext(ILexer lexer, int position = 0) : base()
+    public BaseParseContext(ILexer lexer, int position = 0, CancellationToken cancellationToken = default) : base()
     {
         _lexer = lexer;
+        _cancellationToken = cancellationToken;
         _position = position;
     }
 
     public override int Position => _position;
 
     public override SyntaxToken? LastToken => _lastToken;
+
+    public override CancellationToken CancellationToken => _cancellationToken;
 
     public override TextSpan GetStartOfLastToken()
     {
@@ -152,6 +157,8 @@ internal class BaseParseContext : ParseContext
 
     public override SyntaxToken ReadToken()
     {
+        ThrowIfCancellationRequested();
+
         if (_lookaheadTokens.Count > 0)
         {
             // Remove the token from the lookahead list
@@ -172,6 +179,8 @@ internal class BaseParseContext : ParseContext
 
     public override SyntaxToken PeekToken(int index = 0)
     {
+        ThrowIfCancellationRequested();
+
         // Ensure the lookahead tokens list is populated up to the requested index
         while (_lookaheadTokens.Count <= index)
         {
@@ -183,6 +192,8 @@ internal class BaseParseContext : ParseContext
 
     private SyntaxToken ReadTokenCore()
     {
+        ThrowIfCancellationRequested();
+
         Token token = _lexer.PeekToken();
 
         if (TreatNewlinesAsTokens && token.Kind == SyntaxKind.NewLineToken)
@@ -259,6 +270,8 @@ internal class BaseParseContext : ParseContext
 
         while (true)
         {
+            ThrowIfCancellationRequested();
+
             if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
             var token = _lexer.PeekToken(0);
@@ -460,6 +473,7 @@ internal class BaseParseContext : ParseContext
 
         while (!expectedKind.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken)
         {
+            ThrowIfCancellationRequested();
             skippedTokens.Add(ReadToken());
 
             token = PeekToken();
@@ -493,5 +507,10 @@ internal class BaseParseContext : ParseContext
         }
 
         return ReadToken();
+    }
+
+    private void ThrowIfCancellationRequested()
+    {
+        CancellationToken.ThrowIfCancellationRequested();
     }
 }

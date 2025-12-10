@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 using Raven;
 using Raven.CodeAnalysis;
@@ -31,6 +32,7 @@ var stopwatch = Stopwatch.StartNew();
 // -bt               - print binder and bound tree (single file only)
 // -q                - print AST as C# compilable code
 // --symbols [list|hierarchy] - inspect symbols produced from source
+// --parse-timeout <seconds> - cancel parsing if it exceeds the wall-clock budget
 // --no-emit         - skip emitting the output assembly
 // --highlight       - display diagnostics with highlighted source
 // -h, --help        - display help
@@ -70,6 +72,14 @@ string? overloadLogPath = null;
 var overloadLogOwnsWriter = false;
 OverloadResolutionLog? overloadResolutionLog = null;
 var run = false;
+TimeSpan? parseTimeout = null;
+
+using var shutdownCts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    shutdownCts.Cancel();
+    e.Cancel = true;
+};
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -213,6 +223,16 @@ for (int i = 0; i < args.Length; i++)
             if (i + 1 < args.Length)
                 targetFrameworkTfm = args[++i];
             break;
+        case "--parse-timeout":
+            if (i + 1 < args.Length && int.TryParse(args[++i], out var timeoutSeconds) && timeoutSeconds > 0)
+            {
+                parseTimeout = TimeSpan.FromSeconds(timeoutSeconds);
+            }
+            else
+            {
+                hasInvalidOption = true;
+            }
+            break;
         case "-h":
         case "--help":
             showHelp = true;
@@ -352,7 +372,7 @@ foreach (var filePath in sourceFiles)
 {
     using var file = File.OpenRead(filePath);
     var sourceText = SourceText.From(file);
-    var parsedTree = SyntaxTree.ParseText(sourceText, path: filePath);
+    var parsedTree = SyntaxTree.ParseText(sourceText, path: filePath, parseTimeout: parseTimeout, cancellationToken: shutdownCts.Token);
     var document = project.AddDocument(Path.GetFileName(filePath), sourceText, filePath);
     project = document.Project;
 }
@@ -674,6 +694,8 @@ static void PrintHelp()
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
     Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
     Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
+    Console.WriteLine("  --parse-timeout <seconds>");
+    Console.WriteLine("                     Cancel parsing after the specified wall-clock timeout.");
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  -o <path>          Output assembly path");

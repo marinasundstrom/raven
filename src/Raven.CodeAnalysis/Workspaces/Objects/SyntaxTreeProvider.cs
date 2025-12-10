@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -30,12 +31,12 @@ public class SyntaxTreeProvider
     /// Attempts to parse a <see cref="SyntaxTree"/> for the specified document
     /// name and text. Non-Raven files return <c>null</c>.
     /// </summary>
-    public virtual SyntaxTree? TryParse(string name, SourceText text, string? filePath = null)
+    public virtual SyntaxTree? TryParse(string name, SourceText text, string? filePath = null, TimeSpan? parseTimeout = null, CancellationToken cancellationToken = default)
     {
         if (!SupportsSyntaxTree(name, filePath))
             return null;
 
         var path = filePath ?? name;
-        return SyntaxTree.ParseText(text, path: path);
+        return SyntaxTree.ParseText(text, path: path, parseTimeout: parseTimeout, cancellationToken: cancellationToken);
     }
 }

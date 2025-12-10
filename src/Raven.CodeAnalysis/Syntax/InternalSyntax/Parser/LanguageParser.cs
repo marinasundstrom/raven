@@ -1,5 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Threading;
 
 using Raven.CodeAnalysis.Text;
 
@@ -23,22 +24,22 @@ internal class LanguageParser
         Options = options ?? new ParseOptions();
     }
 
-    public SyntaxNode Parse(SourceText sourceText)
+    public SyntaxNode Parse(SourceText sourceText, CancellationToken cancellationToken = default)
     {
         using var textReader = sourceText.GetTextReader();
 
         _lexer = new Lexer(textReader);
 
-        var parseContext = new BaseParseContext(_lexer);
+        var parseContext = new BaseParseContext(_lexer, cancellationToken: cancellationToken);
         return new CompilationUnitSyntaxParser(parseContext).Parse();
     }
 
-    public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)
+    public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position, CancellationToken cancellationToken = default)
     {
         using var textReader = sourceText.GetTextReader(position);
 
         _lexer = new Lexer(textReader, position);
-        var parseContext = new BaseParseContext(_lexer, position);
+        var parseContext = new BaseParseContext(_lexer, position, cancellationToken);
 
         try
         {
@@ -80,12 +81,12 @@ internal class LanguageParser
         return null;
     }
 
-    public StatementSyntax ParseStatement(SourceText sourceText, int offset = 0, bool consumeFullText = true)
+    public StatementSyntax ParseStatement(SourceText sourceText, int offset = 0, bool consumeFullText = true, CancellationToken cancellationToken = default)
     {
         using var textReader = sourceText.GetTextReader(offset);
 
         var lexer = new Lexer(textReader, offset);
-        var parseContext = new BaseParseContext(lexer, offset);
+        var parseContext = new BaseParseContext(lexer, offset, cancellationToken);
 
         return new StatementSyntaxParser(parseContext).ParseStatement();
     }
