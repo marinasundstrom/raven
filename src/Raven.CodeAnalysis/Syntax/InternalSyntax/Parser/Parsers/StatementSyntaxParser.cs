@@ -490,8 +490,22 @@ internal class StatementSyntaxParser : SyntaxParser
         EnterParens();
         var statements = new List<StatementSyntax>();
 
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        var blockProgress = StartLoopProgress("ParseBlockStatements");
+        var needsCloseBraceDiagnostic = false;
+
+        while (true)
         {
+            blockProgress.EnsureProgress();
+
+            if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                break;
+
+            if (IsNextToken(SyntaxKind.EndOfFileToken, out _))
+            {
+                needsCloseBraceDiagnostic = true;
+                break;
+            }
+
             var stmt = new StatementSyntaxParser(this).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
@@ -501,7 +515,19 @@ internal class StatementSyntaxParser : SyntaxParser
 
         ExitParens();
 
-        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
+        if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBrace))
+        {
+            needsCloseBraceDiagnostic = true;
+        }
+
+        if (needsCloseBraceDiagnostic)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetEndOfLastToken(),
+                    ['}']));
+        }
 
         return BlockStatement(openBrace, List(statements), closeBrace);
     }
