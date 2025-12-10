@@ -32,3 +32,4 @@
 * Statement terminator recovery now treats blank lines as implicit boundaries and bails out of expressions at newlines, inserting a semicolon diagnostic so blocks advance even when delimiters are omitted across lines.
 * Recovery retains skipped-token spans for internal diagnostics without surfacing them in user-facing error lists so the parser can recover quietly while developers can still opt into extra tracing when needed.
 * Added parser tests that ensure skipped-token diagnostics are suppressed by default for both top-level recovery and type-member recovery sequences.
+* Running `samples/build.sh` after the recent stall-guard changes still fails: the Raven.Core build step exits with code 134 before samples can link against it, and the first sample (`arrays.rav`) now aborts with `Parser made no progress ... at end-of-file` from `ForceAdvanceAfterStall`, stopping the batch run early.【F:sample_run.log†L1-L84】

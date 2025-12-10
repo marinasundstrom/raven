@@ -586,6 +586,7 @@ internal class BaseParseContext : ParseContext
 
         var spanStart = _position;
         var skippedTokens = new List<SyntaxToken> { ReadToken() };
+        var firstSkipped = skippedTokens[0];
         var skippedTrivia = new List<SyntaxTrivia>();
 
         AddSkippedTokensAsTrivia(skippedTokens, skippedTrivia);
@@ -594,7 +595,7 @@ internal class BaseParseContext : ParseContext
 
         AddDiagnostic(DiagnosticInfo.Create(
             CompilerDiagnostics.ParserMadeNoProgress,
-            new TextSpan(spanStart, skippedTokens[0].FullWidth),
+            new TextSpan(spanStart, firstSkipped.FullWidth),
             loopName,
             stalledToken.Kind.ToString()));
     }
