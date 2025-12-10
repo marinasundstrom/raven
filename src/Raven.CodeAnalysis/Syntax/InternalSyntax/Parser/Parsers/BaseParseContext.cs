@@ -13,6 +13,7 @@ internal class BaseParseContext : ParseContext
     internal SyntaxToken? _lastToken;
     private readonly ILexer _lexer;
     private readonly CancellationToken _cancellationToken;
+    private readonly bool _emitSkippedTokensDiagnostics;
     private int _position;
     private bool _treatNewlinesAsTokens;
     internal readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
@@ -24,11 +25,16 @@ internal class BaseParseContext : ParseContext
     private readonly ParserProgressWatchdog _progressWatchdog;
 #endif
 
-    public BaseParseContext(ILexer lexer, int position = 0, CancellationToken cancellationToken = default) : base()
+    public BaseParseContext(
+        ILexer lexer,
+        int position = 0,
+        CancellationToken cancellationToken = default,
+        bool emitSkippedTokensDiagnostics = false) : base()
     {
         _lexer = lexer;
         _cancellationToken = cancellationToken;
         _position = position;
+        _emitSkippedTokensDiagnostics = emitSkippedTokensDiagnostics;
 
 #if DEBUG
         _progressWatchdog = new ParserProgressWatchdog(position);
@@ -536,6 +542,9 @@ internal class BaseParseContext : ParseContext
 
     internal void AddSkippedTokensDiagnostic(int spanStart, int skippedWidth, SyntaxKind recoveryKind, string expectedDescription)
     {
+        if (!_emitSkippedTokensDiagnostics)
+            return;
+
         if (skippedWidth <= 0)
             return;
 
