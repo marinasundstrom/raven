@@ -16,8 +16,11 @@ internal static class AttributeDeclarationParser
 
         var attributeLists = new List<GreenNode>();
 
+        var loopProgress = parser.StartLoopProgress("ParseAttributeLists");
+
         while (parser.PeekToken().IsKind(SyntaxKind.OpenBracketToken))
         {
+            loopProgress.EnsureProgress();
             attributeLists.Add(ParseAttributeList(parser));
         }
 
@@ -37,8 +40,10 @@ internal static class AttributeDeclarationParser
         }
 
         var attributes = new List<GreenNode>();
+        var loopProgress = parser.StartLoopProgress("ParseAttributeListItems");
         while (true)
         {
+            loopProgress.EnsureProgress();
             attributes.Add(ParseAttribute(parser));
 
             var separator = parser.PeekToken();

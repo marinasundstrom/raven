@@ -40,8 +40,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
         EnterParens(); // Treat block as a nesting construct
         var statements = new List<StatementSyntax>();
 
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        var blockProgress = StartLoopProgress("ParseExpressionBlock");
+        var needsCloseBraceDiagnostic = false;
+
+        while (true)
         {
+            blockProgress.EnsureProgress();
+
+            if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                break;
+
+            if (IsNextToken(SyntaxKind.EndOfFileToken, out _))
+            {
+                needsCloseBraceDiagnostic = true;
+                break;
+            }
+
             var stmt = new StatementSyntaxParser(this).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
@@ -50,7 +64,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
         ExitParens();
 
-        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
+        if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBrace))
+        {
+            needsCloseBraceDiagnostic = true;
+        }
+
+        if (needsCloseBraceDiagnostic)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetEndOfLastToken(),
+                    ['}']));
+        }
 
         return Block(openBrace, List(statements), closeBrace);
     }
@@ -165,8 +191,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
     private ExpressionSyntax ParseComparisonExpression()
     {
         ExpressionSyntax expr = ParseExpressionCore(0);
+
+        var loopProgress = StartLoopProgress("ParseComparisonExpression");
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var token = PeekToken();
 
             switch (token.Kind)
@@ -252,8 +282,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
             return AssignmentExpression(GetAssignmentExpressionKind(assignToken), leftNode, assignToken, right, Diagnostics);
         }
 
+        var operatorProgress = StartLoopProgress("ParseExpressionOperators");
+
         while (true)
         {
+            operatorProgress.EnsureProgress();
             var operatorCandidate = PeekToken();
 
             if (operatorCandidate.IsKind(SyntaxKind.EndOfFileToken))
@@ -309,8 +342,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var depth = 0;
         var offset = 0;
 
+        var lookaheadProgress = StartLoopProgress("ContainsAssignmentBeforeMatchingCloseParen");
+
         while (true)
         {
+            lookaheadProgress.EnsureProgress();
+
             var token = PeekToken(offset++);
 
             if (token.Kind == SyntaxKind.EndOfFileToken)
@@ -665,8 +702,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr)
     {
+        var loopProgress = StartLoopProgress("AddTrailers");
+
         while (true) // Loop to handle consecutive member access and invocations
         {
+            loopProgress.EnsureProgress();
+
             var token = PeekToken();
 
             if (token.IsKind(SyntaxKind.OpenParenToken)) // Invocation
@@ -787,8 +828,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
         List<GreenNode> argumentList = new List<GreenNode>();
         var seenNames = new HashSet<string>();
 
+        var argumentProgress = StartLoopProgress("ParseArgumentList");
+
         while (true)
         {
+            argumentProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
@@ -824,7 +869,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
     }
@@ -857,8 +902,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         List<GreenNode> argumentList = new List<GreenNode>();
 
+        var argumentProgress = StartLoopProgress("ParseBracketedArgumentList");
+
         while (true)
         {
+            argumentProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBracketToken))
@@ -881,7 +930,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var closeBracketToken = ExpectTokenWithError(SyntaxKind.CloseBracketToken, ']');
 
         return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken);
     }
@@ -892,11 +941,18 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         List<GreenNode> argumentList = new List<GreenNode>();
 
+        var tupleProgress = StartLoopProgress("ParseTupleExpression");
+
         while (true)
         {
+            tupleProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             var expression = new ExpressionSyntaxParser(this).ParseExpression();
@@ -913,7 +969,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return TupleExpression(openParenToken, List(argumentList.ToArray()), closeParenToken);
     }
@@ -1075,7 +1131,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             expressions.Add(arg);
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         if (sawComma)
         {
@@ -1095,8 +1151,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         List<GreenNode> elementList = new List<GreenNode>();
 
+        var elementProgress = StartLoopProgress("ParseCollectionElements");
+
         while (true)
         {
+            elementProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBracketToken))
@@ -1130,7 +1190,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var closeBracketToken = ExpectTokenWithError(SyntaxKind.CloseBracketToken, ']');
 
         return CollectionExpression(openBracketToken, List(elementList), closeBracketToken);
     }
@@ -1152,7 +1212,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             var openParenToken = ReadToken();
             var type = new NameSyntaxParser(this).ParseTypeName();
-            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+            var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
             return DefaultExpression(defaultKeyword, openParenToken, type, closeParenToken);
         }
@@ -1171,7 +1231,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var type = new NameSyntaxParser(this).ParseTypeName();
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return TypeOfExpression(typeOfKeyword, openParenToken, type, closeParenToken);
     }
@@ -1188,14 +1248,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
 
-        if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken))
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                )); ;
-        }
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return ParenthesizedExpression(openParenToken, expr, closeParenToken, Diagnostics);
     }
@@ -1235,11 +1288,17 @@ internal class ExpressionSyntaxParser : SyntaxParser
         EnterParens();
         try
         {
+            var armProgress = StartLoopProgress("ParseMatchArms");
             while (true)
             {
+                armProgress.EnsureProgress();
+
                 SetTreatNewlinesAsTokens(false);
 
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                    break;
+
+                if (IsNextToken(SyntaxKind.EndOfFileToken, out _))
                     break;
 
                 var pattern = new PatternSyntaxParser(this).ParsePattern();
@@ -1261,6 +1320,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 SyntaxToken terminatorToken;
                 if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
                 {
+                    _ = SkipBadTokensUntil(ParserRecoverySets.ExpressionRecoveryKinds);
                     TryConsumeTerminator(out terminatorToken);
                 }
 
@@ -1287,8 +1347,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private void SkipMatchArmSeparators()
     {
+        var separatorProgress = StartLoopProgress("SkipMatchArmSeparators");
         while (true)
         {
+            separatorProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken)

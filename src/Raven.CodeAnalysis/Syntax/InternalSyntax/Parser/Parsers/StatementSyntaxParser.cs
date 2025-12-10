@@ -228,7 +228,8 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             if (!TryConsumeTerminator(out terminatorToken))
             {
-                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+                _ = SkipBadTokensUntil(ParserRecoverySets.StatementRecoveryKinds);
+                TryConsumeTerminator(out terminatorToken);
             }
         }
         else
@@ -344,7 +345,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 identifier = ReadIdentifierToken();
             }
 
-            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+            var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
             declaration = CatchDeclaration(openParenToken, type!, identifier, closeParenToken);
         }
@@ -461,8 +462,12 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var modifierProgress = StartLoopProgress("ParseFunctionModifiers");
+
         while (true)
         {
+            modifierProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.AsyncKeyword)
@@ -485,8 +490,22 @@ internal class StatementSyntaxParser : SyntaxParser
         EnterParens();
         var statements = new List<StatementSyntax>();
 
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        var blockProgress = StartLoopProgress("ParseBlockStatements");
+        var needsCloseBraceDiagnostic = false;
+
+        while (true)
         {
+            blockProgress.EnsureProgress();
+
+            if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                break;
+
+            if (IsNextToken(SyntaxKind.EndOfFileToken, out _))
+            {
+                needsCloseBraceDiagnostic = true;
+                break;
+            }
+
             var stmt = new StatementSyntaxParser(this).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
@@ -496,7 +515,19 @@ internal class StatementSyntaxParser : SyntaxParser
 
         ExitParens();
 
-        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
+        if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBrace))
+        {
+            needsCloseBraceDiagnostic = true;
+        }
+
+        if (needsCloseBraceDiagnostic)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetEndOfLastToken(),
+                    ['}']));
+        }
 
         return BlockStatement(openBrace, List(statements), closeBrace);
     }
@@ -507,11 +538,18 @@ internal class StatementSyntaxParser : SyntaxParser
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
+        var parameterProgress = StartLoopProgress("ParseStatementParameters");
+
         while (true)
         {
+            parameterProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
@@ -568,7 +606,7 @@ internal class StatementSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken);
     }
@@ -591,7 +629,8 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             if (!TryConsumeTerminator(out terminatorToken))
             {
-                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+                _ = SkipBadTokensUntil(ParserRecoverySets.StatementRecoveryKinds);
+                TryConsumeTerminator(out terminatorToken);
             }
         }
         else

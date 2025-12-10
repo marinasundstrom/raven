@@ -1,6 +1,8 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -27,8 +29,12 @@ internal class SyntaxParser : ParseContext
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var loopProgress = GetBaseContext().StartLoopProgress("ParseTypeMemberModifiers");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.PublicKeyword or
@@ -161,6 +167,21 @@ internal class SyntaxParser : ParseContext
         return missing;
     }
 
+    protected SyntaxToken ExpectTokenWithError(SyntaxKind kind, char expectedCharacter)
+    {
+        if (ConsumeToken(kind, out var token))
+            return token;
+
+        var missing = MissingToken(kind);
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetEndOfLastToken(),
+                [expectedCharacter]));
+
+        return missing;
+    }
+
     /// <summary>
     /// Get the actual span of a node.
     /// </summary>
@@ -206,100 +227,176 @@ internal class SyntaxParser : ParseContext
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
         bool previous = TreatNewlinesAsTokens;
+
+        var lookahead = PeekToken();
+
+        if (!HasNewlineBoundary(lookahead.LeadingTrivia)
+            && IsPotentialStatementStart(lookahead))
+        {
+            token = CreateMissingTerminatorToken();
+            return true;
+        }
+
+        if (!previous)
+        {
+            if (ContainsBlankLine(lookahead.LeadingTrivia) && IsPotentialStatementStart(lookahead))
+            {
+                token = CreateMissingTerminatorToken();
+                return true;
+            }
+        }
+
+        if (LastToken is { TrailingTrivia: var trailingTrivia } && ContainsAnyNewline(trailingTrivia))
+        {
+            token = Token(SyntaxKind.None);
+            return true;
+        }
+
         SetTreatNewlinesAsTokens(true);
 
         var current = PeekToken();
 
-        // Fast-path: immediate terminators
-        if (IsNewLineToken(current))
+        if (IsStatementBoundary(current.Kind))
         {
-            token = ReadToken();
-            SetTreatNewlinesAsTokens(previous);
-            return true;
-        }
+            // Fast-path: immediate terminators
+            if (ParserRecoverySets.IsStatementTerminator(current.Kind))
+            {
+                token = ReadToken();
+                SetTreatNewlinesAsTokens(previous);
+                return true;
+            }
 
-        if (current.Kind == SyntaxKind.SemicolonToken)
-        {
-            token = ReadToken();
-            SetTreatNewlinesAsTokens(previous);
-            return true;
-        }
+            var hasNewlineBoundary = HasNewlineBoundary(current.LeadingTrivia);
+            if (hasNewlineBoundary || current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken)
+            {
+                token = Token(SyntaxKind.None);
+                SetTreatNewlinesAsTokens(previous);
+                return true;
+            }
 
-        if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
-        {
-            token = Token(SyntaxKind.None);
-            SetTreatNewlinesAsTokens(previous);
-            return true;
-        }
+            if (ParserRecoverySets.IsTypeMemberStartOrRecovery(current.Kind)
+                && IsPotentialStatementStart(current))
+            {
+                token = CreateMissingTerminatorToken();
+                SetTreatNewlinesAsTokens(previous);
+                return true;
+            }
 
-        if (IsPotentialStatementStart(current))
-        {
-            token = Token(SyntaxKind.None);
+            token = CreateMissingTerminatorToken();
             SetTreatNewlinesAsTokens(previous);
             return true;
         }
 
         var skippedTokens = new List<SyntaxToken>();
 
+        var loopProgress = GetBaseContext().StartLoopProgress("TryConsumeTerminator");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var t = ReadToken();
             if (skippedTokens.Count == 0 && t.LeadingTrivia.Count > 0)
                 t = t.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
             skippedTokens.Add(t);
             current = PeekToken();
 
-            if (IsPotentialStatementStart(current))
+            if (IsStatementBoundary(current.Kind))
             {
-                AddSkippedToPending(skippedTokens);
-                token = Token(SyntaxKind.None);
-                SetTreatNewlinesAsTokens(previous);
-                return true;
-            }
+                if (ParserRecoverySets.IsStatementTerminator(current.Kind))
+                {
+                    token = ConsumeWithLeadingSkipped(skippedTokens);
+                }
+                else if (HasNewlineBoundary(current.LeadingTrivia)
+                    || current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken
+                    || ParserRecoverySets.IsTypeMemberStartOrRecovery(current.Kind))
+                {
+                    AddSkippedToPending(skippedTokens);
+                    token = CreateMissingTerminatorToken();
+                }
+                else
+                {
+                    AddSkippedToPending(skippedTokens);
+                    GetBaseContext()._lookaheadTokens.Clear();
+                    token = CreateMissingTerminatorToken();
+                }
 
-            if (current.Kind == SyntaxKind.SemicolonToken)
-            {
-                token = ConsumeWithLeadingSkipped(skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
-                return true;
-            }
-
-            if (IsNewLineToken(current))
-            {
-                token = ConsumeWithLeadingSkipped(skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
-                return true;
-            }
-
-            if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
-            {
-                AddSkippedToPending(skippedTokens);
-                GetBaseContext()._lookaheadTokens.Clear();
-                token = Token(SyntaxKind.None);
                 SetTreatNewlinesAsTokens(previous);
                 return true;
             }
         }
     }
 
+    private SyntaxToken CreateMissingTerminatorToken()
+    {
+        var missingTerminator = MissingToken(SyntaxKind.SemicolonToken);
+
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.SemicolonExpected,
+                GetEndOfLastToken()));
+
+        return missingTerminator;
+    }
+
+    private bool HasNewlineBoundary(SyntaxTriviaList leadingTrivia)
+    {
+        if (ContainsAnyNewline(leadingTrivia))
+            return true;
+
+        if (LastToken is { TrailingTrivia: var trailing } && ContainsAnyNewline(trailing))
+            return true;
+
+        return false;
+    }
+
+    private static bool ContainsBlankLine(SyntaxTriviaList trivia)
+    {
+        int lineBreaks = 0;
+
+        foreach (var triviaItem in trivia)
+        {
+            if (triviaItem.Kind is SyntaxKind.EndOfLineTrivia or SyntaxKind.LineFeedTrivia or SyntaxKind.CarriageReturnTrivia or SyntaxKind.CarriageReturnLineFeedTrivia)
+            {
+                lineBreaks++;
+
+                if (lineBreaks > 1)
+                    return true;
+            }
+            else if (triviaItem.Kind != SyntaxKind.WhitespaceTrivia)
+            {
+                lineBreaks = 0;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsAnyNewline(SyntaxTriviaList trivia)
+    {
+        foreach (var triviaItem in trivia)
+        {
+            if (triviaItem.Kind is SyntaxKind.EndOfLineTrivia
+                or SyntaxKind.LineFeedTrivia
+                or SyntaxKind.CarriageReturnTrivia
+                or SyntaxKind.CarriageReturnLineFeedTrivia)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsStatementBoundary(SyntaxKind kind)
+    {
+        return ParserRecoverySets.IsStatementRecovery(kind)
+            || ParserRecoverySets.IsTypeMemberStartOrRecovery(kind);
+    }
+
     private static bool IsPotentialStatementStart(SyntaxToken token)
     {
-        return token.Kind switch
-        {
-            SyntaxKind.None => false,
-            SyntaxKind.EndOfFileToken => false,
-            SyntaxKind.CloseBraceToken => false,
-            SyntaxKind.CloseParenToken => false,
-            SyntaxKind.CloseBracketToken => false,
-            SyntaxKind.SemicolonToken => false,
-            SyntaxKind.CommaToken => false,
-            SyntaxKind.ColonToken => false,
-            SyntaxKind.NewLineToken => false,
-            SyntaxKind.LineFeedToken => false,
-            SyntaxKind.CarriageReturnToken => false,
-            SyntaxKind.CarriageReturnLineFeedToken => false,
-            _ => true,
-        };
+        return !ParserRecoverySets.IsStatementRecovery(token.Kind);
     }
 
     private SyntaxToken ConsumeWithLeadingSkipped(List<SyntaxToken> skippedTokens)
@@ -308,13 +405,12 @@ internal class SyntaxParser : ParseContext
         var terminator = PeekToken();
         ReadToken();
 
-        if (skippedTokens.Count > 0)
-        {
-            var trivia = new SyntaxTrivia(
-                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
-            );
+        var skippedTrivia = new List<SyntaxTrivia>();
+        baseContext.AddSkippedTokensAsTrivia(skippedTokens, skippedTrivia);
 
-            var leadingTrivia = terminator.LeadingTrivia.Add(trivia);
+        if (skippedTrivia.Count > 0)
+        {
+            var leadingTrivia = new SyntaxTriviaList(terminator.LeadingTrivia.Concat(skippedTrivia).ToArray());
             var newToken = new SyntaxToken(
                 terminator.Kind,
                 terminator.Text,
@@ -332,14 +428,47 @@ internal class SyntaxParser : ParseContext
 
     private void AddSkippedToPending(List<SyntaxToken> skippedTokens)
     {
-        if (skippedTokens.Count == 0)
-            return;
+        var baseContext = GetBaseContext();
+        baseContext.AddSkippedTokensAsTrivia(skippedTokens, baseContext._pendingTrivia);
+    }
 
-        var trivia = new SyntaxTrivia(
-            new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
-        );
+    protected SyntaxToken SkipBadTokensUntil(IReadOnlyCollection<SyntaxKind> recoveryKinds)
+    {
+        var baseContext = GetBaseContext();
+        var skippedTokens = new List<SyntaxToken>();
+        var skippedTrivia = new List<SyntaxTrivia>();
+        var loopProgress = baseContext.StartLoopProgress("SkipBadTokensUntil");
+        var skippedSpanStart = Position;
+        var skippedWidth = 0;
 
-        GetBaseContext()._pendingTrivia.Add(trivia);
+        var token = PeekToken();
+        while (!recoveryKinds.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken)
+        {
+            loopProgress.EnsureProgress();
+            var skipped = ReadToken();
+            skippedTokens.Add(skipped);
+            skippedWidth += skipped.FullWidth;
+            baseContext.FlushSkippedTokenBatches(skippedTokens, skippedTrivia);
+            token = PeekToken();
+        }
+
+        baseContext.AddSkippedTokensAsTrivia(skippedTokens, skippedTrivia);
+
+        baseContext.AddSkippedTokensDiagnostic(
+            skippedSpanStart,
+            skippedWidth,
+            token.Kind,
+            BaseParseContext.DescribeKinds(recoveryKinds));
+
+        if (skippedTrivia.Count > 0)
+            baseContext._pendingTrivia.AddRange(skippedTrivia);
+
+        if (token.Kind == SyntaxKind.EndOfFileToken)
+        {
+            return Token(SyntaxKind.None);
+        }
+
+        return token;
     }
 
     protected BaseParseContext GetBaseContext()
@@ -351,6 +480,11 @@ internal class SyntaxParser : ParseContext
         }
 
         return (BaseParseContext)ctx;
+    }
+
+    internal LoopProgressTracker StartLoopProgress(string loopName)
+    {
+        return GetBaseContext().StartLoopProgress(loopName);
     }
 
     private static bool IsNewLineToken(SyntaxToken token)

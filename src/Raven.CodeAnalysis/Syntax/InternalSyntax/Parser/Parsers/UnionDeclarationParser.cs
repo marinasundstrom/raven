@@ -39,8 +39,12 @@ internal class UnionDeclarationParser : SyntaxParser
 
         List<GreenNode> cases = new();
 
+        var caseProgress = StartLoopProgress("ParseUnionCases");
+
         while (true)
         {
+            caseProgress.EnsureProgress();
+
             var next = PeekToken();
 
             if (next.IsKind(SyntaxKind.CloseBraceToken))
@@ -93,8 +97,12 @@ internal class UnionDeclarationParser : SyntaxParser
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var loopProgress = StartLoopProgress("ParseUnionModifiers");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.PublicKeyword or

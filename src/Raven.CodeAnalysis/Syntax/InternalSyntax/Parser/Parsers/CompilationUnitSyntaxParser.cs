@@ -2,6 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 using GreenNode = Raven.CodeAnalysis.Syntax.GreenNode;
@@ -40,12 +41,27 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
+            if (!ParserRecoverySets.IsCompilationUnitMemberStartOrRecovery(nextToken.Kind)
+                && ParserRecoverySets.IsStatementRecovery(nextToken.Kind))
+            {
+                _ = SkipBadTokensUntil(ParserRecoverySets.CompilationUnitRecoveryKinds);
+                continue;
+            }
+
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
 
             SetTreatNewlinesAsTokens(false);
         }
 
         var attributeLists = List(compilationAttributeLists);
+
+        var baseContext = GetBaseContext();
+        if (baseContext._pendingTrivia.Count > 0)
+        {
+            var leading = new SyntaxTriviaList(nextToken.LeadingTrivia.Concat(baseContext._pendingTrivia).ToArray());
+            nextToken = nextToken.WithLeadingTrivia(leading);
+            baseContext._pendingTrivia.Clear();
+        }
 
         return CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken, Diagnostics);
     }
@@ -226,8 +242,12 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var loopProgress = StartLoopProgress("ParseCompilationUnitModifiers");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.PublicKeyword or

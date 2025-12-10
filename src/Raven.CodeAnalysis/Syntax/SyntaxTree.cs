@@ -1,5 +1,7 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Threading;
 
 using Raven.CodeAnalysis.Text;
 
@@ -26,27 +28,48 @@ public class SyntaxTree
 
     public CompilationUnitSyntax GetRoot(CancellationToken cancellationToken = default) => _compilationUnit;
 
-    public static SyntaxTree ParseText(string text, ParseOptions? options = null, Encoding? encoding = null, string? path = null)
+    public static SyntaxTree ParseText(string text, ParseOptions? options = null, Encoding? encoding = null, string? path = null, TimeSpan? parseTimeout = null, CancellationToken cancellationToken = default)
     {
         var sourceText = SourceText.From(text, encoding);
 
-        return ParseText(sourceText, options);
+        return ParseText(sourceText, options, path, parseTimeout, cancellationToken);
     }
 
-    public static SyntaxTree ParseText(SourceText sourceText, ParseOptions? options = null, string? path = null)
+    public static SyntaxTree ParseText(SourceText sourceText, ParseOptions? options = null, string? path = null, TimeSpan? parseTimeout = null, CancellationToken cancellationToken = default)
     {
-        var parser = new InternalSyntax.Parser.LanguageParser(path ?? "file", options ?? new ParseOptions());
+        CancellationTokenSource? timeoutCts = null;
+        CancellationTokenSource? linkedCts = null;
 
-        var compilationUnit = (CompilationUnitSyntax)parser.Parse(sourceText).CreateRed();
+        if (parseTimeout is TimeSpan timeout)
+        {
+            if (timeout <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(parseTimeout), "Timeout must be greater than zero.");
 
-        var sourceTree = new SyntaxTree(sourceText, path, options);
+            timeoutCts = new CancellationTokenSource(timeout);
+            linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            cancellationToken = linkedCts.Token;
+        }
 
-        compilationUnit = compilationUnit
-            .WithSyntaxTree(sourceTree);
+        try
+        {
+            var parser = new InternalSyntax.Parser.LanguageParser(path ?? "file", options ?? new ParseOptions());
 
-        sourceTree.AttachSyntaxRoot(compilationUnit);
+            var compilationUnit = (CompilationUnitSyntax)parser.Parse(sourceText, cancellationToken).CreateRed();
 
-        return sourceTree;
+            var sourceTree = new SyntaxTree(sourceText, path, options);
+
+            compilationUnit = compilationUnit
+                .WithSyntaxTree(sourceTree);
+
+            sourceTree.AttachSyntaxRoot(compilationUnit);
+
+            return sourceTree;
+        }
+        finally
+        {
+            linkedCts?.Dispose();
+            timeoutCts?.Dispose();
+        }
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
@@ -275,9 +298,9 @@ public class SyntaxTree
 
 public static partial class SyntaxFactory
 {
-    public static SyntaxTree ParseSyntaxTree(SourceText sourceText, ParseOptions? options = null, string? filePath = null) => Syntax.SyntaxTree.ParseText(sourceText, options, filePath);
+    public static SyntaxTree ParseSyntaxTree(SourceText sourceText, ParseOptions? options = null, string? filePath = null, TimeSpan? parseTimeout = null, CancellationToken cancellationToken = default) => Syntax.SyntaxTree.ParseText(sourceText, options, filePath, parseTimeout, cancellationToken);
 
-    public static SyntaxTree ParseSyntaxTree(string text, ParseOptions? options = null, Encoding? encoding = null, string? filePath = null) => Syntax.SyntaxTree.ParseText(text, options, encoding, filePath);
+    public static SyntaxTree ParseSyntaxTree(string text, ParseOptions? options = null, Encoding? encoding = null, string? filePath = null, TimeSpan? parseTimeout = null, CancellationToken cancellationToken = default) => Syntax.SyntaxTree.ParseText(text, options, encoding, filePath, parseTimeout, cancellationToken);
 
     //public static SyntaxTree SyntaxTree(CompilationUnitSyntax root, ParseOptions? options = default, string path = "", Encoding? encoding = default)
     //    => Syntax.SyntaxTree.Create(root, options, encoding);

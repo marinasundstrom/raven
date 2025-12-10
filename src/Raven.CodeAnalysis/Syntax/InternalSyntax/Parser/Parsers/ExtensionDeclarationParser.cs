@@ -34,11 +34,20 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
         List<GreenNode> members = new();
+        var memberProgress = StartLoopProgress("ParseExtensionMembers");
         while (true)
         {
+            memberProgress.EnsureProgress();
+
             var current = PeekToken();
             if (current.IsKind(SyntaxKind.CloseBraceToken))
                 break;
+
+            if (!ParserRecoverySets.IsTypeMemberStartOrRecovery(current.Kind))
+            {
+                _ = SkipBadTokensUntil(ParserRecoverySets.TypeMemberRecoveryKinds);
+                continue;
+            }
 
             if (current.IsKind(SyntaxKind.EndOfFileToken))
                 break;
@@ -184,8 +193,12 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
+        var accessorProgress = StartLoopProgress("ParseExtensionAccessors");
+
         while (true)
         {
+            accessorProgress.EnsureProgress();
+
             var token = PeekToken();
             if (token.IsKind(SyntaxKind.CloseBraceToken))
                 break;
@@ -240,8 +253,12 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         SyntaxList modifiers = SyntaxList.Empty;
         SyntaxToken modifier;
 
+        var modifierProgress = StartLoopProgress("ParseExtensionAccessorModifiers");
+
         while (true)
         {
+            modifierProgress.EnsureProgress();
+
             if (ConsumeToken(SyntaxKind.AsyncKeyword, out modifier) ||
                 ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
                 ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
@@ -262,8 +279,12 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         var lessThanToken = ReadToken();
         List<GreenNode> parameters = new();
 
+        var parameterProgress = StartLoopProgress("ParseExtensionTypeParameters");
+
         while (true)
         {
+            parameterProgress.EnsureProgress();
+
             var token = PeekToken();
             if (token.IsKind(SyntaxKind.GreaterThanToken))
                 break;
@@ -292,8 +313,11 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             {
                 colonToken = ReadToken();
                 var constraintNodes = new List<GreenNode>();
+                var constraintsProgress = StartLoopProgress("ParseExtensionTypeParameterConstraints");
                 while (true)
                 {
+                    constraintsProgress.EnsureProgress();
+
                     var constraint = ParseTypeParameterConstraint();
                     constraintNodes.Add(constraint);
 

@@ -115,8 +115,12 @@ internal class NameSyntaxParser : SyntaxParser
 
         List<GreenNode> parameters = new List<GreenNode>();
 
+        var parameterProgress = StartLoopProgress("ParseFunctionTypeParameters");
+
         while (true)
         {
+            parameterProgress.EnsureProgress();
+
             var next = PeekToken();
 
             if (next.IsKind(SyntaxKind.CloseParenToken) || next.IsKind(SyntaxKind.EndOfFileToken))
@@ -383,11 +387,18 @@ internal class NameSyntaxParser : SyntaxParser
 
         List<GreenNode> argumentList = new List<GreenNode>();
 
+        var argumentProgress = StartLoopProgress("ParseTypeArguments");
+
         while (true)
         {
+            argumentProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.GreaterThanToken))
+                break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             var typeName = new NameSyntaxParser(this).ParseTypeName();
@@ -415,11 +426,18 @@ internal class NameSyntaxParser : SyntaxParser
 
         List<GreenNode> elements = new List<GreenNode>();
 
+        var elementProgress = StartLoopProgress("ParseTupleElements");
+
         while (true)
         {
+            elementProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             NameColonSyntax? nameColon = null;
@@ -460,8 +478,12 @@ internal class NameSyntaxParser : SyntaxParser
         int depth = 0;
         int i = 0;
 
+        var lookaheadProgress = StartLoopProgress("LooksLikeTypeArgumentList");
+
         while (true)
         {
+            lookaheadProgress.EnsureProgress();
+
             var token = PeekToken(i++);
 
             if (token.IsKind(SyntaxKind.LessThanToken))

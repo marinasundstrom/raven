@@ -32,11 +32,24 @@ internal class EnumDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
+        var memberProgress = StartLoopProgress("ParseEnumMembers");
+
         while (true)
         {
+            memberProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBraceToken))
+                break;
+
+            if (!ParserRecoverySets.IsTypeMemberStartOrRecovery(t.Kind))
+            {
+                _ = SkipBadTokensUntil(ParserRecoverySets.TypeMemberRecoveryKinds);
+                continue;
+            }
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             var member = ParseMember();
@@ -79,8 +92,12 @@ internal class EnumDeclarationParser : SyntaxParser
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var loopProgress = StartLoopProgress("ParseEnumModifiers");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.PublicKeyword or
