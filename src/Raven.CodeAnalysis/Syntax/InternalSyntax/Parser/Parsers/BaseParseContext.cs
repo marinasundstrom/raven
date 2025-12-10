@@ -138,6 +138,8 @@ internal class BaseParseContext : ParseContext
         _lookaheadTokens.Clear(); // Invalidate lookahead because context changed
         _lexer.ResetToPosition(position);
         _position = position;
+
+        ResetParserProgress($"RewindTo({position})");
     }
 
     /// <summary>
@@ -168,6 +170,8 @@ internal class BaseParseContext : ParseContext
     {
         ThrowIfCancellationRequested();
 
+        ObserveParserProgress("ReadToken");
+
         if (_lookaheadTokens.Count > 0)
         {
             // Remove the token from the lookahead list
@@ -183,12 +187,16 @@ internal class BaseParseContext : ParseContext
         // Update the position
         _position += _lastToken.FullWidth;
 
+        RecordParserAdvance();
+
         return _lastToken;
     }
 
     public override SyntaxToken PeekToken(int index = 0)
     {
         ThrowIfCancellationRequested();
+
+        ObserveParserProgress($"PeekToken({index})");
 
         // Ensure the lookahead tokens list is populated up to the requested index
         while (_lookaheadTokens.Count <= index)
@@ -202,6 +210,8 @@ internal class BaseParseContext : ParseContext
     private SyntaxToken ReadTokenCore()
     {
         ThrowIfCancellationRequested();
+
+        ObserveParserProgress("ReadTokenCore");
 
         Token token = _lexer.PeekToken();
 
