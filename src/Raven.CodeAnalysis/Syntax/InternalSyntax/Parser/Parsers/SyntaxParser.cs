@@ -274,13 +274,12 @@ internal class SyntaxParser : ParseContext
         var terminator = PeekToken();
         ReadToken();
 
-        if (skippedTokens.Count > 0)
-        {
-            var trivia = new SyntaxTrivia(
-                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
-            );
+        var skippedTrivia = new List<SyntaxTrivia>();
+        baseContext.AddSkippedTokensAsTrivia(skippedTokens, skippedTrivia);
 
-            var leadingTrivia = terminator.LeadingTrivia.Add(trivia);
+        if (skippedTrivia.Count > 0)
+        {
+            var leadingTrivia = new SyntaxTriviaList(terminator.LeadingTrivia.Concat(skippedTrivia).ToArray());
             var newToken = new SyntaxToken(
                 terminator.Kind,
                 terminator.Text,
@@ -298,20 +297,15 @@ internal class SyntaxParser : ParseContext
 
     private void AddSkippedToPending(List<SyntaxToken> skippedTokens)
     {
-        if (skippedTokens.Count == 0)
-            return;
-
-        var trivia = new SyntaxTrivia(
-            new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
-        );
-
-        GetBaseContext()._pendingTrivia.Add(trivia);
+        var baseContext = GetBaseContext();
+        baseContext.AddSkippedTokensAsTrivia(skippedTokens, baseContext._pendingTrivia);
     }
 
     protected SyntaxToken SkipBadTokensUntil(IReadOnlyCollection<SyntaxKind> recoveryKinds)
     {
         var baseContext = GetBaseContext();
         var skippedTokens = new List<SyntaxToken>();
+        var skippedTrivia = new List<SyntaxTrivia>();
         var loopProgress = baseContext.StartLoopProgress("SkipBadTokensUntil");
 
         var token = PeekToken();
@@ -319,17 +313,14 @@ internal class SyntaxParser : ParseContext
         {
             loopProgress.EnsureProgress();
             skippedTokens.Add(ReadToken());
+            baseContext.FlushSkippedTokenBatches(skippedTokens, skippedTrivia);
             token = PeekToken();
         }
 
-        if (skippedTokens.Count > 0)
-        {
-            var trivia = new SyntaxTrivia(
-                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
-            );
+        baseContext.AddSkippedTokensAsTrivia(skippedTokens, skippedTrivia);
 
-            baseContext._pendingTrivia.Add(trivia);
-        }
+        if (skippedTrivia.Count > 0)
+            baseContext._pendingTrivia.AddRange(skippedTrivia);
 
         if (token.Kind == SyntaxKind.EndOfFileToken)
             return Token(SyntaxKind.None);
