@@ -11,6 +11,7 @@
 4. **Missing-node insertion**: prefer constructing placeholder nodes when required tokens are absent (paired delimiters, statement headers), then resume parsing after a bounded skip, ensuring the tree stays well-formed for later stages.
 5. **Newline/brace heuristics**: when optional delimiters are missing, fall back to newline- or indentation-based recovery (e.g., treat blank line as statement end) to keep parsing progressing through blocks.
 6. **SkippedTokens-aware diagnostics**: surface diagnostics that highlight skipped ranges and suggest likely fixes; ensure structured trivia survives into later phases so IDE layers can render recoverable errors without halting the parser.
+7. **EOF-stall handling**: ensure progress guards bail out cleanly at end-of-file so incomplete constructs finish with missing child tokens/nodes instead of throwing or hanging when the stream is exhausted.
 
 ## Infrastructure-focused action points
 1. **Cancellation and timeout plumbing**: thread a `CancellationToken` through parser entry points and compilation drivers, and add optional wall-clock timeouts to break out of hung parses during CI or IDE sessions.
@@ -34,4 +35,5 @@
 * Added parser tests that ensure skipped-token diagnostics are suppressed by default for both top-level recovery and type-member recovery sequences.
 * Loop progress tracking now snapshots the initial token position before enforcing forward motion and statement terminator recovery recognizes trailing newlines or member-start tokens as implicit boundaries without surfacing missing-semicolon diagnostics, preventing stall guards from firing on valid end-of-file parses.
 * Statement terminators now emit a `SemicolonExpected` diagnostic when a new statement begins on the same line without a delimiter, preventing multi-statement lines from silently compiling; a parser regression test covers the scenario. Same-line recovery inside blocks now reports the missing semicolon without discarding the following statement so both statements are preserved for later phases.
+* Progress guards now treat end-of-file as a valid exit condition and avoid forcing advancement past the final token. Invalid multi-statement samples with unterminated expressions now produce trees populated with missing tokens/nodes instead of tripping stall diagnostics, and a regression test locks in the behavior.
 * Running `samples/build.sh` with the regenerated Raven.Core still fails: `arrays.rav` now aborts on a parser cancellation token trip, and subsequent samples crash with `BadImageFormatException` while loading the freshly emitted core library, so no sample DLLs are produced.【F:sample_run.log†L1-L200】

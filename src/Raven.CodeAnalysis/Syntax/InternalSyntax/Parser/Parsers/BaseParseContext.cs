@@ -716,6 +716,11 @@ internal ref struct LoopProgressTracker
             return;
         }
 
+        if (_context.PeekToken().Kind == SyntaxKind.EndOfFileToken)
+        {
+            return;
+        }
+
         _context.EnsureLoopProgress(ref _lastObservedPosition, _loopName);
     }
 }
