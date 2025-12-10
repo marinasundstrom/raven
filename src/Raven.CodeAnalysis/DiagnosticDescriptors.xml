@@ -330,6 +330,9 @@
   <Descriptor Id="RAV1525" Identifier="InvalidExpressionTerm" Title="Invalid expression term"
     Message="Invalid expression term '{tokenText}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1526" Identifier="SkippedTokens" Title="Skipped unexpected tokens"
+    Message="Skipped unexpected tokens before '{recoveryToken}'. Expected one of: {expectedTokens}" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1900" Identifier="ReturnStatementInExpression"
     Title="Return statement not allowed here"
     Message="Return statements are not valid in expressions; use an implicit return instead"

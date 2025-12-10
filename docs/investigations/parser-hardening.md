@@ -30,3 +30,4 @@
 * Block parsing now inserts a missing `}` and reports a diagnostic when the closing brace is absent, avoiding unbounded reads to end-of-file while keeping statement blocks well-formed for later phases.
 * Parenthesized, tuple, and collection constructs now emit missing-delimiter diagnostics when recovery inserts placeholder `)` or `]` tokens so the tree remains well-formed and the user sees an actionable error at the gap.
 * Statement terminator recovery now treats blank lines as implicit boundaries and bails out of expressions at newlines, inserting a semicolon diagnostic so blocks advance even when delimiters are omitted across lines.
+* Recovery now reports a skipped-token diagnostic that marks the span of tokens dropped while resynchronizing so users can see where the parser had to fast-forward.

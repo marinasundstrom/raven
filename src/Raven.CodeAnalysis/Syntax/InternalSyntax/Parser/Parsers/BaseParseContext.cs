@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -483,10 +484,12 @@ internal class BaseParseContext : ParseContext
         return token.Kind == SyntaxKind.LineFeedToken || token.Kind == SyntaxKind.NewLineToken;
     }
 
-    public override SyntaxToken SkipUntil(params IEnumerable<SyntaxKind> expectedKind)
+    public override SyntaxToken SkipUntil(params SyntaxKind[] expectedKind)
     {
         var skippedTokens = new List<SyntaxToken>();
         var skippedTrivia = new List<SyntaxTrivia>();
+        var skippedWidth = 0;
+        var skippedSpanStart = Position;
 
         _pendingTrivia.Clear();
 
@@ -495,11 +498,15 @@ internal class BaseParseContext : ParseContext
         while (!expectedKind.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken)
         {
             ThrowIfCancellationRequested();
-            skippedTokens.Add(ReadToken());
+            var skipped = ReadToken();
+            skippedTokens.Add(skipped);
+            skippedWidth += skipped.FullWidth;
             FlushSkippedTokenBatches(skippedTokens, skippedTrivia);
 
             token = PeekToken();
         }
+
+        AddSkippedTokensDiagnostic(skippedSpanStart, skippedWidth, token.Kind, DescribeExpectedKinds(expectedKind));
 
         // If we reached end-of-file, preserve the skipped tokens as trivia and return a None token
         if (token.Kind == SyntaxKind.EndOfFileToken)
@@ -525,6 +532,21 @@ internal class BaseParseContext : ParseContext
         }
 
         return ReadToken();
+    }
+
+    internal void AddSkippedTokensDiagnostic(int spanStart, int skippedWidth, SyntaxKind recoveryKind, string expectedDescription)
+    {
+        if (skippedWidth <= 0)
+            return;
+
+        if (string.IsNullOrWhiteSpace(expectedDescription))
+            expectedDescription = recoveryKind.ToString();
+
+        AddDiagnostic(DiagnosticInfo.Create(
+            CompilerDiagnostics.SkippedTokens,
+            new TextSpan(spanStart, skippedWidth),
+            recoveryKind.ToString(),
+            expectedDescription));
     }
 
     internal LoopProgressTracker StartLoopProgress(string loopName)
@@ -607,6 +629,33 @@ internal class BaseParseContext : ParseContext
 
         return new SyntaxTrivia(new SkippedTokensTrivia(new SyntaxList(batch)));
     }
+
+    private static string DescribeExpectedKinds(IEnumerable<SyntaxKind> expectedKinds)
+    {
+        return DescribeKinds(expectedKinds);
+    }
+
+    internal static string DescribeKinds(IEnumerable<SyntaxKind> expectedKinds)
+    {
+        var builder = new StringBuilder();
+        HashSet<SyntaxKind>? seen = null;
+
+        foreach (var kind in expectedKinds)
+        {
+            seen ??= new HashSet<SyntaxKind>();
+
+            if (!seen.Add(kind))
+                continue;
+
+            if (builder.Length > 0)
+                builder.Append(", ");
+
+            builder.Append(kind);
+        }
+
+        return builder.ToString();
+    }
+
 
     [Conditional("DEBUG")]
     private void ObserveParserProgress(string location)

@@ -362,17 +362,27 @@ internal class SyntaxParser : ParseContext
         var skippedTokens = new List<SyntaxToken>();
         var skippedTrivia = new List<SyntaxTrivia>();
         var loopProgress = baseContext.StartLoopProgress("SkipBadTokensUntil");
+        var skippedSpanStart = Position;
+        var skippedWidth = 0;
 
         var token = PeekToken();
         while (!recoveryKinds.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken)
         {
             loopProgress.EnsureProgress();
-            skippedTokens.Add(ReadToken());
+            var skipped = ReadToken();
+            skippedTokens.Add(skipped);
+            skippedWidth += skipped.FullWidth;
             baseContext.FlushSkippedTokenBatches(skippedTokens, skippedTrivia);
             token = PeekToken();
         }
 
         baseContext.AddSkippedTokensAsTrivia(skippedTokens, skippedTrivia);
+
+        baseContext.AddSkippedTokensDiagnostic(
+            skippedSpanStart,
+            skippedWidth,
+            token.Kind,
+            BaseParseContext.DescribeKinds(recoveryKinds));
 
         if (skippedTrivia.Count > 0)
             baseContext._pendingTrivia.AddRange(skippedTrivia);
