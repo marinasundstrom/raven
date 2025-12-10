@@ -237,20 +237,40 @@ internal class SyntaxParser : ParseContext
             }
         }
 
+        if (LastToken is { TrailingTrivia: var trailingTrivia } && ContainsAnyNewline(trailingTrivia))
+        {
+            token = Token(SyntaxKind.None);
+            return true;
+        }
+
         SetTreatNewlinesAsTokens(true);
 
         var current = PeekToken();
 
-        // Fast-path: immediate terminators
-        if (ParserRecoverySets.IsStatementTerminator(current.Kind))
+        if (IsStatementBoundary(current.Kind))
         {
-            token = ReadToken();
-            SetTreatNewlinesAsTokens(previous);
-            return true;
-        }
+            // Fast-path: immediate terminators
+            if (ParserRecoverySets.IsStatementTerminator(current.Kind))
+            {
+                token = ReadToken();
+                SetTreatNewlinesAsTokens(previous);
+                return true;
+            }
 
-        if (ParserRecoverySets.IsStatementRecovery(current.Kind))
-        {
+            if (HasNewlineBoundary(current.LeadingTrivia))
+            {
+                token = Token(SyntaxKind.None);
+                SetTreatNewlinesAsTokens(previous);
+                return true;
+            }
+
+            if (current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken)
+            {
+                token = Token(SyntaxKind.None);
+                SetTreatNewlinesAsTokens(previous);
+                return true;
+            }
+
             token = CreateMissingTerminatorToken();
             SetTreatNewlinesAsTokens(previous);
             return true;
@@ -270,11 +290,17 @@ internal class SyntaxParser : ParseContext
             skippedTokens.Add(t);
             current = PeekToken();
 
-            if (ParserRecoverySets.IsStatementRecovery(current.Kind))
+            if (IsStatementBoundary(current.Kind))
             {
                 if (ParserRecoverySets.IsStatementTerminator(current.Kind))
                 {
                     token = ConsumeWithLeadingSkipped(skippedTokens);
+                }
+                else if (HasNewlineBoundary(current.LeadingTrivia)
+                    || current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken
+                    || ParserRecoverySets.IsTypeMemberStartOrRecovery(current.Kind))
+                {
+                    token = Token(SyntaxKind.None);
                 }
                 else
                 {
@@ -291,9 +317,18 @@ internal class SyntaxParser : ParseContext
 
     private SyntaxToken CreateMissingTerminatorToken()
     {
-        var missing = MissingToken(SyntaxKind.SemicolonToken);
-        AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.SemicolonExpected, GetEndOfLastToken()));
-        return missing;
+        return MissingToken(SyntaxKind.SemicolonToken);
+    }
+
+    private bool HasNewlineBoundary(SyntaxTriviaList leadingTrivia)
+    {
+        if (ContainsAnyNewline(leadingTrivia))
+            return true;
+
+        if (LastToken is { TrailingTrivia: var trailing } && ContainsAnyNewline(trailing))
+            return true;
+
+        return false;
     }
 
     private static bool ContainsBlankLine(SyntaxTriviaList trivia)
@@ -316,6 +351,28 @@ internal class SyntaxParser : ParseContext
         }
 
         return false;
+    }
+
+    private static bool ContainsAnyNewline(SyntaxTriviaList trivia)
+    {
+        foreach (var triviaItem in trivia)
+        {
+            if (triviaItem.Kind is SyntaxKind.EndOfLineTrivia
+                or SyntaxKind.LineFeedTrivia
+                or SyntaxKind.CarriageReturnTrivia
+                or SyntaxKind.CarriageReturnLineFeedTrivia)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsStatementBoundary(SyntaxKind kind)
+    {
+        return ParserRecoverySets.IsStatementRecovery(kind)
+            || ParserRecoverySets.IsTypeMemberStartOrRecovery(kind);
     }
 
     private static bool IsPotentialStatementStart(SyntaxToken token)

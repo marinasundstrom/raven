@@ -697,16 +697,25 @@ internal ref struct LoopProgressTracker
     private readonly BaseParseContext _context;
     private readonly string _loopName;
     private int _lastObservedPosition;
+    private bool _hasSnapshot;
 
     public LoopProgressTracker(BaseParseContext context, string loopName)
     {
         _context = context;
         _loopName = loopName;
         _lastObservedPosition = context.Position;
+        _hasSnapshot = false;
     }
 
     public void EnsureProgress()
     {
+        if (!_hasSnapshot)
+        {
+            _lastObservedPosition = _context.Position;
+            _hasSnapshot = true;
+            return;
+        }
+
         _context.EnsureLoopProgress(ref _lastObservedPosition, _loopName);
     }
 }
