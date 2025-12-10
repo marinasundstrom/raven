@@ -40,6 +40,13 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
+            if (!ParserRecoverySets.IsCompilationUnitMemberStartOrRecovery(nextToken.Kind)
+                && ParserRecoverySets.IsStatementRecovery(nextToken.Kind))
+            {
+                _ = SkipBadTokensUntil(ParserRecoverySets.CompilationUnitRecoveryKinds);
+                continue;
+            }
+
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
 
             SetTreatNewlinesAsTokens(false);

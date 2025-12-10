@@ -72,6 +72,15 @@ internal class TypeDeclarationParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseBraceToken))
                 break;
 
+            if (!ParserRecoverySets.IsTypeMemberStartOrRecovery(t.Kind))
+            {
+                _ = SkipBadTokensUntil(ParserRecoverySets.TypeMemberRecoveryKinds);
+                continue;
+            }
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
             var member = ParseMember();
 
             memberList.Add(member);

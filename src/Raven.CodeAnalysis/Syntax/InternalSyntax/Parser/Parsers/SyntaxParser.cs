@@ -1,6 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -215,28 +216,14 @@ internal class SyntaxParser : ParseContext
         var current = PeekToken();
 
         // Fast-path: immediate terminators
-        if (IsNewLineToken(current))
+        if (ParserRecoverySets.IsStatementTerminator(current.Kind))
         {
             token = ReadToken();
             SetTreatNewlinesAsTokens(previous);
             return true;
         }
 
-        if (current.Kind == SyntaxKind.SemicolonToken)
-        {
-            token = ReadToken();
-            SetTreatNewlinesAsTokens(previous);
-            return true;
-        }
-
-        if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
-        {
-            token = Token(SyntaxKind.None);
-            SetTreatNewlinesAsTokens(previous);
-            return true;
-        }
-
-        if (IsPotentialStatementStart(current))
+        if (ParserRecoverySets.IsStatementRecovery(current.Kind))
         {
             token = Token(SyntaxKind.None);
             SetTreatNewlinesAsTokens(previous);
@@ -257,33 +244,19 @@ internal class SyntaxParser : ParseContext
             skippedTokens.Add(t);
             current = PeekToken();
 
-            if (IsPotentialStatementStart(current))
+            if (ParserRecoverySets.IsStatementRecovery(current.Kind))
             {
-                AddSkippedToPending(skippedTokens);
-                token = Token(SyntaxKind.None);
-                SetTreatNewlinesAsTokens(previous);
-                return true;
-            }
+                if (ParserRecoverySets.IsStatementTerminator(current.Kind))
+                {
+                    token = ConsumeWithLeadingSkipped(skippedTokens);
+                }
+                else
+                {
+                    AddSkippedToPending(skippedTokens);
+                    GetBaseContext()._lookaheadTokens.Clear();
+                    token = Token(SyntaxKind.None);
+                }
 
-            if (current.Kind == SyntaxKind.SemicolonToken)
-            {
-                token = ConsumeWithLeadingSkipped(skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
-                return true;
-            }
-
-            if (IsNewLineToken(current))
-            {
-                token = ConsumeWithLeadingSkipped(skippedTokens);
-                SetTreatNewlinesAsTokens(previous);
-                return true;
-            }
-
-            if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
-            {
-                AddSkippedToPending(skippedTokens);
-                GetBaseContext()._lookaheadTokens.Clear();
-                token = Token(SyntaxKind.None);
                 SetTreatNewlinesAsTokens(previous);
                 return true;
             }
@@ -292,22 +265,7 @@ internal class SyntaxParser : ParseContext
 
     private static bool IsPotentialStatementStart(SyntaxToken token)
     {
-        return token.Kind switch
-        {
-            SyntaxKind.None => false,
-            SyntaxKind.EndOfFileToken => false,
-            SyntaxKind.CloseBraceToken => false,
-            SyntaxKind.CloseParenToken => false,
-            SyntaxKind.CloseBracketToken => false,
-            SyntaxKind.SemicolonToken => false,
-            SyntaxKind.CommaToken => false,
-            SyntaxKind.ColonToken => false,
-            SyntaxKind.NewLineToken => false,
-            SyntaxKind.LineFeedToken => false,
-            SyntaxKind.CarriageReturnToken => false,
-            SyntaxKind.CarriageReturnLineFeedToken => false,
-            _ => true,
-        };
+        return !ParserRecoverySets.IsStatementRecovery(token.Kind);
     }
 
     private SyntaxToken ConsumeWithLeadingSkipped(List<SyntaxToken> skippedTokens)
@@ -348,6 +306,35 @@ internal class SyntaxParser : ParseContext
         );
 
         GetBaseContext()._pendingTrivia.Add(trivia);
+    }
+
+    protected SyntaxToken SkipBadTokensUntil(IReadOnlyCollection<SyntaxKind> recoveryKinds)
+    {
+        var baseContext = GetBaseContext();
+        var skippedTokens = new List<SyntaxToken>();
+        var loopProgress = baseContext.StartLoopProgress("SkipBadTokensUntil");
+
+        var token = PeekToken();
+        while (!recoveryKinds.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken)
+        {
+            loopProgress.EnsureProgress();
+            skippedTokens.Add(ReadToken());
+            token = PeekToken();
+        }
+
+        if (skippedTokens.Count > 0)
+        {
+            var trivia = new SyntaxTrivia(
+                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+            );
+
+            baseContext._pendingTrivia.Add(trivia);
+        }
+
+        if (token.Kind == SyntaxKind.EndOfFileToken)
+            return Token(SyntaxKind.None);
+
+        return token;
     }
 
     protected BaseParseContext GetBaseContext()

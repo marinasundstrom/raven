@@ -228,7 +228,8 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             if (!TryConsumeTerminator(out terminatorToken))
             {
-                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+                _ = SkipBadTokensUntil(ParserRecoverySets.StatementRecoveryKinds);
+                TryConsumeTerminator(out terminatorToken);
             }
         }
         else
@@ -599,7 +600,8 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             if (!TryConsumeTerminator(out terminatorToken))
             {
-                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+                _ = SkipBadTokensUntil(ParserRecoverySets.StatementRecoveryKinds);
+                TryConsumeTerminator(out terminatorToken);
             }
         }
         else

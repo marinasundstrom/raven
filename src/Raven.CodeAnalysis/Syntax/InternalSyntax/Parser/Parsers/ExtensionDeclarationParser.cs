@@ -43,6 +43,12 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             if (current.IsKind(SyntaxKind.CloseBraceToken))
                 break;
 
+            if (!ParserRecoverySets.IsTypeMemberStartOrRecovery(current.Kind))
+            {
+                _ = SkipBadTokensUntil(ParserRecoverySets.TypeMemberRecoveryKinds);
+                continue;
+            }
+
             if (current.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 

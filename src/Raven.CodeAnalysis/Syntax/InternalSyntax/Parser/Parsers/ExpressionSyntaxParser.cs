@@ -1295,6 +1295,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 SyntaxToken terminatorToken;
                 if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
                 {
+                    _ = SkipBadTokensUntil(ParserRecoverySets.ExpressionRecoveryKinds);
                     TryConsumeTerminator(out terminatorToken);
                 }
 
