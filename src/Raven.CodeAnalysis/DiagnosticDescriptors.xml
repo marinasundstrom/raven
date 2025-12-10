@@ -305,6 +305,9 @@
     Title="Catch type must derive from System.Exception"
     Message="Type '{typeName}' is not derived from System.Exception"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1019" Identifier="ParserMadeNoProgress" Title="Parser made no progress"
+    Message="Parser made no progress while parsing '{loopName}', skipped token '{tokenKind}' to continue"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1020" Identifier="ThrowExpressionMustBeException"
     Title="Thrown expression must be an exception type"
     Message="Expression of type '{typeName}' cannot be thrown because it does not derive from System.Exception"

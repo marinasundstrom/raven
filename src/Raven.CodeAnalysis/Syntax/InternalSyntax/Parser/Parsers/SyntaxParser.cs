@@ -27,8 +27,12 @@ internal class SyntaxParser : ParseContext
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var loopProgress = GetBaseContext().StartLoopProgress("ParseTypeMemberModifiers");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.PublicKeyword or
@@ -241,8 +245,12 @@ internal class SyntaxParser : ParseContext
 
         var skippedTokens = new List<SyntaxToken>();
 
+        var loopProgress = GetBaseContext().StartLoopProgress("TryConsumeTerminator");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var t = ReadToken();
             if (skippedTokens.Count == 0 && t.LeadingTrivia.Count > 0)
                 t = t.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
@@ -351,6 +359,11 @@ internal class SyntaxParser : ParseContext
         }
 
         return (BaseParseContext)ctx;
+    }
+
+    internal LoopProgressTracker StartLoopProgress(string loopName)
+    {
+        return GetBaseContext().StartLoopProgress(loopName);
     }
 
     private static bool IsNewLineToken(SyntaxToken token)

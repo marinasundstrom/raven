@@ -165,8 +165,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
     private ExpressionSyntax ParseComparisonExpression()
     {
         ExpressionSyntax expr = ParseExpressionCore(0);
+
+        var loopProgress = StartLoopProgress("ParseComparisonExpression");
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var token = PeekToken();
 
             switch (token.Kind)
@@ -252,8 +256,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
             return AssignmentExpression(GetAssignmentExpressionKind(assignToken), leftNode, assignToken, right, Diagnostics);
         }
 
+        var operatorProgress = StartLoopProgress("ParseExpressionOperators");
+
         while (true)
         {
+            operatorProgress.EnsureProgress();
             var operatorCandidate = PeekToken();
 
             if (operatorCandidate.IsKind(SyntaxKind.EndOfFileToken))
@@ -309,8 +316,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var depth = 0;
         var offset = 0;
 
+        var lookaheadProgress = StartLoopProgress("ContainsAssignmentBeforeMatchingCloseParen");
+
         while (true)
         {
+            lookaheadProgress.EnsureProgress();
+
             var token = PeekToken(offset++);
 
             if (token.Kind == SyntaxKind.EndOfFileToken)
@@ -665,8 +676,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr)
     {
+        var loopProgress = StartLoopProgress("AddTrailers");
+
         while (true) // Loop to handle consecutive member access and invocations
         {
+            loopProgress.EnsureProgress();
+
             var token = PeekToken();
 
             if (token.IsKind(SyntaxKind.OpenParenToken)) // Invocation
@@ -787,8 +802,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
         List<GreenNode> argumentList = new List<GreenNode>();
         var seenNames = new HashSet<string>();
 
+        var argumentProgress = StartLoopProgress("ParseArgumentList");
+
         while (true)
         {
+            argumentProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
@@ -857,8 +876,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         List<GreenNode> argumentList = new List<GreenNode>();
 
+        var argumentProgress = StartLoopProgress("ParseBracketedArgumentList");
+
         while (true)
         {
+            argumentProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBracketToken))
@@ -892,8 +915,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         List<GreenNode> argumentList = new List<GreenNode>();
 
+        var tupleProgress = StartLoopProgress("ParseTupleExpression");
+
         while (true)
         {
+            tupleProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
@@ -1095,8 +1122,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         List<GreenNode> elementList = new List<GreenNode>();
 
+        var elementProgress = StartLoopProgress("ParseCollectionElements");
+
         while (true)
         {
+            elementProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBracketToken))
@@ -1235,8 +1266,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
         EnterParens();
         try
         {
+            var armProgress = StartLoopProgress("ParseMatchArms");
             while (true)
             {
+                armProgress.EnsureProgress();
+
                 SetTreatNewlinesAsTokens(false);
 
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
@@ -1287,8 +1321,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private void SkipMatchArmSeparators()
     {
+        var separatorProgress = StartLoopProgress("SkipMatchArmSeparators");
         while (true)
         {
+            separatorProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken)

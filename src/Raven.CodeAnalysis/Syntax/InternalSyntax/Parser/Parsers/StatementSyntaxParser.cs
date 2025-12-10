@@ -461,8 +461,12 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var modifierProgress = StartLoopProgress("ParseFunctionModifiers");
+
         while (true)
         {
+            modifierProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.AsyncKeyword)
@@ -507,8 +511,12 @@ internal class StatementSyntaxParser : SyntaxParser
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
+        var parameterProgress = StartLoopProgress("ParseStatementParameters");
+
         while (true)
         {
+            parameterProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))

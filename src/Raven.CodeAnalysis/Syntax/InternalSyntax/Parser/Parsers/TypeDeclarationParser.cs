@@ -61,8 +61,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
+        var memberProgress = StartLoopProgress("ParseTypeMembers");
+
         while (true)
         {
+            memberProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBraceToken))
@@ -100,8 +104,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> parameters = new List<GreenNode>();
 
+        var parameterProgress = StartLoopProgress("ParseTypeParameters");
+
         while (true)
         {
+            parameterProgress.EnsureProgress();
+
             var token = PeekToken();
 
             if (token.IsKind(SyntaxKind.GreaterThanToken))
@@ -132,8 +140,11 @@ internal class TypeDeclarationParser : SyntaxParser
                 colonToken = ReadToken();
 
                 var constraintNodes = new List<GreenNode>();
+                var constraintsProgress = StartLoopProgress("ParseTypeParameterConstraints");
                 while (true)
                 {
+                    constraintsProgress.EnsureProgress();
+
                     var constraint = ParseTypeParameterConstraint();
                     constraintNodes.Add(constraint);
 
@@ -193,8 +204,11 @@ internal class TypeDeclarationParser : SyntaxParser
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
             var types = new List<GreenNode>();
+            var baseTypeProgress = StartLoopProgress("ParseBaseTypes");
             while (true)
             {
+                baseTypeProgress.EnsureProgress();
+
                 var type = new NameSyntaxParser(this).ParseTypeName();
                 types.Add(type);
 
@@ -612,8 +626,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
+        var accessorProgress = StartLoopProgress("ParseAccessors");
+
         while (true)
         {
+            accessorProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBraceToken))
@@ -623,8 +641,11 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxList modifiers = SyntaxList.Empty;
             SyntaxToken modifier;
 
+            var accessorModifierProgress = StartLoopProgress("ParseAccessorModifiers");
             while (true)
             {
+                accessorModifierProgress.EnsureProgress();
+
                 if (ConsumeToken(SyntaxKind.AsyncKeyword, out modifier) ||
                     ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
                     ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
@@ -695,8 +716,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
+        var parameterProgress = StartLoopProgress("ParseParameters");
+
         while (true)
         {
+            parameterProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
@@ -833,8 +858,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
+        var parameterProgress = StartLoopProgress("ParseIndexerParameters");
+
         while (true)
         {
+            parameterProgress.EnsureProgress();
+
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBracketToken))

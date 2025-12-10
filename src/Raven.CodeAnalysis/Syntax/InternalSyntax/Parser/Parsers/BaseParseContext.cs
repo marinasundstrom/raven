@@ -528,6 +528,45 @@ internal class BaseParseContext : ParseContext
         return ReadToken();
     }
 
+    internal LoopProgressTracker StartLoopProgress(string loopName)
+    {
+        return new LoopProgressTracker(this, loopName);
+    }
+
+    internal void EnsureLoopProgress(ref int lastObservedPosition, string loopName)
+    {
+        if (_position != lastObservedPosition)
+        {
+            lastObservedPosition = _position;
+            return;
+        }
+
+        ForceAdvanceAfterStall(loopName);
+        lastObservedPosition = _position;
+    }
+
+    private void ForceAdvanceAfterStall(string loopName)
+    {
+        var stalledToken = PeekToken();
+
+        if (stalledToken.Kind == SyntaxKind.EndOfFileToken)
+        {
+            throw new InvalidOperationException($"Parser made no progress in '{loopName}' at end-of-file.");
+        }
+
+        var spanStart = _position;
+        var skippedTokens = new List<SyntaxToken> { ReadToken() };
+        var skippedTrivia = new SyntaxTrivia(new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray())));
+
+        _pendingTrivia.Add(skippedTrivia);
+
+        AddDiagnostic(DiagnosticInfo.Create(
+            CompilerDiagnostics.ParserMadeNoProgress,
+            new TextSpan(spanStart, skippedTokens[0].FullWidth),
+            loopName,
+            stalledToken.Kind.ToString()));
+    }
+
     private void ThrowIfCancellationRequested()
     {
         CancellationToken.ThrowIfCancellationRequested();
@@ -555,6 +594,25 @@ internal class BaseParseContext : ParseContext
 #if DEBUG
         _progressWatchdog.Reset(_position, reason);
 #endif
+    }
+}
+
+internal ref struct LoopProgressTracker
+{
+    private readonly BaseParseContext _context;
+    private readonly string _loopName;
+    private int _lastObservedPosition;
+
+    public LoopProgressTracker(BaseParseContext context, string loopName)
+    {
+        _context = context;
+        _loopName = loopName;
+        _lastObservedPosition = context.Position;
+    }
+
+    public void EnsureProgress()
+    {
+        _context.EnsureLoopProgress(ref _lastObservedPosition, _loopName);
     }
 }
 

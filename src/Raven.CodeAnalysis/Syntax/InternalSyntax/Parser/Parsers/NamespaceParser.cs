@@ -233,8 +233,12 @@ internal class NamespaceDeclarationParser : SyntaxParser
     {
         SyntaxList modifiers = SyntaxList.Empty;
 
+        var loopProgress = StartLoopProgress("ParseNamespaceModifiers");
+
         while (true)
         {
+            loopProgress.EnsureProgress();
+
             var kind = PeekToken().Kind;
 
             if (kind is SyntaxKind.PublicKeyword or
