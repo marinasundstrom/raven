@@ -843,7 +843,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
     }
@@ -904,7 +904,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var closeBracketToken = ExpectTokenWithError(SyntaxKind.CloseBracketToken, ']');
 
         return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken);
     }
@@ -940,7 +940,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return TupleExpression(openParenToken, List(argumentList.ToArray()), closeParenToken);
     }
@@ -1102,7 +1102,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             expressions.Add(arg);
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         if (sawComma)
         {
@@ -1161,7 +1161,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        var closeBracketToken = ExpectTokenWithError(SyntaxKind.CloseBracketToken, ']');
 
         return CollectionExpression(openBracketToken, List(elementList), closeBracketToken);
     }
@@ -1183,7 +1183,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             var openParenToken = ReadToken();
             var type = new NameSyntaxParser(this).ParseTypeName();
-            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+            var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
             return DefaultExpression(defaultKeyword, openParenToken, type, closeParenToken);
         }
@@ -1202,7 +1202,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var type = new NameSyntaxParser(this).ParseTypeName();
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return TypeOfExpression(typeOfKeyword, openParenToken, type, closeParenToken);
     }
@@ -1219,14 +1219,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
 
-        if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken))
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                )); ;
-        }
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return ParenthesizedExpression(openParenToken, expr, closeParenToken, Diagnostics);
     }

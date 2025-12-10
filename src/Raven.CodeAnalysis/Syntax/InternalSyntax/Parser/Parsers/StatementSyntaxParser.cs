@@ -345,7 +345,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 identifier = ReadIdentifierToken();
             }
 
-            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+            var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
             declaration = CatchDeclaration(openParenToken, type!, identifier, closeParenToken);
         }
@@ -603,7 +603,7 @@ internal class StatementSyntaxParser : SyntaxParser
             }
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        var closeParenToken = ExpectTokenWithError(SyntaxKind.CloseParenToken, ')');
 
         return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken);
     }

@@ -166,6 +166,21 @@ internal class SyntaxParser : ParseContext
         return missing;
     }
 
+    protected SyntaxToken ExpectTokenWithError(SyntaxKind kind, char expectedCharacter)
+    {
+        if (ConsumeToken(kind, out var token))
+            return token;
+
+        var missing = MissingToken(kind);
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetEndOfLastToken(),
+                [expectedCharacter]));
+
+        return missing;
+    }
+
     /// <summary>
     /// Get the actual span of a node.
     /// </summary>
