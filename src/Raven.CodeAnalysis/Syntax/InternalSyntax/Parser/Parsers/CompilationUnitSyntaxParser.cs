@@ -56,10 +56,10 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         var attributeLists = List(compilationAttributeLists);
 
         var baseContext = GetBaseContext();
-        if (baseContext._pendingTrivia.Count > 0 && baseContext.LastToken is { Kind: not SyntaxKind.None } lastToken)
+        if (baseContext._pendingTrivia.Count > 0)
         {
-            var trailing = new SyntaxTriviaList(lastToken.TrailingTrivia.Concat(baseContext._pendingTrivia).ToArray());
-            baseContext._lastToken = lastToken.WithTrailingTrivia(trailing);
+            var leading = new SyntaxTriviaList(nextToken.LeadingTrivia.Concat(baseContext._pendingTrivia).ToArray());
+            nextToken = nextToken.WithLeadingTrivia(leading);
             baseContext._pendingTrivia.Clear();
         }
 

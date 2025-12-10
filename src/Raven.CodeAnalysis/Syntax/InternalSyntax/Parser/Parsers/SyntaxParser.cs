@@ -465,12 +465,6 @@ internal class SyntaxParser : ParseContext
 
         if (token.Kind == SyntaxKind.EndOfFileToken)
         {
-            if (skippedTrivia.Count > 0 && baseContext.LastToken is { Kind: not SyntaxKind.None } last)
-            {
-                var trailing = new SyntaxTriviaList(last.TrailingTrivia.Concat(skippedTrivia).ToArray());
-                baseContext._lastToken = last.WithTrailingTrivia(trailing);
-            }
-
             return Token(SyntaxKind.None);
         }
 
