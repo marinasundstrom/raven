@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -515,5 +516,20 @@ public class ParserNewlineTests
         Assert.NotNull(catchClause.Declaration);
         Assert.Equal("ex", catchClause.Declaration!.Identifier?.Text);
         Assert.NotNull(statement.FinallyClause);
+    }
+
+    [Fact]
+    public void Statement_MissingTerminator_BetweenSameLineStatements_ProducesDiagnostic()
+    {
+        var source = """
+                     let value = 42;
+                     WriteLine("Value: $value") val result = value
+                     """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+
+        var diagnostics = syntaxTree.GetDiagnostics().ToArray();
+
+        diagnostics.ShouldContain(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.SemicolonExpected);
     }
 }

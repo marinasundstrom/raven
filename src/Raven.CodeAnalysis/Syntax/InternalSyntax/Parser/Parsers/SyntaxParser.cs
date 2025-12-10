@@ -257,16 +257,18 @@ internal class SyntaxParser : ParseContext
                 return true;
             }
 
-            if (HasNewlineBoundary(current.LeadingTrivia))
+            var hasNewlineBoundary = HasNewlineBoundary(current.LeadingTrivia);
+            if (hasNewlineBoundary || current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken)
             {
                 token = Token(SyntaxKind.None);
                 SetTreatNewlinesAsTokens(previous);
                 return true;
             }
 
-            if (current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken)
+            if (ParserRecoverySets.IsTypeMemberStartOrRecovery(current.Kind)
+                && IsPotentialStatementStart(current))
             {
-                token = Token(SyntaxKind.None);
+                token = CreateMissingTerminatorToken();
                 SetTreatNewlinesAsTokens(previous);
                 return true;
             }
