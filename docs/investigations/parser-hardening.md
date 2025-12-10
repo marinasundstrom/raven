@@ -22,3 +22,4 @@
 
 ## Progress
 * Parser entry points now accept cancellation and timeout inputs. `SyntaxTree.ParseText` links caller tokens with an optional wall-clock timeout so hung parses terminate promptly, and the CLI exposes `--parse-timeout` to enforce the same budget when invoking `ravenc` from CI or editor integrations.
+* Added a debug-only parser progress watchdog that tracks token positions and raises an exception when loops spin without advancing for too long, improving visibility into potential hangs during development and CI runs.

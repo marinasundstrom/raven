@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 
@@ -17,11 +18,19 @@ internal class BaseParseContext : ParseContext
     internal readonly List<SyntaxTrivia> _pendingTrivia = new();
     private readonly StringBuilder _stringBuilder = new StringBuilder();
 
+#if DEBUG
+    private readonly ParserProgressWatchdog _progressWatchdog;
+#endif
+
     public BaseParseContext(ILexer lexer, int position = 0, CancellationToken cancellationToken = default) : base()
     {
         _lexer = lexer;
         _cancellationToken = cancellationToken;
         _position = position;
+
+#if DEBUG
+        _progressWatchdog = new ParserProgressWatchdog(position);
+#endif
     }
 
     public override int Position => _position;
@@ -513,4 +522,134 @@ internal class BaseParseContext : ParseContext
     {
         CancellationToken.ThrowIfCancellationRequested();
     }
+
+    [Conditional("DEBUG")]
+    private void ObserveParserProgress(string location)
+    {
+#if DEBUG
+        _progressWatchdog.Observe(_position, _lastToken, _lookaheadTokens, location);
+#endif
+    }
+
+    [Conditional("DEBUG")]
+    private void RecordParserAdvance()
+    {
+#if DEBUG
+        _progressWatchdog.RecordAdvance(_position, _lastToken, _lookaheadTokens);
+#endif
+    }
+
+    [Conditional("DEBUG")]
+    private void ResetParserProgress(string reason)
+    {
+#if DEBUG
+        _progressWatchdog.Reset(_position, reason);
+#endif
+    }
 }
+
+#if DEBUG
+internal sealed class ParserProgressWatchdog
+{
+    private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
+    private readonly List<string> _locations = new();
+    private int _lastObservedPosition;
+    private long _lastAdvanceTimestamp;
+    private int _stallIterations;
+
+    private const int MaxIterationsWithoutProgress = 2048;
+    private const int MinStallMilliseconds = 250;
+    private const int MaxLocationTrail = 12;
+
+    public ParserProgressWatchdog(int initialPosition)
+    {
+        _lastObservedPosition = initialPosition;
+        _lastAdvanceTimestamp = _stopwatch.ElapsedMilliseconds;
+    }
+
+    public void Observe(int position, SyntaxToken? lastToken, IReadOnlyList<SyntaxToken> lookahead, string location)
+    {
+        if (position != _lastObservedPosition)
+        {
+            RecordAdvance(position, lastToken, lookahead);
+            return;
+        }
+
+        _stallIterations++;
+        RecordLocation(location);
+
+        long elapsed = _stopwatch.ElapsedMilliseconds - _lastAdvanceTimestamp;
+        if (_stallIterations < MaxIterationsWithoutProgress || elapsed < MinStallMilliseconds)
+            return;
+
+        var message = new StringBuilder();
+        message.Append("Parser progress watchdog detected a stall: ")
+            .Append(_stallIterations)
+            .Append(" iterations without advancing beyond position ")
+            .Append(position)
+            .Append(" after ")
+            .Append(elapsed)
+            .Append("ms. ");
+
+        message.Append("Last token: ").Append(DescribeToken(lastToken)).Append(". ");
+        message.Append("Lookahead: ").Append(DescribeLookahead(lookahead)).Append(". ");
+        message.Append("Recent calls: ").Append(string.Join(" -> ", _locations)).Append('.');
+
+        throw new InvalidOperationException(message.ToString());
+    }
+
+    public void RecordAdvance(int position, SyntaxToken? lastToken, IReadOnlyList<SyntaxToken> lookahead)
+    {
+        _lastObservedPosition = position;
+        _lastAdvanceTimestamp = _stopwatch.ElapsedMilliseconds;
+        _stallIterations = 0;
+        _locations.Clear();
+        RecordLocation($"advance:{DescribeToken(lastToken)}|{DescribeLookahead(lookahead)}");
+    }
+
+    public void Reset(int position, string reason)
+    {
+        _lastObservedPosition = position;
+        _lastAdvanceTimestamp = _stopwatch.ElapsedMilliseconds;
+        _stallIterations = 0;
+        _locations.Clear();
+        RecordLocation($"reset:{reason}@{position}");
+    }
+
+    private void RecordLocation(string location)
+    {
+        if (_locations.Count == MaxLocationTrail)
+            _locations.RemoveAt(0);
+
+        _locations.Add(location);
+    }
+
+    private static string DescribeToken(SyntaxToken? token)
+    {
+        if (token is null)
+            return "<none>";
+
+        var text = token.Text;
+        if (text.Length > 16)
+            text = text[..16] + "…";
+
+        return $"{token.Kind} ({token.FullWidth}w:'{text}')";
+    }
+
+    private static string DescribeLookahead(IReadOnlyList<SyntaxToken> lookahead)
+    {
+        if (lookahead.Count == 0)
+            return "<empty>";
+
+        var previewCount = Math.Min(3, lookahead.Count);
+        var parts = new string[previewCount];
+
+        for (int i = 0; i < previewCount; i++)
+        {
+            parts[i] = DescribeToken(lookahead[i]);
+        }
+
+        return string.Join(", ", parts);
+    }
+}
+#endif
