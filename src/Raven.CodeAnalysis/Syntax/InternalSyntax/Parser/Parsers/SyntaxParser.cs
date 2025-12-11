@@ -232,13 +232,12 @@ internal class SyntaxParser : ParseContext
             return true;
         }
 
-        /*
         if (IsPotentialStatementStart(current))
         {
             token = Token(SyntaxKind.None);
             SetTreatNewlinesAsTokens(previous);
             return true;
-        }*/
+        }
 
         var skippedTokens = new List<SyntaxToken>();
 

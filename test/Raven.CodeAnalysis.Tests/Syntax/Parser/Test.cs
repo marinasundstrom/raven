@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -280,6 +281,28 @@ public class ParserNewlineTests
         var skipped = redTerminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
         var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
         Assert.Equal(SyntaxKind.IdentifierToken, skippedNode.Tokens.Single().Kind);
+    }
+
+    [Fact]
+    public void Terminator_WithSkippedTokens_ReportsDiagnostic()
+    {
+        var source = "let x = 1 foo\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new SyntaxParser(context);
+
+        parser.ExpectToken(SyntaxKind.LetKeyword);
+        parser.ExpectToken(SyntaxKind.IdentifierToken);
+        parser.ExpectToken(SyntaxKind.EqualsToken);
+        parser.ExpectToken(SyntaxKind.NumericLiteralToken);
+
+        Assert.True(parser.TryConsumeTerminator(out _));
+
+        var diagnostic = Assert.Single(context.Diagnostics);
+        Assert.Equal(CompilerDiagnostics.InvalidExpressionTerm.Id, diagnostic.Descriptor.Id);
+        Assert.Equal("foo", diagnostic.Args.Single());
     }
 
     [Fact]
