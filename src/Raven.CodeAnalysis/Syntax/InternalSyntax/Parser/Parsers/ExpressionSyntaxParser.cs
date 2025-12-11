@@ -212,7 +212,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         int start = this.Position;
 
         PatternSyntax? assignmentPattern = null;
-        ExpressionSyntax? expr = null;
+        ExpressionSyntax expr = new ExpressionSyntax.Missing();
 
         if (precedence == 0 && PeekToken(1).Kind == SyntaxKind.EqualsToken && TryParseAssignmentPattern(out var pattern))
         {
