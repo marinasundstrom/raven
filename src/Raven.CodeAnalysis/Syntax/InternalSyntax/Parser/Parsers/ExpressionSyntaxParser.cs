@@ -674,14 +674,16 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 // INFO: Break if next token is a newline.
                 // This prevents: <expr> [newline] '('
 
+                var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
                 SetTreatNewlinesAsTokens(true);
                 var token2 = PeekToken();
                 if (token2.IsKind(SyntaxKind.NewLineToken))
                 {
-                    SetTreatNewlinesAsTokens(false);
+                    SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                     return expr;
                 }
 
+                SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                 var argumentList = ParseArgumentListSyntax();
                 expr = InvocationExpression(expr, argumentList);
             }
@@ -709,14 +711,16 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 // INFO: Break if next token is a newline.
                 // This prevents: <expr> [newline] '('
 
+                var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
                 SetTreatNewlinesAsTokens(true);
                 var token2 = PeekToken();
                 if (token2.IsKind(SyntaxKind.NewLineToken))
                 {
-                    SetTreatNewlinesAsTokens(false);
+                    SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                     return expr;
                 }
 
+                SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                 var argumentList = ParseBracketedArgumentListSyntax();
 
                 expr = ElementAccessExpression(expr, argumentList, Diagnostics);

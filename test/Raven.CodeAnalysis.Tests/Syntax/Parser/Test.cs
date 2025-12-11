@@ -509,6 +509,34 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Invocation_AllowsMemberAccessContinuationAcrossNewline()
+    {
+        // Arrange
+        var source = "A.B(42)\n    .C()\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        // Act
+        var expression = (ExpressionSyntax)parser.ParseExpression().CreateRed();
+
+        // Assert
+        var outerInvocation = Assert.IsType<InvocationExpressionSyntax>(expression);
+        outerInvocation.ArgumentList.Arguments.ShouldBeEmpty();
+
+        var outerMemberAccess = Assert.IsType<MemberAccessExpressionSyntax>(outerInvocation.Expression);
+        Assert.Equal("C", outerMemberAccess.Name.GetLastToken().ValueText);
+
+        var innerInvocation = Assert.IsType<InvocationExpressionSyntax>(outerMemberAccess.Expression);
+        innerInvocation.ArgumentList.Arguments.Count.ShouldBe(1);
+
+        var innerMemberAccess = Assert.IsType<MemberAccessExpressionSyntax>(innerInvocation.Expression);
+        Assert.Equal("B", innerMemberAccess.Name.GetLastToken().ValueText);
+        var identifier = Assert.IsType<IdentifierNameSyntax>(innerMemberAccess.Expression);
+        Assert.Equal("A", identifier.Identifier.ValueText);
+    }
+
+    [Fact]
     public void SkipUntil_AtEndOfFile_ReturnsNoneToken()
     {
         var source = string.Empty;
