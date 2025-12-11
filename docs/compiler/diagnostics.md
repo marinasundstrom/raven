@@ -352,6 +352,17 @@ class App {
 }
 ```
 
+## RAV1019: Expected newline or ';' to terminate the statement.
+Trailing tokens remain after a statement has already been completed. Insert a
+semicolon to separate multiple statements on the same line, or move the extra
+tokens to the next line so the preceding statement can terminate cleanly.
+
+```raven
+System.Console.WriteLine("Examples") 42 // RAV1019
+System.Console.WriteLine("Examples") ff; // RAV1019
+var x = 2 test // RAV1019
+```
+
 ## RAV1501: No overload for method takes argument
 Called a method with a wrong number of arguments.
 

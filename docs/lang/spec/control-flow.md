@@ -52,6 +52,18 @@ execution. Blocks also terminate with `}`, and certain keywords (such as `else`,
 along with end-of-file, fulfil the same terminating role as a newline when they
 appear.
 
+When extra tokens remain on the same line after a statement has already
+completed, the parser reports `RAV1019: Expected newline or ';' to terminate the
+statement.`【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L256-L262】 Insert
+semicolons to separate statements intentionally written on one line or move the
+remaining tokens to the following line.
+
+```raven
+System.Console.WriteLine("Examples") 42 // RAV1019
+System.Console.WriteLine("Examples") ff; // RAV1019
+var x = 2 test // RAV1019
+```
+
 When a newline is not required to terminate a statement—or any other construct
 that relies on newline separation, such as `import` or `alias` directives—it is
 preserved as trivia on the following token. This occurs whenever the parser is
