@@ -330,6 +330,72 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void ExpressionStatement_AttachesSkippedTokens_ToNewLine()
+    {
+        var source = "System.Console.WriteLine(\"Examples\") 42\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (ExpressionStatementSyntax)parser.ParseStatement().CreateRed();
+        var terminator = statement.GetLastToken();
+
+        terminator.Kind.ShouldBe(SyntaxKind.NewLineToken);
+
+        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
+
+        skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.NumericLiteralToken);
+
+        var diagnostic = Assert.Single(parser.Diagnostics);
+        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
+    }
+
+    [Fact]
+    public void ExpressionStatement_AttachesSkippedTokens_ToSemicolon()
+    {
+        var source = "System.Console.WriteLine(\"Examples\") ff ;";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (ExpressionStatementSyntax)parser.ParseStatement().CreateRed();
+        var terminator = statement.GetLastToken();
+
+        terminator.Kind.ShouldBe(SyntaxKind.SemicolonToken);
+
+        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
+
+        skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.IdentifierToken);
+
+        var diagnostic = Assert.Single(parser.Diagnostics);
+        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
+    }
+
+    [Fact]
+    public void VariableDeclaration_AttachesSkippedTokens_AndReportsDiagnostic()
+    {
+        var source = "var x = 2 test\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (LocalDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
+        var terminator = statement.GetLastToken();
+
+        terminator.Kind.ShouldBe(SyntaxKind.NewLineToken);
+
+        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
+
+        skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.IdentifierToken);
+
+        var diagnostic = Assert.Single(parser.Diagnostics);
+        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
+    }
+
+    [Fact]
     public void Block_LastStatementWithoutTerminator_UsesNoneToken()
     {
         var source = "{ return \"\" }";

@@ -1,5 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System;
 using System.Collections.Generic;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -674,7 +675,12 @@ internal class StatementSyntaxParser : SyntaxParser
             case SyntaxKind.VarKeyword:
             case SyntaxKind.ConstKeyword:
                 if (PeekToken(1).Kind != SyntaxKind.OpenParenToken)
-                    return ParseLocalDeclarationStatementSyntax();
+                {
+                    var declaration = ParseVariableDeclarationSyntax();
+                    var declarationTerminator = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
+
+                    return LocalDeclarationStatement(declaration, declarationTerminator, Diagnostics);
+                }
                 break;
         }
 
@@ -689,15 +695,14 @@ internal class StatementSyntaxParser : SyntaxParser
             return EmptyStatement(terminatorToken2);
         }
 
+        var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
+
         if (expression is AssignmentExpressionSyntax assignment)
         {
-            var assignmentTerminatorToken = ConsumeTerminator();
             var kind = GetAssignmentStatementKind(assignment.Kind, assignment.Left);
 
-            return AssignmentStatement(kind, assignment.Left, assignment.OperatorToken, assignment.Right, assignmentTerminatorToken, Diagnostics);
+            return AssignmentStatement(kind, assignment.Left, assignment.OperatorToken, assignment.Right, terminatorToken, Diagnostics);
         }
-
-        var terminatorToken = ConsumeTerminator();
 
         return ExpressionStatement(expression, terminatorToken, Diagnostics);
     }
@@ -726,9 +731,114 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var declaration = ParseVariableDeclarationSyntax();
 
-        var terminatorToken = ConsumeTerminator();
+        var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
 
         return LocalDeclarationStatement(declaration, terminatorToken, Diagnostics);
+    }
+
+    private SyntaxToken ConsumeTerminatorWithSkippedTokens(bool addSemicolonDiagnostic)
+    {
+        bool previous = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
+
+        var skippedTokens = new List<SyntaxToken>();
+        bool reportedDiagnostic = false;
+
+        while (true)
+        {
+            var current = PeekToken();
+
+            if (IsNewLineToken(current))
+            {
+                var terminator = ReadToken();
+                var tokenWithTrivia = AttachSkippedTokens(terminator, skippedTokens);
+                SetTreatNewlinesAsTokens(previous);
+                return tokenWithTrivia;
+            }
+
+            if (current.Kind == SyntaxKind.SemicolonToken)
+            {
+                var terminator = ReadToken();
+                var tokenWithTrivia = AttachSkippedTokens(terminator, skippedTokens);
+                SetTreatNewlinesAsTokens(previous);
+                return tokenWithTrivia;
+            }
+
+            if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
+            {
+                AddSkippedTokensToPending(skippedTokens);
+
+                if (addSemicolonDiagnostic && skippedTokens.Count > 0 && !reportedDiagnostic)
+                {
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon,
+                            GetEndOfLastToken()));
+                }
+
+                SetTreatNewlinesAsTokens(previous);
+                return Token(SyntaxKind.None);
+            }
+
+            if (addSemicolonDiagnostic && !reportedDiagnostic)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon,
+                        GetSpanOfPeekedToken()));
+                reportedDiagnostic = true;
+            }
+
+            var tokenToSkip = ReadToken();
+            if (skippedTokens.Count == 0 && tokenToSkip.LeadingTrivia.Count > 0)
+                tokenToSkip = tokenToSkip.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
+
+            skippedTokens.Add(tokenToSkip);
+        }
+
+        static bool IsNewLineToken(SyntaxToken token)
+        {
+            return token.Kind is
+                SyntaxKind.LineFeedToken or
+                SyntaxKind.CarriageReturnToken or
+                SyntaxKind.CarriageReturnLineFeedToken or
+                SyntaxKind.NewLineToken;
+        }
+
+        SyntaxToken AttachSkippedTokens(SyntaxToken terminator, List<SyntaxToken> skippedTokens)
+        {
+            if (skippedTokens.Count == 0)
+                return terminator;
+
+            var trivia = new SyntaxTrivia(
+                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+            );
+
+            var leadingTrivia = terminator.LeadingTrivia.Add(trivia);
+            var newToken = new SyntaxToken(
+                terminator.Kind,
+                terminator.Text,
+                terminator.GetValue(),
+                terminator.Width,
+                leadingTrivia,
+                terminator.TrailingTrivia);
+
+            UpdateLastToken(newToken);
+
+            return newToken;
+        }
+
+        void AddSkippedTokensToPending(List<SyntaxToken> skippedTokens)
+        {
+            if (skippedTokens.Count == 0)
+                return;
+
+            var trivia = new SyntaxTrivia(
+                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+            );
+
+            GetBaseContext()._pendingTrivia.Add(trivia);
+        }
     }
 
     private SyntaxToken ConsumeTerminator()
