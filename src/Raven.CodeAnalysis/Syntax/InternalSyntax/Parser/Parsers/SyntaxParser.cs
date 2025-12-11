@@ -3,6 +3,8 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 using System;
 using System.Diagnostics.CodeAnalysis;
 
+using Raven.CodeAnalysis;
+
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class SyntaxParser : ParseContext
@@ -241,10 +243,20 @@ internal class SyntaxParser : ParseContext
         }*/
 
         var skippedTokens = new List<SyntaxToken>();
+        var reportedDiagnostic = false;
 
         while (true)
         {
             var t = ReadToken();
+            if (!reportedDiagnostic)
+            {
+                reportedDiagnostic = true;
+                AddDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.InvalidExpressionTerm,
+                    GetSpanOfLastToken(),
+                    t.Text));
+            }
+
             if (skippedTokens.Count == 0 && t.LeadingTrivia.Count > 0)
                 t = t.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
             skippedTokens.Add(t);
