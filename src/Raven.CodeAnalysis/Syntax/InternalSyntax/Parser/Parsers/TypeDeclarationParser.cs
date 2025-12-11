@@ -104,11 +104,19 @@ internal class TypeDeclarationParser : SyntaxParser
         var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
+        SyntaxToken greaterThanToken;
+
         try
         {
             while (true)
             {
                 var token = PeekToken();
+
+                while (IsNewLineLike(token))
+                {
+                    ReadToken();
+                    token = PeekToken();
+                }
 
                 if (token.IsKind(SyntaxKind.EndOfFileToken) ||
                     token.IsKind(SyntaxKind.GreaterThanToken))
@@ -178,13 +186,13 @@ internal class TypeDeclarationParser : SyntaxParser
                 parameters.Add(TypeParameter(varianceKeyword, identifier, colonToken, constraints));
                 parsedParameters++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out greaterThanToken);
         }
         finally
         {
             SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
 
         if (greaterThanToken.IsMissing)
         {
@@ -729,11 +737,19 @@ internal class TypeDeclarationParser : SyntaxParser
         var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
+        SyntaxToken closeParenToken;
+
         try
         {
             while (true)
             {
                 var t = PeekToken();
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
                     t.IsKind(SyntaxKind.CloseParenToken))
@@ -789,13 +805,13 @@ internal class TypeDeclarationParser : SyntaxParser
                 parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken);
         }
         finally
         {
             SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         if (closeParenToken.IsMissing)
         {
@@ -901,11 +917,19 @@ internal class TypeDeclarationParser : SyntaxParser
         var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
+        SyntaxToken closeBracketToken;
+
         try
         {
             while (true)
             {
                 var t = PeekToken();
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
                     t.IsKind(SyntaxKind.CloseBracketToken))
@@ -961,13 +985,13 @@ internal class TypeDeclarationParser : SyntaxParser
                 parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
                 parsedParameters++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out closeBracketToken);
         }
         finally
         {
             SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
         if (closeBracketToken.IsMissing)
         {

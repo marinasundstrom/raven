@@ -387,11 +387,19 @@ internal class NameSyntaxParser : SyntaxParser
         var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
+        SyntaxToken greaterThanToken;
+
         try
         {
             while (true)
             {
                 var t = PeekToken();
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
                     t.IsKind(SyntaxKind.GreaterThanToken))
@@ -429,13 +437,13 @@ internal class NameSyntaxParser : SyntaxParser
                 argumentList.Add(TypeArgument(typeName));
                 parsedArguments++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out greaterThanToken);
         }
         finally
         {
             SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
 
         if (greaterThanToken.IsMissing)
         {
@@ -447,6 +455,11 @@ internal class NameSyntaxParser : SyntaxParser
         }
 
         return TypeArgumentList(greaterThanToken, List(argumentList.ToArray()), lessThanToken, Diagnostics);
+    }
+
+    private static bool IsNewLineLike(SyntaxToken token)
+    {
+        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     private TupleTypeSyntax ParseTupleType()

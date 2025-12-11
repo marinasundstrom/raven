@@ -794,11 +794,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var restoreNewlinesAsTokens = TreatNewlinesAsTokens; // or a property getter if you have one
         SetTreatNewlinesAsTokens(false);
 
+        SyntaxToken closeParenToken;
+
         try
         {
             while (true)
             {
                 var t = PeekToken();
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
 
                 // End of argument list
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
@@ -868,14 +876,14 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 argumentList.Add(arg);
                 parsedArgs++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken);
         }
         finally
         {
             // Make sure we put the global newline behavior back
             SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         if (closeParenToken.IsMissing)
         {
@@ -928,11 +936,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
+        SyntaxToken closeBracketToken;
+
         try
         {
             while (true)
             {
                 var t = PeekToken();
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
                     t.IsKind(SyntaxKind.CloseBracketToken))
@@ -972,13 +988,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 argumentList.Add(argument);
                 parsedArgs++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out closeBracketToken);
         }
         finally
         {
             SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
         if (closeBracketToken.IsMissing)
         {
@@ -990,6 +1006,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
 
         return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken, Diagnostics);
+    }
+
+    private static bool IsNewLineLike(SyntaxToken token)
+    {
+        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     private TupleExpressionSyntax ParseTupleExpressionSyntax()
