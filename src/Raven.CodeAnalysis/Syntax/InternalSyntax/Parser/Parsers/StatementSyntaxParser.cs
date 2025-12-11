@@ -772,7 +772,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 {
                     AddDiagnostic(
                         DiagnosticInfo.Create(
-                            CompilerDiagnostics.SemicolonExpected,
+                            CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon,
                             GetEndOfLastToken()));
                 }
 
@@ -784,7 +784,7 @@ internal class StatementSyntaxParser : SyntaxParser
             {
                 AddDiagnostic(
                     DiagnosticInfo.Create(
-                        CompilerDiagnostics.SemicolonExpected,
+                        CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon,
                         GetSpanOfPeekedToken()));
                 reportedDiagnostic = true;
             }

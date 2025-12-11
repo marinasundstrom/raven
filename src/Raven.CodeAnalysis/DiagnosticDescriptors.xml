@@ -253,6 +253,10 @@
   <Descriptor Id="RAV1002" Identifier="SemicolonExpected" Title="Semicolon expected"
     Message="';' expected" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1019" Identifier="ConsecutiveStatementsMustBeSeparatedBySemicolon"
+    Title="Consecutive statements on a line must be separated by ';'"
+    Message="Consecutive statements on a line must be separated by ';'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1003" Identifier="CharacterExpected" Title="Character expected"
     Message="'{character}' expected" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

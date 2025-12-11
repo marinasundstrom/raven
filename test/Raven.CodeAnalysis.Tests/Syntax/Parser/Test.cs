@@ -348,7 +348,7 @@ public class ParserNewlineTests
         skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.NumericLiteralToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
-        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.SemicolonExpected.Id);
+        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
     }
 
     [Fact]
@@ -370,7 +370,7 @@ public class ParserNewlineTests
         skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.IdentifierToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
-        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.SemicolonExpected.Id);
+        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
     }
 
     [Fact]
@@ -392,7 +392,7 @@ public class ParserNewlineTests
         skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.IdentifierToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
-        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.SemicolonExpected.Id);
+        diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
     }
 
     [Fact]
