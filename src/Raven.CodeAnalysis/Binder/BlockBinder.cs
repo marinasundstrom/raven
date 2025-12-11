@@ -3738,6 +3738,9 @@ partial class BlockBinder : Binder
         BoundExpression right,
         Location? diagnosticLocation = null)
     {
+        if (left is BoundErrorExpression || right is BoundErrorExpression)
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
         // 1. Specialfall: string + any → string-konkatenering
         if (opKind == SyntaxKind.PlusToken)
         {

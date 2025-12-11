@@ -1,0 +1,4 @@
+// Test file: Fallback parsing
+
+2 + x foo
+42
