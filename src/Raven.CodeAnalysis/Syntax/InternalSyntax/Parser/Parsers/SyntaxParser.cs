@@ -203,6 +203,15 @@ internal class SyntaxParser : ParseContext
         return new TextSpan(spanStart, length);
     }
 
+    public TextSpan GetSpanOfPeekedToken()
+    {
+        var peekedToken = PeekToken();
+        var lastToken = GetFullSpanOfLastToken();
+        var fullEnd = lastToken.End;
+        fullEnd += peekedToken.LeadingTrivia.FullWidth;
+        return new TextSpan(fullEnd, peekedToken.Width);
+    }
+
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
         bool previous = TreatNewlinesAsTokens;

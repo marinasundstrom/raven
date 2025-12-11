@@ -674,14 +674,16 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 // INFO: Break if next token is a newline.
                 // This prevents: <expr> [newline] '('
 
+                var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
                 SetTreatNewlinesAsTokens(true);
                 var token2 = PeekToken();
                 if (token2.IsKind(SyntaxKind.NewLineToken))
                 {
-                    SetTreatNewlinesAsTokens(false);
+                    SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                     return expr;
                 }
 
+                SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                 var argumentList = ParseArgumentListSyntax();
                 expr = InvocationExpression(expr, argumentList);
             }
@@ -709,14 +711,16 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 // INFO: Break if next token is a newline.
                 // This prevents: <expr> [newline] '('
 
+                var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
                 SetTreatNewlinesAsTokens(true);
                 var token2 = PeekToken();
                 if (token2.IsKind(SyntaxKind.NewLineToken))
                 {
-                    SetTreatNewlinesAsTokens(false);
+                    SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                     return expr;
                 }
 
+                SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                 var argumentList = ParseBracketedArgumentListSyntax();
 
                 expr = ElementAccessExpression(expr, argumentList, Diagnostics);
@@ -794,11 +798,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var restoreNewlinesAsTokens = TreatNewlinesAsTokens; // or a property getter if you have one
         SetTreatNewlinesAsTokens(false);
 
+        SyntaxToken closeParenToken;
+
         try
         {
             while (true)
             {
                 var t = PeekToken();
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
 
                 // End of argument list
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
@@ -841,7 +853,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 //      42)
                 //
                 // just see the newlines as trivia around '42'.
-                var arg = new ExpressionSyntaxParser(this).ParseArgument();
+                var arg = new ExpressionSyntaxParser(this).ParseArgument(out var nameSpan);
 
                 if (arg is null or { IsMissing: true })
                 {
@@ -857,24 +869,25 @@ internal class ExpressionSyntaxParser : SyntaxParser
                     var name = nameColon.Name.Identifier.GetValueText();
                     if (!seenNames.Add(name))
                     {
-                        // Uncomment if/when you want duplicate named-arg diagnostics.
-                        //AddDiagnostic(DiagnosticInfo.Create(
-                        //    CompilerDiagnostics.DuplicateNamedArgument,
-                        //    nameColon.Name.GetLocation()));
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.DuplicateNamedArgument,
+                                nameSpan ?? GetSpanOfLastToken(),
+                                name));
                     }
                 }
 
                 argumentList.Add(arg);
                 parsedArgs++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken);
         }
         finally
         {
             // Make sure we put the global newline behavior back
             SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
-
-        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         if (closeParenToken.IsMissing)
         {
@@ -888,18 +901,15 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken, Diagnostics);
     }
 
-    public TextSpan GetSpanOfPeekedToken()
-    {
-        var peekedToken = PeekToken();
-        var lastToken = GetFullSpanOfLastToken();
-        var fullEnd = lastToken.End;
-        fullEnd += peekedToken.LeadingTrivia.FullWidth;
-        return new TextSpan(fullEnd, peekedToken.Width);
-    }
-
     public ArgumentSyntax ParseArgument()
     {
+        return ParseArgument(out _);
+    }
+
+    public ArgumentSyntax ParseArgument(out TextSpan? nameSpan)
+    {
         NameColonSyntax? nameColon = null;
+        nameSpan = null;
 
         // Try to parse optional name:
         if (PeekToken(1).IsKind(SyntaxKind.ColonToken)
@@ -911,6 +921,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 name = ToIdentifierToken(name);
                 UpdateLastToken(name);
             }
+            nameSpan = GetSpanOfLastToken();
             var colon = ReadToken(); // colon
             nameColon = NameColon(IdentifierName(name), colon);
         }
@@ -925,33 +936,85 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         List<GreenNode> argumentList = new List<GreenNode>();
 
-        while (true)
+        var parsedArgs = 0;
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(false);
+
+        SyntaxToken closeBracketToken;
+
+        try
         {
-            var t = PeekToken();
-
-            if (t.IsKind(SyntaxKind.CloseBracketToken))
-                break;
-
-            if (t.IsKind(SyntaxKind.EndOfFileToken))
-                break;
-
-            var expression = new ExpressionSyntaxParser(this).ParseExpression();
-            if (expression is null)
-                break;
-
-            argumentList.Add(Argument(null, expression));
-
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            while (true)
             {
-                ReadToken();
-                argumentList.Add(commaToken);
+                var t = PeekToken();
+
+                while (IsNewLineLike(t))
+                {
+                    ReadToken();
+                    t = PeekToken();
+                }
+
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.CloseBracketToken))
+                {
+                    break;
+                }
+
+                if (parsedArgs > 0)
+                {
+                    if (t.IsKind(SyntaxKind.CommaToken))
+                    {
+                        var commaToken = ReadToken();
+                        argumentList.Add(commaToken);
+                    }
+                    else
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","));
+                    }
+                }
+
+                var argument = new ExpressionSyntaxParser(this).ParseArgument();
+
+                if (argument is null or { IsMissing: true })
+                {
+                    var peekedToken = PeekToken();
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.InvalidExpressionTerm,
+                            GetSpanOfPeekedToken(),
+                            peekedToken.Text));
+                }
+
+                argumentList.Add(argument);
+                parsedArgs++;
             }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out closeBracketToken);
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        if (closeBracketToken.IsMissing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    "]"));
+        }
 
-        return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken);
+        return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken, Diagnostics);
+    }
+
+    private static bool IsNewLineLike(SyntaxToken token)
+    {
+        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     private TupleExpressionSyntax ParseTupleExpressionSyntax()

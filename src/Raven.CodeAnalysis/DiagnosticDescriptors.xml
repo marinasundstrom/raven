@@ -271,6 +271,9 @@
     Title="Field declaration requires a binding keyword"
     Message="Field declarations must start with 'let', 'var', or 'const'" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1008" Identifier="DuplicateNamedArgument" Title="Duplicate named argument"
+    Message="Named argument '{name}' specified multiple times" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1009" Identifier="UnrecognizedEscapeSequence"
     Title="Unrecognized escape sequence" Message="Unrecognized escape sequence"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
