@@ -100,72 +100,102 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> parameters = new List<GreenNode>();
 
-        while (true)
+        var parsedParameters = 0;
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(false);
+
+        try
         {
-            var token = PeekToken();
-
-            if (token.IsKind(SyntaxKind.GreaterThanToken))
-                break;
-
-            SyntaxToken? varianceKeyword = null;
-            if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
+            while (true)
             {
-                varianceKeyword = ReadToken();
-                token = PeekToken();
-            }
+                var token = PeekToken();
 
-            SyntaxToken identifier;
-            if (CanTokenBeIdentifier(token))
-            {
-                identifier = ReadIdentifierToken();
-            }
-            else
-            {
-                identifier = ExpectToken(SyntaxKind.IdentifierToken);
-            }
-
-            SyntaxToken? colonToken = null;
-            SyntaxList constraints = SyntaxList.Empty;
-
-            if (PeekToken().IsKind(SyntaxKind.ColonToken))
-            {
-                colonToken = ReadToken();
-
-                var constraintNodes = new List<GreenNode>();
-                while (true)
+                if (token.IsKind(SyntaxKind.EndOfFileToken) ||
+                    token.IsKind(SyntaxKind.GreaterThanToken))
                 {
-                    var constraint = ParseTypeParameterConstraint();
-                    constraintNodes.Add(constraint);
-
-                    var separator = PeekToken();
-                    if (!separator.IsKind(SyntaxKind.CommaToken))
-                        break;
-
-                    ReadToken();
-                    constraintNodes.Add(separator);
+                    break;
                 }
 
-                constraints = List(constraintNodes);
-            }
+                if (parsedParameters > 0)
+                {
+                    if (token.IsKind(SyntaxKind.CommaToken))
+                    {
+                        var commaToken = ReadToken();
+                        parameters.Add(commaToken);
+                        token = PeekToken();
+                    }
+                    else
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","));
+                    }
+                }
 
-            parameters.Add(TypeParameter(varianceKeyword, identifier, colonToken, constraints));
+                SyntaxToken? varianceKeyword = null;
+                if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
+                {
+                    varianceKeyword = ReadToken();
+                    token = PeekToken();
+                }
 
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
-            {
-                ReadToken();
-                parameters.Add(commaToken);
+                SyntaxToken identifier;
+                if (CanTokenBeIdentifier(token))
+                {
+                    identifier = ReadIdentifierToken();
+                }
+                else
+                {
+                    identifier = ExpectToken(SyntaxKind.IdentifierToken);
+                }
+
+                SyntaxToken? colonToken = null;
+                SyntaxList constraints = SyntaxList.Empty;
+
+                if (PeekToken().IsKind(SyntaxKind.ColonToken))
+                {
+                    colonToken = ReadToken();
+
+                    var constraintNodes = new List<GreenNode>();
+                    while (true)
+                    {
+                        var constraint = ParseTypeParameterConstraint();
+                        constraintNodes.Add(constraint);
+
+                        var separator = PeekToken();
+                        if (!separator.IsKind(SyntaxKind.CommaToken))
+                            break;
+
+                        ReadToken();
+                        constraintNodes.Add(separator);
+                    }
+
+                    constraints = List(constraintNodes);
+                }
+
+                parameters.Add(TypeParameter(varianceKeyword, identifier, colonToken, constraints));
+                parsedParameters++;
             }
-            else
-            {
-                if (!commaToken.IsKind(SyntaxKind.GreaterThanToken))
-                    break;
-            }
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
 
         ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
 
-        return TypeParameterList(lessThanToken, List(parameters), greaterThanToken);
+        if (greaterThanToken.IsMissing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    ">"));
+        }
+
+        return TypeParameterList(lessThanToken, List(parameters), greaterThanToken, Diagnostics);
     }
 
     private TypeParameterConstraintSyntax ParseTypeParameterConstraint()
@@ -695,54 +725,88 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
-        while (true)
+        var parsedParameters = 0;
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(false);
+
+        try
         {
-            var t = PeekToken();
-
-            if (t.IsKind(SyntaxKind.CloseParenToken))
-                break;
-
-            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
-
-            SyntaxToken? refKindKeyword = null;
-            if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
-                refKindKeyword = ReadToken();
-
-            SyntaxToken? bindingKeyword = null;
-            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
-                bindingKeyword = ReadToken();
-
-            SyntaxToken name;
-            if (CanTokenBeIdentifier(PeekToken()))
+            while (true)
             {
-                name = ReadIdentifierToken();
-            }
-            else
-            {
-                name = ExpectToken(SyntaxKind.IdentifierToken);
-            }
+                var t = PeekToken();
 
-            var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.CloseParenToken))
+                {
+                    break;
+                }
 
-            EqualsValueClauseSyntax? defaultValue = null;
-            if (IsNextToken(SyntaxKind.EqualsToken, out _))
-            {
-                defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+                if (parsedParameters > 0)
+                {
+                    if (t.IsKind(SyntaxKind.CommaToken))
+                    {
+                        var commaToken = ReadToken();
+                        parameterList.Add(commaToken);
+                    }
+                    else
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","));
+                    }
+                }
+
+                var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
+                SyntaxToken? refKindKeyword = null;
+                if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+                    refKindKeyword = ReadToken();
+
+                SyntaxToken? bindingKeyword = null;
+                if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+                    bindingKeyword = ReadToken();
+
+                SyntaxToken name;
+                if (CanTokenBeIdentifier(PeekToken()))
+                {
+                    name = ReadIdentifierToken();
+                }
+                else
+                {
+                    name = ExpectToken(SyntaxKind.IdentifierToken);
+                }
+
+                var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
+                EqualsValueClauseSyntax? defaultValue = null;
+                if (IsNextToken(SyntaxKind.EqualsToken, out _))
+                {
+                    defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+                }
+
+                parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+                parsedParameters++;
             }
-
-            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
-
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
-            {
-                ReadToken();
-                parameterList.Add(commaToken);
-            }
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken);
+        if (closeParenToken.IsMissing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    ")"));
+        }
+
+        return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken, Diagnostics);
     }
 
     private FieldDeclarationSyntax ParseFieldDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
@@ -833,54 +897,88 @@ internal class TypeDeclarationParser : SyntaxParser
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
-        while (true)
+        var parsedParameters = 0;
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(false);
+
+        try
         {
-            var t = PeekToken();
-
-            if (t.IsKind(SyntaxKind.CloseBracketToken))
-                break;
-
-            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
-
-            SyntaxToken? refKindKeyword = null;
-            if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
-                refKindKeyword = ReadToken();
-
-            SyntaxToken? bindingKeyword = null;
-            if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
-                bindingKeyword = ReadToken();
-
-            SyntaxToken name;
-            if (CanTokenBeIdentifier(PeekToken()))
+            while (true)
             {
-                name = ReadIdentifierToken();
-            }
-            else
-            {
-                name = ExpectToken(SyntaxKind.IdentifierToken);
-            }
+                var t = PeekToken();
 
-            var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.CloseBracketToken))
+                {
+                    break;
+                }
 
-            EqualsValueClauseSyntax? defaultValue = null;
-            if (IsNextToken(SyntaxKind.EqualsToken, out _))
-            {
-                defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+                if (parsedParameters > 0)
+                {
+                    if (t.IsKind(SyntaxKind.CommaToken))
+                    {
+                        var commaToken = ReadToken();
+                        parameterList.Add(commaToken);
+                    }
+                    else
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","));
+                    }
+                }
+
+                var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
+                SyntaxToken? refKindKeyword = null;
+                if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+                    refKindKeyword = ReadToken();
+
+                SyntaxToken? bindingKeyword = null;
+                if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword)
+                    bindingKeyword = ReadToken();
+
+                SyntaxToken name;
+                if (CanTokenBeIdentifier(PeekToken()))
+                {
+                    name = ReadIdentifierToken();
+                }
+                else
+                {
+                    name = ExpectToken(SyntaxKind.IdentifierToken);
+                }
+
+                var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
+                EqualsValueClauseSyntax? defaultValue = null;
+                if (IsNextToken(SyntaxKind.EqualsToken, out _))
+                {
+                    defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+                }
+
+                parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
+                parsedParameters++;
             }
-
-            parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
-
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
-            {
-                ReadToken();
-                parameterList.Add(commaToken);
-            }
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
-        return BracketedParameterList(openBracketToken, List(parameterList.ToArray()), closeBracketToken);
+        if (closeBracketToken.IsMissing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    "]"));
+        }
+
+        return BracketedParameterList(openBracketToken, List(parameterList.ToArray()), closeBracketToken, Diagnostics);
     }
 
     private SyntaxToken ConsumeOptionalTypeTerminator()

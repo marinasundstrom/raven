@@ -383,30 +383,70 @@ internal class NameSyntaxParser : SyntaxParser
 
         List<GreenNode> argumentList = new List<GreenNode>();
 
-        while (true)
+        var parsedArguments = 0;
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(false);
+
+        try
         {
-            var t = PeekToken();
-
-            if (t.IsKind(SyntaxKind.GreaterThanToken))
-                break;
-
-            var typeName = new NameSyntaxParser(this).ParseTypeName();
-            if (typeName is null)
-                break;
-
-            argumentList.Add(TypeArgument(typeName));
-
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            while (true)
             {
-                ReadToken();
-                argumentList.Add(commaToken);
+                var t = PeekToken();
+
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.GreaterThanToken))
+                {
+                    break;
+                }
+
+                if (parsedArguments > 0)
+                {
+                    if (t.IsKind(SyntaxKind.CommaToken))
+                    {
+                        var commaToken = ReadToken();
+                        argumentList.Add(commaToken);
+                    }
+                    else
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","));
+                    }
+                }
+
+                var typeName = new NameSyntaxParser(this).ParseTypeName();
+                if (typeName is null or { IsMissing: true })
+                {
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetSpanOfPeekedToken()));
+                    typeName = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+                }
+
+                argumentList.Add(TypeArgument(typeName));
+                parsedArguments++;
             }
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
 
         ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
 
-        return TypeArgumentList(lessThanToken, List(argumentList.ToArray()), greaterThanToken);
+        if (greaterThanToken.IsMissing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    ">"));
+        }
+
+        return TypeArgumentList(greaterThanToken, List(argumentList.ToArray()), lessThanToken, Diagnostics);
     }
 
     private TupleTypeSyntax ParseTupleType()
