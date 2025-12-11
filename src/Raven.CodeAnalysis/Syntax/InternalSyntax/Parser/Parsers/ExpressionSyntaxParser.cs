@@ -782,51 +782,119 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     internal ArgumentListSyntax ParseArgumentListSyntax()
     {
+        // We assume current token is '('
         var openParenToken = ReadToken();
 
-        List<GreenNode> argumentList = new List<GreenNode>();
+        var argumentList = new List<GreenNode>();
         var seenNames = new HashSet<string>();
+        int parsedArgs = 0;
 
-        while (true)
+        // Inside a parenthesized argument list, newlines should behave like trivia.
+        // Save & restore whatever backing state you use for this.
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens; // or a property getter if you have one
+        SetTreatNewlinesAsTokens(false);
+
+        try
         {
-            var t = PeekToken();
-
-            if (t.IsKind(SyntaxKind.CloseParenToken))
-                break;
-
-            if (t.IsKind(SyntaxKind.EndOfFileToken))
-                break;
-
-            SetTreatNewlinesAsTokens(false);
-
-            var arg = new ExpressionSyntaxParser(this).ParseArgument();
-            if (arg is null)
-                break;
-
-            if (arg.NameColon is { } nameColon)
+            while (true)
             {
-                var name = nameColon.Name.Identifier.GetValueText();
-                if (!seenNames.Add(name))
+                var t = PeekToken();
+
+                // End of argument list
+                if (t.IsKind(SyntaxKind.EndOfFileToken) ||
+                    t.IsKind(SyntaxKind.CloseParenToken))
                 {
-                    //AddDiagnostic(DiagnosticInfo.Create(
-                    //    CompilerDiagnostics.DuplicateNamedArgument,
-                    //    nameColon.Name.GetLocation()));
+                    break;
                 }
-            }
 
-            argumentList.Add(arg);
+                // After the first argument, we expect a comma before the next one.
+                if (parsedArgs > 0)
+                {
+                    t = PeekToken();
 
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
-            {
-                ReadToken();
-                argumentList.Add(commaToken);
+                    if (t.IsKind(SyntaxKind.CommaToken))
+                    {
+                        var commaToken = ReadToken();
+                        argumentList.Add(commaToken);
+                    }
+                    else
+                    {
+                        // Newlines are trivia here, so if we see *anything* other than a comma
+                        // we complain about a missing ',' but still try to parse the next arg.
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ","));
+                    }
+                }
+
+                // Parse the argument expression itself.
+                // Newlines are currently *not* tokens at this level, so examples like:
+                //
+                //   Foo(
+                //      42)
+                //
+                // and
+                //
+                //   Foo(a,
+                //      42)
+                //
+                // just see the newlines as trivia around '42'.
+                var arg = new ExpressionSyntaxParser(this).ParseArgument();
+
+                if (arg is null or { IsMissing: true })
+                {
+                    var peekedToken = PeekToken();
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.InvalidExpressionTerm,
+                            GetSpanOfPeekedToken(),
+                            peekedToken.Text));
+                }
+                else if (arg.NameColon is { } nameColon)
+                {
+                    var name = nameColon.Name.Identifier.GetValueText();
+                    if (!seenNames.Add(name))
+                    {
+                        // Uncomment if/when you want duplicate named-arg diagnostics.
+                        //AddDiagnostic(DiagnosticInfo.Create(
+                        //    CompilerDiagnostics.DuplicateNamedArgument,
+                        //    nameColon.Name.GetLocation()));
+                    }
+                }
+
+                argumentList.Add(arg);
+                parsedArgs++;
             }
+        }
+        finally
+        {
+            // Make sure we put the global newline behavior back
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
+        if (closeParenToken.IsMissing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfLastToken(),
+                    ")"));
+        }
+
+        return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken, Diagnostics);
+    }
+
+    public TextSpan GetSpanOfPeekedToken()
+    {
+        var peekedToken = PeekToken();
+        var lastToken = GetFullSpanOfLastToken();
+        var fullEnd = lastToken.End;
+        fullEnd += peekedToken.LeadingTrivia.FullWidth;
+        return new TextSpan(fullEnd, peekedToken.Width);
     }
 
     public ArgumentSyntax ParseArgument()

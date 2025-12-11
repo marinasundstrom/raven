@@ -1,4 +1,7 @@
 // Test file: Fallback parsing
 
+System.Console.WriteLine(x,)
+    .Test()
+
 2 + x foo
 42
