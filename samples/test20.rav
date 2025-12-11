@@ -1,7 +1,10 @@
 // Test file: Fallback parsing
 
-System.Console.WriteLine(x,)
-    .Test()
+let x = 42
+let foo = 42
 
-2 + x foo
+System.Console.WriteLine(x); "dd"
+    .ToString()
+
+2 + x; foo
 42

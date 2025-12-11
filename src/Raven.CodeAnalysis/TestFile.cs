@@ -4,7 +4,6 @@ class TestFile
 {
     public static void Foo2()
     {
-        // UNCOMMENT TO TES
-        //2 + x foo
+        //System.Console.WriteLine(x,)
     }
 }
