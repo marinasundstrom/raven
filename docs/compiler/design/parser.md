@@ -27,6 +27,13 @@ Trivia is associated with tokens and categorized as either leading or trailing, 
 
 * **Leading Trivia**: Consists of any trivia on a new line before a token. Whitespaces at the start of a new line are attached as leading trivia to the first token on that line.
 
+## Error recovery and incomplete syntax
+
+The parser keeps the full text of malformed constructs by threading unexpected tokens into `SkippedTokensTrivia`.
+
+* If a token sequence cannot begin a statement, `IncompleteStatementSyntax` consumes the stray tokens and stores them as skipped trivia. This path covers regular blocks and global statements alike.
+* When the parser fails to form a member declaration (for example, after attributes or modifiers with no body), it produces an `IncompleteMemberDeclarationSyntax` and attaches the skipped tokens to a placeholder token so the compilation unit retains every character.
+
 ## Parsing methods
 
 - **`SyntaxTree Parse(SourceText sourceText)`**: Parses the entire source code file and generates a complete `SyntaxTree` that represents the structure of the source code.

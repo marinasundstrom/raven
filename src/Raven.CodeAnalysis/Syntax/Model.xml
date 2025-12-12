@@ -158,6 +158,9 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
+  <Node Name="IncompleteStatement" Inherits="Statement">
+    <Slot Name="SkippedTokens" Type="Token" />
+  </Node>
   <Node Name="AssignmentStatement" Inherits="Statement" HasExplicitKind="true">
     <Slot Name="Left" Type="ExpressionOrPattern" />
     <Slot Name="OperatorToken" Type="Token" />
@@ -704,6 +707,11 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Statement" Type="Statement" />
+  </Node>
+  <Node Name="IncompleteMemberDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="SkippedTokens" Type="Token" />
   </Node>
   <Node Name="PropertyDeclaration" Inherits="BasePropertyDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />

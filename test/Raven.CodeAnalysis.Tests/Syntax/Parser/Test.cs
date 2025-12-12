@@ -633,4 +633,32 @@ public class ParserNewlineTests
         Assert.Equal("ex", catchClause.Declaration!.Identifier?.Text);
         Assert.NotNull(statement.FinallyClause);
     }
+
+    [Fact]
+    public void Statement_InvalidStart_ProducesIncompleteStatement()
+    {
+        var lexer = new Lexer(new StringReader(")"));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (IncompleteStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var skippedTrivia = statement.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
+
+    [Fact]
+    public void CompilationUnit_InvalidTokens_ProduceIncompleteMember()
+    {
+        var syntaxTree = SyntaxTree.ParseText(")");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var member = (IncompleteMemberDeclarationSyntax)root.Members.Single();
+        var skippedTrivia = member.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
 }

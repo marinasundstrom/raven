@@ -20,6 +20,11 @@ internal class StatementSyntaxParser : SyntaxParser
 
         StatementSyntax? statement;
 
+        if (!IsTokenPotentialStatementStart(token))
+        {
+            return ParseIncompleteStatement();
+        }
+
         if (IsPossibleLabeledStatementStart(token))
         {
             statement = ParseLabeledStatementSyntax();
@@ -136,7 +141,7 @@ internal class StatementSyntaxParser : SyntaxParser
         return LabeledStatement(identifier, colonToken, statement);
     }
 
-    private static bool IsTokenPotentialStatementStart(SyntaxToken token)
+    internal static bool IsTokenPotentialStatementStart(SyntaxToken token)
     {
         return token.Kind switch
         {
@@ -154,6 +159,18 @@ internal class StatementSyntaxParser : SyntaxParser
             SyntaxKind.CarriageReturnLineFeedToken => false,
             _ => true,
         };
+    }
+
+    private IncompleteStatementSyntax ParseIncompleteStatement()
+    {
+        var skippedTokens = ConsumeSkippedTokensUntil(static token =>
+            token.Kind is SyntaxKind.SemicolonToken or SyntaxKind.CloseBraceToken or SyntaxKind.NewLineToken or
+            SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken ||
+            IsTokenPotentialStatementStart(token));
+
+        var skippedToken = CreateSkippedToken(skippedTokens);
+
+        return IncompleteStatement(skippedToken, Diagnostics);
     }
 
     private GotoStatementSyntax ParseGotoStatementSyntax()
