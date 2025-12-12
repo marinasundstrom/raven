@@ -78,6 +78,16 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         return string.Equals(target.Identifier.GetValueText(), "assembly", StringComparison.Ordinal);
     }
 
+    private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)
+    {
+        return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
+            SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
+            SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or
+            SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or
+            SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.SealedKeyword or SyntaxKind.OpenKeyword or
+            SyntaxKind.PartialKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword;
+    }
+
     private void ParseNamespaceMemberDeclarations(
         SyntaxToken nextToken,
         List<ImportDirectiveSyntax> importDirectives,
@@ -196,30 +206,69 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 return;
             }
 
+            var statementStartAfterModifiers = StatementSyntaxParser.IsTokenPotentialStatementStart(tokenAfterModifiers);
+
+            if (!statementStartAfterModifiers)
+            {
+                var skippedToken = ParseIncompleteMemberTokens();
+                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, Diagnostics);
+
+                memberDeclarations.Add(incompleteMember);
+                order = MemberOrder.Members;
+                return;
+            }
+
             var statement = new StatementSyntaxParser(this).ParseStatement();
 
             if (statement is null)
                 return;
 
-            var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Diagnostics);
-
-            memberDeclarations.Add(globalStatement);
+            AddGlobalMember(memberDeclarations, attributeLists, modifiers, statement);
             order = MemberOrder.Members;
         }
         else
         {
-            // Should warn (?)
+            var statementStart = StatementSyntaxParser.IsTokenPotentialStatementStart(nextToken);
+
+            if (!statementStart)
+            {
+                var skippedToken = ParseIncompleteMemberTokens();
+                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, Diagnostics);
+
+                memberDeclarations.Add(incompleteMember);
+                order = MemberOrder.Members;
+                return;
+            }
 
             var statement = new StatementSyntaxParser(this).ParseStatement();
 
             if (statement is null)
                 return;
 
-            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Diagnostics);
-
-            memberDeclarations.Add(globalStatement);
+            AddGlobalMember(memberDeclarations, SyntaxList.Empty, SyntaxList.Empty, statement);
             order = MemberOrder.Members;
         }
+    }
+
+    private void AddGlobalMember(
+        List<MemberDeclarationSyntax> memberDeclarations,
+        SyntaxList attributeLists,
+        SyntaxList modifiers,
+        StatementSyntax statement)
+    {
+        var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Diagnostics);
+
+        memberDeclarations.Add(globalStatement);
+    }
+
+    private SyntaxToken ParseIncompleteMemberTokens()
+    {
+        var skippedTokens = ConsumeSkippedTokensUntil(token =>
+            token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken ||
+            IsPossibleCompilationUnitMemberStart(token) ||
+            StatementSyntaxParser.IsTokenPotentialStatementStart(token));
+
+        return CreateSkippedToken(skippedTokens);
     }
 
     private SyntaxList ParseModifiers()

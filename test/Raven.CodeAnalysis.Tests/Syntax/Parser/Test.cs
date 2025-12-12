@@ -633,4 +633,152 @@ public class ParserNewlineTests
         Assert.Equal("ex", catchClause.Declaration!.Identifier?.Text);
         Assert.NotNull(statement.FinallyClause);
     }
+
+    [Fact]
+    public void Statement_InvalidStart_ProducesIncompleteStatement()
+    {
+        var lexer = new Lexer(new StringReader(")"));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (IncompleteStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var skippedTrivia = statement.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
+
+    [Fact]
+    public void Statement_InvalidTokenInBlock_SkipsUntilNextStatement()
+    {
+        var syntaxTree = SyntaxTree.ParseText("if (true) { ) if (true) return; }");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var globalStatement = Assert.IsType<GlobalStatementSyntax>(root.Members.Single());
+        var ifStatement = Assert.IsType<IfStatementSyntax>(globalStatement.Statement);
+        var block = Assert.IsType<BlockStatementSyntax>(ifStatement.ThenStatement);
+
+        block.Statements.Count.ShouldBe(2);
+
+        var incompleteStatement = Assert.IsType<IncompleteStatementSyntax>(block.Statements[0]);
+        var skippedTrivia = incompleteStatement.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+        Assert.IsType<IfStatementSyntax>(block.Statements[1]);
+    }
+
+    [Fact]
+    public void CompilationUnit_InvalidTokens_ProduceIncompleteMember()
+    {
+        var syntaxTree = SyntaxTree.ParseText(")");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var member = (IncompleteMemberDeclarationSyntax)root.Members.Single();
+        var skippedTrivia = member.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
+
+    [Fact]
+    public void CompilationUnit_InvalidTokensAfterGlobalStatement_ProduceIncompleteMember()
+    {
+        var syntaxTree = SyntaxTree.ParseText("return;\n)");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        root.Members.Count.ShouldBe(2);
+
+        var firstMember = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        Assert.IsType<ReturnStatementSyntax>(firstMember.Statement);
+
+        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(root.Members[1]);
+        var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
+
+    [Fact]
+    public void CompilationUnit_InvalidTokensWithModifiers_ProduceIncompleteMember()
+    {
+        var syntaxTree = SyntaxTree.ParseText("[A]\npublic )");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(root.Members.Single());
+
+        incompleteMember.AttributeLists.Count.ShouldBe(1);
+        incompleteMember.Modifiers.ShouldHaveSingleItem().Kind.ShouldBe(SyntaxKind.PublicKeyword);
+
+        var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
+
+    [Fact]
+    public void IfStatement_ReSyncsAtClosingBrace_WhenTokensAreSkippedInBlock()
+    {
+        var syntaxTree = SyntaxTree.ParseText("if (true) { let x = 0; ) } else { }");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var ifStatement = Assert.IsType<IfStatementSyntax>(Assert.IsType<GlobalStatementSyntax>(root.Members.Single()).Statement);
+        var thenBlock = Assert.IsType<BlockStatementSyntax>(ifStatement.ThenStatement);
+
+        thenBlock.Statements.Count.ShouldBe(2);
+
+        var incomplete = Assert.IsType<IncompleteStatementSyntax>(thenBlock.Statements[1]);
+        var skippedTokens = (SkippedTokensTrivia)incomplete.SkippedTokens.LeadingTrivia
+            .Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia)
+            .GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+        thenBlock.CloseBraceToken.Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+
+        Assert.NotNull(ifStatement.ElseClause);
+        Assert.IsType<BlockStatementSyntax>(ifStatement.ElseClause!.Statement);
+    }
+
+    [Fact]
+    public void Block_ResyncsAfterSkippedTokens_AndContinuesParsingFollowingStatements()
+    {
+        var syntaxTree = SyntaxTree.ParseText("{ let x = 0; ) } let y = 1;");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        root.Members.Count.ShouldBe(2);
+
+        var firstMember = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        var block = Assert.IsType<BlockStatementSyntax>(firstMember.Statement);
+
+        block.Statements.Count.ShouldBe(2);
+
+        var incomplete = Assert.IsType<IncompleteStatementSyntax>(block.Statements[1]);
+        var skippedTokens = (SkippedTokensTrivia)incomplete.SkippedTokens.LeadingTrivia
+            .Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia)
+            .GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+        block.CloseBraceToken.Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+
+        var trailingStatement = Assert.IsType<GlobalStatementSyntax>(root.Members[1]);
+        Assert.IsType<LocalDeclarationStatementSyntax>(trailingStatement.Statement);
+    }
+
+    [Fact]
+    public void SkipUntil_StopsAtClosingBrace_WhenInsideBlock()
+    {
+        var context = new BaseParseContext(new Lexer(new StringReader("{ x }")));
+
+        context.ReadToken().Kind.ShouldBe(SyntaxKind.OpenBraceToken);
+
+        context.SkipUntil(SyntaxKind.SemicolonToken);
+
+        var next = context.PeekToken();
+        next.Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+        context.IsInBlock.ShouldBeTrue();
+
+        context.ReadToken().Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+        context.IsInBlock.ShouldBeFalse();
+    }
 }

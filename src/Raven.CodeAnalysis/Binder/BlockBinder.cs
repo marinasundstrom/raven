@@ -515,12 +515,19 @@ partial class BlockBinder : Binder
             YieldReturnStatementSyntax yieldReturn => BindYieldReturnStatement(yieldReturn),
             YieldBreakStatementSyntax yieldBreak => BindYieldBreakStatement(yieldBreak),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(BoundFactory.UnitExpression()),
+            IncompleteStatementSyntax incompleteStatement => BindIncompleteStatement(incompleteStatement),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
 
         CacheBoundNode(statement, boundNode);
 
         return boundNode;
+    }
+
+    private BoundStatement BindIncompleteStatement(IncompleteStatementSyntax incompleteStatement)
+    {
+        var errorExpression = ErrorExpression(Compilation.ErrorTypeSymbol, reason: BoundExpressionReason.OtherError);
+        return new BoundExpressionStatement(errorExpression);
     }
 
     private BoundStatement BindLocalDeclarationStatement(LocalDeclarationStatementSyntax localDeclaration)

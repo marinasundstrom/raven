@@ -351,6 +351,38 @@ internal class SyntaxParser : ParseContext
         GetBaseContext()._pendingTrivia.Add(trivia);
     }
 
+    protected List<SyntaxToken> ConsumeSkippedTokensUntil(Func<SyntaxToken, bool> shouldStop)
+    {
+        var skippedTokens = new List<SyntaxToken>();
+
+        while (true)
+        {
+            var current = ReadToken();
+
+            if (skippedTokens.Count == 0 && current.LeadingTrivia.Count > 0)
+                current = current.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
+
+            skippedTokens.Add(current);
+
+            var next = PeekToken();
+            if (next.Kind == SyntaxKind.EndOfFileToken || shouldStop(next))
+                break;
+        }
+
+        return skippedTokens;
+    }
+
+    protected SyntaxToken CreateSkippedToken(List<SyntaxToken> skippedTokens)
+    {
+        var trivia = new SyntaxTrivia(new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray())));
+
+        return new SyntaxToken(
+            SyntaxKind.None,
+            string.Empty,
+            SyntaxTriviaList.Create([trivia]),
+            SyntaxTriviaList.Empty);
+    }
+
     protected BaseParseContext GetBaseContext()
     {
         ParseContext ctx = this;

@@ -41,7 +41,8 @@ func main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1902").WithSpan(3, 9, 3, 14)
+                new DiagnosticResult("RAV1902").WithSpan(3, 9, 3, 14),
+                new DiagnosticResult("RAV0162").WithSpan(4, 9, 4, 11)
             ]);
 
         verifier.Verify();
@@ -83,7 +84,8 @@ func main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1903").WithSpan(3, 9, 3, 17)
+                new DiagnosticResult("RAV1903").WithSpan(3, 9, 3, 17),
+                new DiagnosticResult("RAV0162").WithSpan(4, 9, 4, 11)
             ]);
 
         verifier.Verify();
