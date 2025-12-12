@@ -40,7 +40,7 @@ internal abstract class ParseContext
 
     public virtual TextSpan GetStartOfLastToken() => Parent?.GetStartOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual TextSpan GetEndOfLastToken() => Parent?.GetEndOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
+    public virtual TextSpan GetEndOfLastToken(int width = 0) => Parent?.GetEndOfLastToken(width) ?? throw new InvalidOperationException("No base or parent set");
 
     public virtual TextSpan GetSpanOfLastToken() => Parent?.GetSpanOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
 

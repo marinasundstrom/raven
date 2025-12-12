@@ -38,12 +38,12 @@ internal class BaseParseContext : ParseContext
         return new TextSpan(Position - LastToken.FullWidth, 0);
     }
 
-    public override TextSpan GetEndOfLastToken()
+    public override TextSpan GetEndOfLastToken(int width = 0)
     {
         if (LastToken is null)
             throw new InvalidOperationException("Have not started parsing yet");
 
-        return new TextSpan(Position - LastToken.TrailingTrivia.Width, 0);
+        return new TextSpan(Position - LastToken.TrailingTrivia.Width, width);
     }
 
     public override TextSpan GetSpanOfLastToken()

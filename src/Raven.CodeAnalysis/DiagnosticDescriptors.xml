@@ -446,4 +446,8 @@
   <Descriptor Id="RAV2601" Identifier="ContinueStatementNotWithinLoop" Title="Continue statement not within loop"
     Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV3601" Identifier="UnmatchedCharacter"
+    Title="Unmatched character"
+    Message="Unmatched '{character}'" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>
