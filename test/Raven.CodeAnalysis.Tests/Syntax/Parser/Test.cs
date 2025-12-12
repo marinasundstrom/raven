@@ -650,6 +650,26 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Statement_InvalidTokenInBlock_SkipsUntilNextStatement()
+    {
+        var syntaxTree = SyntaxTree.ParseText("if (true) { ) if (true) return; }");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var globalStatement = Assert.IsType<GlobalStatementSyntax>(root.Members.Single());
+        var ifStatement = Assert.IsType<IfStatementSyntax>(globalStatement.Statement);
+        var block = Assert.IsType<BlockStatementSyntax>(ifStatement.ThenStatement);
+
+        block.Statements.Count.ShouldBe(2);
+
+        var incompleteStatement = Assert.IsType<IncompleteStatementSyntax>(block.Statements[0]);
+        var skippedTrivia = incompleteStatement.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+        Assert.IsType<IfStatementSyntax>(block.Statements[1]);
+    }
+
+    [Fact]
     public void CompilationUnit_InvalidTokens_ProduceIncompleteMember()
     {
         var syntaxTree = SyntaxTree.ParseText(")");
@@ -657,6 +677,41 @@ public class ParserNewlineTests
 
         var member = (IncompleteMemberDeclarationSyntax)root.Members.Single();
         var skippedTrivia = member.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
+
+    [Fact]
+    public void CompilationUnit_InvalidTokensAfterGlobalStatement_ProduceIncompleteMember()
+    {
+        var syntaxTree = SyntaxTree.ParseText("return;\n)");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        root.Members.Count.ShouldBe(2);
+
+        var firstMember = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        Assert.IsType<ReturnStatementSyntax>(firstMember.Statement);
+
+        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(root.Members[1]);
+        var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+    }
+
+    [Fact]
+    public void CompilationUnit_InvalidTokensWithModifiers_ProduceIncompleteMember()
+    {
+        var syntaxTree = SyntaxTree.ParseText("[A]\npublic )");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(root.Members.Single());
+
+        incompleteMember.AttributeLists.Count.ShouldBe(1);
+        incompleteMember.Modifiers.ShouldHaveSingleItem().Kind.ShouldBe(SyntaxKind.PublicKeyword);
+
+        var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
         var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
 
         skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
