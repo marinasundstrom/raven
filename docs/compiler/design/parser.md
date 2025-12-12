@@ -29,7 +29,7 @@ Trivia is associated with tokens and categorized as either leading or trailing, 
 
 ## Error recovery and incomplete syntax
 
-The parser keeps the full text of malformed constructs by threading unexpected tokens into `SkippedTokensTrivia`.
+The parser keeps the full text of malformed constructs by threading unexpected tokens into `SkippedTokensTrivia`. This structured trivia carries any tokens that could not be attached to a valid node so the syntax tree remains a faithful projection of the original text. Recovery heuristics typically attach the skipped trivia to a synthesized placeholder token or the previous token before resuming with the next viable construct.
 
 * If a token sequence cannot begin a statement, `IncompleteStatementSyntax` consumes the stray tokens and stores them as skipped trivia. This path covers regular blocks and global statements alike.
 * When the parser fails to form a member declaration (for example, after attributes or modifiers with no body), it produces an `IncompleteMemberDeclarationSyntax` and attaches the skipped tokens to a placeholder token so the compilation unit retains every character.
