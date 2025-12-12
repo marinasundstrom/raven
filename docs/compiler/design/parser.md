@@ -34,6 +34,10 @@ The parser keeps the full text of malformed constructs by threading unexpected t
 * If a token sequence cannot begin a statement, `IncompleteStatementSyntax` consumes the stray tokens and stores them as skipped trivia. This path covers regular blocks and global statements alike.
 * When the parser fails to form a member declaration (for example, after attributes or modifiers with no body), it produces an `IncompleteMemberDeclarationSyntax` and attaches the skipped tokens to a placeholder token so the compilation unit retains every character.
 
+### Block-aware resynchronization
+
+While consuming tokens the parser tracks block depth so it can resynchronize at the right structural boundary. Recovery routines such as `SkipUntil` stop before a closing brace whenever the parser is inside a block, allowing a stray `}` to close the current block instead of being swallowed as skipped trivia. Checkpoints record block depth alongside token position so rewinding restores the nesting state before retrying a parse path.
+
 ## Parsing methods
 
 - **`SyntaxTree Parse(SourceText sourceText)`**: Parses the entire source code file and generates a complete `SyntaxTree` that represents the structure of the source code.

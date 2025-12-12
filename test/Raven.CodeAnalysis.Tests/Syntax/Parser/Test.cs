@@ -718,6 +718,54 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void IfStatement_ReSyncsAtClosingBrace_WhenTokensAreSkippedInBlock()
+    {
+        var syntaxTree = SyntaxTree.ParseText("if (true) { let x = 0; ) } else { }");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var ifStatement = Assert.IsType<IfStatementSyntax>(Assert.IsType<GlobalStatementSyntax>(root.Members.Single()).Statement);
+        var thenBlock = Assert.IsType<BlockStatementSyntax>(ifStatement.ThenStatement);
+
+        thenBlock.Statements.Count.ShouldBe(2);
+
+        var incomplete = Assert.IsType<IncompleteStatementSyntax>(thenBlock.Statements[1]);
+        var skippedTokens = (SkippedTokensTrivia)incomplete.SkippedTokens.LeadingTrivia
+            .Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia)
+            .GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+        thenBlock.CloseBraceToken.Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+
+        Assert.NotNull(ifStatement.ElseClause);
+        Assert.IsType<BlockStatementSyntax>(ifStatement.ElseClause!.Statement);
+    }
+
+    [Fact]
+    public void Block_ResyncsAfterSkippedTokens_AndContinuesParsingFollowingStatements()
+    {
+        var syntaxTree = SyntaxTree.ParseText("{ let x = 0; ) } let y = 1;");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        root.Members.Count.ShouldBe(2);
+
+        var firstMember = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        var block = Assert.IsType<BlockStatementSyntax>(firstMember.Statement);
+
+        block.Statements.Count.ShouldBe(2);
+
+        var incomplete = Assert.IsType<IncompleteStatementSyntax>(block.Statements[1]);
+        var skippedTokens = (SkippedTokensTrivia)incomplete.SkippedTokens.LeadingTrivia
+            .Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia)
+            .GetStructure()!;
+
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+        block.CloseBraceToken.Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+
+        var trailingStatement = Assert.IsType<GlobalStatementSyntax>(root.Members[1]);
+        Assert.IsType<LocalDeclarationStatementSyntax>(trailingStatement.Statement);
+    }
+
+    [Fact]
     public void SkipUntil_StopsAtClosingBrace_WhenInsideBlock()
     {
         var context = new BaseParseContext(new Lexer(new StringReader("{ x }")));
