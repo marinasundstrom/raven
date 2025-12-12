@@ -8,6 +8,7 @@ internal struct ParserCheckpoint : IDisposable
 
     private readonly SyntaxToken? _lastToken;
     private readonly List<SyntaxTrivia> _pendingTriviaSnapshot;
+    private readonly int _blockDepth;
 
     internal ParserCheckpoint(BaseParseContext context, string debugName = "")
     {
@@ -16,6 +17,7 @@ internal struct ParserCheckpoint : IDisposable
         _position = context.Position;
         _lastToken = context._lastToken;
         _pendingTriviaSnapshot = [.. context._pendingTrivia];
+        _blockDepth = context._blockDepth;
     }
 
     public string DebugName => _debugName;
@@ -24,6 +26,7 @@ internal struct ParserCheckpoint : IDisposable
     {
         _context.RewindToPosition(_position);
         _context._lastToken = _lastToken;
+        _context._blockDepth = _blockDepth;
         _context._pendingTrivia.Clear();
         _context._pendingTrivia.AddRange(_pendingTriviaSnapshot);
     }

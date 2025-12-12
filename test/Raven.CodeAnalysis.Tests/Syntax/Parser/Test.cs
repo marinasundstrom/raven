@@ -716,4 +716,21 @@ public class ParserNewlineTests
 
         skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
     }
+
+    [Fact]
+    public void SkipUntil_StopsAtClosingBrace_WhenInsideBlock()
+    {
+        var context = new BaseParseContext(new Lexer(new StringReader("{ x }")));
+
+        context.ReadToken().Kind.ShouldBe(SyntaxKind.OpenBraceToken);
+
+        context.SkipUntil(SyntaxKind.SemicolonToken);
+
+        var next = context.PeekToken();
+        next.Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+        context.IsInBlock.ShouldBeTrue();
+
+        context.ReadToken().Kind.ShouldBe(SyntaxKind.CloseBraceToken);
+        context.IsInBlock.ShouldBeFalse();
+    }
 }

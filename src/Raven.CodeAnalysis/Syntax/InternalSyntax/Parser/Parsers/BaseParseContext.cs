@@ -10,6 +10,7 @@ internal class BaseParseContext : ParseContext
     internal SyntaxToken? _lastToken;
     private readonly ILexer _lexer;
     private int _position;
+    internal int _blockDepth;
     private bool _treatNewlinesAsTokens;
     internal readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
     internal readonly List<SyntaxTrivia> _pendingTrivia = new();
@@ -24,6 +25,10 @@ internal class BaseParseContext : ParseContext
     public override int Position => _position;
 
     public override SyntaxToken? LastToken => _lastToken;
+
+    public override int BlockDepth => _blockDepth;
+
+    public override bool IsInBlock => _blockDepth > 0;
 
     public override TextSpan GetStartOfLastToken()
     {
@@ -167,6 +172,8 @@ internal class BaseParseContext : ParseContext
         // Update the position
         _position += _lastToken.FullWidth;
 
+        TrackBlockDepth(_lastToken);
+
         return _lastToken;
     }
 
@@ -251,6 +258,20 @@ internal class BaseParseContext : ParseContext
     private bool ShouldPromoteToNewlineToken()
     {
         return TreatNewlinesAsTokens && !IsInsideParens;
+    }
+
+    private void TrackBlockDepth(SyntaxToken token)
+    {
+        switch (token.Kind)
+        {
+            case SyntaxKind.OpenBraceToken:
+                _blockDepth++;
+                break;
+            case SyntaxKind.CloseBraceToken:
+                if (_blockDepth > 0)
+                    _blockDepth--;
+                break;
+        }
     }
 
     private SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
@@ -458,7 +479,11 @@ internal class BaseParseContext : ParseContext
 
         SyntaxToken token = PeekToken();
 
-        while (!expectedKind.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken)
+        bool IsBlockRecoveryStopper(SyntaxToken t) => IsInBlock && t.Kind == SyntaxKind.CloseBraceToken;
+
+        while (!expectedKind.Contains(token.Kind)
+            && token.Kind != SyntaxKind.EndOfFileToken
+            && !IsBlockRecoveryStopper(token))
         {
             skippedTokens.Add(ReadToken());
 
@@ -466,7 +491,7 @@ internal class BaseParseContext : ParseContext
         }
 
         // If we reached end-of-file, preserve the skipped tokens as trivia and return a None token
-        if (token.Kind == SyntaxKind.EndOfFileToken)
+        if (token.Kind == SyntaxKind.EndOfFileToken || IsBlockRecoveryStopper(token))
         {
             if (skippedTokens.Count > 0)
             {
