@@ -3,5 +3,20 @@ import System.Console.*
 class Program {
     static Main() -> () {
         WriteLine("Hello, World!")
+
+        val f = Foo()
+        WriteLine(f.Result)
+        f.DoSomething(2)
+        WriteLine(f.Result)
+    }
+}
+
+class Foo {
+    private var _x: int = 2
+
+    public Result: int => _x
+
+    public DoSomething(no: int) -> () {
+        self._x += no
     }
 }

@@ -236,7 +236,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/test20{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/hello-world-oop{RavenFileExtensions.Raven}");
 
 if (run && outputKind != OutputKind.ConsoleApplication)
 {

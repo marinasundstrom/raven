@@ -1,6 +1,6 @@
 // Test file: Fallback parsing
 
-val x = 2
+val x = true
 if x { 
-   Console.WriteLine("Hello")
-33 } ff 
+   System.Console.WriteLine("Hello")
+33 }
