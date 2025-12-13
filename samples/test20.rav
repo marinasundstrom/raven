@@ -1,10 +1,7 @@
 // Test file: Fallback parsing
 
-let x = 42
-let foo = 42
+val x = 2
+if x { 
 
-System.Console.WriteLine(x); "dd"
-    .ToString()
 
-2 + x; foo
-42
+33 } ff 

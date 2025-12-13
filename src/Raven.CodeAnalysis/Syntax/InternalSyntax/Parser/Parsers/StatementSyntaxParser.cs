@@ -163,12 +163,23 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private IncompleteStatementSyntax ParseIncompleteStatement()
     {
+        var peek = PeekToken();
+        var span = GetSpanOfPeekedToken();
+
         var skippedTokens = ConsumeSkippedTokensUntil(static token =>
             token.Kind is SyntaxKind.SemicolonToken or SyntaxKind.CloseBraceToken or SyntaxKind.NewLineToken or
             SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken ||
             IsTokenPotentialStatementStart(token));
 
         var skippedToken = CreateSkippedToken(skippedTokens);
+
+        // TEMP
+        if (skippedTokens.Any(x => x.IsKind(SyntaxKind.CloseBraceToken)))
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.UnmatchedCharacter,
+                span, '}'));
+        }
 
         return IncompleteStatement(skippedToken, Diagnostics);
     }
@@ -272,6 +283,15 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var condition = new ExpressionSyntaxParser(this).ParseExpression();
 
+        var p = PeekToken();
+
+        if (!p.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetEndOfLastToken(1), '{'));
+        }
+
         var thenStatement = ParseStatement();
 
         SyntaxToken? elseKeyword = null;
@@ -282,6 +302,16 @@ internal class StatementSyntaxParser : SyntaxParser
         if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseTok))
         {
             elseKeyword = elseTok;
+
+            p = PeekToken();
+
+            if (!p.IsKind(SyntaxKind.OpenBraceToken))
+            {
+                AddDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetEndOfLastToken(1), '{'));
+            }
+
             elseStatement = ParseStatement();
 
             elseClause = ElseClause2(elseKeyword, elseStatement);

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
+
 using GreenNode = Raven.CodeAnalysis.Syntax.GreenNode;
 
 internal class CompilationUnitSyntaxParser : SyntaxParser
@@ -263,10 +264,21 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     private SyntaxToken ParseIncompleteMemberTokens()
     {
+        var peek = PeekToken();
+        var span = GetSpanOfPeekedToken();
+
         var skippedTokens = ConsumeSkippedTokensUntil(token =>
             token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken ||
             IsPossibleCompilationUnitMemberStart(token) ||
             StatementSyntaxParser.IsTokenPotentialStatementStart(token));
+
+        // TEMP
+        if (skippedTokens.Any(x => x.IsKind(SyntaxKind.CloseBraceToken)))
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.UnmatchedCharacter,
+                span, '}'));
+        }
 
         return CreateSkippedToken(skippedTokens);
     }
