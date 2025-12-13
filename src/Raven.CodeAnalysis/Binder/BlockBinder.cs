@@ -2365,6 +2365,12 @@ partial class BlockBinder : Binder
     {
         var condition = BindExpression(ifExpression.Condition);
 
+        if (condition.Type.SpecialType != SpecialType.System_Boolean)
+        {
+            var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+            _diagnostics.ReportCannotConvertFromTypeToType(condition.Type, boolType, ifExpression.Condition.GetLocation());
+        }
+
         var thenBinder = SemanticModel.GetBinder(ifExpression, this);
         var thenExpr = thenBinder is BlockBinder bb
             ? bb.BindExpression(ifExpression.Expression, _allowReturnsInExpression)

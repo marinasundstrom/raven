@@ -2,6 +2,5 @@
 
 val x = 2
 if x { 
-
-
+   Console.WriteLine("Hello")
 33 } ff 
