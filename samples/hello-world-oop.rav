@@ -11,12 +11,18 @@ class Program {
     }
 }
 
-class Foo {
-    private var _x: int = 2
+        var v = await f.Test(21);
+        WriteLine(v)
 
-    public Result: int => _x
+public class Foo(var defaultValue: int = 0) {
+    public Result: int => defaultValue
 
     public DoSomething(no: int) -> () {
-        self._x += no
+        defaultValue += no
+    }
+
+    public async Test(value: int) -> Task<int> {
+        await Task.Delay(200)
+        return value * 2
     }
 }
