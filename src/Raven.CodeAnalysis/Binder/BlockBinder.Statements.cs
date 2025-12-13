@@ -26,11 +26,14 @@ partial class BlockBinder
     private BoundStatement BindIfStatement(IfStatementSyntax ifStmt)
     {
         var condition = BindExpression(ifStmt.Condition);
-        if (condition.Type.SpecialType != SpecialType.System_Boolean)
+
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+        var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
+        if (!conversion.Exists)
         {
-            var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
             _diagnostics.ReportCannotConvertFromTypeToType(condition.Type, boolType, ifStmt.Condition.GetLocation());
         }
+
         var thenBound = BindStatement(ifStmt.ThenStatement);
         BoundStatement? elseBound = null;
         if (ifStmt.ElseClause is not null)
