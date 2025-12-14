@@ -14,8 +14,9 @@ class Program
     static void Main()
     {
         //QuoterTest();
-        PrintMembers();
+        //PrintMembers();
         //ReadType();
+        Operations();
     }
 
     static void QuoterTest()
@@ -317,5 +318,37 @@ class Program
             var lengthMembers = stringType.GetMembers("Length");
             Console.WriteLine($"String Length members: {lengthMembers.Length}");
         }
+    }
+
+    static void Operations()
+    {
+        string sourceCode = """
+        val x = 42
+        """;
+
+        SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+
+        var compilation = Compilation.Create("test", [syntaxTree], options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
+        var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
+        };
+        compilation = compilation.AddReferences(references);
+
+        // force setup
+        compilation.GetDiagnostics();
+
+        var tree = compilation.SyntaxTrees.First();
+        var root = tree.GetRoot();
+
+        var gs = root.Members.OfType<GlobalStatementSyntax>().First();
+
+        var operation = compilation.GetSemanticModel(tree).GetOperation(gs.Statement);
     }
 }

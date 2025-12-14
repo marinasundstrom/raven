@@ -18,7 +18,7 @@ public abstract class OperationVisitor
     /// </summary>
     public virtual void DefaultVisit(IOperation operation)
     {
-        foreach (var child in operation.Children)
+        foreach (var child in operation.ChildOperations)
             Visit(child);
     }
 }
@@ -41,7 +41,7 @@ public abstract class OperationVisitor<TResult>
     /// </summary>
     public virtual TResult DefaultVisit(IOperation operation)
     {
-        foreach (var child in operation.Children)
+        foreach (var child in operation.ChildOperations)
             Visit(child);
 
         return default!;

@@ -43,7 +43,7 @@ public interface IOperation
     /// <summary>
     /// Gets the child operations contained within this operation.
     /// </summary>
-    ImmutableArray<IOperation> Children { get; }
+    ImmutableArray<IOperation> ChildOperations { get; }
 
     /// <summary>
     /// Accepts the specified visitor.

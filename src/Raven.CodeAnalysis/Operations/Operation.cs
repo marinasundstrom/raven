@@ -45,7 +45,7 @@ public abstract class Operation : IOperation
     public bool IsImplicit { get; }
 
     /// <inheritdoc />
-    public ImmutableArray<IOperation> Children => _lazyChildren.Value;
+    public ImmutableArray<IOperation> ChildOperations => _lazyChildren.Value;
 
     /// <inheritdoc />
     public IOperation? Parent => _parent;
