@@ -126,6 +126,9 @@ class MethodBodyBinder : BlockBinder
 
         var returnType = _methodSymbol.ReturnType;
 
+        if (returnType is ErrorTypeSymbol)
+            return false;
+
         if (returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return true;
 

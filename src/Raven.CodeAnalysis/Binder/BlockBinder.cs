@@ -1077,6 +1077,7 @@ partial class BlockBinder : Binder
             return operand;
 
         var operandType = operand.Type;
+
         if (operandType is null || operandType.TypeKind == TypeKind.Error)
         {
             _diagnostics.ReportExpressionIsNotAwaitable(
@@ -2967,6 +2968,11 @@ partial class BlockBinder : Binder
             return method.ReturnType;
 
         var returnType = method.ReturnType;
+
+        if (returnType is ErrorTypeSymbol)
+        {
+            return returnType;
+        }
 
         if (method.IsAsync &&
             returnType is INamedTypeSymbol namedReturn &&
