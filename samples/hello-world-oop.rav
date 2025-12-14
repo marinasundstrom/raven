@@ -1,18 +1,33 @@
+import System.*
 import System.Console.*
+import System.Threading.Tasks.*
+import System.Threading.Tasks.Task.*
 
 class Program {
     static Main() -> () {
+        MainAsync().GetAwaiter().GetResult()
+    }
+
+    static async MainAsync() -> Task {
         WriteLine("Hello, World!")
 
         val f = Foo()
         WriteLine(f.Result)
         f.DoSomething(2)
         WriteLine(f.Result)
+
+        val v = await f.Test(21);
+
+        WriteLine(v.UnwrapOrThrow())
+
+        val r = v match {
+            .Ok(x) => "Value is: $x"
+            .Error(msg) => "Error: $msg"
+        }
+
+        WriteLine(r)
     }
 }
-
-        var v = await f.Test(21);
-        WriteLine(v)
 
 public class Foo(var defaultValue: int = 0) {
     public Result: int => defaultValue
@@ -21,8 +36,8 @@ public class Foo(var defaultValue: int = 0) {
         defaultValue += no
     }
 
-    public async Test(value: int) -> Task<int> {
-        await Task.Delay(200)
-        return value * 2
+    public async Test(value: int) -> Task<Result<int>> {
+        await Delay(5000)
+        return .Ok(value * 2)
     }
 }

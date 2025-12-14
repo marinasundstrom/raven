@@ -68,6 +68,8 @@ public partial class Compilation
                 return true;
         }
 
+        // INFO: Need to reconsider for async Main methods
+
         var taskType = GetTypeByMetadataName("System.Threading.Tasks.Task");
         if (taskType is not null && SymbolEqualityComparer.Default.Equals(returnType, taskType))
             return true;

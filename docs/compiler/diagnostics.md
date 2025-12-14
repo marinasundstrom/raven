@@ -336,7 +336,7 @@ that matches one of the supported signatures.
 
 ```raven
 // Console project without top-level statements or a matching Main method
-// RAV1014: Program.Main entry point not found
+// RAV1014: Entry point 'Main' not found
 ```
 
 ## RAV1017: Program has more than one entry point defined

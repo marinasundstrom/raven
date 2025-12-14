@@ -278,7 +278,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             or SpecialType.System_Object
             or SpecialType.System_Single
             or SpecialType.System_String
-            or SpecialType.System_Unit;
+            or SpecialType.System_Unit
+            or SpecialType.System_Threading_Tasks_Task;
     }
 
     private static bool TryGetParameterOrdinal(IParameterSymbol parameter, out int ordinal)

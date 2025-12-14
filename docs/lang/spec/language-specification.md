@@ -1322,7 +1322,7 @@ static method named `Main` qualifies when it meets the following requirements:
 
 If exactly one method satisfies these conditions, it becomes the entry point for
 the compilation. When no method qualifies, the compiler reports
-`RAV1014` *Program.Main entry point not found*. Declaring more than one valid
+`RAV1014` *Entry point 'Main' not found*. Declaring more than one valid
 `Main` (including mixing top-level statements with a matching method) causes the
 compiler to emit `RAV1017` *Program has more than one entry point defined*.
 
