@@ -292,13 +292,50 @@ public static class ConsoleSyntaxHighlighter
 
     private static SemanticClassification GetClassificationAt(List<TokenSpan> tokens, int index)
     {
+        SemanticClassification best = SemanticClassification.Default;
+        var bestPri = -1;
+
         foreach (var span in tokens)
         {
-            if (index >= span.Start && index < span.End)
-                return span.Classification;
+            if (index < span.Start || index >= span.End)
+                continue;
+
+            var pri = GetClassificationPriority(span.Classification);
+            if (pri > bestPri)
+            {
+                bestPri = pri;
+                best = span.Classification;
+            }
         }
-        return SemanticClassification.Default;
+
+        return best;
     }
+
+    private static int GetClassificationPriority(SemanticClassification c) => c switch
+    {
+        // trivia-ish / strongest overlays
+        SemanticClassification.Comment => 100,
+
+        // literals
+        SemanticClassification.StringLiteral => 90,
+        SemanticClassification.Interpolation => 85,
+        SemanticClassification.NumericLiteral => 80,
+
+        // language / semantic
+        SemanticClassification.Keyword => 70,
+        SemanticClassification.Type => 65,
+        SemanticClassification.Namespace => 60,
+        SemanticClassification.Method => 55,
+
+        // symbols
+        SemanticClassification.Property => 50,
+        SemanticClassification.Field => 45,
+        SemanticClassification.Parameter => 40,
+        SemanticClassification.Local => 35,
+        SemanticClassification.Label => 30,
+
+        _ => 0
+    };
 
     private static void AddTokenSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, SyntaxToken token,
         SemanticClassification classification)
@@ -312,37 +349,80 @@ public static class ConsoleSyntaxHighlighter
         AddTokenSpan(lineTokens, lines, text, span, classification, tokenText: null);
     }
 
-    private static void AddTokenSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, TextSpan span,
-        SemanticClassification classification, string? tokenText)
+    private static void AddTokenSpan(
+    List<TokenSpan>[] lineTokens,
+    string[] lines,
+    SourceText text,
+    TextSpan span,
+    SemanticClassification classification,
+    string? tokenText)
     {
         var (startLine1, startCol1) = text.GetLineAndColumn(span);
         var (endLine1, endCol1) = text.GetLineAndColumn(new TextSpan(span.End, 0));
+
         var startLine = startLine1 - 1;
         var startCol = startCol1 - 1;
         var endLine = endLine1 - 1;
         var endCol = endCol1 - 1;
+
         for (var line = startLine; line <= endLine; line++)
         {
-            var start = line == startLine ? startCol : 0;
-            var end = line == endLine ? endCol : lines[line].Length;
+            var lineText = lines[line];
 
+            var start = line == startLine ? startCol : 0;
+            var end = line == endLine ? endCol : lineText.Length;
+
+            start = Math.Clamp(start, 0, lineText.Length);
+            end = Math.Clamp(end, 0, lineText.Length);
+
+            if (end <= start)
+                continue;
+
+            // IMPORTANT: only attempt “relocation” if the expected slice doesn't match.
+            // This prevents “Foo() -> Foo” from highlighting the wrong Foo.
             if (tokenText is { Length: > 0 } && startLine == endLine)
             {
-                var lineText = lines[line];
-                var searchStart = Math.Clamp(start, 0, lineText.Length);
-                var actualIndex = lineText.IndexOf(tokenText, searchStart, StringComparison.Ordinal);
-                if (actualIndex < 0 && searchStart > 0)
-                    actualIndex = lineText.LastIndexOf(tokenText, searchStart, StringComparison.Ordinal);
-                if (actualIndex >= 0)
+                var expectedLen = Math.Min(tokenText.Length, lineText.Length - start);
+                var slice = expectedLen > 0 ? lineText.Substring(start, expectedLen) : string.Empty;
+
+                if (!slice.Equals(tokenText, StringComparison.Ordinal))
                 {
-                    start = actualIndex;
-                    end = Math.Min(lineText.Length, actualIndex + tokenText.Length);
+                    // Search in a small window near the expected location and pick the closest match.
+                    var windowStart = Math.Max(0, start - 8);
+                    var windowEnd = Math.Min(lineText.Length, end + 8);
+                    var windowLen = windowEnd - windowStart;
+
+                    if (windowLen > 0)
+                    {
+                        var window = lineText.Substring(windowStart, windowLen);
+
+                        var bestIndex = -1;
+                        var bestDistance = int.MaxValue;
+
+                        for (var idx = window.IndexOf(tokenText, StringComparison.Ordinal);
+                             idx >= 0;
+                             idx = window.IndexOf(tokenText, idx + 1, StringComparison.Ordinal))
+                        {
+                            var absolute = windowStart + idx;
+                            var dist = Math.Abs(absolute - start);
+                            if (dist < bestDistance)
+                            {
+                                bestDistance = dist;
+                                bestIndex = absolute;
+                            }
+                        }
+
+                        if (bestIndex >= 0)
+                        {
+                            start = bestIndex;
+                            end = Math.Min(lineText.Length, bestIndex + tokenText.Length);
+                        }
+                    }
                 }
             }
 
             var list = lineTokens[line] ??= new List<TokenSpan>();
-            if (end > start)
-                list.Add(new TokenSpan(start, end, classification));
+            list.Add(new TokenSpan(start, end, classification));
         }
     }
 
