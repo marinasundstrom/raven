@@ -59,6 +59,6 @@ public interface IVariableDeclaratorOperation : IOperation
     ImmutableArray<IOperation> IgnoredArguments { get; }
 }
 
-public interface IVariableInitializerOperation
+public interface IVariableInitializerOperation : IOperation
 {
 }
