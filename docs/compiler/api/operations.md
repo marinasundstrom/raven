@@ -1,9 +1,12 @@
 # Operations API
 
-The operations API exposes a tree of semantic nodes that sit between the binder's
-`BoundNode` graph and the syntax tree. It mirrors the `IOperation` surface from
-Roslyn so tooling and analyzers can reason about Raven programs using a stable,
-syntax-agnostic shape.
+The operations API exposes a tree of semantic nodes that sit between the
+binder's `BoundNode` graph and the syntax tree. It mirrors the `IOperation`
+surface from Roslyn so tooling and analyzers can reason about Raven programs
+using a stable, syntax-agnostic shape. Every concrete operation now has a
+dedicated class (for example, `BinaryOperation`, `InvocationOperation`, and
+`ReturnOperation`) so analyzers can inspect well-named properties rather than
+working with anonymous nodes.
 
 ---
 
@@ -20,6 +23,26 @@ syntax-agnostic shape.
 
 Operations form a tree rooted at the syntax node that produced them. The tree is
 constructed lazily—child operations are only realized when they are accessed.
+Each operation caches the typed symbol information from the corresponding bound
+node (such as referenced locals, methods, or properties) and reuses
+`SemanticModel.GetOperation` to populate children on demand.
+
+### Walking and rewriting
+
+The `tools/OperationGenerator` utility emits strongly typed visitors for the
+operation tree:
+
+```bash
+(cd src/Raven.CodeAnalysis && dotnet run --project ../../tools/OperationGenerator)
+```
+
+- `OperationVisitor` / `OperationVisitor<TResult>` expose a `Visit{Kind}` method
+  for every operation kind so analyzers can override only the shapes they care
+  about.
+- `OperationWalker` dispatches to those methods while defaulting to walking
+  child operations.
+- `OperationRewriter` mirrors the walker but returns the visited operation so
+  transforms can be implemented incrementally.
 
 ## Retrieving operations
 
@@ -89,6 +112,10 @@ semantic kinds for:
   expressions.
 - Contextual references: `NamespaceExpression` and `SelfReference` to model
   namespace qualifiers and `self`/`this` usages.
+- Local declarations surface as `IVariableDeclarationOperation` nodes that
+  expose each `IVariableDeclaratorOperation`, including explicit initializers
+  where present, so analyzers can understand declared locals without
+  inspecting syntax.
 
 ## Current limitations
 

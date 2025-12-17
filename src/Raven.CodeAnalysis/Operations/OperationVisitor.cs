@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Operations;
 /// <summary>
 /// Represents a visitor that can traverse an operation tree.
 /// </summary>
-public abstract class OperationVisitor
+public abstract partial class OperationVisitor
 {
     /// <summary>
     /// Visits an operation.
@@ -26,7 +26,7 @@ public abstract class OperationVisitor
 /// <summary>
 /// Represents a visitor that can traverse an operation tree and return a value.
 /// </summary>
-public abstract class OperationVisitor<TResult>
+public abstract partial class OperationVisitor<TResult>
 {
     /// <summary>
     /// Visits an operation.

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -323,7 +324,7 @@ class Program
     static void Operations()
     {
         string sourceCode = """
-        val x = 42
+        val x = 42, s = 2
         """;
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
@@ -349,6 +350,11 @@ class Program
 
         var gs = root.Members.OfType<GlobalStatementSyntax>().First();
 
-        var operation = compilation.GetSemanticModel(tree).GetOperation(gs.Statement);
+        var localDeclarationStatement = gs.Statement as LocalDeclarationStatementSyntax;
+
+        var operation = compilation.GetSemanticModel(tree)
+            .GetOperation(localDeclarationStatement!) as IVariableDeclarationOperation;
+
+        var declarators = operation!.Declarators.ToList();
     }
 }

@@ -103,7 +103,7 @@ partial class BlockBinder : Binder
         return new SymbolInfo(Compilation.SourceGlobalNamespace);
     }
 
-    private BoundLocalDeclarationStatement BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
+    private BoundVariableDeclarator BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
         var name = variableDeclarator.Identifier.ValueText;
         var decl = (VariableDeclarationSyntax)variableDeclarator.Parent!;
@@ -120,11 +120,7 @@ partial class BlockBinder : Binder
                 reference.Span == variableDeclarator.Span);
 
             if (isSameDeclarator)
-            {
-                return new BoundLocalDeclarationStatement(
-                    [new BoundVariableDeclarator(existing.Symbol, null)],
-                    isUsingDeclaration);
-            }
+                return new BoundVariableDeclarator(existing.Symbol, null);
 
             isShadowingExistingInScope = true;
         }
@@ -287,7 +283,9 @@ partial class BlockBinder : Binder
         if (shouldDispose)
             _localsToDispose.Add((declarator.Local, _scopeDepth));
 
-        return new BoundLocalDeclarationStatement([declarator], isUsingDeclaration);
+        CacheBoundNode(variableDeclarator, declarator);
+
+        return declarator;
     }
 
     protected ITypeSymbol EnsureTypeAccessible(ITypeSymbol type, Location location)
@@ -533,29 +531,43 @@ partial class BlockBinder : Binder
     private BoundStatement BindLocalDeclarationStatement(LocalDeclarationStatementSyntax localDeclaration)
     {
         var declaration = localDeclaration.Declaration;
-        var declarator = declaration.Declarators[0];
 
         if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
-            IsDiscardDeclarator(declarator))
+            declaration.Declarators.Count > 0 &&
+            IsDiscardDeclarator(declaration.Declarators[0]))
         {
-            return BindDiscardDeclarator(declarator, isUsingDeclaration: false);
+            return BindDiscardDeclarator(declaration.Declarators[0], isUsingDeclaration: false);
         }
 
-        return BindLocalDeclaration(declarator);
+        var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Count);
+
+        foreach (var declarator in declaration.Declarators)
+        {
+            boundDeclarators.Add(BindLocalDeclaration(declarator));
+        }
+
+        return new BoundLocalDeclarationStatement(boundDeclarators.ToImmutable(), isUsing: false);
     }
 
     private BoundStatement BindUsingDeclarationStatement(UsingDeclarationStatementSyntax usingDeclaration)
     {
         var declaration = usingDeclaration.Declaration;
-        var declarator = declaration.Declarators[0];
 
         if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
-            IsDiscardDeclarator(declarator))
+            declaration.Declarators.Count > 0 &&
+            IsDiscardDeclarator(declaration.Declarators[0]))
         {
-            return BindDiscardDeclarator(declarator, isUsingDeclaration: true);
+            return BindDiscardDeclarator(declaration.Declarators[0], isUsingDeclaration: true);
         }
 
-        return BindLocalDeclaration(declarator);
+        var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Count);
+
+        foreach (var declarator in declaration.Declarators)
+        {
+            boundDeclarators.Add(BindLocalDeclaration(declarator));
+        }
+
+        return new BoundLocalDeclarationStatement(boundDeclarators.ToImmutable(), isUsing: true);
     }
 
     private static bool IsDiscardDeclarator(VariableDeclaratorSyntax variableDeclarator)

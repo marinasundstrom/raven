@@ -34,7 +34,7 @@ public interface IVariableDeclarationOperation : IOperation
     /// <remarks>
     /// In C#, this will always be a single declaration, with all variables in <see cref="IVariableDeclarationOperation.Declarators" />.
     /// </remarks>
-    ImmutableArray<IVariableDeclarationOperation> Declarations { get; }
+    ImmutableArray<IVariableDeclaratorOperation> Declarators { get; }
 }
 
 public interface IVariableDeclaratorOperation : IOperation
@@ -59,6 +59,10 @@ public interface IVariableDeclaratorOperation : IOperation
     ImmutableArray<IOperation> IgnoredArguments { get; }
 }
 
-public interface IVariableInitializerOperation
+public interface IVariableInitializerOperation : IOperation
 {
+    /// <summary>
+    /// Value assigned during initialization.
+    /// </summary>
+    IOperation? Value { get; }
 }
