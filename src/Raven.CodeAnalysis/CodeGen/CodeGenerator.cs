@@ -662,6 +662,25 @@ internal class CodeGenerator
         return e.Type ?? e?.TypeBuilder;
     }
 
+    private MethodGenerator? EnsureEntryPointGenerator(IMethodSymbol? entryPointSymbol)
+    {
+        if (entryPointSymbol is null)
+            return null;
+
+        var typeGenerator = GetOrCreateTypeGenerator(entryPointSymbol.ContainingType);
+        var generator = typeGenerator.GetMethodGenerator(entryPointSymbol);
+
+        if (generator is not null)
+            return generator;
+
+        generator = new MethodGenerator(typeGenerator, entryPointSymbol, ILBuilderFactory);
+        typeGenerator.Add(entryPointSymbol, generator);
+        generator.DefineMethodBuilder();
+        AddMemberBuilder((SourceSymbol)entryPointSymbol, generator.MethodBase);
+
+        return generator;
+    }
+
     public void Emit(Stream peStream, Stream? pdbStream)
     {
         try
@@ -694,29 +713,13 @@ internal class CodeGenerator
 
             DefineMemberBuilders();
 
+            var entryPointGenerator = EnsureEntryPointGenerator(entryPointSymbol);
+
             EmitMemberILBodies();
 
             CreateTypes();
-            MethodGenerator? entryPointGenerator = null;
 
-            if (entryPointSymbol is not null)
-            {
-                foreach (var typeGenerator in _typeGenerators.Values)
-                {
-                    var generator = typeGenerator.GetMethodGenerator(entryPointSymbol);
-                    if (generator is not null)
-                    {
-                        entryPointGenerator = generator;
-                        break;
-                    }
-                }
-
-                if (entryPointGenerator is null)
-                {
-                    throw new InvalidOperationException("Failed to locate entry point method.");
-                }
-            }
-            else
+            if (entryPointGenerator is null)
             {
                 entryPointGenerator = _typeGenerators.Values
                     .SelectMany(x => x.MethodGenerators)
