@@ -21,7 +21,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _declaredInExtension;
     private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
     private bool? _lazyIsExtensionMethod;
-    private ImmutableArray<AttributeData> _lazyAttributesWithExtension;
+    private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
     private IteratorMethodKind _iteratorKind;
     private ITypeSymbol? _iteratorElementType;
     private bool _isIterator;
@@ -31,6 +31,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _hasAsyncReturnTypeError;
     private bool _requiresAsyncReturnTypeInference;
     private bool _asyncReturnTypeInferenceComplete;
+
+    private bool IsAutoPropertyAccessor
+        => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
+           && ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true };
 
     public SourceMethodSymbol(
         string name,
@@ -216,19 +220,34 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
-        if (!_declaredInExtension)
+        if (!_declaredInExtension && !IsAutoPropertyAccessor)
             return base.GetAttributes();
 
-        if (_lazyAttributesWithExtension.IsDefault)
+        if (_lazyAugmentedAttributes.IsDefault)
         {
             var baseAttributes = base.GetAttributes();
-            var extensionAttribute = CreateExtensionAttributeData();
-            _lazyAttributesWithExtension = extensionAttribute is null
+            var builder = ImmutableArray.CreateBuilder<AttributeData>();
+
+            if (IsAutoPropertyAccessor)
+            {
+                var compilerGenerated = CreateCompilerGeneratedAttribute();
+                if (compilerGenerated is not null)
+                    builder.Add(compilerGenerated);
+            }
+
+            if (_declaredInExtension)
+            {
+                var extensionAttribute = CreateExtensionAttributeData();
+                if (extensionAttribute is not null)
+                    builder.Add(extensionAttribute);
+            }
+
+            _lazyAugmentedAttributes = builder.Count == 0
                 ? baseAttributes
-                : baseAttributes.Add(extensionAttribute);
+                : baseAttributes.AddRange(builder.ToImmutable());
         }
 
-        return _lazyAttributesWithExtension;
+        return _lazyAugmentedAttributes;
     }
 
     internal void MarkAsyncReturnTypeError()
