@@ -112,6 +112,10 @@ semantic kinds for:
   expressions.
 - Contextual references: `NamespaceExpression` and `SelfReference` to model
   namespace qualifiers and `self`/`this` usages.
+- Local declarations surface as `IVariableDeclarationOperation` nodes that
+  expose each `IVariableDeclaratorOperation`, including explicit initializers
+  where present, so analyzers can understand declared locals without
+  inspecting syntax.
 
 ## Current limitations
 
