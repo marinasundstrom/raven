@@ -91,4 +91,75 @@ enum Shade {
         Assert.Equal("Program", entryPoint.ContainingType?.Name);
         Assert.Equal(SpecialType.System_Unit, entryPoint.ReturnType.SpecialType);
     }
+
+    [Fact]
+    public void TopLevelFunctionMain_IsEntryPoint()
+    {
+        const string source = """
+func Main() -> int => 0
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var entryPoint = compilation.GetEntryPoint();
+        var mainSymbol = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
+
+        Assert.False(mainSymbol.IsImplicitlyDeclared);
+        Assert.Equal("Program", mainSymbol.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void TopLevelFunctionMain_CanCoexistWithOtherMembers()
+    {
+        const string source = """
+func Helper() -> unit => ();
+
+func Main(args: string[]) -> unit {
+    Helper();
+}
+
+namespace Utility
+{
+    class Widget { }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var entryPoint = compilation.GetEntryPoint();
+        var mainSymbol = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
+
+        Assert.False(mainSymbol.IsImplicitlyDeclared);
+        Assert.Equal("Program", mainSymbol.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void TopLevelFunctionMain_RejectsAdditionalGlobalStatements()
+    {
+        const string source = """
+import System.Console.*
+
+let x = 2
+
+func Main() -> unit {
+    WriteLine("Hello World");
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TopLevelStatementsDisallowedWithMainFunction);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
+    }
 }

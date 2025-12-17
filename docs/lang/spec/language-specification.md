@@ -1292,6 +1292,22 @@ namespace A.B
 
 The outermost undeclared namespace is the **global namespace**.
 
+## Entry points
+
+### Supported entry-point forms
+
+Console applications may start in any of the following shapes, all of which obey
+the same signature rules:
+
+* **File-scope code (global statements):** executable statements at the top of a
+  file. These coexist with other declarations (namespaces, types, functions) in
+  the same compilation unit.
+* **Top-level function:** a global `func Main` declaration that can appear next
+  to other top-level members. When present, no other file-scope statements may
+  appear alongside it.
+* **Classic static method:** a `Main` method declared on a type such as
+  `Program.Main`.
+
 ### File-scope code rules
 
 Files may start with executable statements that aren't enclosed in a function or
@@ -1305,14 +1321,23 @@ file-scoped namespace.
 
 Function declarations (local function statements) within file-scope code are
 hoisted and may be referenced from anywhere in that file-scoped region,
-regardless of their order.
+regardless of their order. When file-scope code contains *only* function
+declarations, the compiler skips synthesizing the implicit `Program.Main`
+bridge; entry-point discovery falls back to user-defined candidates such as a
+top-level `func Main` alongside other global declarations.
+
+Defining a top-level `func Main` suppresses additional file-scope statements.
+Any other file-scope statement (including variable declarations or
+expressions) in the same compilation unit causes the compiler to emit
+`RAV1021` *Top-level statements are not allowed when 'Main' is declared as a
+top-level function*.
 
 ### Entry point resolution
 
 Console applications begin executing at the synthesized `Program.Main` bridge
 that forwards to the async `Program.MainAsync` backing file-scope code. When a
-project does not contain file-scope statements, the compiler instead looks for a
-user-defined entry point. Any
+project does not contain runnable file-scope statements, the compiler instead
+looks for a user-defined entry point. Any
 static method named `Main` qualifies when it meets the following requirements:
 
 * The method returns `unit`, `int`, `Task`, or `Task<int>`.
@@ -1327,14 +1352,17 @@ the compilation. When no method qualifies, the compiler reports
 compiler to emit `RAV1017` *Program has more than one entry point defined*.
 
 When the selected entry point returns `Task` or `Task<int>`, the compiler emits
-the synchronous `Program.Main` bridge that invokes the async body, awaits it via
+an implicit synchronous bridge method in the entry point's containing type. For
+file-scope code the bridge is `Program.Main`, while user-defined async entries
+receive a synthesized `<Main>_EntryPoint` neighbor unless a synchronous `Main`
+already exists. The bridge calls into the async implementation, awaits it via
 `GetAwaiter().GetResult()`, and forwards the resulting value (if any) to the host
 environment. A `Task`-returning entry point produces a bridge whose CLR
 signature omits a return value; the helper awaits the async body, discards the
 awaited `Unit` value, and only returns after the async work (such as console writes)
 completes. Exceptions thrown from the async body bubble through the same
 `GetResult()` call so the process exits with the same failure semantics as a
-purely synchronous entry point. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】
+purely synchronous entry point. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】【F:test/Raven.CodeAnalysis.Tests/CodeGen/CodeGeneratorTests.cs†L88-L144】
 
 Entry points that return `Task<int>` produce a bridge that awaits the async body
 and returns the awaited integer as the process exit code. The bridge also leaves

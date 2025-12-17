@@ -583,6 +583,21 @@ public partial class SemanticModel
         var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
         var hasNonGlobalMembers = Compilation.HasNonGlobalMembers(cu);
 
+        var topLevelMainFunctions = bindableGlobals
+            .Where(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
+            .ToArray();
+
+        if (topLevelMainFunctions.Length > 0)
+        {
+            foreach (var statement in bindableGlobals)
+            {
+                if (statement.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
+                    continue;
+
+                parentBinder.Diagnostics.ReportTopLevelStatementsDisallowedWithMainFunction(statement.GetLocation());
+            }
+        }
+
         var shouldCreateTopLevelProgram = bindableGlobals.Count > 0
             || (!hasNonGlobalMembers && Compilation.Options.OutputKind == OutputKind.ConsoleApplication);
 

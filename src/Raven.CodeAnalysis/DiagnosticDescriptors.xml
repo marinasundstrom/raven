@@ -316,6 +316,10 @@
     Title="Program has more than one entry point defined"
     Message="Program has more than one entry point defined" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1021" Identifier="TopLevelStatementsDisallowedWithMainFunction"
+    Title="Top-level statements not allowed with top-level Main"
+    Message="Top-level statements are not allowed when 'Main' is declared as a top-level function" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1015" Identifier="TryStatementRequiresCatchOrFinally"
     Title="try statement requires catch or finally"
     Message="A try statement must include at least one catch clause or a finally clause"
