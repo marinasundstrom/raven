@@ -438,26 +438,34 @@ partial class BlockBinder
 
             if (returnType is INamedTypeSymbol named)
             {
-                if (named.TypeArguments.Length == 1 &&
+                var typeArguments = named.TypeArguments;
+                if (!typeArguments.IsDefaultOrEmpty &&
+                    typeArguments.Length == 1 &&
                     genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
                     SymbolEqualityComparer.Default.Equals(
                         GetEnumerableDefinition(named),
                         genericEnumeratorDefinition))
                 {
-                    elementType = named.TypeArguments[0];
+                    elementType = typeArguments[0];
                     return true;
                 }
 
                 foreach (var iface in named.AllInterfaces)
                 {
-                    if (iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator &&
-                        genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
-                        SymbolEqualityComparer.Default.Equals(
-                            GetEnumerableDefinition(genericEnumerator),
-                            genericEnumeratorDefinition))
+                    if (iface is INamedTypeSymbol genericEnumerator)
                     {
-                        elementType = genericEnumerator.TypeArguments[0];
-                        return true;
+                        var ifaceTypeArguments = genericEnumerator.TypeArguments;
+                        if (ifaceTypeArguments.IsDefaultOrEmpty || ifaceTypeArguments.Length != 1)
+                            continue;
+
+                        if (genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                            SymbolEqualityComparer.Default.Equals(
+                                GetEnumerableDefinition(genericEnumerator),
+                                genericEnumeratorDefinition))
+                        {
+                            elementType = ifaceTypeArguments[0];
+                            return true;
+                        }
                     }
                 }
 
