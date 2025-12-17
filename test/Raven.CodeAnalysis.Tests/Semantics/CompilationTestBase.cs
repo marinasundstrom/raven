@@ -13,7 +13,7 @@ public abstract class CompilationTestBase
         => TestMetadataReferences.Default;
 
     protected virtual CompilationOptions GetCompilationOptions()
-        => new(OutputKind.ConsoleApplication);
+        => new(OutputKind.DynamicallyLinkedLibrary);
 
     protected Compilation CreateCompilation(CompilationOptions? options = null, MetadataReference[]? references = null, string assemblyName = "test")
         => Compilation.Create(assemblyName, Array.Empty<SyntaxTree>(), references ?? GetMetadataReferences(), options ?? GetCompilationOptions());

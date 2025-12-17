@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.SymbolStore;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -24,6 +25,8 @@ internal interface IILBuilder
     void Emit(OpCode opcode, MethodInfo methodInfo);
     void Emit(OpCode opcode, ConstructorInfo constructorInfo);
     void Emit(OpCode opcode, Type type);
+
+    void MarkSequencePoint(ISymbolDocumentWriter document, int startLine, int startColumn, int endLine, int endColumn);
 
     void BeginExceptionBlock();
     void BeginCatchBlock(Type exceptionType);

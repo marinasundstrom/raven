@@ -521,10 +521,13 @@ ST.
             "test",
             [syntaxTree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.ConsoleApplication));
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var service = new CompletionService();
         var position = code.Length;
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 

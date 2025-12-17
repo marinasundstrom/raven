@@ -1,3 +1,4 @@
+using System.Diagnostics.SymbolStore;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -177,6 +178,9 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
         public void BeginCatchBlock(Type exceptionType) => _inner.BeginCatchBlock(exceptionType);
         public void BeginFinallyBlock() => _inner.BeginFinallyBlock();
         public void EndExceptionBlock() => _inner.EndExceptionBlock();
+
+        public void MarkSequencePoint(ISymbolDocumentWriter document, int startLine, int startColumn, int endLine, int endColumn)
+            => _inner.MarkSequencePoint(document, startLine, startColumn, endLine, endColumn);
     }
 }
 
