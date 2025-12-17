@@ -236,8 +236,9 @@ public partial class Compilation
 
         var returnsInt = bindableGlobals.Any(static g => ContainsReturnWithExpressionOutsideNestedFunctions(g.Statement));
         var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
-        var containsExecutableCode = bindableGlobals.Count == 0
-            || bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
+        var hasTopLevelMainFunction = bindableGlobals.Any(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" });
+        var containsExecutableCode = !hasTopLevelMainFunction && (bindableGlobals.Count == 0
+            || bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax));
 
         var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
 

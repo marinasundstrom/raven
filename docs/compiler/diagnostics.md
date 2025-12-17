@@ -352,6 +352,16 @@ class App {
 }
 ```
 
+## RAV1021: Top-level statements not allowed with top-level Main
+Mixing a top-level `func Main` with any other file-scope statements prevents the
+compiler from selecting a single entry point.
+
+```raven
+let x = 2 // RAV1021: Top-level statements are not allowed when 'Main' is declared as a top-level function
+
+func Main() -> unit {}
+```
+
 ## RAV1019: Expected newline or ';' to terminate the statement.
 Trailing tokens remain after a statement has already been completed. Insert a
 semicolon to separate multiple statements on the same line, or move the extra

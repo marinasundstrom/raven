@@ -140,4 +140,26 @@ namespace Utility
         Assert.False(mainSymbol.IsImplicitlyDeclared);
         Assert.Equal("Program", mainSymbol.ContainingType?.Name);
     }
+
+    [Fact]
+    public void TopLevelFunctionMain_RejectsAdditionalGlobalStatements()
+    {
+        const string source = """
+import System.Console.*
+
+let x = 2
+
+func Main() -> unit {
+    WriteLine("Hello World");
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TopLevelStatementsDisallowedWithMainFunction);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
+    }
 }

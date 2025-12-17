@@ -1303,7 +1303,8 @@ the same signature rules:
   file. These coexist with other declarations (namespaces, types, functions) in
   the same compilation unit.
 * **Top-level function:** a global `func Main` declaration that can appear next
-  to other top-level members.
+  to other top-level members. When present, no other file-scope statements may
+  appear alongside it.
 * **Classic static method:** a `Main` method declared on a type such as
   `Program.Main`.
 
@@ -1324,6 +1325,12 @@ regardless of their order. When file-scope code contains *only* function
 declarations, the compiler skips synthesizing the implicit `Program.Main`
 bridge; entry-point discovery falls back to user-defined candidates such as a
 top-level `func Main` alongside other global declarations.
+
+Defining a top-level `func Main` suppresses additional file-scope statements.
+Any other file-scope statement (including variable declarations or
+expressions) in the same compilation unit causes the compiler to emit
+`RAV1021` *Top-level statements are not allowed when 'Main' is declared as a
+top-level function*.
 
 ### Entry point resolution
 
