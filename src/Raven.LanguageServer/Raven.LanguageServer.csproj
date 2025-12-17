@@ -7,8 +7,8 @@
     <WarningsAsErrors>Nullable</WarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="OmniSharp.Extensions.LanguageServer.Protocol" Version="0.20.3" />
-    <PackageReference Include="OmniSharp.Extensions.LanguageServer.Server" Version="0.20.3" />
+    <PackageReference Include="OmniSharp.Extensions.LanguageProtocol" Version="0.19.9" />
+    <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.9" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
