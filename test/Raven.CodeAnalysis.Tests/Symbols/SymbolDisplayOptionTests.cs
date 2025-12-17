@@ -158,4 +158,16 @@ class Sample {
             "Task.Run<TResult>(function: Func<Task<TResult>>) -> Task<TResult>",
             run.ToDisplayString(format));
     }
+
+    [Fact]
+    public void TypeDisplay_UsesDeclaringTypeParametersFromMetadata()
+    {
+        var compilation = CreateCompilation();
+        var taskType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1"));
+
+        var display = taskType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        Assert.Equal("Task<TResult>", display);
+    }
 }
