@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -8,11 +9,15 @@ using System.Reflection.PortableExecutable;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using MetadataReference = Microsoft.CodeAnalysis.MetadataReference;
+using PortableExecutableReference = Microsoft.CodeAnalysis.PortableExecutableReference;
 
 namespace Raven.CodeAnalysis.Tests;
 
 public class CodeGeneratorTests
 {
+    private static readonly MetadataReference[] RuntimeMetadataReferences = GetRuntimeMetadataReferences();
+
     [Fact]
     public void Emit_ShouldGenerateClass()
     {
@@ -26,7 +31,7 @@ class Foo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -72,7 +77,7 @@ class Helper {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -111,7 +116,7 @@ class Helper {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -153,7 +158,7 @@ async func Main() -> Task<int> {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -196,7 +201,7 @@ async func Main() -> Task {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -258,7 +263,7 @@ class Helper {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -285,7 +290,7 @@ let x = if true {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -313,7 +318,7 @@ class Foo : IFoo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -357,7 +362,7 @@ class Foo : IDisposable {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -436,7 +441,7 @@ class Consumer {
         var interfaceDecl = syntaxTree.GetRoot().Members.OfType<InterfaceDeclarationSyntax>().Single();
         var methodDecl = interfaceDecl.Members.OfType<MethodDeclarationSyntax>().Single();
         Assert.Contains(methodDecl.Modifiers, m => m.Kind == SyntaxKind.StaticKeyword);
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
@@ -483,7 +488,7 @@ class ConsoleLogger : ILogger {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
@@ -531,7 +536,7 @@ class QuietLogger : ILogger {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
@@ -598,7 +603,7 @@ class QuietLogger : ILogger {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
@@ -672,7 +677,7 @@ class Person {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var references = TestMetadataReferences.Default;
+        var references = RuntimeMetadataReferences;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -693,6 +698,30 @@ class Person {
         var value = (string)getName.Invoke(instance, Array.Empty<object?>())!;
 
         Assert.Equal("Unknown", value);
+    }
+
+    private static MetadataReference[] GetRuntimeMetadataReferences()
+    {
+        var tpa = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+        if (string.IsNullOrEmpty(tpa))
+            return TestMetadataReferences.Default;
+
+        var references = new List<MetadataReference>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in tpa.Split(Path.PathSeparator))
+        {
+            if (string.IsNullOrEmpty(path))
+                continue;
+
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (!seen.Add(name))
+                continue;
+
+            references.Add(MetadataReference.CreateFromFile(path));
+        }
+
+        return references.ToArray();
     }
 
     private static bool IsMethod(MetadataReader metadataReader, EntityHandle handle, string containingTypeName, string methodName)
