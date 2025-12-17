@@ -479,6 +479,10 @@
     Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error"
     EnabledByDefault="true"
     Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV3600" Identifier="UnexpectedTokenInIncompleteSyntax"
+    Title="Unexpected token"
+    Message="Unexpected token '{token}'" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV3601" Identifier="UnmatchedCharacter"
     Title="Unmatched character"
     Message="Unmatched '{character}'" Category="compiler" Severity="Error"

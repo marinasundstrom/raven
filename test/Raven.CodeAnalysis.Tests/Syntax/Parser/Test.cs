@@ -650,6 +650,26 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void IncompleteStatement_UnexpectedToken_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText(")");
+
+        var diagnostic = syntaxTree.GetDiagnostics().Single();
+
+        diagnostic.Descriptor.ShouldBe(CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax);
+    }
+
+    [Fact]
+    public void IncompleteStatement_UnmatchedBrace_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("}");
+
+        var diagnostic = syntaxTree.GetDiagnostics().Single();
+
+        diagnostic.Descriptor.ShouldBe(CompilerDiagnostics.UnmatchedCharacter);
+    }
+
+    [Fact]
     public void Statement_InvalidTokenInBlock_SkipsUntilNextStatement()
     {
         var syntaxTree = SyntaxTree.ParseText("if (true) { ) if (true) return; }");

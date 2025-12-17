@@ -171,15 +171,7 @@ internal class StatementSyntaxParser : SyntaxParser
             SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken ||
             IsTokenPotentialStatementStart(token));
 
-        var skippedToken = CreateSkippedToken(skippedTokens);
-
-        // TEMP
-        if (skippedTokens.Any(x => x.IsKind(SyntaxKind.CloseBraceToken)))
-        {
-            AddDiagnostic(DiagnosticInfo.Create(
-                CompilerDiagnostics.UnmatchedCharacter,
-                span, '}'));
-        }
+        var skippedToken = CreateSkippedToken(skippedTokens, span);
 
         return IncompleteStatement(skippedToken, Diagnostics);
     }

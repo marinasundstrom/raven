@@ -372,8 +372,28 @@ internal class SyntaxParser : ParseContext
         return skippedTokens;
     }
 
-    protected SyntaxToken CreateSkippedToken(List<SyntaxToken> skippedTokens)
+    protected SyntaxToken CreateSkippedToken(List<SyntaxToken> skippedTokens, TextSpan diagnosticSpan)
     {
+        if (skippedTokens.Count > 0)
+        {
+            var unexpectedToken = skippedTokens[0];
+            var unexpectedTokenDisplay = string.IsNullOrEmpty(unexpectedToken.Text)
+                ? unexpectedToken.Kind.ToString()
+                : unexpectedToken.Text;
+
+            if (unexpectedToken.IsKind(SyntaxKind.CloseBraceToken))
+            {
+                AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnmatchedCharacter, diagnosticSpan, '}'));
+            }
+            else
+            {
+                AddDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                    diagnosticSpan,
+                    unexpectedTokenDisplay));
+            }
+        }
+
         var trivia = new SyntaxTrivia(new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray())));
 
         return new SyntaxToken(
