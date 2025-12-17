@@ -715,6 +715,12 @@ internal class CodeGenerator
 
             var entryPointGenerator = EnsureEntryPointGenerator(entryPointSymbol);
 
+            if (entryPointGenerator is not null && !entryPointGenerator.HasEmittedBody)
+            {
+                CurrentEmittingMethod = entryPointGenerator.MethodSymbol;
+                entryPointGenerator.EmitBody();
+            }
+
             EmitMemberILBodies();
 
             CreateTypes();
