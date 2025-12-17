@@ -6,6 +6,12 @@
   href: raven-core-library.md
 - name: Diagnostics
   href: diagnostics.md
+- name: Tooling
+  items:
+    - name: Raven Language Server
+      href: raven-language-server.md
+    - name: Raven VS Code Extension
+      href: raven-vscode-extension.md
 - name: Architecture
   items:
     - name: Overview
