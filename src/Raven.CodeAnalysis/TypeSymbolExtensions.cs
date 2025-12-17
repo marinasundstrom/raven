@@ -51,16 +51,16 @@ public static class TypeSymbolExtensions
         {
             var metadataName = namedTypeSymbol.ToFullyQualifiedMetadataName();
 
-            var runtimeType = Type.GetType(metadataName, throwOnError: false);
+            var runtimeType = compilation.ResolveRuntimeType(metadataName);
             if (runtimeType is not null)
                 return runtimeType;
 
-            var metadataType = compilation.CoreAssembly.GetType(metadataName, throwOnError: false);
+            var metadataType = compilation.ResolveMetadataType(metadataName);
 
             if (metadataType is not null)
                 return metadataType;
 
-            throw new InvalidOperationException($"Unable to resolve metadata type '{metadataName}' from the core assembly.");
+            throw new InvalidOperationException($"Unable to resolve metadata type '{metadataName}' from referenced assemblies.");
         }
 
         // Handle dynamic type

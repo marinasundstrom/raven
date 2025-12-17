@@ -32,4 +32,31 @@ public class TypeMetadataNameTests
 
         Assert.Equal(typeof(Action<string>), clrType);
     }
+
+    [Fact]
+    public void ResolveMetadataType_UsesMetadataLoadContext()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var metadataType = compilation.ResolveMetadataType("System.String");
+
+        Assert.NotNull(metadataType);
+        Assert.NotSame(compilation.RuntimeCoreAssembly, metadataType!.Assembly);
+        Assert.Equal("System.String", metadataType.FullName);
+    }
+
+    [Fact]
+    public void ResolveType_UsesMetadataAssemblyForRuntimeTypes()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var runtimeTypeSymbol = compilation.GetType(typeof(string));
+        var metadataSymbol = compilation.GetTypeByMetadataName("System.String");
+
+        Assert.NotNull(runtimeTypeSymbol);
+        Assert.NotNull(metadataSymbol);
+        Assert.Same(metadataSymbol!.ContainingAssembly, runtimeTypeSymbol!.ContainingAssembly);
+    }
 }

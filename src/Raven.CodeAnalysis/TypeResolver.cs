@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Symbols;
@@ -290,9 +291,23 @@ internal class TypeResolver(Compilation compilation)
     protected ITypeSymbol? ResolveTypeCore(Type type)
     {
         var typeInfo = type.GetTypeInfo();
+        var metadataName = typeInfo.FullName ?? typeInfo.Name;
 
-        var assemblySymbol = (PEAssemblySymbol)compilation.ReferencedAssemblySymbols.First(x => x.Name == type.Assembly.GetName().Name);
-        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName);
+        if (metadataName is not null && compilation.ResolveMetadataType(metadataName) is { } metadataType)
+        {
+            var metadataAssemblySymbol = compilation.GetAssemblySymbol(metadataType.Assembly) as PEAssemblySymbol;
+            if (metadataAssemblySymbol is not null)
+                return (ITypeSymbol?)metadataAssemblySymbol.PrimaryModule.ResolveMetadataMember(metadataAssemblySymbol.GlobalNamespace, metadataType.FullName);
+        }
+
+        var runtimeAssemblyName = type.Assembly.GetName().Name;
+        var assemblySymbol = compilation.ReferencedAssemblySymbols
+            .OfType<PEAssemblySymbol>()
+            .FirstOrDefault(x => string.Equals(x.Name, runtimeAssemblyName, StringComparison.OrdinalIgnoreCase));
+
+        return assemblySymbol is null
+            ? null
+            : (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName);
     }
 
     public IMethodSymbol? ResolveMethodSymbol(MethodInfo ifaceMethod)
