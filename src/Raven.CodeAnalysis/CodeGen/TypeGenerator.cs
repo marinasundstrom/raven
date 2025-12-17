@@ -484,6 +484,9 @@ internal class TypeGenerator
             {
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
                     {
+                        if (methodSymbol is SynthesizedMainMethodSymbol { ContainsExecutableCode: false })
+                            break;
+
                         if (methodSymbol.MethodKind == MethodKind.LambdaMethod)
                             break;
 
