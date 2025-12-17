@@ -26,8 +26,6 @@ internal class MethodBodyGenerator
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
     private readonly Dictionary<SyntaxTree, ISymbolDocumentWriter> _symbolDocuments = new();
-    private static readonly Dictionary<SemanticModel, Dictionary<BoundNode, SyntaxNode>> s_boundNodeSyntaxMaps = new(ReferenceEqualityComparer.Instance);
-    private static readonly object s_boundNodeSyntaxMapsLock = new();
     private static readonly Guid CSharpLanguageId = new("3f5162f8-07c6-11d3-9053-00c04fa302a1");
     private static readonly Guid DocumentTypeId = new("5a869d0b-6611-11d3-bd2a-0000f80849bd");
     private static readonly Guid DocumentVendorId = new("994b45c4-e6e9-11d2-903f-00c04fa302a1");
@@ -139,60 +137,6 @@ internal class MethodBodyGenerator
         return document;
     }
 
-    private Dictionary<BoundNode, SyntaxNode> GetBoundToSyntaxMap(SemanticModel semanticModel)
-    {
-        lock (s_boundNodeSyntaxMapsLock)
-        {
-            if (s_boundNodeSyntaxMaps.TryGetValue(semanticModel, out var cached))
-                return cached;
-
-            var syntaxToBound = GetSyntaxToBoundMap(semanticModel);
-            if (syntaxToBound.Count == 0)
-            {
-                ForceBind(semanticModel);
-                syntaxToBound = GetSyntaxToBoundMap(semanticModel);
-            }
-
-            var map = new Dictionary<BoundNode, SyntaxNode>(ReferenceEqualityComparer.Instance);
-            foreach (var (syntax, node) in syntaxToBound)
-            {
-                if (!map.ContainsKey(node))
-                    map[node] = syntax;
-            }
-
-            s_boundNodeSyntaxMaps[semanticModel] = map;
-            return map;
-        }
-    }
-
-    private static Dictionary<SyntaxNode, BoundNode> GetSyntaxToBoundMap(SemanticModel semanticModel)
-    {
-        var field = typeof(SemanticModel).GetField("_boundNodeCache", BindingFlags.NonPublic | BindingFlags.Instance);
-        return (Dictionary<SyntaxNode, BoundNode>?)field?.GetValue(semanticModel) ?? new();
-    }
-
-    private static void ForceBind(SemanticModel semanticModel)
-    {
-        var root = semanticModel.SyntaxTree.GetRoot();
-        foreach (var node in root.DescendantNodesAndSelf())
-        {
-            switch (node)
-            {
-                case StatementSyntax:
-                case ExpressionSyntax:
-                    try
-                    {
-                        semanticModel.GetBoundNode(node);
-                    }
-                    catch
-                    {
-                    }
-
-                    break;
-            }
-        }
-    }
-
     internal void EmitSequencePoint(BoundStatement statement)
     {
         var syntax = TryGetSyntax(statement);
@@ -227,8 +171,7 @@ internal class MethodBodyGenerator
             return null;
 
         var semanticModel = Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
-        var map = GetBoundToSyntaxMap(semanticModel);
-        return map.TryGetValue(node, out var syntax) ? syntax : null;
+        return semanticModel.GetSyntax(node);
     }
 
     internal void EmitLoadClosure()
