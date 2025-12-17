@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.CodeGen;
 
@@ -1520,12 +1521,27 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
         var defX = (ITypeParameterSymbol)(x.OriginalDefinition ?? x);
         var defY = (ITypeParameterSymbol)(y.OriginalDefinition ?? y);
 
-        return SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType().Equals(defX, defY);
+        if (ReferenceEquals(defX, defY))
+            return true;
+
+        var containingX = NormalizeContainer(defX.ContainingSymbol);
+        var containingY = NormalizeContainer(defY.ContainingSymbol);
+
+        return ReferenceEquals(containingX, containingY) && defX.Ordinal == defY.Ordinal;
     }
 
     public int GetHashCode(ITypeParameterSymbol obj)
     {
         var def = (ITypeParameterSymbol)(obj.OriginalDefinition ?? obj);
-        return SymbolEqualityComparer.Default.GetHashCode(def);
+        var containing = NormalizeContainer(def.ContainingSymbol);
+
+        return HashCode.Combine(RuntimeHelpers.GetHashCode(containing ?? def), def.Ordinal);
     }
+
+    private static ISymbol? NormalizeContainer(ISymbol? symbol) => symbol switch
+    {
+        INamedTypeSymbol named => named.OriginalDefinition ?? named,
+        IMethodSymbol method => method.OriginalDefinition ?? method,
+        _ => symbol
+    };
 }

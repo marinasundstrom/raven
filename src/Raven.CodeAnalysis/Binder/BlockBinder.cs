@@ -533,13 +533,13 @@ partial class BlockBinder : Binder
         var declaration = localDeclaration.Declaration;
 
         if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
-            declaration.Declarators.Length > 0 &&
+            declaration.Declarators.Count > 0 &&
             IsDiscardDeclarator(declaration.Declarators[0]))
         {
             return BindDiscardDeclarator(declaration.Declarators[0], isUsingDeclaration: false);
         }
 
-        var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Length);
+        var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Count);
 
         foreach (var declarator in declaration.Declarators)
         {
@@ -554,13 +554,13 @@ partial class BlockBinder : Binder
         var declaration = usingDeclaration.Declaration;
 
         if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
-            declaration.Declarators.Length > 0 &&
+            declaration.Declarators.Count > 0 &&
             IsDiscardDeclarator(declaration.Declarators[0]))
         {
             return BindDiscardDeclarator(declaration.Declarators[0], isUsingDeclaration: true);
         }
 
-        var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Length);
+        var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Count);
 
         foreach (var declarator in declaration.Declarators)
         {
