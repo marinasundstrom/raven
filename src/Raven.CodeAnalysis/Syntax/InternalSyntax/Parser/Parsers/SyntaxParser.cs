@@ -385,7 +385,7 @@ internal class SyntaxParser : ParseContext
             {
                 AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.UnmatchedCharacter, diagnosticSpan, '}'));
             }
-            else
+            else if (!unexpectedToken.IsKind(SyntaxKind.EndOfFileToken))
             {
                 AddDiagnostic(DiagnosticInfo.Create(
                     CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
