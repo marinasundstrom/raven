@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
@@ -74,5 +76,45 @@ class Widget
         var parameterAttribute = Assert.Single(parameter.GetCustomAttributesData(), a => a.AttributeType.Name == "InfoAttribute");
         Assert.Equal("Parameter", parameterAttribute.ConstructorArguments[0].Value);
         Assert.Equal(typeof(long), parameterAttribute.ConstructorArguments[1].Value);
+    }
+
+    [Fact]
+    public void AutoPropertyMembers_HaveSynthesizedAttributes()
+    {
+        const string source = """
+class Widget
+{
+    public Value: string { get; set; }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var widgetType = assembly.GetType("Widget", throwOnError: true)!;
+        var property = widgetType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(property);
+
+        var getter = property!.GetGetMethod();
+        Assert.NotNull(getter);
+        Assert.Contains(getter!.GetCustomAttributesData(), a => a.AttributeType == typeof(CompilerGeneratedAttribute));
+
+        var setter = property.GetSetMethod();
+        Assert.NotNull(setter);
+        Assert.Contains(setter!.GetCustomAttributesData(), a => a.AttributeType == typeof(CompilerGeneratedAttribute));
+
+        var backingField = widgetType.GetField("<Value>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(backingField);
+
+        var fieldAttributes = backingField!.GetCustomAttributesData();
+        Assert.Contains(fieldAttributes, a => a.AttributeType == typeof(CompilerGeneratedAttribute));
+        var debuggerBrowsable = Assert.Single(fieldAttributes, a => a.AttributeType == typeof(DebuggerBrowsableAttribute));
+        Assert.Equal(DebuggerBrowsableState.Never, (DebuggerBrowsableState)debuggerBrowsable.ConstructorArguments[0].Value!);
     }
 }
