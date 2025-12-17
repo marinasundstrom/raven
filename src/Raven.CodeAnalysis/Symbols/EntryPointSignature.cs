@@ -49,6 +49,31 @@ internal static class EntryPointSignature
         return false;
     }
 
+    public static bool IsAsyncReturnType(ITypeSymbol returnType, Compilation compilation, out bool returnsInt)
+    {
+        returnsInt = false;
+
+        var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
+        if (taskType is not null && SymbolEqualityComparer.Default.Equals(returnType, taskType))
+            return true;
+
+        if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
+        {
+            var taskOfT = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
+            if (taskOfT is INamedTypeSymbol definition && SymbolEqualityComparer.Default.Equals(named.ConstructedFrom, definition))
+            {
+                var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+                if (!named.TypeArguments.IsDefaultOrEmpty && SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], intType))
+                {
+                    returnsInt = true;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public static bool HasValidParameters(ImmutableArray<IParameterSymbol> parameters, Compilation compilation)
     {
         if (parameters.Length == 0)

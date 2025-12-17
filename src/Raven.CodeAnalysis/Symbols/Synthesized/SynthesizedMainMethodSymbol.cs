@@ -14,7 +14,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         SyntaxReference[] declaringSyntaxReferences,
         bool containsExecutableCode,
         bool returnsInt,
-        SynthesizedMainAsyncMethodSymbol? asyncImplementation)
+        IMethodSymbol? asyncImplementation)
         : base(
             "Main",
             returnType: EntryPointSignature.ResolveReturnType(type.Compilation, returnsInt),
@@ -39,5 +39,5 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
 
     public bool ContainsExecutableCode { get; }
 
-    public SynthesizedMainAsyncMethodSymbol? AsyncImplementation { get; }
+    public IMethodSymbol? AsyncImplementation { get; }
 }

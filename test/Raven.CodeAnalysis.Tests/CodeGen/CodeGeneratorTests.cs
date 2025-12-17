@@ -106,6 +106,102 @@ class Helper {
     }
 
     [Fact]
+    public void Emit_WithAsyncMainInClass_SynthesizesBridgeEntryPoint()
+    {
+        var code = """
+import System.Threading.Tasks.*
+
+class Helper {
+    static async Main(args: string[]) -> Task<int> {
+        await Task.Delay(1);
+        return 7;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Seek(0, SeekOrigin.Begin);
+
+        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
+        using var mlc = new MetadataLoadContext(resolver);
+
+        var assembly = mlc.LoadFromStream(peStream);
+        var entryPoint = assembly.EntryPoint;
+
+        Assert.NotNull(entryPoint);
+        Assert.Equal("<Main>_EntryPoint", entryPoint!.Name);
+        Assert.Equal(typeof(int), entryPoint.ReturnType);
+
+        var exitCode = entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+
+        Assert.Equal(7, exitCode);
+    }
+
+    [Fact]
+    public void Emit_WithAsyncFunctionMain_SynthesizesBridgeEntryPoint()
+    {
+        var code = """
+import System.Threading.Tasks.*
+
+async func Main() -> Task<int> {
+    await Task.Delay(1);
+    return 11;
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Seek(0, SeekOrigin.Begin);
+
+        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
+        using var mlc = new MetadataLoadContext(resolver);
+
+        var assembly = mlc.LoadFromStream(peStream);
+        var entryPoint = assembly.EntryPoint;
+
+        Assert.NotNull(entryPoint);
+        Assert.Equal("<Main>_EntryPoint", entryPoint!.Name);
+        Assert.Equal(typeof(int), entryPoint.ReturnType);
+
+        var exitCode = entryPoint.Invoke(null, Array.Empty<object?>());
+
+        Assert.Equal(11, exitCode);
+    }
+
+    [Fact]
     public void Emit_WithMultipleValidMainMethods_FailsWithAmbiguousEntryPointDiagnostic()
     {
         var code = """

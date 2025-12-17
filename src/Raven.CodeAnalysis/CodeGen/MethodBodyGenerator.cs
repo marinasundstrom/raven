@@ -155,7 +155,13 @@ internal class MethodBodyGenerator
 
         if (MethodSymbol is SynthesizedMainMethodSymbol mainSymbol && mainSymbol.AsyncImplementation is { } asyncImplementation)
         {
-            EmitTopLevelMainBridge(mainSymbol, asyncImplementation);
+            EmitEntryPointBridge(MethodSymbol, asyncImplementation);
+            return;
+        }
+
+        if (MethodSymbol is SynthesizedEntryPointBridgeMethodSymbol bridgeMethod)
+        {
+            EmitEntryPointBridge(bridgeMethod, bridgeMethod.AsyncImplementation);
             return;
         }
 
@@ -435,12 +441,13 @@ internal class MethodBodyGenerator
         }
     }
 
-    private void EmitTopLevelMainBridge(SynthesizedMainMethodSymbol mainMethod, SynthesizedMainAsyncMethodSymbol asyncImplementation)
+    private void EmitEntryPointBridge(IMethodSymbol bridgeMethod, IMethodSymbol asyncImplementation)
     {
-        if (MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(asyncImplementation) is not MethodInfo asyncMethodInfo)
+        if (asyncImplementation is not SourceSymbol asyncSource ||
+            MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(asyncSource) is not MethodInfo asyncMethodInfo)
             throw new NotSupportedException("Async entry point implementation is not defined.");
 
-        if (MethodSymbol.Parameters.Length == 1)
+        if (bridgeMethod.Parameters.Length == 1)
             ILGenerator.Emit(OpCodes.Ldarg_0);
 
         ILGenerator.Emit(OpCodes.Call, asyncMethodInfo);
@@ -462,7 +469,7 @@ internal class MethodBodyGenerator
             ?? throw new NotSupportedException("Awaiter does not expose GetResult().");
         ILGenerator.Emit(OpCodes.Call, getResult);
 
-        if (mainMethod.ReturnType.SpecialType == SpecialType.System_Unit)
+        if (bridgeMethod.ReturnType.SpecialType == SpecialType.System_Unit)
         {
             if (getResult.ReturnType != typeof(void))
                 ILGenerator.Emit(OpCodes.Pop);

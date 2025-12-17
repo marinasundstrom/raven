@@ -66,7 +66,7 @@ public partial class Compilation
             }
             else if (candidates.Length == 1)
             {
-                _entryPoint = candidates[0];
+                _entryPoint = TrySynthesizeAsyncEntryPointBridge(candidates[0]);
                 _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
             }
             else if (candidates.Length > 1)
@@ -90,5 +90,32 @@ public partial class Compilation
 
             _entryPointComputed = true;
         }
+    }
+
+    private IMethodSymbol TrySynthesizeAsyncEntryPointBridge(IMethodSymbol entryPointCandidate)
+    {
+        if (!EntryPointSignature.IsAsyncReturnType(entryPointCandidate.ReturnType, this, out var returnsInt))
+            return entryPointCandidate;
+
+        if (entryPointCandidate is SynthesizedMainMethodSymbol { AsyncImplementation: not null })
+            return entryPointCandidate;
+
+        if (entryPointCandidate.ContainingSymbol is not SourceNamedTypeSymbol containingType)
+            return entryPointCandidate;
+
+        var locations = entryPointCandidate.Locations.ToArray();
+        var syntaxReferences = entryPointCandidate.DeclaringSyntaxReferences.ToArray();
+
+        var bridge = new SynthesizedEntryPointBridgeMethodSymbol(
+            this,
+            containingType,
+            locations,
+            syntaxReferences,
+            returnsInt,
+            entryPointCandidate);
+
+        containingType.AddMember(bridge);
+
+        return bridge;
     }
 }
