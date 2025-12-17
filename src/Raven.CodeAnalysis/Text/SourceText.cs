@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 using System.Text;
 
 using Raven.CodeAnalysis.Syntax;
@@ -72,7 +73,7 @@ public class SourceText
 
     public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start);
 
-    private (int line, int column) GetLineAndColumn(int position)
+    public (int line, int column) GetLineAndColumn(int position)
     {
         // Clamp out-of-range positions instead of throwing. Some recovery paths
         // can request spans slightly beyond the end of the source text.
@@ -184,12 +185,14 @@ public class SourceText
 
     public ImmutableArray<byte> GetChecksum()
     {
-        throw new NotImplementedException();
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.GetBytes(_text);
+        return ImmutableArray.CreateRange(sha256.ComputeHash(bytes));
     }
 
     public ImmutableArray<byte> GetContentHash()
     {
-        throw new NotImplementedException();
+        return GetChecksum();
     }
 
     public string GetSubText(TextSpan span) => _text.Substring(span.Start, span.Length);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.SymbolStore;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -9,6 +10,7 @@ using System.Text;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -23,6 +25,11 @@ internal class MethodBodyGenerator
     private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(SymbolEqualityComparer.Default);
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
+    private readonly Dictionary<SyntaxTree, ISymbolDocumentWriter> _symbolDocuments = new();
+    private static readonly Guid CSharpLanguageId = new("3f5162f8-07c6-11d3-9053-00c04fa302a1");
+    private static readonly Guid DocumentTypeId = new("5a869d0b-6611-11d3-bd2a-0000f80849bd");
+    private static readonly Guid DocumentVendorId = new("994b45c4-e6e9-11d2-903f-00c04fa302a1");
+    private static readonly Guid Sha256AlgorithmId = new("8829d00f-11b8-4213-878b-770e8597ac16");
 
     public MethodBodyGenerator(MethodGenerator methodGenerator)
     {
@@ -112,6 +119,59 @@ internal class MethodBodyGenerator
         return _labelScopes.TryGetValue(labelSymbol, out var scope)
             ? scope
             : null;
+    }
+
+    private ISymbolDocumentWriter GetOrAddDocument(SyntaxTree syntaxTree)
+    {
+        if (_symbolDocuments.TryGetValue(syntaxTree, out var document))
+            return document;
+
+        var moduleBuilder = MethodGenerator.TypeGenerator.CodeGen.ModuleBuilder;
+        document = moduleBuilder.DefineDocument(syntaxTree.FilePath, CSharpLanguageId, DocumentVendorId, DocumentTypeId);
+
+        var checksum = syntaxTree.GetText().GetChecksum();
+        if (!checksum.IsDefaultOrEmpty)
+            document.SetCheckSum(Sha256AlgorithmId, checksum.ToArray());
+
+        _symbolDocuments[syntaxTree] = document;
+        return document;
+    }
+
+    internal void EmitSequencePoint(BoundStatement statement)
+    {
+        var syntax = TryGetSyntax(statement);
+        if (syntax is null)
+            return;
+
+        EmitSequencePoint(syntax);
+    }
+
+    internal void EmitSequencePoint(SyntaxNode syntax)
+    {
+        if (syntax.SyntaxTree is null)
+            return;
+
+        var span = syntax.Span;
+        if (span.Length == 0)
+            return;
+
+        var sourceText = syntax.SyntaxTree.GetText();
+        var (startLine, startColumn) = sourceText.GetLineAndColumn(span.Start);
+        var (endLine, endColumn) = sourceText.GetLineAndColumn(span.End);
+        var document = GetOrAddDocument(syntax.SyntaxTree);
+
+        ILGenerator.Emit(OpCodes.Nop);
+        ILGenerator.MarkSequencePoint(document, startLine + 1, startColumn + 1, endLine + 1, endColumn + 1);
+    }
+
+    private SyntaxNode? TryGetSyntax(BoundNode node)
+    {
+        var syntaxRef = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxRef is null)
+            return null;
+
+        var semanticModel = Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
+        return semanticModel.GetSyntax(node);
     }
 
     internal void EmitLoadClosure()
@@ -260,6 +320,16 @@ internal class MethodBodyGenerator
             _ => null
         };
 
+        ExpressionSyntax? expressionBodySyntax = syntax switch
+        {
+            MethodDeclarationSyntax m when m.ExpressionBody is not null => m.ExpressionBody.Expression,
+            BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null => c.ExpressionBody.Expression,
+            AccessorDeclarationSyntax a when a.ExpressionBody is not null => a.ExpressionBody.Expression,
+            PropertyDeclarationSyntax p when p.ExpressionBody is not null => p.ExpressionBody.Expression,
+            FunctionStatementSyntax l when l.ExpressionBody is not null => l.ExpressionBody.Expression,
+            _ => null
+        };
+
         if (boundBody != null)
             DeclareLocals(boundBody);
 
@@ -334,6 +404,9 @@ internal class MethodBodyGenerator
                 }
                 else if (expressionBody is not null)
                 {
+                    if (expressionBodySyntax is not null)
+                        EmitSequencePoint(expressionBodySyntax);
+
                     EmitExpressionBody(expressionBody);
                 }
                 else
@@ -346,7 +419,12 @@ internal class MethodBodyGenerator
                 if (boundBody != null)
                     EmitMethodBlock(boundBody);
                 else if (expressionBody is not null)
+                {
+                    if (expressionBodySyntax is not null)
+                        EmitSequencePoint(expressionBodySyntax);
+
                     EmitExpressionBody(expressionBody);
+                }
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -364,7 +442,12 @@ internal class MethodBodyGenerator
                 if (boundBody != null)
                     EmitMethodBlock(boundBody, includeImplicitReturn: false);
                 else if (expressionBody is not null)
+                {
+                    if (expressionBodySyntax is not null)
+                        EmitSequencePoint(expressionBodySyntax);
+
                     EmitExpressionBody(expressionBody, includeReturn: !ordinaryConstr);
+                }
 
                 if (ordinaryConstr)
                 {
@@ -379,6 +462,9 @@ internal class MethodBodyGenerator
                 }
                 else if (expressionBody is not null)
                 {
+                    if (expressionBodySyntax is not null)
+                        EmitSequencePoint(expressionBodySyntax);
+
                     if (MethodSymbol.MethodKind == MethodKind.PropertyGet)
                     {
                         new ExpressionGenerator(baseGenerator, expressionBody).Emit();
@@ -413,6 +499,9 @@ internal class MethodBodyGenerator
             case PropertyDeclarationSyntax propertyDeclaration:
                 if (expressionBody is not null)
                 {
+                    if (expressionBodySyntax is not null)
+                        EmitSequencePoint(expressionBodySyntax);
+
                     new ExpressionGenerator(baseGenerator, expressionBody).Emit();
                     ILGenerator.Emit(OpCodes.Ret);
                 }

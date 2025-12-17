@@ -13,6 +13,7 @@ public partial class SemanticModel
     private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
+    private readonly Dictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelDeclarations = new();
     private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _labelSyntax = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<string, List<ILabelSymbol>> _labelsByName = new(StringComparer.Ordinal);
@@ -1891,13 +1892,24 @@ public partial class SemanticModel
     }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
-    => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
+        => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
 
     internal void CacheBoundNode(SyntaxNode node, BoundNode bound)
-        => _boundNodeCache[node] = bound;
+    {
+        _boundNodeCache[node] = bound;
+        _syntaxCache[bound] = node;
+    }
 
     internal void RemoveCachedBoundNode(SyntaxNode node)
-        => _boundNodeCache.Remove(node);
+    {
+        if (_boundNodeCache.TryGetValue(node, out var bound))
+            _syntaxCache.Remove(bound);
+
+        _boundNodeCache.Remove(node);
+    }
+
+    internal SyntaxNode? GetSyntax(BoundNode node)
+        => _syntaxCache.TryGetValue(node, out var syntax) ? syntax : null;
 
     private readonly Dictionary<ClassDeclarationSyntax, SourceNamedTypeSymbol> _classSymbols = new();
 

@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -35,7 +37,8 @@ func main() {
 
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        var diagnosticMessage = string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString()));
+        Assert.True(result.Success, diagnosticMessage);
     }
 
     [Fact]
@@ -59,7 +62,8 @@ func main() {
 
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        var diagnosticMessage = string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString()));
+        Assert.True(result.Success, diagnosticMessage);
     }
 
     [Fact]
@@ -84,7 +88,8 @@ func main() {
 
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        var diagnosticMessage = string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString()));
+        Assert.True(result.Success, diagnosticMessage);
     }
 
     [Fact]
@@ -107,7 +112,8 @@ func main() {
 
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        var diagnosticMessage = string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString()));
+        Assert.True(result.Success, diagnosticMessage);
     }
 
     [Fact]
@@ -117,7 +123,8 @@ func main() {
 import System.*
 
 func main() {
-    (let first, var second: double, _) = (1, 2, 3)
+    let (first, _) = (1, 2)
+    var (second, _) = (3, 4)
     Console.WriteLine(first)
     Console.WriteLine(second)
 }
@@ -131,6 +138,7 @@ func main() {
 
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
-        Assert.True(result.Success);
+        var diagnosticMessage = string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString()));
+        Assert.True(result.Success, diagnosticMessage);
     }
 }

@@ -661,20 +661,6 @@ public static class CompletionProvider
             }
         }
 
-        // Language keywords
-        var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "const", "new", "true", "false", "null" };
-        foreach (var keyword in keywords.Where(k => string.IsNullOrEmpty(tokenValueText) || k.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)))
-        {
-            if (seen.Add(keyword))
-            {
-                completions.Add(new CompletionItem(
-                    DisplayText: keyword,
-                    InsertionText: keyword,
-                    ReplacementSpan: replacementSpan
-                ));
-            }
-        }
-
         var selfType = GetSelfType();
         if (selfType is not null && ShouldOfferSelfCompletion())
         {
@@ -734,6 +720,20 @@ public static class CompletionProvider
                         Symbol: symbol
                     ));
                 }
+            }
+        }
+
+        // Language keywords (added after symbol completions so escaped identifiers win on duplicates)
+        var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "const", "new", "true", "false", "null" };
+        foreach (var keyword in keywords.Where(k => string.IsNullOrEmpty(tokenValueText) || k.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (seen.Add(keyword))
+            {
+                completions.Add(new CompletionItem(
+                    DisplayText: keyword,
+                    InsertionText: keyword,
+                    ReplacementSpan: replacementSpan
+                ));
             }
         }
 

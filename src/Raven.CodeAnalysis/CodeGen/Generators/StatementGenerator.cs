@@ -22,6 +22,8 @@ internal class StatementGenerator : Generator
 
     public override void Emit()
     {
+        MethodBodyGenerator.EmitSequencePoint(_statement);
+
         switch (_statement)
         {
             case BoundReturnStatement returnStatement:
