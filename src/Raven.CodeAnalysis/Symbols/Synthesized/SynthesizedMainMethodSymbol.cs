@@ -12,6 +12,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         SynthesizedProgramClassSymbol type,
         Location[] location,
         SyntaxReference[] declaringSyntaxReferences,
+        bool containsExecutableCode,
         bool returnsInt,
         SynthesizedMainAsyncMethodSymbol? asyncImplementation)
         : base(
@@ -27,6 +28,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
             methodKind: MethodKind.Ordinary)
     {
         AsyncImplementation = asyncImplementation;
+        ContainsExecutableCode = containsExecutableCode;
 
         SetParameters([new SourceParameterSymbol("args", CreateStringArrayType(type), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
@@ -34,6 +36,8 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
     public override bool IsStatic => true;
 
     public override bool IsImplicitlyDeclared => true;
+
+    public bool ContainsExecutableCode { get; }
 
     public SynthesizedMainAsyncMethodSymbol? AsyncImplementation { get; }
 

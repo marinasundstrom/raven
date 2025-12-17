@@ -1292,6 +1292,8 @@ namespace A.B
 
 The outermost undeclared namespace is the **global namespace**.
 
+## Entry points
+
 ### File-scope code rules
 
 Files may start with executable statements that aren't enclosed in a function or
@@ -1305,14 +1307,17 @@ file-scoped namespace.
 
 Function declarations (local function statements) within file-scope code are
 hoisted and may be referenced from anywhere in that file-scoped region,
-regardless of their order.
+regardless of their order. When file-scope code contains *only* function
+declarations, the compiler skips synthesizing the implicit `Program.Main`
+bridge; entry-point discovery falls back to user-defined candidates such as a
+top-level `func Main` alongside other global declarations.
 
 ### Entry point resolution
 
 Console applications begin executing at the synthesized `Program.Main` bridge
 that forwards to the async `Program.MainAsync` backing file-scope code. When a
-project does not contain file-scope statements, the compiler instead looks for a
-user-defined entry point. Any
+project does not contain runnable file-scope statements, the compiler instead
+looks for a user-defined entry point. Any
 static method named `Main` qualifies when it meets the following requirements:
 
 * The method returns `unit`, `int`, `Task`, or `Task<int>`.

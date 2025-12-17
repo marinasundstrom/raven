@@ -29,6 +29,9 @@ public partial class Compilation
 
     internal bool IsEntryPointCandidate(IMethodSymbol method)
     {
+        if (method is SynthesizedMainMethodSymbol synthesizedMain && !synthesizedMain.ContainsExecutableCode)
+            return false;
+
         if (method.Name != "Main" || !method.IsStatic || method.IsGenericMethod)
             return false;
 
