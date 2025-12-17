@@ -1,0 +1,51 @@
+{
+  "name": "raven-vscode",
+  "displayName": "Raven",
+  "description": "VS Code extension for the Raven language server.",
+  "version": "0.1.0",
+  "publisher": "raven",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Programming Languages"],
+  "activationEvents": [
+    "onLanguage:raven"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "raven",
+        "aliases": ["Raven", "raven"],
+        "extensions": [".rav"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "Raven",
+      "properties": {
+        "raven.languageServerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Full path to Raven.LanguageServer.dll. Leave empty to auto-discover a sibling 'server/Raven.LanguageServer.dll' next to the extension or a workspace copy under src/Raven.LanguageServer/bin/Debug/net9.0."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "lint": "echo 'No lint configuration'",
+    "prepare": "npm run compile",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "1.80.0",
+    "typescript": "^5.4.5",
+    "vsce": "^2.15.0"
+  }
+}
