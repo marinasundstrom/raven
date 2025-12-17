@@ -272,15 +272,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             IsPossibleCompilationUnitMemberStart(token) ||
             StatementSyntaxParser.IsTokenPotentialStatementStart(token));
 
-        // TEMP
-        if (skippedTokens.Any(x => x.IsKind(SyntaxKind.CloseBraceToken)))
-        {
-            AddDiagnostic(DiagnosticInfo.Create(
-                CompilerDiagnostics.UnmatchedCharacter,
-                span, '}'));
-        }
-
-        return CreateSkippedToken(skippedTokens);
+        return CreateSkippedToken(skippedTokens, span);
     }
 
     private SyntaxList ParseModifiers()
