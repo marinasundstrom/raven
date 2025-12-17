@@ -723,14 +723,20 @@ internal class CodeGenerator
 
             EmitMemberILBodies();
 
-            CreateTypes();
-
             if (entryPointGenerator is null)
             {
                 entryPointGenerator = _typeGenerators.Values
-                    .SelectMany(x => x.MethodGenerators)
-                    .FirstOrDefault(x => x.IsEntryPointCandidate);
+                    .SelectMany(generator => generator.MethodGenerators)
+                    .FirstOrDefault(generator => generator.IsEntryPointCandidate);
             }
+
+            if (entryPointGenerator is not null && !entryPointGenerator.HasEmittedBody)
+            {
+                CurrentEmittingMethod = entryPointGenerator.MethodSymbol;
+                entryPointGenerator.EmitBody();
+            }
+
+            CreateTypes();
 
             EntryPoint = entryPointGenerator?.MethodBase;
 

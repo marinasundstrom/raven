@@ -26,12 +26,7 @@ class Foo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -77,12 +72,7 @@ class Helper {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -121,12 +111,7 @@ class Helper {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -168,12 +153,7 @@ async func Main() -> Task<int> {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -216,12 +196,7 @@ async func Main() -> Task {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -283,12 +258,7 @@ class Helper {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -315,12 +285,7 @@ let x = if true {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -348,12 +313,7 @@ class Foo : IFoo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -397,12 +357,7 @@ class Foo : IDisposable {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
-
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-                MetadataReference.CreateFromFile(runtimePath)];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
