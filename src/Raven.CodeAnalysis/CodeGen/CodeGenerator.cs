@@ -686,6 +686,10 @@ internal class CodeGenerator
             if (UnitType is null || _compilation.Options.EmbedCoreTypes)
                 CreateUnitStruct();
 
+            var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
+                ? _compilation.GetEntryPoint()
+                : null;
+
             DefineTypeBuilders();
 
             DefineMemberBuilders();
@@ -693,10 +697,6 @@ internal class CodeGenerator
             EmitMemberILBodies();
 
             CreateTypes();
-
-            var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
-                ? _compilation.GetEntryPoint()
-                : null;
             MethodGenerator? entryPointGenerator = null;
 
             if (entryPointSymbol is not null)
