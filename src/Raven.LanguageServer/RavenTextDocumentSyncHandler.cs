@@ -1,10 +1,13 @@
 using System.Linq;
+
 using MediatR;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+
 using SaveOptions = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.SaveOptions;
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 using TextDocumentSyncKind = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.TextDocumentSyncKind;
@@ -34,7 +37,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override Task<Unit> Handle(DidChangeTextDocumentParams notification, CancellationToken cancellationToken)
     {
         var change = notification.ContentChanges.LastOrDefault();
-        var text = change.Text ?? string.Empty;
+        var text = change?.Text ?? string.Empty;
         _documents.UpsertDocument(notification.TextDocument.Uri, text);
         return PublishDiagnosticsAsync(notification.TextDocument.Uri, cancellationToken);
     }
