@@ -57,6 +57,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     internal void SetBackingField(SourceFieldSymbol backingField)
     {
         _backingField = backingField;
+        backingField.SetAssociatedProperty(this);
     }
 
     internal void MarkDeclaredInExtension(ITypeSymbol? receiverType)
