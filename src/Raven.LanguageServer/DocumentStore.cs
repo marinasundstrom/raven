@@ -5,10 +5,14 @@ using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
-using DiagnosticSeverity = Raven.CodeAnalysis.DiagnosticSeverity;
+using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
+using CodeDiagnosticSeverity = Raven.CodeAnalysis.DiagnosticSeverity;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using SyntaxTree = Raven.CodeAnalysis.Syntax.SyntaxTree;
 
 namespace Raven.LanguageServer;
 
@@ -106,7 +110,7 @@ internal sealed class DocumentStore
         }
     }
 
-    private static bool ShouldReport(Diagnostic diagnostic, SyntaxTree syntaxTree)
+    private static bool ShouldReport(CodeDiagnostic diagnostic, SyntaxTree syntaxTree)
     {
         if (diagnostic.Location.SourceTree is null)
             return false;
@@ -114,10 +118,10 @@ internal sealed class DocumentStore
         return diagnostic.Location.SourceTree == syntaxTree;
     }
 
-    private static LspDiagnostic MapDiagnostic(Diagnostic diagnostic)
+    private static LspDiagnostic MapDiagnostic(CodeDiagnostic diagnostic)
     {
         var lineSpan = diagnostic.Location.GetLineSpan();
-        var range = new Range(
+        var range = new LspRange(
             new Position(lineSpan.StartLinePosition.Line, lineSpan.StartLinePosition.Character),
             new Position(lineSpan.EndLinePosition.Line, lineSpan.EndLinePosition.Character));
 
@@ -130,13 +134,13 @@ internal sealed class DocumentStore
         };
     }
 
-    private static LspDiagnosticSeverity? MapSeverity(DiagnosticSeverity severity)
+    private static LspDiagnosticSeverity? MapSeverity(CodeDiagnosticSeverity severity)
         => severity switch
         {
-            DiagnosticSeverity.Error => LspDiagnosticSeverity.Error,
-            DiagnosticSeverity.Warning => LspDiagnosticSeverity.Warning,
-            DiagnosticSeverity.Info => LspDiagnosticSeverity.Information,
-            DiagnosticSeverity.Hidden => LspDiagnosticSeverity.Hint,
+            CodeDiagnosticSeverity.Error => LspDiagnosticSeverity.Error,
+            CodeDiagnosticSeverity.Warning => LspDiagnosticSeverity.Warning,
+            CodeDiagnosticSeverity.Info => LspDiagnosticSeverity.Information,
+            CodeDiagnosticSeverity.Hidden => LspDiagnosticSeverity.Hint,
             _ => null
         };
 }

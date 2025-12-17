@@ -6,6 +6,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
 using RavenCompletionItem = Raven.CodeAnalysis.CompletionItem;
+using LspCompletionItem = OmniSharp.Extensions.LanguageServer.Protocol.Models.CompletionItem;
+using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 
 namespace Raven.LanguageServer;
 
@@ -22,7 +24,7 @@ internal sealed class CompletionHandler : ICompletionHandler
     public CompletionRegistrationOptions GetRegistrationOptions(CompletionCapability capability, ClientCapabilities clientCapabilities)
         => new()
         {
-            DocumentSelector = DocumentSelector.ForLanguage("raven"),
+            DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
             TriggerCharacters = new Container<string>(".", ":", "(")
         };
 
@@ -50,10 +52,10 @@ internal sealed class CompletionHandler : ICompletionHandler
     {
     }
 
-    private static CompletionItem ToLspCompletion(RavenCompletionItem item, SourceText text)
+    private static LspCompletionItem ToLspCompletion(RavenCompletionItem item, SourceText text)
     {
         var range = PositionHelper.ToRange(text, item.ReplacementSpan);
-        return new CompletionItem
+        return new LspCompletionItem
         {
             Label = item.DisplayText,
             Detail = item.Description,
