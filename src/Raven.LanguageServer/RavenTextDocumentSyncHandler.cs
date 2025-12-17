@@ -5,6 +5,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using SaveOptions = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.SaveOptions;
+using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
+using TextDocumentSyncKind = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.TextDocumentSyncKind;
 
 namespace Raven.LanguageServer;
 
@@ -50,29 +53,15 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override Task<Unit> Handle(DidSaveTextDocumentParams notification, CancellationToken cancellationToken)
         => PublishDiagnosticsAsync(notification.TextDocument.Uri, cancellationToken);
 
-    public override TextDocumentSyncKind Change => TextDocumentSyncKind.Full;
-
-    public override TextDocumentAttributes GetTextDocumentAttributes(TextDocumentIdentifier identifier)
-        => new(identifier.Uri, "raven");
-
-    public override TextDocumentChangeRegistrationOptions GetRegistrationOptions(SynchronizationCapability capability, ClientCapabilities clientCapabilities)
+    protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
         => new()
         {
-            DocumentSelector = DocumentSelector.ForLanguage("raven"),
-            SyncKind = Change
-        };
-
-    public override Task<Unit> Handle(WillSaveTextDocumentParams notification, CancellationToken cancellationToken)
-        => Task.FromResult(Unit.Value);
-
-    public override Task<Unit> Handle(WillSaveWaitUntilTextDocumentParams notification, CancellationToken cancellationToken)
-        => Task.FromResult(Unit.Value);
-
-    public override TextDocumentSaveRegistrationOptions CreateRegistrationOptions(TextDocumentSaveCapability capability, ClientCapabilities clientCapabilities)
-        => new()
-        {
-            IncludeText = true,
-            DocumentSelector = DocumentSelector.ForLanguage("raven"),
+            DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
+            Change = TextDocumentSyncKind.Full,
+            Save = new SaveOptions
+            {
+                IncludeText = true
+            }
         };
 
     private async Task<Unit> PublishDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
