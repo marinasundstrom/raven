@@ -383,18 +383,21 @@ partial class BlockBinder
         out ITypeSymbol elementType,
         out INamedTypeSymbol? enumerableInterface)
     {
-        if (type is INamedTypeSymbol named &&
-            named.TypeArguments.Length == 1)
+        if (type is INamedTypeSymbol named)
         {
-            var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
-                SpecialType.System_Collections_Generic_IEnumerable_T);
-
-            if (enumerableDefinition.TypeKind != TypeKind.Error &&
-                SymbolEqualityComparer.Default.Equals(GetEnumerableDefinition(named), enumerableDefinition))
+            var typeArguments = named.TypeArguments;
+            if (!typeArguments.IsDefaultOrEmpty && typeArguments.Length == 1)
             {
-                elementType = named.TypeArguments[0];
-                enumerableInterface = (INamedTypeSymbol)enumerableDefinition.Construct(elementType);
-                return true;
+                var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
+                    SpecialType.System_Collections_Generic_IEnumerable_T);
+
+                if (enumerableDefinition.TypeKind != TypeKind.Error &&
+                    SymbolEqualityComparer.Default.Equals(GetEnumerableDefinition(named), enumerableDefinition))
+                {
+                    elementType = typeArguments[0];
+                    enumerableInterface = (INamedTypeSymbol)enumerableDefinition.Construct(elementType);
+                    return true;
+                }
             }
         }
 
