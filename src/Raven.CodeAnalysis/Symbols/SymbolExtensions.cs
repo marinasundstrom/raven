@@ -42,6 +42,14 @@ public static partial class SymbolExtensions
 
     public static bool MetadataIdentityEquals(this ITypeSymbol? left, ITypeSymbol? right)
     {
+        if (left is not null &&
+            right is not null &&
+            left.SpecialType != SpecialType.None &&
+            left.SpecialType == right.SpecialType)
+        {
+            return true;
+        }
+
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
 

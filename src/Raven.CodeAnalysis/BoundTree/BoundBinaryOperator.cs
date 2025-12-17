@@ -129,11 +129,17 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.LogicalOr,       boolType, boolType, boolType),
         };
 
+        static bool SameType(ITypeSymbol leftType, ITypeSymbol rightType)
+        {
+            return SymbolEqualityComparer.Default.Equals(leftType, rightType) ||
+                   leftType.MetadataIdentityEquals(rightType);
+        }
+
         // Try regular match first
         var match = candidates.FirstOrDefault(op =>
             MatchesSyntaxKind(kind, op.OperatorKind) &&
-            SymbolEqualityComparer.Default.Equals(op.LeftType, left) &&
-            SymbolEqualityComparer.Default.Equals(op.RightType, right));
+            SameType(op.LeftType, left) &&
+            SameType(op.RightType, right));
 
         if (match is not null)
         {
@@ -143,7 +149,7 @@ internal partial class BoundBinaryOperator
 
         if (left.IsReferenceType &&
             right.IsReferenceType &&
-            SymbolEqualityComparer.Default.Equals(left, right))
+            SameType(left, right))
         {
             if (kind == SyntaxKind.EqualsEqualsToken)
             {
@@ -166,8 +172,8 @@ internal partial class BoundBinaryOperator
 
             var lifted = candidates.FirstOrDefault(op =>
                 MatchesSyntaxKind(kind, op.OperatorKind) &&
-                SymbolEqualityComparer.Default.Equals(op.LeftType, underlyingLeft) &&
-                SymbolEqualityComparer.Default.Equals(op.RightType, underlyingRight));
+                SameType(op.LeftType, underlyingLeft) &&
+                SameType(op.RightType, underlyingRight));
 
             if (lifted is not null)
             {

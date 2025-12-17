@@ -935,6 +935,19 @@ public partial class Compilation
         return runtimeAssembly;
     }
 
+    internal IAssemblySymbol? GetAssemblySymbol(Assembly metadataAssembly)
+    {
+        if (metadataAssembly is null)
+            throw new ArgumentNullException(nameof(metadataAssembly));
+
+        EnsureSetup();
+
+        if (_assemblySymbols.TryGetValue(metadataAssembly, out var fromCache))
+            return fromCache;
+
+        return GetAssembly(metadataAssembly);
+    }
+
     private void EnsureTrustedPlatformAssembliesCached()
     {
         if (_trustedPlatformAssembliesCached)
@@ -1132,6 +1145,23 @@ public partial class Compilation
 
         if (metadataType.AssemblyQualifiedName is { Length: > 0 } qualifiedName)
             return Type.GetType(qualifiedName, throwOnError: false);
+
+        return null;
+    }
+
+    internal Type? ResolveMetadataType(string metadataName)
+    {
+        if (metadataName is null)
+            throw new ArgumentNullException(nameof(metadataName));
+
+        EnsureSetup();
+
+        foreach (var assembly in _metadataLoadContext.GetAssemblies())
+        {
+            var candidate = assembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
+            if (candidate is not null)
+                return candidate;
+        }
 
         return null;
     }

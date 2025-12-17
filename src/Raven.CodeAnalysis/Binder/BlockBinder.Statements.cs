@@ -383,18 +383,21 @@ partial class BlockBinder
         out ITypeSymbol elementType,
         out INamedTypeSymbol? enumerableInterface)
     {
-        if (type is INamedTypeSymbol named &&
-            named.TypeArguments.Length == 1)
+        if (type is INamedTypeSymbol named)
         {
-            var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
-                SpecialType.System_Collections_Generic_IEnumerable_T);
-
-            if (enumerableDefinition.TypeKind != TypeKind.Error &&
-                SymbolEqualityComparer.Default.Equals(GetEnumerableDefinition(named), enumerableDefinition))
+            var typeArguments = named.TypeArguments;
+            if (!typeArguments.IsDefaultOrEmpty && typeArguments.Length == 1)
             {
-                elementType = named.TypeArguments[0];
-                enumerableInterface = (INamedTypeSymbol)enumerableDefinition.Construct(elementType);
-                return true;
+                var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
+                    SpecialType.System_Collections_Generic_IEnumerable_T);
+
+                if (enumerableDefinition.TypeKind != TypeKind.Error &&
+                    SymbolEqualityComparer.Default.Equals(GetEnumerableDefinition(named), enumerableDefinition))
+                {
+                    elementType = typeArguments[0];
+                    enumerableInterface = (INamedTypeSymbol)enumerableDefinition.Construct(elementType);
+                    return true;
+                }
             }
         }
 
@@ -435,26 +438,34 @@ partial class BlockBinder
 
             if (returnType is INamedTypeSymbol named)
             {
-                if (named.TypeArguments.Length == 1 &&
+                var typeArguments = named.TypeArguments;
+                if (!typeArguments.IsDefaultOrEmpty &&
+                    typeArguments.Length == 1 &&
                     genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
                     SymbolEqualityComparer.Default.Equals(
                         GetEnumerableDefinition(named),
                         genericEnumeratorDefinition))
                 {
-                    elementType = named.TypeArguments[0];
+                    elementType = typeArguments[0];
                     return true;
                 }
 
                 foreach (var iface in named.AllInterfaces)
                 {
-                    if (iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator &&
-                        genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
-                        SymbolEqualityComparer.Default.Equals(
-                            GetEnumerableDefinition(genericEnumerator),
-                            genericEnumeratorDefinition))
+                    if (iface is INamedTypeSymbol genericEnumerator)
                     {
-                        elementType = genericEnumerator.TypeArguments[0];
-                        return true;
+                        var ifaceTypeArguments = genericEnumerator.TypeArguments;
+                        if (ifaceTypeArguments.IsDefaultOrEmpty || ifaceTypeArguments.Length != 1)
+                            continue;
+
+                        if (genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                            SymbolEqualityComparer.Default.Equals(
+                                GetEnumerableDefinition(genericEnumerator),
+                                genericEnumeratorDefinition))
+                        {
+                            elementType = ifaceTypeArguments[0];
+                            return true;
+                        }
                     }
                 }
 
