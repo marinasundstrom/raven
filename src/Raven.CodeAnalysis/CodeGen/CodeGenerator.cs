@@ -709,7 +709,7 @@ internal class CodeGenerator
                 ? _compilation.GetEntryPoint()
                 : null;
 
-            DefineTypeBuilders();
+            DefineTypeBuilders(entryPointSymbol);
 
             DefineMemberBuilders();
 
@@ -1009,7 +1009,7 @@ internal class CodeGenerator
         UnitType = unitBuilder.CreateType();
     }
 
-    private void DefineTypeBuilders()
+    private void DefineTypeBuilders(IMethodSymbol? entryPointSymbol)
     {
         EnsureAsyncStateMachines();
         EnsureIteratorStateMachines();
@@ -1031,11 +1031,11 @@ internal class CodeGenerator
             .ToArray();
 
         var allTypes = declaredTypes
-            .Cast<ISymbol>()
             .Concat(extensionTypes)
-            .Distinct(SymbolEqualityComparer.Default)
-            .OfType<ITypeSymbol>()
-            .ToArray();
+            .ToHashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (entryPointSymbol?.ContainingType is { } entryPointType)
+            allTypes.Add(entryPointType);
 
         var unionCaseTypes = declaredTypes
             .OfType<IDiscriminatedUnionSymbol>()

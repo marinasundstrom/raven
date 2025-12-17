@@ -202,6 +202,69 @@ async func Main() -> Task<int> {
     }
 
     [Fact]
+    public void Emit_WithAsyncFunctionMainReturningTask_SynthesizesBridgeEntryPoint()
+    {
+        var code = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Main() -> Task {
+    await Task.Delay(1);
+    WriteLine("Async hello");
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Seek(0, SeekOrigin.Begin);
+
+        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
+        using var mlc = new MetadataLoadContext(resolver);
+
+        var assembly = mlc.LoadFromStream(peStream);
+        var entryPoint = assembly.EntryPoint;
+
+        Assert.NotNull(entryPoint);
+        Assert.Equal("<Main>_EntryPoint", entryPoint!.Name);
+        Assert.Equal(typeof(void), entryPoint.ReturnType);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+
+            var exitCode = entryPoint.Invoke(null, Array.Empty<object?>());
+
+            Assert.Null(exitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString().Replace("\r\n", "\n").Trim();
+        Assert.Equal("Async hello", output);
+    }
+
+    [Fact]
     public void Emit_WithMultipleValidMainMethods_FailsWithAmbiguousEntryPointDiagnostic()
     {
         var code = """
