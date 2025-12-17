@@ -636,8 +636,10 @@ public static partial class SymbolExtensions
             else
             {
                 // Unconstructed type: fall back to parameter names declared on this type
+                var declaringType = typeSymbol.OriginalDefinition;
+
                 arguments = typeSymbol.TypeParameters
-                    .Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, typeSymbol))
+                    .Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, declaringType))
                     .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
             }
 
