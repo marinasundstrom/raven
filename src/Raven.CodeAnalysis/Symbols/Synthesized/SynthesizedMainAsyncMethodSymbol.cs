@@ -14,7 +14,7 @@ sealed class SynthesizedMainAsyncMethodSymbol : SourceMethodSymbol, IMethodSymbo
         bool returnsInt)
         : base(
             "MainAsync",
-            ResolveReturnType(type, returnsInt),
+            EntryPointSignature.ResolveAsyncReturnType(type.Compilation, type.ContainingAssembly, returnsInt),
             parameters: [],
             type,
             type,
@@ -26,7 +26,7 @@ sealed class SynthesizedMainAsyncMethodSymbol : SourceMethodSymbol, IMethodSymbo
             isAsync: true)
     {
         ReturnsInt = returnsInt;
-        SetParameters([new SourceParameterSymbol("args", CreateStringArrayType(type), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
+        SetParameters([new SourceParameterSymbol("args", EntryPointSignature.CreateStringArrayType(type.ContainingAssembly), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
 
     public override bool IsStatic => true;
@@ -34,34 +34,5 @@ sealed class SynthesizedMainAsyncMethodSymbol : SourceMethodSymbol, IMethodSymbo
     public override bool IsImplicitlyDeclared => true;
 
     public bool ReturnsInt { get; }
-
-    private static ITypeSymbol ResolveReturnType(SynthesizedProgramClassSymbol type, bool returnsInt)
-    {
-        var compilation = type.Compilation;
-        var assembly = type.ContainingAssembly;
-
-        if (returnsInt)
-        {
-            if (assembly.GetTypeByMetadataName("System.Threading.Tasks.Task`1") is INamedTypeSymbol taskOfT)
-            {
-                var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-                if (intType.TypeKind != TypeKind.Error)
-                    return taskOfT.Construct(intType);
-            }
-        }
-
-        if (assembly.GetTypeByMetadataName("System.Threading.Tasks.Task") is { } taskType)
-            return taskType;
-
-        return compilation.GetSpecialType(SpecialType.System_Unit);
-    }
-
-    private static ITypeSymbol CreateStringArrayType(SynthesizedProgramClassSymbol type)
-    {
-        var assembly = type.ContainingAssembly;
-        var arrayType = assembly.GetTypeByMetadataName("System.Array");
-        var stringType = assembly.GetTypeByMetadataName("System.String");
-
-        return new ArrayTypeSymbol(arrayType, stringType, arrayType.ContainingSymbol, null, arrayType.ContainingNamespace, Array.Empty<Location>());
-    }
+    
 }

@@ -32,63 +32,7 @@ public partial class Compilation
         if (method is SynthesizedMainMethodSymbol synthesizedMain && !synthesizedMain.ContainsExecutableCode)
             return false;
 
-        if (method.Name != "Main" || !method.IsStatic || method.IsGenericMethod)
-            return false;
-
-        if (!method.TypeParameters.IsDefaultOrEmpty)
-            return false;
-
-        if (!IsValidEntryPointReturnType(method.ReturnType))
-            return false;
-
-        var parameters = method.Parameters;
-
-        if (parameters.Length == 0)
-            return true;
-
-        if (parameters.Length > 1)
-            return false;
-
-        var parameter = parameters[0];
-
-        if (parameter.RefKind != RefKind.None)
-            return false;
-
-        if (parameter.Type is not IArrayTypeSymbol arrayType)
-            return false;
-
-        var stringType = GetSpecialType(SpecialType.System_String);
-        return SymbolEqualityComparer.Default.Equals(arrayType.ElementType, stringType);
-    }
-
-    private bool IsValidEntryPointReturnType(ITypeSymbol returnType)
-    {
-        switch (returnType.SpecialType)
-        {
-            case SpecialType.System_Int32:
-            case SpecialType.System_Void:
-            case SpecialType.System_Unit:
-                return true;
-        }
-
-        // INFO: Need to reconsider for async Main methods
-
-        var taskType = GetTypeByMetadataName("System.Threading.Tasks.Task");
-        if (taskType is not null && SymbolEqualityComparer.Default.Equals(returnType, taskType))
-            return true;
-
-        if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
-        {
-            var taskOfT = GetTypeByMetadataName("System.Threading.Tasks.Task`1");
-            if (taskOfT is INamedTypeSymbol definition && SymbolEqualityComparer.Default.Equals(named.ConstructedFrom, definition))
-            {
-                var intType = GetSpecialType(SpecialType.System_Int32);
-                if (!named.TypeArguments.IsDefaultOrEmpty && SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], intType))
-                    return true;
-            }
-        }
-
-        return false;
+        return EntryPointSignature.Matches(method, this);
     }
 
     private void EnsureEntryPointComputed()

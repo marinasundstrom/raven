@@ -17,7 +17,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         SynthesizedMainAsyncMethodSymbol? asyncImplementation)
         : base(
             "Main",
-            returnType: ResolveReturnType(type, returnsInt),
+            returnType: EntryPointSignature.ResolveReturnType(type.Compilation, returnsInt),
             parameters: [],
             type,
             type,
@@ -30,7 +30,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         AsyncImplementation = asyncImplementation;
         ContainsExecutableCode = containsExecutableCode;
 
-        SetParameters([new SourceParameterSymbol("args", CreateStringArrayType(type), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
+        SetParameters([new SourceParameterSymbol("args", EntryPointSignature.CreateStringArrayType(type.ContainingAssembly), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
 
     public override bool IsStatic => true;
@@ -40,23 +40,4 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
     public bool ContainsExecutableCode { get; }
 
     public SynthesizedMainAsyncMethodSymbol? AsyncImplementation { get; }
-
-    private static ITypeSymbol ResolveReturnType(SynthesizedProgramClassSymbol type, bool returnsInt)
-    {
-        var compilation = type.Compilation;
-
-        if (returnsInt)
-            return type.Compilation.GetSpecialType(SpecialType.System_Int32);
-
-        return compilation.GetSpecialType(SpecialType.System_Unit);
-    }
-
-    private static ITypeSymbol CreateStringArrayType(SynthesizedProgramClassSymbol type)
-    {
-        var assembly = type.ContainingAssembly;
-        var arrayType = assembly.GetTypeByMetadataName("System.Array");
-        var stringType = assembly.GetTypeByMetadataName("System.String");
-
-        return new ArrayTypeSymbol(arrayType, stringType, arrayType.ContainingSymbol, null, arrayType.ContainingNamespace, Array.Empty<Location>());
-    }
 }
