@@ -1,0 +1,9 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+class Program {
+    async static Main() -> Task {
+        await Task.Delay(1);
+        WriteLine("Hello, World!")
+    }
+}
