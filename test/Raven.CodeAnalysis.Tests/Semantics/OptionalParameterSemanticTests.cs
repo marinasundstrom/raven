@@ -229,6 +229,42 @@ class C {
     }
 
     [Fact]
+    public void Invocation_UsesOptionalAttribute_DefaultStructUsesDefaultLiteral()
+    {
+        const string source = """
+import Raven.Metadata.DefaultParameterValueAttributeFixture.*
+
+class C {
+    InvokeMetadata() {
+        Library.OptionalStruct()
+    }
+}
+""";
+
+        var metadataReference = MetadataReference.CreateFromImage(CreateDefaultParameterValueAttributeFixture());
+        var (compilation, tree) = CreateCompilation(source, references: [.. TestMetadataReferences.Default, metadataReference]);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "OptionalStruct");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var argument = Assert.Single(boundInvocation.Arguments);
+        var synthesizedDefault = Assert.IsType<BoundDefaultValueExpression>(argument);
+
+        var parameter = boundInvocation.Method.Parameters.Single();
+        Assert.True(parameter.HasExplicitDefaultValue);
+        Assert.Equal(default(Guid), parameter.ExplicitDefaultValue);
+        Assert.True(SymbolEqualityComparer.Default.Equals(parameter.Type, synthesizedDefault.Type));
+    }
+
+    [Fact]
     public void Invocation_UsesDefaultParameterValueAttribute_NotConvertible_ReportsDiagnostic()
     {
         const string source = """
@@ -295,6 +331,7 @@ class C {
         var interopNamespace = metadataBuilder.GetOrAddString("System.Runtime.InteropServices");
 
         var objectType = metadataBuilder.AddTypeReference(coreLibReference, systemNamespace, metadataBuilder.GetOrAddString("Object"));
+        var valueType = metadataBuilder.AddTypeReference(coreLibReference, systemNamespace, metadataBuilder.GetOrAddString("ValueType"));
         var defaultParameterValueAttribute = metadataBuilder.AddTypeReference(interopReference, interopNamespace, metadataBuilder.GetOrAddString(nameof(DefaultParameterValueAttribute)));
         var optionalAttribute = metadataBuilder.AddTypeReference(interopReference, interopNamespace, metadataBuilder.GetOrAddString(nameof(OptionalAttribute)));
 
@@ -342,6 +379,16 @@ class C {
             fieldList: MetadataTokens.FieldDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.Field) + 1),
             methodList: MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef) + 1));
 
+        var structMethodList = MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef) + 1);
+        var structFieldList = MetadataTokens.FieldDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.Field) + 1);
+        var optionalStructType = metadataBuilder.AddTypeDefinition(
+            attributes: TypeAttributes.Public | TypeAttributes.SequentialLayout | TypeAttributes.Sealed | TypeAttributes.AnsiClass | TypeAttributes.BeforeFieldInit,
+            @namespace: metadataBuilder.GetOrAddString("Raven.Metadata.DefaultParameterValueAttributeFixture"),
+            name: metadataBuilder.GetOrAddString("OptionalStruct"),
+            baseType: valueType,
+            fieldList: structFieldList,
+            methodList: structMethodList);
+
         var methodList = MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef) + 1);
         _ = metadataBuilder.AddTypeDefinition(
             attributes: TypeAttributes.Public | TypeAttributes.AutoLayout | TypeAttributes.AnsiClass | TypeAttributes.BeforeFieldInit,
@@ -369,6 +416,9 @@ class C {
         var optionalOnlyReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
         var optionalOnlyParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("value"), 1);
 
+        var optionalStructReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
+        var optionalStructParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("value"), 1);
+
         var optionalAttributeValue = new BlobBuilder();
         optionalAttributeValue.WriteUInt16(1);
         optionalAttributeValue.WriteUInt16(0);
@@ -395,6 +445,11 @@ class C {
         optionalAttributeValueFourth.WriteUInt16(1);
         optionalAttributeValueFourth.WriteUInt16(0);
         metadataBuilder.AddCustomAttribute(optionalOnlyParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(optionalAttributeValueFourth));
+
+        var optionalAttributeValueFifth = new BlobBuilder();
+        optionalAttributeValueFifth.WriteUInt16(1);
+        optionalAttributeValueFifth.WriteUInt16(0);
+        metadataBuilder.AddCustomAttribute(optionalStructParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(optionalAttributeValueFifth));
 
         var methodSignature = new BlobBuilder();
         methodSignature.WriteByte((byte)SignatureCallingConvention.Default);
@@ -428,6 +483,17 @@ class C {
         optionalOnlySignature.WriteCompressedInteger(1);
         optionalOnlySignature.WriteByte((byte)SignatureTypeCode.Void);
         optionalOnlySignature.WriteByte((byte)SignatureTypeCode.Int32);
+
+        var optionalStructSignature = new BlobBuilder();
+        new BlobEncoder(optionalStructSignature)
+            .MethodSignature(SignatureCallingConvention.Default)
+            .Parameters(
+                parameterCount: 1,
+                returnType: static returnType => returnType.Void(),
+                parameters: parameters =>
+                {
+                    parameters.AddParameter().Type().Type(optionalStructType, isValueType: true);
+                });
 
         var il = new BlobBuilder();
         var instructionEncoder = new InstructionEncoder(il);
@@ -502,6 +568,14 @@ class C {
             signature: metadataBuilder.GetOrAddBlob(optionalOnlySignature),
             bodyOffset: methodBody,
             parameterList: optionalOnlyReturnParameter);
+
+        metadataBuilder.AddMethodDefinition(
+            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
+            implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
+            name: metadataBuilder.GetOrAddString("OptionalStruct"),
+            signature: metadataBuilder.GetOrAddBlob(optionalStructSignature),
+            bodyOffset: methodBody,
+            parameterList: optionalStructReturnParameter);
 
         var peHeaderBuilder = new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll);
         var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);

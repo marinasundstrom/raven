@@ -1423,7 +1423,8 @@ resolution just like source-declared defaults. Omitted positional and named
 arguments are synthesized from those metadata-provided constants, after applying
 the same constant-conversion rules as source defaults. If only
 `System.Runtime.InteropServices.OptionalAttribute` is present, Raven will use the
-parameter type’s CLR default value when materializing an omitted argument.
+parameter type’s CLR default value when materializing an omitted argument,
+emitting `default(T)` for value types that lack a literal representation.
 
 ### Generic functions and methods
 

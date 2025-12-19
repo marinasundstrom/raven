@@ -11,6 +11,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     private bool _defaultValueComputed;
     private bool _hasExplicitDefaultValue;
     private object? _explicitDefaultValue;
+    private bool _explicitDefaultValueIsTypeDefault;
 
     public PEParameterSymbol(TypeResolver typeResolver, ParameterInfo parameterInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -72,6 +73,15 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         }
     }
 
+    internal bool ExplicitDefaultValueIsTypeDefault
+    {
+        get
+        {
+            EnsureDefaultValueComputed();
+            return _explicitDefaultValueIsTypeDefault;
+        }
+    }
+
     private void EnsureDefaultValueComputed()
     {
         if (_defaultValueComputed)
@@ -112,6 +122,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
             {
                 _hasExplicitDefaultValue = true;
                 _explicitDefaultValue = CreateTypeDefaultValue(_parameterInfo.ParameterType);
+                _explicitDefaultValueIsTypeDefault = true;
             }
 
         }

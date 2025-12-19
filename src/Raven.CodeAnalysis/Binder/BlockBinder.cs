@@ -6131,8 +6131,19 @@ partial class BlockBinder : Binder
         if (value is null)
             return BoundFactory.NullLiteral(parameterType);
 
+        if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true }
+            && parameterType.IsValueType
+            && parameterType.SpecialType == SpecialType.None
+            && parameterType.TypeKind != TypeKind.Enum)
+        {
+            return new BoundDefaultValueExpression(parameterType);
+        }
+
         if (!TryCreateOptionalLiteral(parameterType, value, out var literal))
         {
+            if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true })
+                return new BoundDefaultValueExpression(parameterType);
+
             ReportOptionalParameterDefaultValueCannotConvert(parameter, parameterType);
             return new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
         }
