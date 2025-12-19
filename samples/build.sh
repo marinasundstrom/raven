@@ -36,9 +36,6 @@ COMPILER_EXC="ravc"
 # List of sample files (filenames only) to exclude
 EXCLUDE=(
   "test.rav"
-  "tokenizer.rav"
-  #"async-generic-compute.rav"
-  # add others here if needed
 )
 
 is_excluded() {
