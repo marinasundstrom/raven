@@ -4,8 +4,9 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
-using System.Runtime.InteropServices;
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
@@ -65,8 +66,11 @@ class C {
 }
 """;
 
-        var metadataReference = MetadataReference.CreateFromImage(CreateDefaultParameterValueAttributeFixture());
-        var metadataAssembly = Assembly.LoadFrom(((PortableExecutableReference)metadataReference).FilePath);
+        var metadataImage = CreateDefaultParameterValueAttributeFixture();
+        var metadataReference = MetadataReference.CreateFromImage(metadataImage);
+        var loadContext = new AssemblyLoadContext("DefaultParameterValueAttributeFixture", isCollectible: true);
+        using var metadataStream = new MemoryStream(metadataImage);
+        var metadataAssembly = loadContext.LoadFromStream(metadataStream);
         var reflectedType = metadataAssembly.GetType("Raven.Metadata.DefaultParameterValueAttributeFixture.Library");
         Assert.NotNull(reflectedType);
 
@@ -99,6 +103,8 @@ class C {
         var parameter = boundInvocation.Method.Parameters.Single();
         Assert.True(parameter.HasExplicitDefaultValue);
         Assert.Equal(123, parameter.ExplicitDefaultValue);
+
+        loadContext.Unload();
     }
 
     [Fact]
@@ -140,6 +146,49 @@ class C {
 
         var trailing = Assert.IsType<BoundLiteralExpression>(arguments[2]);
         Assert.Equal(456, trailing.Value);
+    }
+
+    [Fact]
+    public void Invocation_UsesDefaultParameterValueAttribute_InOverloadResolution()
+    {
+        const string source = """
+import Raven.Metadata.DefaultParameterValueAttributeFixture.*
+
+class C {
+    InvokeMetadata() {
+        Library.OverloadedOptional(1)
+    }
+}
+""";
+
+        var metadataReference = MetadataReference.CreateFromImage(CreateDefaultParameterValueAttributeFixture());
+        var (compilation, tree) = CreateCompilation(source, references: [.. TestMetadataReferences.Default, metadataReference]);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "OverloadedOptional");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var arguments = boundInvocation.Arguments.ToArray();
+
+        Assert.Equal(2, arguments.Length);
+        var suppliedArgument = Assert.IsType<BoundLiteralExpression>(arguments[0]);
+        Assert.Equal(1, suppliedArgument.Value);
+
+        var synthesizedDefault = Assert.IsType<BoundLiteralExpression>(arguments[1]);
+        Assert.Equal(321, synthesizedDefault.Value);
+
+        Assert.Equal("OverloadedOptional", boundInvocation.Method.Name);
+        Assert.Equal(2, boundInvocation.Method.Parameters.Length);
+        var optionalParameter = boundInvocation.Method.Parameters[1];
+        Assert.True(optionalParameter.HasExplicitDefaultValue);
+        Assert.Equal(321, optionalParameter.ExplicitDefaultValue);
     }
 
     [Fact]
@@ -273,6 +322,13 @@ class C {
         var optionalParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("optional"), 2);
         var trailingParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("trailing"), 3);
 
+        var overloadedReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
+        var overloadedValueParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString("value"), 1);
+        var overloadedOptionalParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("optional"), 2);
+
+        var overloadedDoubleReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
+        var overloadedDoubleValueParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString("value"), 1);
+
         var optionalAttributeValue = new BlobBuilder();
         optionalAttributeValue.WriteUInt16(1);
         optionalAttributeValue.WriteUInt16(0);
@@ -309,6 +365,19 @@ class C {
         optionalMethodSignature.WriteByte((byte)SignatureTypeCode.Int32);
         optionalMethodSignature.WriteByte((byte)SignatureTypeCode.Int32);
 
+        var overloadedOptionalSignature = new BlobBuilder();
+        overloadedOptionalSignature.WriteByte((byte)SignatureCallingConvention.Default);
+        overloadedOptionalSignature.WriteCompressedInteger(2);
+        overloadedOptionalSignature.WriteByte((byte)SignatureTypeCode.Void);
+        overloadedOptionalSignature.WriteByte((byte)SignatureTypeCode.Int32);
+        overloadedOptionalSignature.WriteByte((byte)SignatureTypeCode.Int32);
+
+        var overloadedDoubleSignature = new BlobBuilder();
+        overloadedDoubleSignature.WriteByte((byte)SignatureCallingConvention.Default);
+        overloadedDoubleSignature.WriteCompressedInteger(1);
+        overloadedDoubleSignature.WriteByte((byte)SignatureTypeCode.Void);
+        overloadedDoubleSignature.WriteByte((byte)SignatureTypeCode.Double);
+
         var il = new BlobBuilder();
         var instructionEncoder = new InstructionEncoder(il);
         instructionEncoder.OpCode(ILOpCode.Ret);
@@ -327,6 +396,16 @@ class C {
         trailingDefaultValue.WriteInt32(456);
         trailingDefaultValue.WriteUInt16(0);
 
+        var overloadedOptionalAttributeValue = new BlobBuilder();
+        overloadedOptionalAttributeValue.WriteUInt16(1);
+        overloadedOptionalAttributeValue.WriteUInt16(0);
+
+        var overloadedDefaultValue = new BlobBuilder();
+        overloadedDefaultValue.WriteUInt16(1);
+        overloadedDefaultValue.WriteByte((byte)SerializationTypeCode.Int32);
+        overloadedDefaultValue.WriteInt32(321);
+        overloadedDefaultValue.WriteUInt16(0);
+
         metadataBuilder.AddMethodDefinition(
             attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
             implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
@@ -338,6 +417,9 @@ class C {
         metadataBuilder.AddCustomAttribute(optionalParameter, defaultParameterValueConstructor, metadataBuilder.GetOrAddBlob(optionalDefaultValue));
         metadataBuilder.AddCustomAttribute(trailingParameter, defaultParameterValueConstructor, metadataBuilder.GetOrAddBlob(trailingDefaultValue));
 
+        metadataBuilder.AddCustomAttribute(overloadedOptionalParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(overloadedOptionalAttributeValue));
+        metadataBuilder.AddCustomAttribute(overloadedOptionalParameter, defaultParameterValueConstructor, metadataBuilder.GetOrAddBlob(overloadedDefaultValue));
+
         metadataBuilder.AddMethodDefinition(
             attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
             implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
@@ -345,6 +427,22 @@ class C {
             signature: metadataBuilder.GetOrAddBlob(optionalMethodSignature),
             bodyOffset: methodBody,
             parameterList: secondReturnParameter);
+
+        metadataBuilder.AddMethodDefinition(
+            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
+            implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
+            name: metadataBuilder.GetOrAddString("OverloadedOptional"),
+            signature: metadataBuilder.GetOrAddBlob(overloadedOptionalSignature),
+            bodyOffset: methodBody,
+            parameterList: overloadedReturnParameter);
+
+        metadataBuilder.AddMethodDefinition(
+            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
+            implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
+            name: metadataBuilder.GetOrAddString("OverloadedOptional"),
+            signature: metadataBuilder.GetOrAddBlob(overloadedDoubleSignature),
+            bodyOffset: methodBody,
+            parameterList: overloadedDoubleReturnParameter);
 
         var peHeaderBuilder = new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll);
         var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);

@@ -1415,6 +1415,14 @@ must convert to the parameter type using an implicit conversion. Nullable value
 types accept `null` defaults; other value types require a literal of the
 underlying type. Reference-type parameters accept `null` defaults.
 
+When importing methods from other assemblies, Raven also recognizes optional
+parameters surfaced through metadata. Parameters marked optional with a stored
+default constant or with `System.Runtime.InteropServices.DefaultParameterValueAttribute`
+and `System.Runtime.InteropServices.OptionalAttribute` participate in overload
+resolution just like source-declared defaults. Omitted positional and named
+arguments are synthesized from those metadata-provided constants, after applying
+the same constant-conversion rules as source defaults.
+
 ### Generic functions and methods
 
 Functions—including methods declared inside types—may introduce type parameters
