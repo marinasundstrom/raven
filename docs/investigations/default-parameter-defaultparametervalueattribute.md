@@ -14,7 +14,7 @@ Identify the compiler changes needed to honor `System.Runtime.InteropServices.De
 - Name-based argument mapping is already capable of placing omitted arguments, but it depends entirely on `HasExplicitDefaultValue`; ignoring the attribute means named calls cannot skip those parameters either.
 
 ## Implementation sketch
-- **Status:**
+- **Status:** _Feature complete._
   - ✅ Attribute decoding in metadata symbols (optional defaults flow from `DefaultParameterValueAttribute`/`OptionalAttribute`).
   - ✅ Default literal synthesis for metadata defaults, including enums, decimal, and `DateTime` constants.
   - ✅ Invocation and overload resolution honor defaults imported from `DefaultParameterValueAttribute`.
@@ -28,3 +28,6 @@ Identify the compiler changes needed to honor `System.Runtime.InteropServices.De
 
 ## Validation ideas
 - Add metadata-based tests that import a .NET method using only `DefaultParameterValueAttribute` and verify calls without the argument bind successfully, including named-argument cases. Cover uncommon constant shapes (e.g., `decimal`, enums, `DateTime`, `null`) to validate literal synthesis. Retain regression coverage for existing default-constant metadata and source-declared defaults to confirm no regressions.
+
+## Remaining work
+- None for `DefaultParameterValueAttribute`-driven optional defaults; all planned tasks are complete. Continue to watch full-suite regressions (e.g., unrelated terminal logger failures) as broader test runs re-enable.
