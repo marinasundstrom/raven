@@ -145,6 +145,14 @@ public partial class Compilation
         if (entryPointCandidate.ContainingSymbol is not SourceNamedTypeSymbol containingType)
             return entryPointCandidate;
 
+        var existingBridge = containingType
+            .GetMembers("<Main>_EntryPoint")
+            .OfType<SynthesizedEntryPointBridgeMethodSymbol>()
+            .FirstOrDefault(b => SymbolEqualityComparer.Default.Equals(b.AsyncImplementation, entryPointCandidate));
+
+        if (existingBridge is not null)
+            return existingBridge;
+
         var locations = entryPointCandidate.Locations.ToArray();
         var syntaxReferences = entryPointCandidate.DeclaringSyntaxReferences.ToArray();
 

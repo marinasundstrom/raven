@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -122,12 +123,24 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ImmutableArray<ISymbol> GetMembers()
     {
-        return _members.ToImmutableArray();
+        return _members.Distinct(SymbolReferenceComparer.Instance).ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        return _members.Where(x => x.Name == name).ToImmutableArray();
+        return _members
+            .Where(x => x.Name == name)
+            .Distinct(SymbolReferenceComparer.Instance)
+            .ToImmutableArray();
+    }
+
+    private sealed class SymbolReferenceComparer : IEqualityComparer<ISymbol>
+    {
+        public static readonly SymbolReferenceComparer Instance = new();
+
+        public bool Equals(ISymbol? x, ISymbol? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(ISymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     public ITypeSymbol? LookupType(string name) =>

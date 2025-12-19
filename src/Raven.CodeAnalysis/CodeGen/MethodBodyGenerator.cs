@@ -557,7 +557,8 @@ internal class MethodBodyGenerator
 
         if (bridgeMethod.ReturnType.SpecialType == SpecialType.System_Unit)
         {
-            if (awaitable.GetResultMethod.ReturnType.SpecialType != SpecialType.System_Void)
+            if (awaitable.GetResultMethod.ReturnType.SpecialType is not SpecialType.System_Void
+                and not SpecialType.System_Unit)
                 ILGenerator.Emit(OpCodes.Pop);
             ILGenerator.Emit(OpCodes.Ret);
             return;
