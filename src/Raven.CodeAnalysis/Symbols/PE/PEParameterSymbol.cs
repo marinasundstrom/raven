@@ -111,10 +111,39 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
             if (!_hasExplicitDefaultValue && hasOptionalAttribute)
             {
                 _hasExplicitDefaultValue = true;
-                _explicitDefaultValue = null;
+                _explicitDefaultValue = CreateTypeDefaultValue(_parameterInfo.ParameterType);
             }
+
         }
 
         _defaultValueComputed = true;
+    }
+
+    private static object? CreateTypeDefaultValue(Type parameterType)
+    {
+        if (!parameterType.IsValueType)
+            return null;
+
+        if (parameterType.IsEnum)
+            return Enum.ToObject(parameterType, 0);
+
+        return System.Type.GetTypeCode(parameterType) switch
+        {
+            TypeCode.Boolean => false,
+            TypeCode.Char => '\0',
+            TypeCode.SByte => (sbyte)0,
+            TypeCode.Byte => (byte)0,
+            TypeCode.Int16 => (short)0,
+            TypeCode.UInt16 => (ushort)0,
+            TypeCode.Int32 => 0,
+            TypeCode.UInt32 => 0u,
+            TypeCode.Int64 => 0L,
+            TypeCode.UInt64 => 0UL,
+            TypeCode.Single => 0f,
+            TypeCode.Double => 0d,
+            TypeCode.Decimal => 0m,
+            TypeCode.DateTime => default(DateTime),
+            _ => Activator.CreateInstance(parameterType)
+        };
     }
 }

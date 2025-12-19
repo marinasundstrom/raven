@@ -1421,7 +1421,9 @@ default constant or with `System.Runtime.InteropServices.DefaultParameterValueAt
 and `System.Runtime.InteropServices.OptionalAttribute` participate in overload
 resolution just like source-declared defaults. Omitted positional and named
 arguments are synthesized from those metadata-provided constants, after applying
-the same constant-conversion rules as source defaults.
+the same constant-conversion rules as source defaults. If only
+`System.Runtime.InteropServices.OptionalAttribute` is present, Raven will use the
+parameter type’s CLR default value when materializing an omitted argument.
 
 ### Generic functions and methods
 
