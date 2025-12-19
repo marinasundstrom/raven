@@ -6132,16 +6132,31 @@ partial class BlockBinder : Binder
             return BoundFactory.NullLiteral(parameterType);
 
         if (!TryCreateOptionalLiteral(parameterType, value, out var literal))
+        {
+            ReportOptionalParameterDefaultValueCannotConvert(parameter, parameterType);
             return new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
+        }
 
         if (SymbolEqualityComparer.Default.Equals(literal.Type, parameterType))
             return literal;
 
         var conversion = Compilation.ClassifyConversion(literal.Type!, parameterType);
         if (!conversion.Exists || !conversion.IsImplicit)
+        {
+            ReportOptionalParameterDefaultValueCannotConvert(parameter, parameterType);
             return new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
+        }
 
         return ApplyConversion(literal, parameterType, conversion);
+    }
+
+    private void ReportOptionalParameterDefaultValueCannotConvert(IParameterSymbol parameter, ITypeSymbol parameterType)
+    {
+        var parameterTypeDisplay = parameterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var parameterName = parameter.Name ?? string.Empty;
+        var location = parameter.Locations.FirstOrDefault() ?? Location.None;
+
+        _diagnostics.ReportOptionalParameterDefaultValueCannotConvert(parameterName, parameterTypeDisplay, location);
     }
 
     private bool TryCreateOptionalLiteral(ITypeSymbol parameterType, object value, out BoundLiteralExpression literal)

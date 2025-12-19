@@ -185,6 +185,10 @@
     Title="Static members cannot be virtual or override"
     Message="Static member '{memberName}' cannot be marked '{modifier}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0316" Identifier="OptionalParameterDefaultValueCannotConvert"
+    Title="Optional parameter default value cannot be converted"
+    Message="The default value for optional parameter '{parameterName}' cannot be converted to type '{parameterType}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0600" Identifier="TypeAlreadyDefined" Title="Type already defined"
     Message="A type named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error"
