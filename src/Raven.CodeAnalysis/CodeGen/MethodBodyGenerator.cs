@@ -532,41 +532,48 @@ internal class MethodBodyGenerator
 
     private void EmitEntryPointBridge(IMethodSymbol bridgeMethod, IMethodSymbol asyncImplementation)
     {
-        if (asyncImplementation is not SourceSymbol asyncSource ||
-            MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(asyncSource) is not MethodInfo asyncMethodInfo)
-            throw new NotSupportedException("Async entry point implementation is not defined.");
+        if (!AwaitablePattern.TryFind(asyncImplementation.ReturnType, isAccessible: null, out var awaitable, out _, out _))
+            throw new NotSupportedException("Async entry point return type is not awaitable.");
+
+        var codeGen = MethodGenerator.TypeGenerator.CodeGen;
+        var asyncMethodInfo = asyncImplementation.GetClrMethodInfo(codeGen);
 
         if (bridgeMethod.Parameters.Length == 1)
             ILGenerator.Emit(OpCodes.Ldarg_0);
 
-        ILGenerator.Emit(OpCodes.Call, asyncMethodInfo);
+        ILGenerator.Emit(GetCallOpCode(asyncImplementation, asyncMethodInfo), asyncMethodInfo);
 
-        var returnType = asyncMethodInfo.ReturnType;
-        var getAwaiter = returnType.GetMethod("GetAwaiter", Type.EmptyTypes)
-            ?? throw new NotSupportedException("Async entry point does not expose GetAwaiter().");
+        var getAwaiter = awaitable.GetAwaiterMethod.GetClrMethodInfo(codeGen);
+        ILGenerator.Emit(GetCallOpCode(awaitable.GetAwaiterMethod, getAwaiter), getAwaiter);
 
-        var callAwaiterOpCode = returnType.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
-        ILGenerator.Emit(callAwaiterOpCode, getAwaiter);
-
-        var awaiterType = getAwaiter.ReturnType;
+        var awaiterType = awaitable.AwaiterType.GetClrTypeTreatingUnitAsVoid(codeGen);
         var awaiterLocal = ILGenerator.DeclareLocal(awaiterType);
         awaiterLocal.SetLocalSymInfo("awaiter");
         ILGenerator.Emit(OpCodes.Stloc, awaiterLocal);
         ILGenerator.Emit(OpCodes.Ldloca, awaiterLocal);
 
-        var getResult = awaiterType.GetMethod("GetResult", Type.EmptyTypes)
-            ?? throw new NotSupportedException("Awaiter does not expose GetResult().");
-        ILGenerator.Emit(OpCodes.Call, getResult);
+        var getResult = awaitable.GetResultMethod.GetClrMethodInfo(codeGen);
+        ILGenerator.Emit(GetCallOpCode(awaitable.GetResultMethod, getResult), getResult);
 
         if (bridgeMethod.ReturnType.SpecialType == SpecialType.System_Unit)
         {
-            if (getResult.ReturnType != typeof(void))
+            if (awaitable.GetResultMethod.ReturnType.SpecialType != SpecialType.System_Void)
                 ILGenerator.Emit(OpCodes.Pop);
             ILGenerator.Emit(OpCodes.Ret);
             return;
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private static OpCode GetCallOpCode(IMethodSymbol methodSymbol, MethodInfo methodInfo)
+    {
+        if (methodSymbol.IsStatic)
+            return OpCodes.Call;
+
+        return methodInfo.DeclaringType is { IsValueType: true }
+            ? OpCodes.Call
+            : OpCodes.Callvirt;
     }
 
     private void EmitIteratorMethod(SynthesizedIteratorTypeSymbol iteratorType)

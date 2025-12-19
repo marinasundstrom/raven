@@ -316,6 +316,10 @@
     Title="Program has more than one entry point defined"
     Message="Program has more than one entry point defined" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1022" Identifier="EntryPointHasInvalidSignature"
+    Title="Invalid entry point signature"
+    Message="Entry point 'Main' must be static and return 'void', 'int', 'Unit', 'Task', or 'Task&lt;int&gt;' with zero parameters or a single 'string[]' parameter"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1021" Identifier="TopLevelStatementsDisallowedWithMainFunction"
     Title="Top-level statements not allowed with top-level Main"
     Message="Top-level statements are not allowed when 'Main' is declared as a top-level function" Category="compiler"
