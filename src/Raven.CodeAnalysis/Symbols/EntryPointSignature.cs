@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class EntryPointSignature
 {
-    private const string EntryPointName = "Main";
+    internal const string EntryPointName = "Main";
 
     public static bool Matches(IMethodSymbol method, Compilation compilation)
     {
@@ -32,13 +32,15 @@ internal static class EntryPointSignature
         }
 
         var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
-        if (taskType is not null && SymbolEqualityComparer.Default.Equals(returnType, taskType))
+
+        if (returnType is INamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
             return true;
 
         if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
         {
             var taskOfT = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
-            if (taskOfT is INamedTypeSymbol definition && SymbolEqualityComparer.Default.Equals(named.ConstructedFrom, definition))
+
+            if (IsTaskOfT(named, taskOfT))
             {
                 var intType = compilation.GetSpecialType(SpecialType.System_Int32);
                 if (!named.TypeArguments.IsDefaultOrEmpty && SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], intType))
@@ -54,13 +56,15 @@ internal static class EntryPointSignature
         returnsInt = false;
 
         var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
-        if (taskType is not null && SymbolEqualityComparer.Default.Equals(returnType, taskType))
+
+        if (returnType is INamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
             return true;
 
         if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
         {
             var taskOfT = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
-            if (taskOfT is INamedTypeSymbol definition && SymbolEqualityComparer.Default.Equals(named.ConstructedFrom, definition))
+
+            if (IsTaskOfT(named, taskOfT))
             {
                 var intType = compilation.GetSpecialType(SpecialType.System_Int32);
                 if (!named.TypeArguments.IsDefaultOrEmpty && SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], intType))
@@ -122,5 +126,51 @@ internal static class EntryPointSignature
         var stringType = assembly.GetTypeByMetadataName("System.String");
 
         return new ArrayTypeSymbol(arrayType, stringType, arrayType.ContainingSymbol, null, arrayType.ContainingNamespace, Array.Empty<Location>());
+    }
+
+    private static bool IsTaskType(INamedTypeSymbol namedReturn, INamedTypeSymbol? taskType)
+    {
+        if (taskType is not null && SymbolEqualityComparer.Default.Equals(namedReturn, taskType))
+            return true;
+
+        return namedReturn.MetadataName == "Task"
+            && IsInNamespace(namedReturn.ContainingNamespace, "System.Threading.Tasks");
+    }
+
+    private static bool IsTaskOfT(INamedTypeSymbol named, INamedTypeSymbol? taskOfT)
+    {
+        if (taskOfT is not null && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, taskOfT))
+            return true;
+
+        return named.OriginalDefinition.MetadataName == "Task`1"
+            && IsInNamespace(named.OriginalDefinition.ContainingNamespace, "System.Threading.Tasks");
+    }
+
+    private static bool IsInNamespace(INamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
+    {
+        if (namespaceSymbol is null)
+            return false;
+
+        var remaining = qualifiedNamespace;
+
+        while (!namespaceSymbol.IsGlobalNamespace)
+        {
+            var lastDot = remaining.LastIndexOf('.');
+            var segment = lastDot >= 0 ? remaining[(lastDot + 1)..] : remaining;
+
+            if (!string.Equals(namespaceSymbol.Name, segment, StringComparison.Ordinal))
+                return false;
+
+            if (lastDot < 0)
+                return namespaceSymbol.ContainingNamespace.IsGlobalNamespace;
+
+            remaining = remaining[..lastDot];
+            namespaceSymbol = namespaceSymbol.ContainingNamespace;
+
+            if (namespaceSymbol is null)
+                return false;
+        }
+
+        return false;
     }
 }

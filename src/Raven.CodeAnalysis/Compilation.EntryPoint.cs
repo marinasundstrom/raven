@@ -37,6 +37,25 @@ public partial class Compilation
 
     private void EnsureEntryPointComputed()
     {
+        EnsureSetup();
+
+        if (!_sourceTypesInitialized && !_isPopulatingSourceTypes)
+        {
+            try
+            {
+                _isPopulatingSourceTypes = true;
+
+                foreach (var syntaxTree in _syntaxTrees)
+                    _ = GetSemanticModel(syntaxTree);
+
+                _sourceTypesInitialized = true;
+            }
+            finally
+            {
+                _isPopulatingSourceTypes = false;
+            }
+        }
+
         if (_entryPointComputed)
             return;
 
@@ -46,12 +65,33 @@ public partial class Compilation
                 return;
 
             var uniqueCandidates = new Dictionary<string, IMethodSymbol>(StringComparer.Ordinal);
+            var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
 
             foreach (var method in SourceGlobalNamespace
                 .GetAllMembersRecursive()
-                .OfType<IMethodSymbol>()
-                .Where(IsEntryPointCandidate))
+                .OfType<IMethodSymbol>())
             {
+                if (method.Name != EntryPointSignature.EntryPointName)
+                    continue;
+
+                if (method is SynthesizedMainMethodSymbol synthesizedMain && !synthesizedMain.ContainsExecutableCode)
+                    continue;
+
+                var hasValidReturn = EntryPointSignature.HasValidReturnType(method.ReturnType, this);
+                var hasValidParameters = EntryPointSignature.HasValidParameters(method.Parameters, this);
+                var hasValidShape = method.IsStatic
+                    && !method.IsGenericMethod
+                    && method.TypeParameters.IsDefaultOrEmpty
+                    && hasValidReturn
+                    && hasValidParameters;
+
+                if (!hasValidShape)
+                {
+                    var location = method.Locations.FirstOrDefault() ?? Location.None;
+                    diagnostics.Add(Diagnostic.Create(CompilerDiagnostics.EntryPointHasInvalidSignature, location));
+                    continue;
+                }
+
                 var key = method.ToDisplayString(SymbolDisplayFormat.CSharpSymbolKeyFormat);
                 if (!uniqueCandidates.ContainsKey(key))
                     uniqueCandidates.Add(key, method);
@@ -59,20 +99,22 @@ public partial class Compilation
 
             var candidates = uniqueCandidates.Values.ToImmutableArray();
 
-            if (Options.OutputKind != OutputKind.ConsoleApplication)
+            if (Options.OutputKind == OutputKind.DynamicallyLinkedLibrary)
             {
                 _entryPoint = candidates.Length == 1 ? candidates[0] : null;
-                _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
+                _entryPointDiagnostics = diagnostics.ToImmutable();
             }
             else if (candidates.Length == 1)
             {
                 _entryPoint = TrySynthesizeAsyncEntryPointBridge(candidates[0]);
-                _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
+                _entryPointDiagnostics = diagnostics.ToImmutable();
             }
             else if (candidates.Length > 1)
             {
                 _entryPoint = null;
-                var builder = ImmutableArray.CreateBuilder<Diagnostic>(candidates.Length);
+                var builder = ImmutableArray.CreateBuilder<Diagnostic>(candidates.Length + diagnostics.Count);
+
+                builder.AddRange(diagnostics);
 
                 foreach (var candidate in candidates)
                 {
@@ -85,7 +127,7 @@ public partial class Compilation
             else
             {
                 _entryPoint = null;
-                _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
+                _entryPointDiagnostics = diagnostics.ToImmutable();
             }
 
             _entryPointComputed = true;
@@ -102,6 +144,14 @@ public partial class Compilation
 
         if (entryPointCandidate.ContainingSymbol is not SourceNamedTypeSymbol containingType)
             return entryPointCandidate;
+
+        var existingBridge = containingType
+            .GetMembers("<Main>_EntryPoint")
+            .OfType<SynthesizedEntryPointBridgeMethodSymbol>()
+            .FirstOrDefault(b => SymbolEqualityComparer.Default.Equals(b.AsyncImplementation, entryPointCandidate));
+
+        if (existingBridge is not null)
+            return existingBridge;
 
         var locations = entryPointCandidate.Locations.ToArray();
         var syntaxReferences = entryPointCandidate.DeclaringSyntaxReferences.ToArray();

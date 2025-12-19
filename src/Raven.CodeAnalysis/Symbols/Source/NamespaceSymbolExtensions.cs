@@ -4,8 +4,18 @@ internal static class NamespaceSymbolExtensions
 {
     public static IEnumerable<ISymbol> GetAllMembersRecursive(this INamespaceSymbol ns)
     {
-        foreach (var member in ns.GetMembers())
+        if (ns is null)
+            yield break;
+
+        var members = ns.GetMembers();
+        if (members.IsDefaultOrEmpty)
+            yield break;
+
+        foreach (var member in members)
         {
+            if (member is null)
+                continue;
+
             yield return member;
             if (member is INamespaceSymbol nestedNs)
             {
@@ -14,7 +24,11 @@ internal static class NamespaceSymbolExtensions
             }
             else if (member is INamedTypeSymbol type)
             {
-                foreach (var sub in type.GetMembers())
+                var typeMembers = type.GetMembers();
+                if (typeMembers.IsDefaultOrEmpty)
+                    continue;
+
+                foreach (var sub in typeMembers)
                     yield return sub;
             }
         }
