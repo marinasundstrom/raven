@@ -192,6 +192,45 @@ class C {
     }
 
     [Fact]
+    public void Invocation_UsesDefaultParameterValueAttribute_WithEnum()
+    {
+        const string source = """
+import Raven.Metadata.DefaultParameterValueAttributeFixture.*
+
+class C {
+    InvokeMetadata() {
+        Library.OptionalEnum()
+    }
+}
+""";
+
+        var metadataReference = MetadataReference.CreateFromImage(CreateDefaultParameterValueAttributeFixture());
+        var (compilation, tree) = CreateCompilation(source, references: [.. TestMetadataReferences.Default, metadataReference]);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "OptionalEnum");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var arguments = boundInvocation.Arguments.ToArray();
+
+        Assert.Single(arguments);
+        var defaultValue = Assert.IsType<BoundLiteralExpression>(arguments[0]);
+        Assert.Equal(typeof(DayOfWeek).Name, defaultValue.Type!.Name);
+        Assert.Equal((int)DayOfWeek.Wednesday, Assert.IsType<int>(defaultValue.Value));
+
+        var parameter = boundInvocation.Method.Parameters.Single();
+        Assert.True(parameter.HasExplicitDefaultValue);
+        Assert.Equal((int)DayOfWeek.Wednesday, parameter.ExplicitDefaultValue);
+    }
+
+    [Fact]
     public void Invocation_UsesOptionalAttribute_DefaultsToTypeDefault()
     {
         const string source = """
@@ -371,6 +410,7 @@ class C {
 
         var objectType = metadataBuilder.AddTypeReference(coreLibReference, systemNamespace, metadataBuilder.GetOrAddString("Object"));
         var valueType = metadataBuilder.AddTypeReference(coreLibReference, systemNamespace, metadataBuilder.GetOrAddString("ValueType"));
+        var dayOfWeekType = metadataBuilder.AddTypeReference(coreLibReference, systemNamespace, metadataBuilder.GetOrAddString("DayOfWeek"));
         var defaultParameterValueAttribute = metadataBuilder.AddTypeReference(interopReference, interopNamespace, metadataBuilder.GetOrAddString(nameof(DefaultParameterValueAttribute)));
         var optionalAttribute = metadataBuilder.AddTypeReference(interopReference, interopNamespace, metadataBuilder.GetOrAddString(nameof(OptionalAttribute)));
 
@@ -461,6 +501,9 @@ class C {
         var optionalReferenceReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
         var optionalReferenceParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("value"), 1);
 
+        var optionalEnumReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
+        var optionalEnumParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("value"), 1);
+
         var optionalAttributeValue = new BlobBuilder();
         optionalAttributeValue.WriteUInt16(1);
         optionalAttributeValue.WriteUInt16(0);
@@ -497,6 +540,11 @@ class C {
         optionalAttributeValueSixth.WriteUInt16(1);
         optionalAttributeValueSixth.WriteUInt16(0);
         metadataBuilder.AddCustomAttribute(optionalReferenceParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(optionalAttributeValueSixth));
+
+        var optionalAttributeValueNinth = new BlobBuilder();
+        optionalAttributeValueNinth.WriteUInt16(1);
+        optionalAttributeValueNinth.WriteUInt16(0);
+        metadataBuilder.AddCustomAttribute(optionalEnumParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(optionalAttributeValueNinth));
 
         var methodSignature = new BlobBuilder();
         methodSignature.WriteByte((byte)SignatureCallingConvention.Default);
@@ -548,6 +596,14 @@ class C {
         optionalReferenceSignature.WriteByte((byte)SignatureTypeCode.String);
         optionalReferenceSignature.WriteByte((byte)SignatureTypeCode.String);
 
+        var optionalEnumSignature = new BlobBuilder();
+        new BlobEncoder(optionalEnumSignature)
+            .MethodSignature(SignatureCallingConvention.Default)
+            .Parameters(
+                parameterCount: 1,
+                returnType: static returnType => returnType.Void(),
+                parameters: parameters => parameters.AddParameter().Type().Type(dayOfWeekType, isValueType: true));
+
         var il = new BlobBuilder();
         var instructionEncoder = new InstructionEncoder(il);
         instructionEncoder.OpCode(ILOpCode.Ret);
@@ -583,6 +639,12 @@ class C {
         overloadedDefaultValue.WriteInt32(321);
         overloadedDefaultValue.WriteUInt16(0);
 
+        var optionalEnumValue = new BlobBuilder();
+        optionalEnumValue.WriteUInt16(1);
+        optionalEnumValue.WriteByte((byte)SerializationTypeCode.Int32);
+        optionalEnumValue.WriteInt32((int)DayOfWeek.Wednesday);
+        optionalEnumValue.WriteUInt16(0);
+
         metadataBuilder.AddMethodDefinition(
             attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
             implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
@@ -596,6 +658,7 @@ class C {
 
         metadataBuilder.AddCustomAttribute(overloadedOptionalParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(overloadedOptionalAttributeValue));
         metadataBuilder.AddCustomAttribute(overloadedOptionalParameter, defaultParameterValueConstructor, metadataBuilder.GetOrAddBlob(overloadedDefaultValue));
+        metadataBuilder.AddCustomAttribute(optionalEnumParameter, defaultParameterValueConstructor, metadataBuilder.GetOrAddBlob(optionalEnumValue));
 
         metadataBuilder.AddMethodDefinition(
             attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
@@ -644,6 +707,14 @@ class C {
             signature: metadataBuilder.GetOrAddBlob(optionalReferenceSignature),
             bodyOffset: optionalReferenceMethodBody,
             parameterList: optionalReferenceReturnParameter);
+
+        metadataBuilder.AddMethodDefinition(
+            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
+            implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
+            name: metadataBuilder.GetOrAddString("OptionalEnum"),
+            signature: metadataBuilder.GetOrAddBlob(optionalEnumSignature),
+            bodyOffset: methodBody,
+            parameterList: optionalEnumReturnParameter);
 
         var peHeaderBuilder = new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll);
         var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);
