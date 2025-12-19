@@ -291,8 +291,16 @@ internal class TypeResolver(Compilation compilation)
     {
         var typeInfo = type.GetTypeInfo();
 
-        var assemblySymbol = (PEAssemblySymbol)compilation.ReferencedAssemblySymbols.First(x => x.Name == type.Assembly.GetName().Name);
-        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName);
+        var assemblyName = type.Assembly.GetName().Name;
+        var corLibrary = (PEAssemblySymbol)compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
+        var assemblySymbol = (PEAssemblySymbol?)compilation.ReferencedAssemblySymbols.FirstOrDefault(x => x.Name == assemblyName)
+            ?? corLibrary;
+
+        if (assemblySymbol is null)
+            return compilation.GetTypeByMetadataName(type.FullName);
+
+        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName)
+            ?? compilation.GetTypeByMetadataName(type.FullName);
     }
 
     public IMethodSymbol? ResolveMethodSymbol(MethodInfo ifaceMethod)

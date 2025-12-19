@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -3578,25 +3579,8 @@ internal class ExpressionGenerator : Generator
         switch (literalExpression.Kind)
         {
             case BoundLiteralExpressionKind.NumericLiteral:
-                {
-                    if (literalExpression.Value is int)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldc_I4, (int)literalExpression.Value);
-                    }
-                    else if (literalExpression.Value is long)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldc_I8, (long)literalExpression.Value);
-                    }
-                    else if (literalExpression.Value is float)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldc_R4, (float)literalExpression.Value);
-                    }
-                    else if (literalExpression.Value is double)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldc_R8, (double)literalExpression.Value);
-                    }
-                    break;
-                }
+                EmitNumericConstant(literalExpression.Value);
+                break;
 
             case BoundLiteralExpressionKind.StringLiteral:
                 {
@@ -3644,6 +3628,86 @@ internal class ExpressionGenerator : Generator
             default:
                 throw new Exception("Not supported");
         }
+    }
+
+    private void EmitNumericConstant(object value)
+    {
+        switch (value)
+        {
+            case byte b:
+                ILGenerator.Emit(OpCodes.Ldc_I4, b);
+                break;
+            case sbyte sb:
+                ILGenerator.Emit(OpCodes.Ldc_I4, sb);
+                break;
+            case short s:
+                ILGenerator.Emit(OpCodes.Ldc_I4, s);
+                break;
+            case ushort us:
+                ILGenerator.Emit(OpCodes.Ldc_I4, us);
+                break;
+            case int i:
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                break;
+            case uint ui:
+                ILGenerator.Emit(OpCodes.Ldc_I4, unchecked((int)ui));
+                break;
+            case long l:
+                ILGenerator.Emit(OpCodes.Ldc_I8, l);
+                break;
+            case ulong ul:
+                ILGenerator.Emit(OpCodes.Ldc_I8, unchecked((long)ul));
+                break;
+            case float f:
+                ILGenerator.Emit(OpCodes.Ldc_R4, f);
+                break;
+            case double d:
+                ILGenerator.Emit(OpCodes.Ldc_R8, d);
+                break;
+            case decimal dec:
+                EmitDecimalConstant(dec);
+                break;
+            case Enum enumValue:
+                EmitEnumConstant(enumValue);
+                break;
+            case DateTime dateTime:
+                EmitDateTimeConstant(dateTime);
+                break;
+            default:
+                throw new Exception("Not supported literal value");
+        }
+    }
+
+    private void EmitDecimalConstant(decimal value)
+    {
+        var bits = decimal.GetBits(value);
+        var isNegative = (bits[3] & unchecked((int)0x80000000)) != 0;
+        var scale = (byte)((bits[3] >> 16) & 0x7F);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4, bits[0]);
+        ILGenerator.Emit(OpCodes.Ldc_I4, bits[1]);
+        ILGenerator.Emit(OpCodes.Ldc_I4, bits[2]);
+        ILGenerator.Emit(isNegative ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ldc_I4_S, scale);
+
+        var constructor = typeof(decimal).GetConstructor(new[] { typeof(int), typeof(int), typeof(int), typeof(bool), typeof(byte) })!;
+        ILGenerator.Emit(OpCodes.Newobj, constructor);
+    }
+
+    private void EmitEnumConstant(Enum value)
+    {
+        var underlying = Enum.GetUnderlyingType(value.GetType());
+        var numericValue = Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture)!;
+        EmitNumericConstant(numericValue);
+    }
+
+    private void EmitDateTimeConstant(DateTime value)
+    {
+        var constructor = typeof(DateTime).GetConstructor(new[] { typeof(long), typeof(DateTimeKind) })!;
+
+        ILGenerator.Emit(OpCodes.Ldc_I8, value.Ticks);
+        ILGenerator.Emit(OpCodes.Ldc_I4, (int)value.Kind);
+        ILGenerator.Emit(OpCodes.Newobj, constructor);
     }
 
     private void EmitIfExpression(BoundIfExpression ifStatement)
