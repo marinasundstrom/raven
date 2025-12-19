@@ -68,6 +68,7 @@ Mark completed steps explicitly as they are finished to keep progress visible.
 ## Implementation progress
 - ✅ Entry point bridge emission now relies on shared awaitable-pattern detection and symbol-based call emission, removing reflection dependencies while keeping support scoped to `Task`/`Task<int>`.
 - ✅ Bridge synthesis deduplicates `<Main>_EntryPoint` members on the containing type and emits void-returning awaiters without popping the stack, fixing missing bodies and invalid IL for async console entrypoints.
+- ✅ Runtime smoke tests cover async `Program.Main` and `func Main` bridges for `Task`/`Task<int>`, ensuring async bodies are awaited and exit codes propagate.
 
 ## Open questions
 - `ValueTask`/task-like support is deferred to a future awaitable generalization pass; the current phase should reject these shapes explicitly.
