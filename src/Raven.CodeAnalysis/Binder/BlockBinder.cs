@@ -6122,30 +6122,102 @@ partial class BlockBinder : Binder
         if (!parameter.HasExplicitDefaultValue)
             return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
 
+        var parameterType = parameter.Type;
+        if (parameterType.TypeKind == TypeKind.Error)
+            return new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
+
         var value = parameter.ExplicitDefaultValue;
 
         if (value is null)
+            return BoundFactory.NullLiteral(parameterType);
+
+        if (!TryCreateOptionalLiteral(parameterType, value, out var literal))
+            return new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        if (SymbolEqualityComparer.Default.Equals(literal.Type, parameterType))
+            return literal;
+
+        var conversion = Compilation.ClassifyConversion(literal.Type!, parameterType);
+        if (!conversion.Exists || !conversion.IsImplicit)
+            return new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        return ApplyConversion(literal, parameterType, conversion);
+    }
+
+    private bool TryCreateOptionalLiteral(ITypeSymbol parameterType, object value, out BoundLiteralExpression literal)
+    {
+        if (parameterType.TypeKind == TypeKind.Enum &&
+            TryConvertEnumLiteralValue(value, out var enumValue))
         {
-            return new BoundLiteralExpression(
-                BoundLiteralExpressionKind.NullLiteral,
-                null!,
-                Compilation.NullTypeSymbol,
-                parameter.Type);
+            literal = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, enumValue, parameterType);
+            return true;
         }
 
+        if (!ConstantValueEvaluator.TryConvert(parameterType, value, out var converted))
+        {
+            literal = null!;
+            return false;
+        }
+
+        var literalType = GetOptionalLiteralType(parameterType, converted);
+        if (literalType is null)
+        {
+            literal = null!;
+            return false;
+        }
+
+        literal = new BoundLiteralExpression(GetOptionalLiteralKind(converted!), converted!, literalType);
+        return true;
+    }
+
+    private ITypeSymbol? GetOptionalLiteralType(ITypeSymbol parameterType, object value)
+    {
         return value switch
         {
-            bool b => new BoundLiteralExpression(
-                b ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral,
-                b,
-                parameter.Type),
-            string s => new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, s, parameter.Type),
-            char c => new BoundLiteralExpression(BoundLiteralExpressionKind.CharLiteral, c, parameter.Type),
-            int i => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, i, parameter.Type),
-            long l => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, l, parameter.Type),
-            float f => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, f, parameter.Type),
-            double d => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, d, parameter.Type),
-            _ => new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed)
+            bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
+            string => Compilation.GetSpecialType(SpecialType.System_String),
+            char => Compilation.GetSpecialType(SpecialType.System_Char),
+            sbyte => Compilation.GetSpecialType(SpecialType.System_SByte),
+            byte => Compilation.GetSpecialType(SpecialType.System_Byte),
+            short => Compilation.GetSpecialType(SpecialType.System_Int16),
+            ushort => Compilation.GetSpecialType(SpecialType.System_UInt16),
+            int => Compilation.GetSpecialType(SpecialType.System_Int32),
+            uint => Compilation.GetSpecialType(SpecialType.System_UInt32),
+            long => Compilation.GetSpecialType(SpecialType.System_Int64),
+            ulong => Compilation.GetSpecialType(SpecialType.System_UInt64),
+            float => Compilation.GetSpecialType(SpecialType.System_Single),
+            double => Compilation.GetSpecialType(SpecialType.System_Double),
+            decimal => Compilation.GetSpecialType(SpecialType.System_Decimal),
+            DateTime => Compilation.GetSpecialType(SpecialType.System_DateTime),
+            Enum => parameterType,
+            _ => parameterType
+        };
+    }
+
+    private static bool TryConvertEnumLiteralValue(object value, out object converted)
+    {
+        switch (value)
+        {
+            case Enum enumValue:
+                converted = Convert.ToInt64(enumValue);
+                return true;
+            case byte or sbyte or short or ushort or int or uint or long or ulong:
+                converted = value;
+                return true;
+            default:
+                converted = null!;
+                return false;
+        }
+    }
+
+    private static BoundLiteralExpressionKind GetOptionalLiteralKind(object value)
+    {
+        return value switch
+        {
+            bool b => b ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral,
+            string => BoundLiteralExpressionKind.StringLiteral,
+            char => BoundLiteralExpressionKind.CharLiteral,
+            _ => BoundLiteralExpressionKind.NumericLiteral
         };
     }
 

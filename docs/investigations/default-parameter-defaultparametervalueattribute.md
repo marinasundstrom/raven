@@ -14,6 +14,9 @@ Identify the compiler changes needed to honor `System.Runtime.InteropServices.De
 - Name-based argument mapping is already capable of placing omitted arguments, but it depends entirely on `HasExplicitDefaultValue`; ignoring the attribute means named calls cannot skip those parameters either.
 
 ## Implementation sketch
+- **Status:**
+  - ✅ Attribute decoding in metadata symbols (optional defaults flow from `DefaultParameterValueAttribute`/`OptionalAttribute`).
+  - ✅ Default literal synthesis for metadata defaults, including enums, decimal, and `DateTime` constants.
 - **Attribute decoding in metadata symbols** — Extend `PEParameterSymbol` to scan `GetCustomAttributesData()` for `DefaultParameterValueAttribute` (and possibly `OptionalAttribute` as a fallback). When present, extract the constructor argument as the default, set `HasExplicitDefaultValue` to true, and prefer it when `RawDefaultValue` is `Type.Missing`. Preserve existing handling for metadata-encoded default constants so reflection and attribute paths both work.
 - **Default literal synthesis** — Broaden `CreateOptionalArgument` to construct literals (or constant conversions) for additional constant kinds: enums (using their underlying value), decimal, `DateTime`, and other primitive-backed constants commonly emitted by `DefaultParameterValueAttribute`. Consider reusing the constant folding/conversion pipeline instead of hard-coding types to ensure parity with source defaults.
 - **Invocation and overload resolution checks** — No structural changes are required, but defaults discovered via the attribute must flow into `HasExplicitDefaultValue`/`ExplicitDefaultValue` so that positional and named-argument mapping, as well as `TryMatch`, allow the omission. Validation coverage should include calls that skip parameters defined only via `DefaultParameterValueAttribute`.

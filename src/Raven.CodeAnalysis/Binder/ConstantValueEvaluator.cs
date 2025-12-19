@@ -172,6 +172,9 @@ internal static class ConstantValueEvaluator
                     return true;
                 }
                 break;
+            case SpecialType.System_DateTime when value is DateTime dateTime:
+                converted = dateTime;
+                return true;
         }
 
         converted = null;
