@@ -16,9 +16,9 @@ Some helpful tools:
 
 * [Roslyn Quoter](https://roslynquoter.azurewebsites.net/) - Turns C# code into Roslyn syntax node definitions in C#. Useful as a reference when designing syntax nodes. Also for when working on our "Generator" project.
 
-## Compilers
+## Reference compilers
 
-Here are some compilers to have a look at:
+Here are some compilers whose source codes are worth having a look at:
 
 * [Good for nothing compiler](https://github.com/johandanforth/good-for-nothing-compiler) - a simple compiler project in C#, originally by Joel Pobar and Joe Duffy, published in an article for MSDN Magazine.
 * [Roslyn C# compiler](https://github.com/dotnet/roslyn) - the C# compiler and related services.
@@ -36,3 +36,14 @@ _In chronological order:_
 * [ExpressionEvaluator](https://github.com/marinasundstrom/ExpressionEvaluator) (2016) - Expression parser, evaluator, and compiler. Using the operator-precendence parser algorithm and Reflection.Emit for code generation.
 * [Compiler projects](https://github.com/marinasundstrom/compiler-projects) (2022 - 2023) - A couple of compiler projects for prototyping using a modern compiler architecture.
 * Raven (2024)
+
+## Other tools
+
+_Other resources for compiler developers_
+
+* [Compiler Explorer](https://godbolt.org/) - Compiles C/C+ code into target assembly. To explore other possible compile targets.
+* [CPUlator ARMv7 System Simulator](https://cpulator.01xz.net/) - Online ARMv7 emulator
+
+## Books
+
+* [X86 Disassembly - Wikibooks](https://en.wikibooks.org/wiki/X86_Disassembly)
