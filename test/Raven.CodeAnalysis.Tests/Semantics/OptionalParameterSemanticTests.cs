@@ -265,6 +265,45 @@ class C {
     }
 
     [Fact]
+    public void Invocation_UsesOptionalAttribute_DefaultReferenceUsesNullLiteral()
+    {
+        const string source = """
+import Raven.Metadata.DefaultParameterValueAttributeFixture.*
+
+class C {
+    InvokeMetadata() {
+        Library.OptionalReference()
+    }
+}
+""";
+
+        var metadataReference = MetadataReference.CreateFromImage(CreateDefaultParameterValueAttributeFixture());
+        var (compilation, tree) = CreateCompilation(source, references: [.. TestMetadataReferences.Default, metadataReference]);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "OptionalReference");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var argument = Assert.Single(boundInvocation.Arguments);
+        var literal = Assert.IsType<BoundLiteralExpression>(argument);
+
+        Assert.Equal(BoundLiteralExpressionKind.NullLiteral, literal.Kind);
+        Assert.Null(literal.Value);
+
+        var parameter = boundInvocation.Method.Parameters.Single();
+        Assert.True(parameter.HasExplicitDefaultValue);
+        Assert.Null(parameter.ExplicitDefaultValue);
+        Assert.True(SymbolEqualityComparer.Default.Equals(parameter.Type, literal.ConvertedType));
+    }
+
+    [Fact]
     public void Invocation_UsesDefaultParameterValueAttribute_NotConvertible_ReportsDiagnostic()
     {
         const string source = """
@@ -419,6 +458,9 @@ class C {
         var optionalStructReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
         var optionalStructParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("value"), 1);
 
+        var optionalReferenceReturnParameter = metadataBuilder.AddParameter(ParameterAttributes.None, metadataBuilder.GetOrAddString(string.Empty), 0);
+        var optionalReferenceParameter = metadataBuilder.AddParameter(ParameterAttributes.Optional, metadataBuilder.GetOrAddString("value"), 1);
+
         var optionalAttributeValue = new BlobBuilder();
         optionalAttributeValue.WriteUInt16(1);
         optionalAttributeValue.WriteUInt16(0);
@@ -450,6 +492,11 @@ class C {
         optionalAttributeValueFifth.WriteUInt16(1);
         optionalAttributeValueFifth.WriteUInt16(0);
         metadataBuilder.AddCustomAttribute(optionalStructParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(optionalAttributeValueFifth));
+
+        var optionalAttributeValueSixth = new BlobBuilder();
+        optionalAttributeValueSixth.WriteUInt16(1);
+        optionalAttributeValueSixth.WriteUInt16(0);
+        metadataBuilder.AddCustomAttribute(optionalReferenceParameter, optionalAttributeConstructor, metadataBuilder.GetOrAddBlob(optionalAttributeValueSixth));
 
         var methodSignature = new BlobBuilder();
         methodSignature.WriteByte((byte)SignatureCallingConvention.Default);
@@ -495,11 +542,24 @@ class C {
                     parameters.AddParameter().Type().Type(optionalStructType, isValueType: true);
                 });
 
+        var optionalReferenceSignature = new BlobBuilder();
+        optionalReferenceSignature.WriteByte((byte)SignatureCallingConvention.Default);
+        optionalReferenceSignature.WriteCompressedInteger(1);
+        optionalReferenceSignature.WriteByte((byte)SignatureTypeCode.String);
+        optionalReferenceSignature.WriteByte((byte)SignatureTypeCode.String);
+
         var il = new BlobBuilder();
         var instructionEncoder = new InstructionEncoder(il);
         instructionEncoder.OpCode(ILOpCode.Ret);
 
         var methodBody = methodBodyStream.AddMethodBody(instructionEncoder);
+
+        var optionalReferenceIl = new BlobBuilder();
+        var optionalReferenceInstructionEncoder = new InstructionEncoder(optionalReferenceIl);
+        optionalReferenceInstructionEncoder.OpCode(ILOpCode.Ldarg_0);
+        optionalReferenceInstructionEncoder.OpCode(ILOpCode.Ret);
+
+        var optionalReferenceMethodBody = methodBodyStream.AddMethodBody(optionalReferenceInstructionEncoder);
 
         var optionalDefaultValue = new BlobBuilder();
         optionalDefaultValue.WriteUInt16(1);
@@ -576,6 +636,14 @@ class C {
             signature: metadataBuilder.GetOrAddBlob(optionalStructSignature),
             bodyOffset: methodBody,
             parameterList: optionalStructReturnParameter);
+
+        metadataBuilder.AddMethodDefinition(
+            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
+            implAttributes: MethodImplAttributes.IL | MethodImplAttributes.Managed,
+            name: metadataBuilder.GetOrAddString("OptionalReference"),
+            signature: metadataBuilder.GetOrAddBlob(optionalReferenceSignature),
+            bodyOffset: optionalReferenceMethodBody,
+            parameterList: optionalReferenceReturnParameter);
 
         var peHeaderBuilder = new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll);
         var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);
