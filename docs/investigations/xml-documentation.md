@@ -51,8 +51,10 @@ Capture the requirements and design options for adding XML documentation comment
 - **Symbol binding**: tests that attach comments to declarations, merge partials, and report errors for mismatched parameters or misplaced comments.
 - **Metadata loading**: tests that associate XML files with metadata references, resolve culture-specific docs, and tolerate missing/invalid files while returning null documentation.
 - **API behavior**: verify `GetDocumentationCommentXml` returns the expected XML for source and metadata symbols, including inherited docs where applicable, and that completion/Quick Info surfaces the resolved documentation.
+- **Update documentation**: Update language specification
 
 ## Open questions
 - Should `<inheritdoc>` be fully resolved during binding or lazily in the API layer? Roslyn resolves lazily to avoid eager graph walks, but eager resolution could simplify tooling at the cost of upfront work.
 - Do we need a lightweight format (e.g., a summarized string) for runtime reflection use, or is XML sufficient for all planned tooling?
 - How should documentation be surfaced for synthesized members (pattern-based codegen, implicit constructors) where no source comment exists? Options include suppressing documentation, redirecting to the containing symbol, or authoring synthesized summaries.
+- Should we add support for markdown? Similar to in Java.
