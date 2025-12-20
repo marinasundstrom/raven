@@ -2,22 +2,21 @@ import System.*
 import System.Console.*
 import System.Linq.*
 
-val r = typeof(String)
-WriteLine(r)
+func Main(args: string[]) -> () {
+    WriteLine(args.Length)
 
-val members = r.GetMembers(.Public | .Static)
+    val r = typeof(String)
+    WriteLine(r)
 
-for member in members.Where(x => x.Name.Equals("Intern")) {
-    WriteLine(member.Name)
+    val members = r.GetMembers(.Public | .Static)
+
+    val name = "Intern"
+
+    for member in members.Where(x => x.Name.Equals(name)) {
+        WriteLine(member.Name)
+    }
+
+    val member = members.First()
+
+    WriteLine("First $member")
 }
-
-val member = members[1]
-
-WriteLine("First ${member.Name}")
-
-/*
-val method = (System.Reflection.MethodInfo)member
-val type = method.Invoke(member, null)
-
-WriteLine(type)
-*/
