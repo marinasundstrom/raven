@@ -737,6 +737,28 @@ well as top-level `func` declarations. Because overload resolution still sees
 the piped value as the first argument, generic methods can infer type arguments
 from that value without any additional annotations.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2724-L2768】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L1396-L1507】
 
+### Range expressions
+
+`..` produces a `Range` value that can be stored, passed to APIs, or used for
+slicing receivers that understand .NET ranges. Both endpoints are optional, and
+either endpoint may be written as a **from-end** index by prefixing it with `^`.
+
+```raven
+val r = 3..^5
+let head = ..3
+let tail = 3..
+let all  = ..
+```
+
+Forming a range evaluates each supplied boundary exactly once, left-to-right.
+Each boundary expression must be implicitly convertible to `int`; the `^` prefix
+indicates the operand counts from the end of the receiver instead of from the
+start. The resulting `Range` uses `Index.FromStart` for ordinary boundaries and
+`Index.FromEnd` for prefixed ones, and omitting a boundary produces
+`Range.StartAt`, `Range.EndAt`, or `Range.All` accordingly. A range expression
+retains its `Range` type even when no target type is provided, enabling
+declarations like `val r = 3..^5` without additional annotations.
+
 ### Bitwise operators
 
 The binary `&` and `|` operators perform bitwise combination on `int`, `long`, and matching enum operands. When both operands are `bool`, they evaluate **without** short-circuiting and return `bool`, allowing direct use in non-conditional contexts or within compound assignments. Operands must share the same enum type when applied to enums; the result has that enum type.
@@ -2135,11 +2157,12 @@ Lowest → highest (all left-associative unless noted):
 7. Equality: `==  !=`
 8. Relational: `<  >  <=  >=`
 9. Type tests: `is  as` (binds after relational)
-10. Additive: `+  -`
-11. Multiplicative: `*  /  %`
-12. Cast: `(T)expr`
-13. Unary (prefix): `+  -  !  typeof`
-14. Postfix trailers: call `()`, member `.`, index `[]`
+10. Range: `..` (boundaries optionally prefixed with `^`)
+11. Additive: `+  -`
+12. Multiplicative: `*  /  %`
+13. Cast: `(T)expr`
+14. Unary (prefix): `+  -  !  typeof`
+15. Postfix trailers: call `()`, member `.`, index `[]`
 
 > **Disambiguation notes**
 >

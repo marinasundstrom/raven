@@ -235,7 +235,14 @@ EqualityExpression       ::= RelationalExpression {('==' | '!=') RelationalExpre
 RelationalExpression     ::= TypeTestExpression
                              {('<' | '>' | '<=' | '>=') TypeTestExpression} ;
 
-TypeTestExpression       ::= AdditiveExpression {('is' | 'as') Type} ;
+TypeTestExpression       ::= RangeExpression {('is' | 'as') Type} ;
+
+RangeExpression          ::= RangeStart '..' RangeEnd
+                           | AdditiveExpression ;
+
+RangeStart               ::= RangeIndex? ;
+RangeEnd                 ::= RangeIndex? ;
+RangeIndex               ::= '^'? AdditiveExpression ;
 
 AdditiveExpression       ::= MultiplicativeExpression {('+' | '-') MultiplicativeExpression} ;
 MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression} ;
