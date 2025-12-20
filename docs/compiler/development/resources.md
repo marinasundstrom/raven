@@ -20,7 +20,7 @@ Some helpful tools:
 
 Here are some compilers whose source codes are worth having a look at:
 
-* [Good for nothing compiler](https://github.com/johandanforth/good-for-nothing-compiler) - a simple compiler project in C#, originally by Joel Pobar and Joe Duffy, published in an article for MSDN Magazine.
+* [Good for nothing compiler](https://github.com/johandanforth/good-for-nothing-compiler) - a simple compiler project in C#, originally by Joel Pobar and Joe Duffy, published in an [article](https://learn.microsoft.com/en-us/archive/msdn-magazine/2008/february/create-a-language-compiler-for-the-net-framework-using-csharp) for MSDN Magazine.
 * [Roslyn C# compiler](https://github.com/dotnet/roslyn) - the C# compiler and related services.
 * [SmallBasic](https://github.com/sb/smallbasic-editor) - A Basic-like programming language and IDE meant to teach kids about programming. Built on C#/.NET.
 * [IronPython3](https://github.com/IronLanguages/ironpython3) - An implementation of Python 3 for .NET. Source code C#.
@@ -37,6 +37,13 @@ _In chronological order:_
 * [Compiler projects](https://github.com/marinasundstrom/compiler-projects) (2022 - 2023) - A couple of compiler projects for prototyping using a modern compiler architecture.
 * Raven (2024)
 
+## Articles
+
+* [Roll Your Own - Create a Language Compiler for the .NET Framework](https://learn.microsoft.com/en-us/archive/msdn-magazine/2008/february/create-a-language-compiler-for-the-net-framework-using-csharp) - Article by Joel Pobar (2008). Building the "Good for nothing compiler" (GFN)
+* [Extended Backus Naur Form (EBNF)](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) - EBNF used to describe the grammatical structure of a programming language in a context-free manner. _(But most programming languages today are dependent on context)_
+* [Operator precedence parser](https://en.wikipedia.org/wiki/Operator-precedence_parser) - Describes parsing algorithm
+* [X86 Disassembly - Wikibooks](https://en.wikibooks.org/wiki/X86_Disassembly) - Article about disassembling C programs into X86.
+
 ## Other tools
 
 _Other resources for compiler developers_
@@ -44,6 +51,9 @@ _Other resources for compiler developers_
 * [Compiler Explorer](https://godbolt.org/) - Compiles C/C+ code into target assembly. To explore other possible compile targets.
 * [CPUlator ARMv7 System Simulator](https://cpulator.01xz.net/) - Online ARMv7 emulator
 
-## Books
 
-* [X86 Disassembly - Wikibooks](https://en.wikibooks.org/wiki/X86_Disassembly)
+## Videos
+
+* [Deep .NET with Stephen Toub](https://www.youtube.com/watch?v=R-z2Hv-7nxk&list=PLdo4fOcmZ0oX8eqDkSw4hH9cSehrGgdr1) - Series explaining in-depth and step-by-step how features in C#/.NET are conceptually working under the hood.
+* [Low Level](https://www.youtube.com/@LowLevelTV) - Channel focused on low-level code: assembly, C/C++, Rust. There are som videos teaching ARM assembly.
+* [Core Dumped](https://www.youtube.com/@CoreDumpped) - Channel about computer science. Videos in which is explained in precise terms how it all works both at machine-level, and  operating-system-level.
