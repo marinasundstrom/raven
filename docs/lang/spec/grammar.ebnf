@@ -46,7 +46,8 @@ FunctionDeclaration      ::= FunctionModifiers?
 ExtensionDeclaration     ::= 'extension' Identifier 'for' Type ExtensionBody ;
 ExtensionBody            ::= '{' {ExtensionMember} '}' ;
 ExtensionMember          ::= ExtensionMethodDeclaration
-                           | ExtensionPropertyDeclaration ;
+                           | ExtensionPropertyDeclaration
+                           | OperatorDeclaration ;
 ExtensionMethodDeclaration
                            ::= ExtensionMethodModifiers?
                                Identifier '(' ParameterList? ')'
@@ -84,6 +85,7 @@ NewLineToken             ::= /* newline trivia promoted to a token after type de
 
 ClassMember              ::= FieldDeclaration
                            | MethodDeclaration
+                           | OperatorDeclaration
                            | InvocationOperatorDeclaration
                            | ConstructorDeclaration
                            | PropertyDeclaration
@@ -103,6 +105,13 @@ MethodDeclaration        ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? Identifier '(' ParameterList? ')'
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
+OperatorDeclaration      ::= MemberModifiers?
+                             'operator' OverloadableOperator '(' ParameterList? ')'
+                             ReturnTypeClause?
+                             ( Block | '=>' Expression ) ;
+OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&' | '&&' | 'and'
+                           | '|' | '||' | 'or' | '==' | '!=' | '<' | '<=' | '>'
+                           | '>=' | '!' | '++' | '--' ;
 
 ExplicitInterfaceSpecifier ::= Type '.' ;
 

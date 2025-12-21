@@ -309,6 +309,11 @@ internal class TypeDeclarationParser : SyntaxParser
             return new UnionDeclarationParser(this).Parse();
         }
 
+        if (keywordOrIdentifier.IsKind(SyntaxKind.OperatorKeyword))
+        {
+            return ParseOperatorDeclaration(attributeLists, modifiers);
+        }
+
         if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ValKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))
         {
             return ParseFieldDeclarationSyntax(attributeLists, modifiers);
@@ -376,6 +381,44 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         return ParsePropertyDeclaration(attributeLists, modifiers);
+    }
+
+    private MemberDeclarationSyntax ParseOperatorDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var operatorKeyword = ReadToken();
+        var operatorToken = ParseOverloadableOperatorToken();
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
+        var parameterList = ParseParameterList(openParenToken);
+
+        var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        var token = PeekToken();
+
+        BlockStatementSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        }
+        else if (token.IsKind(SyntaxKind.FatArrowToken))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return OperatorDeclaration(
+            attributeLists,
+            modifiers,
+            operatorKeyword,
+            operatorToken,
+            parameterList,
+            returnType,
+            body,
+            expressionBody,
+            terminatorToken);
     }
 
     private MemberDeclarationSyntax ParseConstructorDeclaration(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken initKeyword)
@@ -727,9 +770,9 @@ internal class TypeDeclarationParser : SyntaxParser
         return AccessorList(openBraceToken, List(accessorList.ToArray()), closeBraceToken);
     }
 
-    public ParameterListSyntax ParseParameterList()
+    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null)
     {
-        var openParenToken = ReadToken();
+        var openParenTokenValue = openParenToken ?? ReadToken();
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
@@ -822,7 +865,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     ")"));
         }
 
-        return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken, Diagnostics);
+        return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken, Diagnostics);
     }
 
     private FieldDeclarationSyntax ParseFieldDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)

@@ -541,9 +541,9 @@ internal class StatementSyntaxParser : SyntaxParser
         return BlockStatement(openBrace, List(statements), closeBrace);
     }
 
-    public ParameterListSyntax ParseParameterList()
+    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null)
     {
-        var openParenToken = ReadToken();
+        var openParenTokenValue = openParenToken ?? ReadToken();
 
         List<GreenNode> parameterList = new List<GreenNode>();
 
@@ -644,7 +644,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     ")"));
         }
 
-        return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken, Diagnostics);
+        return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken, Diagnostics);
     }
 
     private StatementSyntax? ParseReturnStatementSyntax()
