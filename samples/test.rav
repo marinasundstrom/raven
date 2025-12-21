@@ -1,15 +1,13 @@
 import System.*
 import System.Console.*
+import System.Threading.Tasks.*
 
-val z = 2;
+async func Main() -> Task {
+    val x = await Test(2)
+    WriteLine("Result is: $x")
+}
 
-val a = (x: int) => x + z
-val b = (x: int) -> int => x + z
-
-val makeAdder = (x: int) -> int -> int => (a: int) => x + a + z
-//val makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a + z
-
-WriteLine(makeAdder(2)(3))
-
-WriteLine(a(3))
-WriteLine(b(3))
+async func Test<T>(x: T) -> Task<T> {
+    await Task.Delay(100)
+    return x
+}

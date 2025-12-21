@@ -595,6 +595,9 @@ public partial class SemanticModel
                 if (statement.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
                     continue;
 
+                if (statement.Statement is FunctionStatementSyntax)
+                    continue;
+
                 parentBinder.Diagnostics.ReportTopLevelStatementsDisallowedWithMainFunction(statement.GetLocation());
             }
         }
