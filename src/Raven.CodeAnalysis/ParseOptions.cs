@@ -6,19 +6,29 @@ public class ParseOptions
 {
     public ParseOptions()
     {
-
+        DocumentationMode = true;
+        DocumentationFormat = DocumentationFormat.Markdown;
     }
 
-    public ParseOptions(bool documentationMode, ImmutableArray<Diagnostic> errors, IReadOnlyDictionary<string, string> features, SourceCodeKind kind, IEnumerable<string> preprocessorSymbolNames)
+    public ParseOptions(
+        bool documentationMode,
+        ImmutableArray<Diagnostic> errors,
+        IReadOnlyDictionary<string, string> features,
+        SourceCodeKind kind,
+        IEnumerable<string> preprocessorSymbolNames,
+        DocumentationFormat documentationFormat = DocumentationFormat.Markdown)
     {
         DocumentationMode = documentationMode;
         Errors = errors;
         Features = features;
         Kind = kind;
         PreprocessorSymbolNames = preprocessorSymbolNames;
+        DocumentationFormat = documentationFormat;
     }
 
     public bool DocumentationMode { get; set; }
+
+    public DocumentationFormat DocumentationFormat { get; set; }
 
     public ImmutableArray<Diagnostic> Errors { get; }
 
