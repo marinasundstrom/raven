@@ -302,6 +302,18 @@ internal class BaseParseContext : ParseContext
                 {
                     var isDocComment = token3.Kind == SyntaxKind.SlashToken;
 
+                    if (isDocComment && isTrailingTrivia == false)
+                    {
+                        ReadSingleLineDocCommentBlockInto(_stringBuilder);
+
+                        var docTrivia = new SyntaxTrivia(
+                            SyntaxKind.SingleLineDocumentationCommentTrivia,
+                            _stringBuilder.ToString());
+
+                        trivia.Add(docTrivia);
+                        continue;
+                    }
+
                     _stringBuilder.Append(token.Text);
                     _stringBuilder.Append(token2.Text);
                     _lexer.ReadTokens(isDocComment ? 3 : 2);
@@ -496,9 +508,118 @@ internal class BaseParseContext : ParseContext
         return new SyntaxTriviaList(trivia.ToArray());
     }
 
+    private void ReadSingleLineDocCommentBlockInto(StringBuilder sb)
+    {
+        while (true)
+        {
+            ConsumeIndentationInto(sb);
+
+            var a = _lexer.PeekToken(0);
+            var b = _lexer.PeekToken(1);
+            var c = _lexer.PeekToken(2);
+
+            if (a.Kind != SyntaxKind.SlashToken ||
+                b.Kind != SyntaxKind.SlashToken ||
+                c.Kind != SyntaxKind.SlashToken)
+                return;
+
+            _lexer.ReadTokens(3);
+            sb.Append(a.Text);
+            sb.Append(b.Text);
+            sb.Append(c.Text);
+
+            var t = _lexer.PeekToken();
+            while (!IsNewLine(t) && t.Kind != SyntaxKind.EndOfFileToken)
+            {
+                _lexer.ReadToken();
+                sb.Append(t.Text);
+                t = _lexer.PeekToken();
+            }
+
+            if (t.Kind == SyntaxKind.EndOfFileToken)
+                return;
+
+            ConsumeOneNewlineInto(sb);
+
+            if (!NextLineStartsWithDocComment())
+                return;
+        }
+    }
+
+    private void ConsumeIndentationInto(StringBuilder sb)
+    {
+        while (true)
+        {
+            var t = _lexer.PeekToken(0);
+            if (t.Kind == SyntaxKind.Whitespace || t.Kind == SyntaxKind.TabToken)
+            {
+                _lexer.ReadToken();
+                sb.Append(t.Text);
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    private bool NextLineStartsWithDocComment()
+    {
+        int i = 0;
+        while (true)
+        {
+            var t = _lexer.PeekToken(i);
+            if (t.Kind == SyntaxKind.Whitespace || t.Kind == SyntaxKind.TabToken) { i++; continue; }
+            break;
+        }
+
+        var a = _lexer.PeekToken(i + 0);
+        var b = _lexer.PeekToken(i + 1);
+        var c = _lexer.PeekToken(i + 2);
+
+        return a.Kind == SyntaxKind.SlashToken &&
+               b.Kind == SyntaxKind.SlashToken &&
+               c.Kind == SyntaxKind.SlashToken;
+    }
+
+    private void ConsumeOneNewlineInto(StringBuilder sb)
+    {
+        var t = _lexer.PeekToken(0);
+
+        if (t.Kind == SyntaxKind.CarriageReturnLineFeedToken)
+        {
+            _lexer.ReadToken();
+            sb.Append(t.Text);
+            return;
+        }
+
+        if (t.Kind == SyntaxKind.CarriageReturnToken)
+        {
+            _lexer.ReadToken();
+            sb.Append(t.Text);
+
+            var lf = _lexer.PeekToken(0);
+            if (lf.Kind == SyntaxKind.LineFeedToken)
+            {
+                _lexer.ReadToken();
+                sb.Append(lf.Text);
+            }
+            return;
+        }
+
+        if (t.Kind == SyntaxKind.LineFeedToken || t.Kind == SyntaxKind.NewLineToken)
+        {
+            _lexer.ReadToken();
+            sb.Append(t.Text);
+            return;
+        }
+    }
+
     private static bool IsNewLine(Token token)
     {
-        return token.Kind == SyntaxKind.LineFeedToken || token.Kind == SyntaxKind.NewLineToken;
+        return token.Kind is SyntaxKind.NewLineToken
+            or SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     public override SyntaxToken SkipUntil(params IEnumerable<SyntaxKind> expectedKind)
