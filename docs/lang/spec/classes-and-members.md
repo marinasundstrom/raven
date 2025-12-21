@@ -343,6 +343,29 @@ must convert to the parameter type using an implicit conversion. When the
 expression fails these checks, the compiler reports an error and treats the
 parameter as required.
 
+### Operator declarations
+
+Types and extensions can declare overloadable operators using the `operator`
+contextual keyword followed by one of the supported operator tokens (`+`, `-`,
+`*`, `/`, `%`, `^`, `&`, `&&`, `and`, `|`, `||`, `or`, `==`, `!=`, `<`, `<=`,
+`>`, `>=`, `!`, `++`, `--`). Operators mirror methods: they take a
+parenthesized parameter list, optional return-type arrow, and either a block
+body or expression body. Operators should be marked `static`; future validation
+will enforce the usual unary/binary arity rules for the chosen symbol.
+
+```raven
+class Vector
+{
+    public static operator +(left: Vector, right: Vector) -> Vector => Add(left, right)
+    public static operator -(value: Vector) -> Vector { /* ... */ }
+}
+
+extension IntMath for int
+{
+    public static operator %(left: int, right: int) -> int => left % right
+}
+```
+
 ### Invocation operator
 
 Declaring a method named `self` makes instances of the type invocable with the

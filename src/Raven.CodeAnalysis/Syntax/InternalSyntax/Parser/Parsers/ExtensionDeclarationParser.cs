@@ -80,6 +80,9 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
         var modifiers = ParseMemberModifiers();
 
+        if (PeekToken().IsKind(SyntaxKind.OperatorKeyword))
+            return ParseOperatorMember(attributeLists, modifiers);
+
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
         {
@@ -129,6 +132,41 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             explicitInterfaceSpecifier: null,
             identifier,
             typeParameterList,
+            parameterList,
+            returnType,
+            body,
+            expressionBody,
+            terminatorToken);
+    }
+
+    private MemberDeclarationSyntax ParseOperatorMember(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var operatorKeyword = ReadToken();
+        var operatorToken = ParseOverloadableOperatorToken();
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(openParenToken);
+        var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        BlockStatementSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+        var next = PeekToken();
+        if (next.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        }
+        else if (next.IsKind(SyntaxKind.FatArrowToken))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return OperatorDeclaration(
+            attributeLists,
+            modifiers,
+            operatorKeyword,
+            operatorToken,
             parameterList,
             returnType,
             body,

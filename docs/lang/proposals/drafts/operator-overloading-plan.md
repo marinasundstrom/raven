@@ -15,6 +15,7 @@
    * Introduce `OperatorDeclarationSyntax : BaseMethodDeclarationSyntax` in the syntax model (update `Model.xml`, `NodeKinds.xml`, and generators) with slots for the operator token, parameter list, return type clause, body, and optional expression body.
    * Extend parsing in `Syntax/InternalSyntax/Parser/Parsers/TypeDeclarationParser` (and the extension declaration parser) to recognize operator members, consume modifiers (require `static`), parse the operator token, parameters, arrow/type, and body/terminator. Add recovery for malformed operator tokens or incorrect arity.
    * Update `SyntaxFacts`, normalizer, and quoter/printer to round-trip operator declarations and ensure trivia/formatting is stable.
+   * Evaluate whether the declaration surface needs to encode unary vs. binary (and prefix vs. postfix) intent explicitly—potentially via an additional keyword—at the cost of diverging from C# compatibility.
 
 2. **Symbols and method metadata**
    * Extend symbol creation to produce `SourceMethodSymbol` instances with `MethodKind.UserDefinedOperator`, ensuring they are always static and non-generic and track the operator token/metadata name (`op_Addition`, etc.).
