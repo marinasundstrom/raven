@@ -231,4 +231,36 @@ func Foo() {}
         funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
     }
+
+    [Fact]
+    public void LongDocCommentBeyondDefaultLexerBuffer_RemainsLeadingTrivia()
+    {
+        var longLine = "/// " + new string('x', 80);
+        var repeatedComment = string.Join("\n", Enumerable.Repeat(longLine, 40));
+
+        var code = $"""
+Foo()
+
+{repeatedComment}
+func Foo() {{}}
+""";
+
+        var lexer = new Lexer(new StringReader(code));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new StatementSyntaxParser(context);
+
+        var firstStatement = parser.ParseStatement().CreateRed();
+        var secondStatement = parser.ParseStatement().CreateRed();
+
+        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+
+        var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
+
+        var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
+        docTrivia.Text.ShouldStartWith("/// ");
+        docTrivia.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length.ShouldBeGreaterThanOrEqualTo(40);
+    }
 }
