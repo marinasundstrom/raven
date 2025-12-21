@@ -248,7 +248,19 @@ internal class BaseParseContext : ParseContext
 
             if (trivia.Kind == SyntaxKind.EndOfLineTrivia && ShouldPromoteToNewlineToken())
             {
-                leadingTrivia = leadingTrivia.RemoveAt(i);
+                // Preserve any documentation comments or other trivia for the next token
+                // instead of losing them when we surface a newline token.
+                for (int before = 0; before < i; before++)
+                {
+                    _pendingTrivia.Add(leadingTrivia[before]);
+                }
+
+                for (int after = i + 1; after < leadingTrivia.Count; after++)
+                {
+                    _pendingTrivia.Add(leadingTrivia[after]);
+                }
+
+                leadingTrivia = SyntaxTriviaList.Empty;
 
                 return new SyntaxToken(
                     kind: SyntaxKind.NewLineToken,
