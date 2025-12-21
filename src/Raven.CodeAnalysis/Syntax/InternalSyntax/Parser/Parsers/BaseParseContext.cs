@@ -84,14 +84,14 @@ internal class BaseParseContext : ParseContext
         if (_treatNewlinesAsTokens == value)
             return;
 
+        _treatNewlinesAsTokens = value;
+
+        RewindToPosition(Position);
+
         if (value && _lastToken is { } lastToken)
         {
             StageTrailingNewlinesForPendingTrivia(lastToken);
         }
-
-        _treatNewlinesAsTokens = value;
-
-        RewindToPosition(Position);
     }
 
     private void StageTrailingNewlinesForPendingTrivia(SyntaxToken lastToken)
@@ -150,6 +150,11 @@ internal class BaseParseContext : ParseContext
             leadingTrivia: leadingTrivia.Length > 0 ? new SyntaxTriviaList(leadingTrivia) : SyntaxTriviaList.Empty,
             trailingTrivia: SyntaxTriviaList.Empty,
             diagnostics: null);
+
+        _position -= newlineToken.FullWidth;
+
+        if (_position < 0)
+            _position = 0;
 
         _lookaheadTokens.Insert(0, newlineToken);
     }
