@@ -242,9 +242,17 @@ internal class BaseParseContext : ParseContext
         if (!TreatNewlinesAsTokens)
             return null;
 
+        var encounteredDocumentationTrivia = false;
+
         for (int i = 0; i < leadingTrivia.Count; i++)
         {
             var trivia = leadingTrivia[i];
+
+            encounteredDocumentationTrivia |= trivia.Kind is SyntaxKind.MultiLineDocumentationCommentTrivia
+                or SyntaxKind.SingleLineDocumentationCommentTrivia;
+
+            if (encounteredDocumentationTrivia)
+                continue;
 
             if (trivia.Kind == SyntaxKind.EndOfLineTrivia && ShouldPromoteToNewlineToken())
             {
