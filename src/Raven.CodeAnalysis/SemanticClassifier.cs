@@ -58,7 +58,9 @@ public static class SemanticClassifier
             foreach (var trivia in descendant.LeadingTrivia.Concat(descendant.TrailingTrivia))
             {
                 if (trivia.Kind == SyntaxKind.SingleLineCommentTrivia ||
-                    trivia.Kind == SyntaxKind.MultiLineCommentTrivia)
+                    trivia.Kind == SyntaxKind.MultiLineCommentTrivia ||
+                    trivia.Kind == SyntaxKind.SingleLineDocumentationCommentTrivia ||
+                    trivia.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia)
                 {
                     triviaMap[trivia] = SemanticClassification.Comment;
                 }
