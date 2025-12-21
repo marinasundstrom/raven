@@ -647,6 +647,7 @@ partial class BlockBinder : Binder
             IdentifierNameSyntax identifier => BindIdentifierName(identifier),
             TypeSyntax type => BindTypeSyntax(type),
             BinaryExpressionSyntax binary => BindBinaryExpression(binary),
+            RangeExpressionSyntax rangeExpression => BindRangeExpression(rangeExpression),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
             ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
@@ -670,6 +671,7 @@ partial class BlockBinder : Binder
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
             PostfixUnaryExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),
+            IndexExpressionSyntax indexExpression => BindIndexExpression(indexExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
             DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
             UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
@@ -849,6 +851,86 @@ partial class BlockBinder : Binder
             : SyntaxKind.MinusToken;
 
         return BindIncrementOrDecrement(postfixUnary.Expression, postfixUnary.OperatorToken, binaryOperatorKind, isPostfix: true);
+    }
+
+    private BoundExpression BindIndexExpression(IndexExpressionSyntax indexExpression)
+    {
+        var value = BindExpression(indexExpression.Expression);
+
+        if (IsErrorExpression(value))
+            return AsErrorExpression(value);
+
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+
+        if (intType.TypeKind != TypeKind.Error && ShouldAttemptConversion(value))
+        {
+            var sourceType = value.Type ?? Compilation.ErrorTypeSymbol;
+
+            if (!IsAssignable(intType, sourceType, out var conversion))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    sourceType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    intType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    indexExpression.Expression.GetLocation());
+
+                return new BoundErrorExpression(intType, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            value = ApplyConversion(value, intType, conversion, indexExpression.Expression);
+        }
+
+        return new BoundIndexExpression(value, isFromEnd: true, GetIndexType());
+    }
+
+    private BoundExpression BindRangeExpression(RangeExpressionSyntax rangeExpression)
+    {
+        var start = BindRangeEndpoint(rangeExpression.LeftExpression);
+        if (start is BoundErrorExpression errorStart)
+            return errorStart;
+
+        var end = BindRangeEndpoint(rangeExpression.RightExpression);
+        if (end is BoundErrorExpression errorEnd)
+            return errorEnd;
+
+        return new BoundRangeExpression(
+            start as BoundIndexExpression,
+            end as BoundIndexExpression,
+            GetRangeType());
+    }
+
+    private BoundExpression? BindRangeEndpoint(ExpressionSyntax? endpointSyntax)
+    {
+        if (endpointSyntax is null)
+            return null;
+
+        var bound = BindExpression(endpointSyntax);
+
+        if (IsErrorExpression(bound))
+            return bound;
+
+        if (bound is BoundIndexExpression index)
+            return index;
+
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+
+        if (intType.TypeKind != TypeKind.Error && ShouldAttemptConversion(bound))
+        {
+            var sourceType = bound.Type ?? Compilation.ErrorTypeSymbol;
+
+            if (!IsAssignable(intType, sourceType, out var conversion))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    sourceType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    intType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    endpointSyntax.GetLocation());
+
+                return new BoundErrorExpression(intType, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            bound = ApplyConversion(bound, intType, conversion, endpointSyntax);
+        }
+
+        return new BoundIndexExpression(bound, isFromEnd: false, GetIndexType());
     }
 
     private BoundExpression BindIncrementOrDecrement(
@@ -5963,6 +6045,12 @@ partial class BlockBinder : Binder
         return expression is BoundMethodGroupExpression ||
             expression.Type is { } type && !type.ContainsErrorType();
     }
+
+    private ITypeSymbol GetIndexType() =>
+        Compilation.GetTypeByMetadataName("System.Index") ?? Compilation.ErrorTypeSymbol;
+
+    private ITypeSymbol GetRangeType() =>
+        Compilation.GetTypeByMetadataName("System.Range") ?? Compilation.ErrorTypeSymbol;
 
     private BoundExpression ApplyConversion(BoundExpression expression, ITypeSymbol targetType, Conversion conversion, SyntaxNode? syntax = null)
     {

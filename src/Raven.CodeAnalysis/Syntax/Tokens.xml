@@ -82,18 +82,18 @@
   <TokenKind Name="LessThanOrEqualsToken" Text="&lt;=" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="GreaterThanToken" Text="&gt;" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="GreaterThanOrEqualsToken" Text="&gt;=" IsBinaryOperator="true" Precedence="3" />
-  <TokenKind Name="PlusToken" Text="+" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="4" />
+  <TokenKind Name="PlusToken" Text="+" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="5" />
   <TokenKind Name="PlusPlusToken" Text="++" IsUnaryOperator="true" />
   <TokenKind Name="PlusEqualsToken" Text="+=" />
   <TokenKind Name="MinusToken" Text="-" IsUnaryOperator="true" IsBinaryOperator="true"
-    Precedence="4" />
+    Precedence="5" />
   <TokenKind Name="MinusMinusToken" Text="--" IsUnaryOperator="true" />
   <TokenKind Name="MinusEqualsToken" Text="-=" />
-  <TokenKind Name="StarToken" Text="*" IsBinaryOperator="true" Precedence="5" />
+  <TokenKind Name="StarToken" Text="*" IsBinaryOperator="true" Precedence="6" />
   <TokenKind Name="StarEqualsToken" Text="*=" />
-  <TokenKind Name="SlashToken" Text="/" IsBinaryOperator="true" Precedence="5" />
+  <TokenKind Name="SlashToken" Text="/" IsBinaryOperator="true" Precedence="6" />
   <TokenKind Name="SlashEqualsToken" Text="/=" />
-  <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="5" />
+  <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="6" />
   <TokenKind Name="CaretToken" Text="^" />
   <TokenKind Name="AmpersandEqualsToken" Text="&amp;=" />
   <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" IsBinaryOperator="true"
@@ -107,7 +107,7 @@
   <TokenKind Name="ExclamationToken" Text="!" IsUnaryOperator="true" />
   <TokenKind Name="QuestionToken" Text="?" />
   <TokenKind Name="DotToken" Text="." />
-  <TokenKind Name="DotDotToken" Text=".." />
+  <TokenKind Name="DotDotToken" Text=".." IsBinaryOperator="true" Precedence="4" />
   <TokenKind Name="CommaToken" Text="," />
   <TokenKind Name="ColonToken" Text=":" />
   <TokenKind Name="SemicolonToken" Text=";" />

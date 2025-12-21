@@ -68,6 +68,14 @@ internal class ExpressionGenerator : Generator
                 EmitUnaryExpression(unaryExpression);
                 break;
 
+            case BoundIndexExpression indexExpression:
+                EmitIndexExpression(indexExpression);
+                break;
+
+            case BoundRangeExpression rangeExpression:
+                EmitRangeExpression(rangeExpression);
+                break;
+
             case BoundAddressOfExpression addressOfExpression:
                 EmitAddressOfExpression(addressOfExpression);
                 break;
@@ -715,6 +723,93 @@ internal class ExpressionGenerator : Generator
     {
         new ExpressionGenerator(this, asExpression.Expression).Emit();
         ILGenerator.Emit(OpCodes.Isinst, ResolveClrType(asExpression.Type));
+    }
+
+    private void EmitIndexExpression(BoundIndexExpression indexExpression)
+    {
+        if (indexExpression.Type.TypeKind == TypeKind.Error)
+        {
+            EmitDefaultValue(indexExpression.Type);
+            return;
+        }
+
+        EmitExpression(indexExpression.Value);
+
+        var indexClrType = ResolveClrType(indexExpression.Type);
+        var ctor = indexClrType.GetConstructor(new[] { typeof(int), typeof(bool) })
+            ?? throw new InvalidOperationException("Missing System.Index constructor.");
+
+        ILGenerator.Emit(indexExpression.IsFromEnd ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Newobj, ctor);
+    }
+
+    private void EmitRangeExpression(BoundRangeExpression rangeExpression)
+    {
+        if (rangeExpression.Type.TypeKind == TypeKind.Error)
+        {
+            EmitDefaultValue(rangeExpression.Type);
+            return;
+        }
+
+        var rangeClrType = ResolveClrType(rangeExpression.Type);
+
+        if (rangeExpression.Left is null && rangeExpression.Right is null)
+        {
+            var allProperty = rangeClrType.GetProperty(nameof(Range.All), BindingFlags.Public | BindingFlags.Static)
+                ?? throw new InvalidOperationException("Missing System.Range.All property.");
+            var getter = allProperty.GetMethod ?? throw new InvalidOperationException("Missing System.Range.All getter.");
+            ILGenerator.Emit(OpCodes.Call, getter);
+            return;
+        }
+
+        if (rangeExpression.Left is null && rangeExpression.Right is { } end)
+        {
+            EmitIndexExpression(end);
+
+            var endAt = rangeClrType.GetMethod(
+                nameof(Range.EndAt),
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                new[] { ResolveClrType(end.Type) },
+                modifiers: null)
+                ?? throw new InvalidOperationException("Missing System.Range.EndAt method.");
+
+            ILGenerator.Emit(OpCodes.Call, endAt);
+            return;
+        }
+
+        if (rangeExpression.Left is { } start && rangeExpression.Right is null)
+        {
+            EmitIndexExpression(start);
+
+            var startAt = rangeClrType.GetMethod(
+                nameof(Range.StartAt),
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                new[] { ResolveClrType(start.Type) },
+                modifiers: null)
+                ?? throw new InvalidOperationException("Missing System.Range.StartAt method.");
+
+            ILGenerator.Emit(OpCodes.Call, startAt);
+            return;
+        }
+
+        if (rangeExpression.Left is null || rangeExpression.Right is null)
+        {
+            EmitDefaultValue(rangeExpression.Type);
+            return;
+        }
+
+        EmitIndexExpression(rangeExpression.Left);
+        EmitIndexExpression(rangeExpression.Right);
+
+        var ctor = rangeClrType.GetConstructor(new[]
+        {
+            ResolveClrType(rangeExpression.Left.Type),
+            ResolveClrType(rangeExpression.Right.Type)
+        }) ?? throw new InvalidOperationException("Missing System.Range constructor.");
+
+        ILGenerator.Emit(OpCodes.Newobj, ctor);
     }
 
     private void EmitUnaryExpression(BoundUnaryExpression node)
@@ -1740,12 +1835,23 @@ internal class ExpressionGenerator : Generator
     {
         var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
 
-        EmitExpression(boundArrayAccessExpression.Receiver);
+        var requiresLength = boundArrayAccessExpression.Indices
+            .Any(static argument => argument is BoundIndexExpression { IsFromEnd: true });
 
-        foreach (var argument in boundArrayAccessExpression.Indices)
+        IILocal? arrayLocal = null;
+        if (requiresLength)
         {
-            EmitExpression(argument);
+            EmitExpression(boundArrayAccessExpression.Receiver);
+            arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
+            ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
         }
+        else
+        {
+            EmitExpression(boundArrayAccessExpression.Receiver);
+        }
+
+        EmitArrayIndices(boundArrayAccessExpression, arrayLocal);
 
         EmitLoadElement(arrayType.ElementType);
     }
@@ -1755,13 +1861,55 @@ internal class ExpressionGenerator : Generator
         if (arrayAccess.Receiver.Type is not IArrayTypeSymbol arrayType)
             throw new NotSupportedException("Cannot take the address of a non-array element access.");
 
-        EmitExpression(arrayAccess.Receiver);
+        var requiresLength = arrayAccess.Indices
+            .Any(static argument => argument is BoundIndexExpression { IsFromEnd: true });
 
-        foreach (var index in arrayAccess.Indices)
-            EmitExpression(index);
+        IILocal? arrayLocal = null;
+        if (requiresLength)
+        {
+            EmitExpression(arrayAccess.Receiver);
+            arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
+            ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        }
+        else
+        {
+            EmitExpression(arrayAccess.Receiver);
+        }
+
+        EmitArrayIndices(arrayAccess, arrayLocal);
 
         var elementClrType = ResolveClrType(arrayType.ElementType);
         ILGenerator.Emit(OpCodes.Ldelema, elementClrType);
+    }
+
+    private void EmitArrayIndices(BoundArrayAccessExpression arrayAccess, IILocal? arrayLocal)
+    {
+        foreach (var argument in arrayAccess.Indices)
+        {
+            if (argument is BoundIndexExpression indexExpression)
+            {
+                if (indexExpression.IsFromEnd)
+                {
+                    if (arrayLocal is null)
+                        throw new InvalidOperationException("Array local is required for from-end indexing.");
+
+                    ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+                    ILGenerator.Emit(OpCodes.Ldlen);
+                    ILGenerator.Emit(OpCodes.Conv_I4);
+                    new ExpressionGenerator(this, indexExpression.Value).Emit();
+                    ILGenerator.Emit(OpCodes.Sub);
+                }
+                else
+                {
+                    new ExpressionGenerator(this, indexExpression.Value).Emit();
+                }
+            }
+            else
+            {
+                EmitExpression(argument);
+            }
+        }
     }
 
     private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)

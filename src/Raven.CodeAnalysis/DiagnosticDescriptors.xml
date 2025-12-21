@@ -491,6 +491,16 @@
     Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error"
     EnabledByDefault="true"
     Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2602" Identifier="RangeForLoopRequiresEnd"
+    Title="Range for-loop requires an end value"
+    Message="Ranges in for loops must specify an end value" Category="compiler" Severity="Error"
+    EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2603" Identifier="RangeForLoopFromEndNotSupported"
+    Title="Range for-loop does not support from-end indices"
+    Message="Range boundaries in for loops must count from the start" Category="compiler" Severity="Error"
+    EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
   <Descriptor Id="RAV3600" Identifier="UnexpectedTokenInIncompleteSyntax"
     Title="Unexpected token"
     Message="Unexpected token '{token}'" Category="compiler" Severity="Error"

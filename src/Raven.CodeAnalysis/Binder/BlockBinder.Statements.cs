@@ -294,7 +294,7 @@ partial class BlockBinder
 
         var collection = BindExpression(forStmt.Expression);
 
-        var iteration = ClassifyForIteration(collection);
+        var iteration = ClassifyForIteration(collection, forStmt.Expression);
 
         ILocalSymbol? local = null;
         if (forStmt.Identifier.Kind is not SyntaxKind.None and not SyntaxKind.UnderscoreToken)
@@ -307,11 +307,18 @@ partial class BlockBinder
         return new BoundForStatement(local, iteration, collection, body);
     }
 
-    private ForIterationInfo ClassifyForIteration(BoundExpression collection)
+    private ForIterationInfo ClassifyForIteration(BoundExpression collection, ExpressionSyntax iterationSyntax)
     {
         var collectionType = collection.Type;
         if (collectionType?.ContainsErrorType() == true)
             return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+
+        if (collection is BoundRangeExpression range)
+        {
+            var rangeIteration = ClassifyRangeIteration(range, iterationSyntax);
+            if (rangeIteration is not null)
+                return rangeIteration;
+        }
 
         var elementType = InferForElementType(collectionType, out var enumerableInterface);
 
@@ -334,6 +341,38 @@ partial class BlockBinder
         }
 
         return ForIterationInfo.ForNonGeneric(elementType);
+    }
+
+    private ForIterationInfo? ClassifyRangeIteration(BoundRangeExpression range, ExpressionSyntax iterationSyntax)
+    {
+        var end = range.Right;
+
+        if (end is null)
+        {
+            _diagnostics.ReportRangeForLoopRequiresEnd(iterationSyntax.GetLocation());
+            return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        }
+
+        var start = range.Left ?? CreateZeroIndex();
+
+        if (start.IsFromEnd || end.IsFromEnd)
+        {
+            _diagnostics.ReportRangeForLoopFromEndNotSupported(iterationSyntax.GetLocation());
+            return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        }
+
+        var normalizedRange = range.Left is null
+            ? new BoundRangeExpression(start, end, range.Type)
+            : range;
+
+        return ForIterationInfo.ForRange(Compilation, normalizedRange);
+    }
+
+    private BoundIndexExpression CreateZeroIndex()
+    {
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+        var zero = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0, intType);
+        return new BoundIndexExpression(zero, isFromEnd: false, GetIndexType());
     }
 
     private ITypeSymbol InferForElementType(ITypeSymbol? collectionType, out INamedTypeSymbol? enumerableInterface)
