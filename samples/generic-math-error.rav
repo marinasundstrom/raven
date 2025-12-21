@@ -1,0 +1,14 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+import System.Numerics.*
+
+async func Main() -> Task {
+    val x = await Test(2)
+    WriteLine("Result is: $x")
+}
+
+async func Test<T : INumber<T>>(x: T) -> Task<T> {
+    await Task.Delay(100)
+    return x
+}
