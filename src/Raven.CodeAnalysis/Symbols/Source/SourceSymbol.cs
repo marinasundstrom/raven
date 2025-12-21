@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -11,6 +12,10 @@ namespace Raven.CodeAnalysis.Symbols;
 internal abstract class SourceSymbol : Symbol
 {
     private ImmutableArray<AttributeData> _lazyCustomAttributes;
+    private DocumentationComment? _lazyDocumentationComment;
+
+    internal ImmutableArray<DocumentationComment> DocumentationComments { get; private set; }
+    internal DocumentationComment? DocumentationComment { get; private set; }
 
     protected SourceSymbol(
         SymbolKind kind,
@@ -23,11 +28,23 @@ internal abstract class SourceSymbol : Symbol
         Accessibility declaredAccessibility = Accessibility.NotApplicable)
         : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
+        var parseOptions = GetParseOptions(declaringSyntaxReferences);
+        DocumentationComments = DocumentationCommentUtilities.GetDocumentationComments(declaringSyntaxReferences, parseOptions);
+        DocumentationComment = DocumentationCommentUtilities.GetMergedDocumentationComment(declaringSyntaxReferences, parseOptions);
     }
 
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly;
 
     public override IModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule;
+
+    public override DocumentationComment? GetDocumentationComment()
+    {
+        if (_lazyDocumentationComment is not null)
+            return _lazyDocumentationComment;
+
+        _lazyDocumentationComment = DocumentationComment;
+        return _lazyDocumentationComment;
+    }
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
@@ -81,6 +98,15 @@ internal abstract class SourceSymbol : Symbol
         }
 
         return builder.ToImmutable();
+    }
+
+    private static ParseOptions GetParseOptions(IEnumerable<SyntaxReference> declaringSyntaxReferences)
+    {
+        var reference = declaringSyntaxReferences.FirstOrDefault();
+        if (reference is not null && reference.SyntaxTree.Options is { } options)
+            return options;
+
+        return new ParseOptions();
     }
 
     protected AttributeData? CreateCompilerGeneratedAttribute()

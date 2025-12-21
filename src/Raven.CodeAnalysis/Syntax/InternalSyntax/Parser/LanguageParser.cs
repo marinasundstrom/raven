@@ -29,7 +29,7 @@ internal class LanguageParser
 
         _lexer = new Lexer(textReader);
 
-        var parseContext = new BaseParseContext(_lexer);
+        var parseContext = new BaseParseContext(_lexer, Options);
         return new CompilationUnitSyntaxParser(parseContext).Parse();
     }
 
@@ -38,7 +38,7 @@ internal class LanguageParser
         using var textReader = sourceText.GetTextReader(position);
 
         _lexer = new Lexer(textReader, position);
-        var parseContext = new BaseParseContext(_lexer, position);
+        var parseContext = new BaseParseContext(_lexer, Options, position);
 
         try
         {
@@ -85,7 +85,7 @@ internal class LanguageParser
         using var textReader = sourceText.GetTextReader(offset);
 
         var lexer = new Lexer(textReader, offset);
-        var parseContext = new BaseParseContext(lexer, offset);
+        var parseContext = new BaseParseContext(lexer, Options, offset);
 
         return new StatementSyntaxParser(parseContext).ParseStatement();
     }

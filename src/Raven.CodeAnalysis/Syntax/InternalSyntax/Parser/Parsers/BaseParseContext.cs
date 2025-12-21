@@ -9,6 +9,7 @@ internal class BaseParseContext : ParseContext
 {
     internal SyntaxToken? _lastToken;
     private readonly ILexer _lexer;
+    private readonly ParseOptions _options;
     private int _position;
     internal int _blockDepth;
     private bool _treatNewlinesAsTokens;
@@ -16,13 +17,21 @@ internal class BaseParseContext : ParseContext
     internal readonly List<SyntaxTrivia> _pendingTrivia = new();
     private readonly StringBuilder _stringBuilder = new StringBuilder();
 
-    public BaseParseContext(ILexer lexer, int position = 0) : base()
+    public BaseParseContext(ILexer lexer, ParseOptions options, int position = 0) : base()
     {
         _lexer = lexer;
+        _options = options ?? new ParseOptions();
         _position = position;
     }
 
+    public BaseParseContext(ILexer lexer, int position = 0)
+        : this(lexer, new ParseOptions(), position)
+    {
+    }
+
     public override int Position => _position;
+
+    public ParseOptions Options => _options;
 
     public override SyntaxToken? LastToken => _lastToken;
 
@@ -287,13 +296,20 @@ internal class BaseParseContext : ParseContext
             if (token.Kind == SyntaxKind.SlashToken)
             {
                 var token2 = _lexer.PeekToken(1);
+                var token3 = _lexer.PeekToken(2);
 
                 if (token2.Kind == SyntaxKind.SlashToken)
                 {
+                    var isDocComment = token3.Kind == SyntaxKind.SlashToken;
+
                     _stringBuilder.Append(token.Text);
                     _stringBuilder.Append(token2.Text);
+                    _lexer.ReadTokens(isDocComment ? 3 : 2);
 
-                    _lexer.ReadTokens(2);
+                    if (isDocComment)
+                    {
+                        _stringBuilder.Append(token3.Text);
+                    }
 
                     Token peeked = _lexer.PeekToken();
                     while (!IsNewLine(peeked) && peeked.Kind != SyntaxKind.EndOfFileToken)
@@ -302,7 +318,10 @@ internal class BaseParseContext : ParseContext
                         _stringBuilder.Append(peeked.Text);
                         peeked = _lexer.PeekToken();
                     }
-                    var commentTrivia = new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, _stringBuilder.ToString());
+                    var triviaKind = isDocComment
+                        ? SyntaxKind.SingleLineDocumentationCommentTrivia
+                        : SyntaxKind.SingleLineCommentTrivia;
+                    var commentTrivia = new SyntaxTrivia(triviaKind, _stringBuilder.ToString());
 
                     if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                     {
@@ -315,9 +334,17 @@ internal class BaseParseContext : ParseContext
                 }
                 else if (token2.Kind == SyntaxKind.StarToken)
                 {
+                    var isDocComment = token3.Kind == SyntaxKind.StarToken;
+
                     _stringBuilder.Append(token.Text);
                     _stringBuilder.Append(token2.Text);
-                    _lexer.ReadAndDiscardTokens(2);
+
+                    _lexer.ReadAndDiscardTokens(isDocComment ? 3 : 2);
+
+                    if (isDocComment)
+                    {
+                        _stringBuilder.Append(token3.Text);
+                    }
 
                     while (true)
                     {
@@ -344,7 +371,10 @@ internal class BaseParseContext : ParseContext
                         _stringBuilder.Append(current.Text);
                     }
 
-                    var commentTrivia = new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString());
+                    var triviaKind = isDocComment
+                        ? SyntaxKind.MultiLineDocumentationCommentTrivia
+                        : SyntaxKind.MultiLineCommentTrivia;
+                    var commentTrivia = new SyntaxTrivia(triviaKind, _stringBuilder.ToString());
 
                     if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                     {

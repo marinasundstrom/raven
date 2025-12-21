@@ -124,6 +124,40 @@ let greeting = "hello"  // 😀 emoji and other symbols are fine
 */
 ```
 
+### Documentation comments
+
+Documentation comments describe publicly consumable APIs and attach to the
+next declaration when only whitespace and newlines appear in between. Placing a
+documentation comment elsewhere produces a documentation warning and the
+comment is ignored for that declaration.
+
+Two documentation spellings are supported:
+
+* **Single-line documentation comments** start with `///` and may be stacked.
+  Each line contributes to the same documentation block.
+* **Multi-line documentation comments** start with `/**` and end with the next
+  `*/`. Leading `*` characters are stripped from each line to simplify
+  indentation.
+
+The documentation **format** is selected per syntax tree. Markdown is the
+default authoring format; XML can be requested through parser/compiler options
+when compatibility with XML doc tools is required. The selected format is
+preserved so consumers can render Markdown directly or process XML with tag
+awareness.
+
+Regardless of format, the following logical sections are recognised:
+
+* `summary` — a short description of the declaration.
+* `param` / parameter entry — one per parameter, aligned by name.
+* `typeparam` — one per type parameter, aligned by name.
+* `returns` — the return value description for non-`unit` members.
+* `remarks` — optional long-form notes, examples, and links.
+
+XML documentation must be well-formed; unterminated or mismatched tags are
+reported as documentation warnings. Markdown content should follow CommonMark
+conventions, including balanced fenced code blocks. These diagnostics are
+suppressed when documentation mode is disabled.
+
 ## Syntax node model
 
 The syntax node model defines the **logical structure** of Raven programs.

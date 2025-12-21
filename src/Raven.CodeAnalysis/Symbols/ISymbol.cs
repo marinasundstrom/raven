@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -108,6 +109,11 @@ public interface ISymbol : IEquatable<ISymbol?>
     /// Gets the attributes applied to this symbol.
     /// </summary>
     ImmutableArray<AttributeData> GetAttributes();
+
+    /// <summary>
+    /// Gets the documentation comment associated with this symbol, if any.
+    /// </summary>
+    DocumentationComment? GetDocumentationComment() => null;
 
     bool CanBeReferencedByName => this switch
     {

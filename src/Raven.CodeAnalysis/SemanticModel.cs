@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -55,6 +56,8 @@ public partial class SemanticModel
         var binder = GetBinder(root);
 
         Traverse(root, binder);
+
+        DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
 
         void Traverse(SyntaxNode node, Binder currentBinder)
         {

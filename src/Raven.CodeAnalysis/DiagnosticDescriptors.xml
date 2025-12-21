@@ -189,6 +189,18 @@
     Title="Optional parameter default value cannot be converted"
     Message="The default value for optional parameter '{parameterName}' cannot be converted to type '{parameterType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV4000" Identifier="DocumentationCommentNotAttached"
+    Title="Documentation comment is not attached"
+    Message="Documentation comments must appear immediately before a declaration"
+    Category="documentation" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV4001" Identifier="DocumentationCommentInvalidXml"
+    Title="Documentation comment is not valid XML"
+    Message="Documentation comment is not well-formed XML: {message}"
+    Category="documentation" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV4002" Identifier="DocumentationCommentInvalidMarkdown"
+    Title="Documentation comment is not valid Markdown"
+    Message="Documentation comment is not well-formed Markdown: {message}"
+    Category="documentation" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0600" Identifier="TypeAlreadyDefined" Title="Type already defined"
     Message="A type named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error"

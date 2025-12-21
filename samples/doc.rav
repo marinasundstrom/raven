@@ -1,0 +1,4 @@
+Foo()
+
+///<summary>Test</summary>
+func Foo() {}
