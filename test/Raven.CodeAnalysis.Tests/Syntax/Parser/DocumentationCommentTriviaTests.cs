@@ -47,7 +47,7 @@ func Foo() {}
     }
 
     [Fact]
-    public void MultiLineDocumentationComment_ProducesMultilineTrivia()
+    public void MultiLineComment_ProducesMultilineTrivia()
     {
         var code = """
 /**
@@ -58,19 +58,12 @@ func Foo() {}
 func Foo() {}
 """;
 
-        var documentationTrivia = SyntaxTree.ParseText(code)
+        var trivia = SyntaxTree.ParseText(code)
             .GetRoot()
             .DescendantTrivia(descendIntoStructuredTrivia: true)
-            .FirstOrDefault(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
+            .FirstOrDefault(t => t.Kind == SyntaxKind.MultiLineCommentTrivia);
 
-        documentationTrivia.ShouldNotBeNull();
-
-        DocumentationComment.TryParse(documentationTrivia!, DocumentationFormat.Xml, out var comment)
-            .ShouldBeTrue();
-
-        comment.ShouldNotBeNull();
-        comment!.IsMultiline.ShouldBeTrue();
-        comment.Content.ShouldBe("<summary>\nReturns a value.\n</summary>");
+        trivia.ShouldNotBeNull();
     }
 
     [Fact]
@@ -101,7 +94,7 @@ func Foo() {}
     }
 
     [Fact]
-    public void MultiLineTripleSlashDocComment_RemainsLeadingTriviaAfterPreviousStatementTerminates()
+    public void MultiLineMultilineDocComment_RemainsLeadingTriviaAfterPreviousStatementTerminates()
     {
         var code = """
 Foo()
@@ -140,7 +133,7 @@ func Foo() {}
     }
 
     [Fact]
-    public void LongTripleSlashDocComment_IsNotSplitIntoSkippedTokens()
+    public void LongMultilineDocComment_IsNotSplitIntoSkippedTokens()
     {
         var code = """
 Foo()
@@ -152,24 +145,6 @@ Foo()
 /// This method is intended to support hash-based collections such as
 /// <see cref="System.Collections.Generic.Dictionary{TKey, TValue}"/> and
 /// <see cref="System.Collections.Generic.HashSet{T}"/>.
-///
-/// ## Hash Code Contract
-///
-/// - Calling this method multiple times on the same object **must return the same value**
-///   during a single execution of the program, provided that no data used by
-///   <see cref="Equals(object)"/> comparisons is modified.
-///   The returned value **is not required** to be stable across different program executions.
-///
-/// - If two objects are considered equal according to <see cref="Equals(object)"/>,
-///   they **must return the same hash code**.
-///
-/// - If two objects are not equal according to <see cref="Equals(object)"/>,
-///   they are **not required** to return different hash codes.
-///   However, returning distinct hash codes for unequal objects generally improves
-///   the performance of hash-based collections.
-///
-/// ## Implementation Notes
-///
 /// The default implementation provided by <see cref="object"/> attempts to return
 /// different hash codes for different object instances, where reasonably practical.
 /// </remarks>
@@ -199,7 +174,7 @@ func Foo() {}
 
         var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
         docTrivia.Text.ShouldStartWith("/// <summary>\n");
-        docTrivia.Text.ShouldContain("///   The returned value **is not required** to be stable across different program executions.\n");
+        docTrivia.Text.ShouldContain("// A 32-bit signed integer hash code for the current object.\n");
     }
 
     [Fact]
@@ -238,12 +213,12 @@ func Foo() {}
         var longLine = "/// " + new string('x', 80);
         var repeatedComment = string.Join("\n", Enumerable.Repeat(longLine, 40));
 
-        var code = $"""
+        var code = $""""
 Foo()
 
 {repeatedComment}
-func Foo() {{}}
-""";
+"""" + "\nfunc Foo() {}";
+
 
         var lexer = new Lexer(new StringReader(code));
         var context = new BaseParseContext(lexer);

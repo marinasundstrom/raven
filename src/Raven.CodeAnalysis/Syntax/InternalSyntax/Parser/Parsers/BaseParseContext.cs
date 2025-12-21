@@ -413,17 +413,10 @@ internal class BaseParseContext : ParseContext
                 }
                 else if (token2.Kind == SyntaxKind.StarToken)
                 {
-                    var isDocComment = token3.Kind == SyntaxKind.StarToken;
-
                     _stringBuilder.Append(token.Text);
                     _stringBuilder.Append(token2.Text);
 
-                    _lexer.ReadAndDiscardTokens(isDocComment ? 3 : 2);
-
-                    if (isDocComment)
-                    {
-                        _stringBuilder.Append(token3.Text);
-                    }
+                    _lexer.ReadAndDiscardTokens(2);
 
                     while (true)
                     {
@@ -450,10 +443,7 @@ internal class BaseParseContext : ParseContext
                         _stringBuilder.Append(current.Text);
                     }
 
-                    var triviaKind = isDocComment
-                        ? SyntaxKind.MultiLineDocumentationCommentTrivia
-                        : SyntaxKind.MultiLineCommentTrivia;
-                    var commentTrivia = new SyntaxTrivia(triviaKind, _stringBuilder.ToString());
+                    var commentTrivia = new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString());
 
                     if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                     {

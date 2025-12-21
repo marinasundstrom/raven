@@ -6,16 +6,6 @@ The goal is to produce a valid trivia.
 marina samples % dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- doc.rav -o test.dll -d pretty
 Foo()
 
-/// <summary>
-/// Returns a hash code for the current object.
-/// </summary>
-/// <remarks>
-/// This method is intended to support hash-based collections such as
-/// <see cref="System.Collections.Generic.Dictionary{TKey, TValue}"/> and
-/// <see cref="System.Collections.Generic.HashSet{T}"/>.
-///
-/// ## Hash Code Contract
-///
 /// The general contract of <c>GetHashCode()</c> is:
 ///
 /// - Calling this method multiple times on the same object **must return the same value**
@@ -35,12 +25,6 @@ Foo()
 ///
 /// The default implementation provided by <see cref="object"/> attempts to return
 /// different hash codes for different object instances, where reasonably practical.
-/// </remarks>
-/// <returns>
-/// A 32-bit signed integer hash code for the current object.
-/// </returns>
-/// <seealso cref="Equals(object)"/>
-/// <seealso cref="System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(object)"/>
 func Foo() {}
 ```
 
