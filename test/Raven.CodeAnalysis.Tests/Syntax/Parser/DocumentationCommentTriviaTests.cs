@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 public class DocumentationCommentTriviaTests
 {
     [Fact]
-    public void SingleLineDocumentationComment_MergesContiguousLinesIntoSingleTrivia()
+    public void SingleLineDocumentationComment_MergesContiguousLinesIntoMultilineTrivia()
     {
         var code = """
 /// <summary>
@@ -21,11 +21,29 @@ func Foo() {}
         var documentationTrivia = SyntaxTree.ParseText(code)
             .GetRoot()
             .DescendantTrivia(descendIntoStructuredTrivia: true)
-            .Where(t => t.Kind == SyntaxKind.SingleLineDocumentationCommentTrivia)
+            .Where(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia)
             .ToList();
 
         documentationTrivia.Count.ShouldBe(1);
         documentationTrivia[0].Text.ShouldBe("/// <summary>\n/// Returns a value.\n/// </summary>\n");
+    }
+
+    [Fact]
+    public void SingleLineDocumentationComment_WithoutAdditionalLines_RemainsSingleLineTrivia()
+    {
+        var code = """
+/// Hello
+func Foo() {}
+""";
+
+        var documentationTrivia = SyntaxTree.ParseText(code)
+            .GetRoot()
+            .DescendantTrivia(descendIntoStructuredTrivia: true)
+            .Where(t => t.Kind == SyntaxKind.SingleLineDocumentationCommentTrivia)
+            .ToList();
+
+        documentationTrivia.Count.ShouldBe(1);
+        documentationTrivia[0].Text.ShouldBe("/// Hello\n");
     }
 
     [Fact]
@@ -79,6 +97,6 @@ func Foo() {}
         firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
 
         var nextFirstToken = secondStatement.GetFirstToken(includeZeroWidth: true);
-        nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.SingleLineDocumentationCommentTrivia);
+        nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
     }
 }

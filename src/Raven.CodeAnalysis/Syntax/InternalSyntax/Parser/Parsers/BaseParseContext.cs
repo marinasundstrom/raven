@@ -306,10 +306,12 @@ internal class BaseParseContext : ParseContext
                     if (isDocComment && isTrailingTrivia == false)
                     {
                         List<SyntaxTrivia>? newlineTrivia = TreatNewlinesAsTokens ? [] : null;
-                        ReadSingleLineDocCommentBlockInto(_stringBuilder, newlineTrivia);
+                        var isMultiLineDocComment = ReadSingleLineDocCommentBlockInto(_stringBuilder, newlineTrivia);
 
                         var docTrivia = new SyntaxTrivia(
-                            SyntaxKind.SingleLineDocumentationCommentTrivia,
+                            isMultiLineDocComment
+                                ? SyntaxKind.MultiLineDocumentationCommentTrivia
+                                : SyntaxKind.SingleLineDocumentationCommentTrivia,
                             _stringBuilder.ToString());
 
                         trivia.Add(docTrivia);
@@ -516,8 +518,10 @@ internal class BaseParseContext : ParseContext
         return new SyntaxTriviaList(trivia.ToArray());
     }
 
-    private void ReadSingleLineDocCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia)
+    private bool ReadSingleLineDocCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia)
     {
+        var lineCount = 0;
+
         while (true)
         {
             ConsumeIndentationInto(sb);
@@ -529,7 +533,9 @@ internal class BaseParseContext : ParseContext
             if (a.Kind != SyntaxKind.SlashToken ||
                 b.Kind != SyntaxKind.SlashToken ||
                 c.Kind != SyntaxKind.SlashToken)
-                return;
+                return lineCount > 1;
+
+            lineCount++;
 
             _lexer.ReadTokens(3);
             sb.Append(a.Text);
@@ -545,7 +551,7 @@ internal class BaseParseContext : ParseContext
             }
 
             if (t.Kind == SyntaxKind.EndOfFileToken)
-                return;
+                return lineCount > 1;
 
             var newline = ConsumeOneNewlineInto(sb);
 
@@ -555,7 +561,7 @@ internal class BaseParseContext : ParseContext
             }
 
             if (!NextLineStartsWithDocComment())
-                return;
+                return lineCount > 1;
         }
     }
 
