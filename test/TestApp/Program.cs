@@ -17,7 +17,8 @@ class Program
         //QuoterTest();
         //PrintMembers();
         //ReadType();
-        Operations();
+        //Operations();
+        Docs();
     }
 
     static void QuoterTest()
@@ -356,5 +357,49 @@ class Program
             .GetOperation(localDeclarationStatement!) as IVariableDeclarationOperation;
 
         var declarators = operation!.Declarators.ToList();
+    }
+
+    static void Docs()
+    {
+        string sourceCode = """
+        Foo()
+
+        /// Test class
+        /// 
+        /// ## See also
+        /// Bla
+        func Foo() {}
+        """;
+
+        SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+
+        var compilation = Compilation.Create("test", [syntaxTree], options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
+        var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
+        };
+        compilation = compilation.AddReferences(references);
+
+        // force setup
+        compilation.GetDiagnostics();
+
+        var tree = compilation.SyntaxTrees.First();
+        var root = tree.GetRoot();
+
+        var fs = root.Members
+            .OfType<GlobalStatementSyntax>()
+            .Select(x => x.Statement)
+            .OfType<FunctionStatementSyntax>().First();
+
+        var sem = compilation.GetSemanticModel(tree);
+
+        var f = sem.GetDeclaredSymbol(fs);
+        var comment = f.GetDocumentationComment();
     }
 }
