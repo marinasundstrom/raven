@@ -84,42 +84,74 @@ internal class BaseParseContext : ParseContext
         if (_treatNewlinesAsTokens == value)
             return;
 
-        _treatNewlinesAsTokens = value;
-
-        var rewindPosition = Position;
         if (value && _lastToken is { } lastToken)
         {
-            int rewindBy = 0;
-            int pendingWhitespace = 0;
-
-            for (int i = lastToken.TrailingTrivia.Count - 1; i >= 0; i--)
-            {
-                var trivia = lastToken.TrailingTrivia[i];
-
-                if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
-                {
-                    pendingWhitespace += trivia.FullWidth;
-                    continue;
-                }
-
-                if (IsEndOfLineTrivia(trivia))
-                {
-                    rewindBy += trivia.FullWidth + pendingWhitespace;
-                    pendingWhitespace = 0;
-                    continue;
-                }
-
-                if (rewindBy > 0)
-                    break;
-
-                pendingWhitespace = 0;
-            }
-
-            if (rewindBy > 0)
-                rewindPosition -= rewindBy;
+            StageTrailingNewlinesForPendingTrivia(lastToken);
         }
 
-        RewindToPosition(rewindPosition);
+        _treatNewlinesAsTokens = value;
+
+        RewindToPosition(Position);
+    }
+
+    private void StageTrailingNewlinesForPendingTrivia(SyntaxToken lastToken)
+    {
+        var trailing = lastToken.TrailingTrivia;
+
+        if (trailing.Count == 0)
+            return;
+
+        var triviaToStage = new List<SyntaxTrivia>();
+
+        for (int i = trailing.Count - 1; i >= 0; i--)
+        {
+            var trivia = trailing[i];
+
+            if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
+            {
+                triviaToStage.Insert(0, trivia);
+                continue;
+            }
+
+            if (IsEndOfLineTrivia(trivia))
+            {
+                triviaToStage.Insert(0, trivia);
+
+                for (int before = i - 1; before >= 0; before--)
+                {
+                    var precedingTrivia = trailing[before];
+
+                    if (precedingTrivia.Kind != SyntaxKind.WhitespaceTrivia)
+                        break;
+
+                    triviaToStage.Insert(0, precedingTrivia);
+                }
+
+                break;
+            }
+
+            break;
+        }
+
+        var newlineTrivia = triviaToStage.FirstOrDefault(IsEndOfLineTrivia);
+
+        if (newlineTrivia == default)
+            return;
+
+        var leadingTrivia = triviaToStage
+            .Where(t => t != newlineTrivia)
+            .ToArray();
+
+        var newlineToken = new SyntaxToken(
+            kind: SyntaxKind.NewLineToken,
+            text: newlineTrivia.Text,
+            value: null,
+            width: newlineTrivia.Text.Length,
+            leadingTrivia: leadingTrivia.Length > 0 ? new SyntaxTriviaList(leadingTrivia) : SyntaxTriviaList.Empty,
+            trailingTrivia: SyntaxTriviaList.Empty,
+            diagnostics: null);
+
+        _lookaheadTokens.Insert(0, newlineToken);
     }
 
     /// <summary>

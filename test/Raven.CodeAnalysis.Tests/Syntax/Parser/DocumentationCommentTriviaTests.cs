@@ -191,6 +191,8 @@ func Foo() {}
         var secondStatement = parser.ParseStatement().CreateRed();
 
         firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+        firstStatement.DescendantTrivia(descendIntoStructuredTrivia: true)
+            .ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
 
         var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
@@ -198,5 +200,35 @@ func Foo() {}
         var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
         docTrivia.Text.ShouldStartWith("/// <summary>\n");
         docTrivia.Text.ShouldContain("///   The returned value **is not required** to be stable across different program executions.\n");
+    }
+
+    [Fact]
+    public void TerminatorBeforeDocComment_ComesFromImmediateNewline()
+    {
+        var code = """
+Foo()
+
+/// <summary>
+/// Returns a hash code for the current object.
+/// </summary>
+func Foo() {}
+""";
+
+        var lexer = new Lexer(new StringReader(code));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new StatementSyntaxParser(context);
+
+        var firstStatement = parser.ParseStatement().CreateRed();
+        var secondStatement = parser.ParseStatement().CreateRed();
+
+        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+        firstStatement.DescendantTrivia(descendIntoStructuredTrivia: true)
+            .ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
+
+        var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
+        funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
     }
 }
