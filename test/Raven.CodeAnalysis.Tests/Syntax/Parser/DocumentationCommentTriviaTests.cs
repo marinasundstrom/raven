@@ -1,6 +1,10 @@
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
+using System.IO;
+
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
+using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 public class DocumentationCommentTriviaTests
 {
@@ -49,5 +53,32 @@ func Foo() {}
         comment.ShouldNotBeNull();
         comment!.IsMultiline.ShouldBeTrue();
         comment.Content.ShouldBe("<summary>\nReturns a value.\n</summary>");
+    }
+
+    [Fact]
+    public void SingleLineDocComments_DoNotEatNewlineTokens_WhenNewlinesAreSignificant()
+    {
+        var code = """
+Foo()
+
+/// <summary>
+/// Returns a value.
+/// </summary>
+func Foo() {}
+""";
+
+        var lexer = new Lexer(new StringReader(code));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new StatementSyntaxParser(context);
+
+        var firstStatement = parser.ParseStatement().CreateRed();
+        var secondStatement = parser.ParseStatement().CreateRed();
+
+        firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
+
+        var nextFirstToken = secondStatement.GetFirstToken(includeZeroWidth: true);
+        nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.SingleLineDocumentationCommentTrivia);
     }
 }

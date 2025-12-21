@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -304,13 +305,20 @@ internal class BaseParseContext : ParseContext
 
                     if (isDocComment && isTrailingTrivia == false)
                     {
-                        ReadSingleLineDocCommentBlockInto(_stringBuilder);
+                        List<SyntaxTrivia>? newlineTrivia = TreatNewlinesAsTokens ? [] : null;
+                        ReadSingleLineDocCommentBlockInto(_stringBuilder, newlineTrivia);
 
                         var docTrivia = new SyntaxTrivia(
                             SyntaxKind.SingleLineDocumentationCommentTrivia,
                             _stringBuilder.ToString());
 
                         trivia.Add(docTrivia);
+
+                        if (newlineTrivia is { Count: > 0 })
+                        {
+                            trivia.AddRange(newlineTrivia);
+                        }
+
                         continue;
                     }
 
@@ -508,7 +516,7 @@ internal class BaseParseContext : ParseContext
         return new SyntaxTriviaList(trivia.ToArray());
     }
 
-    private void ReadSingleLineDocCommentBlockInto(StringBuilder sb)
+    private void ReadSingleLineDocCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia)
     {
         while (true)
         {
@@ -539,7 +547,12 @@ internal class BaseParseContext : ParseContext
             if (t.Kind == SyntaxKind.EndOfFileToken)
                 return;
 
-            ConsumeOneNewlineInto(sb);
+            var newline = ConsumeOneNewlineInto(sb);
+
+            if (newlineTrivia is { } && newline is { } newlineValue)
+            {
+                newlineTrivia.Add(newlineValue);
+            }
 
             if (!NextLineStartsWithDocComment())
                 return;
@@ -581,7 +594,7 @@ internal class BaseParseContext : ParseContext
                c.Kind == SyntaxKind.SlashToken;
     }
 
-    private void ConsumeOneNewlineInto(StringBuilder sb)
+    private SyntaxTrivia? ConsumeOneNewlineInto(StringBuilder sb)
     {
         var t = _lexer.PeekToken(0);
 
@@ -589,7 +602,8 @@ internal class BaseParseContext : ParseContext
         {
             _lexer.ReadToken();
             sb.Append(t.Text);
-            return;
+
+            return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
         }
 
         if (t.Kind == SyntaxKind.CarriageReturnToken)
@@ -602,16 +616,22 @@ internal class BaseParseContext : ParseContext
             {
                 _lexer.ReadToken();
                 sb.Append(lf.Text);
+
+                return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text + lf.Text);
             }
-            return;
+
+            return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
         }
 
         if (t.Kind == SyntaxKind.LineFeedToken || t.Kind == SyntaxKind.NewLineToken)
         {
             _lexer.ReadToken();
             sb.Append(t.Text);
-            return;
+
+            return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
         }
+
+        return null;
     }
 
     private static bool IsNewLine(Token token)
