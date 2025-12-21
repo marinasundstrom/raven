@@ -22,7 +22,7 @@ public class SyntaxTree
     public string FilePath { get; }
     public bool HasCompilationUnit => _compilationUnit is not null;
     public int Length => _sourceText.Length;
-    public ParseOptions Options { get; }
+    public ParseOptions Options => _options;
 
     public CompilationUnitSyntax GetRoot(CancellationToken cancellationToken = default) => _compilationUnit;
 

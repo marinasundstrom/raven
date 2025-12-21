@@ -14,6 +14,8 @@ public class SyntaxTreeProvider
 {
     private static readonly HashSet<string> s_sourceExtensions = new(RavenFileExtensions.All, StringComparer.OrdinalIgnoreCase);
 
+    public ParseOptions ParseOptions { get; set; } = new ParseOptions();
+
     /// <summary>Determines whether the specified document supports a syntax tree.</summary>
     public virtual bool SupportsSyntaxTree(string name, string? filePath = null)
     {
@@ -36,6 +38,6 @@ public class SyntaxTreeProvider
             return null;
 
         var path = filePath ?? name;
-        return SyntaxTree.ParseText(text, path: path);
+        return SyntaxTree.ParseText(text, ParseOptions, path: path);
     }
 }

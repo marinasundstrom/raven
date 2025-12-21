@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -140,6 +141,8 @@ internal abstract class Symbol : ISymbol
     public virtual bool IsAlias => false;
 
     public virtual ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
+
+    public virtual DocumentationComment? GetDocumentationComment() => null;
 
     public virtual bool CanBeReferencedByName { get; } = false;
 

@@ -70,6 +70,9 @@ string? overloadLogPath = null;
 var overloadLogOwnsWriter = false;
 OverloadResolutionLog? overloadResolutionLog = null;
 var run = false;
+var emitDocs = false;
+string? documentationOutputPath = null;
+var documentationFormat = DocumentationFormat.Markdown;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -140,6 +143,25 @@ for (int i = 0; i < args.Length; i++)
             quote = true;
             if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
                 quoteWithNamedArgs = args[++i] == "1";
+            break;
+        case "--doc":
+        case "--emit-docs":
+            emitDocs = true;
+            if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                documentationOutputPath = args[++i];
+            break;
+        case "--doc-output":
+            emitDocs = true;
+            if (i + 1 < args.Length)
+                documentationOutputPath = args[++i];
+            else
+                hasInvalidOption = true;
+            break;
+        case "--doc-format":
+            if (!TryParseDocumentationFormat(args, ref i, out var parsedFormat))
+                hasInvalidOption = true;
+            else
+                documentationFormat = parsedFormat;
             break;
         case "--ilverify":
             runIlVerify = true;
@@ -345,6 +367,11 @@ if (enableOverloadLog)
     options = options.WithOverloadResolutionLogger(overloadResolutionLog);
 }
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
+workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
+{
+    DocumentationMode = true,
+    DocumentationFormat = documentationFormat
+};
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
 var project = workspace.CurrentSolution.GetProject(projectId)!;
 
@@ -397,6 +424,15 @@ if (!noEmit)
     }
 
     diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray();
+}
+
+if (emitDocs)
+{
+    var formatExtension = documentationFormat == DocumentationFormat.Markdown ? ".md" : ".xml";
+    documentationOutputPath ??= Path.ChangeExtension(outputFilePath, formatExtension);
+
+    DocumentationEmitter.WriteDocumentation(project.Documents, documentationFormat, documentationOutputPath);
+    AnsiConsole.MarkupLine($"[green]Documentation written to '{documentationOutputPath}'.[/]");
 }
 
 stopwatch.Stop();
@@ -836,6 +872,32 @@ static bool TryParseOutputKind(string[] args, ref int index, out OutputKind outp
 
     AnsiConsole.MarkupLine($"[red]Unknown output type '{value}'.[/]");
     outputKind = OutputKind.ConsoleApplication;
+    return false;
+}
+
+static bool TryParseDocumentationFormat(string[] args, ref int index, out DocumentationFormat format)
+{
+    var value = ConsumeOptionValue(args, ref index);
+
+    if (value is null)
+    {
+        format = DocumentationFormat.Markdown;
+        return true;
+    }
+
+    switch (value.ToLowerInvariant())
+    {
+        case "md":
+        case "markdown":
+            format = DocumentationFormat.Markdown;
+            return true;
+        case "xml":
+            format = DocumentationFormat.Xml;
+            return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown documentation format '{value}'.[/]");
+    format = DocumentationFormat.Markdown;
     return false;
 }
 
