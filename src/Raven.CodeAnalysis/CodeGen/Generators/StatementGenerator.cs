@@ -252,6 +252,15 @@ internal class StatementGenerator : Generator
 
         var iteration = forStatement.Iteration;
 
+        if (iteration.Kind == ForIterationKind.Range)
+        {
+            var range = iteration.Range ?? forStatement.Collection as BoundRangeExpression
+                ?? throw new InvalidOperationException("Range iteration requires a range expression.");
+
+            EmitRangeForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, range);
+            return;
+        }
+
         new ExpressionGenerator(scope, forStatement.Collection).Emit();
 
         switch (iteration.Kind)
@@ -278,6 +287,58 @@ internal class StatementGenerator : Generator
                 EmitNonGenericEnumeratorForLoop(forStatement, scope, beginLabel, continueLabel, endLabel);
                 break;
         }
+    }
+
+    private void EmitRangeForLoop(
+        BoundForStatement forStatement,
+        Scope scope,
+        ILLabel beginLabel,
+        ILLabel continueLabel,
+        ILLabel endLabel,
+        BoundRangeExpression range)
+    {
+        Debug.Assert(range.Left is not null && range.Right is not null, "Range iteration requires explicit bounds.");
+
+        var intClrType = ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32));
+
+        var startLocal = ILGenerator.DeclareLocal(intClrType);
+        new ExpressionGenerator(scope, range.Left!.Value).Emit();
+        ILGenerator.Emit(OpCodes.Stloc, startLocal);
+
+        var endLocal = ILGenerator.DeclareLocal(intClrType);
+        new ExpressionGenerator(scope, range.Right!.Value).Emit();
+        ILGenerator.Emit(OpCodes.Stloc, endLocal);
+
+        var loopLocal = forStatement.Local;
+        var elementType = loopLocal?.Type ?? forStatement.Iteration.ElementType;
+        IILocal? elementLocal = null;
+        if (loopLocal is not null)
+        {
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementType));
+            scope.AddLocal(loopLocal, elementLocal);
+        }
+
+        ILGenerator.MarkLabel(beginLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, startLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, endLocal);
+        ILGenerator.Emit(OpCodes.Bge, endLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, startLocal);
+        if (elementLocal is not null)
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        else
+            ILGenerator.Emit(OpCodes.Pop);
+
+        new StatementGenerator(scope, forStatement.Body).Emit();
+
+        ILGenerator.MarkLabel(continueLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, startLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, startLocal);
+        ILGenerator.Emit(OpCodes.Br, beginLabel);
+        ILGenerator.MarkLabel(endLabel);
     }
 
     private void EmitArrayForLoop(

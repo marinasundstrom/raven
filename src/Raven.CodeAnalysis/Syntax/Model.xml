@@ -730,6 +730,15 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Right" Type="Expression" />
   </Node>
+  <Node Name="RangeExpression" Inherits="Expression">
+    <Slot Name="LeftExpression" Type="Expression" IsNullable="true" />
+    <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />
+    <Slot Name="RightExpression" Type="Expression" IsNullable="true" />
+  </Node>
+  <Node Name="IndexExpression" Inherits="Expression">
+    <Slot Name="CaretToken" Type="Token" DefaultToken="CaretToken" />
+    <Slot Name="Expression" Type="Expression" />
+  </Node>
   <Node Name="TypeAnnotationClause" Inherits="Node">
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
     <Slot Name="Type" Type="Type" />

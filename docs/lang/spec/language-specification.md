@@ -737,6 +737,15 @@ well as top-level `func` declarations. Because overload resolution still sees
 the piped value as the first argument, generic methods can infer type arguments
 from that value without any additional annotations.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2724-L2768】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L1396-L1507】
 
+### Index expressions
+
+Prefixing an expression with `^` produces a `System.Index` value that counts
+from the end of a sequence. The operand must be implicitly convertible to
+`int`, and the result keeps its `Index` type even when not target-typed, so
+`let offset = ^2` is valid without annotations. When indexing arrays, from-end
+indices are computed using the array's length and are evaluated exactly once
+alongside the receiver.
+
 ### Range expressions
 
 `..` produces a `Range` value that can be stored, passed to APIs, or used for
@@ -897,6 +906,11 @@ for each in items {
 
 Both forms still enumerate the collection but do not introduce a new binding.
 Like other looping constructs, a `for` expression evaluates to `()`.
+
+When the collection is a range with explicit, from-start bounds, the loop
+iterates over `int` values beginning at the range's lower bound and stopping
+before the upper bound. Omitting the start defaults it to `0`, while omitting
+the end or using from-end bounds in a `for` expression reports a diagnostic.
 
 ### `break` and `continue`
 

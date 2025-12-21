@@ -6,6 +6,7 @@ internal enum ForIterationKind
 {
     Array,
     Generic,
+    Range,
     NonGeneric,
 }
 
@@ -14,7 +15,8 @@ internal sealed record ForIterationInfo(
     ITypeSymbol ElementType,
     IArrayTypeSymbol? ArrayType = null,
     INamedTypeSymbol? EnumerableInterface = null,
-    INamedTypeSymbol? EnumeratorInterface = null)
+    INamedTypeSymbol? EnumeratorInterface = null,
+    BoundRangeExpression? Range = null)
 {
     public static ForIterationInfo ForArray(IArrayTypeSymbol arrayType) =>
         new(ForIterationKind.Array, arrayType.ElementType, arrayType);
@@ -30,4 +32,7 @@ internal sealed record ForIterationInfo(
 
     public static ForIterationInfo ForNonGeneric(ITypeSymbol elementType) =>
         new(ForIterationKind.NonGeneric, elementType);
+
+    public static ForIterationInfo ForRange(Compilation compilation, BoundRangeExpression range) =>
+        new(ForIterationKind.Range, compilation.GetSpecialType(SpecialType.System_Int32), Range: range);
 }

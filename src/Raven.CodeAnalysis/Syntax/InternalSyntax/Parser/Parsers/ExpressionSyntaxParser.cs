@@ -14,6 +14,7 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 internal class ExpressionSyntaxParser : SyntaxParser
 {
     private readonly bool _allowMatchExpressionSuffixes;
+    private const int RangeOperatorPrecedence = 4;
 
     public ExpressionSyntaxParser(ParseContext parent, bool allowMatchExpressionSuffixes = true)
         : base(parent)
@@ -212,7 +213,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         int start = this.Position;
 
         PatternSyntax? assignmentPattern = null;
-        ExpressionSyntax expr = new ExpressionSyntax.Missing();
+        ExpressionSyntax? expr = null;
 
         if (precedence == 0 && PeekToken(1).Kind == SyntaxKind.EqualsToken && TryParseAssignmentPattern(out var pattern))
         {
@@ -220,7 +221,14 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
         else
         {
-            expr = ParseFactorExpression();
+            if (PeekToken().IsKind(SyntaxKind.DotDotToken) && precedence <= RangeOperatorPrecedence)
+            {
+                expr = null;
+            }
+            else
+            {
+                expr = ParseFactorExpression();
+            }
         }
 
         if (TryConsumeAssignmentOperator(out var assignToken))
@@ -257,11 +265,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
             var operatorCandidate = PeekToken();
 
             if (operatorCandidate.IsKind(SyntaxKind.EndOfFileToken))
-                return expr;
+                return expr ?? new ExpressionSyntax.Missing();
+
+            if (operatorCandidate.IsKind(SyntaxKind.DotDotToken))
+            {
+                if (RangeOperatorPrecedence < precedence)
+                    return expr ?? new ExpressionSyntax.Missing();
+
+                ReadToken();
+                var right = ParseRangeBoundaryExpression();
+                expr = RangeExpression(expr, operatorCandidate, right);
+                continue;
+            }
 
             int prec;
             if (!TryResolveOperatorPrecedence(operatorCandidate, out prec))
-                return expr;
+                return expr ?? new ExpressionSyntax.Missing();
 
             if (prec >= precedence)
             {
@@ -271,9 +290,25 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
             else
             {
-                return expr!;
+                return expr ?? new ExpressionSyntax.Missing();
             }
         }
+    }
+
+    private ExpressionSyntax? ParseRangeBoundaryExpression()
+    {
+        var next = PeekToken();
+
+        if (next.IsKind(SyntaxKind.CloseBracketToken) ||
+            next.IsKind(SyntaxKind.CloseParenToken) ||
+            next.IsKind(SyntaxKind.CloseBraceToken) ||
+            next.IsKind(SyntaxKind.CommaToken) ||
+            next.IsKind(SyntaxKind.EndOfFileToken))
+        {
+            return null;
+        }
+
+        return ParseExpressionCore(RangeOperatorPrecedence + 1);
     }
 
     private bool TryParseAssignmentPattern(out PatternSyntax pattern)
@@ -446,6 +481,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 ReadToken();
                 expr = ParseFactorExpression();
                 expr = UnaryExpression(SyntaxKind.AddressOfExpression, token, expr);
+                break;
+
+            case SyntaxKind.CaretToken:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = IndexExpression(token, expr);
                 break;
 
             case SyntaxKind.IfKeyword:

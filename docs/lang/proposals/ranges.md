@@ -1,6 +1,8 @@
 # Proposal: Ranges
 
-> ⚠️ This proposal has **NOT** been implemented
+> ✅ Implemented. From-end indices and ranges now produce `System.Index` and
+> `System.Range` values, with support for start-bound ranges in `for`
+> expressions.
 
 This proposal outlines ranges. This feature allows you to specify a range that can be passed much like indices to any list or array type to obtain items within that range.
 
@@ -35,17 +37,20 @@ let set2 =  [^2..^0]
 
 ## `For` support
 
-Ranges can be used in `for` expressions.
+Ranges can be used in `for` expressions when both bounds count from the start.
+The start value defaults to `0` when omitted, and the upper bound is exclusive.
 
 ```raven
 import System.Console.*
 
-for item in 2..3 {
+for item in 2..5 {
     WriteLine(item * 2)
 }
 ```
 
-The range expression is translated into `Enumerable.Range(2, 3)`.
+The range expression is translated into integer iteration that visits `2`, `3`,
+and `4`. From-end bounds are rejected in `for` loops because the loop has no
+length context.
 
 ## Notes
 
