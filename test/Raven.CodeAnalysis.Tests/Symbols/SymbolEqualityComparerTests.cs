@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -483,6 +484,8 @@ class Sample {{
 
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; } = ImmutableArray<SyntaxReference>.Empty;
 
+        public DocumentationComment? DocumentationComment => null;
+
         public bool IsImplicitlyDeclared => true;
 
         public bool IsStatic => false;
@@ -536,6 +539,8 @@ class Sample {{
         public Accessibility DeclaredAccessibility => Accessibility.Public;
 
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; } = ImmutableArray<SyntaxReference>.Empty;
+
+        public DocumentationComment? DocumentationComment => null;
 
         public bool IsImplicitlyDeclared => true;
 

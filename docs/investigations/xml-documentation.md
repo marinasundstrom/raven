@@ -20,9 +20,9 @@ Capture the requirements and design options for adding documentation comments (X
 2. ✅ **Structured parsing**
    - Normalize doc comments into a structured payload that records the chosen documentation format (Markdown by default) and trims common prefixes (leading `///` or `/**`). Raw text is preserved so future diagnostics can map back to source spans.
    - Support the common XML elements Roslyn validates (`<summary>`, `<param>`, `<typeparam>`, `<returns>`, `<value>`, `<remarks>`, `<see>`, `<inheritdoc>`, `<exception>`, `<example>`), but treat unrecognized tags as well-formed text rather than hard errors initially. For Markdown, keep fenced code blocks and inline links intact so renderers can process them later.
-3. ☐ **Binding to symbols**
-   - During symbol creation, attach the nearest leading documentation trivia to the declared symbol. For partial types/members, merge documentation blocks in declaration order; emit a diagnostic on conflicting summaries to match Roslyn’s duplicate documentation rules.
-   - Resolve XML `<param>`/`<typeparam>` names against the symbol signature and issue diagnostics for missing or extra tags. For Markdown, resolve parameter documentation by matching heading/list labels to the signature (best-effort) and capture unmatched entries for diagnostics. For interface implementations and overrides, keep the raw documentation on the declaration and defer inheritance logic to the API layer.
+3. ✅ **Binding to symbols**
+   - Source symbols now expose a `DocumentationComment` that is computed from their declaring syntax references, honoring the syntax tree’s `ParseOptions.DocumentationFormat` (Markdown by default) and normalizing triple-slash/block documentation trivia. Partial declarations merge documentation blocks in declaration order.
+   - Parameter/tag validation and inheritance diagnostics are still pending; the current binding stage only associates raw documentation with the declared symbol to unblock API consumers and future diagnostics work.
 4. ☐ **Diagnostics**
    - Add diagnostics for malformed XML (unterminated tags, invalid characters), malformed Markdown (unclosed fences), misplaced documentation comments (not attached to a declaration), and parameter/type parameter mismatches. Respect `DocumentationMode` to suppress documentation diagnostics when disabled.
 

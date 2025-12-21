@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Text;
 
@@ -38,7 +39,42 @@ public sealed class DocumentationComment
         return true;
     }
 
-    private static bool IsDocumentationTrivia(SyntaxKind kind) => kind is SyntaxKind.SingleLineDocumentationCommentTrivia or SyntaxKind.MultiLineDocumentationCommentTrivia;
+    internal static bool IsDocumentationTrivia(SyntaxKind kind) => kind is SyntaxKind.SingleLineDocumentationCommentTrivia or SyntaxKind.MultiLineDocumentationCommentTrivia;
+
+    internal DocumentationComment MergeWith(DocumentationComment other)
+    {
+        if (other is null)
+            return this;
+
+        if (Format != other.Format)
+            return this;
+
+        if (string.Equals(Content, other.Content, StringComparison.Ordinal))
+            return this;
+
+        var builder = new StringBuilder();
+
+        if (!string.IsNullOrEmpty(Content))
+        {
+            builder.Append(Content);
+        }
+
+        if (!string.IsNullOrEmpty(other.Content))
+        {
+            if (builder.Length > 0)
+                builder.AppendLine().AppendLine();
+
+            builder.Append(other.Content);
+        }
+
+        var mergedRaw = string.IsNullOrEmpty(RawText)
+            ? other.RawText
+            : string.IsNullOrEmpty(other.RawText)
+                ? RawText
+                : string.Create(CultureInfo.InvariantCulture, $"{RawText}\n{other.RawText}");
+
+        return new DocumentationComment(Format, mergedRaw, builder.ToString().TrimEnd(), IsMultiline || other.IsMultiline);
+    }
 
     private static string Normalize(string rawText, bool isMultiline)
     {

@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -1184,6 +1185,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
 
+        public DocumentationComment? DocumentationComment => _original.DocumentationComment;
+
         public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
 
         public bool IsStatic => _original.IsStatic;
@@ -1281,6 +1284,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
 
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+
+        public DocumentationComment? DocumentationComment => _original.DocumentationComment;
 
         public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
 
@@ -1390,6 +1395,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
 
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+
+        public DocumentationComment? DocumentationComment => _original.DocumentationComment;
 
         public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
 

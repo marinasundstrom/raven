@@ -161,6 +161,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         Locations = Locations.Add(location);
         DeclaringSyntaxReferences = DeclaringSyntaxReferences.Add(reference);
+        InvalidateDocumentationComment();
     }
 
     internal void UpdateDeclarationModifiers(bool isSealed, bool isAbstract)

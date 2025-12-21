@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -69,6 +70,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ISymbol? AssociatedSymbol => _definition.AssociatedSymbol;
     public ImmutableArray<Location> Locations => _definition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _definition.DeclaringSyntaxReferences;
+    public DocumentationComment? DocumentationComment => _definition.DocumentationComment;
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations
     {
@@ -282,6 +284,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
         public ImmutableArray<Location> Locations => _original.Locations;
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+        public DocumentationComment? DocumentationComment => _original.DocumentationComment;
         public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
         public bool IsStatic => false;
         public bool IsAlias => _original.IsAlias;

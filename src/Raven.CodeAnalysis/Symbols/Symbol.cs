@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -10,6 +11,8 @@ namespace Raven.CodeAnalysis.Symbols;
 internal abstract class Symbol : ISymbol
 {
     private readonly Accessibility _declaredAccessibility;
+    private DocumentationComment? _documentationComment;
+    private bool _documentationCommentComputed;
 
     protected Symbol(
         SymbolKind kind,
@@ -131,6 +134,19 @@ internal abstract class Symbol : ISymbol
         protected set;
     }
 
+    public virtual DocumentationComment? DocumentationComment
+    {
+        get
+        {
+            if (_documentationCommentComputed)
+                return _documentationComment;
+
+            _documentationCommentComputed = true;
+            _documentationComment = ComputeDocumentationComment();
+            return _documentationComment;
+        }
+    }
+
     public virtual bool IsImplicitlyDeclared => false;
 
     public virtual bool IsStatic => false;
@@ -166,6 +182,45 @@ internal abstract class Symbol : ISymbol
         }
 
         return Equals(other, SymbolEqualityComparer.Default);
+    }
+
+    internal void AddDocumentationComment(DocumentationComment? comment)
+    {
+        if (comment is null)
+            return;
+
+        _documentationComment = _documentationComment is null
+            ? comment
+            : _documentationComment.MergeWith(comment);
+
+        _documentationCommentComputed = true;
+    }
+
+    protected void InvalidateDocumentationComment()
+    {
+        _documentationComment = null;
+        _documentationCommentComputed = false;
+    }
+
+    protected virtual DocumentationComment? ComputeDocumentationComment()
+    {
+        if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return null;
+
+        DocumentationComment? result = null;
+
+        foreach (var syntaxReference in DeclaringSyntaxReferences)
+        {
+            var syntax = syntaxReference.GetSyntax();
+            var comment = DocumentationCommentUtilities.FromSyntax(syntax);
+
+            if (comment is null)
+                continue;
+
+            result = result is null ? comment : result.MergeWith(comment);
+        }
+
+        return result;
     }
 
     private string GetDebuggerDisplay()

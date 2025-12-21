@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -83,6 +84,11 @@ public interface ISymbol : IEquatable<ISymbol?>
     /// Gets the syntax references used to declare this symbol.
     /// </summary>
     ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; }
+
+    /// <summary>
+    /// Gets the documentation comment attached to this symbol, if any.
+    /// </summary>
+    DocumentationComment? DocumentationComment { get; }
 
     /// <summary>
     /// Gets a value indicating whether the symbol was implicitly declared by the compiler.

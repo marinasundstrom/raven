@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.CodeGen;
+using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -358,6 +359,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public bool CanBeReferencedByName => true;
     public ImmutableArray<Location> Locations => _originalDefinition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _originalDefinition.DeclaringSyntaxReferences;
+    public DocumentationComment? DocumentationComment => _originalDefinition.DocumentationComment;
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _originalDefinition.GetAttributes();
@@ -937,6 +939,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public ImmutableArray<Location> Locations => _original.Locations;
     public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+    public DocumentationComment? DocumentationComment => _original.DocumentationComment;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => _original.IsStatic;
     public ISymbol UnderlyingSymbol => this;
@@ -1195,6 +1198,7 @@ internal sealed class SubstitutedMethodTypeParameterSymbol : ITypeParameterSymbo
     public ImmutableArray<Location> Locations => _original.Locations;
     public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+    public DocumentationComment? DocumentationComment => _original.DocumentationComment;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => false;
     public ISymbol UnderlyingSymbol => this;
@@ -1277,6 +1281,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     public ImmutableArray<Location> Locations => _original.Locations;
     public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+    public DocumentationComment? DocumentationComment => _original.DocumentationComment;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => _original.IsStatic;
     public ISymbol UnderlyingSymbol => this;
@@ -1371,6 +1376,7 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public ImmutableArray<Location> Locations => _original.Locations;
     public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+    public DocumentationComment? DocumentationComment => _original.DocumentationComment;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => _original.IsStatic;
     public ISymbol UnderlyingSymbol => this;
@@ -1470,6 +1476,7 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public ImmutableArray<Location> Locations => _original.Locations;
     public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
+    public DocumentationComment? DocumentationComment => _original.DocumentationComment;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => false;
     public ISymbol UnderlyingSymbol => this;

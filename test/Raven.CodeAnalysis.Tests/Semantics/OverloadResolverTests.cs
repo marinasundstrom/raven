@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
@@ -321,6 +322,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
         public Accessibility DeclaredAccessibility => Accessibility.Public;
 
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; } = ImmutableArray<SyntaxReference>.Empty;
+
+        public DocumentationComment? DocumentationComment => null;
 
         public bool IsImplicitlyDeclared => true;
 

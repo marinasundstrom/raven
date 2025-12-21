@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Documentation;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal abstract class AliasSymbol : IAliasSymbol
@@ -39,6 +41,8 @@ internal abstract class AliasSymbol : IAliasSymbol
     public bool IsStatic => UnderlyingSymbol.IsStatic;
 
     public ISymbol UnderlyingSymbol { get; }
+
+    public DocumentationComment? DocumentationComment => UnderlyingSymbol.DocumentationComment;
 
     public bool IsAlias => true;
 
