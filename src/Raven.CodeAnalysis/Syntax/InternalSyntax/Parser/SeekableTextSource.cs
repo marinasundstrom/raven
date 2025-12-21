@@ -10,7 +10,7 @@ internal sealed class SeekableTextSource
 
     private readonly Stack<int> _savedPositions = new(); // Optional: to help with pruning
 
-    public SeekableTextSource(TextReader reader, int initialPosition = 0, int maxBufferSize = 1024)
+    public SeekableTextSource(TextReader reader, int initialPosition = 0, int maxBufferSize = int.MaxValue)
     {
         _reader = reader;
         _maxBufferSize = maxBufferSize;

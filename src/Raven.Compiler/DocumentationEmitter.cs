@@ -40,7 +40,7 @@ internal static class DocumentationEmitter
 
                 var span = trivia.GetLocation().GetLineSpan();
                 var position = span.StartLinePosition;
-                yield return new DocumentationEntry(document.FilePath ?? document.Name, position.Line + 1, comment.Content);
+                yield return new DocumentationEntry(document.FilePath ?? document.Name, position.Line + 1, comment!.Content);
             }
         }
     }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -85,40 +86,77 @@ internal class BaseParseContext : ParseContext
 
         _treatNewlinesAsTokens = value;
 
-        var rewindPosition = Position;
+        RewindToPosition(Position);
+
         if (value && _lastToken is { } lastToken)
         {
-            int rewindBy = 0;
-            int pendingWhitespace = 0;
+            StageTrailingNewlinesForPendingTrivia(lastToken);
+        }
+    }
 
-            for (int i = lastToken.TrailingTrivia.Count - 1; i >= 0; i--)
+    private void StageTrailingNewlinesForPendingTrivia(SyntaxToken lastToken)
+    {
+        var trailing = lastToken.TrailingTrivia;
+
+        if (trailing.Count == 0)
+            return;
+
+        var triviaToStage = new List<SyntaxTrivia>();
+
+        for (int i = trailing.Count - 1; i >= 0; i--)
+        {
+            var trivia = trailing[i];
+
+            if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
             {
-                var trivia = lastToken.TrailingTrivia[i];
-
-                if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
-                {
-                    pendingWhitespace += trivia.FullWidth;
-                    continue;
-                }
-
-                if (IsEndOfLineTrivia(trivia))
-                {
-                    rewindBy += trivia.FullWidth + pendingWhitespace;
-                    pendingWhitespace = 0;
-                    continue;
-                }
-
-                if (rewindBy > 0)
-                    break;
-
-                pendingWhitespace = 0;
+                triviaToStage.Insert(0, trivia);
+                continue;
             }
 
-            if (rewindBy > 0)
-                rewindPosition -= rewindBy;
+            if (IsEndOfLineTrivia(trivia))
+            {
+                triviaToStage.Insert(0, trivia);
+
+                for (int before = i - 1; before >= 0; before--)
+                {
+                    var precedingTrivia = trailing[before];
+
+                    if (precedingTrivia.Kind != SyntaxKind.WhitespaceTrivia)
+                        break;
+
+                    triviaToStage.Insert(0, precedingTrivia);
+                }
+
+                break;
+            }
+
+            break;
         }
 
-        RewindToPosition(rewindPosition);
+        var newlineTrivia = triviaToStage.FirstOrDefault(IsEndOfLineTrivia);
+
+        if (newlineTrivia == default)
+            return;
+
+        var leadingTrivia = triviaToStage
+            .Where(t => t != newlineTrivia)
+            .ToArray();
+
+        var newlineToken = new SyntaxToken(
+            kind: SyntaxKind.NewLineToken,
+            text: newlineTrivia.Text,
+            value: null,
+            width: newlineTrivia.Text.Length,
+            leadingTrivia: leadingTrivia.Length > 0 ? new SyntaxTriviaList(leadingTrivia) : SyntaxTriviaList.Empty,
+            trailingTrivia: SyntaxTriviaList.Empty,
+            diagnostics: null);
+
+        _position -= newlineToken.FullWidth;
+
+        if (_position < 0)
+            _position = 0;
+
+        _lookaheadTokens.Insert(0, newlineToken);
     }
 
     /// <summary>
@@ -241,13 +279,33 @@ internal class BaseParseContext : ParseContext
         if (!TreatNewlinesAsTokens)
             return null;
 
+        var encounteredDocumentationTrivia = false;
+
         for (int i = 0; i < leadingTrivia.Count; i++)
         {
             var trivia = leadingTrivia[i];
 
+            encounteredDocumentationTrivia |= trivia.Kind is SyntaxKind.MultiLineDocumentationCommentTrivia
+                or SyntaxKind.SingleLineDocumentationCommentTrivia;
+
+            if (encounteredDocumentationTrivia)
+                continue;
+
             if (trivia.Kind == SyntaxKind.EndOfLineTrivia && ShouldPromoteToNewlineToken())
             {
-                leadingTrivia = leadingTrivia.RemoveAt(i);
+                // Preserve any documentation comments or other trivia for the next token
+                // instead of losing them when we surface a newline token.
+                for (int before = 0; before < i; before++)
+                {
+                    _pendingTrivia.Add(leadingTrivia[before]);
+                }
+
+                for (int after = i + 1; after < leadingTrivia.Count; after++)
+                {
+                    _pendingTrivia.Add(leadingTrivia[after]);
+                }
+
+                leadingTrivia = SyntaxTriviaList.Empty;
 
                 return new SyntaxToken(
                     kind: SyntaxKind.NewLineToken,
@@ -302,6 +360,27 @@ internal class BaseParseContext : ParseContext
                 {
                     var isDocComment = token3.Kind == SyntaxKind.SlashToken;
 
+                    if (isDocComment && isTrailingTrivia == false)
+                    {
+                        List<SyntaxTrivia>? newlineTrivia = TreatNewlinesAsTokens ? [] : null;
+                        var isMultiLineDocComment = ReadSingleLineDocCommentBlockInto(_stringBuilder, newlineTrivia);
+
+                        var docTrivia = new SyntaxTrivia(
+                            isMultiLineDocComment
+                                ? SyntaxKind.MultiLineDocumentationCommentTrivia
+                                : SyntaxKind.SingleLineDocumentationCommentTrivia,
+                            _stringBuilder.ToString());
+
+                        trivia.Add(docTrivia);
+
+                        if (newlineTrivia is { Count: > 0 })
+                        {
+                            trivia.AddRange(newlineTrivia);
+                        }
+
+                        continue;
+                    }
+
                     _stringBuilder.Append(token.Text);
                     _stringBuilder.Append(token2.Text);
                     _lexer.ReadTokens(isDocComment ? 3 : 2);
@@ -334,17 +413,10 @@ internal class BaseParseContext : ParseContext
                 }
                 else if (token2.Kind == SyntaxKind.StarToken)
                 {
-                    var isDocComment = token3.Kind == SyntaxKind.StarToken;
-
                     _stringBuilder.Append(token.Text);
                     _stringBuilder.Append(token2.Text);
 
-                    _lexer.ReadAndDiscardTokens(isDocComment ? 3 : 2);
-
-                    if (isDocComment)
-                    {
-                        _stringBuilder.Append(token3.Text);
-                    }
+                    _lexer.ReadAndDiscardTokens(2);
 
                     while (true)
                     {
@@ -371,10 +443,7 @@ internal class BaseParseContext : ParseContext
                         _stringBuilder.Append(current.Text);
                     }
 
-                    var triviaKind = isDocComment
-                        ? SyntaxKind.MultiLineDocumentationCommentTrivia
-                        : SyntaxKind.MultiLineCommentTrivia;
-                    var commentTrivia = new SyntaxTrivia(triviaKind, _stringBuilder.ToString());
+                    var commentTrivia = new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString());
 
                     if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                     {
@@ -496,9 +565,134 @@ internal class BaseParseContext : ParseContext
         return new SyntaxTriviaList(trivia.ToArray());
     }
 
+    private bool ReadSingleLineDocCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia)
+    {
+        var lineCount = 0;
+
+        while (true)
+        {
+            ConsumeIndentationInto(sb);
+
+            var a = _lexer.PeekToken(0);
+            var b = _lexer.PeekToken(1);
+            var c = _lexer.PeekToken(2);
+
+            if (a.Kind != SyntaxKind.SlashToken ||
+                b.Kind != SyntaxKind.SlashToken ||
+                c.Kind != SyntaxKind.SlashToken)
+                return lineCount > 1;
+
+            lineCount++;
+
+            _lexer.ReadTokens(3);
+            sb.Append(a.Text);
+            sb.Append(b.Text);
+            sb.Append(c.Text);
+
+            var t = _lexer.PeekToken();
+            while (!IsNewLine(t) && t.Kind != SyntaxKind.EndOfFileToken)
+            {
+                _lexer.ReadToken();
+                sb.Append(t.Text);
+                t = _lexer.PeekToken();
+            }
+
+            if (t.Kind == SyntaxKind.EndOfFileToken)
+                return lineCount > 1;
+
+            var newline = ConsumeOneNewlineInto(sb);
+
+            if (newlineTrivia is { } && newline is { } newlineValue)
+            {
+                newlineTrivia.Add(newlineValue);
+            }
+
+            if (!NextLineStartsWithDocComment())
+                return lineCount > 1;
+        }
+    }
+
+    private void ConsumeIndentationInto(StringBuilder sb)
+    {
+        while (true)
+        {
+            var t = _lexer.PeekToken(0);
+            if (t.Kind == SyntaxKind.Whitespace || t.Kind == SyntaxKind.TabToken)
+            {
+                _lexer.ReadToken();
+                sb.Append(t.Text);
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    private bool NextLineStartsWithDocComment()
+    {
+        int i = 0;
+        while (true)
+        {
+            var t = _lexer.PeekToken(i);
+            if (t.Kind == SyntaxKind.Whitespace || t.Kind == SyntaxKind.TabToken) { i++; continue; }
+            break;
+        }
+
+        var a = _lexer.PeekToken(i + 0);
+        var b = _lexer.PeekToken(i + 1);
+        var c = _lexer.PeekToken(i + 2);
+
+        return a.Kind == SyntaxKind.SlashToken &&
+               b.Kind == SyntaxKind.SlashToken &&
+               c.Kind == SyntaxKind.SlashToken;
+    }
+
+    private SyntaxTrivia? ConsumeOneNewlineInto(StringBuilder sb)
+    {
+        var t = _lexer.PeekToken(0);
+
+        if (t.Kind == SyntaxKind.CarriageReturnLineFeedToken)
+        {
+            _lexer.ReadToken();
+            sb.Append(t.Text);
+
+            return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
+        }
+
+        if (t.Kind == SyntaxKind.CarriageReturnToken)
+        {
+            _lexer.ReadToken();
+            sb.Append(t.Text);
+
+            var lf = _lexer.PeekToken(0);
+            if (lf.Kind == SyntaxKind.LineFeedToken)
+            {
+                _lexer.ReadToken();
+                sb.Append(lf.Text);
+
+                return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text + lf.Text);
+            }
+
+            return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
+        }
+
+        if (t.Kind == SyntaxKind.LineFeedToken || t.Kind == SyntaxKind.NewLineToken)
+        {
+            _lexer.ReadToken();
+            sb.Append(t.Text);
+
+            return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
+        }
+
+        return null;
+    }
+
     private static bool IsNewLine(Token token)
     {
-        return token.Kind == SyntaxKind.LineFeedToken || token.Kind == SyntaxKind.NewLineToken;
+        return token.Kind is SyntaxKind.NewLineToken
+            or SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     public override SyntaxToken SkipUntil(params IEnumerable<SyntaxKind> expectedKind)

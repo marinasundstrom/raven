@@ -4,26 +4,15 @@ Foo()
 /// Returns a hash code for the current object.
 /// </summary>
 /// <remarks>
-/// This method is intended to support hash-based collections such as
-/// <see cref="System.Collections.Generic.Dictionary{TKey, TValue}"/> and
-/// <see cref="System.Collections.Generic.HashSet{T}"/>.
-///
-/// ## Hash Code Contract
-///
-/// The general contract of <c>GetHashCode()</c> is:
-///
-/// - Calling this method multiple times on the same object **must return the same value**
-///   during a single execution of the program, provided that no data used by
-///   <see cref="Equals(object)"/> comparisons is modified.
-///   The returned value **is not required** to be stable across different program executions.
+/// The returned value **is not required** to be stable across different program executions.
 ///
 /// - If two objects are considered equal according to <see cref="Equals(object)"/>,
-///   they **must return the same hash code**.
+/// they **must return the 
 ///
 /// - If two objects are not equal according to <see cref="Equals(object)"/>,
-///   they are **not required** to return different hash codes.
-///   However, returning distinct hash codes for unequal objects generally improves
-///   the performance of hash-based collections.
+/// they are **not required** to return different hash codes.
+/// However, returning distinct hash codes for unequal objects generally improves
+/// the performance of hash-based collections.
 ///
 /// ## Implementation Notes
 ///
