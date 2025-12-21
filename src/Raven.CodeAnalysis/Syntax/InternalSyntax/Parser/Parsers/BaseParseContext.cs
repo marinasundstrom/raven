@@ -286,6 +286,19 @@ internal class BaseParseContext : ParseContext
     private SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
     {
         List<SyntaxTrivia> trivia = [];
+        bool redirectTrailingDocComments = false;
+
+        void AddTrivia(SyntaxTrivia triviaItem)
+        {
+            if (redirectTrailingDocComments)
+            {
+                _pendingTrivia.Add(triviaItem);
+            }
+            else
+            {
+                trivia.Add(triviaItem);
+            }
+        }
 
         while (true)
         {
@@ -323,13 +336,26 @@ internal class BaseParseContext : ParseContext
                         : SyntaxKind.SingleLineCommentTrivia;
                     var commentTrivia = new SyntaxTrivia(triviaKind, _stringBuilder.ToString());
 
+                    if (isTrailingTrivia && isDocComment)
+                    {
+                        if (!redirectTrailingDocComments && trivia.Count > 0)
+                        {
+                            _pendingTrivia.AddRange(trivia);
+                            trivia.Clear();
+                        }
+
+                        redirectTrailingDocComments = true;
+                        _pendingTrivia.Add(commentTrivia);
+                        continue;
+                    }
+
                     if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                     {
                         _pendingTrivia.Add(commentTrivia);
                         break;
                     }
 
-                    trivia.Add(commentTrivia);
+                    AddTrivia(commentTrivia);
                     continue;
                 }
                 else if (token2.Kind == SyntaxKind.StarToken)
@@ -376,13 +402,26 @@ internal class BaseParseContext : ParseContext
                         : SyntaxKind.MultiLineCommentTrivia;
                     var commentTrivia = new SyntaxTrivia(triviaKind, _stringBuilder.ToString());
 
+                    if (isTrailingTrivia && isDocComment)
+                    {
+                        if (!redirectTrailingDocComments && trivia.Count > 0)
+                        {
+                            _pendingTrivia.AddRange(trivia);
+                            trivia.Clear();
+                        }
+
+                        redirectTrailingDocComments = true;
+                        _pendingTrivia.Add(commentTrivia);
+                        continue;
+                    }
+
                     if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                     {
                         _pendingTrivia.Add(commentTrivia);
                         break;
                     }
 
-                    trivia.Add(commentTrivia);
+                    AddTrivia(commentTrivia);
                     continue;
                 }
             }
@@ -391,12 +430,12 @@ internal class BaseParseContext : ParseContext
             {
                 case SyntaxKind.TabToken:
                     _lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
+                    AddTrivia(new SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
                     continue;
 
                 case SyntaxKind.Whitespace:
                     _lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
+                    AddTrivia(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
                     continue;
             }
 
@@ -410,7 +449,7 @@ internal class BaseParseContext : ParseContext
                     do
                     {
                         _lexer.ReadToken();
-                        trivia.Add(new SyntaxTrivia(LineFeedTriviaKind, token.Text));
+                        AddTrivia(new SyntaxTrivia(LineFeedTriviaKind, token.Text));
                         peeked = _lexer.PeekToken();
                     } while (peeked.Kind == SyntaxKind.LineFeedToken);
 
@@ -432,12 +471,12 @@ internal class BaseParseContext : ParseContext
                         if (next.Kind == SyntaxKind.LineFeedToken)
                         {
                             _lexer.ReadToken();
-                            trivia.Add(
+                            AddTrivia(
                                 new SyntaxTrivia(LineFeedTriviaKind, token.Text + next.Text));
                         }
                         else
                         {
-                            trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text));
+                            AddTrivia(new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text));
                         }
 
                         peeked2 = _lexer.PeekToken();
@@ -457,7 +496,7 @@ internal class BaseParseContext : ParseContext
                     do
                     {
                         _lexer.ReadToken();
-                        trivia.Add(new SyntaxTrivia(CarriageReturnLineFeedTriviaKind, token.Text));
+                        AddTrivia(new SyntaxTrivia(CarriageReturnLineFeedTriviaKind, token.Text));
                         peeked = _lexer.PeekToken();
                     } while (peeked.Kind == SyntaxKind.CarriageReturnLineFeedToken);
 
@@ -478,7 +517,7 @@ internal class BaseParseContext : ParseContext
                     do
                     {
                         _lexer.ReadToken();
-                        trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
+                        AddTrivia(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
                         peeked = _lexer.PeekToken();
                     } while (peeked.Kind == SyntaxKind.NewLineToken);
 
