@@ -4243,9 +4243,10 @@ partial class BlockBinder : Binder
             return null;
         }
 
-        var opName = GetOperatorMethodName(opKind); // e.g. "op_Addition" for +
-        if (opName is null)
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(opKind, 2, out var operatorInfo))
             return null;
+
+        var opName = operatorInfo.MetadataName;
 
         foreach (var type in new[] { leftType, rightType })
         {
@@ -4266,17 +4267,6 @@ partial class BlockBinder : Binder
 
         return null;
     }
-
-    private static string? GetOperatorMethodName(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.PlusToken => "op_Addition",
-        SyntaxKind.MinusToken => "op_Subtraction",
-        SyntaxKind.StarToken => "op_Multiply",
-        SyntaxKind.SlashToken => "op_Division",
-        SyntaxKind.EqualsEqualsToken => "op_Equality",
-        SyntaxKind.NotEqualsExpression => "op_Inequality",
-        _ => null
-    };
 
     private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
     {
