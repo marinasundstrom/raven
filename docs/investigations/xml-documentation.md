@@ -52,6 +52,12 @@ Capture the requirements and design options for adding documentation comments (X
 ## Compiler switches
 - Raven.Compiler accepts `--emit-docs` (optional path) to write collected documentation comments. Markdown output is the default (`.md`); `--doc-format xml` switches to XML and adjusts the default file extension accordingly.
 
+## Documentation emission pipeline
+- **Symbol discovery**: after binding succeeds, walk the compilation starting from the global namespace and visit every publicly reachable symbol (namespaces, named types, members) in a deterministic order. Use `GetDocumentationComment` on each symbol to retrieve the merged documentation payload (respecting source, metadata, and inheritance rules) along with its recorded `DocumentationFormat`.
+- **XML output**: project each documented symbol into the standard XML documentation shape (`<doc><assembly><name>...</name></assembly><members>...</members></doc>`). Populate `<member>` elements with the symbol’s documentation identifier (from `GetDocumentationCommentId`) and emit the raw XML payload returned by `GetDocumentationComment` so consumers receive the author’s structure unchanged.
+- **Markdown output**: produce a single Markdown document that mirrors the type hierarchy. Use headings to denote namespaces and nested types (e.g., `# Namespace`, `## Type`, `### Member`), and emit the Markdown payload from `GetDocumentationComment` beneath each heading. Preserve declaration order within a type to keep related overloads grouped while still allowing alphabetical or ID-based sorting when needed for stability.
+- **Formatting considerations**: normalize whitespace so both formats produce stable results across builds, and skip symbols that lack documentation unless a `--include-undocumented` flag is enabled for completeness-oriented scenarios. Future enhancements can add cross-links between Markdown sections by reusing the symbol documentation identifiers as anchor slugs.
+
 ## Testing strategy
 - **Parser and diagnostics**: unit tests for trivia recognition, structured parsing, XML/Markdown validation, and parameter validation. Include cases with `DocumentationMode` off to confirm diagnostics are suppressed.
 - **Symbol binding**: tests that attach comments to declarations, merge partials, and report errors for mismatched parameters or misplaced comments across both formats.
