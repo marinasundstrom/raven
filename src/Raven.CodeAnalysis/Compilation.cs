@@ -83,6 +83,8 @@ public partial class Compilation
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
+    public INamespaceSymbol GetSourceGlobalNamespace() => SourceGlobalNamespace!.AsSourceNamespace();
+
     public Assembly CoreAssembly { get; private set; }
     public Assembly RuntimeCoreAssembly { get; private set; }
 
