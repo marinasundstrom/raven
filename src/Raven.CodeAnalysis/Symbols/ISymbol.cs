@@ -263,6 +263,8 @@ public interface IMethodSymbol : ISymbol
     IMethodSymbol? OriginalDefinition { get; }
     ISymbol? AssociatedSymbol => null;
 
+    int Arity => TypeArguments.Length;
+
     bool IsAbstract { get; }
     bool IsAsync { get; }
     bool IsCheckedBuiltin { get; }
@@ -360,11 +362,11 @@ public interface IFieldSymbol : ISymbol
 public interface IPropertySymbol : ISymbol
 {
     IPropertySymbol? OriginalDefinition => null;
-
     ITypeSymbol Type { get; }
     IMethodSymbol? GetMethod { get; }
     IMethodSymbol? SetMethod { get; }
     bool IsIndexer { get; }
+    ImmutableArray<IParameterSymbol> Parameters => IsIndexer ? GetMethod?.Parameters ?? [] : [];
     ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => [];
 }
 
