@@ -314,7 +314,7 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseOperatorDeclaration(attributeLists, modifiers);
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ValKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ValKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ConstKeyword))
         {
             return ParseFieldDeclarationSyntax(attributeLists, modifiers);
         }
