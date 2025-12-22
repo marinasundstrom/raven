@@ -63,15 +63,10 @@ public sealed class DocumentationComment
         if (string.IsNullOrEmpty(rawText))
             return string.Empty;
 
-        if (!isMultiline)
-        {
-            return TrimSingleLine(rawText);
-        }
-
-        return TrimMultiLine(rawText);
+        return TrimCommentLine(rawText);
     }
 
-    private static string TrimSingleLine(string rawText)
+    private static string TrimCommentLine(string rawText)
     {
         // Split conservatively to preserve intentional blank lines.
         var lines = rawText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
@@ -81,33 +76,6 @@ public sealed class DocumentationComment
         {
             var trimmed = RemovePrefix(line, "///");
             builder.AppendLine(trimmed);
-        }
-
-        return builder.ToString().TrimEnd();
-    }
-
-    private static string TrimMultiLine(string rawText)
-    {
-        var content = rawText;
-
-        if (content.StartsWith("/*", true, CultureInfo.InvariantCulture))
-        {
-            content = content.Substring(2);
-        }
-
-        if (content.EndsWith("*/", true, CultureInfo.InvariantCulture))
-        {
-            content = content.Substring(0, content.Length - 2);
-        }
-
-        // Drop the leading '*' often present in block doc comments.
-        var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        var builder = new StringBuilder();
-
-        foreach (var line in lines)
-        {
-            var trimmed = RemovePrefix(line, "*");
-            builder.AppendLine(trimmed.TrimEnd());
         }
 
         return builder.ToString().TrimEnd();
