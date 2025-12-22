@@ -235,13 +235,23 @@ class Program
         var sb = new StringBuilder();
 
         sb.AppendLine($"# {typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+        if (typeSymbol.BaseType is not null)
+        {
+            var baseTypeSymbol = typeSymbol.BaseType;
+            var target = GetTypeIndexPath(baseTypeSymbol);
+            sb.AppendLine($"**Base type**: [{baseTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
+        }
         if (typeSymbol.ContainingType is not null)
         {
-            sb.AppendLine($"**Type**: {typeSymbol.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}<br />");
+            var containingType = typeSymbol.ContainingType!;
+            var target = GetTypeIndexPath(containingType);
+            sb.AppendLine($"**Containing type**: [{containingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
         }
         if (typeSymbol.ContainingNamespace is not null)
         {
-            sb.AppendLine($"**Namespace**: {typeSymbol.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}<br />");
+            var containingNamespace = typeSymbol.ContainingNamespace!;
+            var target = GetNamespaceIndexPath(containingNamespace);
+            sb.AppendLine($"**Namespace**: [{containingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
         }
         sb.AppendLine();
 
@@ -280,17 +290,22 @@ class Program
 
         var filePath = GetMemberPath(member);
         EnsureDirForFile(filePath);
+        var currentDir = Path.GetDirectoryName(filePath)!;
 
         var sb = new StringBuilder();
 
         sb.AppendLine($"# {member.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
         if (member.ContainingType is not null)
         {
-            sb.AppendLine($"**Type**: {member.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}<br />");
+            var containingType = member.ContainingType!;
+            var target = GetTypeIndexPath(containingType);
+            sb.AppendLine($"**Type**: [{containingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
         }
         if (member.ContainingNamespace is not null)
         {
-            sb.AppendLine($"**Namespace**: {member.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}<br />");
+            var containingNamespace = member.ContainingNamespace!;
+            var target = GetNamespaceIndexPath(containingNamespace);
+            sb.AppendLine($"**Namespace**: [{containingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
         }
         sb.AppendLine();
 
