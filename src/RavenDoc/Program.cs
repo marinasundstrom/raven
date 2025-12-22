@@ -44,10 +44,14 @@ class Program
         var miscOpt = SymbolDisplayFormat.FullyQualifiedFormat.MiscellaneousOptions
             | SymbolDisplayMiscellaneousOptions.ExpandAliases;
 
+        var memberOpt = SymbolDisplayFormat.FullyQualifiedFormat.MemberOptions
+            & ~SymbolDisplayMemberOptions.IncludeAccessibility;
+
         MemberDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-                .WithMiscellaneousOptions(miscOpt);
+                .WithMiscellaneousOptions(miscOpt)
+                .WithMemberOptions(memberOpt);
 
         BaseTypeDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
