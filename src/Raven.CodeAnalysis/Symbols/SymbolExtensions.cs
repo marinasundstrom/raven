@@ -161,13 +161,19 @@ public static partial class SymbolExtensions
     {
         format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
 
+        if (symbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
+            format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
+        {
+            symbol = alias.UnderlyingSymbol;
+        }
+
         // Single entry point for top-level types – we can prepend type keyword here
         if (symbol is ITypeSymbol typeSymbol)
         {
             var text = FormatType(typeSymbol, format);
 
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
-                symbol is INamedTypeSymbol namedTypeSymbol)
+                            symbol is INamedTypeSymbol namedTypeSymbol)
             {
                 var keyword = GetTypeKeyword(namedTypeSymbol);
                 if (!string.IsNullOrEmpty(keyword))
@@ -320,7 +326,9 @@ public static partial class SymbolExtensions
         }
 
         // Symbol name
-        result.Append(EscapeIdentifierIfNeeded(symbol.Name, format));
+        var symbolName = GetDisplayName(symbol);
+
+        result.Append(EscapeIdentifierIfNeeded(symbolName, format));
 
         if (symbol is INamedTypeSymbol typeSymbol2)
         {
@@ -387,7 +395,7 @@ public static partial class SymbolExtensions
                     var returnDisplay = FormatType(returnType, format);
                     if (!string.IsNullOrEmpty(returnDisplay))
                     {
-                        result.Append(" -> ");
+                        result.Append(" → ");
                         result.Append(returnDisplay);
                     }
                 }
@@ -395,6 +403,21 @@ public static partial class SymbolExtensions
         }
         else if (symbol is IPropertySymbol propertySymbol)
         {
+            if (propertySymbol.IsIndexer &&
+                (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature ||
+                 format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters)))
+            {
+                // Prefer property parameters if your model has them; fallback to accessor signature.
+                var parameters =
+                    propertySymbol.Parameters.IsDefaultOrEmpty
+                        ? propertySymbol.GetMethod?.Parameters ?? default
+                        : propertySymbol.Parameters;
+
+                result.Append('[');
+                result.Append(string.Join(", ", parameters.Select(p => FormatParameter(p, format))));
+                result.Append(']');
+            }
+
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
             {
                 var typeDisplay = FormatType(propertySymbol.Type, format);
@@ -504,8 +527,31 @@ public static partial class SymbolExtensions
     //  Type formatting helpers
     // =========================
 
+    private static string GetDisplayName(ISymbol symbol) => symbol switch
+    {
+        // Constructors are rendered as `init`
+        IMethodSymbol { IsConstructor: true, MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor }
+            => "init",
+
+        // Indexers are rendered as `self`
+        IPropertySymbol { IsIndexer: true }
+            => "self",
+
+        // Callable objects / delegates
+        IMethodSymbol { Name: "Invoke" }
+            => "self",
+
+        _ => symbol.Name
+    };
+
     private static string FormatType(ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
+        if (typeSymbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
+            format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
+        {
+            typeSymbol = (ITypeSymbol)alias.UnderlyingSymbol;
+        }
+
         // Unwrap literal pseudo-types
         if (typeSymbol is LiteralTypeSymbol literal)
             return FormatType(literal.UnderlyingType, format);
@@ -1081,22 +1127,29 @@ public static partial class SymbolExtensions
                 break;
 
             case IMethodSymbol method:
-                // Local functions will also show these correctly.
-                if (method.IsStatic)
-                    parts.Add("static");
+                if (method.IsNamedConstructor)
+                {
+                    parts.Add("init");
+                }
+                else
+                {
+                    // Local functions will also show these correctly.
+                    if (method.IsStatic)
+                        parts.Add("static");
 
-                if (method.IsAbstract)
-                    parts.Add("abstract");
+                    if (method.IsAbstract)
+                        parts.Add("abstract");
 
-                // C#-style: sealed override
-                if (method.IsSealed && method.IsOverride)
-                    parts.Add("sealed");
+                    // C#-style: sealed override
+                    if (method.IsSealed && method.IsOverride)
+                        parts.Add("sealed");
 
-                if (method.IsVirtual)
-                    parts.Add("virtual");
+                    if (method.IsVirtual)
+                        parts.Add("virtual");
 
-                if (method.IsOverride)
-                    parts.Add("override");
+                    if (method.IsOverride)
+                        parts.Add("override");
+                }
 
                 if (method.IsAsync)
                     parts.Add("async");

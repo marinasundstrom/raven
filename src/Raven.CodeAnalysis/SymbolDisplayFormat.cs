@@ -331,7 +331,8 @@ public enum SymbolDisplayMiscellaneousOptions
     AllowDefaultLiteral = 256,
     IncludeNotNullableReferenceTypeModifier = 512,
     CollapseTupleTypes = 1024,
-    ExpandedValueTuple = 2048
+    ExpandedValueTuple = 2048,
+    ExpandAliases = 4096
 }
 
 [Flags]
