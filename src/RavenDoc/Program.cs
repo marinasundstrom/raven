@@ -10,6 +10,7 @@ using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 using Markdig;
+using Markdig.Extensions.AutoIdentifiers;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
@@ -18,10 +19,56 @@ class Program
     private const string TargetFramework = "net9.0";
     private static readonly string rootdir = "_docs";
 
+    // ----------------------------
+    // Cached display formats
+    // ----------------------------
+
+    private static readonly SymbolDisplayFormat MemberDisplayFormat;
+    private static readonly SymbolDisplayFormat BaseTypeDisplayFormat;
+    private static readonly SymbolDisplayFormat ContainingNamespaceDisplayFormat;
+    private static readonly SymbolDisplayFormat ContainingTypeDisplayFormat;
+
+    // ----------------------------
+    // Markdown pipeline + layout
+    // ----------------------------
+
+    public static MarkdownPipeline MarkdownPipeline { get; }
+
+    static Program()
+    {
+        MarkdownPipeline = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions() // tables, strikethrough, task lists, etc.
+            .UseAutoIdentifiers(AutoIdentifierOptions.GitHub) // stable heading ids
+            .Build();
+
+        var miscOpt = SymbolDisplayFormat.FullyQualifiedFormat.MiscellaneousOptions
+            | SymbolDisplayMiscellaneousOptions.ExpandAliases;
+
+        MemberDisplayFormat =
+            SymbolDisplayFormat.FullyQualifiedFormat
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                .WithMiscellaneousOptions(miscOpt);
+
+        BaseTypeDisplayFormat =
+            SymbolDisplayFormat.FullyQualifiedFormat
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly);
+
+        ContainingTypeDisplayFormat =
+            SymbolDisplayFormat.FullyQualifiedFormat
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly);
+
+        ContainingNamespaceDisplayFormat =
+            SymbolDisplayFormat.FullyQualifiedFormat
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                .WithKindOptions(SymbolDisplayKindOptions.None);
+    }
+
     static void Main()
     {
         try { Directory.Delete(rootdir, recursive: true); } catch { }
         try { Directory.CreateDirectory(rootdir); } catch { }
+
+        WriteStyleSheet();
 
         Docs();
     }
@@ -51,7 +98,15 @@ class Program
 
         open class Base {}
 
+        /// Test
+        /// | Month    | Savings |
+        /// | -------- | ------- |
+        /// | January  | $250    |
+        /// | February | $80     |
+        /// | March    | $420    |
+        /// 
         class Person : Base {
+            const TheMeaningOfLife: int = 42
             val species = "Homo sapiens"
             var age: int = 0
             var name: string
@@ -130,28 +185,156 @@ class Program
 
         var globalNamespace = compilation.GetSourceGlobalNamespace();
 
-        ProcessSymbol(globalNamespace);
+        ProcessSymbol(compilation, globalNamespace);
     }
 
-    private static void ProcessSymbol(ISymbol symbol)
+    private static void ProcessSymbol(Compilation compilation, ISymbol symbol)
     {
         if (symbol is ITypeSymbol typeSymbol)
         {
-            GenerateTypePage(typeSymbol);
+            GenerateTypePage(compilation, typeSymbol);
         }
         else if (symbol is INamespaceSymbol namespaceSymbol)
         {
-            GenerateNamespacePage(namespaceSymbol);
+            GenerateNamespacePage(compilation, namespaceSymbol);
         }
 
         if (symbol is INamespaceOrTypeSymbol namespaceOrTypeSymbol)
         {
             foreach (var member in namespaceOrTypeSymbol.GetMembers())
-            //.Where(x => x.DeclaredAccessibility == Accessibility.Public))
             {
-                ProcessSymbol(member);
+                ProcessSymbol(compilation, member);
             }
         }
+    }
+
+    // ----------------------------
+    // Layout + styling
+    // ----------------------------
+
+    private static void WriteStyleSheet()
+    {
+        var css = """
+        :root {
+            --bg: #ffffff;
+            --fg: #1f2937;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --code-bg: #f9fafb;
+            --link: #2563eb;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont,
+                         "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+        }
+
+        header {
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: #fafafa;
+            font-weight: 600;
+        }
+
+        main {
+            max-width: 920px;
+            padding: 2rem;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3, h4 {
+            line-height: 1.25;
+            margin-top: 2rem;
+        }
+
+        h1 { margin-top: 0; font-size: 2rem; }
+
+        a {
+            color: var(--link);
+            text-decoration: none;
+        }
+
+        a:hover { text-decoration: underline; }
+
+        pre, code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            background: var(--code-bg);
+        }
+
+        pre {
+            padding: 1rem;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        code {
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin: 1rem 0;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th { background: #f3f4f6; }
+
+        .muted { color: var(--muted); }
+        """;
+
+        File.WriteAllText(Path.Combine(rootdir, "style.css"), css);
+    }
+
+    private static string WrapHtml(string currentDir, string pageLabel, string assemblyName, string bodyHtml)
+    {
+        // Title format: "Member - Assembly"
+        var title = $"{pageLabel} - {assemblyName}";
+        var styleHref = RelLink(currentDir, Path.Combine(rootdir, "style.css"));
+
+        return $"""
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{HtmlEscape(title)}</title>
+          <link rel="stylesheet" href="{styleHref}" />
+        </head>
+        <body>
+          <header>{HtmlEscape(title)}</header>
+          <main>
+            {bodyHtml}
+          </main>
+        </body>
+        </html>
+        """;
+    }
+
+    private static string HtmlEscape(string s)
+    {
+        if (string.IsNullOrEmpty(s))
+            return string.Empty;
+
+        // minimal escaping (enough for titles/headers)
+        return s.Replace("&", "&amp;")
+                .Replace("<", "&lt;")
+                .Replace(">", "&gt;")
+                .Replace("\"", "&quot;");
     }
 
     // ----------------------------
@@ -201,10 +384,15 @@ class Program
     private static string GetTypeIndexPath(ITypeSymbol type)
         => Path.Combine(GetTypeDir(type), "index.html");
 
-    private static string GetMemberPath(ISymbol member)
+    // One page per "member group" (e.g. Test, Name, self) not per overload.
+    private static string GetMemberGroupPath(ISymbol member)
     {
         var typeDir = GetTypeDir(member.ContainingType!);
-        return Path.Combine(typeDir, member.Name + ".html");
+
+        var groupKey = GetMemberGroupKey(member);
+        var fileName = GetSafeFileName(groupKey) + ".html";
+
+        return Path.Combine(typeDir, fileName);
     }
 
     private static void EnsureDirForFile(string filePath)
@@ -221,10 +409,70 @@ class Program
     }
 
     // ----------------------------
+    // Grouping + filename helpers
+    // ----------------------------
+
+    private static string GetMemberGroupKey(ISymbol member)
+    {
+        if (member is IMethodSymbol ms)
+            return $"method:{ms.Name}";
+
+        if (member is IPropertySymbol ps)
+        {
+            if (ps.Parameters is { Length: > 0 })
+                return $"indexer:{ps.Name}";
+
+            return $"property:{ps.Name}";
+        }
+
+        if (member is IFieldSymbol fs)
+            return $"field:{fs.Name}";
+
+        return $"{member.Kind}:{member.Name}";
+    }
+
+    private static string GetSafeFileName(string raw)
+    {
+        var sb = new StringBuilder(raw.Length);
+        foreach (var ch in raw)
+        {
+            if (char.IsLetterOrDigit(ch))
+                sb.Append(ch);
+            else
+                sb.Append('_');
+        }
+
+        if (sb.Length == 0)
+            sb.Append("item");
+
+        const int max = 140;
+        if (sb.Length > max)
+        {
+            var hash = StableHash(raw);
+            sb.Length = max;
+            sb.Append("__");
+            sb.Append(hash);
+        }
+
+        return sb.ToString();
+    }
+
+    private static string StableHash(string s)
+    {
+        unchecked
+        {
+            uint h = 2166136261;
+            for (int i = 0; i < s.Length; i++)
+                h = (h ^ s[i]) * 16777619;
+            return h.ToString("x8");
+        }
+    }
+
+    // ----------------------------
     // Page generators
     // ----------------------------
 
-    private static void GenerateTypePage(ITypeSymbol typeSymbol)
+    private static void GenerateTypePage(Compilation compilation, ITypeSymbol typeSymbol)
     {
         var comment = typeSymbol.GetDocumentationComment();
 
@@ -234,24 +482,24 @@ class Program
 
         var sb = new StringBuilder();
 
-        sb.AppendLine($"# {typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+        sb.AppendLine($"# {typeSymbol.ToDisplayString(MemberDisplayFormat)}");
         if (typeSymbol.BaseType is not null)
         {
             var baseTypeSymbol = typeSymbol.BaseType;
             var target = GetTypeIndexPath(baseTypeSymbol);
-            sb.AppendLine($"**Base type**: [{baseTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
+            sb.AppendLine($"**Base type**: [{baseTypeSymbol.ToDisplayString(BaseTypeDisplayFormat)}]({RelLink(currentDir, target)})<br />");
         }
         if (typeSymbol.ContainingType is not null)
         {
             var containingType = typeSymbol.ContainingType!;
             var target = GetTypeIndexPath(containingType);
-            sb.AppendLine($"**Containing type**: [{containingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
+            sb.AppendLine($"**Containing type**: [{containingType.ToDisplayString(ContainingTypeDisplayFormat)}]({RelLink(currentDir, target)})<br />");
         }
         if (typeSymbol.ContainingNamespace is not null)
         {
             var containingNamespace = typeSymbol.ContainingNamespace!;
             var target = GetNamespaceIndexPath(containingNamespace);
-            sb.AppendLine($"**Namespace**: [{containingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
+            sb.AppendLine($"**Namespace**: [{containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat)}]({RelLink(currentDir, target)})<br />");
         }
         sb.AppendLine();
 
@@ -261,61 +509,110 @@ class Program
         sb.AppendLine();
         sb.AppendLine("## Members");
 
-        foreach (var member in typeSymbol.GetMembers()
-            .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null).OrderBy(x => x.Name))
-        //.Where(x => x.DeclaredAccessibility == Accessibility.Public))
+        var members = typeSymbol.GetMembers()
+            .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null) // hide accessors
+            .OrderBy(x => x.Name)
+            .ToArray();
+
+        foreach (var member in members)
         {
             if (member is ITypeSymbol nestedType)
             {
-                // Nested type -> its own folder + index.html
                 var target = GetTypeIndexPath(nestedType);
-                sb.AppendLine($"* [{nestedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})");
-                GenerateTypePage(nestedType);
+                sb.AppendLine($"* [{nestedType.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
+                GenerateTypePage(compilation, nestedType);
             }
             else
             {
-                // Normal member -> <TypeDir>/<MemberName>.html
-                var target = GetMemberPath(member);
-                sb.AppendLine($"* [{member.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})");
-                GenerateMemberPage(member);
+                var target = GetMemberGroupPath(member);
+                sb.AppendLine($"* [{member.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
             }
         }
 
-        File.WriteAllText(indexPath, Markdown.ToHtml(sb.ToString()));
+        var groups = members
+            .Where(m => m is not ITypeSymbol)
+            .GroupBy(GetMemberGroupKey);
+
+        foreach (var g in groups)
+        {
+            GenerateMemberGroupPage(compilation, typeSymbol, g.Key, g.ToArray());
+        }
+
+        var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+        var pageHtml = WrapHtml(currentDir, "Type", compilation.AssemblyName ?? "Assembly", contentHtml);
+        File.WriteAllText(indexPath, pageHtml);
     }
 
-    private static void GenerateMemberPage(ISymbol member)
+    private static void GenerateMemberGroupPage(Compilation compilation, ITypeSymbol containingType, string groupKey, IReadOnlyList<ISymbol> members)
     {
-        var comment = member.GetDocumentationComment();
+        if (members.Count == 0)
+            return;
 
-        var filePath = GetMemberPath(member);
+        var filePath = GetMemberGroupPath(members[0]);
         EnsureDirForFile(filePath);
         var currentDir = Path.GetDirectoryName(filePath)!;
 
+        var groupName = groupKey;
+        var colon = groupName.IndexOf(':');
+        if (colon >= 0 && colon + 1 < groupName.Length)
+            groupName = groupName[(colon + 1)..];
+
         var sb = new StringBuilder();
 
-        sb.AppendLine($"# {member.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
-        if (member.ContainingType is not null)
+        if (members.Count == 1)
+            sb.AppendLine($"# {members[0].ToDisplayString(MemberDisplayFormat)}");
+        else
+            sb.AppendLine($"# {groupName}");
+
         {
-            var containingType = member.ContainingType!;
             var target = GetTypeIndexPath(containingType);
-            sb.AppendLine($"**Type**: [{containingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
+            sb.AppendLine($"**Type**: [{containingType.ToDisplayString(ContainingTypeDisplayFormat)}]({RelLink(currentDir, target)})<br />");
         }
-        if (member.ContainingNamespace is not null)
+        if (containingType.ContainingNamespace is not null)
         {
-            var containingNamespace = member.ContainingNamespace!;
-            var target = GetNamespaceIndexPath(containingNamespace);
-            sb.AppendLine($"**Namespace**: [{containingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})<br />");
+            var ns = containingType.ContainingNamespace!;
+            var target = GetNamespaceIndexPath(ns);
+            sb.AppendLine($"**Namespace**: [{ns.ToDisplayString(ContainingNamespaceDisplayFormat)}]({RelLink(currentDir, target)})<br />");
         }
         sb.AppendLine();
 
-        if (comment is not null)
-            sb.Append(comment.Content);
+        if (members.Count == 1)
+        {
+            var comment = members[0].GetDocumentationComment();
+            if (comment is not null)
+                sb.Append(comment.Content);
+            else
+                sb.AppendLine("_No documentation available._");
 
-        File.WriteAllText(filePath, Markdown.ToHtml(sb.ToString()));
+            var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+            var pageHtml = WrapHtml(currentDir, "Member", compilation.AssemblyName ?? "Assembly", contentHtml);
+            File.WriteAllText(filePath, pageHtml);
+            return;
+        }
+
+        sb.AppendLine("## Overloads / Variants");
+        sb.AppendLine();
+
+        foreach (var member in members.OrderBy(m => m.ToDisplayString(MemberDisplayFormat)))
+        {
+            sb.AppendLine($"### {member.ToDisplayString(MemberDisplayFormat)}");
+            sb.AppendLine();
+
+            var comment = member.GetDocumentationComment();
+            if (comment is not null)
+                sb.Append(comment.Content);
+            else
+                sb.AppendLine("_No documentation available._");
+
+            sb.AppendLine();
+        }
+
+        var overloadsHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+        var pageHtml2 = WrapHtml(currentDir, "Member", compilation.AssemblyName ?? "Assembly", overloadsHtml);
+        File.WriteAllText(filePath, pageHtml2);
     }
 
-    private static void GenerateNamespacePage(INamespaceSymbol namespaceSymbol)
+    private static void GenerateNamespacePage(Compilation compilation, INamespaceSymbol namespaceSymbol)
     {
         var comment = namespaceSymbol.GetDocumentationComment();
 
@@ -335,34 +632,33 @@ class Program
         sb.AppendLine("## Members");
 
         foreach (var member in namespaceSymbol.GetMembers()
-            .DistinctBy(x => x.Name)
             .OrderBy(x => x.Name)
             .Where(x => x.Locations.Any(x => x.IsInSource)))
-        //.Where(x => x.DeclaredAccessibility == Accessibility.Public))
         {
             if (member is INamespaceSymbol ns2)
             {
-                // Namespace -> its folder + index.html
                 var target = GetNamespaceIndexPath(ns2);
-                sb.AppendLine($"* [{ns2.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})");
-                GenerateNamespacePage(ns2);
+                sb.AppendLine($"* [{ns2.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
+                GenerateNamespacePage(compilation, ns2);
             }
             else if (member is ITypeSymbol t2)
             {
-                // Type -> its folder + index.html
                 var target = GetTypeIndexPath(t2);
-                sb.AppendLine($"* [{t2.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})");
-                GenerateTypePage(t2);
+                sb.AppendLine($"* [{t2.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
+                GenerateTypePage(compilation, t2);
             }
             else
             {
-                // Usually not applicable, but safe
-                var target = GetMemberPath(member);
-                sb.AppendLine($"* [{member.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly))}]({RelLink(currentDir, target)})");
-                GenerateMemberPage(member);
+                var target = GetMemberGroupPath(member);
+                sb.AppendLine($"* [{member.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
+
+                if (member.ContainingType is not null)
+                    GenerateMemberGroupPage(compilation, member.ContainingType, GetMemberGroupKey(member), new[] { member });
             }
         }
 
-        File.WriteAllText(indexPath, Markdown.ToHtml(sb.ToString()));
+        var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+        var pageHtml = WrapHtml(currentDir, "Namespace", compilation.AssemblyName ?? "Assembly", contentHtml);
+        File.WriteAllText(indexPath, pageHtml);
     }
 }
