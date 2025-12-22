@@ -482,7 +482,9 @@ class Program
 
         var sb = new StringBuilder();
 
-        sb.AppendLine($"# {typeSymbol.ToDisplayString(MemberDisplayFormat)}");
+        string name = typeSymbol.ToDisplayString(MemberDisplayFormat.WithKindOptions(SymbolDisplayKindOptions.None));
+
+        sb.AppendLine($"# {name}");
         if (typeSymbol.BaseType is not null)
         {
             var baseTypeSymbol = typeSymbol.BaseType;
@@ -539,7 +541,7 @@ class Program
         }
 
         var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
-        var pageHtml = WrapHtml(currentDir, "Type", compilation.AssemblyName ?? "Assembly", contentHtml);
+        var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }
 
@@ -559,10 +561,11 @@ class Program
 
         var sb = new StringBuilder();
 
-        if (members.Count == 1)
-            sb.AppendLine($"# {members[0].ToDisplayString(MemberDisplayFormat)}");
-        else
-            sb.AppendLine($"# {groupName}");
+        string name = members.Count == 1
+            ? members[0].ToDisplayString(MemberDisplayFormat)
+            : groupName;
+
+        sb.AppendLine($"# {name}");
 
         {
             var target = GetTypeIndexPath(containingType);
@@ -585,7 +588,7 @@ class Program
                 sb.AppendLine("_No documentation available._");
 
             var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
-            var pageHtml = WrapHtml(currentDir, "Member", compilation.AssemblyName ?? "Assembly", contentHtml);
+            var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
             File.WriteAllText(filePath, pageHtml);
             return;
         }
@@ -608,7 +611,7 @@ class Program
         }
 
         var overloadsHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
-        var pageHtml2 = WrapHtml(currentDir, "Member", compilation.AssemblyName ?? "Assembly", overloadsHtml);
+        var pageHtml2 = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", overloadsHtml);
         File.WriteAllText(filePath, pageHtml2);
     }
 
@@ -622,7 +625,9 @@ class Program
 
         var sb = new StringBuilder();
 
-        sb.AppendLine($"# {namespaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+        string name = namespaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithKindOptions(SymbolDisplayKindOptions.None));
+
+        sb.AppendLine($"# {name}");
         sb.AppendLine();
 
         if (comment is not null)
@@ -658,7 +663,7 @@ class Program
         }
 
         var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
-        var pageHtml = WrapHtml(currentDir, "Namespace", compilation.AssemblyName ?? "Assembly", contentHtml);
+        var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }
 }
