@@ -29,7 +29,7 @@ public abstract class Location : IComparable<Location>, IEquatable<Location>
 
     public bool IsInMetadata => this is MetadataLocation;
 
-    public bool IsSource => this is SourceLocation or ExternalFileLocation;
+    public bool IsInSource => this is SourceLocation or ExternalFileLocation;
 
     public LocationKind Kind { get; protected set; } = LocationKind.None;
 

@@ -17,7 +17,7 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
         };
 
     public LiteralTypeSymbol(ITypeSymbol underlyingType, object constantValue, Compilation compilation)
-        : base(SymbolKind.Type, GetDisplayName(constantValue), compilation.Assembly, null, compilation.Assembly.GlobalNamespace, [], [])
+        : base(SymbolKind.Type, GetDisplayName(constantValue), compilation.Assembly, null, null, [], [])
     {
         UnderlyingType = underlyingType;
         ConstantValue = constantValue;

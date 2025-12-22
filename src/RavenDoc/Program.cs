@@ -334,7 +334,10 @@ class Program
         sb.AppendLine();
         sb.AppendLine("## Members");
 
-        foreach (var member in namespaceSymbol.GetMembers().DistinctBy(x => x.Name).OrderBy(x => x.Name))
+        foreach (var member in namespaceSymbol.GetMembers()
+            .DistinctBy(x => x.Name)
+            .OrderBy(x => x.Name)
+            .Where(x => x.Locations.Any(x => x.IsInSource)))
         //.Where(x => x.DeclaredAccessibility == Accessibility.Public))
         {
             if (member is INamespaceSymbol ns2)

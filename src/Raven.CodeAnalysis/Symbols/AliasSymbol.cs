@@ -26,7 +26,7 @@ internal abstract class AliasSymbol : IAliasSymbol
 
     public INamedTypeSymbol? ContainingType => UnderlyingSymbol.ContainingType;
 
-    public INamespaceSymbol? ContainingNamespace => UnderlyingSymbol.ContainingNamespace;
+    public INamespaceSymbol? ContainingNamespace => null; //UnderlyingSymbol.ContainingNamespace;
 
     public ImmutableArray<Location> Locations => UnderlyingSymbol.Locations;
 
