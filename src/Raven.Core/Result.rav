@@ -2,11 +2,15 @@ namespace System
 
 import System.*
 
-/// Represents either a result or an error
+/// Represents either a result with a value, or an error
 ///
+/// ## Usage
 /// ```raven
-/// func Test() -> Result<int> {
-///     return .Ok(42)
+/// func Test(v: int) -> Result<int> {
+///     if v > 3 {
+///         return .Ok(42)
+///     }
+///     return .Error("Wrong number")
 /// }
 /// ```
 public union Result<T> {
@@ -17,11 +21,15 @@ public union Result<T> {
     Error(message: string)
 }
 
-/// Represents either a result or an error
+/// Represents either a result with a value, or an error
 ///
+/// ## Usage
 /// ```raven
-/// func Test() -> Result<int, string> {
-///     return .Ok(42)
+/// func Test(v: int) -> Result<int, string> {
+///     if v > 3 {
+///         return .Ok(42)
+///     }
+///     return .Error("Wrong number")
 /// }
 /// ```
 public union Result<T, E> {
