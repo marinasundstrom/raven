@@ -30,7 +30,7 @@ public class SyntaxTree
     {
         var sourceText = SourceText.From(text, encoding);
 
-        return ParseText(sourceText, options);
+        return ParseText(sourceText, options, path);
     }
 
     public static SyntaxTree ParseText(SourceText sourceText, ParseOptions? options = null, string? path = null)

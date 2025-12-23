@@ -99,14 +99,22 @@ class Program
 
     static void Docs()
     {
-        var files = Directory.GetFiles("../Raven.Core", "*.rav");
-
         List<SyntaxTree> syntaxTrees = new List<SyntaxTree>();
+
+        var files = Directory.GetFiles("../../samples", "*.rav").Where(x => !x.Contains("generic-math-error.rav"));
 
         foreach (var file in files)
         {
             string sourceCode = File.ReadAllText(file);
-            syntaxTrees.Add(ParseSyntaxTree(sourceCode));
+            syntaxTrees.Add(ParseSyntaxTree(sourceCode, filePath: file));
+        }
+
+        var files2 = Directory.GetFiles("../Raven.Core", "*.rav");
+
+        foreach (var file in files2)
+        {
+            string sourceCode = File.ReadAllText(file);
+            syntaxTrees.Add(ParseSyntaxTree(sourceCode, filePath: file));
         }
 
         var compilation = Compilation.Create("test", syntaxTrees.ToArray(),
@@ -121,7 +129,7 @@ class Program
             MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
             MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
-            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll"))
         };
 
         compilation = compilation.AddReferences(references);
@@ -131,6 +139,22 @@ class Program
 
         // PASS 1: Build xref index (so forward references resolve)
         BuildXrefIndex(globalNamespace);
+
+        AssemblyNameToPath.Clear();
+
+        foreach (var r in references)
+        {
+            // Roslyn-style: PortableExecutableReference has FilePath
+            if (r is PortableExecutableReference per &&
+                !string.IsNullOrWhiteSpace(per.FilePath))
+            {
+                var name = Path.GetFileNameWithoutExtension(per.FilePath);
+
+                // Good-enough mapping; if you want perfect identity matching,
+                // see the note below.
+                AssemblyNameToPath[name] = per.FilePath;
+            }
+        }
 
         // PASS 2: Generate pages
         ProcessSymbol(compilation, globalNamespace);
@@ -708,6 +732,44 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     }
 
     // ----------------------------
+    // Definition location helpers
+    // ----------------------------
+
+    // Optional: filled from references so we can show the DLL path for metadata types.
+    private static readonly Dictionary<string, string> AssemblyNameToPath
+        = new(StringComparer.OrdinalIgnoreCase);
+
+    private static string GetDefinedInText(Compilation compilation, ISymbol symbol)
+    {
+        // Prefer source locations
+        var src = symbol.Locations.FirstOrDefault(l => l is not null && l.IsInSource);
+        var srcPath = src?.SourceTree?.FilePath;
+
+        if (!string.IsNullOrWhiteSpace(srcPath))
+            return $" {Path.GetFileName(srcPath)}";
+
+        // Otherwise metadata (external assembly)
+        var asm = symbol.ContainingAssembly;
+        if (asm is not null)
+        {
+            var asmName = /* asm.Identity?.Name ?? */ asm.Name ?? "UnknownAssembly";
+
+            if (AssemblyNameToPath.TryGetValue(asmName, out var dllPath) && !string.IsNullOrWhiteSpace(dllPath))
+                return $"{asmName} ({Path.GetFileName(dllPath)})";
+
+            return $"{asmName}";
+        }
+
+        return "Unknown location";
+    }
+
+    private static void AppendDefinedInLine(StringBuilder sb, Compilation compilation, ISymbol symbol)
+    {
+        var text = GetDefinedInText(compilation, symbol);
+        sb.AppendLine($"**Defined in**: {HtmlEscape(text)}<br />");
+    }
+
+    // ----------------------------
     // XREF: indexing + Markdown rendering
     // ----------------------------
 
@@ -997,6 +1059,9 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
             sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
+
+        AppendDefinedInLine(sb, compilation, typeSymbol);
+
         sb.AppendLine();
 
         if (!string.IsNullOrWhiteSpace(commentInfo.RawMarkdown))
@@ -1064,6 +1129,9 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             var memberName = EscapeName(ns.ToDisplayString(ContainingNamespaceDisplayFormat));
             sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
+
+        AppendDefinedInLine(sb, compilation, members[0]);
+
         sb.AppendLine();
 
         if (members.Count == 1)
