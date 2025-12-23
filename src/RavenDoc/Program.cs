@@ -427,6 +427,117 @@ class Program
     }
 
     // ----------------------------
+    // Member grouping (by kind + logical order)
+    // ----------------------------
+
+    private enum MemberSectionKind
+    {
+        Namespaces,
+        Types,
+        Constants,
+        Fields,
+        Constructors,
+        Properties,
+        Indexers,
+        Methods,
+        Operators,
+        Other
+    }
+
+    private static readonly MemberSectionKind[] TypeMemberSectionOrder =
+    {
+    MemberSectionKind.Types,
+    MemberSectionKind.Constants,
+    MemberSectionKind.Fields,
+    MemberSectionKind.Constructors,
+    MemberSectionKind.Properties,
+    MemberSectionKind.Indexers,
+    MemberSectionKind.Methods,
+    MemberSectionKind.Operators,
+    MemberSectionKind.Other
+};
+
+    private static readonly MemberSectionKind[] NamespaceMemberSectionOrder =
+    {
+    MemberSectionKind.Namespaces,
+    MemberSectionKind.Types,
+    MemberSectionKind.Other
+};
+
+    private static string GetSectionTitle(MemberSectionKind kind) => kind switch
+    {
+        MemberSectionKind.Namespaces => "Namespaces",
+        MemberSectionKind.Types => "Types",
+        MemberSectionKind.Constants => "Constants",
+        MemberSectionKind.Fields => "Fields",
+        MemberSectionKind.Constructors => "Constructors",
+        MemberSectionKind.Properties => "Properties",
+        MemberSectionKind.Indexers => "Indexers",
+        MemberSectionKind.Methods => "Methods",
+        MemberSectionKind.Operators => "Operators",
+        _ => "Members"
+    };
+
+    private static MemberSectionKind GetMemberSectionForTypePage(ISymbol m)
+    {
+        return m switch
+        {
+            ITypeSymbol => MemberSectionKind.Types,
+
+            IFieldSymbol fs when fs.IsConst => MemberSectionKind.Constants,
+            IFieldSymbol => MemberSectionKind.Fields,
+
+            IMethodSymbol ms when ms.AssociatedSymbol is not null => MemberSectionKind.Other, // accessors filtered elsewhere
+            IMethodSymbol ms when ms.MethodKind == MethodKind.Constructor => MemberSectionKind.Constructors,
+            IMethodSymbol ms when ms.Name == "self" => MemberSectionKind.Operators,
+            IMethodSymbol => MemberSectionKind.Methods,
+
+            IPropertySymbol ps when ps.Parameters.Length > 0 => MemberSectionKind.Indexers,
+            IPropertySymbol => MemberSectionKind.Properties,
+
+            _ => MemberSectionKind.Other
+        };
+    }
+
+    private static MemberSectionKind GetMemberSectionForNamespacePage(ISymbol m)
+    {
+        return m switch
+        {
+            INamespaceSymbol => MemberSectionKind.Namespaces,
+            ITypeSymbol => MemberSectionKind.Types,
+            _ => MemberSectionKind.Other
+        };
+    }
+
+    private static void AppendGroupedMemberTables(
+        StringBuilder sb,
+        string currentDir,
+        IEnumerable<ISymbol> members,
+        bool isNamespacePage)
+    {
+        // Partition
+        var grouped = members
+            .GroupBy(m => isNamespacePage ? GetMemberSectionForNamespacePage(m) : GetMemberSectionForTypePage(m))
+            .ToDictionary(g => g.Key, g => g.ToArray());
+
+        var order = isNamespacePage ? NamespaceMemberSectionOrder : TypeMemberSectionOrder;
+
+        foreach (var section in order)
+        {
+            if (!grouped.TryGetValue(section, out var sectionMembers) || sectionMembers.Length == 0)
+                continue;
+
+            // Prefer a stable sort within each section:
+            var ordered = sectionMembers
+                .OrderBy(m => m.Name)
+                .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
+                .ToArray();
+
+            AppendMemberTable(sb, GetSectionTitle(section), currentDir, ordered);
+        }
+    }
+
+    // ----------------------------
     // Docs cache + summary extraction
     // ----------------------------
 
@@ -859,7 +970,7 @@ class Program
             .ToArray();
 
         sb.AppendLine();
-        AppendMemberTable(sb, "Members", currentDir, members);
+        AppendGroupedMemberTables(sb, currentDir, members, isNamespacePage: false);
 
         foreach (var nestedType in members.OfType<ITypeSymbol>())
         {
@@ -986,7 +1097,7 @@ class Program
             .Where(x => x.Locations.Any(x => x.IsInSource) || x is INamespaceSymbol)
             .ToArray();
 
-        AppendMemberTable(sb, "Members", currentDir, members);
+        AppendGroupedMemberTables(sb, currentDir, members, isNamespacePage: true);
 
         foreach (var ns2 in members.OfType<INamespaceSymbol>())
         {
