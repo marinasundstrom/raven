@@ -163,89 +163,109 @@ class Program
     private static void WriteStyleSheet()
     {
         var css = """
-        :root {
-            --bg: #ffffff;
-            --fg: #1f2937;
-            --muted: #6b7280;
-            --border: #e5e7eb;
-            --code-bg: #f9fafb;
-            --link: #2563eb;
-        }
+:root {
+    color-scheme: light dark;
 
-        * { box-sizing: border-box; }
+    --bg: #ffffff;
+    --fg: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --code-bg: #f9fafb;
+    --link: #2563eb;
 
-        body {
-            margin: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont,
-                         "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: var(--bg);
-            color: var(--fg);
-            line-height: 1.6;
-        }
+    --header-bg: #fafafa;
+    --th-bg: #f3f4f6;
+}
 
-        header {
-            padding: 1rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: #fafafa;
-            font-weight: 600;
-        }
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0b1220;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --border: #243041;
+        --code-bg: #0f172a;
+        --link: #60a5fa;
 
-        main {
-            max-width: 980px;
-            padding: 2rem;
-            margin: 0 auto;
-        }
+        --header-bg: #0c1424;
+        --th-bg: #0f1b2e;
+    }
+}
 
-        h1, h2, h3, h4 {
-            line-height: 1.25;
-            margin-top: 2rem;
-        }
+* { box-sizing: border-box; }
 
-        h1 { margin-top: 0; font-size: 2rem; }
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont,
+                 "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+}
 
-        a {
-            color: var(--link);
-            text-decoration: none;
-        }
+header {
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--header-bg);
+    font-weight: 600;
+}
 
-        a:hover { text-decoration: underline; }
+main {
+    max-width: 980px;
+    padding: 2rem;
+    margin: 0 auto;
+}
 
-        pre, code {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            background: var(--code-bg);
-        }
+h1, h2, h3, h4 {
+    line-height: 1.25;
+    margin-top: 2rem;
+}
 
-        pre {
-            padding: 1rem;
-            overflow-x: auto;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-        }
+h1 { margin-top: 0; font-size: 2rem; }
 
-        code {
-            border-radius: 4px;
-        }
+a {
+    color: var(--link);
+    text-decoration: none;
+}
 
-        table {
-            border-collapse: collapse;
-            margin: 1rem 0;
-            width: 100%;
-        }
+a:hover { text-decoration: underline; }
 
-        th, td {
-            border: 1px solid var(--border);
-            padding: 0.5rem 0.75rem;
-            text-align: left;
-            vertical-align: top;
-        }
+pre, code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--code-bg);
+}
 
-        th { background: #f3f4f6; }
+pre {
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
 
-        .muted { color: var(--muted); }
+code {
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+}
 
-        /* Optional: broken xrefs show as plain text-ish */
-        a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none; }
-        """;
+table {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    width: 100%;
+}
+
+th, td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+th { background: var(--th-bg); }
+
+.muted { color: var(--muted); }
+
+/* broken xrefs show as plain text-ish */
+a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none; }
+""";
 
         File.WriteAllText(Path.Combine(rootdir, "style.css"), css);
     }
