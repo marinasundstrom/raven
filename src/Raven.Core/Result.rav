@@ -2,25 +2,50 @@ namespace System
 
 import System.*
 
+/// Represents either a result or an error
+///
+/// ```raven
+/// func Test() -> Result<int> {
+///     return .Ok(42)
+/// }
+/// ```
 public union Result<T> {
+    /// Represents a result value
     Ok(value: T)
+
+    /// Represents an error
     Error(message: string)
 }
 
+/// Represents either a result or an error
+///
+/// ```raven
+/// func Test() -> Result<int, string> {
+///     return .Ok(42)
+/// }
+/// ```
 public union Result<T, E> {
+    /// Represents a result value
     Ok(value: T)
+
+    /// Represents an error
     Error(data: E)
 }
 
+/// Contains extensions for the Result<T> type
 public extension ResultExtensions<T> for Result<T> {
+
+    /// Gets a value indicating whether the Result was Ok
     public IsOk: bool {
         get => self is .Ok(message)
     }
 
+    /// Gets a value indicating whether the Result was Error
     public IsError: bool {
         get => self is .Error(message)
     }
 
+    /// Unwraps the value if Ok, otherwise returns default value
     public UnwrapOrDefault() -> T {
         if self is .Ok(value) {
             return value
@@ -29,6 +54,7 @@ public extension ResultExtensions<T> for Result<T> {
         return default(T)
     }
 
+    /// Unwraps the value if Ok, otherwise throws an exception
     public UnwrapOrThrow() -> T {
         var error: string = ""
         if self is .Ok(value) {
@@ -40,6 +66,7 @@ public extension ResultExtensions<T> for Result<T> {
         throw new InvalidOperationException(error)
     }
 
+    /// Unwraps the value if Ok, otherwise returns specified value
     public UnwrapOr(defaultValue: T) -> T {
         if self is .Ok(value) {
             return value
@@ -48,6 +75,7 @@ public extension ResultExtensions<T> for Result<T> {
         return defaultValue
     }
 
+    /// Unwraps the Error, or throws an exception
     public UnwrapError() -> string {
         if self is .Error(message) {
             return message

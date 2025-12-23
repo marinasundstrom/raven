@@ -87,7 +87,9 @@ class Program
 
     static void Docs()
     {
-        string sourceCode = GetSampleSourceCode();
+        string sourceCode = File.ReadAllText("../Raven.Core/Result.rav");
+
+        //string sourceCode = GetSampleSourceCode();
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
 
