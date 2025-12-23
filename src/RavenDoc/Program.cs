@@ -19,7 +19,8 @@ class Program
     private const string TargetFramework = "net9.0";
     private static readonly string rootdir = "_docs";
 
-    private static readonly Func<ISymbol, bool> GetMembersFilterPredicate = x => x is INamespaceSymbol || x.DeclaredAccessibility == Accessibility.Public;
+    private static readonly Func<ISymbol, bool> GetMembersFilterPredicate =
+        x => x is INamespaceSymbol || x.DeclaredAccessibility == Accessibility.Public;
 
     // ----------------------------
     // Cached display formats
@@ -35,6 +36,12 @@ class Program
     // ----------------------------
 
     public static MarkdownPipeline MarkdownPipeline { get; }
+
+    // ----------------------------
+    // Descriptor cache (docs/summary/signature/link)
+    // ----------------------------
+
+    private static readonly Dictionary<ISymbol, SymbolDocInfo> DocInfoCache = new(ReferenceEqualityComparer<ISymbol>.Instance);
 
     static Program()
     {
@@ -75,7 +82,6 @@ class Program
         try { Directory.CreateDirectory(rootdir); } catch { }
 
         WriteStyleSheet();
-
         Docs();
     }
 
@@ -102,16 +108,19 @@ class Program
         PrintLine(user2(2003));
         PrintLine(user2("test"));
 
+        /// Just a base class
         public open class Base {}
 
-        /// Test
-        /// | Month    | Savings |
-        /// | -------- | ------- |
-        /// | January  | $250    |
-        /// | February | $80     |
-        /// | March    | $420    |
+        /// Initializes an instance of the Person class
+        /// 
+        /// ## Usage
+        /// ```raven
+        /// val person = Person(42)
+        /// person.Test2()
+        /// ```
         /// 
         public class Person : Base {
+            /// Important constant
             public const TheMeaningOfLife: int = 42
 
             val species = "Homo sapiens"
@@ -119,27 +128,29 @@ class Program
             var name: string
             var roles: StringList = []
 
-            // Primary constructor
+            /// Constructor
             public init(age: int) {
                 self.age = age
             }
 
-            // Named constructor
+            /// Named constructor
             public init WithName(name: string) {
                 self.name = name
             }
 
-            // Regular method
+            /// Regular method
             public AddRole(role: string) -> Person {
                 roles.Add(role)
                 self
             }
 
+            /// Expression-bodies method
             public Test() -> int => 2
 
+            /// Expression-bodies property
             public Test2: int => 2
 
-            // Computed property
+            /// Computed property
             public Name: string {
                 get {
                     name
@@ -149,7 +160,7 @@ class Program
                 }
             }
 
-            // Indexer: e.g., person[0]
+            /// Indexer: e.g., person[0]
             public self[index: int]: string {
                 get => roles[index];
                 set => roles[index] = value
@@ -160,6 +171,7 @@ class Program
                 "Name: $name, Age in $year: ${year - (System.DateTime.Now.Year - age)}"
             }
 
+            /// Another invocation operator
             public self(str: string) {
 
             }
@@ -184,14 +196,12 @@ class Program
         };
 
         compilation = compilation.AddReferences(references);
-
         compilation.GetDiagnostics();
 
         var tree = compilation.SyntaxTrees.First();
         var sem = compilation.GetSemanticModel(tree);
 
         var globalNamespace = compilation.GetSourceGlobalNamespace();
-
         ProcessSymbol(compilation, globalNamespace);
     }
 
@@ -208,8 +218,7 @@ class Program
 
         if (symbol is INamespaceOrTypeSymbol namespaceOrTypeSymbol)
         {
-            foreach (var member in namespaceOrTypeSymbol.GetMembers()
-            .Where(GetMembersFilterPredicate))
+            foreach (var member in namespaceOrTypeSymbol.GetMembers().Where(GetMembersFilterPredicate))
             {
                 ProcessSymbol(compilation, member);
             }
@@ -251,7 +260,7 @@ class Program
         }
 
         main {
-            max-width: 920px;
+            max-width: 980px;
             padding: 2rem;
             margin: 0 auto;
         }
@@ -308,10 +317,10 @@ class Program
         File.WriteAllText(Path.Combine(rootdir, "style.css"), css);
     }
 
-    private static string WrapHtml(string currentDir, string pageLabel, string assemblyName, string bodyHtml)
+    private static string WrapHtml(string currentDir, string pageLabelOrTitle, string assemblyName, string bodyHtml)
     {
-        // Title format: "Member - Assembly"
-        var title = $"{pageLabel} - {assemblyName}";
+        // Title format: "Member - Assembly" (or "TypeName - Assembly", etc.)
+        var title = $"{pageLabelOrTitle} - {assemblyName}";
         var styleHref = RelLink(currentDir, Path.Combine(rootdir, "style.css"));
 
         return $"""
@@ -338,7 +347,6 @@ class Program
         if (string.IsNullOrEmpty(s))
             return string.Empty;
 
-        // minimal escaping (enough for titles/headers)
         return s.Replace("&", "&amp;")
                 .Replace("<", "&lt;")
                 .Replace(">", "&gt;")
@@ -396,10 +404,8 @@ class Program
     private static string GetMemberGroupPath(ISymbol member)
     {
         var typeDir = GetTypeDir(member.ContainingType!);
-
         var groupKey = GetMemberGroupKey(member);
         var fileName = GetSafeFileName(groupKey) + ".html";
-
         return Path.Combine(typeDir, fileName);
     }
 
@@ -477,12 +483,155 @@ class Program
     }
 
     // ----------------------------
+    // Descriptor + member list rendering
+    // ----------------------------
+
+    private sealed class SymbolDocInfo
+    {
+        public string? RawMarkdown { get; init; }
+        public string Summary { get; init; } = string.Empty;
+    }
+
+    private sealed class MemberRow
+    {
+        public required ISymbol Symbol { get; init; }
+        public required string Signature { get; init; }     // markdown (link)
+        public required string Summary { get; init; }       // plain-ish text for table cell
+        public required bool IsContainer { get; init; }     // namespace/type
+    }
+
+    private static SymbolDocInfo GetOrCreateDocInfo(ISymbol symbol)
+    {
+        if (DocInfoCache.TryGetValue(symbol, out var cached))
+            return cached;
+
+        var comment = symbol.GetDocumentationComment();
+        var raw = comment?.Content;
+
+        var info = new SymbolDocInfo
+        {
+            RawMarkdown = raw,
+            Summary = ExtractFirstParagraphSummary(raw)
+        };
+
+        DocInfoCache[symbol] = info;
+        return info;
+    }
+
+    private static string ExtractFirstParagraphSummary(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return string.Empty;
+
+        // Normalize newlines and trim leading whitespace
+        var text = markdown.Replace("\r\n", "\n").Trim();
+
+        // Heuristic: first paragraph = first chunk separated by a blank line
+        // Also ignore leading headings if present.
+        var parts = text.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var p in parts)
+        {
+            var para = p.Trim();
+            if (para.Length == 0)
+                continue;
+
+            // Skip pure headings like "# Title" / "## Title"
+            if (para.StartsWith("#"))
+                continue;
+
+            // Stop at an explicit section header starting early
+            if (para.StartsWith("## "))
+                continue;
+
+            // Use first non-empty paragraph
+            return ToTableCellText(para);
+        }
+
+        return string.Empty;
+    }
+
+    private static string ToTableCellText(string s)
+    {
+        // Keep it readable inside a Markdown table cell.
+        // - Escape pipes
+        // - Collapse newlines into spaces (or <br/> if you want multi-line)
+        var t = s.Replace("|", "\\|")
+                 .Replace("\r\n", "\n")
+                 .Replace("\n", " ")
+                 .Trim();
+
+        // Avoid giant summaries: keep it short-ish (tune as you like)
+        const int max = 180;
+        if (t.Length > max)
+            t = t.Substring(0, max).TrimEnd() + "…";
+
+        return t;
+    }
+
+    private static string GetTargetPathForLink(ISymbol symbol)
+    {
+        return symbol switch
+        {
+            INamespaceSymbol ns => GetNamespaceIndexPath(ns),
+            ITypeSymbol ts => GetTypeIndexPath(ts),
+            _ => GetMemberGroupPath(symbol),
+        };
+    }
+
+    private static IReadOnlyList<MemberRow> BuildMemberRows(string currentDir, IEnumerable<ISymbol> members)
+    {
+        var rows = new List<MemberRow>();
+
+        foreach (var m in members)
+        {
+            var path = GetTargetPathForLink(m);
+            var href = RelLink(currentDir, path);
+
+            var doc = GetOrCreateDocInfo(m);
+            var summary = doc.Summary;
+
+            // Signature in the table is a link
+            var sigText = m.ToDisplayString(MemberDisplayFormat);
+            var signature = $"[{sigText}]({href})";
+
+            rows.Add(new MemberRow
+            {
+                Symbol = m,
+                Signature = signature,
+                Summary = string.IsNullOrWhiteSpace(summary) ? "" : summary,
+                IsContainer = m is INamespaceSymbol || m is ITypeSymbol
+            });
+        }
+
+        return rows;
+    }
+
+    private static void AppendMemberTable(StringBuilder sb, string title, string currentDir, IEnumerable<ISymbol> members)
+    {
+        var rows = BuildMemberRows(currentDir, members);
+
+        sb.AppendLine($"## {title}");
+        sb.AppendLine();
+        sb.AppendLine("| Member | Summary |");
+        sb.AppendLine("| --- | --- |");
+
+        foreach (var r in rows)
+        {
+            // If no summary, keep the cell empty rather than noise
+            sb.AppendLine($"| {r.Signature} | {r.Summary} |");
+        }
+
+        sb.AppendLine();
+    }
+
+    // ----------------------------
     // Page generators
     // ----------------------------
 
     private static void GenerateTypePage(Compilation compilation, ITypeSymbol typeSymbol)
     {
-        var comment = typeSymbol.GetDocumentationComment();
+        var commentInfo = GetOrCreateDocInfo(typeSymbol);
 
         var indexPath = GetTypeIndexPath(typeSymbol);
         EnsureDirForFile(indexPath);
@@ -513,12 +662,10 @@ class Program
         }
         sb.AppendLine();
 
-        if (comment is not null)
-            sb.Append(comment.Content);
+        if (!string.IsNullOrWhiteSpace(commentInfo.RawMarkdown))
+            sb.Append(commentInfo.RawMarkdown);
 
-        sb.AppendLine();
-        sb.AppendLine("## Members");
-
+        // Members
         var members = typeSymbol.GetMembers()
             .Where(GetMembersFilterPredicate)
             .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null) // hide accessors
@@ -526,21 +673,20 @@ class Program
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
 
-        foreach (var member in members)
+        sb.AppendLine();
+
+        // Table for *everything* listed on the page (nested types + members + overloads)
+        // Each overload row links to the grouped member page.
+        AppendMemberTable(sb, "Members", currentDir, members);
+
+        // Generate pages:
+        // 1) nested types get their own folder/index
+        foreach (var nestedType in members.OfType<ITypeSymbol>())
         {
-            if (member is ITypeSymbol nestedType)
-            {
-                var target = GetTypeIndexPath(nestedType);
-                sb.AppendLine($"* [{nestedType.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
-                GenerateTypePage(compilation, nestedType);
-            }
-            else
-            {
-                var target = GetMemberGroupPath(member);
-                sb.AppendLine($"* [{member.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
-            }
+            GenerateTypePage(compilation, nestedType);
         }
 
+        // 2) group pages for non-type members
         var groups = members
             .Where(m => m is not ITypeSymbol)
             .GroupBy(GetMemberGroupKey);
@@ -576,7 +722,6 @@ class Program
             : groupName;
 
         sb.AppendLine($"# {name}");
-
         {
             var target = GetTypeIndexPath(containingType);
             sb.AppendLine($"**Type**: [{containingType.ToDisplayString(ContainingTypeDisplayFormat)}]({RelLink(currentDir, target)})<br />");
@@ -591,18 +736,19 @@ class Program
 
         if (members.Count == 1)
         {
-            var comment = members[0].GetDocumentationComment();
-            if (comment is not null)
-                sb.Append(comment.Content);
+            var doc = GetOrCreateDocInfo(members[0]);
+            if (!string.IsNullOrWhiteSpace(doc.RawMarkdown))
+                sb.Append(doc.RawMarkdown);
             else
                 sb.AppendLine("_No documentation available._");
 
-            var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
-            var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
-            File.WriteAllText(filePath, pageHtml);
+            var htmlSingle = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+            var pageSingle = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", htmlSingle);
+            File.WriteAllText(filePath, pageSingle);
             return;
         }
 
+        // Only show overload section when there are overloads
         sb.AppendLine("## Overloads / Variants");
         sb.AppendLine();
 
@@ -613,9 +759,9 @@ class Program
             sb.AppendLine($"### {member.ToDisplayString(MemberDisplayFormat)}");
             sb.AppendLine();
 
-            var comment = member.GetDocumentationComment();
-            if (comment is not null)
-                sb.Append(comment.Content);
+            var doc = GetOrCreateDocInfo(member);
+            if (!string.IsNullOrWhiteSpace(doc.RawMarkdown))
+                sb.Append(doc.RawMarkdown);
             else
                 sb.AppendLine("_No documentation available._");
 
@@ -629,7 +775,7 @@ class Program
 
     private static void GenerateNamespacePage(Compilation compilation, INamespaceSymbol namespaceSymbol)
     {
-        var comment = namespaceSymbol.GetDocumentationComment();
+        var docInfo = GetOrCreateDocInfo(namespaceSymbol);
 
         var indexPath = GetNamespaceIndexPath(namespaceSymbol);
         EnsureDirForFile(indexPath);
@@ -637,55 +783,69 @@ class Program
 
         var sb = new StringBuilder();
 
-        string name = namespaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithKindOptions(SymbolDisplayKindOptions.None));
+        string name = namespaceSymbol.ToDisplayString(
+            SymbolDisplayFormat.FullyQualifiedFormat.WithKindOptions(SymbolDisplayKindOptions.None));
 
-        if (name == string.Empty)
-        {
+        if (string.IsNullOrWhiteSpace(name))
             name = "Global namespace";
-        }
 
         sb.AppendLine($"# {name}");
         sb.AppendLine();
 
-        if (comment is not null)
-            sb.Append(comment.Content);
+        if (!string.IsNullOrWhiteSpace(docInfo.RawMarkdown))
+            sb.Append(docInfo.RawMarkdown);
 
         sb.AppendLine();
-        sb.AppendLine("## Members");
 
-        foreach (var member in namespaceSymbol.GetMembers()
+        var members = namespaceSymbol.GetMembers()
             .Where(GetMembersFilterPredicate)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
-            .Where(x => x.Locations.Any(x => x.IsInSource) || x is INamespaceSymbol))
+            .Where(x => x.Locations.Any(x => x.IsInSource) || x is INamespaceSymbol)
+            .ToArray();
+
+        // Optional: skip namespaces with no public content (your previous behavior)
+        // (kept only for child namespaces)
+        // For current namespace page we still render.
+
+        AppendMemberTable(sb, "Members", currentDir, members);
+
+        // Generate child pages (namespaces + types)
+        foreach (var ns2 in members.OfType<INamespaceSymbol>())
         {
-            if (member is INamespaceSymbol ns2)
-            {
-                if (ns2.GetMembers().All(x => x.DeclaredAccessibility != Accessibility.Public))
-                    continue;
+            if (ns2.GetMembers().All(x => x.DeclaredAccessibility != Accessibility.Public))
+                continue;
 
-                var target = GetNamespaceIndexPath(ns2);
-                sb.AppendLine($"* [{ns2.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
-                GenerateNamespacePage(compilation, ns2);
-            }
-            else if (member is ITypeSymbol t2)
-            {
-                var target = GetTypeIndexPath(t2);
-                sb.AppendLine($"* [{t2.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
-                GenerateTypePage(compilation, t2);
-            }
-            else
-            {
-                var target = GetMemberGroupPath(member);
-                sb.AppendLine($"* [{member.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
+            GenerateNamespacePage(compilation, ns2);
+        }
 
-                if (member.ContainingType is not null)
-                    GenerateMemberGroupPage(compilation, member.ContainingType, GetMemberGroupKey(member), new[] { member });
-            }
+        foreach (var t2 in members.OfType<ITypeSymbol>())
+        {
+            GenerateTypePage(compilation, t2);
+        }
+
+        // Rare: non-type member directly under namespace; if it happens, still generate a group page
+        foreach (var m in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol))
+        {
+            if (m.ContainingType is not null)
+                GenerateMemberGroupPage(compilation, m.ContainingType, GetMemberGroupKey(m), new[] { m });
         }
 
         var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
         var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
         File.WriteAllText(indexPath, pageHtml);
+    }
+
+    // ----------------------------
+    // Reference equality comparer (so we can use ISymbol keys safely)
+    // ----------------------------
+
+    private sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T>
+        where T : class
+    {
+        public static readonly ReferenceEqualityComparer<T> Instance = new();
+
+        public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
+        public int GetHashCode(T obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 }
