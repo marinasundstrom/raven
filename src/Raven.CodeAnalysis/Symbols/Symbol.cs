@@ -50,14 +50,17 @@ internal abstract class Symbol : ISymbol
 
         if (this is ITypeSymbol or INamespaceSymbol)
         {
-            if (containingNamespace is SourceNamespaceSymbol ns)
+            if (this.ContainingType is null)
             {
-                ns.AddMember(this);
-            }
+                if (containingNamespace is SourceNamespaceSymbol ns)
+                {
+                    ns.AddMember(this);
+                }
 
-            if (containingNamespace is PENamespaceSymbol ns2)
-            {
-                ns2.AddMember(this);
+                if (containingNamespace is PENamespaceSymbol ns2)
+                {
+                    ns2.AddMember(this);
+                }
             }
         }
 
