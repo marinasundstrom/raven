@@ -14,6 +14,8 @@ using Markdig.Extensions.AutoIdentifiers;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
+using static Raven.ConsoleEx;
+
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 using System.Diagnostics;
 
@@ -105,8 +107,8 @@ class Program
 
         foreach (var file in files)
         {
-            string sourceCode = File.ReadAllText(file);
-            syntaxTrees.Add(ParseSyntaxTree(sourceCode, filePath: file));
+            //string sourceCode = File.ReadAllText(file);
+            //syntaxTrees.Add(ParseSyntaxTree(sourceCode, filePath: file));
         }
 
         var files2 = Directory.GetFiles("../Raven.Core", "*.rav");
@@ -118,7 +120,7 @@ class Program
         }
 
         var compilation = Compilation.Create("test", syntaxTrees.ToArray(),
-            options: new CompilationOptions(OutputKind.ConsoleApplication));
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
         var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
@@ -133,7 +135,15 @@ class Program
         };
 
         compilation = compilation.AddReferences(references);
-        compilation.GetDiagnostics();
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        if (diagnostics.Length > 0)
+        {
+            PrintDiagnostics(diagnostics, compilation);
+            Console.WriteLine("Failed to produce docs");
+            return;
+        }
 
         var globalNamespace = compilation.GetSourceGlobalNamespace();
 
