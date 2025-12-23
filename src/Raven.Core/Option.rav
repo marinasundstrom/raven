@@ -2,12 +2,26 @@ namespace System
 
 import System.*
 
+/// Represents some value, or no value
+///
+/// ## Usage
+/// ```raven
+/// func Test(v: int) -> Option<int> {
+///     return .Some(42)
+/// }
+/// ```
 public union Option<T> {
+    /// Represents some value
     Some(value: T)
+
+    /// Represents the absence of a value
     None
 }
 
+/// Contains extensions for the Option<T> type
 public extension OptionExtensions<T> for Option<T> {
+
+    /// Unwrap the value if Some, otherwise return the default value
     public UnwrapOrDefault() -> T {
         if self is .Some(value) {
             return value
@@ -16,6 +30,7 @@ public extension OptionExtensions<T> for Option<T> {
         return default(T)
     }
 
+    /// Unwrap the value if Some, otherwise throw an exception
     public UnwrapOrThrow() -> T {
         if self is .Some(value) {
             return value
@@ -24,6 +39,7 @@ public extension OptionExtensions<T> for Option<T> {
         throw new InvalidOperationException("Option is None")
     }
 
+    /// Unwrap the value if Some, otherwise return the specified value
     public UnwrapOr(defaultValue: T) -> T {
         if self is .Some(value) {
             return value

@@ -88,6 +88,7 @@ class Program
 
     static void Docs()
     {
+        /*
         var path = "../Raven.Core/Result.rav";
 
         if (Debugger.IsAttached)
@@ -97,11 +98,24 @@ class Program
 
         string sourceCode = File.ReadAllText(path);
 
-        //string sourceCode = GetSampleSourceCode();
-
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+        */
 
-        var compilation = Compilation.Create("test", [syntaxTree],
+        var files = Directory.GetFiles("../Raven.Core", "*.rav");
+
+        List<SyntaxTree> syntaxTrees = new List<SyntaxTree>();
+
+        foreach (var file in files)
+        {
+            string sourceCode = File.ReadAllText(file);
+
+            syntaxTrees.Add(ParseSyntaxTree(sourceCode));
+        }
+
+        //string sourceCode = GetSampleSourceCode();
+        //SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+
+        var compilation = Compilation.Create("test", syntaxTrees.ToArray(),
             options: new CompilationOptions(OutputKind.ConsoleApplication));
 
         var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
