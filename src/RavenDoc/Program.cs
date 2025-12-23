@@ -87,7 +87,38 @@ class Program
 
     static void Docs()
     {
-        string sourceCode = """
+        string sourceCode = GetSampleSourceCode();
+
+        SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+
+        var compilation = Compilation.Create("test", [syntaxTree],
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
+        var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
+
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.dll")),
+            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
+        };
+
+        compilation = compilation.AddReferences(references);
+        compilation.GetDiagnostics();
+
+        var tree = compilation.SyntaxTrees.First();
+        var sem = compilation.GetSemanticModel(tree);
+
+        var globalNamespace = compilation.GetSourceGlobalNamespace();
+        ProcessSymbol(compilation, globalNamespace);
+    }
+
+    private static string GetSampleSourceCode()
+    {
+        return """
         namespace Samples
 
         import System.Console.*
@@ -177,32 +208,6 @@ class Program
             }
         }
         """;
-
-        SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
-
-        var compilation = Compilation.Create("test", [syntaxTree],
-            options: new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
-        var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
-
-        var references = new[]
-        {
-            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.dll")),
-            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
-            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
-            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
-        };
-
-        compilation = compilation.AddReferences(references);
-        compilation.GetDiagnostics();
-
-        var tree = compilation.SyntaxTrees.First();
-        var sem = compilation.GetSemanticModel(tree);
-
-        var globalNamespace = compilation.GetSourceGlobalNamespace();
-        ProcessSymbol(compilation, globalNamespace);
     }
 
     private static void ProcessSymbol(Compilation compilation, ISymbol symbol)
