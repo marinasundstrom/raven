@@ -392,13 +392,26 @@ class Program
 
         var segments = new Stack<string>();
         var cur = type;
+
         while (cur is not null)
         {
-            segments.Push(cur.Name);
+            segments.Push(GetTypePathSegment(cur));
             cur = cur.ContainingType;
         }
 
         return Path.Combine(new[] { nsDir }.Concat(segments).ToArray());
+    }
+
+    private static string GetTypePathSegment(ITypeSymbol type)
+    {
+        // Normalize constructed generic types to their definition for stable paths:
+        if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            type = named.OriginalDefinition;
+
+        if (type is INamedTypeSymbol nts && nts.Arity > 0)
+            return $"{nts.Name}`{nts.Arity}"; // e.g. Result`1, Result`2
+
+        return type.Name;
     }
 
     private static string GetNamespaceIndexPath(INamespaceSymbol ns)
