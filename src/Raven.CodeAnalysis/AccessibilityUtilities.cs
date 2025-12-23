@@ -83,7 +83,7 @@ internal static class AccessibilityUtilities
         if (containingType.TypeKind == TypeKind.Interface)
             return Accessibility.Public;
 
-        return Accessibility.Public;
+        return Accessibility.Private;
     }
 
     public static bool IsAccessible(ISymbol symbol, ISymbol? within)

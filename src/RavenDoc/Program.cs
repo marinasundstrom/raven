@@ -19,6 +19,8 @@ class Program
     private const string TargetFramework = "net9.0";
     private static readonly string rootdir = "_docs";
 
+    private static readonly Func<ISymbol, bool> GetMembersFilterPredicate = x => x is INamespaceSymbol || x.DeclaredAccessibility == Accessibility.Public;
+
     // ----------------------------
     // Cached display formats
     // ----------------------------
@@ -89,7 +91,7 @@ class Program
 
         WriteLine("Hello"); val x = 2
 
-        val user = Person(42)
+        val user = Person(TheMeaningOfLife)
         user.AddRole("admin")
 
         val user2 = Person.WithName("John")
@@ -100,7 +102,7 @@ class Program
         PrintLine(user2(2003));
         PrintLine(user2("test"));
 
-        open class Base {}
+        public open class Base {}
 
         /// Test
         /// | Month    | Savings |
@@ -109,8 +111,9 @@ class Program
         /// | February | $80     |
         /// | March    | $420    |
         /// 
-        class Person : Base {
-            const TheMeaningOfLife: int = 42
+        public class Person : Base {
+            public const TheMeaningOfLife: int = 42
+
             val species = "Homo sapiens"
             var age: int = 0
             var name: string
@@ -205,7 +208,8 @@ class Program
 
         if (symbol is INamespaceOrTypeSymbol namespaceOrTypeSymbol)
         {
-            foreach (var member in namespaceOrTypeSymbol.GetMembers())
+            foreach (var member in namespaceOrTypeSymbol.GetMembers()
+            .Where(GetMembersFilterPredicate))
             {
                 ProcessSymbol(compilation, member);
             }
@@ -516,8 +520,9 @@ class Program
         sb.AppendLine("## Members");
 
         var members = typeSymbol.GetMembers()
+            .Where(GetMembersFilterPredicate)
             .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null) // hide accessors
-            .OrderBy(x => x.Name)
+            .OrderBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
 
         foreach (var member in members)
@@ -641,7 +646,8 @@ class Program
         sb.AppendLine("## Members");
 
         foreach (var member in namespaceSymbol.GetMembers()
-            .OrderBy(x => x.Name)
+            .Where(GetMembersFilterPredicate)
+            .OrderBy(m => m.ToDisplayString(MemberDisplayFormat))
             .Where(x => x.Locations.Any(x => x.IsInSource)))
         {
             if (member is INamespaceSymbol ns2)
