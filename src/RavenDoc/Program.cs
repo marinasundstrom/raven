@@ -13,6 +13,7 @@ using Markdig;
 using Markdig.Extensions.AutoIdentifiers;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
+using System.Diagnostics;
 
 class Program
 {
@@ -87,7 +88,14 @@ class Program
 
     static void Docs()
     {
-        string sourceCode = File.ReadAllText("../Raven.Core/Result.rav");
+        var path = "../Raven.Core/Result.rav";
+
+        if (Debugger.IsAttached)
+        {
+            path = Path.Combine("../../..", path);
+        }
+
+        string sourceCode = File.ReadAllText(path);
 
         //string sourceCode = GetSampleSourceCode();
 
@@ -639,7 +647,7 @@ class Program
         foreach (var r in rows)
         {
             // If no summary, keep the cell empty rather than noise
-            sb.AppendLine($"| {r.Signature} | {r.Summary} |");
+            sb.AppendLine($"| {EscapeName(r.Signature)} | {r.Summary} |");
         }
 
         sb.AppendLine();
@@ -661,24 +669,27 @@ class Program
 
         string name = typeSymbol.ToDisplayString(MemberDisplayFormat.WithKindOptions(SymbolDisplayKindOptions.None));
 
-        sb.AppendLine($"# {name}");
+        sb.AppendLine($"# {EscapeName(name)}");
         if (typeSymbol.BaseType is not null)
         {
             var baseTypeSymbol = typeSymbol.BaseType;
             var target = GetTypeIndexPath(baseTypeSymbol);
-            sb.AppendLine($"**Base type**: [{baseTypeSymbol.ToDisplayString(BaseTypeDisplayFormat)}]({RelLink(currentDir, target)})<br />");
+            var memberName = EscapeName(baseTypeSymbol.ToDisplayString(BaseTypeDisplayFormat));
+            sb.AppendLine($"**Base type**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         if (typeSymbol.ContainingType is not null)
         {
             var containingType = typeSymbol.ContainingType!;
             var target = GetTypeIndexPath(containingType);
-            sb.AppendLine($"**Containing type**: [{containingType.ToDisplayString(ContainingTypeDisplayFormat)}]({RelLink(currentDir, target)})<br />");
+            var memberName = EscapeName(containingType.ToDisplayString(ContainingTypeDisplayFormat));
+            sb.AppendLine($"**Containing type**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         if (typeSymbol.ContainingNamespace is not null)
         {
             var containingNamespace = typeSymbol.ContainingNamespace!;
             var target = GetNamespaceIndexPath(containingNamespace);
-            sb.AppendLine($"**Namespace**: [{containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat)}]({RelLink(currentDir, target)})<br />");
+            var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
+            sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         sb.AppendLine();
 
@@ -741,16 +752,20 @@ class Program
             ? members[0].ToDisplayString(MemberDisplayFormat)
             : groupName;
 
-        sb.AppendLine($"# {name}");
+        sb.AppendLine($"# {EscapeName(name)}");
         {
             var target = GetTypeIndexPath(containingType);
-            sb.AppendLine($"**Type**: [{containingType.ToDisplayString(ContainingTypeDisplayFormat)}]({RelLink(currentDir, target)})<br />");
+            var memberName = EscapeName(
+                containingType.ToDisplayString(ContainingTypeDisplayFormat));
+            sb.AppendLine($"**Type**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         if (containingType.ContainingNamespace is not null)
         {
             var ns = containingType.ContainingNamespace!;
             var target = GetNamespaceIndexPath(ns);
-            sb.AppendLine($"**Namespace**: [{ns.ToDisplayString(ContainingNamespaceDisplayFormat)}]({RelLink(currentDir, target)})<br />");
+            var memberName = EscapeName(
+                ns.ToDisplayString(ContainingNamespaceDisplayFormat));
+            sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         sb.AppendLine();
 
@@ -776,7 +791,9 @@ class Program
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat)))
         {
-            sb.AppendLine($"### {member.ToDisplayString(MemberDisplayFormat)}");
+            var memberName = EscapeName(member.ToDisplayString(MemberDisplayFormat));
+
+            sb.AppendLine($"### {memberName}");
             sb.AppendLine();
 
             var doc = GetOrCreateDocInfo(member);
@@ -809,7 +826,7 @@ class Program
         if (string.IsNullOrWhiteSpace(name))
             name = "Global namespace";
 
-        sb.AppendLine($"# {name}");
+        sb.AppendLine($"# {EscapeName(name)}");
         sb.AppendLine();
 
         if (!string.IsNullOrWhiteSpace(docInfo.RawMarkdown))
@@ -854,6 +871,11 @@ class Program
         var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
         var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
         File.WriteAllText(indexPath, pageHtml);
+    }
+
+    private static string EscapeName(string s)
+    {
+        return s.Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
     // ----------------------------
