@@ -522,7 +522,8 @@ class Program
         var members = typeSymbol.GetMembers()
             .Where(GetMembersFilterPredicate)
             .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null) // hide accessors
-            .OrderBy(m => m.ToDisplayString(MemberDisplayFormat))
+            .OrderBy(m => m.Name)
+            .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
 
         foreach (var member in members)
@@ -605,7 +606,9 @@ class Program
         sb.AppendLine("## Overloads / Variants");
         sb.AppendLine();
 
-        foreach (var member in members.OrderBy(m => m.ToDisplayString(MemberDisplayFormat)))
+        foreach (var member in members
+            .OrderBy(m => m.Name)
+            .ThenBy(m => m.ToDisplayString(MemberDisplayFormat)))
         {
             sb.AppendLine($"### {member.ToDisplayString(MemberDisplayFormat)}");
             sb.AppendLine();
@@ -636,6 +639,11 @@ class Program
 
         string name = namespaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithKindOptions(SymbolDisplayKindOptions.None));
 
+        if (name == string.Empty)
+        {
+            name = "Global namespace";
+        }
+
         sb.AppendLine($"# {name}");
         sb.AppendLine();
 
@@ -647,11 +655,15 @@ class Program
 
         foreach (var member in namespaceSymbol.GetMembers()
             .Where(GetMembersFilterPredicate)
-            .OrderBy(m => m.ToDisplayString(MemberDisplayFormat))
-            .Where(x => x.Locations.Any(x => x.IsInSource)))
+            .OrderBy(m => m.Name)
+            .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
+            .Where(x => x.Locations.Any(x => x.IsInSource) || x is INamespaceSymbol))
         {
             if (member is INamespaceSymbol ns2)
             {
+                if (ns2.GetMembers().All(x => x.DeclaredAccessibility != Accessibility.Public))
+                    continue;
+
                 var target = GetNamespaceIndexPath(ns2);
                 sb.AppendLine($"* [{ns2.ToDisplayString(MemberDisplayFormat)}]({RelLink(currentDir, target)})");
                 GenerateNamespacePage(compilation, ns2);
