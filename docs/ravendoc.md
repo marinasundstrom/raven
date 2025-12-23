@@ -1,43 +1,199 @@
-# "RavenDoc" - Documentation generator
+# **RavenDoc** — Documentation Generator
 
-This is the document generator.
+RavenDoc is Raven’s built-in documentation generator. It extracts documentation written directly in source code and produces a static HTML documentation site.
+
+The core idea is simple:
+**documentation lives with the code, in Markdown, and is rendered as-is**.
+
+---
 
 ## For whom is RavenDoc intended?
 
-RavenDoc is intended for those whose need for documentation is sufficed by placing markdown within the source code.
+RavenDoc is intended for developers who:
+
+* want documentation colocated with source code
+* prefer Markdown over external documentation systems
+* don’t need a separate authoring pipeline
+* want documentation generated as part of compilation or tooling
+
+If your documentation needs are satisfied by writing Markdown directly in the source code, RavenDoc is a good fit.
+
+---
 
 ## Documentation comments in Raven
 
-Raven supports two kinds of content: XML and Markdown. 
+Raven supports two kinds of documentation content:
 
-* XML is structural and keeps data, which then is used by a third-party tool (such as DocFx) to generate something presentable.
+### XML documentation
 
-* Markdown is presentation-focused in itself. The comment is representing what is presented.
+* Structural and machine-readable
+* Intended for external tools (e.g. DocFX-style pipelines)
+* Focuses on data extraction rather than presentation
 
-RavenDoc focuses on the markdown.
+### Markdown documentation
 
-### Defined in syntax
+* Presentation-focused
+* What you write is what gets rendered
+* Supports headings, tables, lists, code blocks, etc.
 
-Documentation comments are attached to declaration syntaxes as leading trivia:
+**RavenDoc focuses exclusively on Markdown documentation.**
 
-```
+---
+
+## Documentation comment syntax
+
+Documentation comments are attached to declaration syntax nodes as **leading trivia**.
+
+```raven
 /// ## Hello
-/// 
-/// ** Test **
+///
+/// **Test**
 public func Foo() { }
 ```
 
-### Loaded from symbols
+Notes:
 
-You can retrieve documentation comments via symbols - both those defined in source and those next to metadata:
+* Each line is prefixed with `///`
+* The prefix is stripped before Markdown processing
+* Blank documentation lines must still use `///`
 
-```c#
-    var comment = symbol.GetDocumentationComment();
+---
 
-    var content = comment?.Content; // Without "///"
-    var rawContent = comment?.RawContent; // With "///"
+## Accessing documentation from symbols
+
+Documentation comments can be retrieved from symbols, both for:
+
+* source-defined symbols
+* metadata symbols (when available)
+
+```csharp
+var comment = symbol.GetDocumentationComment();
+
+var content = comment?.Content;     // Markdown, without "///"
+var rawContent = comment?.RawContent; // Original text, with "///"
 ```
 
-## Current state
+RavenDoc uses the processed Markdown content (`Content`) for rendering.
 
-RavenDoc is in an early stage. It's not by itself a re-usable tool, not without re-compiling. The layout is fixed. You can't add additional content.
+---
+
+## Link conventions (important)
+
+RavenDoc supports **symbol-aware links** using an `xref:` scheme, inspired by XML documentation IDs.
+
+This allows documentation to link to:
+
+* namespaces
+* types
+* members (methods, properties, fields)
+
+### Basic form
+
+```md
+[Result](xref:T:System.Result`2)
+```
+
+At render time, RavenDoc resolves the `xref:` target and replaces it with a relative link to the generated page.
+
+---
+
+### Supported `xref:` prefixes
+
+| Prefix | Meaning   | Example                               |
+| ------ | --------- | ------------------------------------- |
+| `N:`   | Namespace | `xref:N:System.Collections`           |
+| `T:`   | Type      | `xref:T:System.Result\`2`             |
+| `M:`   | Method    | `xref:M:System.Result\`2.UnwrapError` |
+| `P:`   | Property  | `xref:P:System.Result\`2.Value`       |
+| `F:`   | Field     | `xref:F:System.Result\`2.Error`       |
+
+Notes:
+
+* Generic arity is written using backticks (`` ` ``), e.g. ``Result`2``
+* Overloads automatically resolve to the **member group page**
+* If a link cannot be resolved, it is rendered without a target and marked as unresolved
+
+---
+
+### Why `xref:` exists
+
+Normal Markdown links require knowing file paths.
+`xref:` allows documentation authors to write **symbol-based links** without caring about layout, folders, or filenames.
+
+This keeps documentation stable even if the generated structure changes.
+
+---
+
+## Recommended documentation structure (not enforced)
+
+RavenDoc does **not** impose a schema. Sections are free-form Markdown.
+
+That said, the following sections are recommended for consistency and readability:
+
+### For types
+
+```md
+## Summary
+Brief description of the type.
+
+## Usage
+Example usage.
+
+## Remarks
+Important details, constraints, or design notes.
+
+## Examples
+Longer or multiple examples.
+```
+
+### For members
+
+```md
+## Summary
+What this member does.
+
+## Parameters
+Description of parameters (if applicable).
+
+## Returns
+What is returned (if applicable).
+
+## Remarks
+Edge cases, behavior, or guarantees.
+```
+
+You are free to ignore or reorder these sections.
+
+---
+
+## Current state and limitations
+
+RavenDoc is currently **early-stage**.
+
+Current limitations:
+
+* Not a reusable library (requires recompilation)
+* Fixed HTML layout
+* No external pages or navigation injection
+* No custom theming beyond CSS edits
+* No schema validation for documentation content
+
+Despite this, RavenDoc is already suitable for:
+
+* internal libraries
+* language/runtime documentation
+* API reference generation
+* early-stage public projects
+
+---
+
+## Summary
+
+RavenDoc is intentionally simple:
+
+* Markdown in source
+* Symbol-aware links via `xref:`
+* One page per namespace, type, and member group
+* No external tooling required
+
+As Raven evolves, RavenDoc can evolve with it — without breaking existing documentation.

@@ -21,7 +21,7 @@ public union Result<T> {
     Error(message: string)
 }
 
-/// Represents either a result with a value, or an error
+/// Represents either a result with a value, or an error. See also: [Result&lt;T&gt;](xref:T:System.Result`1).
 ///
 /// ## Usage
 /// ```raven

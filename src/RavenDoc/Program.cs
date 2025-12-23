@@ -11,6 +11,8 @@ using Raven.CodeAnalysis.Text;
 
 using Markdig;
 using Markdig.Extensions.AutoIdentifiers;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 using System.Diagnostics;
@@ -42,7 +44,16 @@ class Program
     // Descriptor cache (docs/summary/signature/link)
     // ----------------------------
 
-    private static readonly Dictionary<ISymbol, SymbolDocInfo> DocInfoCache = new(ReferenceEqualityComparer<ISymbol>.Instance);
+    private static readonly Dictionary<ISymbol, SymbolDocInfo> DocInfoCache
+        = new(ReferenceEqualityComparer<ISymbol>.Instance);
+
+    // ----------------------------
+    // XRef index: "T:Foo.Bar" -> absolute output path
+    // (we normalize overload IDs to member-group pages)
+    // ----------------------------
+
+    private static readonly Dictionary<string, string> XrefToTargetPath
+        = new(StringComparer.Ordinal);
 
     static Program()
     {
@@ -88,19 +99,6 @@ class Program
 
     static void Docs()
     {
-        /*
-        var path = "../Raven.Core/Result.rav";
-
-        if (Debugger.IsAttached)
-        {
-            path = Path.Combine("../../..", path);
-        }
-
-        string sourceCode = File.ReadAllText(path);
-
-        SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
-        */
-
         var files = Directory.GetFiles("../Raven.Core", "*.rav");
 
         List<SyntaxTree> syntaxTrees = new List<SyntaxTree>();
@@ -108,12 +106,8 @@ class Program
         foreach (var file in files)
         {
             string sourceCode = File.ReadAllText(file);
-
             syntaxTrees.Add(ParseSyntaxTree(sourceCode));
         }
-
-        //string sourceCode = GetSampleSourceCode();
-        //SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
 
         var compilation = Compilation.Create("test", syntaxTrees.ToArray(),
             options: new CompilationOptions(OutputKind.ConsoleApplication));
@@ -133,105 +127,13 @@ class Program
         compilation = compilation.AddReferences(references);
         compilation.GetDiagnostics();
 
-        var tree = compilation.SyntaxTrees.First();
-        var sem = compilation.GetSemanticModel(tree);
-
         var globalNamespace = compilation.GetSourceGlobalNamespace();
+
+        // PASS 1: Build xref index (so forward references resolve)
+        BuildXrefIndex(globalNamespace);
+
+        // PASS 2: Generate pages
         ProcessSymbol(compilation, globalNamespace);
-    }
-
-    private static string GetSampleSourceCode()
-    {
-        return """
-        namespace Samples
-
-        import System.Console.*
-        import System.Collections.Generic.List<>
-        alias StringList = System.Collections.Generic.List<string>
-        alias PrintLine = System.Console.WriteLine
-
-        WriteLine("Hello"); val x = 2
-
-        val user = Person(TheMeaningOfLife)
-        user.AddRole("admin")
-
-        val user2 = Person.WithName("John")
-            .AddRole("admin");
-
-        PrintLine(user2.Name)
-
-        PrintLine(user2(2003));
-        PrintLine(user2("test"));
-
-        /// Just a base class
-        public open class Base {}
-
-        /// Initializes an instance of the Person class
-        /// 
-        /// ## Usage
-        /// ```raven
-        /// val person = Person(42)
-        /// person.Test2()
-        /// ```
-        /// 
-        public class Person : Base {
-            /// Important constant
-            public const TheMeaningOfLife: int = 42
-
-            val species = "Homo sapiens"
-            var age: int = 0
-            var name: string
-            var roles: StringList = []
-
-            /// Constructor
-            public init(age: int) {
-                self.age = age
-            }
-
-            /// Named constructor
-            public init WithName(name: string) {
-                self.name = name
-            }
-
-            /// Regular method
-            public AddRole(role: string) -> Person {
-                roles.Add(role)
-                self
-            }
-
-            /// Expression-bodies method
-            public Test() -> int => 2
-
-            /// Expression-bodies property
-            public Test2: int => 2
-
-            /// Computed property
-            public Name: string {
-                get {
-                    name
-                }
-                set {
-                    name = value
-                }
-            }
-
-            /// Indexer: e.g., person[0]
-            public self[index: int]: string {
-                get => roles[index];
-                set => roles[index] = value
-            }
-
-            /// Invocation operator: e.g., person(2025)
-            public self(year: int) -> string {
-                "Name: $name, Age in $year: ${year - (System.DateTime.Now.Year - age)}"
-            }
-
-            /// Another invocation operator
-            public self(str: string) {
-
-            }
-        }
-        """;
     }
 
     private static void ProcessSymbol(Compilation compilation, ISymbol symbol)
@@ -341,6 +243,9 @@ class Program
         th { background: #f3f4f6; }
 
         .muted { color: var(--muted); }
+
+        /* Optional: broken xrefs show as plain text-ish */
+        a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none; }
         """;
 
         File.WriteAllText(Path.Combine(rootdir, "style.css"), css);
@@ -348,7 +253,6 @@ class Program
 
     private static string WrapHtml(string currentDir, string pageLabelOrTitle, string assemblyName, string bodyHtml)
     {
-        // Title format: "Member - Assembly" (or "TypeName - Assembly", etc.)
         var title = $"{pageLabelOrTitle} - {assemblyName}";
         var styleHref = RelLink(currentDir, Path.Combine(rootdir, "style.css"));
 
@@ -426,12 +330,11 @@ class Program
 
     private static string GetTypePathSegment(ITypeSymbol type)
     {
-        // Normalize constructed generic types to their definition for stable paths:
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
             type = named.OriginalDefinition;
 
         if (type is INamedTypeSymbol nts && nts.Arity > 0)
-            return $"{nts.Name}`{nts.Arity}"; // e.g. Result`1, Result`2
+            return $"{nts.Name}`{nts.Arity}";
 
         return type.Name;
     }
@@ -442,7 +345,6 @@ class Program
     private static string GetTypeIndexPath(ITypeSymbol type)
         => Path.Combine(GetTypeDir(type), "index.html");
 
-    // One page per "member group" (e.g. Test, Name, self) not per overload.
     private static string GetMemberGroupPath(ISymbol member)
     {
         var typeDir = GetTypeDir(member.ContainingType!);
@@ -525,7 +427,7 @@ class Program
     }
 
     // ----------------------------
-    // Descriptor + member list rendering
+    // Docs cache + summary extraction
     // ----------------------------
 
     private sealed class SymbolDocInfo
@@ -537,9 +439,9 @@ class Program
     private sealed class MemberRow
     {
         public required ISymbol Symbol { get; init; }
-        public required string Signature { get; init; }     // markdown (link)
-        public required string Summary { get; init; }       // plain-ish text for table cell
-        public required bool IsContainer { get; init; }     // namespace/type
+        public required string Signature { get; init; }
+        public required string Summary { get; init; }
+        public required bool IsContainer { get; init; }
     }
 
     private static SymbolDocInfo GetOrCreateDocInfo(ISymbol symbol)
@@ -565,11 +467,7 @@ class Program
         if (string.IsNullOrWhiteSpace(markdown))
             return string.Empty;
 
-        // Normalize newlines and trim leading whitespace
         var text = markdown.Replace("\r\n", "\n").Trim();
-
-        // Heuristic: first paragraph = first chunk separated by a blank line
-        // Also ignore leading headings if present.
         var parts = text.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var p in parts)
@@ -578,15 +476,12 @@ class Program
             if (para.Length == 0)
                 continue;
 
-            // Skip pure headings like "# Title" / "## Title"
             if (para.StartsWith("#"))
                 continue;
 
-            // Stop at an explicit section header starting early
             if (para.StartsWith("## "))
                 continue;
 
-            // Use first non-empty paragraph
             return ToTableCellText(para);
         }
 
@@ -595,15 +490,11 @@ class Program
 
     private static string ToTableCellText(string s)
     {
-        // Keep it readable inside a Markdown table cell.
-        // - Escape pipes
-        // - Collapse newlines into spaces (or <br/> if you want multi-line)
         var t = s.Replace("|", "\\|")
                  .Replace("\r\n", "\n")
                  .Replace("\n", " ")
                  .Trim();
 
-        // Avoid giant summaries: keep it short-ish (tune as you like)
         const int max = 180;
         if (t.Length > max)
             t = t.Substring(0, max).TrimEnd() + "…";
@@ -633,7 +524,6 @@ class Program
             var doc = GetOrCreateDocInfo(m);
             var summary = doc.Summary;
 
-            // Signature in the table is a link
             var sigText = m.ToDisplayString(MemberDisplayFormat);
             var signature = $"[{sigText}]({href})";
 
@@ -660,11 +550,262 @@ class Program
 
         foreach (var r in rows)
         {
-            // If no summary, keep the cell empty rather than noise
             sb.AppendLine($"| {EscapeName(r.Signature)} | {r.Summary} |");
         }
 
         sb.AppendLine();
+    }
+
+    // ----------------------------
+    // XREF: indexing + Markdown rendering
+    // ----------------------------
+
+    private static void BuildXrefIndex(INamespaceSymbol globalNamespace)
+    {
+        void Visit(ISymbol s)
+        {
+            if (!GetMembersFilterPredicate(s))
+                return;
+
+            var id = GetXrefId(s);
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                // Normalize overload IDs (M:/P: with params) to group IDs
+                var normalized = NormalizeXrefIdForIndex(id);
+                XrefToTargetPath[normalized] = GetTargetPathForLink(s);
+            }
+
+            if (s is ITypeSymbol ts && ts.Name.Contains("Result", StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.WriteLine($"Type candidate: Name='{ts.Name}', Arity={(ts is INamedTypeSymbol n ? n.Arity : -1)}, " +
+                                  $"Namespace='{(ts.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<null>")}', " +
+                                  $"DocId='{id}'");
+            }
+
+            if (s is INamespaceOrTypeSymbol nts)
+            {
+                foreach (var m in nts.GetMembers())
+                    Visit(m);
+            }
+        }
+
+        Visit(globalNamespace);
+    }
+
+    private static string RenderMarkdownWithXrefs(string markdown, string currentDir)
+    {
+        // Build a per-page pipeline so we can capture currentDir in the callback.
+        var builder = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .UseAutoIdentifiers(AutoIdentifierOptions.GitHub);
+
+
+        builder.DocumentProcessed += (doc) => RewriteXrefLinks(doc, currentDir);
+
+        var pipeline = builder.Build();
+
+        return Markdown.ToHtml(markdown, pipeline);
+    }
+
+    private static void RewriteXrefLinks(MarkdownDocument doc, string currentDir)
+    {
+        foreach (var link in doc.Descendants().OfType<LinkInline>())
+        {
+            if (link.IsImage || string.IsNullOrEmpty(link.Url))
+                continue;
+
+            const string prefix = "xref:";
+            if (!link.Url.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+
+            var rawId = link.Url.Substring(prefix.Length); // e.g. "T:Raven.Core.Result`2"
+            var normalized = NormalizeXrefIdIncoming(rawId);
+
+            if (!XrefToTargetPath.TryGetValue(normalized, out var targetAbs))
+            {
+                link.Url = string.Empty;
+                link.Title = $"Unresolved xref: {rawId}";
+
+                // DEBUG: show a few suggestions (same suffix)
+                var suggestions = XrefToTargetPath.Keys
+                    .Where(k => k.EndsWith(normalized.Substring(normalized.IndexOf(':') + 1), StringComparison.Ordinal))
+                    .Take(8)
+                    .ToArray();
+
+                if (suggestions.Length > 0)
+                    Console.WriteLine($"Unresolved xref '{rawId}'. Did you mean:\n  - " + string.Join("\n  - ", suggestions));
+                else
+                    Console.WriteLine($"Unresolved xref '{rawId}'. No close matches. Total indexed: {XrefToTargetPath.Count}");
+
+                continue;
+            }
+
+            link.Url = RelLink(currentDir, targetAbs);
+        }
+    }
+
+    // Normalize stored IDs to match your member-group pages:
+    // - strip "(...)" from M:/P: so any overload points to the same group page
+    private static string NormalizeXrefIdForIndex(string id)
+    {
+        id = id.Trim();
+
+        if (id.StartsWith("M:", StringComparison.Ordinal) || id.StartsWith("P:", StringComparison.Ordinal))
+        {
+            var paren = id.IndexOf('(');
+            if (paren >= 0)
+                return id.Substring(0, paren);
+        }
+
+        return id;
+    }
+
+    private static string NormalizeXrefIdIncoming(string id)
+    {
+        // Incoming comes from Markdown: xref:<id>
+        // We normalize the same way as index keys.
+        return NormalizeXrefIdForIndex(id);
+    }
+
+    // ----------------------------
+    // XREF: symbol -> doc id
+    // ----------------------------
+
+    private static string GetXrefId(ISymbol s)
+    {
+        if (s is null)
+            return string.Empty;
+
+        return s switch
+        {
+            INamespaceSymbol ns => ns.IsGlobalNamespace ? "" : $"N:{GetNamespaceFullName(ns)}",
+            ITypeSymbol ts => $"T:{GetTypeDocName(ts)}",
+            IMethodSymbol ms => $"M:{GetMethodDocName(ms)}",
+            IPropertySymbol ps => $"P:{GetPropertyDocName(ps)}",
+            IFieldSymbol fs => $"F:{GetFieldDocName(fs)}",
+            //IEventSymbol es => $"E:{GetEventDocName(es)}",
+            _ => ""
+        };
+    }
+
+    private static string GetNamespaceFullName(INamespaceSymbol ns)
+    {
+        var parts = new Stack<string>();
+        var cur = ns;
+        while (cur is not null && !cur.IsGlobalNamespace)
+        {
+            if (!string.IsNullOrEmpty(cur.Name))
+                parts.Push(cur.Name);
+            cur = cur.ContainingNamespace;
+        }
+
+        return string.Join(".", parts);
+    }
+
+    private static string GetTypeDocName(ITypeSymbol type)
+    {
+        // Namespace + containing types + type name with arity using `.
+        // Nested types use '+' like XML doc IDs.
+        //
+        // Example: Raven.Core.Result`2
+        // Example nested: Foo.Outer+Inner`1
+
+        var sb = new StringBuilder();
+
+        var ns = type.ContainingNamespace;
+        if (ns is not null && !ns.IsGlobalNamespace)
+        {
+            sb.Append(GetNamespaceFullName(ns));
+            sb.Append('.');
+        }
+
+        var chain = new Stack<ITypeSymbol>();
+        for (var cur = type; cur is not null; cur = cur.ContainingType)
+            chain.Push(cur);
+
+        bool first = true;
+        while (chain.Count > 0)
+        {
+            var t = chain.Pop();
+            if (!first)
+                sb.Append('+');
+            first = false;
+
+            if (t is INamedTypeSymbol nts && nts.IsGenericType)
+            {
+                var def = (nts.IsUnboundGenericType || nts.Equals(nts.OriginalDefinition))
+                    ? nts
+                    : nts.OriginalDefinition as INamedTypeSymbol;
+
+                sb.Append(def.Name);
+                sb.Append('`');
+                sb.Append(def.Arity);
+            }
+            else
+            {
+                sb.Append(t.Name);
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static string GetMethodDocName(IMethodSymbol ms)
+    {
+        // Type.Method(params...)
+        var sb = new StringBuilder();
+        sb.Append(GetTypeDocName(ms.ContainingType!));
+        sb.Append('.');
+        sb.Append(ms.Name);
+
+        if (ms.Parameters is { Length: > 0 })
+        {
+            sb.Append('(');
+            for (int i = 0; i < ms.Parameters.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(GetParamTypeDocName(ms.Parameters[i].Type));
+            }
+            sb.Append(')');
+        }
+
+        return sb.ToString();
+    }
+
+    private static string GetPropertyDocName(IPropertySymbol ps)
+    {
+        var sb = new StringBuilder();
+        sb.Append(GetTypeDocName(ps.ContainingType!));
+        sb.Append('.');
+        sb.Append(ps.Name);
+
+        if (ps.Parameters is { Length: > 0 })
+        {
+            sb.Append('(');
+            for (int i = 0; i < ps.Parameters.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(GetParamTypeDocName(ps.Parameters[i].Type));
+            }
+            sb.Append(')');
+        }
+
+        return sb.ToString();
+    }
+
+    private static string GetFieldDocName(IFieldSymbol fs)
+        => $"{GetTypeDocName(fs.ContainingType!)}.{fs.Name}";
+
+    //private static string GetEventDocName(IEventSymbol es)
+    //    => $"{GetTypeDocName(es.ContainingType!)}.{es.Name}";
+
+    private static string GetParamTypeDocName(ITypeSymbol t)
+    {
+        // Minimal starter: use type doc name where possible, else fallback to fully qualified.
+        if (t is INamedTypeSymbol nts)
+            return GetTypeDocName(nts);
+
+        return t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     }
 
     // ----------------------------
@@ -710,28 +851,21 @@ class Program
         if (!string.IsNullOrWhiteSpace(commentInfo.RawMarkdown))
             sb.Append(commentInfo.RawMarkdown);
 
-        // Members
         var members = typeSymbol.GetMembers()
             .Where(GetMembersFilterPredicate)
-            .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null) // hide accessors
+            .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
 
         sb.AppendLine();
-
-        // Table for *everything* listed on the page (nested types + members + overloads)
-        // Each overload row links to the grouped member page.
         AppendMemberTable(sb, "Members", currentDir, members);
 
-        // Generate pages:
-        // 1) nested types get their own folder/index
         foreach (var nestedType in members.OfType<ITypeSymbol>())
         {
             GenerateTypePage(compilation, nestedType);
         }
 
-        // 2) group pages for non-type members
         var groups = members
             .Where(m => m is not ITypeSymbol)
             .GroupBy(GetMemberGroupKey);
@@ -741,7 +875,7 @@ class Program
             GenerateMemberGroupPage(compilation, typeSymbol, g.Key, g.ToArray());
         }
 
-        var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+        var contentHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
         var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }
@@ -769,16 +903,14 @@ class Program
         sb.AppendLine($"# {EscapeName(name)}");
         {
             var target = GetTypeIndexPath(containingType);
-            var memberName = EscapeName(
-                containingType.ToDisplayString(ContainingTypeDisplayFormat));
+            var memberName = EscapeName(containingType.ToDisplayString(ContainingTypeDisplayFormat));
             sb.AppendLine($"**Type**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         if (containingType.ContainingNamespace is not null)
         {
             var ns = containingType.ContainingNamespace!;
             var target = GetNamespaceIndexPath(ns);
-            var memberName = EscapeName(
-                ns.ToDisplayString(ContainingNamespaceDisplayFormat));
+            var memberName = EscapeName(ns.ToDisplayString(ContainingNamespaceDisplayFormat));
             sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         sb.AppendLine();
@@ -791,13 +923,12 @@ class Program
             else
                 sb.AppendLine("_No documentation available._");
 
-            var htmlSingle = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+            var htmlSingle = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
             var pageSingle = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", htmlSingle);
             File.WriteAllText(filePath, pageSingle);
             return;
         }
 
-        // Only show overload section when there are overloads
         sb.AppendLine("## Overloads / Variants");
         sb.AppendLine();
 
@@ -819,7 +950,7 @@ class Program
             sb.AppendLine();
         }
 
-        var overloadsHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+        var overloadsHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
         var pageHtml2 = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", overloadsHtml);
         File.WriteAllText(filePath, pageHtml2);
     }
@@ -855,13 +986,8 @@ class Program
             .Where(x => x.Locations.Any(x => x.IsInSource) || x is INamespaceSymbol)
             .ToArray();
 
-        // Optional: skip namespaces with no public content (your previous behavior)
-        // (kept only for child namespaces)
-        // For current namespace page we still render.
-
         AppendMemberTable(sb, "Members", currentDir, members);
 
-        // Generate child pages (namespaces + types)
         foreach (var ns2 in members.OfType<INamespaceSymbol>())
         {
             if (ns2.GetMembers().All(x => x.DeclaredAccessibility != Accessibility.Public))
@@ -875,14 +1001,13 @@ class Program
             GenerateTypePage(compilation, t2);
         }
 
-        // Rare: non-type member directly under namespace; if it happens, still generate a group page
         foreach (var m in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol))
         {
             if (m.ContainingType is not null)
                 GenerateMemberGroupPage(compilation, m.ContainingType, GetMemberGroupKey(m), new[] { m });
         }
 
-        var contentHtml = Markdown.ToHtml(sb.ToString(), MarkdownPipeline);
+        var contentHtml = RenderMarkdownWithXrefs(sb.ToString(), currentDir);
         var pageHtml = WrapHtml(currentDir, name, compilation.AssemblyName ?? "Assembly", contentHtml);
         File.WriteAllText(indexPath, pageHtml);
     }
