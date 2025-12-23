@@ -477,6 +477,27 @@ class Program
         _ => "Members"
     };
 
+    private static bool IsOperatorLike(IMethodSymbol ms)
+    {
+        // Raven: invocation operator and indexer-like call are named "self"
+        if (ms.Name == "self")
+            return true;
+
+        // If you later model real operators explicitly in symbols, plug it in here.
+        // For now, we can also treat known CLR-ish patterns as operators if you emit them:
+        if (ms.Name is "op_Implicit" or "op_Explicit"
+            or "op_Addition" or "op_Subtraction" or "op_Multiply" or "op_Division"
+            or "op_Equality" or "op_Inequality" or "op_LessThan" or "op_GreaterThan"
+            or "op_LessThanOrEqual" or "op_GreaterThanOrEqual"
+            or "op_UnaryPlus" or "op_UnaryNegation" or "op_LogicalNot"
+            or "op_BitwiseAnd" or "op_BitwiseOr" or "op_ExclusiveOr"
+            or "op_LeftShift" or "op_RightShift"
+            or "op_Modulus")
+            return true;
+
+        return false;
+    }
+
     private static MemberSectionKind GetMemberSectionForTypePage(ISymbol m)
     {
         return m switch
@@ -488,7 +509,7 @@ class Program
 
             IMethodSymbol ms when ms.AssociatedSymbol is not null => MemberSectionKind.Other, // accessors filtered elsewhere
             IMethodSymbol ms when ms.MethodKind == MethodKind.Constructor => MemberSectionKind.Constructors,
-            IMethodSymbol ms when ms.Name == "self" => MemberSectionKind.Operators,
+            IMethodSymbol ms when IsOperatorLike(ms) => MemberSectionKind.Operators,
             IMethodSymbol => MemberSectionKind.Methods,
 
             IPropertySymbol ps when ps.Parameters.Length > 0 => MemberSectionKind.Indexers,
