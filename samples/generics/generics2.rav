@@ -9,5 +9,5 @@ class Box<T>
 {
     public Value: T { get; }
 
-    init(value: T) { Value = value }
+    public init(value: T) { Value = value }
 }
