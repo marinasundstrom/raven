@@ -433,6 +433,63 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     }
 
     // ----------------------------
+    // GitHub source linking
+    // ----------------------------
+
+    // User asked for base repo URL:
+    private const string GitHubRepoBaseUrl = "https://github.com/marinasundstrom/raven/";
+
+    // You can change this if your default branch is different:
+    private const string GitHubDefaultBranch = "main";
+
+    private static string? TryFindRepoRoot(string startDir)
+    {
+        var dir = new DirectoryInfo(startDir);
+
+        while (dir is not null)
+        {
+            // Most robust: detect .git folder
+            if (Directory.Exists(Path.Combine(dir.FullName, ".git")))
+                return dir.FullName;
+
+            dir = dir.Parent;
+        }
+
+        return null;
+    }
+
+    private static string? GetSourceGitHubUrl(ISymbol symbol)
+    {
+        var src = symbol.Locations.FirstOrDefault(l => l is not null && l.IsInSource);
+        var srcPath = src?.SourceTree?.FilePath;
+
+        if (string.IsNullOrWhiteSpace(srcPath))
+            return null;
+
+        // Find repo root based on where the docs generator runs from.
+        // (You can change this to use the directory of srcPath if you prefer.)
+        var cwd = Directory.GetCurrentDirectory();
+        var repoRoot = TryFindRepoRoot(cwd) ?? TryFindRepoRoot(Path.GetDirectoryName(srcPath) ?? cwd);
+        if (string.IsNullOrWhiteSpace(repoRoot))
+            return null;
+
+        var rel = Path.GetRelativePath(repoRoot, srcPath);
+
+        // Normalize + URL-encode each path segment
+        var segments = rel
+            .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(Uri.EscapeDataString);
+
+        var urlPath = string.Join("/", segments);
+
+        // Optional: link to the first source location line
+        var line = (src!.GetLineSpan().StartLinePosition.Line + 1); // 1-based
+        var anchor = line > 0 ? $"#L{line}" : "";
+
+        return $"{GitHubRepoBaseUrl}blob/{GitHubDefaultBranch}/{urlPath}{anchor}";
+    }
+
+    // ----------------------------
     // Grouping + filename helpers
     // ----------------------------
 
@@ -791,9 +848,16 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         var asmFile = GetAssemblyFileNameForSymbol(compilation, symbol);
         sb.AppendLine($"**Assembly**: {HtmlEscape(asmFile)}<br />");
 
-        var sourceFile = GetSourceFileName(symbol);
-        if (!string.IsNullOrWhiteSpace(sourceFile))
-            sb.AppendLine($"**Source file**: {HtmlEscape(sourceFile)}<br />");
+        var sourceFileName = GetSourceFileName(symbol);
+        if (string.IsNullOrWhiteSpace(sourceFileName))
+            return;
+
+        var githubUrl = GetSourceGitHubUrl(symbol);
+
+        if (!string.IsNullOrWhiteSpace(githubUrl))
+            sb.AppendLine($"**Source file**: [{EscapeName(sourceFileName)}]({githubUrl})<br />");
+        else
+            sb.AppendLine($"**Source file**: {HtmlEscape(sourceFileName)}<br />");
     }
 
     private static string GetOutputAssemblyFileName(Compilation compilation)
