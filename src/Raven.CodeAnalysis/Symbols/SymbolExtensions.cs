@@ -533,6 +533,14 @@ public static partial class SymbolExtensions
         IMethodSymbol { IsConstructor: true, MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor }
             => "init",
 
+        // User-defined operators: `operator +`, `operator ==`, etc.
+        IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } op
+            => "operator " + GetOperatorToken(op),
+
+        // User-defined conversions: `implicit conversion`, `explicit conversion`
+        IMethodSymbol { MethodKind: MethodKind.Conversion } conv
+            => GetConversionDisplayName(conv),
+
         // Indexers are rendered as `self`
         IPropertySymbol { IsIndexer: true }
             => "self",
@@ -543,6 +551,73 @@ public static partial class SymbolExtensions
 
         _ => symbol.Name
     };
+
+    private static string GetConversionDisplayName(IMethodSymbol method)
+    {
+        // Roslyn naming convention for conversions:
+        // op_Implicit / op_Explicit
+        return method.Name switch
+        {
+            "op_Implicit" => "implicit conversion",
+            "op_Explicit" => "explicit conversion",
+            _ => "conversion"
+        };
+    }
+
+    private static string GetOperatorToken(IMethodSymbol method)
+    {
+        // Roslyn naming convention for operators (examples):
+        // op_Addition, op_Equality, op_UnaryPlus, op_LogicalNot, ...
+        // Also, newer checked operators may appear as op_CheckedAddition, etc.
+
+        var name = method.Name;
+
+        var checkedPrefix = false;
+        const string checkedOpPrefix = "op_Checked";
+        if (name.StartsWith(checkedOpPrefix, StringComparison.Ordinal))
+        {
+            checkedPrefix = true;
+            name = "op_" + name.Substring(checkedOpPrefix.Length);
+        }
+
+        var token = name switch
+        {
+            "op_Addition" => "+",
+            "op_Subtraction" => "-",
+            "op_Multiply" => "*",
+            "op_Division" => "/",
+            "op_Modulus" => "%",
+
+            "op_BitwiseAnd" => "&",
+            "op_BitwiseOr" => "|",
+            "op_ExclusiveOr" => "^",
+
+            "op_LeftShift" => "<<",
+            "op_RightShift" => ">>",
+
+            "op_LogicalNot" => "!",
+            "op_OnesComplement" => "~",
+            "op_UnaryPlus" => "+",
+            "op_UnaryNegation" => "-",
+
+            "op_Increment" => "++",
+            "op_Decrement" => "--",
+
+            "op_Equality" => "==",
+            "op_Inequality" => "!=",
+            "op_LessThan" => "<",
+            "op_LessThanOrEqual" => "<=",
+            "op_GreaterThan" => ">",
+            "op_GreaterThanOrEqual" => ">=",
+
+            "op_True" => "true",
+            "op_False" => "false",
+
+            _ => name.StartsWith("op_", StringComparison.Ordinal) ? name.Substring(3) : name
+        };
+
+        return checkedPrefix ? $"checked {token}" : token;
+    }
 
     private static string FormatType(ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
