@@ -103,7 +103,13 @@ class Program
     {
         List<SyntaxTree> syntaxTrees = new List<SyntaxTree>();
 
-        var files = Directory.GetFiles("../../samples", "*.rav").Where(x => !x.Contains("generic-math-error.rav"));
+        string path = "../../samples";
+        if (Debugger.IsAttached)
+        {
+            path = Path.Combine("../../..", path);
+        }
+
+        var files = Directory.GetFiles(path, "*.rav").Where(x => !x.Contains("generic-math-error.rav"));
 
         foreach (var file in files)
         {
@@ -111,7 +117,13 @@ class Program
             //syntaxTrees.Add(ParseSyntaxTree(sourceCode, filePath: file));
         }
 
-        var files2 = Directory.GetFiles("../Raven.Core", "*.rav");
+        path = "../Raven.Core";
+        if (Debugger.IsAttached)
+        {
+            path = Path.Combine("../../..", path);
+        }
+
+        var files2 = Directory.GetFiles(path, "*.rav");
 
         foreach (var file in files2)
         {
