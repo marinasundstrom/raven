@@ -131,7 +131,9 @@ class Program
             syntaxTrees.Add(ParseSyntaxTree(sourceCode, filePath: file));
         }
 
-        var compilation = Compilation.Create("test", syntaxTrees.ToArray(),
+        string assemblyName = "Raven.Core";
+
+        var compilation = Compilation.Create(assemblyName, syntaxTrees.ToArray(),
             options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
