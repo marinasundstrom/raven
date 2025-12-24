@@ -2,9 +2,11 @@ namespace System
 
 import System.*
 
-/// Represents either a result with a value, or an error
+/// Represents either a result with a value, or an error. See also: [Result&lt;T, E&gt;](xref:T:System.Result`2).
 ///
 /// ## Usage
+/// Use `Result` like so:
+///
 /// ```raven
 /// func Test(v: int) -> Result<int> {
 ///     if v > 3 {
@@ -24,12 +26,35 @@ public union Result<T> {
 /// Represents either a result with a value, or an error. See also: [Result&lt;T&gt;](xref:T:System.Result`1).
 ///
 /// ## Usage
+/// Use `Result` like so:
+///
 /// ```raven
 /// func Test(v: int) -> Result<int, string> {
 ///     if v > 3 {
 ///         return .Ok(42)
 ///     }
 ///     return .Error("Wrong number")
+/// }
+/// ```
+/// 
+/// Matching result in `match` expression:
+/// 
+/// ```raven
+/// val result = Test(2)
+/// 
+/// val r = result match {
+///     .Ok(value) => "Ok: $value"
+///     .Error(message) => "Error: '$message'"
+/// }
+/// ```
+///
+/// Simple pattern:
+///
+/// ```raven
+/// if result is .Ok(value) {
+///     // Omitted
+/// } else if result is .Error(error) {
+///     // Omitted
 /// }
 /// ```
 public union Result<T, E> {
