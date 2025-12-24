@@ -784,10 +784,59 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         return "Unknown location";
     }
 
-    private static void AppendDefinedInLine(StringBuilder sb, Compilation compilation, ISymbol symbol)
+    private static void AppendSourceAndAssemblyLines(StringBuilder sb, Compilation compilation, ISymbol symbol)
     {
-        var text = GetDefinedInText(compilation, symbol);
-        sb.AppendLine($"**Defined in**: {HtmlEscape(text)}<br />");
+        var asmFile = GetAssemblyFileNameForSymbol(compilation, symbol);
+        sb.AppendLine($"**Assembly**: {HtmlEscape(asmFile)}<br />");
+
+        var sourceFile = GetSourceFileName(symbol);
+        if (!string.IsNullOrWhiteSpace(sourceFile))
+            sb.AppendLine($"**Source file**: {HtmlEscape(sourceFile)}<br />");
+    }
+
+    private static string GetOutputAssemblyFileName(Compilation compilation)
+    {
+        var name = compilation.AssemblyName;
+        if (string.IsNullOrWhiteSpace(name))
+            name = "UnknownAssembly";
+
+        // If you have an API equivalent to Roslyn's OutputKind, use it.
+        var ext =
+            compilation.Options?.OutputKind == OutputKind.ConsoleApplication ||
+            compilation.Options?.OutputKind == OutputKind.WindowsApplication
+                ? ".exe"
+                : ".dll";
+
+        return name + ext;
+    }
+
+    private static string? GetSourceFileName(ISymbol symbol)
+    {
+        var src = symbol.Locations.FirstOrDefault(l => l is not null && l.IsInSource);
+        var srcPath = src?.SourceTree?.FilePath;
+        return string.IsNullOrWhiteSpace(srcPath) ? null : Path.GetFileName(srcPath);
+    }
+
+    private static string GetAssemblyFileNameForSymbol(Compilation compilation, ISymbol symbol)
+    {
+        // Source symbol: use compilation output
+        if (symbol.Locations.Any(l => l is not null && l.IsInSource))
+            return GetOutputAssemblyFileName(compilation);
+
+        // Metadata symbol: use containing assembly (+ mapped dll file name if we have it)
+        var asm = symbol.ContainingAssembly;
+        if (asm is not null)
+        {
+            var asmName = asm.Name ?? "UnknownAssembly";
+
+            if (AssemblyNameToPath.TryGetValue(asmName, out var dllPath) && !string.IsNullOrWhiteSpace(dllPath))
+                return Path.GetFileName(dllPath); // e.g. System.Runtime.dll
+
+            // Fallback: best guess
+            return asmName + ".dll";
+        }
+
+        return "UnknownAssembly";
     }
 
     // ----------------------------
@@ -1081,7 +1130,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
-        AppendDefinedInLine(sb, compilation, typeSymbol);
+        AppendSourceAndAssemblyLines(sb, compilation, typeSymbol);
 
         sb.AppendLine();
 
@@ -1151,7 +1200,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
-        AppendDefinedInLine(sb, compilation, members[0]);
+        AppendSourceAndAssemblyLines(sb, compilation, members[0]);
 
         sb.AppendLine();
 
