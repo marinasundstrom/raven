@@ -2561,6 +2561,24 @@ partial class BlockBinder : Binder
                     return BindMethodGroup(typeExpr, methodCandidates, nameLocation);
                 }
             }
+            else
+            {
+                var extensionCandidates = LookupExtensionStaticMethods(name, typeExpr.Type).ToImmutableArray();
+
+                if (!extensionCandidates.IsDefaultOrEmpty)
+                {
+                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                    {
+                        var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        if (!instantiated.IsDefaultOrEmpty)
+                            return BindMethodGroup(typeExpr, instantiated, nameLocation);
+                    }
+                    else
+                    {
+                        return BindMethodGroup(typeExpr, extensionCandidates, nameLocation);
+                    }
+                }
+            }
 
             var member = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
                 .Lookup(this)
@@ -2568,6 +2586,35 @@ partial class BlockBinder : Binder
 
             if (member is null)
             {
+                var extensionProperties = LookupExtensionStaticProperties(name, typeExpr.Type).ToImmutableArray();
+
+                if (!extensionProperties.IsDefaultOrEmpty)
+                {
+                    var accessibleProperties = GetAccessibleProperties(extensionProperties, nameLocation);
+
+                    if (!accessibleProperties.IsDefaultOrEmpty)
+                    {
+                        if (accessibleProperties.Length == 1)
+                            return new BoundMemberAccessExpression(typeExpr, accessibleProperties[0]);
+
+                        var ambiguousMethods = accessibleProperties
+                            .Select(p => p.GetMethod ?? p.SetMethod)
+                            .Where(m => m is not null)
+                            .Cast<IMethodSymbol>()
+                            .ToImmutableArray();
+
+                        if (!ambiguousMethods.IsDefaultOrEmpty)
+                            _diagnostics.ReportCallIsAmbiguous(name, ambiguousMethods, nameLocation);
+
+                        return ErrorExpression(
+                            reason: BoundExpressionReason.Ambiguous,
+                            candidates: AsSymbolCandidates(ambiguousMethods));
+                    }
+
+                    EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+                }
+
                 if (TryBindDiscriminatedUnionCase(typeExpr.Type, name, memberAccess.Name.GetLocation()) is BoundExpression unionCase)
                     return unionCase;
 
@@ -2731,6 +2778,24 @@ partial class BlockBinder : Binder
                     return BindMethodGroup(new BoundTypeExpression(expectedType), methodCandidates, nameLocation);
                 }
             }
+            else
+            {
+                var extensionCandidates = LookupExtensionStaticMethods(memberName, expectedType).ToImmutableArray();
+
+                if (!extensionCandidates.IsDefaultOrEmpty)
+                {
+                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                    {
+                        var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, simpleName.GetLocation());
+                        if (!instantiated.IsDefaultOrEmpty)
+                            return BindMethodGroup(new BoundTypeExpression(expectedType), instantiated, nameLocation);
+                    }
+                    else
+                    {
+                        return BindMethodGroup(new BoundTypeExpression(expectedType), extensionCandidates, nameLocation);
+                    }
+                }
+            }
 
             var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
                 .Lookup(this)
@@ -2738,6 +2803,35 @@ partial class BlockBinder : Binder
 
             if (member is null)
             {
+                var extensionProperties = LookupExtensionStaticProperties(memberName, expectedType).ToImmutableArray();
+
+                if (!extensionProperties.IsDefaultOrEmpty)
+                {
+                    var accessibleProperties = GetAccessibleProperties(extensionProperties, nameLocation);
+
+                    if (!accessibleProperties.IsDefaultOrEmpty)
+                    {
+                        if (accessibleProperties.Length == 1)
+                            return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), accessibleProperties[0]);
+
+                        var ambiguousMethods = accessibleProperties
+                            .Select(p => p.GetMethod ?? p.SetMethod)
+                            .Where(m => m is not null)
+                            .Cast<IMethodSymbol>()
+                            .ToImmutableArray();
+
+                        if (!ambiguousMethods.IsDefaultOrEmpty)
+                            _diagnostics.ReportCallIsAmbiguous(memberName, ambiguousMethods, nameLocation);
+
+                        return ErrorExpression(
+                            reason: BoundExpressionReason.Ambiguous,
+                            candidates: AsSymbolCandidates(ambiguousMethods));
+                    }
+
+                    EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+                }
+
                 if (TryBindDiscriminatedUnionCase(expectedType, memberName, nameLocation) is BoundExpression unionCase)
                     return unionCase;
 

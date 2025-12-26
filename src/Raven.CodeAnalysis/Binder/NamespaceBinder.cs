@@ -80,4 +80,50 @@ class NamespaceBinder : Binder
             if (seen.Add(property))
                 yield return property;
     }
+
+    public override IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var method in GetExtensionStaticMethodsFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
+            if (seen.Add(method))
+                yield return method;
+
+        foreach (var declaredType in _declaredTypes)
+        {
+            foreach (var method in GetExtensionStaticMethodsFromScope(declaredType, name, receiverType, includePartialMatches))
+                if (seen.Add(method))
+                    yield return method;
+        }
+
+        foreach (var method in base.LookupExtensionStaticMethods(name, receiverType, includePartialMatches))
+            if (seen.Add(method))
+                yield return method;
+    }
+
+    public override IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
+        var seen = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var property in GetExtensionStaticPropertiesFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
+            if (seen.Add(property))
+                yield return property;
+
+        foreach (var declaredType in _declaredTypes)
+        {
+            foreach (var property in GetExtensionStaticPropertiesFromScope(declaredType, name, receiverType, includePartialMatches))
+                if (seen.Add(property))
+                    yield return property;
+        }
+
+        foreach (var property in base.LookupExtensionStaticProperties(name, receiverType, includePartialMatches))
+            if (seen.Add(property))
+                yield return property;
+    }
 }

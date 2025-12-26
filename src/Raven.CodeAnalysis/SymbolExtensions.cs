@@ -93,4 +93,15 @@ public static partial class SymbolExtensions
             _ => null
         };
     }
+
+    public static ITypeSymbol? GetExtensionReceiverType(this INamedTypeSymbol type)
+    {
+        return type switch
+        {
+            SourceNamedTypeSymbol sourceType when sourceType.IsExtensionDeclaration => sourceType.ExtensionReceiverType,
+            ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is SourceNamedTypeSymbol sourceType
+                => sourceType.ExtensionReceiverType is { } receiverType ? constructed.Substitute(receiverType) : null,
+            _ => null
+        };
+    }
 }
