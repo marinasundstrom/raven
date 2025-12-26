@@ -27,6 +27,15 @@ accessor with `ExtensionAttribute`. Property metadata is emitted alongside the
 accessors so reflection reports a property with the expected accessor pair even
 though the backing logic is implemented by static methods.
 
+To interoperate with C# extension blocks (C# 14), Raven also emits an extension
+marker nested type for each `extension` declaration. The marker type is named
+`<>__RavenExtensionMarker` and contains a single `<Extension>$` method whose
+parameter encodes the receiver type. Each emitted extension member (methods and
+properties, including static extension members) is annotated with
+`System.Runtime.CompilerServices.ExtensionMarkerNameAttribute` pointing to the
+marker type name, enabling C# to recover the extension receiver signature when
+consuming Raven-compiled assemblies.
+
 In both cases the attribute ensures the metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
 member-style invocation, Raven merges instance methods with any imported
 extensions that can accept the receiver, then rewrites the call to pass the
@@ -108,4 +117,3 @@ Source interface declarations may annotate their type parameters with `out` or
 `in`. Raven maps those modifiers onto the same metadata flags when emitting
 symbols, so variant source interfaces interoperate with metadata-defined
 counterparts without requiring any special handling.
-

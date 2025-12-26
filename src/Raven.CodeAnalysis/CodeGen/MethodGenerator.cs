@@ -201,6 +201,7 @@ internal class MethodGenerator
         };
 
         TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetAttributes(), applyMethodAttribute);
+        TypeGenerator.ApplyExtensionMarkerNameAttribute(MethodSymbol, applyMethodAttribute);
 
         ApplyAsyncStateMachineMetadata(applyMethodAttribute);
 

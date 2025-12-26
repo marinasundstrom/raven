@@ -217,19 +217,24 @@ internal class CodeGenerator
     private MethodBase? EntryPoint { get; set; }
 
     public Type? TypeUnionAttributeType { get; private set; }
+    public Type? ExtensionMarkerNameAttributeType { get; private set; }
     public Type? NullType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? DiscriminatedUnionAttributeType { get; private set; }
     public Type? DiscriminatedUnionCaseAttributeType { get; private set; }
+    public Type? ExtensionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _tupleElementNamesCtor;
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _discriminatedUnionCaseCtor;
+    ConstructorInfo? _extensionMarkerNameCtor;
+    ConstructorInfo? _extensionAttributeCtor;
 
     bool _emitTypeUnionAttribute = true;
     bool _emitNullType = true;
+    bool _emitExtensionMarkerNameAttribute = true;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
     {
@@ -681,6 +686,8 @@ internal class CodeGenerator
 
             if (_emitTypeUnionAttribute && (TypeUnionAttributeType is null || _compilation.Options.EmbedCoreTypes))
                 CreateTypeUnionAttribute();
+            if (_emitExtensionMarkerNameAttribute && (ExtensionMarkerNameAttributeType is null || _compilation.Options.EmbedCoreTypes))
+                CreateExtensionMarkerNameAttributeType();
             if (_emitNullType && (NullType is null || _compilation.Options.EmbedCoreTypes))
                 CreateNullStruct();
             if (UnitType is null || _compilation.Options.EmbedCoreTypes)
@@ -761,6 +768,10 @@ internal class CodeGenerator
 
     private void DetermineShimTypeRequirements()
     {
+        _emitExtensionMarkerNameAttribute = Compilation.SyntaxTrees
+            .SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>())
+            .Any();
+
         var types = Compilation.Module.GlobalNamespace
             .GetAllMembersRecursive()
             .OfType<ITypeSymbol>()
@@ -835,6 +846,10 @@ internal class CodeGenerator
     {
         TypeUnionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TypeUnionAttribute")
             ?? Compilation.ResolveRuntimeType("TypeUnionAttribute");
+        ExtensionMarkerNameAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionMarkerNameAttribute");
+        _extensionMarkerNameCtor ??= ExtensionMarkerNameAttributeType?.GetConstructor(new[] { typeof(string) });
+        ExtensionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
+        _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
         NullType ??= Compilation.ResolveRuntimeType("Null");
         UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
 
@@ -928,6 +943,96 @@ internal class CodeGenerator
 
         // Create the type
         TypeUnionAttributeType = attrBuilder.CreateType();
+    }
+
+    private void CreateExtensionMarkerNameAttributeType()
+    {
+        if (ExtensionMarkerNameAttributeType is not null)
+            return;
+
+        var attrBuilder = ModuleBuilder.DefineType(
+            "System.Runtime.CompilerServices.ExtensionMarkerNameAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            typeof(Attribute));
+
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)]);
+        var attrUsageBuilder = new CustomAttributeBuilder(
+            attrUsageCtor,
+            [AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum | AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Event | AttributeTargets.Interface | AttributeTargets.Delegate]);
+        attrBuilder.SetCustomAttribute(attrUsageBuilder);
+
+        var nameField = attrBuilder.DefineField(
+            "<Name>k__BackingField",
+            typeof(string),
+            FieldAttributes.Private | FieldAttributes.InitOnly);
+
+        var propBuilder = attrBuilder.DefineProperty(
+            "Name",
+            PropertyAttributes.None,
+            typeof(string),
+            null);
+
+        var getterMethod = attrBuilder.DefineMethod(
+            "get_Name",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
+            typeof(string),
+            Type.EmptyTypes);
+
+        var ilGet = getterMethod.GetILGenerator();
+        ilGet.Emit(OpCodes.Ldarg_0);
+        ilGet.Emit(OpCodes.Ldfld, nameField);
+        ilGet.Emit(OpCodes.Ret);
+
+        propBuilder.SetGetMethod(getterMethod);
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            new[] { typeof(string) });
+
+        var ilCtor = ctorBuilder.GetILGenerator();
+        var attributeCtor = typeof(Attribute).GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        if (attributeCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        ilCtor.Emit(OpCodes.Ldarg_0);
+        ilCtor.Emit(OpCodes.Call, attributeCtor);
+        ilCtor.Emit(OpCodes.Ldarg_0);
+        ilCtor.Emit(OpCodes.Ldarg_1);
+        ilCtor.Emit(OpCodes.Stfld, nameField);
+        ilCtor.Emit(OpCodes.Ret);
+
+        ExtensionMarkerNameAttributeType = attrBuilder.CreateType();
+        _extensionMarkerNameCtor = ExtensionMarkerNameAttributeType.GetConstructor(new[] { typeof(string) });
+    }
+
+    internal CustomAttributeBuilder? CreateExtensionMarkerNameAttribute(string markerName)
+    {
+        if (string.IsNullOrWhiteSpace(markerName))
+            return null;
+
+        if (ExtensionMarkerNameAttributeType is null || _extensionMarkerNameCtor is null)
+        {
+            if (_emitExtensionMarkerNameAttribute)
+                CreateExtensionMarkerNameAttributeType();
+        }
+
+        if (_extensionMarkerNameCtor is null)
+            return null;
+
+        return new CustomAttributeBuilder(_extensionMarkerNameCtor, new object[] { markerName });
+    }
+
+    internal CustomAttributeBuilder? CreateExtensionAttributeBuilder()
+    {
+        if (ExtensionAttributeType is null)
+            ExtensionAttributeType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
+
+        _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
+        if (_extensionAttributeCtor is null)
+            return null;
+
+        return new CustomAttributeBuilder(_extensionAttributeCtor, Array.Empty<object>());
     }
 
     private void CreateNullStruct()

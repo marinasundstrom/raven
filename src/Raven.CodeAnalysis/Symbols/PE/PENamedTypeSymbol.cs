@@ -20,6 +20,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
     private readonly ITypeSymbol? _constructedFrom;
     private readonly ITypeSymbol? _originalDefinition;
+    private bool _extensionReceiverTypeComputed;
+    private ITypeSymbol? _extensionReceiverType;
+    private bool _extensionMarkerMembersComputed;
+    private bool _hasExtensionMarkerMembers;
 
     internal static PENamedTypeSymbol Create(
         TypeResolver typeResolver,
@@ -221,6 +225,91 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             TypeKind = TypeKind.Class;
 
         (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();
+    }
+
+    internal ITypeSymbol? GetExtensionReceiverType()
+    {
+        if (_extensionReceiverTypeComputed)
+            return _extensionReceiverType;
+
+        _extensionReceiverTypeComputed = true;
+
+        foreach (var method in GetMembers().OfType<IMethodSymbol>())
+        {
+            if (!method.IsStatic || !method.IsExtensionMethod)
+                continue;
+
+            if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+                continue;
+
+            _extensionReceiverType = method.Parameters[0].Type;
+            break;
+        }
+
+        return _extensionReceiverType;
+    }
+
+    internal bool HasExtensionMarkerMembers()
+    {
+        if (_extensionMarkerMembersComputed)
+            return _hasExtensionMarkerMembers;
+
+        _extensionMarkerMembersComputed = true;
+
+        foreach (var member in GetMembers())
+        {
+            if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
+            {
+                _hasExtensionMarkerMembers = true;
+                return true;
+            }
+
+            if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
+            {
+                _hasExtensionMarkerMembers = true;
+                return true;
+            }
+        }
+
+        _hasExtensionMarkerMembers = false;
+        return false;
+    }
+
+    internal ITypeSymbol? GetExtensionMarkerReceiverType(ISymbol member)
+    {
+        if (member.ContainingType is not PENamedTypeSymbol)
+            return null;
+
+        if (!TryGetExtensionMarkerName(member, out var markerName))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(markerName))
+            return null;
+
+        var markerType = GetMembers(markerName).OfType<INamedTypeSymbol>().FirstOrDefault();
+        if (markerType is null)
+            return null;
+
+        var markerMethod = markerType.GetMembers("<Extension>$").OfType<IMethodSymbol>().FirstOrDefault()
+            ?? markerType.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "<Extension>$");
+
+        if (markerMethod is null || markerMethod.Parameters.IsDefaultOrEmpty)
+            return null;
+
+        var receiverType = markerMethod.Parameters[0].Type;
+        return receiverType;
+    }
+
+    private static bool TryGetExtensionMarkerName(ISymbol member, out string markerName)
+    {
+        markerName = string.Empty;
+
+        return member switch
+        {
+            PEMethodSymbol peMethod => peMethod.TryGetExtensionMarkerName(out markerName),
+            PEPropertySymbol peProperty => peProperty.TryGetExtensionMarkerName(out markerName),
+            _ => false
+        };
     }
 
     public override SymbolKind Kind => SymbolKind.Type;
@@ -666,4 +755,3 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
     }
 }
-
