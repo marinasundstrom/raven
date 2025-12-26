@@ -19,5 +19,6 @@
     <ProjectReference Include="..\Raven.Core\Raven.Core.csproj" Condition="'$(UseRavenCoreReference)' == 'true'" />
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
     <ProjectReference Include="..\Raven.CodeAnalysis.Console\Raven.CodeAnalysis.Console.csproj" />
+    <ProjectReference Include="..\RavenDoc\RavenDoc.csproj" />
   </ItemGroup>
 </Project>
