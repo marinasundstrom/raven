@@ -725,6 +725,9 @@ internal abstract class Binder
             var parameterArguments = parameterNamed.TypeArguments;
             var argumentArguments = argumentNamed.TypeArguments;
 
+            if (parameterArguments.IsDefault || argumentArguments.IsDefault)
+                return false;
+
             if (parameterArguments.Length != argumentArguments.Length)
                 return false;
 
