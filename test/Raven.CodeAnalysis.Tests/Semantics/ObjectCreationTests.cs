@@ -9,11 +9,11 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
+            let foo = Foo();
+
             class Foo {
                 init () {}
             }
-
-            let foo = Foo();
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -26,6 +26,8 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
+            let i = Foo(3);
+
             class Foo {
                 init () {}
             }
@@ -33,8 +35,6 @@ public class ObjectCreationTests : DiagnosticTestBase
             func Foo(x: int) -> int {
                 return x;
             }
-
-            let i = Foo(3);
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -47,15 +47,15 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
+            let i = Foo(1);
+
+            func Foo() -> unit {}
+
             class Foo {
                 init () {}
 
                 init (x: int) {} 
             }
-
-            func Foo() -> unit {}
-            
-            let i = Foo(1);
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -68,6 +68,9 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
+            let p = Person.WithName("John");
+            let n = p.GetName();
+
             class Person {
                 var name: string;
 
@@ -77,9 +80,6 @@ public class ObjectCreationTests : DiagnosticTestBase
 
                 public GetName() -> string => name;
             }
-
-            let p = Person.WithName("John");
-            let n = p.GetName();
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -92,6 +92,9 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
+            let p = Person.WithName("John");
+            let n = p.GetName();
+
             class Person {
                 var name: string;
 
@@ -102,9 +105,6 @@ public class ObjectCreationTests : DiagnosticTestBase
 
                 public GetName() -> string => name;
             }
-
-            let p = Person.WithName("John");
-            let n = p.GetName();
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -117,11 +117,11 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
+            let f = Foo();
+
             class Foo {
                 var x: int;
             }
-
-            let f = Foo();
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -166,13 +166,13 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
+            let person = Person("John")
+            let name = person.GetName()
+
             class Person(name: string)
             {
                 public GetName() -> string => name
             }
-
-            let person = Person("John")
-            let name = person.GetName()
             """;
 
         var verifier = CreateVerifier(testCode);
