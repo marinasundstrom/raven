@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 namespace Raven.MetadataFixtures.StaticExtensions;
 
 public sealed class Widget
@@ -17,7 +15,6 @@ public static class WidgetExtensions
     public static int Double(this Widget widget)
         => widget.Value * 2;
 
-    [Extension]
     public static Widget Create(int value)
         => new Widget(value);
 }

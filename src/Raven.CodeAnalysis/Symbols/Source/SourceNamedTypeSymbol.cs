@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using Raven.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Raven.CodeAnalysis.Symbols;
 

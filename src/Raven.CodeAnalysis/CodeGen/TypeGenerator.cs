@@ -558,29 +558,14 @@ internal class TypeGenerator
                         var propertyType = ResolveClrType(propertySymbol.Type);
 
                         Type[]? paramTypes = null;
-                        if (getterSymbol is not null)
+                        if (propertySymbol.IsIndexer)
                         {
-                            var getterParams = getterSymbol.Parameters
-                                .Select(p => ResolveClrType(p.Type))
-                                .ToArray();
-
-                            if (getterParams.Length > 0)
-                                paramTypes = getterParams;
-                        }
-                        else if (setterSymbol is not null)
-                        {
-                            var setterParams = setterSymbol.Parameters;
-                            var paramCount = setterSymbol.MethodKind == MethodKind.PropertySet
-                                ? setterParams.Length - 1
-                                : setterParams.Length;
-
-                            if (paramCount > 0)
+                            var parameters = propertySymbol.Parameters;
+                            if (!parameters.IsDefaultOrEmpty)
                             {
-                                var builder = new Type[paramCount];
-                                for (var i = 0; i < paramCount; i++)
-                                    builder[i] = ResolveClrType(setterParams[i].Type);
-
-                                paramTypes = builder;
+                                paramTypes = parameters
+                                    .Select(p => ResolveClrType(p.Type))
+                                    .ToArray();
                             }
                         }
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
