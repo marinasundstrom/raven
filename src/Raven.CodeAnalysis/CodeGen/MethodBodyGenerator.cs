@@ -299,6 +299,8 @@ internal class MethodBodyGenerator
         BoundBlockStatement? boundBody = syntax switch
         {
             MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockStatement,
+            OperatorDeclarationSyntax o when o.Body != null => semanticModel.GetBoundNode(o.Body) as BoundBlockStatement,
+            ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockStatement,
             FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockStatement,
             BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockStatement,
             AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockStatement,
@@ -309,6 +311,10 @@ internal class MethodBodyGenerator
         {
             MethodDeclarationSyntax m when m.ExpressionBody is not null
                 => semanticModel.GetBoundNode(m.ExpressionBody.Expression) as BoundExpression,
+            OperatorDeclarationSyntax o when o.ExpressionBody is not null
+                => semanticModel.GetBoundNode(o.ExpressionBody.Expression) as BoundExpression,
+            ConversionOperatorDeclarationSyntax c when c.ExpressionBody is not null
+                => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
             BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null
                 => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null
@@ -323,6 +329,8 @@ internal class MethodBodyGenerator
         ExpressionSyntax? expressionBodySyntax = syntax switch
         {
             MethodDeclarationSyntax m when m.ExpressionBody is not null => m.ExpressionBody.Expression,
+            OperatorDeclarationSyntax o when o.ExpressionBody is not null => o.ExpressionBody.Expression,
+            ConversionOperatorDeclarationSyntax c when c.ExpressionBody is not null => c.ExpressionBody.Expression,
             BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null => c.ExpressionBody.Expression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null => a.ExpressionBody.Expression,
             PropertyDeclarationSyntax p when p.ExpressionBody is not null => p.ExpressionBody.Expression,
@@ -427,6 +435,22 @@ internal class MethodBodyGenerator
                 }
                 else
                     ILGenerator.Emit(OpCodes.Ret);
+                break;
+            case OperatorDeclarationSyntax:
+            case ConversionOperatorDeclarationSyntax:
+                if (boundBody != null)
+                    EmitMethodBlock(boundBody);
+                else if (expressionBody is not null)
+                {
+                    if (expressionBodySyntax is not null)
+                        EmitSequencePoint(expressionBodySyntax);
+
+                    EmitExpressionBody(expressionBody);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ret);
+                }
                 break;
 
             case BaseConstructorDeclarationSyntax constructorDeclaration:
