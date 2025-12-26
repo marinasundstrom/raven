@@ -20,9 +20,12 @@ internal class TypeGenerator
 
     private Compilation _compilation;
     private const string ExtensionMarkerMethodName = "<Extension>$";
-    private const string ExtensionMarkerTypeName = "<>__RavenExtensionMarker";
-    private string? _extensionMarkerName;
+    private const string ExtensionGroupingTypePrefix = "<>__RavenExtensionGrouping_For_";
+    private const string ExtensionMarkerTypePrefix = "<>__RavenExtensionMarker_";
+    private TypeBuilder? _extensionGroupingTypeBuilder;
     private TypeBuilder? _extensionMarkerTypeBuilder;
+    private string? _extensionMarkerName;
+    private GenericTypeParameterBuilder[]? _extensionGroupingTypeParameters;
 
     public CodeGenerator CodeGen { get; }
     public Compilation Compilation => _compilation ??= CodeGen.Compilation;
@@ -48,6 +51,12 @@ internal class TypeGenerator
 
         if (TypeSymbol is INamedTypeSymbol named)
         {
+            if (named is SourceNamedTypeSymbol sourceNamed && sourceNamed.IsExtensionDeclaration)
+            {
+                DefineExtensionContainerTypeBuilder(named);
+                return;
+            }
+
             if (named.TypeKind == TypeKind.Delegate)
             {
                 var accessibilityAttributes = GetTypeAccessibilityAttributes(named);
@@ -244,7 +253,7 @@ internal class TypeGenerator
             TypeBuilder!.SetCustomAttribute(discriminatedUnionCaseAttribute);
         }
 
-        EnsureExtensionMarkerType();
+        EnsureExtensionGroupingType();
     }
 
     private static string GetNestedTypeMetadataName(INamedTypeSymbol type)
@@ -476,6 +485,9 @@ internal class TypeGenerator
             return;
         }
 
+        if (TypeSymbol is SourceNamedTypeSymbol sourceType && sourceType.IsExtensionDeclaration)
+            DefineExtensionGroupingMembers();
+
         foreach (var memberSymbol in TypeSymbol.GetMembers())
         {
             if (memberSymbol.ContainingType is { } containingType &&
@@ -655,6 +667,7 @@ internal class TypeGenerator
             closure.CreateType();
 
         _extensionMarkerTypeBuilder?.CreateType();
+        _extensionGroupingTypeBuilder?.CreateType();
         Type ??= TypeBuilder!.CreateType();
         ReleaseInheritedGenericParameters();
         return Type!;
@@ -665,7 +678,6 @@ internal class TypeGenerator
         if (!ShouldApplyExtensionMarkerName(methodSymbol))
             return;
 
-        EnsureExtensionMarkerType();
         if (_extensionMarkerName is null)
             return;
 
@@ -679,7 +691,6 @@ internal class TypeGenerator
         if (!ShouldApplyExtensionMarkerName(propertySymbol))
             return;
 
-        EnsureExtensionMarkerType();
         if (_extensionMarkerName is null)
             return;
 
@@ -693,11 +704,7 @@ internal class TypeGenerator
         if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
             return false;
 
-        return methodSymbol.MethodKind is MethodKind.Ordinary
-            or MethodKind.PropertyGet
-            or MethodKind.PropertySet
-            or MethodKind.Conversion
-            or MethodKind.UserDefinedOperator;
+        return false;
     }
 
     private bool ShouldApplyExtensionMarkerName(IPropertySymbol propertySymbol)
@@ -705,12 +712,58 @@ internal class TypeGenerator
         if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
             return false;
 
-        return !propertySymbol.IsIndexer;
+        return false;
     }
 
-    private void EnsureExtensionMarkerType()
+    private void DefineExtensionContainerTypeBuilder(INamedTypeSymbol named)
     {
-        if (_extensionMarkerTypeBuilder is not null)
+        TypeAttributes typeAttributes = GetTypeAccessibilityAttributes(named);
+
+        if (named.IsAbstract)
+            typeAttributes |= TypeAttributes.Abstract;
+
+        if (named.IsSealed)
+            typeAttributes |= TypeAttributes.Sealed;
+
+        TypeBuilder? containingTypeBuilder = null;
+        if (named.ContainingType is INamedTypeSymbol containingType)
+        {
+            var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
+            if (containingGenerator.TypeBuilder is null)
+                containingGenerator.DefineTypeBuilder();
+
+            containingTypeBuilder = containingGenerator.TypeBuilder;
+        }
+
+        var baseClrType = named.BaseType is not null
+            ? ResolveClrType(named.BaseType)
+            : null;
+
+        if (containingTypeBuilder is not null)
+        {
+            var nestedName = named.Name;
+            TypeBuilder = containingTypeBuilder.DefineNestedType(
+                nestedName,
+                typeAttributes,
+                baseClrType);
+        }
+        else
+        {
+            var metadataName = named.ContainingNamespace?.QualifyName(named.Name) ?? named.Name;
+            TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                metadataName,
+                typeAttributes,
+                baseClrType);
+        }
+
+        CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+
+        EnsureExtensionGroupingType();
+    }
+
+    private void EnsureExtensionGroupingType()
+    {
+        if (_extensionGroupingTypeBuilder is not null)
             return;
 
         if (TypeBuilder is null)
@@ -723,22 +776,320 @@ internal class TypeGenerator
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return;
 
-        _extensionMarkerName = ExtensionMarkerTypeName;
+        var groupingTypeName = GetExtensionGroupingTypeName(receiverType);
+        _extensionGroupingTypeBuilder = TypeBuilder.DefineNestedType(
+            groupingTypeName,
+            TypeAttributes.NestedPublic | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.SpecialName);
 
-        _extensionMarkerTypeBuilder = TypeBuilder.DefineNestedType(
+        DefineExtensionGroupingTypeParameters(receiverType);
+
+        var extensionAttribute = CodeGen.CreateExtensionAttributeBuilder();
+        if (extensionAttribute is not null)
+            _extensionGroupingTypeBuilder.SetCustomAttribute(extensionAttribute);
+
+        DefineExtensionMarkerType(receiverType);
+    }
+
+    private void DefineExtensionGroupingTypeParameters(ITypeSymbol receiverType)
+    {
+        if (_extensionGroupingTypeBuilder is null)
+            return;
+
+        if (receiverType is not INamedTypeSymbol namedReceiver || namedReceiver.TypeArguments.IsDefaultOrEmpty)
+            return;
+
+        var names = new string[namedReceiver.TypeArguments.Length];
+        for (int i = 0; i < names.Length; i++)
+            names[i] = $"T{i}";
+
+        _extensionGroupingTypeParameters = _extensionGroupingTypeBuilder.DefineGenericParameters(names);
+    }
+
+    private void DefineExtensionMarkerType(ITypeSymbol receiverType)
+    {
+        if (_extensionGroupingTypeBuilder is null)
+            return;
+
+        _extensionMarkerName = GetExtensionMarkerTypeName(receiverType);
+        _extensionMarkerTypeBuilder = _extensionGroupingTypeBuilder.DefineNestedType(
             _extensionMarkerName,
             TypeAttributes.NestedPublic | TypeAttributes.Class | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.SpecialName);
+
+        var receiverClrType = ResolveExtensionGroupingType(receiverType);
 
         var markerMethod = _extensionMarkerTypeBuilder.DefineMethod(
             ExtensionMarkerMethodName,
             MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
             typeof(void),
-            new[] { ResolveClrType(receiverType) });
+            new[] { receiverClrType });
+
+        markerMethod.DefineParameter(1, ParameterAttributes.None, "self");
 
         var il = markerMethod.GetILGenerator();
         il.Emit(OpCodes.Ret);
     }
 
+    private string GetExtensionGroupingTypeName(ITypeSymbol receiverType)
+        => ExtensionGroupingTypePrefix + GetExtensionReceiverSuffix(receiverType);
+
+    private string GetExtensionMarkerTypeName(ITypeSymbol receiverType)
+        => ExtensionMarkerTypePrefix + $"{TypeSymbol.Name}_for_{GetExtensionReceiverSuffix(receiverType)}";
+
+    private string GetExtensionReceiverSuffix(ITypeSymbol receiverType)
+    {
+        switch (receiverType)
+        {
+            case INamedTypeSymbol named:
+                {
+                    var baseName = named.Name;
+                    if (named.TypeArguments.IsDefaultOrEmpty)
+                        return baseName;
+
+                    var args = named.TypeArguments.Select(GetExtensionReceiverSuffix);
+                    return $"{baseName}_{string.Join("_", args)}";
+                }
+            case IArrayTypeSymbol arrayType:
+                return $"{GetExtensionReceiverSuffix(arrayType.ElementType)}_Array";
+            case ITypeParameterSymbol typeParameter:
+                return typeParameter.Name;
+            default:
+                return receiverType.Name;
+        }
+    }
+
+    private Type ResolveExtensionGroupingType(ITypeSymbol typeSymbol)
+    {
+        var typeParameters = GetExtensionTypeParameters();
+        var registered = false;
+        if (!typeParameters.IsDefaultOrEmpty && _extensionGroupingTypeParameters is not null)
+        {
+            CodeGen.RegisterGenericParameters(typeParameters, _extensionGroupingTypeParameters);
+            registered = true;
+        }
+
+        try
+        {
+            return ResolveClrType(typeSymbol);
+        }
+        finally
+        {
+            if (registered)
+                CodeGen.UnregisterGenericParameters(typeParameters);
+        }
+    }
+
+    internal ImmutableArray<ITypeParameterSymbol> GetExtensionTypeParameters()
+        => TypeSymbol is SourceNamedTypeSymbol sourceType && sourceType.IsExtensionDeclaration
+            ? sourceType.TypeParameters
+            : ImmutableArray<ITypeParameterSymbol>.Empty;
+
+    private void DefineExtensionGroupingMembers()
+    {
+        if (_extensionGroupingTypeBuilder is null || _extensionMarkerName is null)
+            return;
+
+        var markerAttribute = CodeGen.CreateExtensionMarkerNameAttribute(_extensionMarkerName);
+        if (markerAttribute is null)
+            return;
+
+        var extensionTypeParameters = GetExtensionTypeParameters();
+        var registered = false;
+        if (!extensionTypeParameters.IsDefaultOrEmpty && _extensionGroupingTypeParameters is not null)
+        {
+            CodeGen.RegisterGenericParameters(extensionTypeParameters, _extensionGroupingTypeParameters);
+            registered = true;
+        }
+
+        try
+        {
+            foreach (var memberSymbol in TypeSymbol.GetMembers())
+            {
+                if (memberSymbol.ContainingType is { } containingType &&
+                    !SymbolEqualityComparer.Default.Equals(containingType, TypeSymbol))
+                {
+                    continue;
+                }
+
+                switch (memberSymbol)
+                {
+                    case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
+                        DefineExtensionSkeletonMethod(methodSymbol, markerAttribute);
+                        break;
+                    case IPropertySymbol propertySymbol:
+                        DefineExtensionSkeletonProperty(propertySymbol, markerAttribute);
+                        break;
+                }
+            }
+        }
+        finally
+        {
+            if (registered)
+                CodeGen.UnregisterGenericParameters(extensionTypeParameters);
+        }
+    }
+
+    private void DefineExtensionSkeletonMethod(IMethodSymbol methodSymbol, CustomAttributeBuilder markerAttribute)
+    {
+        if (_extensionGroupingTypeBuilder is null)
+            return;
+
+        if (methodSymbol.MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor or MethodKind.LambdaMethod)
+            return;
+
+        var isExtensionInstance = methodSymbol.IsExtensionMethod;
+        var isStatic = methodSymbol.IsStatic && !isExtensionInstance;
+        var parameters = methodSymbol.Parameters;
+
+        var parameterSymbols = isExtensionInstance && parameters.Length > 0
+            ? parameters.Skip(1).ToArray()
+            : parameters.ToArray();
+
+        var parameterTypes = parameterSymbols
+            .Select(p => ResolveClrType(p.Type))
+            .Select((type, index) =>
+            {
+                var parameter = parameterSymbols[index];
+                return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? type.MakeByRefType()
+                    : type;
+            })
+            .ToArray();
+
+        var returnType = methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+            ? typeof(void)
+            : ResolveClrType(methodSymbol.ReturnType);
+
+        var attributes = MethodAttributes.Public | MethodAttributes.HideBySig;
+
+        if (isStatic)
+            attributes |= MethodAttributes.Static;
+
+        if (methodSymbol.MethodKind is MethodKind.Conversion or MethodKind.UserDefinedOperator or MethodKind.PropertyGet or MethodKind.PropertySet)
+            attributes |= MethodAttributes.SpecialName;
+
+        var methodBuilder = _extensionGroupingTypeBuilder.DefineMethod(
+            methodSymbol.Name,
+            attributes,
+            CallingConventions.Standard,
+            returnType,
+            parameterTypes);
+
+        for (int i = 0; i < parameterSymbols.Length; i++)
+        {
+            var parameter = parameterSymbols[i];
+            methodBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
+        }
+
+        methodBuilder.SetCustomAttribute(markerAttribute);
+        EmitSkeletonMethodBody(methodBuilder);
+    }
+
+    private void DefineExtensionSkeletonProperty(IPropertySymbol propertySymbol, CustomAttributeBuilder markerAttribute)
+    {
+        if (_extensionGroupingTypeBuilder is null)
+            return;
+
+        var propertyType = ResolveClrType(propertySymbol.Type);
+        var getMethod = propertySymbol.GetMethod;
+        var setMethod = propertySymbol.SetMethod;
+
+        MethodBuilder? getterBuilder = null;
+        MethodBuilder? setterBuilder = null;
+
+        if (getMethod is not null)
+            getterBuilder = DefineExtensionSkeletonAccessor(getMethod, propertyType, markerAttribute);
+
+        if (setMethod is not null)
+            setterBuilder = DefineExtensionSkeletonAccessor(setMethod, typeof(void), markerAttribute);
+
+        var propertyParameters = propertySymbol.Parameters;
+        var parameterSymbols = propertyParameters.Length > 0 && (getMethod?.IsExtensionMethod == true || setMethod?.IsExtensionMethod == true)
+            ? propertyParameters.Skip(1).ToArray()
+            : propertyParameters.ToArray();
+
+        var parameterTypes = parameterSymbols
+            .Select(p => ResolveClrType(p.Type))
+            .Select((type, index) =>
+            {
+                var parameter = parameterSymbols[index];
+                return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? type.MakeByRefType()
+                    : type;
+            })
+            .ToArray();
+
+        var propertyBuilder = _extensionGroupingTypeBuilder.DefineProperty(
+            propertySymbol.MetadataName,
+            PropertyAttributes.None,
+            propertyType,
+            parameterTypes);
+
+        if (getterBuilder is not null)
+            propertyBuilder.SetGetMethod(getterBuilder);
+        if (setterBuilder is not null)
+            propertyBuilder.SetSetMethod(setterBuilder);
+
+        propertyBuilder.SetCustomAttribute(markerAttribute);
+    }
+
+    private MethodBuilder DefineExtensionSkeletonAccessor(
+        IMethodSymbol accessorSymbol,
+        Type returnType,
+        CustomAttributeBuilder markerAttribute)
+    {
+        if (_extensionGroupingTypeBuilder is null)
+            throw new InvalidOperationException("Grouping type builder is not available.");
+
+        var isExtensionInstance = accessorSymbol.IsExtensionMethod;
+        var isStatic = accessorSymbol.IsStatic && !isExtensionInstance;
+
+        var parameters = accessorSymbol.Parameters;
+        var parameterSymbols = isExtensionInstance && parameters.Length > 0
+            ? parameters.Skip(1).ToArray()
+            : parameters.ToArray();
+
+        var parameterTypes = parameterSymbols
+            .Select(p => ResolveClrType(p.Type))
+            .Select((type, index) =>
+            {
+                var parameter = parameterSymbols[index];
+                return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? type.MakeByRefType()
+                    : type;
+            })
+            .ToArray();
+
+        var attributes = MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName;
+
+        if (isStatic)
+            attributes |= MethodAttributes.Static;
+
+        var accessorBuilder = _extensionGroupingTypeBuilder.DefineMethod(
+            accessorSymbol.Name,
+            attributes,
+            CallingConventions.Standard,
+            returnType,
+            parameterTypes);
+
+        for (int i = 0; i < parameterSymbols.Length; i++)
+        {
+            var parameter = parameterSymbols[i];
+            accessorBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
+        }
+
+        accessorBuilder.SetCustomAttribute(markerAttribute);
+        EmitSkeletonMethodBody(accessorBuilder);
+        return accessorBuilder;
+    }
+
+    private static void EmitSkeletonMethodBody(MethodBuilder methodBuilder)
+    {
+        var ctor = typeof(NotImplementedException).GetConstructor(Type.EmptyTypes);
+        var il = methodBuilder.GetILGenerator();
+        if (ctor is not null)
+            il.Emit(OpCodes.Newobj, ctor);
+        il.Emit(OpCodes.Throw);
+    }
     private void ReleaseInheritedGenericParameters()
     {
         if (_releasedInheritedTypeParameters)
