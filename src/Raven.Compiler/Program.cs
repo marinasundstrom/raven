@@ -737,6 +737,7 @@ static void PrintHelp()
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
     Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
     Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
+    Console.WriteLine("  --emit-docs       Emit documentation from comments");
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  -o <path>          Output assembly path");
