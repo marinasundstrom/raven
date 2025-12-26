@@ -222,6 +222,9 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         if (_methodInfo is null || !_methodInfo.IsStatic)
             return false;
 
+        if (Parameters.IsDefaultOrEmpty || Parameters.Length == 0)
+            return false;
+
         try
         {
             if (HasExtensionAttribute(_methodInfo.GetCustomAttributesData()))

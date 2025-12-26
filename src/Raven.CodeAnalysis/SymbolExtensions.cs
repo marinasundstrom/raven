@@ -101,6 +101,9 @@ public static partial class SymbolExtensions
             SourceNamedTypeSymbol sourceType when sourceType.IsExtensionDeclaration => sourceType.ExtensionReceiverType,
             ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is SourceNamedTypeSymbol sourceType
                 => sourceType.ExtensionReceiverType is { } receiverType ? constructed.Substitute(receiverType) : null,
+            PENamedTypeSymbol peType => peType.GetExtensionReceiverType(),
+            ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is PENamedTypeSymbol peType
+                => peType.GetExtensionReceiverType() is { } receiverType ? constructed.Substitute(receiverType) : null,
             _ => null
         };
     }

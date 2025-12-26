@@ -19,6 +19,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _isVirtual;
     private bool _isSealed;
     private bool _declaredInExtension;
+    private bool _declaredInExtensionContainer;
     private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
     private bool? _lazyIsExtensionMethod;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
@@ -215,12 +216,18 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     internal void MarkDeclaredInExtension()
     {
         _declaredInExtension = true;
+        _declaredInExtensionContainer = true;
         _lazyIsExtensionMethod = true;
+    }
+
+    internal void MarkDeclaredInExtensionContainer()
+    {
+        _declaredInExtensionContainer = true;
     }
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
-        if (!_declaredInExtension && !IsAutoPropertyAccessor)
+        if (!_declaredInExtensionContainer && !IsAutoPropertyAccessor)
             return base.GetAttributes();
 
         if (_lazyAugmentedAttributes.IsDefault)
@@ -235,7 +242,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                     builder.Add(compilerGenerated);
             }
 
-            if (_declaredInExtension)
+            if (_declaredInExtensionContainer)
             {
                 var extensionAttribute = CreateExtensionAttributeData();
                 if (extensionAttribute is not null)

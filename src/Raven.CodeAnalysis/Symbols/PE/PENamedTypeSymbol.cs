@@ -20,6 +20,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
     private readonly ITypeSymbol? _constructedFrom;
     private readonly ITypeSymbol? _originalDefinition;
+    private bool _extensionReceiverTypeComputed;
+    private ITypeSymbol? _extensionReceiverType;
 
     internal static PENamedTypeSymbol Create(
         TypeResolver typeResolver,
@@ -221,6 +223,28 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             TypeKind = TypeKind.Class;
 
         (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();
+    }
+
+    internal ITypeSymbol? GetExtensionReceiverType()
+    {
+        if (_extensionReceiverTypeComputed)
+            return _extensionReceiverType;
+
+        _extensionReceiverTypeComputed = true;
+
+        foreach (var method in GetMembers().OfType<IMethodSymbol>())
+        {
+            if (!method.IsStatic || !method.IsExtensionMethod)
+                continue;
+
+            if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+                continue;
+
+            _extensionReceiverType = method.Parameters[0].Type;
+            break;
+        }
+
+        return _extensionReceiverType;
     }
 
     public override SymbolKind Kind => SymbolKind.Type;
@@ -666,4 +690,3 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
     }
 }
-
