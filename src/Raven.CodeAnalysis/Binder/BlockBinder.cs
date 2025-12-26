@@ -845,17 +845,18 @@ partial class BlockBinder : Binder
             case SyntaxKind.UnaryPlusExpression:
                 {
                     var opKind = unaryExpression.OperatorToken.Kind;
+                    var operandType = operand.Type ?? Compilation.ErrorTypeSymbol;
                     var userDefined = BindUserDefinedUnaryOperator(opKind, operand, unaryExpression.OperatorToken.GetLocation(), unaryExpression.Expression, unaryExpression);
                     if (userDefined is not null)
                         return userDefined;
 
-                    if (BoundUnaryOperator.TryLookup(Compilation, opKind, operand.Type, out var op))
+                    if (BoundUnaryOperator.TryLookup(Compilation, opKind, operandType, out var op))
                         return new BoundUnaryExpression(op, operand);
 
                     var operatorText = SyntaxFacts.GetSyntaxTokenText(opKind) ?? opKind.ToString();
                     _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                         operatorText,
-                        operand.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         unaryExpression.OperatorToken.GetLocation());
                     return ErrorExpression(reason: BoundExpressionReason.NotFound);
                 }
@@ -4406,6 +4407,9 @@ partial class BlockBinder : Binder
         {
             foreach (var method in type.GetMembers(metadataName).OfType<IMethodSymbol>())
             {
+                if (method.MethodKind != MethodKind.UserDefinedOperator)
+                    continue;
+
                 if (!method.IsStatic || method.IsExtensionMethod)
                     continue;
 
