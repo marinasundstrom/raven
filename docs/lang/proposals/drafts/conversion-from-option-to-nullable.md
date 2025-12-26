@@ -38,7 +38,7 @@ This proposal depends on separate features: user-defined conversion operators an
 ## Status
 
 * ✅ Syntax and binding for `explicit operator` / `implicit operator` declarations are implemented.
-* 🟡 Conversion operator lookup and usage in casts/overload resolution are still pending.
+* ✅ Conversion operators are discovered during cast binding and implicit conversion checks used by overload resolution.
 * ⏳ Static extension conversion operators remain blocked on the extension operator work.
 
 ## Motivation

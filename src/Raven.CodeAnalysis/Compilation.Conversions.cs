@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
-    public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
+    public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)
     {
         if (source is null || destination is null)
             return Conversion.None;
@@ -181,7 +181,7 @@ public partial class Compilation
 
         if (source is NullableTypeSymbol nullableSource)
         {
-            var conv = ClassifyConversion(nullableSource.UnderlyingType, destination);
+            var conv = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
             if (conv.Exists)
             {
                 var isImplicit = !nullableSource.UnderlyingType.MetadataIdentityEquals(destination) && conv.IsImplicit;
@@ -208,7 +208,7 @@ public partial class Compilation
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
             }
 
-            var conv = ClassifyConversion(source, nullableDest.UnderlyingType);
+            var conv = ClassifyConversion(source, nullableDest.UnderlyingType, includeUserDefined);
             if (conv.Exists)
                 return Finalize(new Conversion(
                     isImplicit: true,
@@ -224,7 +224,7 @@ public partial class Compilation
 
         if (source is ITypeUnionSymbol unionSource2)
         {
-            var conversions = unionSource2.Types.Select(t => ClassifyConversion(t, destination)).ToArray();
+            var conversions = unionSource2.Types.Select(t => ClassifyConversion(t, destination, includeUserDefined)).ToArray();
             if (conversions.All(c => c.Exists))
             {
                 var isImplicit = conversions.All(c => c.IsImplicit);
@@ -266,7 +266,7 @@ public partial class Compilation
 
             foreach (var branch in unionType.Types)
             {
-                var branchConversion = ClassifyConversion(source, branch);
+                var branchConversion = ClassifyConversion(source, branch, includeUserDefined);
                 if (branchConversion.Exists)
                 {
                     matchConversion = branchConversion;
@@ -285,7 +285,7 @@ public partial class Compilation
         }
 
         if (source is LiteralTypeSymbol litSrc2)
-            return Finalize(ClassifyConversion(litSrc2.UnderlyingType, destination));
+            return Finalize(ClassifyConversion(litSrc2.UnderlyingType, destination, includeUserDefined));
 
         if (IsReferenceConversion(source, destination))
         {
@@ -320,24 +320,22 @@ public partial class Compilation
         var sourceNamed = source as INamedTypeSymbol;
         var destinationNamed = destination as INamedTypeSymbol;
 
-        if (sourceNamed != null || destinationNamed != null)
+        if (includeUserDefined && (sourceNamed != null || destinationNamed != null))
         {
             IEnumerable<IMethodSymbol> candidateConversions =
                 Enumerable.Empty<IMethodSymbol>();
 
             if (sourceNamed != null)
                 candidateConversions = candidateConversions.Concat(sourceNamed.GetMembers().OfType<IMethodSymbol>());
-        if (destinationNamed != null && !source.MetadataIdentityEquals(destination))
+            if (destinationNamed != null && !source.MetadataIdentityEquals(destination))
                 candidateConversions = candidateConversions.Concat(destinationNamed.GetMembers().OfType<IMethodSymbol>());
 
             foreach (var method in candidateConversions)
             {
                 if (method.MethodKind is MethodKind.Conversion &&
                     method.Parameters.Length == 1 &&
-                    (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, source)
-                        || method.Parameters[0].Type.MetadataIdentityEquals(source)) &&
-                    (SymbolEqualityComparer.Default.Equals(method.ReturnType, destination)
-                        || method.ReturnType.MetadataIdentityEquals(destination)))
+                    ClassifyConversion(source, method.Parameters[0].Type, includeUserDefined: false) is { Exists: true, IsImplicit: true } &&
+                    ClassifyConversion(method.ReturnType, destination, includeUserDefined: false) is { Exists: true, IsImplicit: true })
                 {
                     var isImplicit = method.Name == "op_Implicit";
                     return Finalize(new Conversion(isImplicit: isImplicit, isUserDefined: true, methodSymbol: method));

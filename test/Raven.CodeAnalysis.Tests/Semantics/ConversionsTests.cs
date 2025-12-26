@@ -271,4 +271,37 @@ public class ConversionsTests : CompilationTestBase
             diagnostics,
             d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
     }
+
+    [Fact]
+    public void UserDefinedConversions_AreClassifiedWithImplicitAndExplicitFlags()
+    {
+        const string source = """
+        class Box {
+            public static implicit operator(value: Box) -> string { return "" }
+            public static explicit operator(value: Box) -> int { return 0 }
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        var boxDecl = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var boxType = (INamedTypeSymbol)model.GetDeclaredSymbol(boxDecl)!;
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var implicitConversion = compilation.ClassifyConversion(boxType, stringType);
+
+        Assert.True(implicitConversion.Exists);
+        Assert.True(implicitConversion.IsImplicit);
+        Assert.True(implicitConversion.IsUserDefined);
+        Assert.NotNull(implicitConversion.MethodSymbol);
+
+        var explicitConversion = compilation.ClassifyConversion(boxType, intType);
+
+        Assert.True(explicitConversion.Exists);
+        Assert.False(explicitConversion.IsImplicit);
+        Assert.True(explicitConversion.IsUserDefined);
+        Assert.NotNull(explicitConversion.MethodSymbol);
+    }
 }
