@@ -345,24 +345,21 @@ parameter as required.
 
 ### Operator declarations
 
-Types and extensions can declare overloadable operators using the `operator`
+Classes and structs can declare overloadable operators using the `operator`
 contextual keyword followed by one of the supported operator tokens (`+`, `-`,
 `*`, `/`, `%`, `^`, `&`, `&&`, `and`, `|`, `||`, `or`, `==`, `!=`, `<`, `<=`,
 `>`, `>=`, `!`, `++`, `--`). Operators mirror methods: they take a
 parenthesized parameter list, optional return-type arrow, and either a block
-body or expression body. Operators should be marked `static`; future validation
-will enforce the usual unary/binary arity rules for the chosen symbol.
+body or expression body. Operators must be `public static`, and the parameter
+count must match the chosen operator (unary or binary). Operator declarations
+are currently limited to classes and structs; extensions cannot declare
+operators yet.
 
 ```raven
 class Vector
 {
     public static operator +(left: Vector, right: Vector) -> Vector => Add(left, right)
     public static operator -(value: Vector) -> Vector { /* ... */ }
-}
-
-extension IntMath for int
-{
-    public static operator %(left: int, right: int) -> int => left % right
 }
 ```
 

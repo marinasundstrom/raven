@@ -92,4 +92,53 @@ extension IntOps for int
             compilation.GetDiagnostics(),
             d => d.Descriptor == CompilerDiagnostics.OperatorNotSupportedInExtensions);
     }
+
+    [Fact]
+    public void OperatorUsage_BinaryExpressionBindsUserDefinedOperator()
+    {
+        var source = """
+class Number
+{
+    public static operator +(left: Number, right: Number) -> Number { return left }
+}
+
+let a = Number()
+let b = Number()
+let c = a + b
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
+
+        Assert.Equal(MethodKind.UserDefinedOperator, symbol.MethodKind);
+        Assert.Equal("op_Addition", symbol.Name);
+    }
+
+    [Fact]
+    public void OperatorUsage_UnaryExpressionBindsUserDefinedOperator()
+    {
+        var source = """
+class Number
+{
+    public static operator -(value: Number) -> Number { return value }
+}
+
+let a = Number()
+let b = -a
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<UnaryExpressionSyntax>().Single();
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
+
+        Assert.Equal(MethodKind.UserDefinedOperator, symbol.MethodKind);
+        Assert.Equal("op_UnaryNegation", symbol.Name);
+    }
 }

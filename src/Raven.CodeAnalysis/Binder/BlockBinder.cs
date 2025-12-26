@@ -832,16 +832,37 @@ partial class BlockBinder : Binder
 
         var operand = BindExpression(unaryExpression.Expression);
 
-        return unaryExpression.Kind switch
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        switch (unaryExpression.Kind)
         {
-            SyntaxKind.LogicalNotExpression => operand,
-            SyntaxKind.UnaryMinusExpression => operand,
-            SyntaxKind.UnaryPlusExpression => operand,
+            case SyntaxKind.AddressOfExpression:
+                return BindAddressOfExpression(operand, unaryExpression);
 
-            SyntaxKind.AddressOfExpression => BindAddressOfExpression(operand, unaryExpression),
+            case SyntaxKind.LogicalNotExpression:
+            case SyntaxKind.UnaryMinusExpression:
+            case SyntaxKind.UnaryPlusExpression:
+                {
+                    var opKind = unaryExpression.OperatorToken.Kind;
+                    var userDefined = BindUserDefinedUnaryOperator(opKind, operand, unaryExpression.OperatorToken.GetLocation(), unaryExpression.Expression, unaryExpression);
+                    if (userDefined is not null)
+                        return userDefined;
 
-            _ => throw new NotSupportedException("Unsupported unary expression")
-        };
+                    if (BoundUnaryOperator.TryLookup(Compilation, opKind, operand.Type, out var op))
+                        return new BoundUnaryExpression(op, operand);
+
+                    var operatorText = SyntaxFacts.GetSyntaxTokenText(opKind) ?? opKind.ToString();
+                    _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
+                        operatorText,
+                        operand.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        unaryExpression.OperatorToken.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+
+            default:
+                throw new NotSupportedException("Unsupported unary expression");
+        }
     }
 
     private BoundExpression BindPostfixUnaryExpression(PostfixUnaryExpressionSyntax postfixUnary)
@@ -953,6 +974,7 @@ partial class BlockBinder : Binder
                 operand,
                 arrayAccess.Type ?? Compilation.ErrorTypeSymbol,
                 binaryOperatorKind,
+                operatorToken.Kind,
                 isPostfix,
                 value => BoundFactory.CreateArrayAssignmentExpression(arrayAccess, value)),
             BoundIndexerAccessExpression indexerAccess => BindIncrementCore(
@@ -960,6 +982,7 @@ partial class BlockBinder : Binder
                 operand,
                 indexerAccess.Type ?? Compilation.ErrorTypeSymbol,
                 binaryOperatorKind,
+                operatorToken.Kind,
                 isPostfix,
                 value => BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, value)),
             BoundFieldAccess fieldAccess => BindIncrementForField(fieldAccess, operandSyntax, binaryOperatorKind, isPostfix),
@@ -990,6 +1013,7 @@ partial class BlockBinder : Binder
             localAccess,
             targetType,
             binaryOperatorKind,
+            binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
             value => localType is ByRefTypeSymbol byRef
                 ? BoundFactory.CreateByRefAssignmentExpression(localAccess, byRef.ElementType, value)
@@ -1017,6 +1041,7 @@ partial class BlockBinder : Binder
             parameterAccess,
             targetType,
             binaryOperatorKind,
+            binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
             value => parameterType is ByRefTypeSymbol byRef && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
                 ? BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRef.ElementType, value)
@@ -1047,6 +1072,7 @@ partial class BlockBinder : Binder
             fieldAccess,
             targetType,
             binaryOperatorKind,
+            binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
             value => CreateFieldAssignmentExpression(fieldAccess.Receiver, fieldSymbol, value));
     }
@@ -1078,6 +1104,7 @@ partial class BlockBinder : Binder
                 backingAccess,
                 propertySymbol.Type,
                 binaryOperatorKind,
+                binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
                 isPostfix,
                 value => CreateFieldAssignmentExpression(memberAccess.Receiver, backingField, value));
         }
@@ -1087,6 +1114,7 @@ partial class BlockBinder : Binder
             memberAccess,
             propertySymbol.Type,
             binaryOperatorKind,
+            binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
             value => BoundFactory.CreatePropertyAssignmentExpression(memberAccess.Receiver, propertySymbol, value));
     }
@@ -1096,6 +1124,7 @@ partial class BlockBinder : Binder
         BoundExpression valueExpression,
         ITypeSymbol targetType,
         SyntaxKind binaryOperatorKind,
+        SyntaxKind incrementOperatorKind,
         bool isPostfix,
         Func<BoundExpression, BoundAssignmentExpression> createAssignment)
     {
@@ -1115,13 +1144,28 @@ partial class BlockBinder : Binder
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(tempLocal, initialValue)])
         };
 
-        var stepLiteral = CreateStepLiteral();
-        var preparedStep = PrepareRightForAssignment(stepLiteral, targetType, operandSyntax);
+        var updatedValue = BindUserDefinedUnaryOperator(
+            incrementOperatorKind,
+            tempAccess,
+            operandSyntax.GetLocation(),
+            operandSyntax,
+            operandSyntax);
 
-        if (preparedStep is BoundErrorExpression)
-            return preparedStep;
+        if (updatedValue is null)
+        {
+            var stepLiteral = CreateStepLiteral();
+            var preparedStep = PrepareRightForAssignment(stepLiteral, targetType, operandSyntax);
 
-        var updatedValue = BindBinaryExpression(binaryOperatorKind, tempAccess, preparedStep, operandSyntax.GetLocation());
+            if (preparedStep is BoundErrorExpression)
+                return preparedStep;
+
+            updatedValue = BindBinaryExpression(binaryOperatorKind, tempAccess, preparedStep, operandSyntax.GetLocation());
+        }
+        else if (updatedValue is BoundErrorExpression)
+        {
+            return updatedValue;
+        }
+
         var convertedUpdatedValue = ConvertValueForAssignment(updatedValue, targetType, operandSyntax);
 
         if (convertedUpdatedValue is BoundErrorExpression)
@@ -3777,14 +3821,24 @@ partial class BlockBinder : Binder
 
         var right = BindExpression(syntax.Right);
 
-        return BindBinaryExpression(opKind, left, right, syntax.OperatorToken.GetLocation());
+        return BindBinaryExpression(
+            opKind,
+            left,
+            right,
+            syntax.OperatorToken.GetLocation(),
+            syntax.Left,
+            syntax.Right,
+            syntax);
     }
 
     private BoundExpression BindBinaryExpression(
         SyntaxKind opKind,
         BoundExpression left,
         BoundExpression right,
-        Location? diagnosticLocation = null)
+        Location? diagnosticLocation = null,
+        ExpressionSyntax? leftSyntax = null,
+        ExpressionSyntax? rightSyntax = null,
+        SyntaxNode? callSyntax = null)
     {
         if (left is BoundErrorExpression || right is BoundErrorExpression)
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
@@ -3820,11 +3874,9 @@ partial class BlockBinder : Binder
         }
 
         // 2. Överlagrade operatorer
-        var userDefinedOperator = ResolveUserDefinedOperator(opKind, left.Type, right.Type);
-        if (userDefinedOperator is not null)
-        {
-            return new BoundInvocationExpression(userDefinedOperator, [left, right]);
-        }
+        var userDefinedExpression = BindUserDefinedBinaryOperator(opKind, left, right, diagnosticLocation, leftSyntax, rightSyntax, callSyntax);
+        if (userDefinedExpression is not null)
+            return userDefinedExpression;
 
         // 3. Inbyggda operatorer
         if (BoundBinaryOperator.TryLookup(Compilation, opKind, left.Type, right.Type, out var op))
@@ -4229,43 +4281,145 @@ partial class BlockBinder : Binder
         }
     }
 
-    private IMethodSymbol? ResolveUserDefinedOperator(SyntaxKind opKind, ITypeSymbol leftType, ITypeSymbol rightType)
+    private BoundExpression? BindUserDefinedBinaryOperator(
+        SyntaxKind opKind,
+        BoundExpression left,
+        BoundExpression right,
+        Location? diagnosticLocation,
+        ExpressionSyntax? leftSyntax,
+        ExpressionSyntax? rightSyntax,
+        SyntaxNode? callSyntax)
     {
-        static ITypeSymbol UnwrapLiteral(ITypeSymbol type) =>
-            type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
-
-        leftType = UnwrapLiteral(leftType);
-        rightType = UnwrapLiteral(rightType);
-
-        if (leftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_String or SpecialType.System_Boolean ||
-            rightType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_String or SpecialType.System_Boolean)
-        {
-            return null;
-        }
-
         if (!OperatorFacts.TryGetUserDefinedOperatorInfo(opKind, 2, out var operatorInfo))
             return null;
 
-        var opName = operatorInfo.MetadataName;
+        var leftType = left.Type ?? Compilation.ErrorTypeSymbol;
+        var rightType = right.Type ?? Compilation.ErrorTypeSymbol;
+        leftType = leftType.UnwrapLiteralType() ?? leftType;
+        rightType = rightType.UnwrapLiteralType() ?? rightType;
 
-        foreach (var type in new[] { leftType, rightType })
+        var candidates = GetUserDefinedOperatorCandidates(
+            operatorInfo.MetadataName,
+            leftType,
+            rightType,
+            diagnosticLocation);
+
+        if (candidates.IsDefaultOrEmpty)
+            return null;
+
+        var arguments = new[]
         {
-            var candidates = type.GetMembers(opName).OfType<IMethodSymbol>();
+            new BoundArgument(left, RefKind.None, null, leftSyntax),
+            new BoundArgument(right, RefKind.None, null, rightSyntax),
+        };
 
-            foreach (var method in candidates)
+        var resolution = OverloadResolver.ResolveOverload(
+            candidates,
+            arguments,
+            Compilation,
+            canBindLambda: EnsureLambdaCompatible,
+            callSyntax: callSyntax);
+
+        if (resolution.IsAmbiguous)
+        {
+            var operatorText = OperatorFacts.GetDisplayText(opKind);
+            _diagnostics.ReportCallIsAmbiguous($"operator {operatorText}", resolution.AmbiguousCandidates, diagnosticLocation ?? Location.None);
+            return ErrorExpression(
+                reason: BoundExpressionReason.Ambiguous,
+                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+        }
+
+        if (!resolution.Success)
+            return null;
+
+        var method = resolution.Method!;
+        var converted = ConvertArguments(method.Parameters, arguments);
+        return new BoundInvocationExpression(method, converted);
+    }
+
+    private BoundExpression? BindUserDefinedUnaryOperator(
+        SyntaxKind opKind,
+        BoundExpression operand,
+        Location? diagnosticLocation,
+        ExpressionSyntax? operandSyntax,
+        SyntaxNode? callSyntax)
+    {
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(opKind, 1, out var operatorInfo))
+            return null;
+
+        var operandType = operand.Type ?? Compilation.ErrorTypeSymbol;
+        operandType = operandType.UnwrapLiteralType() ?? operandType;
+        var candidates = GetUserDefinedOperatorCandidates(operatorInfo.MetadataName, operandType, diagnosticLocation);
+
+        if (candidates.IsDefaultOrEmpty)
+            return null;
+
+        var arguments = new[]
+        {
+            new BoundArgument(operand, RefKind.None, null, operandSyntax),
+        };
+
+        var resolution = OverloadResolver.ResolveOverload(
+            candidates,
+            arguments,
+            Compilation,
+            canBindLambda: EnsureLambdaCompatible,
+            callSyntax: callSyntax);
+
+        if (resolution.IsAmbiguous)
+        {
+            var operatorText = OperatorFacts.GetDisplayText(opKind);
+            _diagnostics.ReportCallIsAmbiguous($"operator {operatorText}", resolution.AmbiguousCandidates, diagnosticLocation ?? Location.None);
+            return ErrorExpression(
+                reason: BoundExpressionReason.Ambiguous,
+                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+        }
+
+        if (!resolution.Success)
+            return null;
+
+        var method = resolution.Method!;
+        var converted = ConvertArguments(method.Parameters, arguments);
+        return new BoundInvocationExpression(method, converted);
+    }
+
+    private ImmutableArray<IMethodSymbol> GetUserDefinedOperatorCandidates(
+        string metadataName,
+        ITypeSymbol operandType,
+        Location? diagnosticLocation)
+        => GetUserDefinedOperatorCandidates(metadataName, operandType, operandType, diagnosticLocation);
+
+    private ImmutableArray<IMethodSymbol> GetUserDefinedOperatorCandidates(
+        string metadataName,
+        ITypeSymbol leftType,
+        ITypeSymbol rightType,
+        Location? diagnosticLocation)
+    {
+        var types = new List<ITypeSymbol> { leftType };
+
+        if (!SymbolEqualityComparer.Default.Equals(leftType, rightType))
+            types.Add(rightType);
+
+        var candidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        foreach (var type in types)
+        {
+            foreach (var method in type.GetMembers(metadataName).OfType<IMethodSymbol>())
             {
-                if (!method.IsStatic || method.Parameters.Length != 2)
+                if (!method.IsStatic || method.IsExtensionMethod)
                     continue;
 
-                if (Compilation.ClassifyConversion(leftType, method.Parameters[0].Type).IsImplicit &&
-                    Compilation.ClassifyConversion(rightType, method.Parameters[1].Type).IsImplicit)
-                {
-                    return method;
-                }
+                candidates.Add(method);
             }
         }
 
-        return null;
+        if (candidates.Count == 0)
+            return ImmutableArray<IMethodSymbol>.Empty;
+
+        return GetAccessibleMethods(
+            candidates.ToImmutable(),
+            diagnosticLocation ?? Location.None,
+            reportIfInaccessible: true);
     }
 
     private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
