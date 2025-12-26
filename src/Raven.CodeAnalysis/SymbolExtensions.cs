@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.IO.Pipelines;
 
 using Raven.CodeAnalysis.Symbols;
@@ -87,14 +88,14 @@ public static partial class SymbolExtensions
 
     public static ITypeSymbol? GetExtensionReceiverType(this IPropertySymbol property)
     {
-        if (property is SourcePropertySymbol sourceProperty && sourceProperty.IsDeclaredInExtension)
-            return sourceProperty.ExtensionReceiverType;
-
         if (property.GetMethod?.GetExtensionReceiverType() is { } getterReceiver)
             return getterReceiver;
 
         if (property.SetMethod?.GetExtensionReceiverType() is { } setterReceiver)
             return setterReceiver;
+
+        if (property is SourcePropertySymbol sourceProperty && sourceProperty.IsDeclaredInExtension)
+            return sourceProperty.ExtensionReceiverType;
 
         if (property.ContainingType?.GetExtensionReceiverType() is { } containerReceiver)
             return containerReceiver;
@@ -113,23 +114,75 @@ public static partial class SymbolExtensions
         if (method.OriginalDefinition is PEMethodSymbol peOriginal &&
             method.ContainingType is ConstructedNamedTypeSymbol constructed)
         {
-            var receiverType = peOriginal.ContainingType is PENamedTypeSymbol peType
-                ? peType.GetExtensionMarkerReceiverType(peOriginal)
+            var markerReceiverType = peOriginal.ContainingType is PENamedTypeSymbol peMarkerType
+                ? peMarkerType.GetExtensionMarkerReceiverType(peOriginal)
                 : null;
 
-            if (receiverType is not null)
-                return constructed.Substitute(receiverType);
+            if (markerReceiverType is not null)
+                return constructed.Substitute(markerReceiverType);
         }
 
         if (method is PEMethodSymbol peMethod && peMethod.ContainingType is PENamedTypeSymbol peContaining)
         {
             var markerReceiver = peContaining.GetExtensionMarkerReceiverType(peMethod);
             if (markerReceiver is not null)
+            {
+                if (!method.TypeParameters.IsDefaultOrEmpty)
+                {
+                    var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                    MapReceiverTypeParameters(markerReceiver, method.TypeParameters, map);
+
+                    if (map.Count > 0)
+                        return SubstituteTypeParameters(markerReceiver, map);
+                }
+
                 return markerReceiver;
+            }
+        }
+
+        if (method.MethodKind is MethodKind.Conversion or MethodKind.UserDefinedOperator &&
+            !method.Parameters.IsDefaultOrEmpty)
+        {
+            return method.Parameters[0].Type;
         }
 
         if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)
             return method.Parameters[0].Type;
+
+        if (method.ContainingType is PENamedTypeSymbol peType &&
+            peType.GetExtensionReceiverType() is { } peReceiverType)
+        {
+            if (!method.TypeParameters.IsDefaultOrEmpty)
+            {
+                var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                MapReceiverTypeParameters(peReceiverType, method.TypeParameters, map);
+
+                if (map.Count > 0)
+                    return SubstituteTypeParameters(peReceiverType, map);
+            }
+
+            return peReceiverType;
+        }
+
+        if (method.ContainingType is SourceNamedTypeSymbol sourceType &&
+            sourceType.IsExtensionDeclaration &&
+            sourceType.ExtensionReceiverType is { } extensionReceiverType)
+        {
+            var containerParameters = sourceType.TypeParameters;
+            var methodParameters = method.TypeParameters;
+
+            if (!containerParameters.IsDefaultOrEmpty &&
+                methodParameters.Length >= containerParameters.Length)
+            {
+                var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                for (int i = 0; i < containerParameters.Length; i++)
+                    map[containerParameters[i]] = methodParameters[i];
+
+                return SubstituteTypeParameters(extensionReceiverType, map);
+            }
+
+            return extensionReceiverType;
+        }
 
         return method.ContainingType?.GetExtensionReceiverType();
     }
@@ -160,6 +213,129 @@ public static partial class SymbolExtensions
                 => peType.GetExtensionReceiverType() is { } receiverType ? constructed.Substitute(receiverType) : null,
             _ => null
         };
+    }
+
+    private static ITypeSymbol SubstituteTypeParameters(
+        ITypeSymbol type,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+    {
+        if (type is ITypeParameterSymbol parameter &&
+            map.TryGetValue(parameter, out var replacement))
+        {
+            return replacement;
+        }
+
+        if (type is NullableTypeSymbol nullableTypeSymbol)
+        {
+            var underlyingType = SubstituteTypeParameters(nullableTypeSymbol.UnderlyingType, map);
+
+            if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                return new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
+
+            return type;
+        }
+
+        if (type is ByRefTypeSymbol byRef)
+        {
+            var substitutedElement = SubstituteTypeParameters(byRef.ElementType, map);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                return new ByRefTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
+        if (type is IAddressTypeSymbol address)
+        {
+            var substitutedElement = SubstituteTypeParameters(address.ReferencedType, map);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                return new AddressTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
+        if (type is IArrayTypeSymbol arrayType)
+        {
+            var substitutedElement = SubstituteTypeParameters(arrayType.ElementType, map);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+
+            return type;
+        }
+
+        if (type is IPointerTypeSymbol pointerType)
+        {
+            var substitutedElement = SubstituteTypeParameters(pointerType.PointedAtType, map);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, pointerType.PointedAtType))
+                return new PointerTypeSymbol(substitutedElement);
+
+            return type;
+        }
+
+        if (type is INamedTypeSymbol namedType)
+        {
+            if (namedType.TypeArguments.IsDefaultOrEmpty)
+                return type;
+
+            var substitutedArguments = new ITypeSymbol[namedType.TypeArguments.Length];
+            var changed = false;
+
+            for (int i = 0; i < substitutedArguments.Length; i++)
+            {
+                var original = namedType.TypeArguments[i];
+                var substituted = SubstituteTypeParameters(original, map);
+                substitutedArguments[i] = substituted;
+                changed |= !SymbolEqualityComparer.Default.Equals(original, substituted);
+            }
+
+            if (!changed)
+                return type;
+
+            return namedType.Construct(substitutedArguments);
+        }
+
+        return type;
+    }
+
+    private static void MapReceiverTypeParameters(
+        ITypeSymbol receiverType,
+        ImmutableArray<ITypeParameterSymbol> methodParameters,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+    {
+        var methodOwner = methodParameters.IsDefaultOrEmpty ? null : methodParameters[0].ContainingSymbol;
+
+        switch (receiverType)
+        {
+            case ITypeParameterSymbol parameter:
+                if (!Equals(parameter.ContainingSymbol, methodOwner) &&
+                    parameter.Ordinal < methodParameters.Length)
+                {
+                    map.TryAdd(parameter, methodParameters[parameter.Ordinal]);
+                }
+                break;
+            case NullableTypeSymbol nullableType:
+                MapReceiverTypeParameters(nullableType.UnderlyingType, methodParameters, map);
+                break;
+            case ByRefTypeSymbol byRef:
+                MapReceiverTypeParameters(byRef.ElementType, methodParameters, map);
+                break;
+            case IAddressTypeSymbol address:
+                MapReceiverTypeParameters(address.ReferencedType, methodParameters, map);
+                break;
+            case IArrayTypeSymbol arrayType:
+                MapReceiverTypeParameters(arrayType.ElementType, methodParameters, map);
+                break;
+            case IPointerTypeSymbol pointerType:
+                MapReceiverTypeParameters(pointerType.PointedAtType, methodParameters, map);
+                break;
+            case INamedTypeSymbol namedType:
+                foreach (var arg in namedType.TypeArguments)
+                    MapReceiverTypeParameters(arg, methodParameters, map);
+                break;
+        }
     }
 
     public static ITypeSymbol? GetExtensionReceiverType(this ISymbol symbol)

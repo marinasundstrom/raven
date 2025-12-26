@@ -246,6 +246,30 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             break;
         }
 
+        if (_extensionReceiverType is null)
+        {
+            foreach (var nestedType in GetMembers().OfType<PENamedTypeSymbol>())
+            {
+                foreach (var member in nestedType.GetMembers())
+                {
+                    if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
+                    {
+                        _extensionReceiverType = nestedType.GetExtensionMarkerReceiverType(peMethod);
+                        break;
+                    }
+
+                    if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
+                    {
+                        _extensionReceiverType = nestedType.GetExtensionMarkerReceiverType(peProperty);
+                        break;
+                    }
+                }
+
+                if (_extensionReceiverType is not null)
+                    break;
+            }
+        }
+
         return _extensionReceiverType;
     }
 

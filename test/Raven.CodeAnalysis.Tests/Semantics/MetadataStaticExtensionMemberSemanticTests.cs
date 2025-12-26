@@ -3,6 +3,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 

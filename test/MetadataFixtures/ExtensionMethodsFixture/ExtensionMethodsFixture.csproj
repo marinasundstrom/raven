@@ -6,4 +6,8 @@
     <IsPackable>false</IsPackable>
     <AssemblyName>Raven.ExtensionMethodsFixture</AssemblyName>
   </PropertyGroup>
+
+  <Target Name="RewriteStaticExtensionFixture" AfterTargets="Build">
+    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)..\..\..\tools\ExtensionFixtureRewriter\ExtensionFixtureRewriter.csproj&quot; -- &quot;$(TargetPath)&quot;" />
+  </Target>
 </Project>

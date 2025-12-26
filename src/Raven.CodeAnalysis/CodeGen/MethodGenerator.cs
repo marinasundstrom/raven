@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -16,6 +17,8 @@ internal class MethodGenerator
     private bool _bodyEmitted;
     private Compilation _compilation;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
+    private ImmutableArray<ITypeParameterSymbol> _liftedExtensionParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private GenericTypeParameterBuilder[]? _liftedExtensionBuilders;
 
     public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol, IILBuilderFactory? ilBuilderFactory = null)
     {
@@ -117,22 +120,54 @@ internal class MethodGenerator
 
             MethodBase = methodBuilder;
 
-            if (!MethodSymbol.TypeParameters.IsDefaultOrEmpty)
+            var liftedTypeParameters = TypeGenerator.GetExtensionTypeParameters();
+            var methodTypeParameters = MethodSymbol.TypeParameters;
+            if (!liftedTypeParameters.IsDefaultOrEmpty &&
+                methodTypeParameters.Length >= liftedTypeParameters.Length &&
+                methodTypeParameters.Take(liftedTypeParameters.Length)
+                    .Select(tp => tp.Name)
+                    .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
             {
-                var genericBuilders = methodBuilder.DefineGenericParameters(MethodSymbol.TypeParameters.Select(tp => tp.Name).ToArray());
-                TypeGenerator.CodeGen.RegisterGenericParameters(MethodSymbol.TypeParameters, genericBuilders);
+                liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+            }
+            if (!liftedTypeParameters.IsDefaultOrEmpty || !methodTypeParameters.IsDefaultOrEmpty)
+            {
+                var allParameters = liftedTypeParameters.AddRange(methodTypeParameters);
+                var genericBuilders = methodBuilder.DefineGenericParameters(allParameters.Select(tp => tp.Name).ToArray());
+
+                if (!liftedTypeParameters.IsDefaultOrEmpty)
+                {
+                    var liftedBuilders = genericBuilders.Take(liftedTypeParameters.Length).ToArray();
+                    _liftedExtensionParameters = liftedTypeParameters;
+                    _liftedExtensionBuilders = liftedBuilders;
+                    TypeGenerator.CodeGen.RegisterGenericParameters(liftedTypeParameters, liftedBuilders);
+                }
+
+                if (!methodTypeParameters.IsDefaultOrEmpty)
+                {
+                    var methodBuilders = genericBuilders.Skip(liftedTypeParameters.Length).ToArray();
+                    TypeGenerator.CodeGen.RegisterGenericParameters(methodTypeParameters, methodBuilders);
+                }
             }
 
-            var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-                ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
-                : ResolveClrType(MethodSymbol.ReturnType);
+            try
+            {
+                var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+                    ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
+                    : ResolveClrType(MethodSymbol.ReturnType);
 
-            methodBuilder.SetReturnType(returnType);
+                methodBuilder.SetReturnType(returnType);
 
-            parameterTypes = BuildParameterTypes();
+                parameterTypes = BuildParameterTypes();
 
-            if (parameterTypes.Length > 0)
-                methodBuilder.SetParameters(parameterTypes);
+                if (parameterTypes.Length > 0)
+                    methodBuilder.SetParameters(parameterTypes);
+            }
+            finally
+            {
+                if (!_liftedExtensionParameters.IsDefaultOrEmpty)
+                    TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
+            }
         }
 
         ParameterBuilder? returnParamBuilder = MethodBase is MethodBuilder methodBuilderInstance
@@ -447,8 +482,19 @@ internal class MethodGenerator
             return;
         }
 
-        var bodyGenerator = new MethodBodyGenerator(this);
-        bodyGenerator.Emit();
+        if (!_liftedExtensionParameters.IsDefaultOrEmpty && _liftedExtensionBuilders is not null)
+            TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
+
+        try
+        {
+            var bodyGenerator = new MethodBodyGenerator(this);
+            bodyGenerator.Emit();
+        }
+        finally
+        {
+            if (!_liftedExtensionParameters.IsDefaultOrEmpty)
+                TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
+        }
         _bodyEmitted = true;
     }
 
@@ -456,6 +502,9 @@ internal class MethodGenerator
     {
         if (_bodyEmitted)
             return;
+
+        if (!_liftedExtensionParameters.IsDefaultOrEmpty && _liftedExtensionBuilders is not null)
+            TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
 
         var bodyGenerator = new MethodBodyGenerator(this);
 
@@ -486,8 +535,16 @@ internal class MethodGenerator
             rewrittenBody = rewritten.Body;
         }
 
-        bodyGenerator.EmitLambda(lambda, closure, rewrittenBody);
-        _bodyEmitted = true;
+        try
+        {
+            bodyGenerator.EmitLambda(lambda, closure, rewrittenBody);
+            _bodyEmitted = true;
+        }
+        finally
+        {
+            if (!_liftedExtensionParameters.IsDefaultOrEmpty)
+                TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
+        }
     }
 
     private static BoundBlockStatement ConvertToBlockStatement(SourceLambdaSymbol lambda, BoundExpression body)
