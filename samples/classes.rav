@@ -21,32 +21,37 @@ PrintLine(user2("test"));
 open class Base {}
 
 class Person : Base {
+    /// The meaning of life
+    const TheMeaningOfLife = 42
+
     val species = "Homo sapiens"
     var age: int = 0
     var name: string
     var roles: StringList = []
 
-    // Primary constructor
+    /// Constructor
     public init(age: int) {
         self.age = age
     }
 
-    // Named constructor
+    /// Named constructor
     public init WithName(name: string) {
         self.name = name
     }
 
-    // Regular method
+    /// Regular method
     public AddRole(role: string) -> Person {
         roles.Add(role)
         self
     }
 
+    /// Expression-bodied method
     public Test() -> int => 2
 
+    /// Expression-bodied property
     public Test2: int => 2
 
-    // Computed property
+    /// Computed property
     public Name: string {
         get {
             name
@@ -56,17 +61,18 @@ class Person : Base {
         }
     }
 
-    // Indexer: e.g., person[0]
+    /// Indexer: e.g., person[0]
     public self[index: int]: string {
         get => roles[index];
         set => roles[index] = value
     }
 
-    // Invocation operator: e.g., person(2025)
+    /// Invocation operator: e.g., person(2025)
     public self(year: int) -> string {
         "Name: $name, Age in $year: ${year - (System.DateTime.Now.Year - age)}"
     }
 
+    /// Overloaded invocation operator
     public self(str: string) {
 
     }
