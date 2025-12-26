@@ -925,24 +925,18 @@ internal class TypeGenerator
         var isStatic = methodSymbol.IsStatic && !isExtensionInstance;
         var parameters = methodSymbol.Parameters;
 
+        var methodTypeParameters = methodSymbol.TypeParameters;
+        var extensionTypeParameterCount = GetExtensionTypeParameters().Length;
+        var extensionMethodTypeParameters = extensionTypeParameterCount > 0 && methodTypeParameters.Length >= extensionTypeParameterCount
+            ? methodTypeParameters.Take(extensionTypeParameterCount).ToImmutableArray()
+            : ImmutableArray<ITypeParameterSymbol>.Empty;
+        var methodSpecificTypeParameters = methodTypeParameters.Length > extensionTypeParameterCount
+            ? methodTypeParameters.Skip(extensionTypeParameterCount).ToImmutableArray()
+            : ImmutableArray<ITypeParameterSymbol>.Empty;
+
         var parameterSymbols = isExtensionInstance && parameters.Length > 0
             ? parameters.Skip(1).ToArray()
             : parameters.ToArray();
-
-        var parameterTypes = parameterSymbols
-            .Select(p => ResolveClrType(p.Type))
-            .Select((type, index) =>
-            {
-                var parameter = parameterSymbols[index];
-                return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? type.MakeByRefType()
-                    : type;
-            })
-            .ToArray();
-
-        var returnType = methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-            ? typeof(void)
-            : ResolveClrType(methodSymbol.ReturnType);
 
         var attributes = MethodAttributes.Public | MethodAttributes.HideBySig;
 
@@ -955,18 +949,64 @@ internal class TypeGenerator
         var methodBuilder = _extensionGroupingTypeBuilder.DefineMethod(
             methodSymbol.Name,
             attributes,
-            CallingConventions.Standard,
-            returnType,
-            parameterTypes);
+            CallingConventions.Standard);
 
-        for (int i = 0; i < parameterSymbols.Length; i++)
+        GenericTypeParameterBuilder[]? methodGenericBuilders = null;
+        if (!methodSpecificTypeParameters.IsDefaultOrEmpty)
+            methodGenericBuilders = methodBuilder.DefineGenericParameters(methodSpecificTypeParameters.Select(tp => tp.Name).ToArray());
+
+        var registeredExtensionParameters = false;
+        var registeredMethodParameters = false;
+
+        try
         {
-            var parameter = parameterSymbols[i];
-            methodBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
-        }
+            if (!extensionMethodTypeParameters.IsDefaultOrEmpty &&
+                _extensionGroupingTypeParameters is not null &&
+                extensionMethodTypeParameters.Length == _extensionGroupingTypeParameters.Length)
+            {
+                CodeGen.RegisterGenericParameters(extensionMethodTypeParameters, _extensionGroupingTypeParameters);
+                registeredExtensionParameters = true;
+            }
 
-        methodBuilder.SetCustomAttribute(markerAttribute);
-        EmitSkeletonMethodBody(methodBuilder);
+            if (!methodSpecificTypeParameters.IsDefaultOrEmpty && methodGenericBuilders is not null)
+            {
+                CodeGen.RegisterGenericParameters(methodSpecificTypeParameters, methodGenericBuilders);
+                registeredMethodParameters = true;
+            }
+
+            var parameterTypes = parameterSymbols
+                .Select(p => ResolveClrType(p.Type))
+                .Select((type, index) =>
+                {
+                    var parameter = parameterSymbols[index];
+                    return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                        ? type.MakeByRefType()
+                        : type;
+                })
+                .ToArray();
+
+            var returnType = methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+                ? typeof(void)
+                : ResolveClrType(methodSymbol.ReturnType);
+
+            methodBuilder.SetSignature(returnType, null, null, parameterTypes, null, null);
+
+            for (int i = 0; i < parameterSymbols.Length; i++)
+            {
+                var parameter = parameterSymbols[i];
+                methodBuilder.DefineParameter(i + 1, ParameterAttributes.None, parameter.Name);
+            }
+
+            methodBuilder.SetCustomAttribute(markerAttribute);
+            EmitSkeletonMethodBody(methodBuilder);
+        }
+        finally
+        {
+            if (registeredMethodParameters)
+                CodeGen.UnregisterGenericParameters(methodSpecificTypeParameters);
+            if (registeredExtensionParameters)
+                CodeGen.UnregisterGenericParameters(extensionMethodTypeParameters);
+        }
     }
 
     private void DefineExtensionSkeletonProperty(IPropertySymbol propertySymbol, CustomAttributeBuilder markerAttribute)
