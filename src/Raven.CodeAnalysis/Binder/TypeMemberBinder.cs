@@ -383,13 +383,7 @@ internal class TypeMemberBinder : Binder
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
 
         if (isExtensionMember)
-        {
             methodSymbol.MarkDeclaredInExtension();
-        }
-        else if (isExtensionContainer && hasStaticModifier)
-        {
-            methodSymbol.MarkDeclaredInExtensionContainer();
-        }
 
         if (isAsync && methodDecl.ReturnType is null)
             methodSymbol.RequireAsyncReturnTypeInference();
@@ -1347,13 +1341,7 @@ internal class TypeMemberBinder : Binder
                     declaredAccessibility: propertyAccessibility);
 
                 if (isExtensionMember)
-                {
                     methodSymbol.MarkDeclaredInExtension();
-                }
-                else if (isExtensionContainer && hasStaticModifier)
-                {
-                    methodSymbol.MarkDeclaredInExtensionContainer();
-                }
 
                 var parameters = new List<SourceParameterSymbol>();
                 if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
@@ -1443,13 +1431,7 @@ internal class TypeMemberBinder : Binder
                 declaredAccessibility: propertyAccessibility);
 
             if (isExtensionMember)
-            {
                 methodSymbol.MarkDeclaredInExtension();
-            }
-            else if (isExtensionContainer && hasStaticModifier)
-            {
-                methodSymbol.MarkDeclaredInExtensionContainer();
-            }
 
             var parameters = new List<SourceParameterSymbol>();
             if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)

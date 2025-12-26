@@ -898,6 +898,65 @@ internal extension StringExtensions for string {
     }
 
     [Fact]
+    public void ExtensionMarkerMetadata_IsEmitted()
+    {
+        const string code = """
+class Widget {
+    public Name: string { get; }
+
+    public Widget(name: string) {
+        Name = name
+    }
+}
+
+extension WidgetExtensions for Widget {
+    public static Build(name: string) -> Widget {
+        return Widget(name)
+    }
+
+    public Describe() -> string {
+        return self.Name
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "extension-markers",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var assembly = loaded.Assembly;
+
+        var extensionMarkerAttribute = assembly.GetType("System.Runtime.CompilerServices.ExtensionMarkerNameAttribute", throwOnError: true)!;
+        var extensionContainer = assembly.GetType("WidgetExtensions", throwOnError: true)!;
+        var markerType = extensionContainer.GetNestedType("<>__RavenExtensionMarker", BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(markerType);
+
+        var markerMethod = markerType!.GetMethod("<Extension>$", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(markerMethod);
+        Assert.Equal("Widget", markerMethod!.GetParameters().Single().ParameterType.Name);
+
+        var buildMethod = extensionContainer.GetMethod("Build", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(buildMethod);
+        var buildAttr = buildMethod!.GetCustomAttributes(extensionMarkerAttribute, inherit: false).Single();
+        var buildMarkerName = (string)extensionMarkerAttribute.GetProperty("Name")!.GetValue(buildAttr)!;
+        Assert.Equal(markerType.Name, buildMarkerName);
+
+        var describeMethod = extensionContainer.GetMethod("Describe", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(describeMethod);
+        var describeAttr = describeMethod!.GetCustomAttributes(extensionMarkerAttribute, inherit: false).Single();
+        var describeMarkerName = (string)extensionMarkerAttribute.GetProperty("Name")!.GetValue(describeAttr)!;
+        Assert.Equal(markerType.Name, describeMarkerName);
+    }
+
+    [Fact]
     public void GenericExtensionProperty_WithSiblingUnion_EmitsCaseTypes()
     {
         var code = """

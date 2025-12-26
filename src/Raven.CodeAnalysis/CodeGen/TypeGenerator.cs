@@ -19,6 +19,10 @@ internal class TypeGenerator
     private int _lambdaClosureOrdinal;
 
     private Compilation _compilation;
+    private const string ExtensionMarkerMethodName = "<Extension>$";
+    private const string ExtensionMarkerTypeName = "<>__RavenExtensionMarker";
+    private string? _extensionMarkerName;
+    private TypeBuilder? _extensionMarkerTypeBuilder;
 
     public CodeGenerator CodeGen { get; }
     public Compilation Compilation => _compilation ??= CodeGen.Compilation;
@@ -239,6 +243,8 @@ internal class TypeGenerator
             var discriminatedUnionCaseAttribute = CodeGen.CreateDiscriminatedUnionCaseAttribute(unionType);
             TypeBuilder!.SetCustomAttribute(discriminatedUnionCaseAttribute);
         }
+
+        EnsureExtensionMarkerType();
     }
 
     private static string GetNestedTypeMetadataName(INamedTypeSymbol type)
@@ -578,6 +584,7 @@ internal class TypeGenerator
                             propBuilder.SetCustomAttribute(nullableAttr);
 
                         CodeGen.ApplyCustomAttributes(propertySymbol.GetAttributes(), attribute => propBuilder.SetCustomAttribute(attribute));
+                        ApplyExtensionMarkerNameAttribute(propertySymbol, propBuilder.SetCustomAttribute);
 
                         CodeGen.AddMemberBuilder((SourceSymbol)propertySymbol, propBuilder);
                         break;
@@ -647,9 +654,85 @@ internal class TypeGenerator
         foreach (var closure in _lambdaClosures.Values)
             closure.CreateType();
 
+        _extensionMarkerTypeBuilder?.CreateType();
         Type ??= TypeBuilder!.CreateType();
         ReleaseInheritedGenericParameters();
         return Type!;
+    }
+
+    internal void ApplyExtensionMarkerNameAttribute(IMethodSymbol methodSymbol, Action<CustomAttributeBuilder> apply)
+    {
+        if (!ShouldApplyExtensionMarkerName(methodSymbol))
+            return;
+
+        EnsureExtensionMarkerType();
+        if (_extensionMarkerName is null)
+            return;
+
+        var builder = CodeGen.CreateExtensionMarkerNameAttribute(_extensionMarkerName);
+        if (builder is not null)
+            apply(builder);
+    }
+
+    internal void ApplyExtensionMarkerNameAttribute(IPropertySymbol propertySymbol, Action<CustomAttributeBuilder> apply)
+    {
+        if (!ShouldApplyExtensionMarkerName(propertySymbol))
+            return;
+
+        EnsureExtensionMarkerType();
+        if (_extensionMarkerName is null)
+            return;
+
+        var builder = CodeGen.CreateExtensionMarkerNameAttribute(_extensionMarkerName);
+        if (builder is not null)
+            apply(builder);
+    }
+
+    private bool ShouldApplyExtensionMarkerName(IMethodSymbol methodSymbol)
+    {
+        if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
+            return false;
+
+        return methodSymbol.MethodKind is MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet;
+    }
+
+    private bool ShouldApplyExtensionMarkerName(IPropertySymbol propertySymbol)
+    {
+        if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
+            return false;
+
+        return !propertySymbol.IsIndexer;
+    }
+
+    private void EnsureExtensionMarkerType()
+    {
+        if (_extensionMarkerTypeBuilder is not null)
+            return;
+
+        if (TypeBuilder is null)
+            return;
+
+        if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
+            return;
+
+        var receiverType = sourceType.ExtensionReceiverType;
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return;
+
+        _extensionMarkerName = ExtensionMarkerTypeName;
+
+        _extensionMarkerTypeBuilder = TypeBuilder.DefineNestedType(
+            _extensionMarkerName,
+            TypeAttributes.NestedPublic | TypeAttributes.Class | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.SpecialName);
+
+        var markerMethod = _extensionMarkerTypeBuilder.DefineMethod(
+            ExtensionMarkerMethodName,
+            MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
+            typeof(void),
+            new[] { ResolveClrType(receiverType) });
+
+        var il = markerMethod.GetILGenerator();
+        il.Emit(OpCodes.Ret);
     }
 
     private void ReleaseInheritedGenericParameters()
