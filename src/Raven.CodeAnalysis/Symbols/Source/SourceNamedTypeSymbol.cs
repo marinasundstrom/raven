@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -258,6 +258,48 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
             throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments but received {typeArguments.Length}.", nameof(typeArguments));
 
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
+    }
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (!IsExtensionDeclaration)
+            return base.GetAttributes();
+
+        var baseAttributes = base.GetAttributes();
+        var extensionAttribute = CreateExtensionAttributeData();
+        if (extensionAttribute is null)
+            return baseAttributes;
+
+        return baseAttributes.Add(extensionAttribute);
+    }
+
+    private AttributeData? CreateExtensionAttributeData()
+    {
+        var compilation = GetDeclaringCompilation();
+        if (compilation is null)
+            return null;
+
+        if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return null;
+
+        var syntaxReference = DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is null)
+            return null;
+
+        var attributeType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.ExtensionAttribute");
+        if (attributeType is not INamedTypeSymbol namedAttributeType)
+            return null;
+
+        var constructor = namedAttributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
+        if (constructor is null)
+            return null;
+
+        return new AttributeData(
+            namedAttributeType,
+            constructor,
+            ImmutableArray<TypedConstant>.Empty,
+            ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
+            syntaxReference);
     }
 
     private static TypeKind DetermineTypeKind(TypeKind declaredTypeKind, INamedTypeSymbol? baseType)

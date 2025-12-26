@@ -693,7 +693,11 @@ internal class TypeGenerator
         if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
             return false;
 
-        return methodSymbol.MethodKind is MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet;
+        return methodSymbol.MethodKind is MethodKind.Ordinary
+            or MethodKind.PropertyGet
+            or MethodKind.PropertySet
+            or MethodKind.Conversion
+            or MethodKind.UserDefinedOperator;
     }
 
     private bool ShouldApplyExtensionMarkerName(IPropertySymbol propertySymbol)
