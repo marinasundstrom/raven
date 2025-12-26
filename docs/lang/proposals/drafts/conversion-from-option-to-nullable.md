@@ -22,7 +22,7 @@ union Option<T> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    public static explicit conversion(self: Option<T>) -> T? {
+    public static explicit operator(self: Option<T>) -> T? {
         if self is .Some(value) {
             return value
         }
@@ -34,6 +34,12 @@ extension OptionExtensions<T> for Option<T> {
 The recommended baseline is **explicit** conversion to avoid surprising behavior in overload resolution and nullability-sensitive code. The compiler should suggest using that explicit conversion (with a cast) when type checking fails, similar to C#’s “An explicit conversion exists” diagnostics.
 
 This proposal depends on separate features: user-defined conversion operators and static extensions.
+
+## Status
+
+* ✅ Syntax and binding for `explicit operator` / `implicit operator` declarations are implemented.
+* ✅ Conversion operators are discovered during cast binding and implicit conversion checks used by overload resolution.
+* ⏳ Static extension conversion operators remain blocked on the extension operator work.
 
 ## Motivation
 
@@ -66,7 +72,7 @@ union Option<T> {
 }
 
 extension OptionExtensions<T> for Option<T> {
-    public static explicit conversion(self: Option<T>) -> T? {
+    public static explicit operator(self: Option<T>) -> T? {
         if self is .Some(value) {
             return value
         }
@@ -78,7 +84,7 @@ extension OptionExtensions<T> for Option<T> {
 Key points:
 
 * Conversion operator is declared as a `static` member in an extension for `Option<T>`.
-* The method name is the keyword pair `explicit conversion` (later we may allow `implicit conversion`).
+* The method name is the keyword pair `explicit operator` (later we may allow `implicit operator`), avoiding a new `conversion` keyword.
 * `self` is the source value (`Option<T>`), whose type is implied by the `for Option<T>` on the extension.
 
 Call sites:
@@ -107,7 +113,7 @@ The conversion `Option<T> -> T?` is straightforward:
 Pseudo-implementation:
 
 ```raven
-public static explicit conversion(self: Option<T>) -> T? {
+public static explicit operator(self: Option<T>) -> T? {
     if self is .Some(value) {
         return value
     }
@@ -127,7 +133,7 @@ An implicit conversion:
 
 ```raven
 extension OptionExtensions<T> for Option<T> {
-    public static implicit conversion(self: Option<T>) -> T? { ... }
+    public static implicit operator(self: Option<T>) -> T? { ... }
 }
 ```
 
@@ -191,7 +197,8 @@ This proposal assumes the following language features, each of which deserves it
 
 1. **Conversion operators / operator overloading**
 
-   * Syntax for `implicit conversion` and `explicit conversion` static methods.
+   * Syntax for `implicit operator` and `explicit operator` static methods.
+   * New syntax node `ConversionOperatorDeclarationSyntax` (parallel to `OperatorDeclarationSyntax`).
    * Representation in the symbol model (`IsConversion`, `IsExplicit`, `IsImplicit` flags).
    * Integration into cast/as/overload resolution rules.
 

@@ -15,6 +15,24 @@ internal static class OperatorFacts
     public static string GetDisplayText(SyntaxKind operatorToken)
         => SyntaxFacts.GetSyntaxTokenText(operatorToken) ?? operatorToken.ToString();
 
+    public static string GetConversionOperatorDisplayText(SyntaxKind conversionKindKeyword)
+    {
+        var keywordText = SyntaxFacts.GetSyntaxTokenText(conversionKindKeyword) ?? conversionKindKeyword.ToString();
+        return $"{keywordText} operator";
+    }
+
+    public static bool TryGetConversionOperatorMetadataName(SyntaxKind conversionKindKeyword, out string metadataName)
+    {
+        metadataName = conversionKindKeyword switch
+        {
+            SyntaxKind.ExplicitKeyword => "op_Explicit",
+            SyntaxKind.ImplicitKeyword => "op_Implicit",
+            _ => string.Empty,
+        };
+
+        return metadataName.Length > 0;
+    }
+
     public static bool TryGetUserDefinedOperatorInfo(
         SyntaxKind operatorToken,
         int parameterCount,

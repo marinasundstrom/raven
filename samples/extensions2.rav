@@ -1,3 +1,4 @@
+import System.*
 import System.Console.*
 
 let x = int.Hello()

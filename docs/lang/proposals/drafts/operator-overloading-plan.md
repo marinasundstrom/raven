@@ -12,54 +12,55 @@
 ## Implementation status (current)
 * ✅ **Syntax surface and tokens**: `operator` contextual keyword, overloadable operator tokens, `OperatorDeclarationSyntax`, parser support (classes + extensions), and normalizer/formatting support are implemented. Specification + grammar updates are in place.
 * 🟡 **Declaration binding**: operator declarations bind into symbols with static/public/arity diagnostics and metadata name mapping. Extension operator declarations are rejected (diagnostic only) and are not bound into symbols.
-* 🟡 **Consumption**: unary and binary operator binding now use overload resolution for user-defined operators and bind to operator method invocations; nullable/literal lifting and extension operators remain pending.
+* 🟡 **Consumption**: unary and binary operator binding now use overload resolution for user-defined operators (including extension operators) and bind to operator method invocations; nullable/literal lifting remains pending.
 * ⏳ **Codegen + lowering**: no changes yet for emitting operator methods or ensuring bound operator invocations survive lowering.
 * ⏳ **IDE/semantic model**: `GetDeclaredSymbol` is supported for class/interface operator declarations; richer symbol info for call sites and diagnostics remain.
 
 ## Remaining work (high level)
 * Finalize declaration syntax for unary/binary (prefix/postfix) intent, if needed.
-* Extend operator binding with lifted/nullables and extension operators.
-* Add lowering/codegen support for operator methods and invocations.
-* Extend diagnostics and tests for overload resolution, ambiguity, and codegen.
+* Extend operator binding with lifted/nullables and literal lifting.
+* Preserve operator invocations through lowering and emit operator methods/invocations in codegen.
+* Expand diagnostics/tests for overload resolution, ambiguity, and invalid signatures.
+* Flesh out semantic model support for operator call sites (`GetSymbolInfo`, quick info, etc.).
 
 ## Step-by-step plan
-1. **Syntax surface and tokens**
+1. ✅ **Syntax surface and tokens**
    * Add an `operator` contextual keyword/token plus per-operator tokens as needed (e.g., keyword plus following `+`, `-`, `*`, `/`, `==`, `!=`, unary tokens).
    * Introduce `OperatorDeclarationSyntax : BaseMethodDeclarationSyntax` in the syntax model (update `Model.xml`, `NodeKinds.xml`, and generators) with slots for the operator token, parameter list, return type clause, body, and optional expression body.
    * Extend parsing in `Syntax/InternalSyntax/Parser/Parsers/TypeDeclarationParser` (and the extension declaration parser) to recognize operator members, consume modifiers (require `static`), parse the operator token, parameters, arrow/type, and body/terminator. Add recovery for malformed operator tokens or incorrect arity.
    * Update `SyntaxFacts`, normalizer, and quoter/printer to round-trip operator declarations and ensure trivia/formatting is stable.
    * Evaluate whether the declaration surface needs to encode unary vs. binary (and prefix vs. postfix) intent explicitly—potentially via an additional keyword—at the cost of diverging from C# compatibility.
 
-2. **Symbols and method metadata**
+2. 🟡 **Symbols and method metadata**
    * Extend symbol creation to produce `SourceMethodSymbol` instances with `MethodKind.UserDefinedOperator`, ensuring they are always static and non-generic and track the operator token/metadata name (`op_Addition`, etc.).
    * Add a helper mapping from syntax tokens to metadata names (replacing or expanding `GetOperatorMethodName` in `BlockBinder`) that can be reused by declaration binding and invocation.
    * Validate constraints during symbol creation (exact parameter counts for unary vs. binary, ref/out restrictions, no `params`/type parameters, required accessibility rules) and surface diagnostics for invalid operator signatures.
 
-3. **Declaration binding and lookup**
+3. 🟡 **Declaration binding and lookup**
    * Update `TypeMemberBinder`/`DeclarationTable` to include operator members when walking type syntax, producing operator symbols alongside methods/constructors.
    * Ensure operators participate in member lookup via their metadata names (e.g., `op_Addition`) and that overload sets are disambiguated by parameter types.
-   * For extensions, allow (or explicitly reject) operator declarations according to the language design and wire extension operator lookup so consuming sites can see them when the receiver type matches.
+   * For extensions, allow operator declarations and wire extension operator lookup so consuming sites can see them when the receiver type matches.
 
-4. **Overload resolution for consumption**
-   * Expand binary/unary binding in `BlockBinder` to gather operator candidates from both operand types and applicable extensions, using the operator metadata name and enforcing static binding rules.
+4. 🟡 **Overload resolution for consumption**
+   * Expand binary/unary binding in `BlockBinder` to gather operator candidates from both operand types and applicable extensions, using the operator metadata name and enforcing static binding rules. (Done for static extension operators.)
    * Replace the current early-exit user-defined operator resolution with a proper overload-resolution pass: build candidate sets, classify implicit conversions for each operand, apply tie-breakers consistent with method overload rules, and produce ambiguity diagnostics when needed.
    * Integrate nullable/literal unwrapping and numeric promotions so operators declared on underlying types can be selected even when operands are literals or nullable wrappers.
    * Ensure equality/inequality and logical operators follow any required lifted behavior or short-circuit semantics once an operator is chosen.
 
-5. **Binding results and lowering**
+5. ⏳ **Binding results and lowering**
    * Represent successful operator bindings as `BoundInvocationExpression` nodes targeting the resolved operator symbol, and ensure bound tree rewrites (constant folding, nullability flow, async/iterator analysis) respect these nodes.
    * Adjust any lowering or rewriting that currently assumes operators map directly to `BoundBinaryOperator`/`BoundUnaryOperator` so user-defined operators remain intact through code generation.
 
-6. **Code generation**
+6. ⏳ **Code generation**
    * Teach `MethodGenerator`/`MethodBodyGenerator` to emit methods with operator metadata names and attributes (e.g., `SpecialName`/`RTSpecialName` where required by CLI).
    * Update invocation emission so calls to operator symbols (especially lifted from extensions) produce the same IL as normal method calls with the synthesized name.
    * Add coverage for debug information and sequence points around operator bodies and call sites.
 
-7. **Diagnostics and IDE surface**
+7. ⏳ **Diagnostics and IDE surface**
    * Add diagnostics for duplicate operator definitions, missing `static`, invalid parameter counts, use on unsupported types, or ambiguous resolution at call sites.
    * Update semantic model query paths (symbol lookup, `GetDeclaredSymbol`, `GetSymbolInfo`) so operator declarations and usages surface meaningful symbols/tooling experiences.
 
-8. **Documentation and tests**
+8. ⏳ **Documentation and tests**
    * Update `docs/lang/spec/language-specification.md` and related grammar sections to describe operator declaration/overload rules once implementation details settle.
    * Add compiler unit tests covering parsing, binding (valid/invalid signatures), overload resolution precedence, extension operator visibility, nullable/literal interactions, and codegen IL verification.
    * Include end-to-end samples demonstrating declaration and consumption of operators in classes and extensions.

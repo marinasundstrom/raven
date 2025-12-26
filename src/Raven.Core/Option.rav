@@ -74,13 +74,10 @@ public extension OptionExtensions<T> for Option<T> {
         return defaultValue
     }
 
-    /*
-    // Future
-    public static explicit conversion(self: Option<T>) -> T? {
-        if self is .Some(value) {
+    public static explicit operator(opt: Option<T>) -> T? {
+        if opt is .Some(value) {
             return value
         }
         return null
     }
-    */
 }

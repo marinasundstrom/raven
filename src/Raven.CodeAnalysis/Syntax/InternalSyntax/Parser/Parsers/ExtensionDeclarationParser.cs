@@ -80,6 +80,10 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
         var modifiers = ParseMemberModifiers();
 
+        if ((PeekToken().IsKind(SyntaxKind.ExplicitKeyword) || PeekToken().IsKind(SyntaxKind.ImplicitKeyword))
+            && PeekToken(1).IsKind(SyntaxKind.OperatorKeyword))
+            return ParseConversionOperatorMember(attributeLists, modifiers);
+
         if (PeekToken().IsKind(SyntaxKind.OperatorKeyword))
             return ParseOperatorMember(attributeLists, modifiers);
 
@@ -167,6 +171,41 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             modifiers,
             operatorKeyword,
             operatorToken,
+            parameterList,
+            returnType,
+            body,
+            expressionBody,
+            terminatorToken);
+    }
+
+    private MemberDeclarationSyntax ParseConversionOperatorMember(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var conversionKindKeyword = ReadToken();
+        var operatorKeyword = ExpectToken(SyntaxKind.OperatorKeyword);
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(openParenToken);
+        var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        BlockStatementSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+        var next = PeekToken();
+        if (next.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        }
+        else if (next.IsKind(SyntaxKind.FatArrowToken))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return ConversionOperatorDeclaration(
+            attributeLists,
+            modifiers,
+            conversionKindKeyword,
+            operatorKeyword,
             parameterList,
             returnType,
             body,

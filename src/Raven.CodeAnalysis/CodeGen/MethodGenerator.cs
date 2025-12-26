@@ -517,6 +517,10 @@ internal class MethodGenerator
             {
                 case MethodDeclarationSyntax methodDecl when methodDecl.Body is not null || methodDecl.ExpressionBody is not null:
                     return true;
+                case OperatorDeclarationSyntax operatorDecl when operatorDecl.Body is not null || operatorDecl.ExpressionBody is not null:
+                    return true;
+                case ConversionOperatorDeclarationSyntax conversionDecl when conversionDecl.Body is not null || conversionDecl.ExpressionBody is not null:
+                    return true;
                 case AccessorDeclarationSyntax accessorDecl when accessorDecl.Body is not null || accessorDecl.ExpressionBody is not null:
                     return true;
             }

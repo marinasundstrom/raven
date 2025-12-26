@@ -320,6 +320,38 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         ));
     }
 
+    public override SyntaxNode VisitConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax node)
+    {
+        var conversionKindKeyword = VisitToken(node.ConversionKindKeyword)!;
+        conversionKindKeyword = conversionKindKeyword.WithTrailingTrivia(SyntaxFactory.Space);
+
+        var operatorKeyword = VisitToken(node.OperatorKeyword)!;
+        operatorKeyword = operatorKeyword.WithTrailingTrivia(SyntaxFactory.Space);
+
+        var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
+            .WithTrailingTrivia(SyntaxFactory.Space);
+
+        ArrowTypeClauseSyntax? returnType = null;
+        if (node.ReturnType is not null)
+            returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
+                .WithTrailingTrivia(SyntaxFactory.Space);
+
+        return node.Update(
+                node.AttributeLists,
+                node.Modifiers,
+                conversionKindKeyword,
+                operatorKeyword,
+                parameterList,
+                returnType,
+                (BlockStatementSyntax?)VisitBlockStatement(node.Body),
+                null,
+                node.TerminatorToken)
+            .WithLeadingTrivia(SyntaxFactory.TriviaList(
+                SyntaxFactory.CarriageReturnLineFeed,
+                SyntaxFactory.CarriageReturnLineFeed
+        ));
+    }
+
     public override SyntaxNode? VisitParameterList(ParameterListSyntax node)
     {
         List<SyntaxNodeOrToken> newList = [];

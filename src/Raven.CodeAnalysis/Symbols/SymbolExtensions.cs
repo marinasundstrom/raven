@@ -537,7 +537,7 @@ public static partial class SymbolExtensions
         IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } op
             => "operator " + GetOperatorToken(op),
 
-        // User-defined conversions: `implicit conversion`, `explicit conversion`
+        // User-defined conversions: `implicit operator`, `explicit operator`
         IMethodSymbol { MethodKind: MethodKind.Conversion } conv
             => GetConversionDisplayName(conv),
 
@@ -558,9 +558,9 @@ public static partial class SymbolExtensions
         // op_Implicit / op_Explicit
         return method.Name switch
         {
-            "op_Implicit" => "implicit conversion",
-            "op_Explicit" => "explicit conversion",
-            _ => "conversion"
+            "op_Implicit" => "implicit operator",
+            "op_Explicit" => "explicit operator",
+            _ => "operator"
         };
     }
 

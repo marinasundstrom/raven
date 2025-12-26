@@ -309,6 +309,12 @@ internal class TypeDeclarationParser : SyntaxParser
             return new UnionDeclarationParser(this).Parse();
         }
 
+        if ((keywordOrIdentifier.IsKind(SyntaxKind.ExplicitKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ImplicitKeyword))
+            && PeekToken(1).IsKind(SyntaxKind.OperatorKeyword))
+        {
+            return ParseConversionOperatorDeclaration(attributeLists, modifiers);
+        }
+
         if (keywordOrIdentifier.IsKind(SyntaxKind.OperatorKeyword))
         {
             return ParseOperatorDeclaration(attributeLists, modifiers);
@@ -414,6 +420,44 @@ internal class TypeDeclarationParser : SyntaxParser
             modifiers,
             operatorKeyword,
             operatorToken,
+            parameterList,
+            returnType,
+            body,
+            expressionBody,
+            terminatorToken);
+    }
+
+    private MemberDeclarationSyntax ParseConversionOperatorDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var conversionKindKeyword = ReadToken();
+        var operatorKeyword = ExpectToken(SyntaxKind.OperatorKeyword);
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
+        var parameterList = ParseParameterList(openParenToken);
+
+        var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        var token = PeekToken();
+
+        BlockStatementSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        }
+        else if (token.IsKind(SyntaxKind.FatArrowToken))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return ConversionOperatorDeclaration(
+            attributeLists,
+            modifiers,
+            conversionKindKeyword,
+            operatorKeyword,
             parameterList,
             returnType,
             body,
