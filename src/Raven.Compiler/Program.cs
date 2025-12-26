@@ -31,6 +31,8 @@ var stopwatch = Stopwatch.StartNew();
 // -bt               - print binder and bound tree (single file only)
 // -q                - print AST as C# compilable code
 // --symbols [list|hierarchy] - inspect symbols produced from source
+// --doc-tool [ravendoc|comments] - documentation generator
+// --doc-format [md|xml] - documentation format (comment emission only)
 // --no-emit         - skip emitting the output assembly
 // --highlight       - display diagnostics with highlighted source
 // -h, --help        - display help
@@ -73,6 +75,8 @@ var run = false;
 var emitDocs = false;
 string? documentationOutputPath = null;
 var documentationFormat = DocumentationFormat.Markdown;
+var documentationTool = DocumentationTool.RavenDoc;
+var documentationFormatExplicitlySet = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -162,6 +166,13 @@ for (int i = 0; i < args.Length; i++)
                 hasInvalidOption = true;
             else
                 documentationFormat = parsedFormat;
+            documentationFormatExplicitlySet = true;
+            break;
+        case "--doc-tool":
+            if (!TryParseDocumentationTool(args, ref i, out var parsedTool))
+                hasInvalidOption = true;
+            else
+                documentationTool = parsedTool;
             break;
         case "--ilverify":
             runIlVerify = true;
@@ -259,6 +270,13 @@ if (showHelp || hasInvalidOption)
 
 if (sourceFiles.Count == 0)
     sourceFiles.Add($"../../../../../samples/hello-world-oop{RavenFileExtensions.Raven}");
+
+if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
+    documentationFormat == DocumentationFormat.Xml)
+{
+    AnsiConsole.MarkupLine("[yellow]RavenDoc only supports Markdown documentation. Ignoring --doc-format xml.[/]");
+    documentationFormat = DocumentationFormat.Markdown;
+}
 
 if (run && outputKind != OutputKind.ConsoleApplication)
 {
@@ -428,11 +446,20 @@ if (!noEmit)
 
 if (emitDocs)
 {
-    var formatExtension = documentationFormat == DocumentationFormat.Markdown ? ".md" : ".xml";
-    documentationOutputPath ??= Path.ChangeExtension(outputFilePath, formatExtension);
+    if (documentationTool == DocumentationTool.RavenDoc)
+    {
+        documentationOutputPath ??= Path.Combine(outputDirectory!, $"{assemblyName}.docs");
+        DocumentationGenerator.ProcessCompilation(compilation, documentationOutputPath);
+        AnsiConsole.MarkupLine($"[green]Documentation written to '{documentationOutputPath}'.[/]");
+    }
+    else
+    {
+        var formatExtension = documentationFormat == DocumentationFormat.Markdown ? ".md" : ".xml";
+        documentationOutputPath ??= Path.ChangeExtension(outputFilePath, formatExtension);
 
-    DocumentationEmitter.WriteDocumentation(project.Documents, documentationFormat, documentationOutputPath);
-    AnsiConsole.MarkupLine($"[green]Documentation written to '{documentationOutputPath}'.[/]");
+        DocumentationEmitter.WriteDocumentation(project.Documents, documentationFormat, documentationOutputPath);
+        AnsiConsole.MarkupLine($"[green]Documentation written to '{documentationOutputPath}'.[/]");
+    }
 }
 
 stopwatch.Stop();
@@ -729,6 +756,10 @@ static void PrintHelp()
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  -q                 Display AST as compilable C# code");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
+    Console.WriteLine("  --doc-tool [ravendoc|comments]");
+    Console.WriteLine("                    Documentation generator to use (default: ravendoc).");
+    Console.WriteLine("  --doc-format [md|xml]");
+    Console.WriteLine("                    Documentation format for comment emission (default: md).");
     Console.WriteLine("  --ilverify       Verify emitted IL using the 'ilverify' tool");
     Console.WriteLine("  --ilverify-path <path>");
     Console.WriteLine("                    Path to the ilverify executable when not on PATH");
@@ -901,6 +932,35 @@ static bool TryParseDocumentationFormat(string[] args, ref int index, out Docume
     return false;
 }
 
+static bool TryParseDocumentationTool(string[] args, ref int index, out DocumentationTool tool)
+{
+    var value = ConsumeOptionValue(args, ref index);
+
+    if (value is null)
+    {
+        tool = DocumentationTool.RavenDoc;
+        return true;
+    }
+
+    switch (value.ToLowerInvariant())
+    {
+        case "ravendoc":
+        case "doc":
+        case "docs":
+            tool = DocumentationTool.RavenDoc;
+            return true;
+        case "comments":
+        case "comment":
+        case "emitted":
+            tool = DocumentationTool.CommentEmitter;
+            return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown documentation tool '{value}'.[/]");
+    tool = DocumentationTool.RavenDoc;
+    return false;
+}
+
 static string? ConsumeOptionValue(string[] args, ref int index)
 {
     if (index + 1 < args.Length)
@@ -952,4 +1012,10 @@ enum SymbolDumpMode
     None,
     List,
     Hierarchy
+}
+
+enum DocumentationTool
+{
+    RavenDoc,
+    CommentEmitter
 }
