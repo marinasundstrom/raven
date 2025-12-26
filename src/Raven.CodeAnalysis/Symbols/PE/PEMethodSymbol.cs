@@ -214,8 +214,44 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     private bool? _lazyIsExtensionMethod;
     private string? _name;
+    private string? _extensionMarkerName;
 
     public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
+
+    internal bool TryGetExtensionMarkerName(out string markerName)
+    {
+        markerName = _extensionMarkerName ?? string.Empty;
+
+        if (_extensionMarkerName is not null)
+            return markerName.Length > 0;
+
+        if (_methodInfo is null)
+            return false;
+
+        try
+        {
+            foreach (var attribute in _methodInfo.GetCustomAttributesData())
+            {
+                if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.ExtensionMarkerNameAttribute")
+                    continue;
+
+                if (attribute.ConstructorArguments is [{ Value: string name }])
+                {
+                    _extensionMarkerName = name;
+                    markerName = name;
+                    return true;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            _extensionMarkerName = string.Empty;
+            return false;
+        }
+
+        _extensionMarkerName = string.Empty;
+        return false;
+    }
 
     private bool ComputeIsExtensionMethod()
     {

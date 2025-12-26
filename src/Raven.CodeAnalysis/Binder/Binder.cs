@@ -367,7 +367,11 @@ internal abstract class Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return method;
 
-        if (!TryCreateConstructedStaticExtension(method, receiverType, out var constructed))
+        var extensionReceiverType = method.GetExtensionReceiverType();
+        if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
+            return method;
+
+        if (!TryCreateConstructedStaticExtension(method, receiverType, extensionReceiverType, out var constructed))
             return method;
 
         return constructed;
@@ -382,7 +386,11 @@ internal abstract class Binder
         if (accessor is null)
             return property;
 
-        if (!TryCreateConstructedStaticExtension(accessor, receiverType, out var constructedAccessor))
+        var extensionReceiverType = property.GetExtensionReceiverType();
+        if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
+            return property;
+
+        if (!TryCreateConstructedStaticExtension(accessor, receiverType, extensionReceiverType, out var constructedAccessor))
             return property;
 
         if (constructedAccessor.ContainingSymbol is IPropertySymbol constructedProperty)
@@ -468,7 +476,11 @@ internal abstract class Binder
         return false;
     }
 
-    private bool TryCreateConstructedStaticExtension(IMethodSymbol method, ITypeSymbol receiverType, out IMethodSymbol constructed)
+    private bool TryCreateConstructedStaticExtension(
+        IMethodSymbol method,
+        ITypeSymbol receiverType,
+        ITypeSymbol extensionReceiverType,
+        out IMethodSymbol constructed)
     {
         constructed = method;
 
@@ -482,13 +494,12 @@ internal abstract class Binder
         if (!containerDefinition.IsGenericType || containerDefinition.TypeParameters.IsDefaultOrEmpty || containerDefinition.TypeParameters.Length == 0)
             return false;
 
-        var receiverTypeSyntax = containerDefinition.GetExtensionReceiverType();
-        if (receiverTypeSyntax is null || receiverTypeSyntax.TypeKind == TypeKind.Error)
+        if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
             return false;
 
         var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
 
-        if (!TryUnifyExtensionReceiver(receiverTypeSyntax, receiverType, substitutions))
+        if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
             return false;
 
         var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
@@ -558,10 +569,7 @@ internal abstract class Binder
         ITypeSymbol receiverType,
         bool includePartialMatches)
     {
-        if (member.ContainingType is not INamedTypeSymbol containingType)
-            return false;
-
-        var extensionReceiverType = containingType.GetExtensionReceiverType();
+        var extensionReceiverType = member.GetExtensionReceiverType();
         if (extensionReceiverType is null)
             return false;
 
@@ -837,9 +845,6 @@ internal abstract class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        if (type.GetExtensionReceiverType() is null)
-            yield break;
-
         var members = includePartialMatches || string.IsNullOrEmpty(name)
             ? type.GetMembers().OfType<IMethodSymbol>()
             : type.GetMembers(name!).OfType<IMethodSymbol>();
@@ -847,6 +852,9 @@ internal abstract class Binder
         foreach (var member in members)
         {
             if (member.IsExtensionMethod || !member.IsStatic)
+                continue;
+
+            if (member.GetExtensionReceiverType() is null)
                 continue;
 
             if (!includePartialMatches && name is not null && member.Name != name)
@@ -938,9 +946,6 @@ internal abstract class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        if (type.GetExtensionReceiverType() is null)
-            yield break;
-
         var members = includePartialMatches || string.IsNullOrEmpty(name)
             ? type.GetMembers().OfType<IPropertySymbol>()
             : type.GetMembers(name!).OfType<IPropertySymbol>();
@@ -948,6 +953,9 @@ internal abstract class Binder
         foreach (var property in members)
         {
             if (property.IsExtensionProperty() || !property.IsStatic)
+                continue;
+
+            if (property.GetExtensionReceiverType() is null)
                 continue;
 
             if (!includePartialMatches && name is not null && property.Name != name)

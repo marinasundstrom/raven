@@ -22,6 +22,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private readonly ITypeSymbol? _originalDefinition;
     private bool _extensionReceiverTypeComputed;
     private ITypeSymbol? _extensionReceiverType;
+    private bool _extensionMarkerMembersComputed;
+    private bool _hasExtensionMarkerMembers;
 
     internal static PENamedTypeSymbol Create(
         TypeResolver typeResolver,
@@ -245,6 +247,69 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         }
 
         return _extensionReceiverType;
+    }
+
+    internal bool HasExtensionMarkerMembers()
+    {
+        if (_extensionMarkerMembersComputed)
+            return _hasExtensionMarkerMembers;
+
+        _extensionMarkerMembersComputed = true;
+
+        foreach (var member in GetMembers())
+        {
+            if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
+            {
+                _hasExtensionMarkerMembers = true;
+                return true;
+            }
+
+            if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
+            {
+                _hasExtensionMarkerMembers = true;
+                return true;
+            }
+        }
+
+        _hasExtensionMarkerMembers = false;
+        return false;
+    }
+
+    internal ITypeSymbol? GetExtensionMarkerReceiverType(ISymbol member)
+    {
+        if (member.ContainingType is not PENamedTypeSymbol)
+            return null;
+
+        if (!TryGetExtensionMarkerName(member, out var markerName))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(markerName))
+            return null;
+
+        var markerType = GetMembers(markerName).OfType<INamedTypeSymbol>().FirstOrDefault();
+        if (markerType is null)
+            return null;
+
+        var markerMethod = markerType.GetMembers("<Extension>$").OfType<IMethodSymbol>().FirstOrDefault()
+            ?? markerType.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "<Extension>$");
+
+        if (markerMethod is null || markerMethod.Parameters.IsDefaultOrEmpty)
+            return null;
+
+        var receiverType = markerMethod.Parameters[0].Type;
+        return receiverType;
+    }
+
+    private static bool TryGetExtensionMarkerName(ISymbol member, out string markerName)
+    {
+        markerName = string.Empty;
+
+        return member switch
+        {
+            PEMethodSymbol peMethod => peMethod.TryGetExtensionMarkerName(out markerName),
+            PEPropertySymbol peProperty => peProperty.TryGetExtensionMarkerName(out markerName),
+            _ => false
+        };
     }
 
     public override SymbolKind Kind => SymbolKind.Type;

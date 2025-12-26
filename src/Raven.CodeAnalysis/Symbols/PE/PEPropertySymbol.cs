@@ -11,6 +11,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     private Accessibility? _accessibility;
     private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
     private string? _name;
+    private string? _extensionMarkerName;
 
     public PEPropertySymbol(TypeResolver typeResolver, PropertyInfo propertyInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
@@ -192,5 +193,37 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     public PropertyInfo GetPropertyInfo()
     {
         return _propertyInfo;
+    }
+
+    internal bool TryGetExtensionMarkerName(out string markerName)
+    {
+        markerName = _extensionMarkerName ?? string.Empty;
+
+        if (_extensionMarkerName is not null)
+            return markerName.Length > 0;
+
+        try
+        {
+            foreach (var attribute in _propertyInfo.GetCustomAttributesData())
+            {
+                if (attribute.AttributeType.FullName != "System.Runtime.CompilerServices.ExtensionMarkerNameAttribute")
+                    continue;
+
+                if (attribute.ConstructorArguments is [{ Value: string name }])
+                {
+                    _extensionMarkerName = name;
+                    markerName = name;
+                    return true;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            _extensionMarkerName = string.Empty;
+            return false;
+        }
+
+        _extensionMarkerName = string.Empty;
+        return false;
     }
 }

@@ -87,10 +87,64 @@ public static partial class SymbolExtensions
 
     public static ITypeSymbol? GetExtensionReceiverType(this IPropertySymbol property)
     {
+        if (property is SourcePropertySymbol sourceProperty && sourceProperty.IsDeclaredInExtension)
+            return sourceProperty.ExtensionReceiverType;
+
+        if (property.GetMethod?.GetExtensionReceiverType() is { } getterReceiver)
+            return getterReceiver;
+
+        if (property.SetMethod?.GetExtensionReceiverType() is { } setterReceiver)
+            return setterReceiver;
+
+        if (property.ContainingType?.GetExtensionReceiverType() is { } containerReceiver)
+            return containerReceiver;
+
         return property switch
         {
-            SourcePropertySymbol sourceProperty when sourceProperty.IsDeclaredInExtension => sourceProperty.ExtensionReceiverType,
+            PEPropertySymbol peProperty => peProperty.ContainingType is PENamedTypeSymbol peType
+                ? peType.GetExtensionMarkerReceiverType(peProperty)
+                : null,
             _ => null
+        };
+    }
+
+    public static ITypeSymbol? GetExtensionReceiverType(this IMethodSymbol method)
+    {
+        if (method.OriginalDefinition is PEMethodSymbol peOriginal &&
+            method.ContainingType is ConstructedNamedTypeSymbol constructed)
+        {
+            var receiverType = peOriginal.ContainingType is PENamedTypeSymbol peType
+                ? peType.GetExtensionMarkerReceiverType(peOriginal)
+                : null;
+
+            if (receiverType is not null)
+                return constructed.Substitute(receiverType);
+        }
+
+        if (method is PEMethodSymbol peMethod && peMethod.ContainingType is PENamedTypeSymbol peContaining)
+        {
+            var markerReceiver = peContaining.GetExtensionMarkerReceiverType(peMethod);
+            if (markerReceiver is not null)
+                return markerReceiver;
+        }
+
+        if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)
+            return method.Parameters[0].Type;
+
+        return method.ContainingType?.GetExtensionReceiverType();
+    }
+
+    public static bool HasStaticExtensionMembers(this INamedTypeSymbol type)
+    {
+        if (type.GetExtensionReceiverType() is not null)
+            return true;
+
+        return type switch
+        {
+            PENamedTypeSymbol peType => peType.HasExtensionMarkerMembers(),
+            ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is PENamedTypeSymbol peType
+                => peType.HasExtensionMarkerMembers(),
+            _ => false
         };
     }
 
@@ -104,6 +158,17 @@ public static partial class SymbolExtensions
             PENamedTypeSymbol peType => peType.GetExtensionReceiverType(),
             ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is PENamedTypeSymbol peType
                 => peType.GetExtensionReceiverType() is { } receiverType ? constructed.Substitute(receiverType) : null,
+            _ => null
+        };
+    }
+
+    public static ITypeSymbol? GetExtensionReceiverType(this ISymbol symbol)
+    {
+        return symbol switch
+        {
+            IMethodSymbol method => method.GetExtensionReceiverType(),
+            IPropertySymbol property => property.GetExtensionReceiverType(),
+            INamedTypeSymbol type => type.GetExtensionReceiverType(),
             _ => null
         };
     }
