@@ -13,6 +13,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
+    private ITypeSymbol? _extensionReceiverType;
 
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, Accessibility declaredAccessibility = Accessibility.NotApplicable)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
@@ -70,6 +71,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public bool HasNonPartialDeclaration { get; private set; }
 
     public bool IsExtensionDeclaration { get; private set; }
+    internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
@@ -185,6 +187,14 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         IsExtensionDeclaration = true;
         IsSealed = true;
+    }
+
+    internal void SetExtensionReceiverType(ITypeSymbol? receiverType)
+    {
+        if (!IsExtensionDeclaration)
+            return;
+
+        _extensionReceiverType = receiverType;
     }
 
     internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)

@@ -116,6 +116,17 @@ class ImportBinder : Binder
             var t = ns.LookupType(name);
             if (t != null && seen.Add(t))
                 results.Add(t);
+
+            if (ns is ITypeSymbol importedType)
+            {
+                foreach (var method in LookupExtensionStaticMethods(name, importedType))
+                    if (seen.Add(method))
+                        results.Add(method);
+
+                foreach (var property in LookupExtensionStaticProperties(name, importedType))
+                    if (seen.Add(property))
+                        results.Add(property);
+            }
         }
 
         // Types explicitly imported
@@ -177,6 +188,58 @@ class ImportBinder : Binder
         }
 
         foreach (var property in base.LookupExtensionProperties(name, receiverType, includePartialMatches))
+            if (seen.Add(property))
+                yield return property;
+    }
+
+    public override IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var scope in _namespaceOrTypeScopeImports)
+        {
+            foreach (var method in GetExtensionStaticMethodsFromScope(scope, name, receiverType, includePartialMatches))
+                if (seen.Add(method))
+                    yield return method;
+        }
+
+        foreach (var type in _typeImports)
+        {
+            foreach (var method in GetExtensionStaticMethodsFromScope(type, name, receiverType, includePartialMatches))
+                if (seen.Add(method))
+                    yield return method;
+        }
+
+        foreach (var method in base.LookupExtensionStaticMethods(name, receiverType, includePartialMatches))
+            if (seen.Add(method))
+                yield return method;
+    }
+
+    public override IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
+        var seen = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var scope in _namespaceOrTypeScopeImports)
+        {
+            foreach (var property in GetExtensionStaticPropertiesFromScope(scope, name, receiverType, includePartialMatches))
+                if (seen.Add(property))
+                    yield return property;
+        }
+
+        foreach (var type in _typeImports)
+        {
+            foreach (var property in GetExtensionStaticPropertiesFromScope(type, name, receiverType, includePartialMatches))
+                if (seen.Add(property))
+                    yield return property;
+        }
+
+        foreach (var property in base.LookupExtensionStaticProperties(name, receiverType, includePartialMatches))
             if (seen.Add(property))
                 yield return property;
     }

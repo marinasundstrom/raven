@@ -302,7 +302,8 @@ internal class TypeMemberBinder : Binder
         }
 
         var modifiers = methodDecl.Modifiers;
-        var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isStatic = hasStaticModifier;
         var isAsync = modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
@@ -379,7 +380,9 @@ internal class TypeMemberBinder : Binder
             isSealed: isSealed,
             declaredAccessibility: methodAccessibility);
 
-        if (isExtensionContainer)
+        var isExtensionMember = isExtensionContainer && !hasStaticModifier;
+
+        if (isExtensionMember)
             methodSymbol.MarkDeclaredInExtension();
 
         if (isAsync && methodDecl.ReturnType is null)
@@ -439,7 +442,7 @@ internal class TypeMemberBinder : Binder
         }
 
         ITypeSymbol? receiverType = null;
-        if (isExtensionContainer)
+        if (isExtensionMember)
             receiverType = GetExtensionReceiverType();
 
         var signatureParameters = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToList();
@@ -532,7 +535,7 @@ internal class TypeMemberBinder : Binder
         var parameters = new List<SourceParameterSymbol>();
         var seenOptionalParameter = false;
 
-        if (isExtensionContainer && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+        if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
         {
             var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
             var selfParameter = new SourceParameterSymbol(
@@ -1055,7 +1058,8 @@ internal class TypeMemberBinder : Binder
     {
         var propertyType = ResolveType(propertyDecl.Type.Type);
         var modifiers = propertyDecl.Modifiers;
-        var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isStatic = hasStaticModifier;
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
@@ -1070,16 +1074,19 @@ internal class TypeMemberBinder : Binder
         IPropertySymbol? explicitInterfaceProperty = null;
 
         var isExtensionContainer = IsExtensionContainer;
+        var isExtensionMember = isExtensionContainer && !hasStaticModifier;
 
         if (isExtensionContainer)
         {
-            isStatic = false;
             isVirtual = false;
             isOverride = false;
             isSealed = false;
             propertyAccessibility = modifiers.Any(m => m.Kind == SyntaxKind.InternalKeyword)
                 ? Accessibility.Internal
                 : Accessibility.Public;
+
+            if (isExtensionMember)
+                isStatic = false;
         }
 
         if (explicitInterfaceSpecifier is not null)
@@ -1163,7 +1170,7 @@ internal class TypeMemberBinder : Binder
             propertyDecl.Type.Type.GetLocation());
 
         ITypeSymbol? receiverType = null;
-        if (isExtensionContainer)
+        if (isExtensionMember)
             receiverType = GetExtensionReceiverType();
 
         if (receiverType is not null && _extensionReceiverTypeSyntax is not null)
@@ -1189,13 +1196,13 @@ internal class TypeMemberBinder : Binder
             metadataName: metadataName,
             declaredAccessibility: propertyAccessibility);
 
-        if (isExtensionContainer)
+        if (isExtensionMember)
             propertySymbol.MarkDeclaredInExtension(receiverType);
 
-            if (!isExtensionContainer &&
-                _containingType.TypeKind != TypeKind.Interface &&
-                propertyDecl.AccessorList is { } accessorList &&
-                accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null))
+        if (!isExtensionContainer &&
+            _containingType.TypeKind != TypeKind.Interface &&
+            propertyDecl.AccessorList is { } accessorList &&
+            accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null))
         {
             var backingField = new SourceFieldSymbol(
                 $"<{propertySymbol.Name}>k__BackingField",
@@ -1333,11 +1340,11 @@ internal class TypeMemberBinder : Binder
                     isSealed: accessorSealed,
                     declaredAccessibility: propertyAccessibility);
 
-                if (isExtensionContainer)
+                if (isExtensionMember)
                     methodSymbol.MarkDeclaredInExtension();
 
                 var parameters = new List<SourceParameterSymbol>();
-                if (isExtensionContainer && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+                if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
                 {
                     var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
                     var selfParameter = new SourceParameterSymbol(
@@ -1423,11 +1430,11 @@ internal class TypeMemberBinder : Binder
                 isSealed: accessorSealed,
                 declaredAccessibility: propertyAccessibility);
 
-            if (isExtensionContainer)
+            if (isExtensionMember)
                 methodSymbol.MarkDeclaredInExtension();
 
             var parameters = new List<SourceParameterSymbol>();
-            if (isExtensionContainer && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+            if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
             {
                 var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
                 var selfParameter = new SourceParameterSymbol(
@@ -2090,4 +2097,3 @@ internal class TypeMemberBinder : Binder
         };
     }
 }
-
