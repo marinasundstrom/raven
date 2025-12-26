@@ -122,6 +122,14 @@ internal class MethodGenerator
 
             var liftedTypeParameters = TypeGenerator.GetExtensionTypeParameters();
             var methodTypeParameters = MethodSymbol.TypeParameters;
+            if (!liftedTypeParameters.IsDefaultOrEmpty &&
+                methodTypeParameters.Length >= liftedTypeParameters.Length &&
+                methodTypeParameters.Take(liftedTypeParameters.Length)
+                    .Select(tp => tp.Name)
+                    .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
+            {
+                liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+            }
             if (!liftedTypeParameters.IsDefaultOrEmpty || !methodTypeParameters.IsDefaultOrEmpty)
             {
                 var allParameters = liftedTypeParameters.AddRange(methodTypeParameters);

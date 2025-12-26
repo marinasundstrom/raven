@@ -360,6 +360,14 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 
+        if (methodSearchType is TypeBuilder && _definition is SourceMethodSymbol sourceMethod)
+        {
+            var methodBuilder = (MethodBuilder)codeGen.GetMemberBuilder(sourceMethod);
+            return methodBuilder.IsGenericMethodDefinition
+                ? methodBuilder.MakeGenericMethod(runtimeTypeArguments)
+                : methodBuilder;
+        }
+
         if (debug)
         {
             static string FormatType(Type type)

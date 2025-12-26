@@ -49,6 +49,33 @@ internal class TypeMemberBinder : Binder
 
     private bool IsExtensionContainer => _extensionReceiverTypeSyntax is not null && _containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
 
+    private ImmutableArray<ITypeParameterSymbol> CreateExtensionTypeParameters(SourceMethodSymbol methodSymbol)
+    {
+        if (!IsExtensionContainer || _containingType.TypeParameters.IsDefaultOrEmpty)
+            return ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(_containingType.TypeParameters.Length);
+        var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+        var ordinal = 0;
+
+        foreach (var typeParameter in _containingType.TypeParameters.OfType<SourceTypeParameterSymbol>())
+        {
+            builder.Add(new SourceTypeParameterSymbol(
+                typeParameter.Name,
+                methodSymbol,
+                _containingType,
+                receiverNamespace,
+                typeParameter.Locations.ToArray(),
+                typeParameter.DeclaringSyntaxReferences.ToArray(),
+                ordinal++,
+                typeParameter.ConstraintKind,
+                typeParameter.ConstraintTypeReferences,
+                typeParameter.Variance));
+        }
+
+        return builder.ToImmutable();
+    }
+
     private ITypeSymbol GetExtensionReceiverType()
     {
         if (!_extensionReceiverTypeComputed)
@@ -403,8 +430,17 @@ internal class TypeMemberBinder : Binder
 
         if (methodDecl.TypeParameterList is not null)
         {
-            var typeParametersBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(methodDecl.TypeParameterList.Parameters.Count);
-            int ordinal = 0;
+            var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
+            var typeParametersBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(
+                extensionTypeParameters.Length + methodDecl.TypeParameterList.Parameters.Count);
+            var ordinal = 0;
+
+            if (!extensionTypeParameters.IsDefaultOrEmpty)
+            {
+                typeParametersBuilder.AddRange(extensionTypeParameters);
+                ordinal = extensionTypeParameters.Length;
+            }
+
             foreach (var typeParameterSyntax in methodDecl.TypeParameterList.Parameters)
             {
                 var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(typeParameterSyntax);
@@ -425,6 +461,12 @@ internal class TypeMemberBinder : Binder
             }
 
             methodSymbol.SetTypeParameters(typeParametersBuilder);
+        }
+        else if (isExtensionMember)
+        {
+            var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
+            if (!extensionTypeParameters.IsDefaultOrEmpty)
+                methodSymbol.SetTypeParameters(extensionTypeParameters);
         }
 
         var hasInvalidAsyncReturnType = false;
@@ -455,8 +497,8 @@ internal class TypeMemberBinder : Binder
         }
 
         ITypeSymbol? receiverType = null;
-        if (isExtensionMember)
-            receiverType = GetExtensionReceiverType();
+        if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
+            receiverType = methodBinder.ResolveType(_extensionReceiverTypeSyntax);
 
         var signatureParameters = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToList();
         if (receiverType is not null)
@@ -641,6 +683,10 @@ internal class TypeMemberBinder : Binder
             methodKind: MethodKind.UserDefinedOperator,
             declaredAccessibility: operatorAccessibility);
 
+        var extensionTypeParameters = CreateExtensionTypeParameters(operatorSymbol);
+        if (!extensionTypeParameters.IsDefaultOrEmpty)
+            operatorSymbol.SetTypeParameters(extensionTypeParameters);
+
         var operatorBinder = new MethodBinder(operatorSymbol, this);
 
         var returnType = operatorDecl.ReturnType is null
@@ -771,6 +817,10 @@ internal class TypeMemberBinder : Binder
             isStatic: true,
             methodKind: MethodKind.Conversion,
             declaredAccessibility: operatorAccessibility);
+
+        var extensionTypeParameters = CreateExtensionTypeParameters(conversionSymbol);
+        if (!extensionTypeParameters.IsDefaultOrEmpty)
+            conversionSymbol.SetTypeParameters(extensionTypeParameters);
 
         var conversionBinder = new MethodBinder(conversionSymbol, this);
 
