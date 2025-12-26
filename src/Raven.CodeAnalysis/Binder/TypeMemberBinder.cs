@@ -233,7 +233,7 @@ internal class TypeMemberBinder : Binder
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [decl.GetLocation()],
-                [decl.GetReference()],
+                [decl.GetReference(), fieldDecl.GetReference()],
                 initializerForSymbol,
                 declaredAccessibility: fieldAccessibility
             );
