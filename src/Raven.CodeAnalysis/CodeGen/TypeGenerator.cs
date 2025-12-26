@@ -743,6 +743,10 @@ internal class TypeGenerator
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
 
+        var extensionAttribute = CodeGen.CreateExtensionAttributeBuilder();
+        if (extensionAttribute is not null)
+            TypeBuilder!.SetCustomAttribute(extensionAttribute);
+
         EnsureExtensionGroupingType();
     }
 

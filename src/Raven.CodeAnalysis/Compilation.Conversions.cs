@@ -337,9 +337,19 @@ public partial class Compilation
 
             foreach (var method in candidateConversions)
             {
-                if (method.MethodKind is MethodKind.Conversion &&
-                    method.Parameters.Length == 1 &&
-                    ClassifyConversion(source, method.Parameters[0].Type, includeUserDefined: false) is { Exists: true, IsImplicit: true } &&
+                if (method.MethodKind is not MethodKind.Conversion ||
+                    method.Parameters.Length != 1)
+                {
+                    continue;
+                }
+
+                var sourceConversion = ClassifyConversion(source, method.Parameters[0].Type, includeUserDefined: false);
+                var sourceConvertible = sourceConversion.Exists && sourceConversion.IsImplicit;
+
+                if (!sourceConvertible && SourceMatchesDiscriminatedUnionCase(source, method.Parameters[0].Type))
+                    sourceConvertible = true;
+
+                if (sourceConvertible &&
                     ClassifyConversion(method.ReturnType, destination, includeUserDefined: false) is { Exists: true, IsImplicit: true })
                 {
                     var isImplicit = method.Name == "op_Implicit";
@@ -348,7 +358,27 @@ public partial class Compilation
             }
         }
 
+        if (source.TryGetDiscriminatedUnionCase() is { } unionCase &&
+            !SymbolEqualityComparer.Default.Equals(source, unionCase.Union))
+        {
+            var unionConversion = ClassifyConversion(unionCase.Union, destination, includeUserDefined);
+            if (unionConversion.Exists)
+                return unionConversion;
+        }
+
         return Conversion.None;
+
+        static bool SourceMatchesDiscriminatedUnionCase(ITypeSymbol sourceType, ITypeSymbol parameterType)
+        {
+            var sourceCase = sourceType.TryGetDiscriminatedUnionCase();
+            var parameterUnion = parameterType.TryGetDiscriminatedUnion();
+
+            if (sourceCase is null || parameterUnion is null)
+                return false;
+
+            return SymbolEqualityComparer.Default.Equals(sourceCase.Union, parameterUnion) ||
+                SymbolEqualityComparer.Default.Equals(sourceCase.Union.OriginalDefinition, parameterUnion.OriginalDefinition);
+        }
     }
 
     private IEnumerable<IMethodSymbol> GetExtensionConversionCandidates(ITypeSymbol source, ITypeSymbol destination)
@@ -358,12 +388,27 @@ public partial class Compilation
             yield break;
 
         var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var receiverTypes = ImmutableArray.CreateBuilder<ITypeSymbol>(4);
+        receiverTypes.Add(source);
+        receiverTypes.Add(destination);
+
+        if (source.TryGetDiscriminatedUnionCase() is { } sourceUnionCase)
+            receiverTypes.Add(sourceUnionCase.Union);
+        if (destination.TryGetDiscriminatedUnionCase() is { } destinationUnionCase)
+            receiverTypes.Add(destinationUnionCase.Union);
 
         foreach (var method in extensionOperators)
         {
-            var constructed = TryConstructExtensionConversion(method, source)
-                ?? TryConstructExtensionConversion(method, destination)
-                ?? method;
+            IMethodSymbol? constructed = null;
+
+            foreach (var receiverType in receiverTypes)
+            {
+                constructed = TryConstructExtensionConversion(method, receiverType);
+                if (constructed is not null)
+                    break;
+            }
+
+            constructed ??= method;
 
             if (constructed is not null && seen.Add(constructed))
                 yield return constructed;
@@ -378,7 +423,7 @@ public partial class Compilation
         _extensionConversionOperatorsInitialized = true;
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
-        var members = Module.GlobalNamespace.GetAllMembersRecursive().OfType<INamedTypeSymbol>();
+        var members = GlobalNamespace.GetAllMembersRecursive().OfType<INamedTypeSymbol>();
 
         foreach (var type in members)
         {
@@ -426,7 +471,7 @@ public partial class Compilation
             for (int i = 0; i < methodDefinition.TypeParameters.Length; i++)
             {
                 var typeParameter = methodDefinition.TypeParameters[i];
-                if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                if (!TryGetMethodSubstitution(substitutions, typeParameter, out var typeArgument))
                     return null;
 
                 methodTypeArguments[i] = typeArgument;
@@ -470,6 +515,28 @@ public partial class Compilation
         }
 
         return null;
+
+        static bool TryGetMethodSubstitution(
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+            ITypeParameterSymbol methodParameter,
+            out ITypeSymbol typeArgument)
+        {
+            if (substitutions.TryGetValue(methodParameter, out typeArgument))
+                return true;
+
+            foreach (var (parameter, argument) in substitutions)
+            {
+                if (string.Equals(parameter.Name, methodParameter.Name, StringComparison.Ordinal) &&
+                    parameter.Ordinal == methodParameter.Ordinal)
+                {
+                    typeArgument = argument;
+                    return true;
+                }
+            }
+
+            typeArgument = null!;
+            return false;
+        }
     }
 
     private bool TryUnifyExtensionReceiver(
@@ -480,30 +547,30 @@ public partial class Compilation
         parameterType = NormalizeTypeForExtensionInference(parameterType);
         argumentType = NormalizeTypeForExtensionInference(argumentType);
 
+        if (argumentType.TryGetDiscriminatedUnionCase() is { } unionCase)
+            argumentType = unionCase.Union;
+
         if (parameterType is ITypeParameterSymbol parameter)
             return TryRecordExtensionSubstitution(parameter, argumentType, substitutions);
 
         if (parameterType is INamedTypeSymbol paramNamed && argumentType is INamedTypeSymbol argNamed)
         {
-            var parameterDefinition = paramNamed.OriginalDefinition ?? paramNamed;
-            var argumentDefinition = argNamed.OriginalDefinition ?? argNamed;
+            if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
+                return true;
 
-            if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
-                return false;
-
-            var parameterArguments = paramNamed.TypeArguments;
-            var argumentArguments = argNamed.TypeArguments;
-
-            if (parameterArguments.Length != argumentArguments.Length)
-                return false;
-
-            for (int i = 0; i < parameterArguments.Length; i++)
+            foreach (var iface in argNamed.AllInterfaces)
             {
-                if (!TryUnifyExtensionReceiver(parameterArguments[i], argumentArguments[i], substitutions))
-                    return false;
+                if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                    return true;
             }
 
-            return true;
+            for (var baseType = argNamed.BaseType; baseType is not null; baseType = baseType.BaseType)
+            {
+                if (TryUnifyNamedType(paramNamed, baseType, substitutions))
+                    return true;
+            }
+
+            return false;
         }
 
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
@@ -521,6 +588,35 @@ public partial class Compilation
         }
 
         return SymbolEqualityComparer.Default.Equals(parameterType, argumentType);
+
+        bool TryUnifyNamedType(
+            INamedTypeSymbol parameterNamed,
+            INamedTypeSymbol? argumentNamed,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        {
+            if (argumentNamed is null)
+                return false;
+
+            var parameterDefinition = parameterNamed.OriginalDefinition ?? parameterNamed;
+            var argumentDefinition = argumentNamed.OriginalDefinition ?? argumentNamed;
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
+                return false;
+
+            var parameterArguments = parameterNamed.TypeArguments;
+            var argumentArguments = argumentNamed.TypeArguments;
+
+            if (parameterArguments.Length != argumentArguments.Length)
+                return false;
+
+            for (int i = 0; i < parameterArguments.Length; i++)
+            {
+                if (!TryUnifyExtensionReceiver(parameterArguments[i], argumentArguments[i], map))
+                    return false;
+            }
+
+            return true;
+        }
     }
 
     private bool TryRecordExtensionSubstitution(

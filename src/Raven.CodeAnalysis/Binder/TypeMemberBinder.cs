@@ -1533,13 +1533,28 @@ internal class TypeMemberBinder : Binder
                 if (isExtensionMember)
                     methodSymbol.MarkDeclaredInExtension();
 
+                if (isExtensionMember)
+                {
+                    var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
+                    if (!extensionTypeParameters.IsDefaultOrEmpty)
+                        methodSymbol.SetTypeParameters(extensionTypeParameters);
+                }
+
+                MethodBinder? binder = null;
+                ITypeSymbol? receiverTypeForAccessor = receiverType;
+                if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
+                {
+                    binder = new MethodBinder(methodSymbol, this);
+                    receiverTypeForAccessor = binder.ResolveType(_extensionReceiverTypeSyntax);
+                }
+
                 var parameters = new List<SourceParameterSymbol>();
-                if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+                if (isExtensionMember && receiverTypeForAccessor is not null && _extensionReceiverTypeSyntax is not null)
                 {
                     var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
                     var selfParameter = new SourceParameterSymbol(
                         "self",
-                        receiverType,
+                        receiverTypeForAccessor,
                         methodSymbol,
                         _containingType,
                         receiverNamespace,
@@ -1587,7 +1602,7 @@ internal class TypeMemberBinder : Binder
                         methodSymbol.SetOverriddenMethod(overriddenMethod);
                 }
 
-                var binder = new MethodBinder(methodSymbol, this);
+                binder ??= new MethodBinder(methodSymbol, this);
                 binders[accessor] = binder;
 
                 if (isGet)
@@ -1623,13 +1638,28 @@ internal class TypeMemberBinder : Binder
             if (isExtensionMember)
                 methodSymbol.MarkDeclaredInExtension();
 
+            if (isExtensionMember)
+            {
+                var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
+                if (!extensionTypeParameters.IsDefaultOrEmpty)
+                    methodSymbol.SetTypeParameters(extensionTypeParameters);
+            }
+
+            MethodBinder? binder = null;
+            ITypeSymbol? receiverTypeForAccessor = receiverType;
+            if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
+            {
+                binder = new MethodBinder(methodSymbol, this);
+                receiverTypeForAccessor = binder.ResolveType(_extensionReceiverTypeSyntax);
+            }
+
             var parameters = new List<SourceParameterSymbol>();
-            if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+            if (isExtensionMember && receiverTypeForAccessor is not null && _extensionReceiverTypeSyntax is not null)
             {
                 var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
                 var selfParameter = new SourceParameterSymbol(
                     "self",
-                    receiverType,
+                    receiverTypeForAccessor,
                     methodSymbol,
                     _containingType,
                     receiverNamespace,
@@ -1655,7 +1685,7 @@ internal class TypeMemberBinder : Binder
             if (accessorOverride && overriddenGetter is not null)
                 methodSymbol.SetOverriddenMethod(overriddenGetter);
 
-            var binder = new MethodBinder(methodSymbol, this);
+            binder ??= new MethodBinder(methodSymbol, this);
             var expressionBodyBinder = new MethodBodyBinder(methodSymbol, binder);
 
             binders[propertyDecl.ExpressionBody!] = expressionBodyBinder;

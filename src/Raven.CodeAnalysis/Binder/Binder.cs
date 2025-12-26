@@ -325,41 +325,25 @@ internal abstract class Binder
         if (!property.IsExtensionProperty() || receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return property;
 
-        var accessor = property.GetMethod ?? property.SetMethod;
-        if (accessor is null)
+        var getMethod = property.GetMethod;
+        var setMethod = property.SetMethod;
+
+        IMethodSymbol? constructedGet = null;
+        IMethodSymbol? constructedSet = null;
+
+        if (getMethod is not null && TryCreateConstructedExtension(getMethod, receiverType, out var getConstructed))
+            constructedGet = getConstructed;
+
+        if (setMethod is not null && TryCreateConstructedExtension(setMethod, receiverType, out var setConstructed))
+            constructedSet = setConstructed;
+
+        if (constructedGet is null && constructedSet is null)
             return property;
 
-        if (!TryCreateConstructedExtension(accessor, receiverType, out var constructedAccessor))
-            return property;
-
-        if (constructedAccessor.ContainingSymbol is IPropertySymbol constructedProperty)
-            return constructedProperty;
-
-        if (constructedAccessor.ContainingType is INamedTypeSymbol containingType)
-        {
-            var propertyAccessorDefinition = (property.GetMethod ?? property.SetMethod)?.OriginalDefinition
-                ?? property.GetMethod
-                ?? property.SetMethod;
-
-            var propertyCandidate = containingType
-                .GetMembers(property.Name)
-                .OfType<IPropertySymbol>()
-                .FirstOrDefault(candidate =>
-                {
-                    var candidateAccessor = (candidate.GetMethod ?? candidate.SetMethod)?.OriginalDefinition
-                        ?? candidate.GetMethod
-                        ?? candidate.SetMethod;
-
-                    return propertyAccessorDefinition is not null &&
-                        candidateAccessor is not null &&
-                        SymbolEqualityComparer.Default.Equals(candidateAccessor, propertyAccessorDefinition);
-                });
-
-            if (propertyCandidate is not null)
-                return propertyCandidate;
-        }
-
-        return property;
+        return new ConstructedExtensionPropertySymbol(
+            property,
+            constructedGet ?? getMethod,
+            constructedSet ?? setMethod);
     }
 
     private IMethodSymbol AdjustExtensionStaticMethodForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
@@ -382,45 +366,35 @@ internal abstract class Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return property;
 
-        var accessor = property.GetMethod ?? property.SetMethod;
-        if (accessor is null)
-            return property;
-
         var extensionReceiverType = property.GetExtensionReceiverType();
         if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
             return property;
 
-        if (!TryCreateConstructedStaticExtension(accessor, receiverType, extensionReceiverType, out var constructedAccessor))
-            return property;
+        var getMethod = property.GetMethod;
+        var setMethod = property.SetMethod;
 
-        if (constructedAccessor.ContainingSymbol is IPropertySymbol constructedProperty)
-            return constructedProperty;
+        IMethodSymbol? constructedGet = null;
+        IMethodSymbol? constructedSet = null;
 
-        if (constructedAccessor.ContainingType is INamedTypeSymbol containingType)
+        if (getMethod is not null &&
+            TryCreateConstructedStaticExtension(getMethod, receiverType, extensionReceiverType, out var getConstructed))
         {
-            var propertyAccessorDefinition = (property.GetMethod ?? property.SetMethod)?.OriginalDefinition
-                ?? property.GetMethod
-                ?? property.SetMethod;
-
-            var propertyCandidate = containingType
-                .GetMembers(property.Name)
-                .OfType<IPropertySymbol>()
-                .FirstOrDefault(candidate =>
-                {
-                    var candidateAccessor = (candidate.GetMethod ?? candidate.SetMethod)?.OriginalDefinition
-                        ?? candidate.GetMethod
-                        ?? candidate.SetMethod;
-
-                    return propertyAccessorDefinition is not null &&
-                        candidateAccessor is not null &&
-                        SymbolEqualityComparer.Default.Equals(candidateAccessor, propertyAccessorDefinition);
-                });
-
-            if (propertyCandidate is not null)
-                return propertyCandidate;
+            constructedGet = getConstructed;
         }
 
-        return property;
+        if (setMethod is not null &&
+            TryCreateConstructedStaticExtension(setMethod, receiverType, extensionReceiverType, out var setConstructed))
+        {
+            constructedSet = setConstructed;
+        }
+
+        if (constructedGet is null && constructedSet is null)
+            return property;
+
+        return new ConstructedExtensionPropertySymbol(
+            property,
+            constructedGet ?? getMethod,
+            constructedSet ?? setMethod);
     }
 
     private bool TryCreateConstructedExtension(IMethodSymbol method, ITypeSymbol receiverType, out IMethodSymbol constructed)
