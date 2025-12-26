@@ -4496,6 +4496,7 @@ partial class BlockBinder : Binder
             types.Add(rightType);
 
         var candidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var type in types)
         {
@@ -4507,7 +4508,20 @@ partial class BlockBinder : Binder
                 if (!method.IsStatic || method.IsExtensionMethod)
                     continue;
 
-                candidates.Add(method);
+                if (seen.Add(method))
+                    candidates.Add(method);
+            }
+
+            foreach (var method in LookupExtensionStaticMethods(metadataName, type))
+            {
+                if (method.MethodKind != MethodKind.UserDefinedOperator)
+                    continue;
+
+                if (!method.IsStatic || method.IsExtensionMethod)
+                    continue;
+
+                if (seen.Add(method))
+                    candidates.Add(method);
             }
         }
 

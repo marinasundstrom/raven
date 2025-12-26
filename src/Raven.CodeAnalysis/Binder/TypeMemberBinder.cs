@@ -600,10 +600,6 @@ internal class TypeMemberBinder : Binder
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var operatorAccessibility = AccessibilityUtilities.DetermineAccessibility(operatorDecl.Modifiers, defaultAccessibility);
         var hasStaticModifier = operatorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-        var isExtensionContainer = IsExtensionContainer;
-
-        if (isExtensionContainer)
-            _diagnostics.ReportOperatorNotSupportedInExtensions(operatorText, operatorDecl.OperatorKeyword.GetLocation());
 
         if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
             _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.OperatorKeyword.GetLocation());
@@ -740,10 +736,6 @@ internal class TypeMemberBinder : Binder
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var operatorAccessibility = AccessibilityUtilities.DetermineAccessibility(conversionDecl.Modifiers, defaultAccessibility);
         var hasStaticModifier = conversionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-        var isExtensionContainer = IsExtensionContainer;
-
-        if (isExtensionContainer)
-            _diagnostics.ReportOperatorNotSupportedInExtensions(operatorText, conversionDecl.ConversionKindKeyword.GetLocation());
 
         if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
             _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, conversionDecl.ConversionKindKeyword.GetLocation());

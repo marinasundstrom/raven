@@ -75,22 +75,32 @@ class Counter
     }
 
     [Fact]
-    public void ExtensionOperator_NotSupported()
+    public void ExtensionOperator_BinaryExpressionBindsUserDefinedOperator()
     {
         var source = """
-extension IntOps for int
-{
-    public static operator +(left: int, right: int) -> int => left + right
+namespace Sample {
+    class Number { }
+
+    extension NumberOps for Number {
+        public static operator +(left: Number, right: Number) -> Number { return left }
+    }
+
+    let a = Number()
+    let b = Number()
+    let c = a + b
 }
 """;
 
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
-        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
 
-        Assert.Contains(
-            compilation.GetDiagnostics(),
-            d => d.Descriptor == CompilerDiagnostics.OperatorNotSupportedInExtensions);
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
+
+        Assert.Equal(MethodKind.UserDefinedOperator, symbol.MethodKind);
+        Assert.Equal("op_Addition", symbol.Name);
+        Assert.Equal("NumberOps", symbol.ContainingType?.Name);
     }
 
     [Fact]
