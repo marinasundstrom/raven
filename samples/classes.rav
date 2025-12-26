@@ -18,13 +18,16 @@ PrintLine(user2.Name)
 PrintLine(user2(2003));
 PrintLine(user2("test"));
 
-open class Base {}
+/// A base class
+public open class Base {}
 
-class Person : Base {
+/// Sample **class**
+public class Person : Base {
     /// The meaning of life
-    const TheMeaningOfLife = 42
+    public const TheMeaningOfLife = 42
 
-    val species = "Homo sapiens"
+    /// A field
+    public val species = "Homo sapiens"
     var age: int = 0
     var name: string
     var roles: StringList = []

@@ -419,3 +419,4 @@ api
 # Generated files
 *.g.cs
 *.stamp
+samples/test.docs
