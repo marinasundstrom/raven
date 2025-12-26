@@ -35,6 +35,12 @@ The recommended baseline is **explicit** conversion to avoid surprising behavior
 
 This proposal depends on separate features: user-defined conversion operators and static extensions.
 
+## Status
+
+* ✅ Syntax and binding for `explicit operator` / `implicit operator` declarations are implemented.
+* 🟡 Conversion operator lookup and usage in casts/overload resolution are still pending.
+* ⏳ Static extension conversion operators remain blocked on the extension operator work.
+
 ## Motivation
 
 `Option<T>` represents “value or no value” in a structured way. Nullable value types (`T?`) and nullable symbol declarations (`x? : T`) represent the same concept at the .NET/nullability level.

@@ -85,6 +85,7 @@ NewLineToken             ::= /* newline trivia promoted to a token after type de
 
 ClassMember              ::= FieldDeclaration
                            | MethodDeclaration
+                           | ConversionOperatorDeclaration
                            | OperatorDeclaration
                            | InvocationOperatorDeclaration
                            | ConstructorDeclaration
@@ -103,6 +104,11 @@ ConstructorDeclaration   ::= MemberModifiers?
 
 MethodDeclaration        ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? Identifier '(' ParameterList? ')'
+                             ReturnTypeClause?
+                             ( Block | '=>' Expression ) ;
+ConversionOperatorDeclaration
+                         ::= MemberModifiers?
+                             ( 'explicit' | 'implicit' ) 'operator' '(' ParameterList? ')'
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
 OperatorDeclaration      ::= MemberModifiers?
