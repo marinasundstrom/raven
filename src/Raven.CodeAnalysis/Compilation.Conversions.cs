@@ -544,11 +544,10 @@ public partial class Compilation
         ITypeSymbol argumentType,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
+        File.WriteAllText("Compilation.debug.txt", $"DEBUG (Compilation.TryUnifyExtensionReceiver). Param type: {parameterType}; Argument type: {argumentType}");
+
         parameterType = NormalizeTypeForExtensionInference(parameterType);
         argumentType = NormalizeTypeForExtensionInference(argumentType);
-
-        if (argumentType.TryGetDiscriminatedUnionCase() is { } unionCase)
-            argumentType = unionCase.Union;
 
         if (parameterType is ITypeParameterSymbol parameter)
             return TryRecordExtensionSubstitution(parameter, argumentType, substitutions);
@@ -558,6 +557,8 @@ public partial class Compilation
             if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
                 return true;
 
+            // NOTE: Problem seems to occur when iterating all interfaces. 
+            // It lazily creates the types. But something is wrong when 
             foreach (var iface in argNamed.AllInterfaces)
             {
                 if (TryUnifyNamedType(paramNamed, iface, substitutions))

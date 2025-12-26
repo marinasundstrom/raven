@@ -4,6 +4,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
+using Raven.CodeAnalysis;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
