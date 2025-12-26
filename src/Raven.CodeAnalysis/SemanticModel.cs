@@ -1420,6 +1420,12 @@ public partial class SemanticModel
                     _binderCache[operatorDecl] = boundOperatorBinder;
                     break;
 
+                case ConversionOperatorDeclarationSyntax conversionDecl:
+                    var conversionBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var boundConversionBinder = conversionBinder.BindConversionOperatorDeclaration(conversionDecl);
+                    _binderCache[conversionDecl] = boundConversionBinder;
+                    break;
+
                 case PropertyDeclarationSyntax propDecl:
                     var propMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
@@ -1662,6 +1668,13 @@ public partial class SemanticModel
                         _binderCache[operatorDecl] = operatorBinder;
                         break;
                     }
+                case ConversionOperatorDeclarationSyntax conversionDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var conversionBinder = memberBinder.BindConversionOperatorDeclaration(conversionDecl);
+                        _binderCache[conversionDecl] = conversionBinder;
+                        break;
+                    }
                 case PropertyDeclarationSyntax propertyDecl:
                     {
                         var propertyBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
@@ -1750,6 +1763,13 @@ public partial class SemanticModel
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var operatorBinder = memberBinder.BindOperatorDeclaration(operatorDecl);
                         _binderCache[operatorDecl] = operatorBinder;
+                        break;
+                    }
+                case ConversionOperatorDeclarationSyntax conversionDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var conversionBinder = memberBinder.BindConversionOperatorDeclaration(conversionDecl);
+                        _binderCache[conversionDecl] = conversionBinder;
                         break;
                     }
 

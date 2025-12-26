@@ -46,4 +46,24 @@ public class OperatorDeclarationParserTests : DiagnosticTestBase
         Assert.NotNull(declaration.ExpressionBody);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void ConversionOperatorDeclaration_InClass_ParsesSignature()
+    {
+        var source = """
+            class NumberBox {
+                public static explicit operator(value: NumberBox) -> int => 42
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ConversionOperatorDeclarationSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.ExplicitKeyword, declaration.ConversionKindKeyword.Kind);
+        Assert.Equal(SyntaxKind.OperatorKeyword, declaration.OperatorKeyword.Kind);
+        Assert.Single(declaration.ParameterList.Parameters);
+        Assert.NotNull(declaration.ReturnType);
+        Assert.NotNull(declaration.ExpressionBody);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

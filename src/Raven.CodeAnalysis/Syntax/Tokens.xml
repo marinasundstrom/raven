@@ -24,6 +24,8 @@
   <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
   <TokenKind Name="InterfaceKeyword" Text="interface" IsReservedWord="true" />
   <TokenKind Name="ExtensionKeyword" Text="extension" IsReservedWord="false" />
+  <TokenKind Name="ExplicitKeyword" Text="explicit" IsReservedWord="false" />
+  <TokenKind Name="ImplicitKeyword" Text="implicit" IsReservedWord="false" />
   <TokenKind Name="OperatorKeyword" Text="operator" IsReservedWord="false" />
   <TokenKind Name="InitKeyword" Text="init" IsReservedWord="false" />
   <TokenKind Name="BaseKeyword" Text="base" IsReservedWord="true" />
