@@ -1414,6 +1414,12 @@ public partial class SemanticModel
                     _binderCache[methodDecl] = methodBinder;
                     break;
 
+                case OperatorDeclarationSyntax operatorDecl:
+                    var operatorBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var boundOperatorBinder = operatorBinder.BindOperatorDeclaration(operatorDecl);
+                    _binderCache[operatorDecl] = boundOperatorBinder;
+                    break;
+
                 case PropertyDeclarationSyntax propDecl:
                     var propMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
@@ -1649,6 +1655,13 @@ public partial class SemanticModel
                         _binderCache[methodDecl] = methodBinder;
                         break;
                     }
+                case OperatorDeclarationSyntax operatorDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var operatorBinder = memberBinder.BindOperatorDeclaration(operatorDecl);
+                        _binderCache[operatorDecl] = operatorBinder;
+                        break;
+                    }
                 case PropertyDeclarationSyntax propertyDecl:
                     {
                         var propertyBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
@@ -1723,6 +1736,15 @@ public partial class SemanticModel
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
                         _binderCache[methodDecl] = methodBinder;
+                        break;
+                    }
+
+                case OperatorDeclarationSyntax operatorDecl:
+                    {
+                        var operatorText = OperatorFacts.GetDisplayText(operatorDecl.OperatorToken.Kind);
+                        extensionBinder.Diagnostics.ReportOperatorNotSupportedInExtensions(
+                            operatorText,
+                            operatorDecl.OperatorKeyword.GetLocation());
                         break;
                     }
 

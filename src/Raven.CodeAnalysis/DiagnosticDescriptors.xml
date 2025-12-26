@@ -244,6 +244,26 @@
     Title="Type argument does not satisfy constraint"
     Message="The type '{typeArgument}' must satisfy the '{constraint}' constraint for type parameter '{typeParameter}' of '{genericName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0321" Identifier="OperatorMustBeStatic"
+    Title="Operator must be static"
+    Message="Operator '{operatorToken}' must be declared static"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0322" Identifier="OperatorMustBePublic"
+    Title="Operator must be public"
+    Message="Operator '{operatorToken}' must be declared public"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0323" Identifier="OperatorParameterCountInvalid"
+    Title="Operator parameter count is invalid"
+    Message="Operator '{operatorToken}' requires {expectedParameterDescription} parameter(s)"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0324" Identifier="OperatorNotSupportedInExtensions"
+    Title="Extension operators are not supported"
+    Message="Operator '{operatorToken}' overloads are not supported in extensions"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0325" Identifier="OperatorDeclarationMustBeInClassOrStruct"
+    Title="Operator declaration must be in class or struct"
+    Message="Operator '{operatorToken}' declarations are only supported in classes and structs"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0400" Identifier="NullableTypeInUnion"
     Title="Nullable type not allowed in union"
     Message="Nullable types are not allowed in union types" Category="compiler" Severity="Error"

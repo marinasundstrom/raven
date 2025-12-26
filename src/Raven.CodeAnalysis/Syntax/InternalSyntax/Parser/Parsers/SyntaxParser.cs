@@ -55,6 +55,22 @@ internal class SyntaxParser : ParseContext
         return modifiers;
     }
 
+    protected SyntaxToken ParseOverloadableOperatorToken()
+    {
+        var token = PeekToken();
+
+        if (SyntaxFacts.IsOverloadableOperatorToken(token.Kind))
+            return ReadToken();
+
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetSpanOfLastToken(),
+                "operator"));
+
+        return MissingToken(SyntaxKind.PlusToken);
+    }
+
     protected static bool HasLeadingEndOfLineTrivia(SyntaxToken token)
     {
         return token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia));

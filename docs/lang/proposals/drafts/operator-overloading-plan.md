@@ -9,12 +9,26 @@
 * Implementing implicit/explicit conversion operators (tracked separately in existing drafts).
 * Designing new operators; this plan focuses on overloadability for operators already in the language.
 
+## Implementation status (current)
+* ✅ **Syntax surface and tokens**: `operator` contextual keyword, overloadable operator tokens, `OperatorDeclarationSyntax`, parser support (classes + extensions), and normalizer/formatting support are implemented. Specification + grammar updates are in place.
+* 🟡 **Declaration binding**: operator declarations bind into symbols with static/public/arity diagnostics and metadata name mapping. Extension operator declarations are rejected (diagnostic only) and are not bound into symbols.
+* 🟡 **Consumption**: binary operator binding can resolve existing user-defined operators via metadata names, but full overload-resolution semantics, nullable/literal lifting, and unary operators are still pending.
+* ⏳ **Codegen + lowering**: no changes yet for emitting operator methods or ensuring bound operator invocations survive lowering.
+* ⏳ **IDE/semantic model**: `GetDeclaredSymbol` is supported for class/interface operator declarations; richer symbol info for call sites and diagnostics remain.
+
+## Remaining work (high level)
+* Finalize declaration syntax for unary/binary (prefix/postfix) intent, if needed.
+* Expand binder to full overload resolution for unary/binary operators (including lifted/nullables).
+* Add lowering/codegen support for operator methods and invocations.
+* Extend diagnostics and tests for overload resolution, ambiguity, and codegen.
+
 ## Step-by-step plan
 1. **Syntax surface and tokens**
    * Add an `operator` contextual keyword/token plus per-operator tokens as needed (e.g., keyword plus following `+`, `-`, `*`, `/`, `==`, `!=`, unary tokens).
    * Introduce `OperatorDeclarationSyntax : BaseMethodDeclarationSyntax` in the syntax model (update `Model.xml`, `NodeKinds.xml`, and generators) with slots for the operator token, parameter list, return type clause, body, and optional expression body.
    * Extend parsing in `Syntax/InternalSyntax/Parser/Parsers/TypeDeclarationParser` (and the extension declaration parser) to recognize operator members, consume modifiers (require `static`), parse the operator token, parameters, arrow/type, and body/terminator. Add recovery for malformed operator tokens or incorrect arity.
    * Update `SyntaxFacts`, normalizer, and quoter/printer to round-trip operator declarations and ensure trivia/formatting is stable.
+   * Evaluate whether the declaration surface needs to encode unary vs. binary (and prefix vs. postfix) intent explicitly—potentially via an additional keyword—at the cost of diverging from C# compatibility.
 
 2. **Symbols and method metadata**
    * Extend symbol creation to produce `SourceMethodSymbol` instances with `MethodKind.UserDefinedOperator`, ensuring they are always static and non-generic and track the operator token/metadata name (`op_Addition`, etc.).

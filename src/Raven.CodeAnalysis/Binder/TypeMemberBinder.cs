@@ -69,6 +69,7 @@ internal class TypeMemberBinder : Binder
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
             NamedConstructorDeclarationSyntax namedCtor => BindConstructorSymbol(namedCtor),
+            OperatorDeclarationSyntax opDecl => BindOperatorSymbol(opDecl),
             PropertyDeclarationSyntax property => BindPropertySymbol(property),
             IndexerDeclarationSyntax indexer => BindIndexerSymbol(indexer),
             AccessorDeclarationSyntax accessor => BindAccessorSymbol(accessor),
@@ -94,6 +95,21 @@ internal class TypeMemberBinder : Binder
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.Name == name &&
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == method));
+    }
+
+    private ISymbol? BindOperatorSymbol(OperatorDeclarationSyntax operatorDecl)
+    {
+        var parameterCount = operatorDecl.ParameterList.Parameters.Count;
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl.OperatorToken.Kind, parameterCount, out var operatorInfo))
+            return null;
+
+        var metadataName = operatorInfo.MetadataName;
+
+        return _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Name == metadataName &&
+                                 m.MethodKind == MethodKind.UserDefinedOperator &&
+                                 m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == operatorDecl));
     }
 
     private ISymbol? BindConstructorSymbol(BaseConstructorDeclarationSyntax ctor)
@@ -560,6 +576,146 @@ internal class TypeMemberBinder : Binder
         if (hasInvalidAsyncReturnType)
             methodSymbol.MarkAsyncReturnTypeError();
         return methodBinder;
+    }
+
+    public MethodBinder BindOperatorDeclaration(OperatorDeclarationSyntax operatorDecl)
+    {
+        var operatorText = OperatorFacts.GetDisplayText(operatorDecl.OperatorToken.Kind);
+        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var operatorAccessibility = AccessibilityUtilities.DetermineAccessibility(operatorDecl.Modifiers, defaultAccessibility);
+        var hasStaticModifier = operatorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isExtensionContainer = IsExtensionContainer;
+
+        if (isExtensionContainer)
+            _diagnostics.ReportOperatorNotSupportedInExtensions(operatorText, operatorDecl.OperatorKeyword.GetLocation());
+
+        if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
+            _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.OperatorKeyword.GetLocation());
+
+        if (!hasStaticModifier)
+            _diagnostics.ReportOperatorMustBeStatic(operatorText, operatorDecl.OperatorKeyword.GetLocation());
+
+        if (operatorAccessibility != Accessibility.Public)
+        {
+            _diagnostics.ReportOperatorMustBePublic(operatorText, operatorDecl.OperatorKeyword.GetLocation());
+            operatorAccessibility = Accessibility.Public;
+        }
+
+        var parameterCount = operatorDecl.ParameterList.Parameters.Count;
+
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDecl.OperatorToken.Kind, parameterCount, out var operatorInfo))
+        {
+            var expectedParameters = OperatorFacts.GetExpectedParameterCountDescription(operatorDecl.OperatorToken.Kind);
+            _diagnostics.ReportOperatorParameterCountInvalid(operatorText, expectedParameters, operatorDecl.ParameterList.GetLocation());
+
+            operatorInfo = new UserDefinedOperatorInfo(
+                operatorText,
+                parameterCount == 1 ? OperatorArity.Unary : OperatorArity.Binary);
+        }
+
+        var displayName = $"operator {operatorText}";
+        var defaultReturnType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        var operatorSymbol = new SourceMethodSymbol(
+            operatorInfo.MetadataName,
+            defaultReturnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [operatorDecl.GetLocation()],
+            [operatorDecl.GetReference()],
+            isStatic: true,
+            methodKind: MethodKind.UserDefinedOperator,
+            declaredAccessibility: operatorAccessibility);
+
+        var operatorBinder = new MethodBinder(operatorSymbol, this);
+
+        var returnType = operatorDecl.ReturnType is null
+            ? defaultReturnType
+            : operatorBinder.ResolveType(operatorDecl.ReturnType.Type);
+
+        var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
+        foreach (var p in operatorDecl.ParameterList.Parameters)
+        {
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKindTokenKind = p.RefKindKeyword?.Kind;
+            var refKind = typeSyntax is ByRefTypeSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
+
+            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+            var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                ? operatorBinder.ResolveType(typeSyntax, refKindForType)
+                : operatorBinder.ResolveType(typeSyntax);
+            var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
+        }
+
+        ValidateTypeAccessibility(
+            returnType,
+            operatorAccessibility,
+            "operator",
+            GetMemberDisplayName(displayName),
+            "return",
+            operatorDecl.ReturnType?.Type.GetLocation() ?? operatorDecl.OperatorToken.GetLocation());
+
+        foreach (var (paramName, paramType, _, syntax, _) in resolvedParamInfos)
+        {
+            ValidateTypeAccessibility(
+                paramType,
+                operatorAccessibility,
+                "operator",
+                GetMemberDisplayName(displayName),
+                $"parameter '{paramName}'",
+                syntax.TypeAnnotation!.Type.GetLocation());
+        }
+
+        var signatureArray = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray();
+        CheckForDuplicateSignature(operatorInfo.MetadataName, displayName, signatureArray, operatorDecl.OperatorToken.GetLocation(), operatorDecl);
+
+        var parameters = new List<SourceParameterSymbol>();
+        var seenOptionalParameter = false;
+        foreach (var (paramName, paramType, refKind, syntax, isMutable) in resolvedParamInfos)
+        {
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                paramType,
+                paramName,
+                _diagnostics,
+                ref seenOptionalParameter);
+            var pSymbol = new SourceParameterSymbol(
+                paramName,
+                paramType,
+                operatorSymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [syntax.GetLocation()],
+                [syntax.GetReference()],
+                refKind,
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue,
+                isMutable
+            );
+            parameters.Add(pSymbol);
+        }
+
+        operatorSymbol.SetReturnType(returnType);
+        operatorSymbol.SetParameters(parameters);
+
+        return operatorBinder;
     }
 
     private bool ImplementsInterface(INamedTypeSymbol interfaceType)
@@ -1851,9 +2007,12 @@ internal class TypeMemberBinder : Binder
 
     private static string GetMethodKindDisplay(MethodKind methodKind)
     {
-        return methodKind is MethodKind.Constructor or MethodKind.NamedConstructor
-            ? "constructor"
-            : "method";
+        return methodKind switch
+        {
+            MethodKind.Constructor or MethodKind.NamedConstructor => "constructor",
+            MethodKind.UserDefinedOperator => "operator",
+            _ => "method",
+        };
     }
 
     private void ValidateTypeAccessibility(
