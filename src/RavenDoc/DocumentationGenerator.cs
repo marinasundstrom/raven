@@ -424,7 +424,12 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     private static string GetMemberGroupKey(ISymbol member)
     {
         if (member is IMethodSymbol ms)
+        {
+            if (IsOperatorLike(ms))
+                return $"operator:{GetOperatorGroupName(ms)}";
+
             return $"method:{ms.Name}";
+        }
 
         if (member is IPropertySymbol ps)
         {
@@ -532,7 +537,10 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     private static bool IsOperatorLike(IMethodSymbol ms)
     {
         // Raven: invocation operator and indexer-like call are named "self"
-        if (ms.Name == "self")
+        if (IsInvocationOperator(ms))
+            return true;
+
+        if (ms.MethodKind is MethodKind.UserDefinedOperator or MethodKind.Conversion or MethodKind.BuiltinOperator)
             return true;
 
         // If you later model real operators explicitly in symbols, plug it in here.
@@ -548,6 +556,83 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             return true;
 
         return false;
+    }
+
+    private static bool IsInvocationOperator(IMethodSymbol ms)
+    {
+        return ms.Name is "self" or "Invoke";
+    }
+
+    private static string GetOperatorGroupName(IMethodSymbol ms)
+    {
+        if (IsInvocationOperator(ms))
+            return "self(...)";
+
+        if (ms.MethodKind == MethodKind.Conversion)
+            return GetConversionDisplayName(ms);
+
+        return "operator " + GetOperatorToken(ms);
+    }
+
+    private static string GetConversionDisplayName(IMethodSymbol method)
+    {
+        return method.Name switch
+        {
+            "op_Implicit" => "implicit conversion",
+            "op_Explicit" => "explicit conversion",
+            _ => "conversion"
+        };
+    }
+
+    private static string GetOperatorToken(IMethodSymbol method)
+    {
+        var name = method.Name;
+
+        var checkedPrefix = false;
+        const string checkedOpPrefix = "op_Checked";
+        if (name.StartsWith(checkedOpPrefix, StringComparison.Ordinal))
+        {
+            checkedPrefix = true;
+            name = "op_" + name.Substring(checkedOpPrefix.Length);
+        }
+
+        var token = name switch
+        {
+            "op_Addition" => "+",
+            "op_Subtraction" => "-",
+            "op_Multiply" => "*",
+            "op_Division" => "/",
+            "op_Modulus" => "%",
+
+            "op_BitwiseAnd" => "&",
+            "op_BitwiseOr" => "|",
+            "op_ExclusiveOr" => "^",
+
+            "op_LeftShift" => "<<",
+            "op_RightShift" => ">>",
+
+            "op_LogicalNot" => "!",
+            "op_OnesComplement" => "~",
+            "op_UnaryPlus" => "+",
+            "op_UnaryNegation" => "-",
+
+            "op_Increment" => "++",
+            "op_Decrement" => "--",
+
+            "op_Equality" => "==",
+            "op_Inequality" => "!=",
+            "op_LessThan" => "<",
+            "op_LessThanOrEqual" => "<=",
+            "op_GreaterThan" => ">",
+            "op_GreaterThanOrEqual" => ">=",
+
+            "op_True" => "true",
+            "op_False" => "false",
+
+            _ => name.StartsWith("op_", StringComparison.Ordinal) ? name.Substring(3) : name
+        };
+
+        return checkedPrefix ? $"checked {token}" : token;
     }
 
     private static MemberSectionKind GetMemberSectionForTypePage(ISymbol m)
@@ -776,6 +861,11 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         var asmFile = GetAssemblyFileNameForSymbol(compilation, symbol);
         sb.AppendLine($"**Assembly**: {HtmlEscape(asmFile)}<br />");
 
+        AppendSourceFileLine(sb, symbol);
+    }
+
+    private static void AppendSourceFileLine(StringBuilder sb, ISymbol symbol)
+    {
         var sourceFileName = GetSourceFileName(symbol);
         if (string.IsNullOrWhiteSpace(sourceFileName))
             return;
@@ -1222,6 +1312,9 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             var memberName = EscapeName(member.ToDisplayString(MemberDisplayFormat));
 
             sb.AppendLine($"### {memberName}");
+            sb.AppendLine();
+
+            AppendSourceFileLine(sb, member);
             sb.AppendLine();
 
             var doc = GetOrCreateDocInfo(member);

@@ -3,7 +3,7 @@ import System.Console.*
 let x = int.Hello()
 WriteLine(x)
 
-extension IntExtensions for int {
+public extension IntExtensions for int {
     public static Hello() -> int {
         return 42
     }
