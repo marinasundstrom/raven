@@ -404,7 +404,7 @@ public partial class Compilation
         return _extensionConversionOperators;
     }
 
-    private static IMethodSymbol? TryConstructExtensionConversion(IMethodSymbol method, ITypeSymbol receiverType)
+    private IMethodSymbol? TryConstructExtensionConversion(IMethodSymbol method, ITypeSymbol receiverType)
     {
         var extensionReceiverType = method.GetExtensionReceiverType();
         if (extensionReceiverType is null)
@@ -413,7 +413,29 @@ public partial class Compilation
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return null;
 
-        if (method.ContainingType is not INamedTypeSymbol container)
+        var methodDefinition = method.OriginalDefinition ?? method;
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
+            return null;
+
+        if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
+        {
+            var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
+
+            for (int i = 0; i < methodDefinition.TypeParameters.Length; i++)
+            {
+                var typeParameter = methodDefinition.TypeParameters[i];
+                if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                    return null;
+
+                methodTypeArguments[i] = typeArgument;
+            }
+
+            return methodDefinition.Construct(methodTypeArguments);
+        }
+
+        if (methodDefinition.ContainingType is not INamedTypeSymbol container)
             return null;
 
         var containerDefinition = container.ConstructedFrom as INamedTypeSymbol ?? container;
@@ -422,28 +444,6 @@ public partial class Compilation
             containerDefinition.TypeParameters.Length == 0)
         {
             return method;
-        }
-
-        if (extensionReceiverType is not INamedTypeSymbol extensionReceiverNamed)
-            return null;
-
-        if (receiverType is not INamedTypeSymbol receiverNamed)
-            return null;
-
-        if (!SymbolEqualityComparer.Default.Equals(extensionReceiverNamed.OriginalDefinition, receiverNamed.OriginalDefinition))
-            return null;
-
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-
-        var receiverArguments = receiverNamed.TypeArguments;
-        var extensionArguments = extensionReceiverNamed.TypeArguments;
-        if (receiverArguments.Length != extensionArguments.Length)
-            return null;
-
-        for (int i = 0; i < extensionArguments.Length; i++)
-        {
-            if (extensionArguments[i] is ITypeParameterSymbol typeParameter)
-                substitutions[typeParameter] = receiverArguments[i];
         }
 
         var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
@@ -460,7 +460,7 @@ public partial class Compilation
         if (containerDefinition.Construct(typeArguments) is not INamedTypeSymbol constructedContainer)
             return null;
 
-        var originalDefinition = method.OriginalDefinition ?? method;
+        var originalDefinition = methodDefinition;
 
         foreach (var candidate in constructedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
         {
@@ -470,6 +470,96 @@ public partial class Compilation
         }
 
         return null;
+    }
+
+    private bool TryUnifyExtensionReceiver(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        parameterType = NormalizeTypeForExtensionInference(parameterType);
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (parameterType is ITypeParameterSymbol parameter)
+            return TryRecordExtensionSubstitution(parameter, argumentType, substitutions);
+
+        if (parameterType is INamedTypeSymbol paramNamed && argumentType is INamedTypeSymbol argNamed)
+        {
+            var parameterDefinition = paramNamed.OriginalDefinition ?? paramNamed;
+            var argumentDefinition = argNamed.OriginalDefinition ?? argNamed;
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
+                return false;
+
+            var parameterArguments = paramNamed.TypeArguments;
+            var argumentArguments = argNamed.TypeArguments;
+
+            if (parameterArguments.Length != argumentArguments.Length)
+                return false;
+
+            for (int i = 0; i < parameterArguments.Length; i++)
+            {
+                if (!TryUnifyExtensionReceiver(parameterArguments[i], argumentArguments[i], substitutions))
+                    return false;
+            }
+
+            return true;
+        }
+
+        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+            return TryUnifyExtensionReceiver(paramArray.ElementType, argArray.ElementType, substitutions);
+
+        if (parameterType is NullableTypeSymbol paramNullable)
+        {
+            if (argumentType is NullableTypeSymbol argNullable)
+                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
+
+            if (!argumentType.IsValueType)
+                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argumentType, substitutions);
+
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(parameterType, argumentType);
+    }
+
+    private bool TryRecordExtensionSubstitution(
+        ITypeParameterSymbol typeParameter,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (substitutions.TryGetValue(typeParameter, out var existing))
+        {
+            existing = NormalizeTypeForExtensionInference(existing);
+
+            if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
+                return true;
+
+            if (ClassifyConversion(argumentType, existing).IsImplicit)
+                return true;
+
+            if (ClassifyConversion(existing, argumentType).IsImplicit)
+            {
+                substitutions[typeParameter] = argumentType;
+                return true;
+            }
+
+            return false;
+        }
+
+        substitutions[typeParameter] = argumentType;
+        return true;
+    }
+
+    private static ITypeSymbol NormalizeTypeForExtensionInference(ITypeSymbol type)
+    {
+        return type switch
+        {
+            LiteralTypeSymbol literal => literal.UnderlyingType,
+            _ => type
+        };
     }
 
     private static IMethodSymbol? FindDiscriminatedUnionConversionMethod(ITypeSymbol source, ITypeSymbol destination)

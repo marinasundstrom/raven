@@ -430,20 +430,39 @@ internal abstract class Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return false;
 
-        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+        var methodDefinition = method.OriginalDefinition ?? method;
+
+        if (methodDefinition.Parameters.IsDefaultOrEmpty || methodDefinition.Parameters.Length == 0)
             return false;
 
-        var container = method.ContainingType as INamedTypeSymbol;
-        if (container is null || !container.IsGenericType || container.TypeParameters.IsDefaultOrEmpty || container.TypeParameters.Length == 0)
-            return false;
-
-        var receiverParameterType = method.Parameters[0].Type;
+        var receiverParameterType = methodDefinition.Parameters[0].Type;
         if (receiverParameterType is null || receiverParameterType.TypeKind == TypeKind.Error)
             return false;
 
         var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
 
         if (!TryUnifyExtensionReceiver(receiverParameterType, receiverType, substitutions))
+            return false;
+
+        if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
+        {
+            var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
+
+            for (int i = 0; i < methodDefinition.TypeParameters.Length; i++)
+            {
+                var typeParameter = methodDefinition.TypeParameters[i];
+                if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                    return false;
+
+                methodTypeArguments[i] = typeArgument;
+            }
+
+            constructed = methodDefinition.Construct(methodTypeArguments);
+            return true;
+        }
+
+        var container = methodDefinition.ContainingType as INamedTypeSymbol;
+        if (container is null || !container.IsGenericType || container.TypeParameters.IsDefaultOrEmpty || container.TypeParameters.Length == 0)
             return false;
 
         var typeArguments = new ITypeSymbol[container.TypeParameters.Length];
@@ -461,7 +480,7 @@ internal abstract class Binder
         if (constructedContainer is not INamedTypeSymbol namedContainer)
             return false;
 
-        var originalDefinition = method.OriginalDefinition ?? method;
+        var originalDefinition = methodDefinition;
 
         foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
         {
@@ -487,11 +506,9 @@ internal abstract class Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return false;
 
-        if (method.ContainingType is not INamedTypeSymbol container)
-            return false;
+        var methodDefinition = method.OriginalDefinition ?? method;
 
-        var containerDefinition = container.ConstructedFrom as INamedTypeSymbol ?? container;
-        if (!containerDefinition.IsGenericType || containerDefinition.TypeParameters.IsDefaultOrEmpty || containerDefinition.TypeParameters.Length == 0)
+        if (methodDefinition.ContainingType is not INamedTypeSymbol container)
             return false;
 
         if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
@@ -500,6 +517,27 @@ internal abstract class Binder
         var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
 
         if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
+            return false;
+
+        if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
+        {
+            var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
+
+            for (int i = 0; i < methodDefinition.TypeParameters.Length; i++)
+            {
+                var typeParameter = methodDefinition.TypeParameters[i];
+                if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                    return false;
+
+                methodTypeArguments[i] = typeArgument;
+            }
+
+            constructed = methodDefinition.Construct(methodTypeArguments);
+            return true;
+        }
+
+        var containerDefinition = container.ConstructedFrom as INamedTypeSymbol ?? container;
+        if (!containerDefinition.IsGenericType || containerDefinition.TypeParameters.IsDefaultOrEmpty || containerDefinition.TypeParameters.Length == 0)
             return false;
 
         var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
@@ -517,7 +555,7 @@ internal abstract class Binder
         if (constructedContainer is not INamedTypeSymbol namedContainer)
             return false;
 
-        var originalDefinition = method.OriginalDefinition ?? method;
+        var originalDefinition = methodDefinition;
 
         foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
         {
