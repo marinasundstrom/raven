@@ -215,6 +215,28 @@ internal abstract class Binder
         return ParentBinder?.LookupExtensionProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IPropertySymbol>();
     }
 
+    public virtual IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null)
+            return Enumerable.Empty<IMethodSymbol>();
+
+        if (receiverType.TypeKind == TypeKind.Error)
+            return Enumerable.Empty<IMethodSymbol>();
+
+        return ParentBinder?.LookupExtensionStaticMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
+    }
+
+    public virtual IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null)
+            return Enumerable.Empty<IPropertySymbol>();
+
+        if (receiverType.TypeKind == TypeKind.Error)
+            return Enumerable.Empty<IPropertySymbol>();
+
+        return ParentBinder?.LookupExtensionStaticProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IPropertySymbol>();
+    }
+
     protected IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
         INamespaceOrTypeSymbol scope,
         string? name,
@@ -251,6 +273,42 @@ internal abstract class Binder
         }
     }
 
+    protected IEnumerable<IMethodSymbol> GetExtensionStaticMethodsFromScope(
+        INamespaceOrTypeSymbol scope,
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches)
+    {
+        foreach (var method in EnumerateExtensionStaticMethods(scope, name, includePartialMatches))
+        {
+            if (!IsExtensionStaticCandidateForReceiver(method, receiverType, includePartialMatches))
+                continue;
+
+            if (!IsSymbolAccessible(method))
+                continue;
+
+            yield return AdjustExtensionStaticMethodForReceiver(method, receiverType);
+        }
+    }
+
+    protected IEnumerable<IPropertySymbol> GetExtensionStaticPropertiesFromScope(
+        INamespaceOrTypeSymbol scope,
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches)
+    {
+        foreach (var property in EnumerateExtensionStaticProperties(scope, name, includePartialMatches))
+        {
+            if (!IsExtensionStaticCandidateForReceiver(property, receiverType, includePartialMatches))
+                continue;
+
+            if (!IsSymbolAccessible(property))
+                continue;
+
+            yield return AdjustExtensionStaticPropertyForReceiver(property, receiverType);
+        }
+    }
+
     private IMethodSymbol AdjustExtensionForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
     {
         if (!method.IsExtensionMethod || receiverType is null || receiverType.TypeKind == TypeKind.Error)
@@ -272,6 +330,59 @@ internal abstract class Binder
             return property;
 
         if (!TryCreateConstructedExtension(accessor, receiverType, out var constructedAccessor))
+            return property;
+
+        if (constructedAccessor.ContainingSymbol is IPropertySymbol constructedProperty)
+            return constructedProperty;
+
+        if (constructedAccessor.ContainingType is INamedTypeSymbol containingType)
+        {
+            var propertyAccessorDefinition = (property.GetMethod ?? property.SetMethod)?.OriginalDefinition
+                ?? property.GetMethod
+                ?? property.SetMethod;
+
+            var propertyCandidate = containingType
+                .GetMembers(property.Name)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(candidate =>
+                {
+                    var candidateAccessor = (candidate.GetMethod ?? candidate.SetMethod)?.OriginalDefinition
+                        ?? candidate.GetMethod
+                        ?? candidate.SetMethod;
+
+                    return propertyAccessorDefinition is not null &&
+                        candidateAccessor is not null &&
+                        SymbolEqualityComparer.Default.Equals(candidateAccessor, propertyAccessorDefinition);
+                });
+
+            if (propertyCandidate is not null)
+                return propertyCandidate;
+        }
+
+        return property;
+    }
+
+    private IMethodSymbol AdjustExtensionStaticMethodForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return method;
+
+        if (!TryCreateConstructedStaticExtension(method, receiverType, out var constructed))
+            return method;
+
+        return constructed;
+    }
+
+    private IPropertySymbol AdjustExtensionStaticPropertyForReceiver(IPropertySymbol property, ITypeSymbol receiverType)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return property;
+
+        var accessor = property.GetMethod ?? property.SetMethod;
+        if (accessor is null)
+            return property;
+
+        if (!TryCreateConstructedStaticExtension(accessor, receiverType, out var constructedAccessor))
             return property;
 
         if (constructedAccessor.ContainingSymbol is IPropertySymbol constructedProperty)
@@ -357,6 +468,59 @@ internal abstract class Binder
         return false;
     }
 
+    private bool TryCreateConstructedStaticExtension(IMethodSymbol method, ITypeSymbol receiverType, out IMethodSymbol constructed)
+    {
+        constructed = method;
+
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (method.ContainingType is not INamedTypeSymbol container)
+            return false;
+
+        var containerDefinition = container.ConstructedFrom as INamedTypeSymbol ?? container;
+        if (!containerDefinition.IsGenericType || containerDefinition.TypeParameters.IsDefaultOrEmpty || containerDefinition.TypeParameters.Length == 0)
+            return false;
+
+        var receiverTypeSyntax = containerDefinition.GetExtensionReceiverType();
+        if (receiverTypeSyntax is null || receiverTypeSyntax.TypeKind == TypeKind.Error)
+            return false;
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (!TryUnifyExtensionReceiver(receiverTypeSyntax, receiverType, substitutions))
+            return false;
+
+        var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
+
+        for (int i = 0; i < containerDefinition.TypeParameters.Length; i++)
+        {
+            var typeParameter = containerDefinition.TypeParameters[i];
+            if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                return false;
+
+            typeArguments[i] = typeArgument;
+        }
+
+        var constructedContainer = containerDefinition.Construct(typeArguments);
+        if (constructedContainer is not INamedTypeSymbol namedContainer)
+            return false;
+
+        var originalDefinition = method.OriginalDefinition ?? method;
+
+        foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            var candidateOriginal = candidate.OriginalDefinition ?? candidate;
+            if (SymbolEqualityComparer.Default.Equals(candidateOriginal, originalDefinition))
+            {
+                constructed = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool IsExtensionPropertyCandidateForReceiver(
         IPropertySymbol property,
         ITypeSymbol receiverType,
@@ -386,6 +550,37 @@ internal abstract class Binder
             return true;
 
         var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
+        return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private bool IsExtensionStaticCandidateForReceiver(
+        ISymbol member,
+        ITypeSymbol receiverType,
+        bool includePartialMatches)
+    {
+        if (member.ContainingType is not INamedTypeSymbol containingType)
+            return false;
+
+        var extensionReceiverType = containingType.GetExtensionReceiverType();
+        if (extensionReceiverType is null)
+            return false;
+
+        if (includePartialMatches)
+            return true;
+
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (extensionReceiverType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (ContainsTypeParameters(extensionReceiverType))
+            return true;
+
+        if (SymbolEqualityComparer.Default.Equals(extensionReceiverType, receiverType))
+            return true;
+
+        var conversion = Compilation.ClassifyConversion(receiverType, extensionReceiverType);
         return conversion.Exists && conversion.IsImplicit;
     }
 
@@ -615,6 +810,58 @@ internal abstract class Binder
         }
     }
 
+    private static IEnumerable<IMethodSymbol> EnumerateExtensionStaticMethods(
+        INamespaceOrTypeSymbol scope,
+        string? name,
+        bool includePartialMatches)
+    {
+        if (scope is INamespaceSymbol ns)
+        {
+            foreach (var member in ns.GetMembers())
+            {
+                if (member is INamedTypeSymbol typeMember)
+                {
+                    foreach (var method in EnumerateExtensionStaticMethods(typeMember, name, includePartialMatches))
+                        yield return method;
+                }
+                else if (member is INamespaceSymbol nestedNs)
+                {
+                    foreach (var method in EnumerateExtensionStaticMethods(nestedNs, name, includePartialMatches))
+                        yield return method;
+                }
+            }
+
+            yield break;
+        }
+
+        if (scope is not INamedTypeSymbol type)
+            yield break;
+
+        if (type.GetExtensionReceiverType() is null)
+            yield break;
+
+        var members = includePartialMatches || string.IsNullOrEmpty(name)
+            ? type.GetMembers().OfType<IMethodSymbol>()
+            : type.GetMembers(name!).OfType<IMethodSymbol>();
+
+        foreach (var member in members)
+        {
+            if (member.IsExtensionMethod || !member.IsStatic)
+                continue;
+
+            if (!includePartialMatches && name is not null && member.Name != name)
+                continue;
+
+            yield return member;
+        }
+
+        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        {
+            foreach (var method in EnumerateExtensionStaticMethods(nested, name, includePartialMatches))
+                yield return method;
+        }
+    }
+
     private static IEnumerable<IPropertySymbol> EnumerateExtensionProperties(
         INamespaceOrTypeSymbol scope,
         string? name,
@@ -660,6 +907,58 @@ internal abstract class Binder
         foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
         {
             foreach (var property in EnumerateExtensionProperties(nested, name, includePartialMatches))
+                yield return property;
+        }
+    }
+
+    private static IEnumerable<IPropertySymbol> EnumerateExtensionStaticProperties(
+        INamespaceOrTypeSymbol scope,
+        string? name,
+        bool includePartialMatches)
+    {
+        if (scope is INamespaceSymbol ns)
+        {
+            foreach (var member in ns.GetMembers())
+            {
+                if (member is INamedTypeSymbol typeMember)
+                {
+                    foreach (var property in EnumerateExtensionStaticProperties(typeMember, name, includePartialMatches))
+                        yield return property;
+                }
+                else if (member is INamespaceSymbol nestedNs)
+                {
+                    foreach (var property in EnumerateExtensionStaticProperties(nestedNs, name, includePartialMatches))
+                        yield return property;
+                }
+            }
+
+            yield break;
+        }
+
+        if (scope is not INamedTypeSymbol type)
+            yield break;
+
+        if (type.GetExtensionReceiverType() is null)
+            yield break;
+
+        var members = includePartialMatches || string.IsNullOrEmpty(name)
+            ? type.GetMembers().OfType<IPropertySymbol>()
+            : type.GetMembers(name!).OfType<IPropertySymbol>();
+
+        foreach (var property in members)
+        {
+            if (property.IsExtensionProperty() || !property.IsStatic)
+                continue;
+
+            if (!includePartialMatches && name is not null && property.Name != name)
+                continue;
+
+            yield return property;
+        }
+
+        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        {
+            foreach (var property in EnumerateExtensionStaticProperties(nested, name, includePartialMatches))
                 yield return property;
         }
     }

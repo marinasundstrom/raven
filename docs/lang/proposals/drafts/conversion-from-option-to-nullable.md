@@ -202,6 +202,7 @@ This proposal assumes the following language features, each of which deserves it
 
      * Methods declared directly on the type.
      * Static extension members for that type.
+   * Static extension members participate in `TargetType.Member` lookup and are also imported via `import TargetType.*`.
 
 Without those, this proposal is not implementable, but it serves as a concrete motivating use case for them.
 

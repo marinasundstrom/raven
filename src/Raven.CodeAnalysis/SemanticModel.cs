@@ -1727,6 +1727,12 @@ public partial class SemanticModel
 
     private void RegisterExtensionMembers(ExtensionDeclarationSyntax extensionDecl, ExtensionDeclarationBinder extensionBinder)
     {
+        if (extensionBinder.ContainingSymbol is SourceNamedTypeSymbol extensionSymbol)
+        {
+            var receiverType = extensionBinder.ResolveType(extensionDecl.ReceiverType);
+            extensionSymbol.SetExtensionReceiverType(receiverType);
+        }
+
         foreach (var member in extensionDecl.Members)
         {
             switch (member)

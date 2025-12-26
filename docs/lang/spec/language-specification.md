@@ -645,8 +645,8 @@ the first argument whenever the member is invoked. The `self` parameter behaves
 like a `let` binding: it cannot be reassigned but may be used to access members
 or forwarded to other calls. Extension members default to `public`
 accessibility and may be marked `internal` to restrict their visibility; other
-modifiers are rejected. As a result, extensions cannot declare `protected`,
-`private`, or `static` members.
+modifiers are rejected. As a result, extensions cannot declare `protected` or
+`private` members.
 
 #### Extension methods
 
@@ -718,6 +718,19 @@ extension ListExt for List<int>
     }
 }
 ```
+
+#### Static extension members
+
+Extensions may also declare `static` methods and properties. Static extension
+members are associated with the receiver type and are accessed through static
+member lookup (`Type.Member`) or by importing the target type (`import
+Type.*`). When binding a static member access, the compiler first resolves real
+static members on the type; if no match is found, it searches in-scope extension
+containers whose receiver type is compatible with the target type. Receiver
+compatibility follows the same implicit conversion and nullability rules used
+for extension methods, so constructed and nested types participate normally.
+Static extension members do not synthesize `self` and are emitted as ordinary
+static members on the extension container.
 
 #### Pipe operator
 
