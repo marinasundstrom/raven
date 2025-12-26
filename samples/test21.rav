@@ -1,0 +1,4 @@
+import System.*
+
+val x = Option<int>.Some(2)
+val r: int? = x
