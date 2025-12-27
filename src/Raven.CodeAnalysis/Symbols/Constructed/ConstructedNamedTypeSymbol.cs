@@ -162,7 +162,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
             tracked = true;
 
-            if (ConstructedNamedTypeDebugging.IsEnabled())
+            if (ConstructedNamedTypeDebugging.ShouldWrite())
             {
                 File.AppendAllText(
                     "ConstructedNamedTypeSymbol.debug.txt",
@@ -178,7 +178,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 {
                     if (!trace.Seen.Add(new SubstitutionKey(tp, concrete)))
                     {
-                        if (ConstructedNamedTypeDebugging.IsEnabled())
+                        if (ConstructedNamedTypeDebugging.ShouldWrite())
                         {
                             File.AppendAllText(
                                 "ConstructedNamedTypeSymbol.substitution.trace.txt",
@@ -1720,9 +1720,30 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
 
 internal static class ConstructedNamedTypeDebugging
 {
+    /// <summary>
+    /// Enables constructed-type debug output to <c>ConstructedNamedTypeSymbol.debug.txt</c>
+    /// and <c>ConstructedNamedTypeSymbol.substitution.trace.txt</c> when
+    /// <c>RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE</c> is set. Use <c>trace</c> to allow
+    /// repeated writes; use <c>1</c> to emit a single write per process.
+    /// </summary>
     public static bool IsEnabled()
     {
         var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE");
-        return string.Equals(value, "1", StringComparison.Ordinal);
+        return string.Equals(value, "1", StringComparison.Ordinal)
+            || string.Equals(value, "trace", StringComparison.OrdinalIgnoreCase);
     }
+
+    public static bool ShouldWrite()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE");
+        if (string.IsNullOrEmpty(value))
+            return false;
+
+        if (string.Equals(value, "trace", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return System.Threading.Interlocked.Exchange(ref s_hasWritten, 1) == 0;
+    }
+
+    private static int s_hasWritten;
 }
