@@ -1,1 +1,1 @@
-DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: IQueryable; Substituted type: IQueryable
+DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: Inner; Substituted type: Unit
