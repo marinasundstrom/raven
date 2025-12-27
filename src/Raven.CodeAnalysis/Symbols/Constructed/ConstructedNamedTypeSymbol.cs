@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.CodeGen;
 
