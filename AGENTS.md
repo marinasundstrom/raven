@@ -29,8 +29,8 @@ If documentation-only changes don’t need verification, you may skip build/test
 
 **External components:** `TypeUnionAnalyzer` lives in a separate project; ignore it unless explicitly instructed.
 
-## Codex build workaround
-If the build pipeline fails due to generator/runtimeconfig file locks or missing generated syntax types, use the script below to run generators and build in a safe order:
+## Codex build procedure (preferred for agents)
+When running in Codex/agent environments, prefer the script below. It runs generators and builds in a safe order to avoid generator/runtimeconfig file-lock failures:
 
 ```bash
 scripts/codex-build.sh
