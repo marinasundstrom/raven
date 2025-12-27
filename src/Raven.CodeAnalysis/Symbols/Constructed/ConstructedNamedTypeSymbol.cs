@@ -1693,13 +1693,28 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
         var defX = (ITypeParameterSymbol)(x.OriginalDefinition ?? x);
         var defY = (ITypeParameterSymbol)(y.OriginalDefinition ?? y);
 
-        return ReferenceEquals(defX, defY);
+        if (ReferenceEquals(defX, defY))
+            return true;
+
+        return defX.Ordinal == defY.Ordinal
+            && string.Equals(defX.Name, defY.Name, StringComparison.Ordinal)
+            && ReferenceEquals(GetContainingSymbolKey(defX), GetContainingSymbolKey(defY));
     }
 
     public int GetHashCode(ITypeParameterSymbol obj)
     {
         var def = (ITypeParameterSymbol)(obj.OriginalDefinition ?? obj);
-        return RuntimeHelpers.GetHashCode(def);
+        var hash = new HashCode();
+        hash.Add(def.Ordinal);
+        hash.Add(def.Name, StringComparer.Ordinal);
+        hash.Add(RuntimeHelpers.GetHashCode(GetContainingSymbolKey(def)));
+        return hash.ToHashCode();
+    }
+
+    private static ISymbol? GetContainingSymbolKey(ITypeParameterSymbol parameter)
+    {
+        var containing = parameter.ContainingSymbol;
+        return containing?.OriginalDefinition ?? containing;
     }
 }
 

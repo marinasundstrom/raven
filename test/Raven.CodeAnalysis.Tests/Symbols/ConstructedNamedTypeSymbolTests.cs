@@ -33,6 +33,55 @@ public class ConstructedNamedTypeSymbolTests
     }
 
     [Fact]
+    public void TypeParameterSubstitutionComparer_FallsBackToOrdinalAndContainingSymbol()
+    {
+        var compilation = Compilation.Create(
+                "type-parameter-substitution-comparer",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var method = new SourceMethodSymbol(
+            "Compute",
+            compilation.GetSpecialType(SpecialType.System_Void),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            compilation.GlobalNamespace,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            isStatic: true);
+
+        var first = new SourceTypeParameterSymbol(
+            "T",
+            method,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            ordinal: 0,
+            TypeParameterConstraintKind.None,
+            ImmutableArray<SyntaxReference>.Empty,
+            VarianceKind.None);
+
+        var second = new SourceTypeParameterSymbol(
+            "T",
+            method,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            ordinal: 0,
+            TypeParameterConstraintKind.None,
+            ImmutableArray<SyntaxReference>.Empty,
+            VarianceKind.None);
+
+        Assert.True(TypeParameterSubstitutionComparer.Instance.Equals(first, second));
+        Assert.Equal(
+            TypeParameterSubstitutionComparer.Instance.GetHashCode(first),
+            TypeParameterSubstitutionComparer.Instance.GetHashCode(second));
+    }
+
+    [Fact]
     public void ConstructedType_FromSource_SubstitutesTypeArgumentsInMethods()
     {
         var source = """
