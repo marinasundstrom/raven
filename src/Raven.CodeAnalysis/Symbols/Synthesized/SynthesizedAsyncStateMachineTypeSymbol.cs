@@ -47,7 +47,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod ?? throw new ArgumentNullException(nameof(asyncMethod));
 
-        ( 
+        (
             _asyncToStateTypeParameterMap,
             _stateToAsyncTypeParameterMap,
             _typeParameterMappings) = InitializeTypeParameters(asyncMethod);
@@ -174,7 +174,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         if (typeArguments.Length != TypeParameters.Length)
             return this;
 
-        return new ConstructedNamedTypeSymbol(this, typeArguments);
+        return ConstructedNamedTypeSymbol.Create(this, typeArguments, allowCaching: false);
     }
 
     public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false, ILocalSymbol? local = null)
@@ -1425,4 +1425,3 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public ITypeParameterSymbol StateMachineParameter { get; }
     }
 }
-
