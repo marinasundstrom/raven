@@ -150,10 +150,17 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         var trace = s_substitutionTrace.Value ??= new SubstitutionTrace();
         trace.Depth++;
 
+        var tracked = false;
+
         try
         {
             if (trace.SeenTypes.TryGetValue(type, out var cached))
                 return cached;
+
+            if (!trace.InProgressTypes.Add(type))
+                return type;
+
+            tracked = true;
 
             if (ConstructedNamedTypeDebugging.IsEnabled())
             {
@@ -256,12 +263,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         }
         finally
         {
+            if (tracked)
+                trace.InProgressTypes.Remove(type);
+
             trace.Depth--;
             if (trace.Depth == 0)
             {
                 trace.Seen.Clear();
                 trace.SeenTypes.Clear();
                 trace.SeenNamedTypes.Clear();
+                trace.InProgressTypes.Clear();
             }
         }
     }
@@ -877,6 +888,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         public HashSet<SubstitutionKey> Seen { get; } = new(SubstitutionKeyComparer.Instance);
         public Dictionary<ITypeSymbol, ITypeSymbol> SeenTypes { get; } = new(SymbolEqualityComparer.Default);
         public HashSet<ITypeSymbol> SeenNamedTypes { get; } = new(SymbolEqualityComparer.Default);
+        public HashSet<ITypeSymbol> InProgressTypes { get; } = new(SymbolEqualityComparer.Default);
     }
 
     private readonly record struct SubstitutionKey(ITypeParameterSymbol Parameter, ITypeSymbol Argument);

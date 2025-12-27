@@ -158,6 +158,34 @@ class Container<T>
     }
 
     [Fact]
+    public void ConstructedType_Substitute_AllowsRecursiveFieldTypes()
+    {
+        var source = """
+class Node<T>
+{
+    var next: Node<T>;
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "constructed-recursive-field",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var nodeDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Node"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var constructedNode = Assert.IsAssignableFrom<INamedTypeSymbol>(nodeDefinition.Construct(intType));
+
+        var nextField = Assert.Single(constructedNode.GetMembers("next").OfType<IFieldSymbol>());
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedNode, nextField.Type));
+    }
+
+    [Fact]
     public void ConstructedType_NestedTypeInstantiation_RetainsContainingType()
     {
         var source = """
