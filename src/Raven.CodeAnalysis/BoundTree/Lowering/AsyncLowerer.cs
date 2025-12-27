@@ -3087,7 +3087,7 @@ internal static class AsyncLowerer
         {
             var methodArguments = TryCreateMethodTypeArguments(stateMachine)
                 ?? methodTypeParameters.Select(static parameter => (ITypeSymbol)parameter).ToImmutableArray();
-            var methodViewStateMachine = ConstructedNamedTypeSymbol.Create(stateMachine, methodArguments);
+            var methodViewStateMachine = ConstructedNamedTypeSymbol.Create(stateMachine, methodArguments, allowCaching: false);
             substitutedStateMachineType = stateMachine.SubstituteStateMachineTypeParameters(methodViewStateMachine) as INamedTypeSymbol
                 ?? methodViewStateMachine;
         }

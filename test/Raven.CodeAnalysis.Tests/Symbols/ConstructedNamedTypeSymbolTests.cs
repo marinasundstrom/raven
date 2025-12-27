@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -93,6 +94,67 @@ class Container<T>
 
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, field.Type));
         Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
+    }
+
+    [Fact]
+    public void ConstructedType_FromSynthesizedAsyncStateMachine_RefreshesMembersAfterMutation()
+    {
+        var compilation = Compilation.Create(
+                "constructed-async-state-machine",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var taskOfT = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1"));
+
+        var method = new SourceMethodSymbol(
+            "RunAsync",
+            compilation.GetSpecialType(SpecialType.System_Void),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            compilation.GlobalNamespace,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            isStatic: true,
+            methodKind: MethodKind.Ordinary,
+            isAsync: true);
+
+        var typeParameter = new SourceTypeParameterSymbol(
+            "T",
+            method,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            ordinal: 0,
+            TypeParameterConstraintKind.None,
+            ImmutableArray<SyntaxReference>.Empty,
+            VarianceKind.None);
+
+        method.SetTypeParameters([typeParameter]);
+        method.SetReturnType(taskOfT.Construct(typeParameter));
+
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(
+            compilation,
+            method,
+            "Program+<>c__AsyncStateMachine_Test");
+
+        method.SetAsyncStateMachine(stateMachine);
+
+        var initial = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            stateMachine.GetConstructedStateMachine(method));
+
+        var initialMemberCount = initial.GetMembers().Length;
+
+        stateMachine.AddHoistedLocal("hoisted", compilation.GetSpecialType(SpecialType.System_Int32));
+
+        var updated = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            stateMachine.GetConstructedStateMachine(method));
+
+        Assert.NotSame(initial, updated);
+        Assert.NotEqual(initialMemberCount, updated.GetMembers().Length);
+        Assert.NotEmpty(updated.GetMembers("hoisted"));
     }
 
     [Fact]

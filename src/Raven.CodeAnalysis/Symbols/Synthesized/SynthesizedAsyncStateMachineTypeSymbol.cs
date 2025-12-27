@@ -174,7 +174,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         if (typeArguments.Length != TypeParameters.Length)
             return this;
 
-        return ConstructedNamedTypeSymbol.Create(this, typeArguments);
+        return ConstructedNamedTypeSymbol.Create(this, typeArguments, allowCaching: false);
     }
 
     public SourceFieldSymbol AddHoistedLocal(string name, ITypeSymbol type, bool requiresDispose = false, ILocalSymbol? local = null)

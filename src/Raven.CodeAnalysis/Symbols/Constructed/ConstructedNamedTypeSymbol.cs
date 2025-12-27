@@ -43,9 +43,19 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         INamedTypeSymbol originalDefinition,
         ImmutableArray<ITypeSymbol> typeArguments,
         Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution = null,
-        INamedTypeSymbol? containingTypeOverride = null)
+        INamedTypeSymbol? containingTypeOverride = null,
+        bool allowCaching = true)
     {
         var normalizedArguments = typeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : typeArguments;
+        if (!allowCaching || !ShouldCache(originalDefinition))
+        {
+            return new ConstructedNamedTypeSymbol(
+                originalDefinition,
+                normalizedArguments,
+                inheritedSubstitution,
+                containingTypeOverride);
+        }
+
         var key = new ConstructedNamedTypeKey(originalDefinition, normalizedArguments, inheritedSubstitution, containingTypeOverride);
         return s_constructedCache.GetOrAdd(
             key,
@@ -56,6 +66,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 state.containingTypeOverride),
             (originalDefinition, normalizedArguments, inheritedSubstitution, containingTypeOverride));
     }
+
+    private static bool ShouldCache(INamedTypeSymbol originalDefinition)
+        => originalDefinition is not SynthesizedAsyncStateMachineTypeSymbol
+            && originalDefinition is not SynthesizedIteratorTypeSymbol;
 
     private static Dictionary<ITypeParameterSymbol, ITypeSymbol> CreateSubstitutionMap(
      INamedTypeSymbol originalDefinition,
