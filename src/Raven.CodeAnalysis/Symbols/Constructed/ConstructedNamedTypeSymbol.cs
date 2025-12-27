@@ -1659,12 +1659,12 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
         var defX = (ITypeParameterSymbol)(x.OriginalDefinition ?? x);
         var defY = (ITypeParameterSymbol)(y.OriginalDefinition ?? y);
 
-        return SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType().Equals(defX, defY);
+        return ReferenceEquals(defX, defY);
     }
 
     public int GetHashCode(ITypeParameterSymbol obj)
     {
         var def = (ITypeParameterSymbol)(obj.OriginalDefinition ?? obj);
-        return SymbolEqualityComparer.Default.GetHashCode(def);
+        return RuntimeHelpers.GetHashCode(def);
     }
 }
