@@ -259,7 +259,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         if (typeArguments.Length != Arity)
             throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments but received {typeArguments.Length}.", nameof(typeArguments));
 
-        return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
+        return ConstructedNamedTypeSymbol.Create(this, typeArguments.ToImmutableArray());
     }
 
     public override ImmutableArray<AttributeData> GetAttributes()

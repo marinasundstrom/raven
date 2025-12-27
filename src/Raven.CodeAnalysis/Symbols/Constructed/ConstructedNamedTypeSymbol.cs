@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.CodeGen;
 
@@ -12,6 +15,8 @@ namespace Raven.CodeAnalysis.Symbols;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscriminatedUnionSymbol, IDiscriminatedUnionCaseSymbol
 {
+    private static readonly AsyncLocal<SubstitutionTrace?> s_substitutionTrace = new();
+    private static readonly ConcurrentDictionary<ConstructedNamedTypeKey, ConstructedNamedTypeSymbol> s_constructedCache = new(ConstructedNamedTypeKeyComparer.Instance);
     private readonly INamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
     private readonly INamedTypeSymbol? _containingTypeOverride;
@@ -33,6 +38,38 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         : this(originalDefinition, typeArguments, inheritedSubstitution: null, containingTypeOverride: null)
     {
     }
+
+    internal static ConstructedNamedTypeSymbol Create(
+        INamedTypeSymbol originalDefinition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution = null,
+        INamedTypeSymbol? containingTypeOverride = null,
+        bool allowCaching = true)
+    {
+        var normalizedArguments = typeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : typeArguments;
+        if (!allowCaching || !ShouldCache(originalDefinition))
+        {
+            return new ConstructedNamedTypeSymbol(
+                originalDefinition,
+                normalizedArguments,
+                inheritedSubstitution,
+                containingTypeOverride);
+        }
+
+        var key = new ConstructedNamedTypeKey(originalDefinition, normalizedArguments, inheritedSubstitution, containingTypeOverride);
+        return s_constructedCache.GetOrAdd(
+            key,
+            static (_, state) => new ConstructedNamedTypeSymbol(
+                state.originalDefinition,
+                state.normalizedArguments,
+                state.inheritedSubstitution,
+                state.containingTypeOverride),
+            (originalDefinition, normalizedArguments, inheritedSubstitution, containingTypeOverride));
+    }
+
+    private static bool ShouldCache(INamedTypeSymbol originalDefinition)
+        => originalDefinition is not SynthesizedAsyncStateMachineTypeSymbol
+            && originalDefinition is not SynthesizedIteratorTypeSymbol;
 
     private static Dictionary<ITypeParameterSymbol, ITypeSymbol> CreateSubstitutionMap(
      INamedTypeSymbol originalDefinition,
@@ -110,83 +147,134 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null)
     {
-        File.WriteAllText("ConstructedNamedTypeSymbol.debug.txt", $"DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: {Name}; Substituted type: {type.Name}");
+        var trace = s_substitutionTrace.Value ??= new SubstitutionTrace();
+        trace.Depth++;
 
-        if (type is ITypeParameterSymbol tp)
+        var tracked = false;
+
+        try
         {
-            if (methodMap is not null && methodMap.TryGetValue(tp, out var mappedMethodParameter))
-                return mappedMethodParameter;
+            if (trace.SeenTypes.TryGetValue(type, out var cached))
+                return cached;
 
-            if (TryGetSubstitution(tp, out var concrete))
-                return concrete;
-        }
+            if (!trace.InProgressTypes.Add(type))
+                return type;
 
-        if (type is NullableTypeSymbol nullableTypeSymbol)
-        {
-            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, methodMap);
+            tracked = true;
 
-            if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
-                return new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
-
-            return type;
-        }
-
-        if (type is ByRefTypeSymbol byRef)
-        {
-            var substitutedElement = Substitute(byRef.ElementType, methodMap);
-
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                return new ByRefTypeSymbol(substitutedElement);
-
-            return type;
-        }
-
-        if (type is IAddressTypeSymbol address)
-        {
-            var substitutedElement = Substitute(address.ReferencedType, methodMap);
-
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
-                return new AddressTypeSymbol(substitutedElement);
-
-            return type;
-        }
-
-        if (type is IArrayTypeSymbol arrayType)
-        {
-            var substitutedElement = Substitute(arrayType.ElementType, methodMap);
-
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
-                return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
-
-            return type;
-        }
-
-        if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
-        {
-            var typeArguments = named.TypeArguments;
-            var substitutedArgs = new ITypeSymbol[typeArguments.Length];
-            var changed = false;
-
-            for (int i = 0; i < typeArguments.Length; i++)
+            if (ConstructedNamedTypeDebugging.ShouldWrite())
             {
-                var originalArg = typeArguments[i];
-                var substitutedArg = Substitute(originalArg, methodMap);
-
-                substitutedArgs[i] = substitutedArg;
-
-                if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
-                    changed = true;
+                File.AppendAllText(
+                    "ConstructedNamedTypeSymbol.debug.txt",
+                    $"DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: {Name}; Substituted type: {type.Name}{Environment.NewLine}");
             }
 
-            if (!changed)
-                return named;
+            if (type is ITypeParameterSymbol tp)
+            {
+                if (methodMap is not null && methodMap.TryGetValue(tp, out var mappedMethodParameter))
+                    return mappedMethodParameter;
 
-            // Avoid reusing a possibly already-constructed named
-            var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
-            return constructedFrom.Construct(substitutedArgs);
+                if (TryGetSubstitution(tp, out var concrete))
+                {
+                    if (!trace.Seen.Add(new SubstitutionKey(tp, concrete)))
+                    {
+                        if (ConstructedNamedTypeDebugging.ShouldWrite())
+                        {
+                            File.AppendAllText(
+                                "ConstructedNamedTypeSymbol.substitution.trace.txt",
+                                $"Re-entrant substitution detected at depth {trace.Depth}: {tp} -> {concrete}{Environment.NewLine}");
+                        }
+                    }
+
+                    trace.SeenTypes[type] = concrete;
+                    return concrete;
+                }
+            }
+
+            if (type is NullableTypeSymbol nullableTypeSymbol)
+            {
+                var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, methodMap);
+
+                if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                    return trace.SeenTypes[type] = new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
+
+                return trace.SeenTypes[type] = type;
+            }
+
+            if (type is ByRefTypeSymbol byRef)
+            {
+                var substitutedElement = Substitute(byRef.ElementType, methodMap);
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                    return trace.SeenTypes[type] = new ByRefTypeSymbol(substitutedElement);
+
+                return trace.SeenTypes[type] = type;
+            }
+
+            if (type is IAddressTypeSymbol address)
+            {
+                var substitutedElement = Substitute(address.ReferencedType, methodMap);
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                    return trace.SeenTypes[type] = new AddressTypeSymbol(substitutedElement);
+
+                return trace.SeenTypes[type] = type;
+            }
+
+            if (type is IArrayTypeSymbol arrayType)
+            {
+                var substitutedElement = Substitute(arrayType.ElementType, methodMap);
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                    return trace.SeenTypes[type] = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+
+                return trace.SeenTypes[type] = type;
+            }
+
+            if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            {
+                if (!trace.SeenNamedTypes.Add(named))
+                    return trace.SeenTypes[type] = named;
+
+                var typeArguments = named.TypeArguments;
+                var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+                var changed = false;
+
+                for (int i = 0; i < typeArguments.Length; i++)
+                {
+                    var originalArg = typeArguments[i];
+                    var substitutedArg = Substitute(originalArg, methodMap);
+
+                    substitutedArgs[i] = substitutedArg;
+
+                    if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
+                        changed = true;
+                }
+
+                if (!changed)
+                    return trace.SeenTypes[type] = named;
+
+                // Avoid reusing a possibly already-constructed named
+                var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+                return trace.SeenTypes[type] = constructedFrom.Construct(substitutedArgs);
+            }
+
+            return trace.SeenTypes[type] = type;
         }
+        finally
+        {
+            if (tracked)
+                trace.InProgressTypes.Remove(type);
 
-        return type;
+            trace.Depth--;
+            if (trace.Depth == 0)
+            {
+                trace.Seen.Clear();
+                trace.SeenTypes.Clear();
+                trace.SeenNamedTypes.Clear();
+                trace.InProgressTypes.Clear();
+            }
+        }
     }
 
     public ImmutableArray<ISymbol> GetMembers() =>
@@ -258,7 +346,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         if (namedType.Arity == 0)
         {
             return containingOverride is not null
-                ? new ConstructedNamedTypeSymbol(namedType, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride)
+                ? Create(namedType, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride)
                 : namedType;
         }
 
@@ -266,7 +354,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         if (typeParameters.Length == 0)
         {
             return containingOverride is not null
-                ? new ConstructedNamedTypeSymbol(namedType, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride)
+                ? Create(namedType, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride)
                 : namedType;
         }
 
@@ -288,7 +376,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             return (INamedTypeSymbol)namedType.Construct(typeArguments);
 
         var immutableArguments = ImmutableArray.Create(typeArguments);
-        return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride);
+        return Create(namedType, immutableArguments, _substitutionMap, containingOverride);
     }
 
     private bool TryGetUnionDefinition(out IDiscriminatedUnionSymbol unionDefinition)
@@ -508,7 +596,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             return _originalDefinition.Construct(typeArguments);
 
         var immutableArguments = ImmutableArray.Create(typeArguments);
-        return new ConstructedNamedTypeSymbol(_originalDefinition, immutableArguments, _substitutionMap, _containingTypeOverride);
+        return Create(_originalDefinition, immutableArguments, _substitutionMap, _containingTypeOverride);
     }
 
     public ITypeSymbol? LookupType(string name)
@@ -792,6 +880,87 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public override string ToString()
     {
         return this.ToDisplayString();
+    }
+
+    private sealed class SubstitutionTrace
+    {
+        public int Depth;
+        public HashSet<SubstitutionKey> Seen { get; } = new(SubstitutionKeyComparer.Instance);
+        public Dictionary<ITypeSymbol, ITypeSymbol> SeenTypes { get; } = new(SymbolEqualityComparer.Default);
+        public HashSet<ITypeSymbol> SeenNamedTypes { get; } = new(SymbolEqualityComparer.Default);
+        public HashSet<ITypeSymbol> InProgressTypes { get; } = new(SymbolEqualityComparer.Default);
+    }
+
+    private readonly record struct SubstitutionKey(ITypeParameterSymbol Parameter, ITypeSymbol Argument);
+
+    private sealed class SubstitutionKeyComparer : IEqualityComparer<SubstitutionKey>
+    {
+        public static readonly SubstitutionKeyComparer Instance = new();
+
+        public bool Equals(SubstitutionKey x, SubstitutionKey y)
+        {
+            return SymbolEqualityComparer.Default.Equals(x.Parameter, y.Parameter) &&
+                   SymbolEqualityComparer.Default.Equals(x.Argument, y.Argument);
+        }
+
+        public int GetHashCode(SubstitutionKey obj)
+        {
+            unchecked
+            {
+                var hash = SymbolEqualityComparer.Default.GetHashCode(obj.Parameter);
+                hash = (hash * 397) ^ SymbolEqualityComparer.Default.GetHashCode(obj.Argument);
+                return hash;
+            }
+        }
+    }
+
+    private readonly record struct ConstructedNamedTypeKey(
+        INamedTypeSymbol OriginalDefinition,
+        ImmutableArray<ITypeSymbol> TypeArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? InheritedSubstitution,
+        INamedTypeSymbol? ContainingTypeOverride);
+
+    private sealed class ConstructedNamedTypeKeyComparer : IEqualityComparer<ConstructedNamedTypeKey>
+    {
+        public static readonly ConstructedNamedTypeKeyComparer Instance = new();
+
+        public bool Equals(ConstructedNamedTypeKey x, ConstructedNamedTypeKey y)
+        {
+            if (!ReferenceEquals(x.OriginalDefinition, y.OriginalDefinition))
+                return false;
+
+            if (!ReferenceEquals(x.ContainingTypeOverride, y.ContainingTypeOverride))
+                return false;
+
+            if (!ReferenceEquals(x.InheritedSubstitution, y.InheritedSubstitution))
+                return false;
+
+            var argsX = x.TypeArguments;
+            var argsY = y.TypeArguments;
+            if (argsX.Length != argsY.Length)
+                return false;
+
+            for (var i = 0; i < argsX.Length; i++)
+            {
+                if (!ReferenceEquals(argsX[i], argsY[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public int GetHashCode(ConstructedNamedTypeKey obj)
+        {
+            var hash = new HashCode();
+            hash.Add(RuntimeHelpers.GetHashCode(obj.OriginalDefinition));
+            hash.Add(RuntimeHelpers.GetHashCode(obj.ContainingTypeOverride));
+            hash.Add(RuntimeHelpers.GetHashCode(obj.InheritedSubstitution));
+
+            foreach (var argument in obj.TypeArguments)
+                hash.Add(RuntimeHelpers.GetHashCode(argument));
+
+            return hash.ToHashCode();
+        }
     }
 }
 
@@ -1524,12 +1693,57 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
         var defX = (ITypeParameterSymbol)(x.OriginalDefinition ?? x);
         var defY = (ITypeParameterSymbol)(y.OriginalDefinition ?? y);
 
-        return SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType().Equals(defX, defY);
+        if (ReferenceEquals(defX, defY))
+            return true;
+
+        return defX.Ordinal == defY.Ordinal
+            && string.Equals(defX.Name, defY.Name, StringComparison.Ordinal)
+            && ReferenceEquals(GetContainingSymbolKey(defX), GetContainingSymbolKey(defY));
     }
 
     public int GetHashCode(ITypeParameterSymbol obj)
     {
         var def = (ITypeParameterSymbol)(obj.OriginalDefinition ?? obj);
-        return SymbolEqualityComparer.Default.GetHashCode(def);
+        var hash = new HashCode();
+        hash.Add(def.Ordinal);
+        hash.Add(def.Name, StringComparer.Ordinal);
+        hash.Add(RuntimeHelpers.GetHashCode(GetContainingSymbolKey(def)));
+        return hash.ToHashCode();
     }
+
+    private static ISymbol? GetContainingSymbolKey(ITypeParameterSymbol parameter)
+    {
+        var containing = parameter.ContainingSymbol as INamedTypeSymbol;
+        return containing?.OriginalDefinition ?? containing;
+    }
+}
+
+internal static class ConstructedNamedTypeDebugging
+{
+    /// <summary>
+    /// Enables constructed-type debug output to <c>ConstructedNamedTypeSymbol.debug.txt</c>
+    /// and <c>ConstructedNamedTypeSymbol.substitution.trace.txt</c> when
+    /// <c>RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE</c> is set. Use <c>trace</c> to allow
+    /// repeated writes; use <c>1</c> to emit a single write per process.
+    /// </summary>
+    public static bool IsEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE");
+        return string.Equals(value, "1", StringComparison.Ordinal)
+            || string.Equals(value, "trace", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool ShouldWrite()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE");
+        if (string.IsNullOrEmpty(value))
+            return false;
+
+        if (string.Equals(value, "trace", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return System.Threading.Interlocked.Exchange(ref s_hasWritten, 1) == 0;
+    }
+
+    private static int s_hasWritten;
 }

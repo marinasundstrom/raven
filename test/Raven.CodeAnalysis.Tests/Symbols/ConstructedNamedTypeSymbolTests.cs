@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -14,6 +15,72 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class ConstructedNamedTypeSymbolTests
 {
+    [Fact]
+    public void ConstructedType_FromMetadata_CanonicalizesByArguments()
+    {
+        var compilation = Compilation.Create("constructed-metadata-canonicalization", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var first = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+        var second = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+
+        Assert.Same(first, second);
+    }
+
+    [Fact]
+    public void TypeParameterSubstitutionComparer_FallsBackToOrdinalAndContainingSymbol()
+    {
+        var compilation = Compilation.Create(
+                "type-parameter-substitution-comparer",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var method = new SourceMethodSymbol(
+            "Compute",
+            compilation.GetSpecialType(SpecialType.System_Void),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            compilation.GlobalNamespace,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            isStatic: true);
+
+        var first = new SourceTypeParameterSymbol(
+            "T",
+            method,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            ordinal: 0,
+            TypeParameterConstraintKind.None,
+            ImmutableArray<SyntaxReference>.Empty,
+            VarianceKind.None);
+
+        var second = new SourceTypeParameterSymbol(
+            "T",
+            method,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            ordinal: 0,
+            TypeParameterConstraintKind.None,
+            ImmutableArray<SyntaxReference>.Empty,
+            VarianceKind.None);
+
+        Assert.True(TypeParameterSubstitutionComparer.Instance.Equals(first, second));
+        Assert.Equal(
+            TypeParameterSubstitutionComparer.Instance.GetHashCode(first),
+            TypeParameterSubstitutionComparer.Instance.GetHashCode(second));
+    }
+
     [Fact]
     public void ConstructedType_FromSource_SubstitutesTypeArgumentsInMethods()
     {
@@ -76,6 +143,95 @@ class Container<T>
 
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, field.Type));
         Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
+    }
+
+    [Fact]
+    public void ConstructedType_FromSynthesizedAsyncStateMachine_RefreshesMembersAfterMutation()
+    {
+        var compilation = Compilation.Create(
+                "constructed-async-state-machine",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var taskOfT = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1"));
+
+        var method = new SourceMethodSymbol(
+            "RunAsync",
+            compilation.GetSpecialType(SpecialType.System_Void),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            compilation.GlobalNamespace,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            isStatic: true,
+            methodKind: MethodKind.Ordinary,
+            isAsync: true);
+
+        var typeParameter = new SourceTypeParameterSymbol(
+            "T",
+            method,
+            containingType: null,
+            compilation.GlobalNamespace,
+            Array.Empty<Location>(),
+            Array.Empty<SyntaxReference>(),
+            ordinal: 0,
+            TypeParameterConstraintKind.None,
+            ImmutableArray<SyntaxReference>.Empty,
+            VarianceKind.None);
+
+        method.SetTypeParameters([typeParameter]);
+        method.SetReturnType(taskOfT.Construct(typeParameter));
+
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(
+            compilation,
+            method,
+            "Program+<>c__AsyncStateMachine_Test");
+
+        method.SetAsyncStateMachine(stateMachine);
+
+        var initial = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            stateMachine.GetConstructedStateMachine(method));
+
+        var initialMemberCount = initial.GetMembers().Length;
+
+        stateMachine.AddHoistedLocal("hoisted", compilation.GetSpecialType(SpecialType.System_Int32));
+
+        var updated = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            stateMachine.GetConstructedStateMachine(method));
+
+        Assert.NotSame(initial, updated);
+        Assert.NotEqual(initialMemberCount, updated.GetMembers().Length);
+        Assert.NotEmpty(updated.GetMembers("hoisted"));
+    }
+
+    [Fact]
+    public void ConstructedType_Substitute_AllowsRecursiveFieldTypes()
+    {
+        var source = """
+class Node<T>
+{
+    var next: Node<T>;
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "constructed-recursive-field",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var nodeDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Node"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var constructedNode = Assert.IsAssignableFrom<INamedTypeSymbol>(nodeDefinition.Construct(intType));
+
+        var nextField = Assert.Single(constructedNode.GetMembers("next").OfType<IFieldSymbol>());
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructedNode, nextField.Type));
     }
 
     [Fact]

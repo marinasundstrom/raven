@@ -544,7 +544,12 @@ public partial class Compilation
         ITypeSymbol argumentType,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
-        File.WriteAllText("Compilation.debug.txt", $"DEBUG (Compilation.TryUnifyExtensionReceiver). Param type: {parameterType}; Argument type: {argumentType}");
+        if (CompilationDebugging.ShouldWrite())
+        {
+            File.AppendAllText(
+                "Compilation.debug.txt",
+                $"DEBUG (Compilation.TryUnifyExtensionReceiver). Param type: {parameterType}; Argument type: {argumentType}{Environment.NewLine}");
+        }
 
         parameterType = NormalizeTypeForExtensionInference(parameterType);
         argumentType = NormalizeTypeForExtensionInference(argumentType);
@@ -809,4 +814,33 @@ public partial class Compilation
         return (sourceType is SpecialType.System_Double && destType is SpecialType.System_Int32) ||
                (sourceType is SpecialType.System_Int64 && destType is SpecialType.System_Int32);
     }
+}
+
+internal static class CompilationDebugging
+{
+    /// <summary>
+    /// Enables compiler debug output to <c>Compilation.debug.txt</c> when
+    /// <c>RAVEN_DEBUG_COMPILATION</c> is set. Use <c>trace</c> to allow repeated
+    /// writes; use <c>1</c> to emit a single write per process.
+    /// </summary>
+    public static bool IsEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_COMPILATION");
+        return string.Equals(value, "1", StringComparison.Ordinal)
+            || string.Equals(value, "trace", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool ShouldWrite()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_COMPILATION");
+        if (string.IsNullOrEmpty(value))
+            return false;
+
+        if (string.Equals(value, "trace", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return System.Threading.Interlocked.Exchange(ref s_hasWritten, 1) == 0;
+    }
+
+    private static int s_hasWritten;
 }
