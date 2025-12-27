@@ -1713,7 +1713,7 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
 
     private static ISymbol? GetContainingSymbolKey(ITypeParameterSymbol parameter)
     {
-        var containing = parameter.ContainingSymbol;
+        var containing = parameter.ContainingSymbol as INamedTypeSymbol;
         return containing?.OriginalDefinition ?? containing;
     }
 }
