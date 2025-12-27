@@ -28,3 +28,10 @@ If documentation-only changes don’t need verification, you may skip build/test
 **Additional notes:** focus on incremental, additive changes; review `docs/` before altering syntax/semantics; ask Codex to collapse large diffs; inspect `ravc` outputs with `ilspycmd` (install via `dotnet tool install --global ilspycmd`); prefer implementing new features via lowering where possible. Unit tests can request an `ITestOutputHelper` parameter to write diagnostics via `WriteLine`.
 
 **External components:** `TypeUnionAnalyzer` lives in a separate project; ignore it unless explicitly instructed.
+
+## Codex build workaround
+If the build pipeline fails due to generator/runtimeconfig file locks or missing generated syntax types, use the script below to run generators and build in a safe order:
+
+```bash
+scripts/codex-build.sh
+```
