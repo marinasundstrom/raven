@@ -892,10 +892,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
         public bool Equals(ConstructedNamedTypeKey x, ConstructedNamedTypeKey y)
         {
-            if (!SymbolEqualityComparer.Default.Equals(x.OriginalDefinition, y.OriginalDefinition))
+            if (!ReferenceEquals(x.OriginalDefinition, y.OriginalDefinition))
                 return false;
 
-            if (!SymbolEqualityComparer.Default.Equals(x.ContainingTypeOverride, y.ContainingTypeOverride))
+            if (!ReferenceEquals(x.ContainingTypeOverride, y.ContainingTypeOverride))
                 return false;
 
             if (!ReferenceEquals(x.InheritedSubstitution, y.InheritedSubstitution))
@@ -908,7 +908,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
             for (var i = 0; i < argsX.Length; i++)
             {
-                if (!SymbolEqualityComparer.Default.Equals(argsX[i], argsY[i]))
+                if (!ReferenceEquals(argsX[i], argsY[i]))
                     return false;
             }
 
@@ -918,12 +918,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         public int GetHashCode(ConstructedNamedTypeKey obj)
         {
             var hash = new HashCode();
-            hash.Add(SymbolEqualityComparer.Default.GetHashCode(obj.OriginalDefinition));
-            hash.Add(SymbolEqualityComparer.Default.GetHashCode(obj.ContainingTypeOverride));
+            hash.Add(RuntimeHelpers.GetHashCode(obj.OriginalDefinition));
+            hash.Add(RuntimeHelpers.GetHashCode(obj.ContainingTypeOverride));
             hash.Add(RuntimeHelpers.GetHashCode(obj.InheritedSubstitution));
 
             foreach (var argument in obj.TypeArguments)
-                hash.Add(SymbolEqualityComparer.Default.GetHashCode(argument));
+                hash.Add(RuntimeHelpers.GetHashCode(argument));
 
             return hash.ToHashCode();
         }
