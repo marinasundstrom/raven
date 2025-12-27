@@ -141,7 +141,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             if (trace.SeenTypes.TryGetValue(type, out var cached))
                 return cached;
 
-            File.WriteAllText("ConstructedNamedTypeSymbol.debug.txt", $"DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: {Name}; Substituted type: {type.Name}");
+            if (ConstructedNamedTypeDebugging.IsEnabled())
+            {
+                File.AppendAllText(
+                    "ConstructedNamedTypeSymbol.debug.txt",
+                    $"DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: {Name}; Substituted type: {type.Name}{Environment.NewLine}");
+            }
 
             if (type is ITypeParameterSymbol tp)
             {
@@ -152,9 +157,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 {
                     if (!trace.Seen.Add(new SubstitutionKey(tp, concrete)))
                     {
-                        File.AppendAllText(
-                            "ConstructedNamedTypeSymbol.substitution.trace.txt",
-                            $"Re-entrant substitution detected at depth {trace.Depth}: {tp} -> {concrete}{Environment.NewLine}");
+                        if (ConstructedNamedTypeDebugging.IsEnabled())
+                        {
+                            File.AppendAllText(
+                                "ConstructedNamedTypeSymbol.substitution.trace.txt",
+                                $"Re-entrant substitution detected at depth {trace.Depth}: {tp} -> {concrete}{Environment.NewLine}");
+                        }
                     }
 
                     trace.SeenTypes[type] = concrete;
@@ -1666,5 +1674,14 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
     {
         var def = (ITypeParameterSymbol)(obj.OriginalDefinition ?? obj);
         return RuntimeHelpers.GetHashCode(def);
+    }
+}
+
+internal static class ConstructedNamedTypeDebugging
+{
+    public static bool IsEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE");
+        return string.Equals(value, "1", StringComparison.Ordinal);
     }
 }

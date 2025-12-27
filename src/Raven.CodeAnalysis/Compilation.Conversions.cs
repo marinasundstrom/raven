@@ -544,7 +544,12 @@ public partial class Compilation
         ITypeSymbol argumentType,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
-        File.WriteAllText("Compilation.debug.txt", $"DEBUG (Compilation.TryUnifyExtensionReceiver). Param type: {parameterType}; Argument type: {argumentType}");
+        if (CompilationDebugging.IsEnabled())
+        {
+            File.AppendAllText(
+                "Compilation.debug.txt",
+                $"DEBUG (Compilation.TryUnifyExtensionReceiver). Param type: {parameterType}; Argument type: {argumentType}{Environment.NewLine}");
+        }
 
         parameterType = NormalizeTypeForExtensionInference(parameterType);
         argumentType = NormalizeTypeForExtensionInference(argumentType);
@@ -808,5 +813,14 @@ public partial class Compilation
 
         return (sourceType is SpecialType.System_Double && destType is SpecialType.System_Int32) ||
                (sourceType is SpecialType.System_Int64 && destType is SpecialType.System_Int32);
+    }
+}
+
+internal static class CompilationDebugging
+{
+    public static bool IsEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("RAVEN_DEBUG_COMPILATION");
+        return string.Equals(value, "1", StringComparison.Ordinal);
     }
 }
