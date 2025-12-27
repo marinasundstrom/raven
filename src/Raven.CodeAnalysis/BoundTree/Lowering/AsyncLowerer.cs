@@ -2199,13 +2199,13 @@ internal static class AsyncLowerer
         }
     }
 
-        private static class StateDispatchInjector
-        {
-            public static BoundBlockStatement Inject(
-                BoundBlockStatement body,
-                SynthesizedAsyncStateMachineTypeSymbol stateMachine,
-            ImmutableArray<StateDispatch> dispatches,
-            out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
+    private static class StateDispatchInjector
+    {
+        public static BoundBlockStatement Inject(
+            BoundBlockStatement body,
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        ImmutableArray<StateDispatch> dispatches,
+        out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
         {
             if (body is null)
                 throw new ArgumentNullException(nameof(body));
@@ -3087,7 +3087,7 @@ internal static class AsyncLowerer
         {
             var methodArguments = TryCreateMethodTypeArguments(stateMachine)
                 ?? methodTypeParameters.Select(static parameter => (ITypeSymbol)parameter).ToImmutableArray();
-            var methodViewStateMachine = new ConstructedNamedTypeSymbol(stateMachine, methodArguments);
+            var methodViewStateMachine = ConstructedNamedTypeSymbol.Create(stateMachine, methodArguments);
             substitutedStateMachineType = stateMachine.SubstituteStateMachineTypeParameters(methodViewStateMachine) as INamedTypeSymbol
                 ?? methodViewStateMachine;
         }

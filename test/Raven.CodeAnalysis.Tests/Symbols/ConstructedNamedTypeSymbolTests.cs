@@ -15,6 +15,23 @@ namespace Raven.CodeAnalysis.Tests;
 public class ConstructedNamedTypeSymbolTests
 {
     [Fact]
+    public void ConstructedType_FromMetadata_CanonicalizesByArguments()
+    {
+        var compilation = Compilation.Create("constructed-metadata-canonicalization", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var first = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+        var second = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+
+        Assert.Same(first, second);
+    }
+
+    [Fact]
     public void ConstructedType_FromSource_SubstitutesTypeArgumentsInMethods()
     {
         var source = """
