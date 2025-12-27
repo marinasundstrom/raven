@@ -17,6 +17,7 @@ dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CON
 
 echo "==> Emitting Raven.Core.dll via ravc"
 RAVEN_CORE_OUT="$ROOT_DIR/src/Raven.Core/bin/$BUILD_CONFIG/net9.0/Raven.Core.dll"
+mkdir -p "$(dirname "$RAVEN_CORE_OUT")"
 dotnet run --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -p:UseRavenCoreReference=false \
   -- --emit-core-types-only --framework net9.0 --output-type classlib \
   -o "$RAVEN_CORE_OUT" "$ROOT_DIR/src/Raven.Core/Option.rav" "$ROOT_DIR/src/Raven.Core/Result.rav"
