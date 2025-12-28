@@ -15,6 +15,6 @@ public static class WidgetExtensions
     public static int Double(this Widget widget)
         => widget.Value * 2;
 
-    public static Widget Create(int value)
+    public static Widget Create(this int value)
         => new Widget(value);
 }
