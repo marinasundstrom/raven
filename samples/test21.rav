@@ -1,10 +1,7 @@
 import System.*
 
-val x = Option<string>.None
+val x: Option<string> = .None
 Console.WriteLine(x)
-
-val r: string? = x
-Console.WriteLine("Value: $x")
 
 test(x) // Conversion
 
