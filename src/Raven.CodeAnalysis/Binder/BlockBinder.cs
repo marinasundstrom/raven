@@ -6339,8 +6339,14 @@ partial class BlockBinder : Binder
             return new BoundLiteralExpression(literalNull.Kind, literalNull.Value, literalNull.Type, targetType);
         }
 
-        if (targetType is NullableTypeSymbol nullableTarget && !nullableTarget.UnderlyingType.IsValueType)
+        if (targetType is NullableTypeSymbol nullableTarget &&
+            !nullableTarget.UnderlyingType.IsValueType &&
+            conversion.IsReference &&
+            expression.Type is { } expressionType &&
+            SymbolEqualityComparer.Default.Equals(expressionType, nullableTarget.UnderlyingType))
+        {
             return expression;
+        }
 
         return new BoundCastExpression(expression, targetType, conversion);
     }
