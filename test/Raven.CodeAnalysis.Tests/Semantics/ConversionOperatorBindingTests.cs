@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ConversionOperatorBindingTests : DiagnosticTestBase
+public class ConversionOperatorBindingTests : CompilationTestBase
 {
     [Fact]
     public void ImplicitConversionOperator_AllowsOverloadResolutionAndExplicitCast()
@@ -27,7 +27,7 @@ public class ConversionOperatorBindingTests : DiagnosticTestBase
         }
         """;
 
-        var compilation = CreateCompilation(source);
+        var (compilation, _) = CreateCompilation(source);
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.DoesNotContain(

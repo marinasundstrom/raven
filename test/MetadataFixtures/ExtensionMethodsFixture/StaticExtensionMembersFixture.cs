@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 namespace Raven.MetadataFixtures.StaticExtensions;
 
 public sealed class Widget

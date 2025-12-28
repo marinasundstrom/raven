@@ -74,10 +74,20 @@ public extension OptionExtensions<T> for Option<T> {
         return defaultValue
     }
 
-    public static explicit operator(opt: Option<T>) -> T? {
+    public static implicit operator(opt: Option<T>) -> T? {
         if opt is .Some(value) {
             return value
         }
-        return null
+        return default(T)
     }
 }
+
+/*public extension OptionExtensions2<T : struct> for Option<T> {
+
+    public static implicit operator(opt: Option<T>) -> T? {
+        if opt is .Some(value) {
+            return value
+        }
+        return default(T)
+    }
+}*/

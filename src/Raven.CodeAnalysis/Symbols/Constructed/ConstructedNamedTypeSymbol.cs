@@ -110,6 +110,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null)
     {
+        File.WriteAllText("ConstructedNamedTypeSymbol.debug.txt", $"DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: {Name}; Substituted type: {type.Name}");
+
         if (type is ITypeParameterSymbol tp)
         {
             if (methodMap is not null && methodMap.TryGetValue(tp, out var mappedMethodParameter))
@@ -586,6 +588,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         if (_originalDefinition is SourceNamedTypeSymbol source)
         {
             var definitionType = codeGen.GetTypeBuilder(source) ?? throw new InvalidOperationException("Missing type builder for generic definition.");
+            if (source.IsExtensionDeclaration)
+                return definitionType.GetTypeInfo();
             if (runtimeArguments.IsDefaultOrEmpty)
                 return definitionType.GetTypeInfo();
 
