@@ -1238,7 +1238,7 @@ internal class TypeMemberBinder : Binder
 
     private static ITypeSymbol StripNullableReference(ITypeSymbol type)
     {
-        if (type is NullableTypeSymbol nt && !nt.UnderlyingType.IsValueType)
+        if (type is NullableTypeSymbol nt && !nt.IsValueType)
             return StripNullableReference(nt.UnderlyingType);
 
         return type;

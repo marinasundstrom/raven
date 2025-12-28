@@ -232,8 +232,8 @@ internal class CodeGenerator
     ConstructorInfo? _extensionMarkerNameCtor;
     ConstructorInfo? _extensionAttributeCtor;
 
-    bool _emitTypeUnionAttribute = true;
-    bool _emitNullType = true;
+    readonly bool _emitTypeUnionAttribute = true;
+    readonly bool _emitNullType = true;
     bool _emitExtensionMarkerNameAttribute = true;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
@@ -379,7 +379,7 @@ internal class CodeGenerator
     {
         var needsNullable = false;
 
-        if (type is NullableTypeSymbol nt && !nt.UnderlyingType.IsValueType)
+        if (type is NullableTypeSymbol nt && !nt.IsValueType)
         {
             needsNullable = true;
         }

@@ -59,7 +59,7 @@ public static class TypeSymbolExtensionsForCodeGen
         if (typeSymbol is NullableTypeSymbol nullableType)
         {
             var underlying = GetClrTypeInternal(nullableType.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
-            if (!nullableType.UnderlyingType.IsValueType)
+            if (!nullableType.IsValueType)
                 return underlying;
 
             var nullableDefinition = GetNullableRuntimeType(codeGen.Compilation);

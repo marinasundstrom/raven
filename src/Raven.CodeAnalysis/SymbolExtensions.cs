@@ -40,6 +40,26 @@ public static partial class SymbolExtensions
         return baseType;
     }
 
+    public static bool IsNonNullableValueType(this ITypeSymbol symbol)
+    {
+        if (symbol.IsValueType)
+            return true;
+
+        if (symbol is not ITypeParameterSymbol typeParameter)
+            return false;
+
+        if ((typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0)
+            return true;
+
+        foreach (var constraint in typeParameter.ConstraintTypes)
+        {
+            if (constraint.IsValueType)
+                return true;
+        }
+
+        return false;
+    }
+
     public static IEnumerable<ISymbol> ResolveMembers(this ITypeSymbol symbol, string name)
     {
         var seenSignatures = new HashSet<string>();

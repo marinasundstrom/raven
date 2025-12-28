@@ -855,7 +855,7 @@ internal class ExpressionGenerator : Generator
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
-        if (to is NullableTypeSymbol nullableTo && nullableTo.UnderlyingType.IsValueType)
+        if (to is NullableTypeSymbol nullableTo && nullableTo.IsValueType)
         {
             EmitNullableConversion(from, nullableTo);
             return;
@@ -2851,7 +2851,7 @@ internal class ExpressionGenerator : Generator
     private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional)
     {
         var receiverType = conditional.Receiver.Type;
-        var isNullableValue = receiverType.IsNullable() && ((NullableTypeSymbol)receiverType).UnderlyingType.IsValueType;
+        var isNullableValue = receiverType.IsNullable() && ((NullableTypeSymbol)receiverType).IsValueType;
 
         var receiverClrType = ResolveClrType(receiverType);
         var local = ILGenerator.DeclareLocal(receiverClrType);
@@ -3235,7 +3235,7 @@ internal class ExpressionGenerator : Generator
             var effectiveReceiverType = receiverType;
 
             if (receiverType is NullableTypeSymbol nullable
-                && nullable.UnderlyingType.IsValueType
+                && nullable.IsValueType
                 && target.ContainingType?.SpecialType != SpecialType.System_Nullable_T)
             {
                 if (receiverAlreadyLoaded)

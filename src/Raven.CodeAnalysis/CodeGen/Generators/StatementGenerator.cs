@@ -687,7 +687,7 @@ internal class StatementGenerator : Generator
                 return;
             }
 
-            if (localSymbol.Type is NullableTypeSymbol nullableLocal && nullableLocal.UnderlyingType.IsValueType)
+            if (localSymbol.Type is NullableTypeSymbol nullableLocal && nullableLocal.IsValueType)
             {
                 var localClr = ResolveClrType(localSymbol.Type);
                 if (expressionType?.TypeKind == TypeKind.Null)

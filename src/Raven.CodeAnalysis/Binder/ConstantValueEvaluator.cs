@@ -45,7 +45,7 @@ internal static class ConstantValueEvaluator
 
         if (targetType is NullableTypeSymbol nullableType)
         {
-            if (nullableType.UnderlyingType.IsValueType)
+            if (nullableType.IsValueType)
             {
                 converted = null;
                 return false;

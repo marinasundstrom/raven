@@ -6340,7 +6340,7 @@ partial class BlockBinder : Binder
         }
 
         if (targetType is NullableTypeSymbol nullableTarget &&
-            !nullableTarget.UnderlyingType.IsValueType &&
+            !nullableTarget.IsValueType &&
             conversion.IsReference &&
             expression.Type is { } expressionType &&
             SymbolEqualityComparer.Default.Equals(expressionType, nullableTarget.UnderlyingType))
