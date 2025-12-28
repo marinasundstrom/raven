@@ -428,7 +428,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public IMethodSymbol? ConstructedFrom => this;
 
-        public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+        public IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
         {
             if (typeArguments is null)
                 throw new ArgumentNullException(nameof(typeArguments));

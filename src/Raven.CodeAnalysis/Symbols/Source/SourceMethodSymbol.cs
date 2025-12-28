@@ -291,12 +291,12 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _asyncStateMachine = stateMachine;
     }
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
-        if (typeArguments is null)
-            throw new ArgumentNullException(nameof(typeArguments));
+        if (typeArguments.Length == 0)
+            throw new ArgumentException("Type arguments can not be empty", nameof(typeArguments));
 
-        return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
+        return new ConstructedMethodSymbol(this, [.. typeArguments]);
     }
 
     private ImmutableArray<AttributeData> ComputeReturnTypeAttributes()

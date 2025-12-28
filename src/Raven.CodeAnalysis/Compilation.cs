@@ -679,7 +679,7 @@ public partial class Compilation
         }
 
         if (delegateType is not null)
-            return delegateType.Construct(allTypes.ToArray());
+            return delegateType.Construct([.. allTypes]);
 
         var parameterImmutable = parameterTypes.ToImmutableArray();
         var refKinds = ImmutableArray.CreateRange(Enumerable.Repeat(RefKind.None, parameterTypes.Length));
@@ -698,7 +698,7 @@ public partial class Compilation
         if (tupleDefinition is null)
             return ErrorTypeSymbol;
 
-        var underlying = (INamedTypeSymbol)tupleDefinition.Construct(elementArray.Select(e => e.type).ToArray());
+        var underlying = (INamedTypeSymbol)tupleDefinition.Construct([.. elementArray.Select(e => e.type)]);
         var tuple = new TupleTypeSymbol(underlying, null, null, null, []);
 
         var fields = new List<IFieldSymbol>();
@@ -717,7 +717,7 @@ public partial class Compilation
 
     public ITypeSymbol ConstructGenericType(INamedTypeSymbol genericDefinition, ITypeSymbol[] typeArgs)
     {
-        return genericDefinition.Construct(typeArgs);
+        return genericDefinition.Construct([.. typeArgs]);
     }
 
     public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)

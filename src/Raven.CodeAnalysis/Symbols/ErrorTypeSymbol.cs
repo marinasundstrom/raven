@@ -65,7 +65,7 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
         return false;
     }
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    public ITypeSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
         throw new NotSupportedException();
     }

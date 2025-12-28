@@ -771,7 +771,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public System.Reflection.TypeInfo GetTypeInfo() => _typeInfo;
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    public ITypeSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
         // if (typeArguments.Length != Arity)
         //   throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");

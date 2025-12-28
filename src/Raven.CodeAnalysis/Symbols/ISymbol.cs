@@ -288,8 +288,10 @@ public interface IMethodSymbol : ISymbol
 
     IMethodSymbol? ConstructedFrom { get; }
 
-    IMethodSymbol Construct(params ITypeSymbol[] typeArguments);
+    IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments);
 
+    // Workaround
+    bool ContainsTypeParameters() => TypeArguments.Length == 0 && TypeParameters.Length > 0;
 }
 
 public enum MethodKind
@@ -423,6 +425,8 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
             : $"{namespaceName}.{typeName}";
     }
 
+    bool ContainsTypeParameter() => this is ITypeParameterSymbol;
+
     bool IsReferenceType => !IsValueType;
 
     bool IsValueType => false;
@@ -514,6 +518,8 @@ public enum TypeParameterConstraintKind
     ReferenceType = 1 << 0,
     ValueType = 1 << 1,
     TypeConstraint = 1 << 2,
+    ParameterlessConstructor = 1 << 3,
+    Nullable = 1 << 4,
 }
 
 public enum VarianceKind
@@ -525,6 +531,8 @@ public enum VarianceKind
 
 public interface INamedTypeSymbol : ITypeSymbol
 {
+    new INamedTypeSymbol? OriginalDefinition => (INamedTypeSymbol?)((ITypeSymbol)this).OriginalDefinition;
+
     int Arity { get; }
     ImmutableArray<IMethodSymbol> Constructors { get; }
     ImmutableArray<IMethodSymbol> InstanceConstructors { get; }
@@ -539,7 +547,7 @@ public interface INamedTypeSymbol : ITypeSymbol
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
 
-    ITypeSymbol Construct(params ITypeSymbol[] typeArguments);
+    ITypeSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments);
 }
 
 public interface IArrayTypeSymbol : ITypeSymbol

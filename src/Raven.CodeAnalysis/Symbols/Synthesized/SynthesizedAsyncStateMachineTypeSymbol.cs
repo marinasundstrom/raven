@@ -47,7 +47,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod ?? throw new ArgumentNullException(nameof(asyncMethod));
 
-        ( 
+        (
             _asyncToStateTypeParameterMap,
             _stateToAsyncTypeParameterMap,
             _typeParameterMappings) = InitializeTypeParameters(asyncMethod);
@@ -568,7 +568,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 if (changed)
                 {
                     var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
-                    return definition.Construct(substitutedArguments);
+                    return definition.Construct([.. substitutedArguments]);
                 }
 
                 return named;
@@ -1210,10 +1210,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public bool Equals(ISymbol? other)
             => SymbolEqualityComparer.Default.Equals(this, other);
 
-        public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+        public IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
         {
-            if (typeArguments is null)
-                throw new ArgumentNullException(nameof(typeArguments));
+            if (typeArguments.Length == 0)
+                throw new ArgumentException("Type arguments can not be empty", nameof(typeArguments));
 
             if (typeArguments.Length == 0)
             {
@@ -1231,7 +1231,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i]);
             }
 
-            var argumentsToUse = changed ? substitutedArguments : typeArguments;
+            var argumentsToUse = changed ? [.. substitutedArguments] : typeArguments;
             var constructed = _original.Construct(argumentsToUse);
             return _methodSubstitution(constructed);
         }

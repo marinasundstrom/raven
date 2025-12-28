@@ -201,7 +201,7 @@ internal class TypeResolver(Compilation compilation)
         {
             var genericTypeDefinition = (INamedTypeSymbol?)ResolveType(type.GetGenericTypeDefinition());
             var args = type.GetGenericArguments().Select(x => ResolveType(x)!);
-            return genericTypeDefinition.Construct(args.ToArray());
+            return genericTypeDefinition.Construct([.. args]);
         }
 
         if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
@@ -273,7 +273,7 @@ internal class TypeResolver(Compilation compilation)
             }
 
             if (changed)
-                typeSymbol = named.Construct(typeArgs);
+                typeSymbol = named.Construct([.. typeArgs]);
         }
 
         if (nullInfo.ReadState == NullabilityState.Nullable

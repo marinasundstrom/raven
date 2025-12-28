@@ -251,7 +251,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         return symbol is not null;
     }
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    public ITypeSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
         if (!IsGenericType)
             return this;

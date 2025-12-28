@@ -45,7 +45,7 @@ public union Option<T> {
 }
 
 /// Contains extensions for the Option<T> type
-public extension OptionExtensions<T> for Option<T> {
+public extension OptionExtensions<T : class> for Option<T> {
 
     /// Unwrap the value if Some, otherwise return the default value
     public UnwrapOrDefault() -> T {

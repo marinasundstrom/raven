@@ -183,7 +183,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
             // Avoid reusing a possibly already-constructed named
             var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
-            return constructedFrom.Construct(substitutedArgs);
+            return constructedFrom.Construct([.. substitutedArgs]);
         }
 
         return type;
@@ -285,7 +285,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         }
 
         if (containingOverride is null)
-            return (INamedTypeSymbol)namedType.Construct(typeArguments);
+            return (INamedTypeSymbol)namedType.Construct([.. typeArguments]);
 
         var immutableArguments = ImmutableArray.Create(typeArguments);
         return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride);
@@ -502,13 +502,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    public ITypeSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
         if (_containingTypeOverride is null)
             return _originalDefinition.Construct(typeArguments);
 
-        var immutableArguments = ImmutableArray.Create(typeArguments);
-        return new ConstructedNamedTypeSymbol(_originalDefinition, immutableArguments, _substitutionMap, _containingTypeOverride);
+        return new ConstructedNamedTypeSymbol(_originalDefinition, typeArguments, _substitutionMap, _containingTypeOverride);
     }
 
     public ITypeSymbol? LookupType(string name)
@@ -963,7 +962,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool Equals(ISymbol? other) =>
         SymbolEqualityComparer.Default.Equals(this, other);
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
         return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray(), _constructed);
     }

@@ -427,7 +427,7 @@ partial class BlockBinder : Binder
 
             try
             {
-                var constructed = method.Construct(typeArguments.ToArray());
+                var constructed = method.Construct([.. typeArguments]);
                 builder.Add(constructed);
             }
             catch
@@ -3339,7 +3339,7 @@ partial class BlockBinder : Binder
                     constructed is ConstructedNamedTypeSymbol constructedNamed &&
                     constructedNamed.TypeArguments.Any(static argument => argument is ITypeParameterSymbol))
                 {
-                    var fallback = constructedNamed.Construct(typeArgs.ToArray());
+                    var fallback = constructedNamed.Construct([.. typeArgs]);
                     if (fallback is INamedTypeSymbol substituted)
                         constructed = substituted;
                 }

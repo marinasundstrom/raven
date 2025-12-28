@@ -93,7 +93,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 // If it’s not generic, Construct(...) should just return the same symbol (or you can guard).
                 IMethodSymbol constructedIfaceMethod =
                     orig.IsGenericMethod && _typeArguments.Length == orig.TypeParameters.Length
-                        ? orig.Construct(_typeArguments.ToArray())
+                        ? orig.Construct(_typeArguments)
                         : orig;
 
                 builder.Add(constructedIfaceMethod);
@@ -134,7 +134,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsIterator => _definition.IsIterator;
     public IteratorMethodKind IteratorKind => _definition.IteratorKind;
     public ITypeSymbol? IteratorElementType => _definition.IteratorElementType;
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _definition.TypeParameters;
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _definition.TypeParameters; // []
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
     public IMethodSymbol? ConstructedFrom => _definition;
 
@@ -163,12 +163,12 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return _definition.Equals(other, comparer);
     }
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
-        if (typeArguments is null)
-            throw new ArgumentNullException(nameof(typeArguments));
+        if (typeArguments.Length == 0)
+            throw new ArgumentException("Type arguments can not be empty", nameof(typeArguments));
 
-        return new ConstructedMethodSymbol(_definition, typeArguments.ToImmutableArray(), _containingType);
+        return new ConstructedMethodSymbol(_definition, [.. typeArguments], _containingType);
     }
 
     private ITypeSymbol Substitute(ITypeSymbol type)
@@ -242,7 +242,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
             // Avoid reusing a possibly already-constructed named
             var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
-            return constructedFrom.Construct(substitutedArgs);
+            return constructedFrom.Construct([.. substitutedArgs]);
         }
 
         return type;

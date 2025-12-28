@@ -158,7 +158,7 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
 
     public ImmutableArray<IMethodSymbol> InstanceConstructors => _type.InstanceConstructors;
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => _type.Construct(typeArguments);
+    public ITypeSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments) => _type.Construct(typeArguments);
 }
 
 internal sealed class AliasTypeUnionSymbol : AliasSymbol, ITypeUnionSymbol
@@ -299,7 +299,7 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _method.GetReturnTypeAttributes();
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments) => _method.Construct(typeArguments);
+    public IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments) => _method.Construct(typeArguments);
 }
 
 internal sealed class AliasPropertySymbol : AliasSymbol, IPropertySymbol

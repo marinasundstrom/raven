@@ -314,7 +314,7 @@ public static partial class SymbolExtensions
             if (!changed)
                 return type;
 
-            return namedType.Construct(substitutedArguments);
+            return namedType.Construct([.. substitutedArguments]);
         }
 
         return type;

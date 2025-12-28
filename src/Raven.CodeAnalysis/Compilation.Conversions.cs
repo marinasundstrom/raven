@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -12,7 +13,40 @@ public partial class Compilation
     private ImmutableArray<IMethodSymbol> _extensionConversionOperators;
     private bool _extensionConversionOperatorsInitialized;
 
+    private readonly Dictionary<(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined), Conversion>
+        _conversionCache = new(new ConversionCacheComparer());
+
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)
+    {
+        if (source is null || destination is null)
+            return Conversion.None;
+
+        // Determine alias involvement + normalize for cache key
+        bool srcAlias = false, dstAlias = false;
+        var srcKey = UnaliasForKey(source, ref srcAlias);
+        var dstKey = UnaliasForKey(destination, ref dstAlias);
+
+        var key = (srcKey, dstKey, includeUserDefined);
+
+        if (_conversionCache.TryGetValue(key, out var cached))
+            return cached.WithAlias(srcAlias || dstAlias); // if you want alias-accurate per call
+
+        var computed = ClassifyConversionInternal(source, destination, includeUserDefined); // internal does proper alias tracking
+        _conversionCache[key] = computed.WithAlias(false); // store canonical, no-alias
+        return computed;
+    }
+
+    static ITypeSymbol UnaliasForKey(ITypeSymbol type, ref bool wasAlias)
+    {
+        while (type is { IsAlias: true, UnderlyingSymbol: ITypeSymbol t })
+        {
+            wasAlias = true;
+            type = t;
+        }
+        return type;
+    }
+
+    private Conversion ClassifyConversionInternal(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined)
     {
         if (source is null || destination is null)
             return Conversion.None;
@@ -343,6 +377,10 @@ public partial class Compilation
                     continue;
                 }
 
+                // ✅ NEW: if method (or containing type) has type parameters, ensure it's a valid constructed method
+                if (!IsValidConstructedMethodWithConstraints(method))
+                    continue;
+
                 var sourceConversion = ClassifyConversion(source, method.Parameters[0].Type, includeUserDefined: false);
                 var sourceConvertible = sourceConversion.Exists && sourceConversion.IsImplicit;
 
@@ -379,6 +417,46 @@ public partial class Compilation
             return SymbolEqualityComparer.Default.Equals(sourceCase.Union, parameterUnion) ||
                 SymbolEqualityComparer.Default.Equals(sourceCase.Union.OriginalDefinition, parameterUnion.OriginalDefinition);
         }
+    }
+
+    private bool IsValidConstructedMethodWithConstraints(IMethodSymbol method)
+    {
+        // If it’s a definition, it’s not applicable here anyway (needs inference/construct).
+        // If your pipeline can surface open generic methods as members, decide whether to skip them.
+        if (method.ContainsTypeParameters())
+            return false;
+
+        // If you can reach the original definition + applied arguments, validate.
+        // This depends on your symbol model. Typical pattern:
+        // - method.OriginalDefinition.TypeParameters and method.TypeArguments
+        // - method.ContainingType.OriginalDefinition.TypeParameters and method.ContainingType.TypeArguments
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (method.OriginalDefinition is { } def && def.TypeParameters.Length > 0)
+        {
+            var args = method.TypeArguments;
+            for (int i = 0; i < def.TypeParameters.Length; i++)
+                substitutions[def.TypeParameters[i]] = args[i];
+
+            if (!SatisfiesAllConstraints(def.TypeParameters, args, substitutions))
+                return false;
+        }
+
+        if (method.ContainingType is INamedTypeSymbol ct && (ct.OriginalDefinition ?? ct).IsGenericType)
+        {
+            var ctDef = ct.OriginalDefinition ?? ct;
+            var ctArgs = ct.TypeArguments;
+
+            // merge container mappings too
+            for (int i = 0; i < ctDef.TypeParameters.Length; i++)
+                substitutions[ctDef.TypeParameters[i]] = ctArgs[i];
+
+            if (!SatisfiesAllConstraints(ctDef.TypeParameters, ctArgs, substitutions))
+                return false;
+        }
+
+        return true;
     }
 
     private IEnumerable<IMethodSymbol> GetExtensionConversionCandidates(ITypeSymbol source, ITypeSymbol destination)
@@ -464,6 +542,7 @@ public partial class Compilation
         if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
             return null;
 
+        // Construct method type args (if any)
         if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
         {
             var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
@@ -477,7 +556,14 @@ public partial class Compilation
                 methodTypeArguments[i] = typeArgument;
             }
 
-            return methodDefinition.Construct(methodTypeArguments);
+            var methodTypeArgsArray = methodTypeArguments.ToImmutableArray();
+
+            // ✅ NEW: validate method constraints
+            if (!SatisfiesAllConstraints(methodDefinition.TypeParameters, methodTypeArgsArray, substitutions))
+                return null;
+
+            method = methodDefinition.Construct([.. methodTypeArguments]);
+            methodDefinition = method.OriginalDefinition ?? method;
         }
 
         if (methodDefinition.ContainingType is not INamedTypeSymbol container)
@@ -502,7 +588,13 @@ public partial class Compilation
             typeArguments[i] = typeArgument;
         }
 
-        if (containerDefinition.Construct(typeArguments) is not INamedTypeSymbol constructedContainer)
+        var containerTypeArgsArray = typeArguments.ToImmutableArray();
+
+        // ✅ NEW: validate container constraints too
+        if (!SatisfiesAllConstraints(containerDefinition.TypeParameters, containerTypeArgsArray, substitutions))
+            return null;
+
+        if (containerDefinition.Construct([.. typeArguments]) is not INamedTypeSymbol constructedContainer)
             return null;
 
         var originalDefinition = methodDefinition;
@@ -517,9 +609,9 @@ public partial class Compilation
         return null;
 
         static bool TryGetMethodSubstitution(
-            Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-            ITypeParameterSymbol methodParameter,
-            out ITypeSymbol typeArgument)
+                Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+                ITypeParameterSymbol methodParameter,
+                out ITypeSymbol typeArgument)
         {
             if (substitutions.TryGetValue(methodParameter, out typeArgument))
                 return true;
@@ -808,5 +900,173 @@ public partial class Compilation
 
         return (sourceType is SpecialType.System_Double && destType is SpecialType.System_Int32) ||
                (sourceType is SpecialType.System_Int64 && destType is SpecialType.System_Int32);
+    }
+
+    private bool SatisfiesAllConstraints(
+    ImmutableArray<ITypeParameterSymbol> typeParameters,
+    ImmutableArray<ITypeSymbol> typeArguments,
+    Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        if (typeParameters.Length != typeArguments.Length)
+            return false;
+
+        for (int i = 0; i < typeParameters.Length; i++)
+        {
+            var tp = typeParameters[i];
+            var ta = NormalizeTypeForExtensionInference(typeArguments[i]);
+
+            if (!SatisfiesConstraints(tp, ta, substitutions))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool SatisfiesConstraints(
+        ITypeParameterSymbol typeParameter,
+        ITypeSymbol typeArgument,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        // Substitute other type parameters inside constraints (e.g., "where T : U")
+        ITypeSymbol Subst(ITypeSymbol t) => SubstituteTypeParameters(t, substitutions);
+
+        // 1) Special constraints
+        if (typeParameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType))
+        {
+            if (typeArgument.IsValueType)
+                return false;
+        }
+
+        if (typeParameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType))
+        {
+            // Usually: must be non-nullable value type
+            if (!typeArgument.IsValueType || typeArgument.TypeKind == TypeKind.Nullable)
+                return false;
+        }
+
+        if (typeParameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Nullable))
+        {
+            // If you have nullability annotations in your type system, check them here.
+            // Fallback rule: reject literal null / NullType.
+            if (typeArgument.TypeKind == TypeKind.Null)
+                return false;
+        }
+
+        if (typeParameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ParameterlessConstructor))
+        {
+            // "new()" constraint: must have public parameterless ctor, and not be abstract.
+            // For value types, it's always OK in C#; decide what Raven wants.
+            if (!HasAccessibleParameterlessConstructor(typeArgument))
+                return false;
+        }
+
+        // If you support "unmanaged" or other runtime constraints, validate them here too.
+
+        // 2) Type constraints: "where T : Base, IFoo, ..."
+        foreach (var rawConstraint in typeParameter.ConstraintTypes)
+        {
+            var constraint = Subst(rawConstraint);
+
+            // If constraint still contains unresolved type parameters, inference is incomplete -> fail.
+            if (constraint.ContainsTypeParameter())
+                return false;
+
+            // Accept if typeArgument converts implicitly to constraint.
+            // This matches the usual “T must be assignable to constraint” semantics.
+            var conv = ClassifyConversion(typeArgument, constraint, includeUserDefined: false);
+            if (!conv.Exists || !conv.IsImplicit)
+                return false;
+        }
+
+        return true;
+    }
+
+    private ITypeSymbol SubstituteTypeParameters(
+        ITypeSymbol type,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        type = NormalizeTypeForExtensionInference(type);
+
+        if (type is ITypeParameterSymbol tp && substitutions.TryGetValue(tp, out var mapped))
+            return mapped;
+
+        if (type is NullableTypeSymbol nt)
+        {
+            var inner = SubstituteTypeParameters(nt.UnderlyingType, substitutions);
+            return inner.MetadataIdentityEquals(nt.UnderlyingType) ? type : new NullableTypeSymbol(inner);
+        }
+
+        if (type is IArrayTypeSymbol arr)
+        {
+            var elem = SubstituteTypeParameters(arr.ElementType, substitutions);
+            return elem.MetadataIdentityEquals(arr.ElementType) ? type : CreateArrayTypeSymbol(elem, arr.Rank);
+        }
+
+        if (type is INamedTypeSymbol named && named.IsGenericType)
+        {
+            var args = named.TypeArguments;
+            var changed = false;
+
+            var newArgs = ImmutableArray.CreateBuilder<ITypeSymbol>(args.Length);
+            foreach (var a in args)
+            {
+                var na = SubstituteTypeParameters(a, substitutions);
+                changed |= !na.MetadataIdentityEquals(a);
+                newArgs.Add(na);
+            }
+
+            if (!changed)
+                return type;
+
+            // Reconstruct as constructed generic type
+            var def = named.OriginalDefinition ?? named;
+            return def.Construct(newArgs.ToImmutable());
+        }
+
+        return type;
+    }
+
+    private bool HasAccessibleParameterlessConstructor(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+            return true; // C#-like rule; change if Raven differs.
+
+        if (type is not INamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
+            return false;
+
+        if (named.IsAbstract)
+            return false;
+
+        // Look for an instance ctor with 0 params, accessible.
+        foreach (var m in named.GetMembers(".ctor").OfType<IMethodSymbol>())
+        {
+            if (!m.IsStatic && m.Parameters.Length == 0 /* && m.IsAccessibleFrom(/*whatever your accessibility context is) */)
+                return true;
+        }
+
+        return false;
+    }
+
+    private sealed class ConversionCacheComparer
+        : IEqualityComparer<(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined)>
+    {
+        public bool Equals(
+            (ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined) x,
+            (ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined) y)
+            => x.includeUserDefined == y.includeUserDefined
+               && SymbolEqualityComparer.Default.Equals(x.source, y.source)
+               && SymbolEqualityComparer.Default.Equals(x.destination, y.destination);
+
+        public int GetHashCode((ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined) obj)
+        {
+            unchecked
+            {
+                var h = 17;
+                h = h * 31 + SymbolEqualityComparer.Default.GetHashCode(obj.source);
+                h = h * 31 + SymbolEqualityComparer.Default.GetHashCode(obj.destination);
+                h = h * 31 + obj.includeUserDefined.GetHashCode();
+                return h;
+            }
+        }
     }
 }

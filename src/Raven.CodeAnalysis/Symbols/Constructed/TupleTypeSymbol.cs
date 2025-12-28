@@ -101,7 +101,7 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
         throw new NotSupportedException();
     }
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    public ITypeSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
         throw new NotImplementedException();
     }

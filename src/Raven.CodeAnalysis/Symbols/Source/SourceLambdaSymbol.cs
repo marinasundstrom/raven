@@ -104,7 +104,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         _containsAwait = containsAwait;
     }
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public IMethodSymbol Construct(params ImmutableArray<ITypeSymbol> typeArguments)
     {
         throw new NotSupportedException("Lambdas cannot be constructed with type arguments.");
     }

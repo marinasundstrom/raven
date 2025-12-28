@@ -3427,7 +3427,7 @@ internal class ExpressionGenerator : Generator
                 return candidate;
         }
 
-        return candidate.Construct(originalArgs.ToArray());
+        return candidate.Construct([.. originalArgs]);
     }
 
     private static bool IsAsyncTaskBuilderType(INamedTypeSymbol type)

@@ -5,6 +5,14 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 {
+    public NullableTypeSymbol(ITypeSymbol underlyingType)
+    : base(SymbolKind.Type, string.Empty, null, null, null, [], [])
+    {
+        UnderlyingType = underlyingType;
+        BaseType = underlyingType.GetAbsoluteBaseType();
+        TypeKind = TypeKind.Nullable;
+    }
+
     public NullableTypeSymbol(ITypeSymbol underlyingType, ISymbol? containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
     {

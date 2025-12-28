@@ -431,7 +431,7 @@ internal abstract class Binder
                 methodTypeArguments[i] = typeArgument;
             }
 
-            constructed = methodDefinition.Construct(methodTypeArguments);
+            constructed = methodDefinition.Construct([.. methodTypeArguments]);
             return true;
         }
 
@@ -450,7 +450,7 @@ internal abstract class Binder
             typeArguments[i] = typeArgument;
         }
 
-        var constructedContainer = container.Construct(typeArguments);
+        var constructedContainer = container.Construct([.. typeArguments]);
         if (constructedContainer is not INamedTypeSymbol namedContainer)
             return false;
 
@@ -506,7 +506,7 @@ internal abstract class Binder
                 methodTypeArguments[i] = typeArgument;
             }
 
-            constructed = methodDefinition.Construct(methodTypeArguments);
+            constructed = methodDefinition.Construct([.. methodTypeArguments]);
             return true;
         }
 
@@ -525,7 +525,7 @@ internal abstract class Binder
             typeArguments[i] = typeArgument;
         }
 
-        var constructedContainer = containerDefinition.Construct(typeArguments);
+        var constructedContainer = containerDefinition.Construct([.. typeArguments]);
         if (constructedContainer is not INamedTypeSymbol namedContainer)
             return false;
 

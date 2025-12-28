@@ -229,7 +229,7 @@ internal sealed class OverloadResolver
         if (!SatisfiesMethodConstraints(method, immutableArguments))
             return null;
 
-        return method.Construct(inferredArguments);
+        return method.Construct([.. inferredArguments]);
     }
 
     private static bool TryInferFromLambda(

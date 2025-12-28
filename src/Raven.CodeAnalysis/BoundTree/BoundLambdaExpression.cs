@@ -234,7 +234,7 @@ internal partial class BoundLambdaExpression : BoundExpression
 
                             if (changed && named.ConstructedFrom is INamedTypeSymbol definition)
                             {
-                                return (INamedTypeSymbol)definition.Construct(substitutedArgs);
+                                return (INamedTypeSymbol)definition.Construct([.. substitutedArgs]);
                             }
 
                             return named;
