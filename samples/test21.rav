@@ -1,10 +1,18 @@
 import System.*
 
-val x: Option<string> = .None
+val x: Option<string> = .Some("hello")
 Console.WriteLine(x)
 
 test(x) // Conversion
 
 func test(x: string?) -> () {
+    Console.WriteLine("Value in test: $x")
+}
+
+val x2: Option<int> = .Some(42)
+
+test2(x2)
+
+func test2(x: int?) -> () {
     Console.WriteLine("Value in test: $x")
 }

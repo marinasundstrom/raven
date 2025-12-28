@@ -82,7 +82,7 @@ public extension OptionExtensions<T> for Option<T> {
     }
 }
 
-/*public extension OptionExtensions2<T : struct> for Option<T> {
+public extension OptionExtensions2<T : struct> for Option<T> {
 
     public static implicit operator(opt: Option<T>) -> T? {
         if opt is .Some(value) {
@@ -90,4 +90,4 @@ public extension OptionExtensions<T> for Option<T> {
         }
         return default(T)
     }
-}*/
+}

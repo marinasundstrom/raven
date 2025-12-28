@@ -1053,15 +1053,18 @@ internal class ExpressionGenerator : Generator
             EmitConversion(from, underlying, underlyingConversion);
         }
 
+        /*
+
         ILGenerator.Emit(OpCodes.Stloc, valueLocal);
         ILGenerator.Emit(OpCodes.Ldloca, nullableLocal);
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
 
-        var ctor = nullableClr.GetConstructor(new[] { underlyingClr })
-            ?? throw new InvalidOperationException($"Missing Nullable constructor for {nullableClr}");
+        //var ctor = nullableClr.GetConstructors().FirstOrDefault()
+        //    ?? throw new InvalidOperationException($"Missing Nullable constructor for {nullableClr}");
 
-        ILGenerator.Emit(OpCodes.Call, ctor);
+        ILGenerator.Emit(OpCodes.Initobj, nullableClr);
         ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
+        */
     }
 
     private void EmitNumericConversion(ITypeSymbol to)
