@@ -25,7 +25,11 @@ internal static class TypeSymbolNormalization
         return type;
     }
 
-    public static ITypeSymbol NormalizeUnion(IEnumerable<ITypeSymbol> types)
+    public static ITypeSymbol NormalizeUnion(
+        IEnumerable<ITypeSymbol> types,
+        DiagnosticBag? diagnostics = null,
+        Location? location = null,
+        ITypeSymbol? errorTypeSymbol = null)
     {
         var members = ImmutableArray.CreateBuilder<ITypeSymbol>();
 
@@ -37,7 +41,7 @@ internal static class TypeSymbolNormalization
         if (TryCollapseToDiscriminatedUnion(filtered, out var discriminatedUnion))
             return NormalizeForInference(discriminatedUnion);
 
-        if (TryCollapseToNullable(filtered, out var collapsed))
+        if (TryCollapseToNullable(filtered, out var collapsed, diagnostics, location, errorTypeSymbol))
             return NormalizeForInference(collapsed);
 
         if (filtered.Length == 1)
@@ -140,7 +144,12 @@ internal static class TypeSymbolNormalization
         return result is not null;
     }
 
-    private static bool TryCollapseToNullable(ImmutableArray<ITypeSymbol> members, out ITypeSymbol? result)
+    private static bool TryCollapseToNullable(
+        ImmutableArray<ITypeSymbol> members,
+        out ITypeSymbol? result,
+        DiagnosticBag? diagnostics,
+        Location? location,
+        ITypeSymbol? errorTypeSymbol)
     {
         result = null;
 
@@ -178,6 +187,21 @@ internal static class TypeSymbolNormalization
 
         if (other.TypeKind == TypeKind.Error)
             return false;
+
+        if (other is ITypeParameterSymbol typeParameter &&
+            (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)
+        {
+            if (diagnostics is not null && location is not null)
+                diagnostics.ReportNotNullTypeParameterCannotBeNullable(typeParameter.Name, location);
+
+            if (errorTypeSymbol is not null)
+            {
+                result = errorTypeSymbol;
+                return true;
+            }
+
+            return false;
+        }
 
         result = new NullableTypeSymbol(other, null, null, null, []);
         return true;

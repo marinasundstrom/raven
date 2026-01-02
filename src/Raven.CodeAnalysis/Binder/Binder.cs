@@ -1144,7 +1144,12 @@ internal abstract class Binder
                 types.Add(ResolveTypeInternal(t, refKindHint: null));
             }
 
-            return ApplyRefKindHint(new TypeUnionSymbol(types, null, null, null, []), refKindHint);
+            var normalized = TypeSymbolNormalization.NormalizeUnion(
+                types,
+                _diagnostics,
+                ut.GetLocation(),
+                Compilation.ErrorTypeSymbol);
+            return ApplyRefKindHint(normalized, refKindHint);
         }
 
         if (typeSyntax is ArrayTypeSyntax arrayTypeSyntax)
