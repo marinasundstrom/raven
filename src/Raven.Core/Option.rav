@@ -82,7 +82,7 @@ public extension OptionExtensions1<T : class> for Option<T> {
         if opt is .Some(value) {
             return value
         }
-        return default(T)
+        return null
     }
 }
 
@@ -92,6 +92,6 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         if opt is .Some(value) {
             return value
         }
-        return default(T)
+        return null
     }
 }
