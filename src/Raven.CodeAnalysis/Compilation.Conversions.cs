@@ -517,6 +517,12 @@ public partial class Compilation
                 methodTypeArguments[i] = typeArgument;
             }
 
+            if (!SatisfiesTypeParameterConstraints(methodDefinition.TypeParameters, methodTypeArguments))
+                return null;
+
+            if (!SatisfiesContainingTypeConstraints(methodDefinition, substitutions))
+                return null;
+
             return methodDefinition.Construct(methodTypeArguments);
         }
 
@@ -541,6 +547,9 @@ public partial class Compilation
 
             typeArguments[i] = typeArgument;
         }
+
+        if (!SatisfiesTypeParameterConstraints(containerDefinition.TypeParameters, typeArguments))
+            return null;
 
         if (containerDefinition.Construct(typeArguments) is not INamedTypeSymbol constructedContainer)
             return null;
@@ -577,6 +586,47 @@ public partial class Compilation
             typeArgument = null!;
             return false;
         }
+    }
+
+    private static bool SatisfiesTypeParameterConstraints(
+        ImmutableArray<ITypeParameterSymbol> typeParameters,
+        ITypeSymbol[] typeArguments)
+    {
+        if (typeParameters.Length != typeArguments.Length)
+            return false;
+
+        for (int i = 0; i < typeParameters.Length; i++)
+        {
+            if (!typeArguments[i].SatisfiesConstraints(typeParameters[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool SatisfiesContainingTypeConstraints(
+        IMethodSymbol methodDefinition,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        if (methodDefinition.ContainingType is not INamedTypeSymbol containingType)
+            return true;
+
+        var containerDefinition = containingType.ConstructedFrom as INamedTypeSymbol ?? containingType;
+        if (!containerDefinition.IsGenericType || containerDefinition.TypeParameters.IsDefaultOrEmpty)
+            return true;
+
+        var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
+
+        for (int i = 0; i < containerDefinition.TypeParameters.Length; i++)
+        {
+            var typeParameter = containerDefinition.TypeParameters[i];
+            if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                return false;
+
+            typeArguments[i] = typeArgument;
+        }
+
+        return SatisfiesTypeParameterConstraints(containerDefinition.TypeParameters, typeArguments);
     }
 
     private bool TryUnifyExtensionReceiver(

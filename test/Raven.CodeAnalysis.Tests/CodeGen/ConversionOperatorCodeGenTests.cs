@@ -43,4 +43,5 @@ class NumberBox {
 
         Assert.Equal(42, converted);
     }
+
 }
