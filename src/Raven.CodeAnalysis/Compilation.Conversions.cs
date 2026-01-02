@@ -194,37 +194,37 @@ public partial class Compilation
             {
                 if (destination is NullableTypeSymbol nullableDestination && nullableDestination.UnderlyingType.IsValueType)
                 {
-                    var conv = ClassifyConversion(nullableSource.UnderlyingType, nullableDestination.UnderlyingType, includeUserDefined);
-                    if (conv.Exists)
+                    var conv2 = ClassifyConversion(nullableSource.UnderlyingType, nullableDestination.UnderlyingType, includeUserDefined);
+                    if (conv2.Exists)
                     {
                         return Finalize(new Conversion(
-                            isImplicit: conv.IsImplicit,
-                            isIdentity: conv.IsIdentity,
-                            isNumeric: conv.IsNumeric,
-                            isReference: conv.IsReference,
-                            isBoxing: conv.IsBoxing,
-                            isUnboxing: conv.IsUnboxing,
-                            isUserDefined: conv.IsUserDefined,
-                            isAlias: conv.IsAlias,
+                            isImplicit: conv2.IsImplicit,
+                            isIdentity: conv2.IsIdentity,
+                            isNumeric: conv2.IsNumeric,
+                            isReference: conv2.IsReference,
+                            isBoxing: conv2.IsBoxing,
+                            isUnboxing: conv2.IsUnboxing,
+                            isUserDefined: conv2.IsUserDefined,
+                            isAlias: conv2.IsAlias,
                             isLifted: true,
-                            methodSymbol: conv.MethodSymbol));
+                            methodSymbol: conv2.MethodSymbol));
                     }
                 }
 
-                var conv = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
-                if (conv.Exists)
+                var conv3 = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
+                if (conv3.Exists)
                 {
                     return Finalize(new Conversion(
                         isImplicit: false,
-                        isIdentity: conv.IsIdentity,
-                        isNumeric: conv.IsNumeric,
-                        isReference: conv.IsReference,
-                        isBoxing: conv.IsBoxing,
-                        isUnboxing: conv.IsUnboxing,
-                        isUserDefined: conv.IsUserDefined,
-                        isAlias: conv.IsAlias,
+                        isIdentity: conv3.IsIdentity,
+                        isNumeric: conv3.IsNumeric,
+                        isReference: conv3.IsReference,
+                        isBoxing: conv3.IsBoxing,
+                        isUnboxing: conv3.IsUnboxing,
+                        isUserDefined: conv3.IsUserDefined,
+                        isAlias: conv3.IsAlias,
                         isLifted: true,
-                        methodSymbol: conv.MethodSymbol));
+                        methodSymbol: conv3.MethodSymbol));
                 }
             }
         }
