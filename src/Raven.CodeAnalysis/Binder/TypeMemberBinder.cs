@@ -2298,6 +2298,12 @@ internal class TypeMemberBinder : Binder
                     constraintKind |= TypeParameterConstraintKind.ValueType;
                     break;
                 case TypeConstraintSyntax typeConstraint:
+                    if (IsNotNullConstraint(typeConstraint))
+                    {
+                        constraintKind |= TypeParameterConstraintKind.NotNull;
+                        break;
+                    }
+
                     constraintKind |= TypeParameterConstraintKind.TypeConstraint;
                     typeConstraintReferences.Add(typeConstraint.GetReference());
                     break;
@@ -2305,6 +2311,12 @@ internal class TypeMemberBinder : Binder
         }
 
         return (constraintKind, typeConstraintReferences.ToImmutable());
+    }
+
+    private static bool IsNotNullConstraint(TypeConstraintSyntax typeConstraint)
+    {
+        return typeConstraint.Type is IdentifierNameSyntax identifier &&
+               string.Equals(identifier.Identifier.Text, "notnull", StringComparison.Ordinal);
     }
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)

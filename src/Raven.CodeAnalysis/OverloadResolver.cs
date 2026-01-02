@@ -272,7 +272,7 @@ internal sealed class OverloadResolver
         var lambdaReturnType = lambda.ReturnType;
         ITypeSymbol? collectedAsyncReturn = null;
 
-        bool ContainsTypeParameter(ITypeSymbol type)
+        static bool ContainsTypeParameter(ITypeSymbol type)
         {
             switch (type)
             {
@@ -559,6 +559,12 @@ internal sealed class OverloadResolver
 
             if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 &&
                 !SemanticFacts.SatisfiesValueTypeConstraint(typeArgument))
+            {
+                return false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.NotNull) != 0 &&
+                !SemanticFacts.SatisfiesNotNullConstraint(typeArgument))
             {
                 return false;
             }

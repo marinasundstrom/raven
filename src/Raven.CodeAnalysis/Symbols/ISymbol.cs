@@ -516,6 +516,7 @@ public enum TypeParameterConstraintKind
     ReferenceType = 1 << 0,
     ValueType = 1 << 1,
     TypeConstraint = 1 << 2,
+    NotNull = 1 << 3,
 }
 
 public enum VarianceKind
