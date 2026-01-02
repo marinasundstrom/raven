@@ -1,0 +1,13 @@
+import System.*
+
+val x = Option<int>.None
+Console.WriteLine(x)
+
+val r: int? = x
+Console.WriteLine("Value: $x")
+
+test(x) // Conversion
+
+func test(x: int?) -> () {
+    Console.WriteLine("Value in test: $x")
+}
