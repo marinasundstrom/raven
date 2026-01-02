@@ -855,6 +855,12 @@ internal class ExpressionGenerator : Generator
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
+        if (to is NullableTypeSymbol nullableReference && !nullableReference.UnderlyingType.IsValueType)
+        {
+            EmitConversion(from, nullableReference.UnderlyingType, conversion);
+            return;
+        }
+
         if (to is NullableTypeSymbol nullableTo && nullableTo.UnderlyingType.IsValueType)
         {
             if (conversion.IsLifted && from is NullableTypeSymbol fromNullable && fromNullable.UnderlyingType.IsValueType)
