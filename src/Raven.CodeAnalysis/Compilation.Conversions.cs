@@ -214,8 +214,9 @@ public partial class Compilation
                 var conv3 = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
                 if (conv3.Exists)
                 {
+                    var isImplicit = !destination.IsValueType && conv3.IsImplicit;
                     return Finalize(new Conversion(
-                        isImplicit: false,
+                        isImplicit: isImplicit,
                         isIdentity: conv3.IsIdentity,
                         isNumeric: conv3.IsNumeric,
                         isReference: conv3.IsReference,
