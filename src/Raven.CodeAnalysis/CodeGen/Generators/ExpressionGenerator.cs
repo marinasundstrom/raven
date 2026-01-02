@@ -1034,8 +1034,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloca, nullableLocal);
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
 
-        var ctor = nullableClrType.GetConstructor(new[] { underlyingClrType })
-            ?? throw new InvalidOperationException($"Missing Nullable constructor for {nullableClrType}");
+        var ctor = GetNullableConstructor(nullableClrType, underlyingClrType);
 
         ILGenerator.Emit(OpCodes.Call, ctor);
         ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
@@ -1069,8 +1068,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloca, nullableLocal);
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
 
-        var ctor = nullableClr.GetConstructor(new[] { underlyingClr })
-            ?? throw new InvalidOperationException($"Missing Nullable constructor for {nullableClr}");
+        var ctor = GetNullableConstructor(nullableClr, underlyingClr);
 
         ILGenerator.Emit(OpCodes.Call, ctor);
         ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
@@ -1128,8 +1126,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloca, toLocal);
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
 
-        var ctor = toClr.GetConstructor(new[] { toUnderlyingClr })
-            ?? throw new InvalidOperationException($"Missing Nullable constructor for {toClr}");
+        var ctor = GetNullableConstructor(toClr, toUnderlyingClr);
 
         ILGenerator.Emit(OpCodes.Call, ctor);
         ILGenerator.Emit(OpCodes.Ldloc, toLocal);

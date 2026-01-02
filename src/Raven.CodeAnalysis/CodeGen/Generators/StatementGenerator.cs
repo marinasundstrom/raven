@@ -710,8 +710,7 @@ internal class StatementGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
                 ILGenerator.Emit(OpCodes.Ldloc, temp);
 
-                var ctor = localClr.GetConstructor(new[] { underlyingClr })
-                    ?? throw new InvalidOperationException($"Missing Nullable constructor for {localClr}");
+                var ctor = GetNullableConstructor(localClr, underlyingClr);
                 ILGenerator.Emit(OpCodes.Call, ctor);
                 return;
             }
