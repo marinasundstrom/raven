@@ -70,6 +70,37 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Equal(SpecialType.System_Int32, nullableInt.UnderlyingType.SpecialType);
     }
 
+    [Theory]
+    [InlineData("class Box<T : struct> { let value: T? = null }", TypeParameterConstraintKind.ValueType)]
+    [InlineData("class Box<T : class> { let value: T? = null }", TypeParameterConstraintKind.ReferenceType)]
+    [InlineData("class Box<T> { let value: T? = null }", TypeParameterConstraintKind.None)]
+    public void NullableTypeSyntax_WrapsTypeParameters_WithConstraints(string source, TypeParameterConstraintKind expectedConstraint)
+    {
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+
+        var type = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type;
+
+        var nullable = Assert.IsType<NullableTypeSymbol>(type);
+        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(nullable.UnderlyingType);
+        Assert.Equal(expectedConstraint, typeParameter.ConstraintKind);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void NullableTypeSyntax_NotNullTypeParameter_ReportsDiagnostic()
+    {
+        var source = "class Box<T : notnull> { let value: T? = null }";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+    }
+
     [Fact]
     public void NullableTypeSymbol_LookupType_DoesNotThrow()
     {

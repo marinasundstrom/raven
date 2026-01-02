@@ -102,6 +102,39 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         Assert.True(conversion.Exists);
         Assert.False(conversion.IsImplicit);
         Assert.True(conversion.IsIdentity);
+        Assert.True(conversion.IsLifted);
+    }
+
+    [Fact]
+    public void NullableValueType_ToNullableDestination_IsLiftedNumericConversion()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var longType = compilation.GetSpecialType(SpecialType.System_Int64);
+        var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
+        var nullableLong = new NullableTypeSymbol(longType, null, null, null, []);
+
+        var conversion = compilation.ClassifyConversion(nullableInt, nullableLong);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsNumeric);
+        Assert.True(conversion.IsLifted);
+        Assert.False(conversion.IsIdentity);
+    }
+
+    [Fact]
+    public void NullableValueType_ToNullableReference_DoesNotConvert()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
+        var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
+
+        var conversion = compilation.ClassifyConversion(nullableInt, nullableString);
+
+        Assert.False(conversion.Exists);
     }
 
     [Theory]
