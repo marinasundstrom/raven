@@ -6,20 +6,13 @@
 
 **Before making changes:** run the test suite once to establish a baseline.
 
-**Before building/tests** (run from repo root; the generators must run before `dotnet build`/`dotnet test` so the projects compile):
+**Before building/tests** you need to build the solution by running this script:
 
 ```bash
-# Refresh generated code once before `dotnet build`
-(cd src/Raven.CodeAnalysis/Syntax && dotnet run --project ../../../tools/NodeGenerator -- -f)
-(cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/BoundNodeGenerator -- -f)
-(cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/DiagnosticsGenerator -- -f)
-
-# Build and test
-dotnet build --property WarningLevel=0
-dotnet test test/Raven.CodeAnalysis.Tests /property:WarningLevel=0 -v minimal
+scripts/codex-build.sh
 ```
 
-If documentation-only changes don’t need verification, you may skip build/test. Use `dotnet build --property WarningLevel=0` when warnings hide errors.
+*This will make sure that the essentials (Raven.CodeAnalysis) is being correctly built*
 
 **Coding guidelines:** follow idiomatic .NET style; treat compiler components as immutable; prefer diagnostics over exceptions; keep services loosely coupled via interfaces/DI.
 
@@ -28,10 +21,3 @@ If documentation-only changes don’t need verification, you may skip build/test
 **Additional notes:** focus on incremental, additive changes; review `docs/` before altering syntax/semantics; ask Codex to collapse large diffs; inspect `ravc` outputs with `ilspycmd` (install via `dotnet tool install --global ilspycmd`); prefer implementing new features via lowering where possible. Unit tests can request an `ITestOutputHelper` parameter to write diagnostics via `WriteLine`.
 
 **External components:** `TypeUnionAnalyzer` lives in a separate project; ignore it unless explicitly instructed.
-
-## Codex build workaround
-If the build pipeline fails due to generator/runtimeconfig file locks or missing generated syntax types, use the script below to run generators and build in a safe order:
-
-```bash
-scripts/codex-build.sh
-```

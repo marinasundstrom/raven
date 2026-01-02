@@ -28,5 +28,5 @@ dotnet run --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" --no-r
 echo "==> Building Raven.Compiler with Raven.Core"
 dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
 
-echo "==> Building Raven solution"
-dotnet build "$ROOT_DIR" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
+# echo "==> Building Raven solution"
+# dotnet build "$ROOT_DIR" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
