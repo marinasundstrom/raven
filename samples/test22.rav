@@ -4,7 +4,7 @@ val x = Option<int>.None
 Console.WriteLine(x)
 
 val r: int? = x
-Console.WriteLine("Value: $x")
+Console.WriteLine("Value: $r")
 
 test(x) // Conversion
 
