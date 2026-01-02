@@ -163,10 +163,6 @@ internal abstract class Generator
 
     protected static ConstructorInfo GetNullableConstructor(Type nullableType, Type underlyingType)
     {
-        var ctor = nullableType.GetConstructor(new[] { underlyingType });
-        if (ctor is not null)
-            return ctor;
-
         if (nullableType.IsGenericType && nullableType.ContainsGenericParameters)
         {
             var definition = nullableType.GetGenericTypeDefinition();
@@ -175,6 +171,10 @@ internal abstract class Generator
             if (definitionCtor is not null)
                 return TypeBuilder.GetConstructor(nullableType, definitionCtor);
         }
+
+        var ctor = nullableType.GetConstructor(new[] { underlyingType });
+        if (ctor is not null)
+            return ctor;
 
         throw new InvalidOperationException($"Missing Nullable constructor for {nullableType}");
     }
