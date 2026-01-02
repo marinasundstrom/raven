@@ -855,6 +855,12 @@ internal class ExpressionGenerator : Generator
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
+        if (conversion.IsUserDefined && !conversion.IsLifted && conversion.MethodSymbol is IMethodSymbol userDefinedMethod)
+        {
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(userDefinedMethod));
+            return;
+        }
+
         if (to is NullableTypeSymbol nullableReference && !nullableReference.UnderlyingType.IsValueType)
         {
             EmitConversion(from, nullableReference.UnderlyingType, conversion);
@@ -978,12 +984,6 @@ internal class ExpressionGenerator : Generator
         if (conversion.IsPointer)
         {
             ILGenerator.Emit(OpCodes.Conv_U);
-            return;
-        }
-
-        if (conversion.IsUserDefined && conversion.MethodSymbol is IMethodSymbol m)
-        {
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(m));
             return;
         }
 
