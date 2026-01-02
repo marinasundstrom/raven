@@ -11,8 +11,23 @@ public partial class Compilation
 {
     private ImmutableArray<IMethodSymbol> _extensionConversionOperators;
     private bool _extensionConversionOperatorsInitialized;
+    private readonly Dictionary<ConversionCacheKey, Conversion> _conversionCache = new(new ConversionCacheKeyComparer());
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)
+    {
+        if (source is null || destination is null)
+            return Conversion.None;
+
+        var key = new ConversionCacheKey(source, destination, includeUserDefined);
+        if (_conversionCache.TryGetValue(key, out var cached))
+            return cached;
+
+        var conversion = ClassifyConversionCore(source, destination, includeUserDefined);
+        _conversionCache[key] = conversion;
+        return conversion;
+    }
+
+    private Conversion ClassifyConversionCore(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)
     {
         if (source is null || destination is null)
             return Conversion.None;
@@ -419,6 +434,29 @@ public partial class Compilation
 
             return SymbolEqualityComparer.Default.Equals(sourceCase.Union, parameterUnion) ||
                 SymbolEqualityComparer.Default.Equals(sourceCase.Union.OriginalDefinition, parameterUnion.OriginalDefinition);
+        }
+    }
+
+    private readonly record struct ConversionCacheKey(
+        ITypeSymbol Source,
+        ITypeSymbol Destination,
+        bool IncludeUserDefined);
+
+    private sealed class ConversionCacheKeyComparer : IEqualityComparer<ConversionCacheKey>
+    {
+        public bool Equals(ConversionCacheKey x, ConversionCacheKey y)
+        {
+            return x.IncludeUserDefined == y.IncludeUserDefined &&
+                SymbolEqualityComparer.Default.Equals(x.Source, y.Source) &&
+                SymbolEqualityComparer.Default.Equals(x.Destination, y.Destination);
+        }
+
+        public int GetHashCode(ConversionCacheKey obj)
+        {
+            return HashCode.Combine(
+                SymbolEqualityComparer.Default.GetHashCode(obj.Source),
+                SymbolEqualityComparer.Default.GetHashCode(obj.Destination),
+                obj.IncludeUserDefined);
         }
     }
 
