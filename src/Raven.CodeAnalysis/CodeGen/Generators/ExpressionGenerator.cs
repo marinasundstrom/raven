@@ -2851,7 +2851,7 @@ internal class ExpressionGenerator : Generator
     private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional)
     {
         var receiverType = conditional.Receiver.Type;
-        var isNullableValue = receiverType.IsNullable() && ((NullableTypeSymbol)receiverType).UnderlyingType.IsValueType;
+        var isNullableValue = receiverType.IsNullable && receiverType.IsValueType;
 
         var receiverClrType = ResolveClrType(receiverType);
         var local = ILGenerator.DeclareLocal(receiverClrType);

@@ -433,6 +433,8 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsTypeUnion => TypeKind == TypeKind.TypeUnion;
 
+    bool IsNullable => TypeKind == TypeKind.Nullable;
+
     bool IsDiscriminatedUnion
     {
         get
