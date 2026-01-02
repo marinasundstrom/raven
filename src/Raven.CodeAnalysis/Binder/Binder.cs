@@ -1120,6 +1120,13 @@ internal abstract class Binder
         if (typeSyntax is NullableTypeSyntax nb)
         {
             var elementType = ResolveTypeInternal(nb.ElementType, refKindHint: null);
+            if (elementType is ITypeParameterSymbol typeParameter &&
+                (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)
+            {
+                ReportNotNullConstraintViolation(typeParameter, nb.GetLocation());
+                return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
+            }
+
             return ApplyRefKindHint(new NullableTypeSymbol(elementType, null, null, null, []), refKindHint);
         }
 
@@ -1137,7 +1144,12 @@ internal abstract class Binder
                 types.Add(ResolveTypeInternal(t, refKindHint: null));
             }
 
-            return ApplyRefKindHint(new TypeUnionSymbol(types, null, null, null, []), refKindHint);
+            var normalized = TypeSymbolNormalization.NormalizeUnion(
+                types,
+                _diagnostics,
+                ut.GetLocation(),
+                Compilation.ErrorTypeSymbol);
+            return ApplyRefKindHint(normalized, refKindHint);
         }
 
         if (typeSyntax is ArrayTypeSyntax arrayTypeSyntax)
@@ -1615,6 +1627,12 @@ internal abstract class Binder
                 allSatisfied = false;
             }
 
+            if ((constraintKind & TypeParameterConstraintKind.NotNull) != 0 && !SemanticFacts.SatisfiesNotNullConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "notnull", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
             {
                 var constraintTypes = typeParameter.ContainingSymbol is SubstitutedMethodSymbol substituted &&
@@ -1687,6 +1705,14 @@ internal abstract class Binder
         _diagnostics.ReportTypeArgumentDoesNotSatisfyConstraint(argumentDisplay, constraintDisplay, typeParameter.Name, genericDisplayName, location);
     }
 
+    private void ReportNotNullConstraintViolation(ITypeParameterSymbol typeParameter, Location location)
+    {
+        var argumentDisplay = $"{typeParameter.Name}?";
+        var genericDisplayName = typeParameter.ContainingSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            ?? typeParameter.Name;
+        _diagnostics.ReportTypeArgumentDoesNotSatisfyConstraint(argumentDisplay, "notnull", typeParameter.Name, genericDisplayName, location);
+    }
+
     protected static Location GetTypeArgumentLocation<TNode>(SeparatedSyntaxList<TNode> arguments, Location fallback, int index)
         where TNode : SyntaxNode
     {
@@ -1723,6 +1749,12 @@ internal abstract class Binder
             if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 && !SemanticFacts.SatisfiesValueTypeConstraint(typeArgument))
             {
                 ReportConstraintViolation(typeArgument, "struct", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.NotNull) != 0 && !SemanticFacts.SatisfiesNotNullConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "notnull", typeParameter, displayName, getArgumentLocation(i));
                 allSatisfied = false;
             }
 

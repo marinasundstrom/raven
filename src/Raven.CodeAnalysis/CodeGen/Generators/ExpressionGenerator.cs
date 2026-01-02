@@ -855,8 +855,20 @@ internal class ExpressionGenerator : Generator
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
+        if (to is NullableTypeSymbol nullableReference && !nullableReference.UnderlyingType.IsValueType)
+        {
+            EmitConversion(from, nullableReference.UnderlyingType, conversion);
+            return;
+        }
+
         if (to is NullableTypeSymbol nullableTo && nullableTo.UnderlyingType.IsValueType)
         {
+            if (conversion.IsLifted && from is NullableTypeSymbol fromNullable && fromNullable.UnderlyingType.IsValueType)
+            {
+                EmitLiftedNullableConversion(fromNullable, nullableTo, conversion);
+                return;
+            }
+
             EmitNullableConversion(from, nullableTo);
             return;
         }
@@ -1062,6 +1074,66 @@ internal class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Call, ctor);
         ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
+    }
+
+    private void EmitLiftedNullableConversion(
+        NullableTypeSymbol fromNullable,
+        NullableTypeSymbol toNullable,
+        Conversion conversion)
+    {
+        if (SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, toNullable.UnderlyingType) &&
+            conversion.IsIdentity)
+        {
+            return;
+        }
+
+        var fromClr = ResolveClrType(fromNullable);
+        var toClr = ResolveClrType(toNullable);
+
+        var fromUnderlying = fromNullable.UnderlyingType;
+        var toUnderlying = toNullable.UnderlyingType;
+        var fromUnderlyingClr = ResolveClrType(fromUnderlying);
+        var toUnderlyingClr = ResolveClrType(toUnderlying);
+
+        var fromLocal = ILGenerator.DeclareLocal(fromClr);
+        var toLocal = ILGenerator.DeclareLocal(toClr);
+        var valueLocal = ILGenerator.DeclareLocal(toUnderlyingClr);
+
+        var hasValueLabel = ILGenerator.DefineLabel();
+        var doneLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Stloc, fromLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, fromLocal);
+        var hasValue = fromClr.GetProperty("HasValue")!.GetGetMethod()!;
+        ILGenerator.Emit(OpCodes.Call, hasValue);
+        ILGenerator.Emit(OpCodes.Brtrue_S, hasValueLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloca, toLocal);
+        ILGenerator.Emit(OpCodes.Initobj, toClr);
+        ILGenerator.Emit(OpCodes.Ldloc, toLocal);
+        ILGenerator.Emit(OpCodes.Br_S, doneLabel);
+
+        ILGenerator.MarkLabel(hasValueLabel);
+        ILGenerator.Emit(OpCodes.Ldloca, fromLocal);
+        var getValueOrDefault = fromClr.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+        ILGenerator.Emit(OpCodes.Call, getValueOrDefault);
+
+        if (!SymbolEqualityComparer.Default.Equals(fromUnderlying, toUnderlying))
+        {
+            var underlyingConversion = Compilation.ClassifyConversion(fromUnderlying, toUnderlying);
+            EmitConversion(fromUnderlying, toUnderlying, underlyingConversion);
+        }
+
+        ILGenerator.Emit(OpCodes.Stloc, valueLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, toLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+        var ctor = toClr.GetConstructor(new[] { toUnderlyingClr })
+            ?? throw new InvalidOperationException($"Missing Nullable constructor for {toClr}");
+
+        ILGenerator.Emit(OpCodes.Call, ctor);
+        ILGenerator.Emit(OpCodes.Ldloc, toLocal);
+        ILGenerator.MarkLabel(doneLabel);
     }
 
     private void EmitNumericConversion(ITypeSymbol to)
@@ -2851,7 +2923,7 @@ internal class ExpressionGenerator : Generator
     private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional)
     {
         var receiverType = conditional.Receiver.Type;
-        var isNullableValue = receiverType.IsNullable() && ((NullableTypeSymbol)receiverType).UnderlyingType.IsValueType;
+        var isNullableValue = receiverType.IsNullable && receiverType.IsValueType;
 
         var receiverClrType = ResolveClrType(receiverType);
         var local = ILGenerator.DeclareLocal(receiverClrType);

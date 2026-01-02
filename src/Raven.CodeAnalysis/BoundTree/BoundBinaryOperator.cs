@@ -159,10 +159,10 @@ internal partial class BoundBinaryOperator
         }
 
         // Try lifting
-        if (left.IsNullable() && right.IsNullable())
+        if (left.IsNullable && right.IsNullable)
         {
-            var underlyingLeft = left.GetNullableUnderlyingType();
-            var underlyingRight = right.GetNullableUnderlyingType();
+            var underlyingLeft = left.GetNullableUnderlyingType() ?? left;
+            var underlyingRight = right.GetNullableUnderlyingType() ?? right;
 
             var lifted = candidates.FirstOrDefault(op =>
                 MatchesSyntaxKind(kind, op.OperatorKind) &&
@@ -206,15 +206,6 @@ internal partial class BoundBinaryOperator
             _ => false,
         };
     }
-}
-
-public static class TypeSymbolExtension3
-{
-    internal static bool IsNullable(this ITypeSymbol type) =>
-        type.TypeKind == TypeKind.Nullable;
-
-    internal static ITypeSymbol GetNullableUnderlyingType(this ITypeSymbol type) =>
-        ((NullableTypeSymbol)type).UnderlyingType;
 }
 
 [Flags]

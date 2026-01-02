@@ -147,6 +147,16 @@ public static partial class SymbolExtensions
         return false;
     }
 
+    public static ITypeSymbol? GetNullableUnderlyingType(this ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is null)
+            throw new ArgumentNullException(nameof(typeSymbol));
+
+        return typeSymbol is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : null;
+    }
+
     public static string ToDisplayStringForTypeMismatchDiagnostic(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         var display = FormatType(typeSymbol, format);

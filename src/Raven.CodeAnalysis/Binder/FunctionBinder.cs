@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -205,6 +206,12 @@ class FunctionBinder : Binder
                     constraintKind |= TypeParameterConstraintKind.ValueType;
                     break;
                 case TypeConstraintSyntax typeConstraint:
+                    if (IsNotNullConstraint(typeConstraint))
+                    {
+                        constraintKind |= TypeParameterConstraintKind.NotNull;
+                        break;
+                    }
+
                     constraintKind |= TypeParameterConstraintKind.TypeConstraint;
                     typeConstraintReferences.Add(typeConstraint.GetReference());
                     break;
@@ -212,6 +219,12 @@ class FunctionBinder : Binder
         }
 
         return (constraintKind, typeConstraintReferences.ToImmutable());
+    }
+
+    private static bool IsNotNullConstraint(TypeConstraintSyntax typeConstraint)
+    {
+        return typeConstraint.Type is IdentifierNameSyntax identifier &&
+               string.Equals(identifier.Identifier.Text, "notnull", StringComparison.Ordinal);
     }
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)

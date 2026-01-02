@@ -91,6 +91,12 @@ public static class SemanticFacts
             return false;
         }
 
+        if ((constraintKind & TypeParameterConstraintKind.NotNull) != 0 &&
+            !SatisfiesNotNullConstraint(typeArgument))
+        {
+            return false;
+        }
+
         if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
         {
             foreach (var constraintType in typeParameter.ConstraintTypes)
@@ -129,6 +135,21 @@ public static class SemanticFacts
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
 
         return false;
+    }
+
+    public static bool SatisfiesNotNullConstraint(ITypeSymbol type)
+    {
+        if (type.IsNullable)
+            return false;
+
+        if (type is ITypeParameterSymbol typeParameter)
+        {
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0
+                || (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0
+                || (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
+        }
+
+        return true;
     }
 
     public static bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
