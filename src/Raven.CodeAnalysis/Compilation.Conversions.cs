@@ -184,45 +184,85 @@ public partial class Compilation
 
         if (source is NullableTypeSymbol nullableSource)
         {
-            var conv = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
-            if (conv.Exists)
+            if (!nullableSource.UnderlyingType.IsValueType)
             {
-                var isImplicit = !nullableSource.UnderlyingType.MetadataIdentityEquals(destination) && conv.IsImplicit;
-                return Finalize(new Conversion(
-                    isImplicit: isImplicit,
-                    isIdentity: conv.IsIdentity,
-                    isNumeric: conv.IsNumeric,
-                    isReference: conv.IsReference,
-                    isBoxing: conv.IsBoxing,
-                    isUnboxing: conv.IsUnboxing,
-                    isUserDefined: conv.IsUserDefined,
-                    isAlias: conv.IsAlias,
-                    methodSymbol: conv.MethodSymbol));
+                var conv = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
+                if (conv.Exists)
+                    return Finalize(conv);
+            }
+            else
+            {
+                if (destination is NullableTypeSymbol nullableDestination && nullableDestination.UnderlyingType.IsValueType)
+                {
+                    var conv = ClassifyConversion(nullableSource.UnderlyingType, nullableDestination.UnderlyingType, includeUserDefined);
+                    if (conv.Exists)
+                    {
+                        return Finalize(new Conversion(
+                            isImplicit: conv.IsImplicit,
+                            isIdentity: conv.IsIdentity,
+                            isNumeric: conv.IsNumeric,
+                            isReference: conv.IsReference,
+                            isBoxing: conv.IsBoxing,
+                            isUnboxing: conv.IsUnboxing,
+                            isUserDefined: conv.IsUserDefined,
+                            isAlias: conv.IsAlias,
+                            isLifted: true,
+                            methodSymbol: conv.MethodSymbol));
+                    }
+                }
+
+                var conv = ClassifyConversion(nullableSource.UnderlyingType, destination, includeUserDefined);
+                if (conv.Exists)
+                {
+                    return Finalize(new Conversion(
+                        isImplicit: false,
+                        isIdentity: conv.IsIdentity,
+                        isNumeric: conv.IsNumeric,
+                        isReference: conv.IsReference,
+                        isBoxing: conv.IsBoxing,
+                        isUnboxing: conv.IsUnboxing,
+                        isUserDefined: conv.IsUserDefined,
+                        isAlias: conv.IsAlias,
+                        isLifted: true,
+                        methodSymbol: conv.MethodSymbol));
+                }
             }
         }
 
         if (destination is NullableTypeSymbol nullableDest)
         {
-            if (source is ITypeUnionSymbol unionSource &&
-                unionSource.Types.Count() == 2 &&
-                unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
-                unionSource.Types.Any(t => t.MetadataIdentityEquals(nullableDest.UnderlyingType)))
+            if (!nullableDest.UnderlyingType.IsValueType)
             {
-                return Finalize(new Conversion(isImplicit: true, isReference: true));
+                var conv = ClassifyConversion(source, nullableDest.UnderlyingType, includeUserDefined);
+                if (conv.Exists)
+                    return Finalize(conv);
             }
+            else
+            {
+                if (source is ITypeUnionSymbol unionSource &&
+                    unionSource.Types.Count() == 2 &&
+                    unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
+                    unionSource.Types.Any(t => t.MetadataIdentityEquals(nullableDest.UnderlyingType)))
+                {
+                    return Finalize(new Conversion(isImplicit: true, isReference: true));
+                }
 
-            var conv = ClassifyConversion(source, nullableDest.UnderlyingType, includeUserDefined);
-            if (conv.Exists)
-                return Finalize(new Conversion(
-                    isImplicit: true,
-                    isIdentity: false,
-                    isNumeric: conv.IsNumeric,
-                    isReference: conv.IsReference || !source.IsValueType,
-                    isBoxing: conv.IsBoxing,
-                    isUnboxing: conv.IsUnboxing,
-                    isUserDefined: conv.IsUserDefined,
-                    isAlias: conv.IsAlias,
-                    methodSymbol: conv.MethodSymbol));
+                var conv = ClassifyConversion(source, nullableDest.UnderlyingType, includeUserDefined);
+                if (conv.Exists)
+                {
+                    return Finalize(new Conversion(
+                        isImplicit: true,
+                        isIdentity: false,
+                        isNumeric: conv.IsNumeric,
+                        isReference: conv.IsReference || !source.IsValueType,
+                        isBoxing: conv.IsBoxing,
+                        isUnboxing: conv.IsUnboxing,
+                        isUserDefined: conv.IsUserDefined,
+                        isAlias: conv.IsAlias,
+                        isLifted: true,
+                        methodSymbol: conv.MethodSymbol));
+                }
+            }
         }
 
         if (source is ITypeUnionSymbol unionSource2)
