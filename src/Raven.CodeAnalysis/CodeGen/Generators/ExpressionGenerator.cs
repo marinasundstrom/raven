@@ -1042,6 +1042,12 @@ internal class ExpressionGenerator : Generator
 
     private void EmitNullableConversion(ITypeSymbol from, NullableTypeSymbol nullableTo)
     {
+        if (from.TypeKind == TypeKind.Null)
+        {
+            EmitDefaultValue(nullableTo);
+            return;
+        }
+
         if (from is NullableTypeSymbol fromNullable)
         {
             if (SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, nullableTo.UnderlyingType))
