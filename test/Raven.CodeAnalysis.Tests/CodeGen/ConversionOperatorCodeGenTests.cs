@@ -44,4 +44,81 @@ class NumberBox {
         Assert.Equal(42, converted);
     }
 
+    [Fact]
+    public void ImplicitConversionOperator_ToNullableType_EmitsValidIL()
+    {
+        var ravenCoreReference = CreateRavenCoreOptionReference(out var ravenCorePath);
+
+        const string code = """
+        import System.*
+
+        class OptionConversionRunner {
+            public static RunReference() -> string? {
+                val opt1 = Option<string>.Some("OK")
+                val opt12: string? = opt1
+                return opt12
+            }
+
+            public static RunValue() -> int? {
+                val opt2 = Option<int>.Some(42)
+                val opt22: int? = opt2
+                return opt22
+            }
+        }
+        """;
+
+        try
+        {
+            var syntaxTree = SyntaxTree.ParseText(code);
+            var compilation = Compilation.Create(
+                "option-conversion",
+                [syntaxTree],
+                [.. TestMetadataReferences.Default, ravenCoreReference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            using var peStream = new MemoryStream();
+            var result = compilation.Emit(peStream);
+            Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+            using var loaded = TestAssemblyLoader.LoadFromStream(peStream, [.. TestMetadataReferences.Default, ravenCoreReference]);
+            var assembly = loaded.Assembly;
+
+            var runnerType = assembly.GetType("OptionConversionRunner", throwOnError: true)!;
+            var referenceMethod = runnerType.GetMethod("RunReference", BindingFlags.Public | BindingFlags.Static)!;
+            var valueMethod = runnerType.GetMethod("RunValue", BindingFlags.Public | BindingFlags.Static)!;
+            var referenceResult = (string?)referenceMethod.Invoke(null, Array.Empty<object>());
+            var valueResult = (int?)valueMethod.Invoke(null, Array.Empty<object>());
+
+            Assert.Equal("OK", referenceResult);
+            Assert.Equal(42, valueResult);
+        }
+        finally
+        {
+            if (File.Exists(ravenCorePath))
+                File.Delete(ravenCorePath);
+        }
+    }
+
+    private static PortableExecutableReference CreateRavenCoreOptionReference(out string assemblyPath)
+    {
+        var ravenCoreSourcePath = Path.GetFullPath(Path.Combine(
+            "..", "..", "..", "..", "..", "src", "Raven.Core", "Option.rav"));
+        var ravenCoreSource = File.ReadAllText(ravenCoreSourcePath);
+
+        var ravenCoreTree = SyntaxTree.ParseText(ravenCoreSource);
+        var ravenCoreCompilation = Compilation.Create(
+            "raven-core-option-fixture",
+            [ravenCoreTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var ravenCoreStream = new MemoryStream();
+        var ravenCoreEmit = ravenCoreCompilation.Emit(ravenCoreStream);
+        Assert.True(ravenCoreEmit.Success, string.Join(Environment.NewLine, ravenCoreEmit.Diagnostics));
+
+        assemblyPath = Path.Combine(Path.GetTempPath(), $"raven-core-option-fixture-{Guid.NewGuid():N}.dll");
+        File.WriteAllBytes(assemblyPath, ravenCoreStream.ToArray());
+
+        return MetadataReference.CreateFromFile(assemblyPath);
+    }
 }

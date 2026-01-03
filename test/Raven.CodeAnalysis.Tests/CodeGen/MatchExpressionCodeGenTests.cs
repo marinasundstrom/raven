@@ -4,12 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using Raven.CodeAnalysis.Testing;
 
 using Microsoft.CodeAnalysis;
 
-using RavenSyntaxTree = Raven.CodeAnalysis.Syntax.SyntaxTree;
+using Raven.CodeAnalysis.Testing;
+
 using Xunit;
+
+using RavenSyntaxTree = Raven.CodeAnalysis.Syntax.SyntaxTree;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -208,6 +210,38 @@ System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describ
             return;
 
         Assert.Equal("hello,none", output);
+    }
+
+    [Fact]
+    public void MatchExpression_WithGenericUnionCases_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+
+let ok: Result<int> = .Ok(99)
+let err = Result<int>.Error("boom")
+
+System.Console.WriteLine(format(ok))
+System.Console.WriteLine(format((Result<int>)err))
+
+func format<T>(result: Result<T>) -> string {
+    return result match {
+        .Ok(value) => "ok ${value}"
+        .Error(message) => "error '${message}'"
+    }
+}
+
+union Result<T> {
+    Ok(value: T)
+    Error(message: string)
+}
+""";
+
+        var output = EmitAndRun(code, "match_generic_union");
+        if (output is null)
+            return;
+
+        Assert.Equal("ok 99\nerror 'boom'", output.Replace("\r\n", "\n", StringComparison.Ordinal));
     }
 
     [Fact]

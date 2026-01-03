@@ -214,6 +214,14 @@ internal abstract class Generator
 
         if (conversion.IsUserDefined && !conversion.IsLifted && conversion.MethodSymbol is IMethodSymbol userDefinedMethod)
         {
+            var parameterType = userDefinedMethod.Parameters[0].Type;
+            if (!SymbolEqualityComparer.Default.Equals(from, parameterType))
+            {
+                var parameterConversion = Compilation.ClassifyConversion(from, parameterType, includeUserDefined: false);
+                if (parameterConversion.Exists && parameterConversion.IsImplicit)
+                    EmitConversion(from, parameterType, parameterConversion);
+            }
+
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(userDefinedMethod));
             return;
         }
@@ -329,6 +337,15 @@ internal abstract class Generator
             ILGenerator.Emit(OpCodes.Box, fromClrType);
             if (!SymbolEqualityComparer.Default.Equals(from, to))
                 ILGenerator.Emit(OpCodes.Castclass, toClrType);
+            return;
+        }
+
+        if (conversion.IsReference &&
+            from is ITypeParameterSymbol typeParameter &&
+            (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0 &&
+            to.SpecialType == SpecialType.System_Object)
+        {
+            ILGenerator.Emit(OpCodes.Box, fromClrType);
             return;
         }
 
