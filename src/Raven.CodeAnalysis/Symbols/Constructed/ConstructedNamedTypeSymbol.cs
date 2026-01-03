@@ -182,6 +182,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             var typeArguments = named.TypeArguments;
             var substitutedArgs = new ITypeSymbol[typeArguments.Length];
             var changed = false;
+            var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
 
             for (int i = 0; i < typeArguments.Length; i++)
             {
@@ -195,13 +196,18 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             }
 
             if (!changed)
-                return named;
+            {
+                var unchangedContainingOverride = GetContainingOverride(named);
+                if (unchangedContainingOverride is null)
+                    return named;
+
+                return new ConstructedNamedTypeSymbol(constructedFrom, typeArguments, _substitutionMap, unchangedContainingOverride);
+            }
 
             // Avoid triggering normalization/closure expansion while substituting.
-            var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
-            var immutableArguments = ImmutableArray.Create(substitutedArgs);
-            var containingOverride = GetContainingOverride(named);
-            return new ConstructedNamedTypeSymbol(constructedFrom, immutableArguments, _substitutionMap, containingOverride);
+            var substitutedArguments = ImmutableArray.Create(substitutedArgs);
+            var substitutedContainingOverride = GetContainingOverride(named);
+            return new ConstructedNamedTypeSymbol(constructedFrom, substitutedArguments, _substitutionMap, substitutedContainingOverride);
         }
 
         return type;
