@@ -51,6 +51,16 @@ public enum OperationKind
     Return,
 
     /// <summary>
+    /// A yield return statement.
+    /// </summary>
+    YieldReturn,
+
+    /// <summary>
+    /// A yield break statement.
+    /// </summary>
+    YieldBreak,
+
+    /// <summary>
     /// A throw statement.
     /// </summary>
     Throw,
@@ -156,6 +166,11 @@ public enum OperationKind
     TryExpression,
 
     /// <summary>
+    /// An await expression.
+    /// </summary>
+    Await,
+
+    /// <summary>
     /// A while loop statement or expression.
     /// </summary>
     WhileLoop,
@@ -206,6 +221,16 @@ public enum OperationKind
     IndexerElement,
 
     /// <summary>
+    /// An index expression.
+    /// </summary>
+    Index,
+
+    /// <summary>
+    /// A range expression.
+    /// </summary>
+    Range,
+
+    /// <summary>
     /// A typeof expression.
     /// </summary>
     TypeOf,
@@ -224,6 +249,16 @@ public enum OperationKind
     /// A collection expression.
     /// </summary>
     Collection,
+
+    /// <summary>
+    /// An empty collection expression.
+    /// </summary>
+    EmptyCollection,
+
+    /// <summary>
+    /// A collection spread element.
+    /// </summary>
+    SpreadElement,
 
     /// <summary>
     /// A type expression.

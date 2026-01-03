@@ -48,6 +48,8 @@
       href: api/README.md
     - name: Operations
       href: api/operations.md
+    - name: Operations implementation status
+      href: api/operations-implementation-status.md
     - name: Symbol resolution
       href: api/symbol-resolution.md
 - name: Development
