@@ -156,6 +156,12 @@ This mirrors Roslyn’s safety properties:
 
 ---
 
+## Completion Status
+
+* ⏳ In progress — termination is addressed in substitution/interface code, but sample validation and regression tests remain pending.
+
+---
+
 ## Verification Checklist
 
 * ✅ `generic-math-error.rav` compilation terminates (may still emit diagnostics, but must not hang)
