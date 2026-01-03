@@ -81,6 +81,11 @@ public enum OperationKind
     Goto,
 
     /// <summary>
+    /// A conditional goto statement.
+    /// </summary>
+    ConditionalGoto,
+
+    /// <summary>
     /// A labeled statement.
     /// </summary>
     Labeled,
@@ -109,6 +114,11 @@ public enum OperationKind
     /// A reference to a local variable.
     /// </summary>
     LocalReference,
+
+    /// <summary>
+    /// A reference to a variable expression.
+    /// </summary>
+    VariableReference,
 
     /// <summary>
     /// A reference to a method parameter.
@@ -244,6 +254,61 @@ public enum OperationKind
     /// A switch or match expression.
     /// </summary>
     Switch,
+
+    /// <summary>
+    /// An is-pattern expression.
+    /// </summary>
+    IsPattern,
+
+    /// <summary>
+    /// A case pattern.
+    /// </summary>
+    CasePattern,
+
+    /// <summary>
+    /// A declaration pattern.
+    /// </summary>
+    DeclarationPattern,
+
+    /// <summary>
+    /// A constant pattern.
+    /// </summary>
+    ConstantPattern,
+
+    /// <summary>
+    /// A tuple pattern.
+    /// </summary>
+    TuplePattern,
+
+    /// <summary>
+    /// A discard pattern.
+    /// </summary>
+    DiscardPattern,
+
+    /// <summary>
+    /// A negated pattern.
+    /// </summary>
+    NotPattern,
+
+    /// <summary>
+    /// A pattern conjunction.
+    /// </summary>
+    AndPattern,
+
+    /// <summary>
+    /// A pattern disjunction.
+    /// </summary>
+    OrPattern,
+
+    /// <summary>
+    /// A single-variable designator.
+    /// </summary>
+    SingleVariableDesignator,
+
+    /// <summary>
+    /// A discard designator.
+    /// </summary>
+    DiscardDesignator,
 
     /// <summary>
     /// A collection expression.

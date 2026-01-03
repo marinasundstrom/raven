@@ -24,10 +24,12 @@ Sources of truth:
 | `Break` | `BoundBreakStatement` | `BreakOperation` |
 | `Continue` | `BoundContinueStatement` | `ContinueOperation` |
 | `Goto` | `BoundGotoStatement` | `GotoOperation` |
+| `ConditionalGoto` | `BoundConditionalGotoStatement` | `ConditionalGotoOperation` |
 | `Labeled` | `BoundLabeledStatement` | `LabeledOperation` |
 | `Literal` | `BoundLiteralExpression` | `LiteralOperation` |
 | `DefaultValue` | `BoundDefaultValueExpression` | `DefaultValueOperation` |
 | `LocalReference` | `BoundLocalAccess` | `LocalReferenceOperation` |
+| `VariableReference` | `BoundVariableExpression` | `VariableReferenceOperation` |
 | `ParameterReference` | `BoundParameterAccess` | `ParameterReferenceOperation` |
 | `FieldReference` | `BoundFieldAccess` | `FieldReferenceOperation` |
 | `PropertyReference` | `BoundPropertyAccess` | `PropertyReferenceOperation` |
@@ -55,6 +57,17 @@ Sources of truth:
 | `Range` | `BoundRangeExpression` | `RangeOperation` |
 | `TypeOf` | `BoundTypeOfExpression` | `TypeOfOperation` |
 | `Switch` | `BoundMatchExpression` | `SwitchOperation` |
+| `IsPattern` | `BoundIsPatternExpression` | `IsPatternOperation` |
+| `CasePattern` | `BoundCasePattern` | `CasePatternOperation` |
+| `DeclarationPattern` | `BoundDeclarationPattern` | `DeclarationPatternOperation` |
+| `ConstantPattern` | `BoundConstantPattern` | `ConstantPatternOperation` |
+| `TuplePattern` | `BoundTuplePattern` | `TuplePatternOperation` |
+| `DiscardPattern` | `BoundDiscardPattern` | `DiscardPatternOperation` |
+| `NotPattern` | `BoundNotPattern` | `NotPatternOperation` |
+| `AndPattern` | `BoundAndPattern` | `AndPatternOperation` |
+| `OrPattern` | `BoundOrPattern` | `OrPatternOperation` |
+| `SingleVariableDesignator` | `BoundSingleVariableDesignator` | `SingleVariableDesignatorOperation` |
+| `DiscardDesignator` | `BoundDiscardDesignator` | `DiscardDesignatorOperation` |
 | `Collection` | `BoundCollectionExpression` | `CollectionOperation` |
 | `EmptyCollection` | `BoundEmptyCollectionExpression` | `EmptyCollectionOperation` |
 | `SpreadElement` | `BoundSpreadElement` | `SpreadElementOperation` |
@@ -73,11 +86,7 @@ These bound nodes are not mapped to `OperationKind`/specialized operations in `O
 
 | Bound node(s) | Suggested operation shape | Notes |
 | --- | --- | --- |
-| `BoundIsPatternExpression` | `IsPattern` operation (new kind) | Pattern matching expression with pattern tree. |
-| `BoundPattern` hierarchy (`BoundCasePattern`, `BoundDeclarationPattern`, `BoundConstantPattern`, `BoundTuplePattern`, `BoundAndPattern`, `BoundOrPattern`, `BoundNotPattern`, `BoundDiscardPattern`) | `Pattern` operations (new kinds) | Needed to model pattern structure and designators. |
-| `BoundDesignator` hierarchy (`BoundSingleVariableDesignator`, `BoundDiscardDesignator`) | `Designator` operations (new kinds) | Needed for pattern bindings. |
-| `BoundConditionalGotoStatement` | `ConditionalGoto` operation (new kind) | Lowered control-flow edge that should be visible to analyzers. |
-| `BoundVariableExpression` | `VariableReference` operation (new kind or reuse `LocalReference`) | Distinct bound node for local symbol references. |
+None currently tracked.
 
 ## Notes
 

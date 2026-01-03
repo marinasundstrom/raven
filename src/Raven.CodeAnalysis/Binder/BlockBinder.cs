@@ -5855,20 +5855,24 @@ partial class BlockBinder : Binder
     {
         valueType ??= Compilation.ErrorTypeSymbol;
 
-        switch (patternSyntax)
+        BoundPattern bound = patternSyntax switch
         {
             case VariablePatternSyntax variablePattern:
                 return BindVariablePatternForAssignment(variablePattern, valueType);
             case TuplePatternSyntax tuplePattern:
-                return BindTuplePatternForAssignment(tuplePattern, valueType);
-            case DiscardPatternSyntax:
-                return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
-            case DeclarationPatternSyntax declaration:
-                return BindDeclarationPatternForAssignment(declaration, valueType, node);
-            default:
-                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
-                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
+            return BindTuplePatternForAssignment(tuplePattern, valueType);
+        case DiscardPatternSyntax:
+            return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
+        case DeclarationPatternSyntax declaration:
+            return BindDeclarationPatternForAssignment(declaration, valueType, node);
+        default:
+            _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
         }
+        ;
+
+        CacheBoundNode(patternSyntax, bound);
+        return bound;
     }
 
     private BoundPattern BindVariablePatternForAssignment(VariablePatternSyntax pattern, ITypeSymbol valueType)
@@ -6071,6 +6075,7 @@ partial class BlockBinder : Binder
 
         var local = DeclarePatternLocal(single, identifier.ValueText, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
+        CacheBoundNode(single, designator);
 
         return new BoundDeclarationPattern(type, designator);
     }

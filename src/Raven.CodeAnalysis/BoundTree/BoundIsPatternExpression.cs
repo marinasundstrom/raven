@@ -281,7 +281,7 @@ internal partial class BlockBinder
 {
     public virtual BoundPattern BindPattern(PatternSyntax syntax, ITypeSymbol? inputType = null)
     {
-        return syntax switch
+        var bound = syntax switch
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
             VariablePatternSyntax variable => BindVariablePattern(variable),
@@ -292,6 +292,9 @@ internal partial class BlockBinder
             CasePatternSyntax c => BindCasePattern(c, inputType),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
         };
+
+        CacheBoundNode(syntax, bound);
+        return bound;
     }
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)
@@ -307,6 +310,9 @@ internal partial class BlockBinder
                 => BindSingleVariableDesignation(single)!,
             _ => new BoundDiscardDesignator(type.Type)
         };
+
+        if (designator is BoundDiscardDesignator)
+            CacheBoundNode(syntax.Designation, designator);
 
         if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType } &&
             designator is BoundDiscardDesignator)
@@ -704,6 +710,8 @@ internal partial class BlockBinder
 
         var local = CreateLocalSymbol(singleVariableDesignation, name, isMutable: false, type);
 
-        return new BoundSingleVariableDesignator(local);
+        var designator = new BoundSingleVariableDesignator(local);
+        CacheBoundNode(singleVariableDesignation, designator);
+        return designator;
     }
 }
