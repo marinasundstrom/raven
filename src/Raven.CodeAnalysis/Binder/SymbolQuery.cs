@@ -68,9 +68,15 @@ internal readonly record struct SymbolQuery(
         var seenSignatures = new HashSet<string>();
         var results = new List<ISymbol>();
 
+        var preferStaticMembers = IsStatic == true;
+
         foreach (var constraint in constraintTypes)
         {
-            foreach (var member in constraint.ResolveMembers(Name))
+            var members = preferStaticMembers
+                ? constraint.GetMembers(Name)
+                : constraint.ResolveMembers(Name);
+
+            foreach (var member in members)
             {
                 var signature = GetSignatureKey(member);
                 if (seenSignatures.Add(signature))
