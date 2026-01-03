@@ -2007,11 +2007,11 @@ let x: int? = maybe         // ok
 let y: string? | int        // error: explicit nullable types must not be unioned
 ```
 
-To model absence explicitly, Raven recommends an **Option union** such as
-`alias Option<T> = T | null`. This works uniformly for reference and value
-types, and it implicitly converts to the nullable form (`T?` /
-`Nullable<T>`) when interacting with existing .NET APIs that expect nullable
-types.
+To model absence explicitly, Raven recommends the **Option union** defined in
+`src/Raven.Core/Option.rav` (`System.Option<T>`). It behaves like a
+`T | null` union for both reference and value types and includes an implicit
+conversion to the nullable form (`T?` / `Nullable<T>`) when interacting with
+existing .NET APIs that expect nullable types.
 
 #### Assignability and conversions
 
