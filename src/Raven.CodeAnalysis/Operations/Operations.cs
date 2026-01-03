@@ -260,12 +260,23 @@ public interface IAssignmentOperation : IOperation
     IOperation? Value { get; }
 }
 
-public interface IWhileOperation : IOperation
+public interface ILoopOperation : IOperation
 {
+    IOperation? Body { get; }
 }
 
-public interface IForOperation : IOperation
+public interface IWhileLoopOperation : ILoopOperation
 {
+    IOperation? Condition { get; }
+}
+
+public interface IForLoopOperation : ILoopOperation
+{
+    IOperation? Collection { get; }
+
+    ILocalSymbol? Local { get; }
+
+    ITypeSymbol ElementType { get; }
 }
 
 public interface ITupleOperation : IOperation

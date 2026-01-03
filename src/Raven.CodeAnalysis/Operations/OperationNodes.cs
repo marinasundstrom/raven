@@ -914,24 +914,72 @@ internal sealed class AssignmentOperation : Operation, IAssignmentOperation
     }
 }
 
-internal sealed class WhileOperation : Operation, IWhileOperation
+internal abstract class LoopOperation : Operation, ILoopOperation
 {
-    internal WhileOperation(SemanticModel semanticModel, BoundWhileStatement bound, SyntaxNode syntax, bool isImplicit)
-        : base(semanticModel, OperationKind.WhileLoop, syntax, null, isImplicit)
+    private IOperation? _body;
+
+    protected LoopOperation(
+        SemanticModel semanticModel,
+        OperationKind kind,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, kind, syntax, null, isImplicit)
     {
     }
 
-    protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+    protected abstract StatementSyntax BodySyntax { get; }
+
+    public IOperation? Body => _body ??= SemanticModel.GetOperation(BodySyntax);
 }
 
-internal sealed class ForOperation : Operation, IForOperation
+internal sealed class WhileLoopOperation : LoopOperation, IWhileLoopOperation
 {
-    internal ForOperation(SemanticModel semanticModel, BoundForStatement bound, SyntaxNode syntax, bool isImplicit)
-        : base(semanticModel, OperationKind.ForLoop, syntax, null, isImplicit)
+    private IOperation? _condition;
+
+    internal WhileLoopOperation(SemanticModel semanticModel, BoundWhileStatement bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.WhileLoop, syntax, isImplicit)
     {
     }
 
-    protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+    public IOperation? Condition => _condition ??= SemanticModel.GetOperation(((WhileStatementSyntax)Syntax).Condition);
+
+    protected override StatementSyntax BodySyntax => ((WhileStatementSyntax)Syntax).Statement;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(Condition)
+            .AddIfNotNull(Body)
+            .ToImmutable();
+    }
+}
+
+internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
+{
+    private readonly BoundForStatement _bound;
+    private IOperation? _collection;
+
+    internal ForLoopOperation(SemanticModel semanticModel, BoundForStatement bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.ForLoop, syntax, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ILocalSymbol? Local => _bound.Local;
+
+    public ITypeSymbol ElementType => _bound.Iteration.ElementType;
+
+    public IOperation? Collection => _collection ??= SemanticModel.GetOperation(((ForStatementSyntax)Syntax).Expression);
+
+    protected override StatementSyntax BodySyntax => ((ForStatementSyntax)Syntax).Body;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(Collection)
+            .AddIfNotNull(Body)
+            .ToImmutable();
+    }
 }
 
 internal sealed class TupleOperation : Operation, ITupleOperation
