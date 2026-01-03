@@ -5857,22 +5857,21 @@ partial class BlockBinder : Binder
 
         BoundPattern bound = patternSyntax switch
         {
-            case VariablePatternSyntax variablePattern:
-                return BindVariablePatternForAssignment(variablePattern, valueType);
-            case TuplePatternSyntax tuplePattern:
-            return BindTuplePatternForAssignment(tuplePattern, valueType);
-        case DiscardPatternSyntax:
-            return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
-        case DeclarationPatternSyntax declaration:
-            return BindDeclarationPatternForAssignment(declaration, valueType, node);
-        default:
-            _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
-            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
-        }
-        ;
+            VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType),
+            TuplePatternSyntax tuplePattern => BindTuplePatternForAssignment(tuplePattern, valueType),
+            DiscardPatternSyntax => new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType),
+            DeclarationPatternSyntax declaration => BindDeclarationPatternForAssignment(declaration, valueType, node),
+            _ => Misc(node)
+        };
 
         CacheBoundNode(patternSyntax, bound);
         return bound;
+    }
+
+    private BoundPattern Misc(SyntaxNode node)
+    {
+        _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+        return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
     }
 
     private BoundPattern BindVariablePatternForAssignment(VariablePatternSyntax pattern, ITypeSymbol valueType)

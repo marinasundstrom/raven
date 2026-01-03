@@ -676,7 +676,7 @@ internal sealed class AwaitOperation : Operation
         _bound = bound;
     }
 
-    public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((UnaryExpressionSyntax)Syntax).Operand);
+    public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((UnaryExpressionSyntax)Syntax).Expression);
 
     public IMethodSymbol GetAwaiterMethod => _bound.GetAwaiterMethod;
 
@@ -807,9 +807,9 @@ internal sealed class RangeOperation : Operation
     {
     }
 
-    public IOperation? Left => _left ??= ((RangeExpressionSyntax)Syntax).Left is { } left ? SemanticModel.GetOperation(left) : null;
+    public IOperation? Left => _left ??= ((RangeExpressionSyntax)Syntax).LeftExpression is { } left ? SemanticModel.GetOperation(left) : null;
 
-    public IOperation? Right => _right ??= ((RangeExpressionSyntax)Syntax).Right is { } right ? SemanticModel.GetOperation(right) : null;
+    public IOperation? Right => _right ??= ((RangeExpressionSyntax)Syntax).RightExpression is { } right ? SemanticModel.GetOperation(right) : null;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
