@@ -1542,8 +1542,11 @@ Cache.store<string>(null)                  // explicit type argument when passin
 
 Type parameter constraints mirror those on generic types. After the colon, list
 `class`, `struct`, or specific base/interface types that each argument must
-implement. Violating a constraint produces a diagnostic identifying the failing
-type argument and the unmet requirement.
+implement. Constraints are conjunctive: every listed requirement must be
+satisfied. The `struct` constraint excludes nullable value types, while `class`
+admits reference types (including nullable references). Violating a constraint
+produces a diagnostic identifying the failing type argument and the unmet
+requirement.
 
 ### Nested functions
 
@@ -1985,6 +1988,12 @@ let e: Grades.A | Grades.B
 
 #### Nullability and `null`
 
+Nullability is **explicit** in Raven. Reference types are non-nullable by
+default, and `null` can only flow through nullable annotations (`T?`) or unions
+that include `null`. The same rules apply uniformly to reference and value
+types; the distinction only affects runtime representation, not the surface
+type rules.
+
 `null` may appear as a union member:
 
 ```raven
@@ -1997,6 +2006,12 @@ If a union contains `null` and exactly one non-nullable type `T`, it implicitly 
 let x: int? = maybe         // ok
 let y: string? | int        // error: explicit nullable types must not be unioned
 ```
+
+To model absence explicitly, Raven recommends an **Option union** such as
+`alias Option<T> = T | null`. This works uniformly for reference and value
+types, and it implicitly converts to the nullable form (`T?` /
+`Nullable<T>`) when interacting with existing .NET APIs that expect nullable
+types.
 
 #### Assignability and conversions
 
