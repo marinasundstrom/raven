@@ -14,6 +14,8 @@ scripts/codex-build.sh
 
 *This will make sure that the essentials (Raven.CodeAnalysis) is being correctly built*
 
+Afterwards, you might just have to run `dotnet build <project path> --property WarningLevel=0` in order to build specific projects - unless you need to rebuild the entire syntax model or bound nodes.
+
 **Coding guidelines:** follow idiomatic .NET style; treat compiler components as immutable; prefer diagnostics over exceptions; keep services loosely coupled via interfaces/DI.
 
 **Contribution checklist:** format code with `dotnet format <solution|project> --include <files> --no-restore`; run build/test (unless docs-only); keep generated files up to date; add/update tests; write concise commit messages; summarize PRs with relevant diagnostics; update specs/grammar/docs alongside feature changes.
