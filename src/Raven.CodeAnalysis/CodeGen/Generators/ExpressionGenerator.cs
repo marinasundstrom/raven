@@ -2928,11 +2928,15 @@ internal class ExpressionGenerator : Generator
     {
         var target = GetInvocationTarget(invocationExpression);
         var receiver = invocationExpression.Receiver;
+        var receiverType = receiver?.Type;
+        var useConstrainedCall = !target.IsStatic &&
+            receiverType is ITypeParameterSymbol typeParameterSymbol &&
+            (typeParameterSymbol.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0;
 
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
-            var requiresAddress = invocationExpression.RequiresReceiverAddress;
+            var requiresAddress = invocationExpression.RequiresReceiverAddress || useConstrainedCall;
             var receiverAddressLoaded = false;
 
             if (!receiverAlreadyLoaded)
@@ -2944,7 +2948,14 @@ internal class ExpressionGenerator : Generator
                 }
                 else
                 {
-                    EmitExpression(receiver);
+                    if (receiver is null)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldarg_0);
+                    }
+                    else
+                    {
+                        EmitExpression(receiver);
+                    }
                 }
             }
             else if (requiresAddress)
@@ -2952,7 +2963,6 @@ internal class ExpressionGenerator : Generator
                 receiverAddressLoaded = true;
             }
 
-            var receiverType = receiver?.Type;
             var effectiveReceiverType = receiverType;
 
             if (receiverType is NullableTypeSymbol nullable
@@ -2963,7 +2973,18 @@ internal class ExpressionGenerator : Generator
                     effectiveReceiverType = nullable.UnderlyingType;
             }
 
-            if (effectiveReceiverType?.IsValueType == true)
+            if (useConstrainedCall)
+            {
+                if (!receiverAddressLoaded && effectiveReceiverType is not null)
+                {
+                    var constrainedClrType = ResolveClrType(effectiveReceiverType);
+                    var tmp = ILGenerator.DeclareLocal(constrainedClrType);
+                    ILGenerator.Emit(OpCodes.Stloc, tmp);
+                    ILGenerator.Emit(OpCodes.Ldloca, tmp);
+                    receiverAddressLoaded = true;
+                }
+            }
+            else if (effectiveReceiverType?.IsValueType == true)
             {
                 var clrType = ResolveClrType(effectiveReceiverType);
                 var methodDeclaringType = target.ContainingType;
@@ -3058,11 +3079,19 @@ internal class ExpressionGenerator : Generator
         }
         else
         {
-            var callOpCode = target.ContainingType!.IsValueType
-                ? (target.IsVirtual || isInterfaceCall ? OpCodes.Callvirt : OpCodes.Call)
-                : OpCodes.Callvirt;
+            if (useConstrainedCall && receiverType is not null)
+            {
+                ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(receiverType));
+                ILGenerator.Emit(OpCodes.Callvirt, targetMethodInfo);
+            }
+            else
+            {
+                var callOpCode = target.ContainingType!.IsValueType
+                    ? (target.IsVirtual || isInterfaceCall ? OpCodes.Callvirt : OpCodes.Call)
+                    : OpCodes.Callvirt;
 
-            ILGenerator.Emit(callOpCode, targetMethodInfo);
+                ILGenerator.Emit(callOpCode, targetMethodInfo);
+            }
         }
 
         // Special cast for Object.GetType() to MemberInfo
