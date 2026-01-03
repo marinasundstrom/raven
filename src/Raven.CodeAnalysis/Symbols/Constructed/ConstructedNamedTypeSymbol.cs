@@ -563,7 +563,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 work.Enqueue(next);
         }
 
-        return result.MoveToImmutable();
+        return result.ToImmutable();
     }
 
     private sealed class SubstitutionSession

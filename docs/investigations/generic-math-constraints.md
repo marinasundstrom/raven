@@ -142,6 +142,18 @@ This mirrors Roslyn’s safety properties:
 
 ---
 
+## Progress
+
+* ✅ Removed per-call file writes in `Substitute`.
+* ✅ Introduced a cycle-safe `SubstitutionSession` with in-flight guards.
+* ✅ Routed normalization through the substitution session.
+* ✅ Replaced interface closure substitution with a visited worklist.
+* ✅ Avoided eager `Construct(...)` calls during substitution and named-type member substitution.
+* ⏳ Validate `samples/generic-math-error.rav` compilation termination post-fix.
+* ⏳ Add regression coverage for substitution cycles and interface closure.
+
+---
+
 ## Verification Checklist
 
 * ✅ `generic-math-error.rav` compilation terminates (may still emit diagnostics, but must not hang)
