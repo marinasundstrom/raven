@@ -17,8 +17,8 @@ class Program
         //QuoterTest();
         //PrintMembers();
         //ReadType();
-        //Operations();
-        Docs();
+        Operations();
+        //Docs();
     }
 
     static void QuoterTest()
@@ -325,7 +325,10 @@ class Program
     static void Operations()
     {
         string sourceCode = """
-        val x = 42, s = 2
+        import System.*
+
+        val x = "Foo"
+        System.Console.WriteLine("Test: $x")
         """;
 
         SyntaxTree syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceCode);
@@ -340,6 +343,7 @@ class Program
             MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Collections.dll")),
             MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.Extensions.dll")),
             MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.IO.FileSystem.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.InteropServices.dll"))
         };
         compilation = compilation.AddReferences(references);
 
@@ -349,14 +353,22 @@ class Program
         var tree = compilation.SyntaxTrees.First();
         var root = tree.GetRoot();
 
-        var gs = root.Members.OfType<GlobalStatementSyntax>().First();
-
-        var localDeclarationStatement = gs.Statement as LocalDeclarationStatementSyntax;
+        var localDeclarationStatement = root.Members.OfType<GlobalStatementSyntax>()
+            .Select(x => x.Statement)
+            .First(x => x is LocalDeclarationStatementSyntax);
 
         var operation = compilation.GetSemanticModel(tree)
             .GetOperation(localDeclarationStatement!) as IVariableDeclarationOperation;
 
         var declarators = operation!.Declarators.ToList();
+
+        var exprStatement = root.Members.OfType<GlobalStatementSyntax>()
+            .Select(x => x.Statement)
+            .OfType<ExpressionStatementSyntax>()
+            .First(x => x.Expression is InvocationExpressionSyntax);
+
+        var operation2 = compilation.GetSemanticModel(tree)
+                  .GetOperation(exprStatement.Expression!);
     }
 
     static void Docs()
