@@ -1,0 +1,18 @@
+/*
+ * Demonstrates discriminated unions with generics.
+ */
+
+import System.*
+
+val ok : Result<int> = .Ok(99)
+val err = Result<int>.Error("boom")
+
+Console.WriteLine(format(ok))
+Console.WriteLine(format((Result<int>)err))
+
+func format<T>(result: Result<T>) -> Option<string> {
+    return result match {
+        .Ok(value) => .Some(value.ToString())
+        .Error(message) => .None
+    }
+}
