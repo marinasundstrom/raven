@@ -61,7 +61,7 @@ internal readonly record struct SymbolQuery(
     {
         binder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(typeParameter));
 
-        var constraintTypes = GetConstraintLookupTypes(binder, typeParameter);
+        var constraintTypes = GetConstraintLookupTypes(binder, typeParameter, includeObjectMembers: !preferStaticMembers);
         if (constraintTypes.IsDefaultOrEmpty)
             return Enumerable.Empty<ISymbol>();
 
@@ -87,10 +87,15 @@ internal readonly record struct SymbolQuery(
         return results;
     }
 
-    private static ImmutableArray<ITypeSymbol> GetConstraintLookupTypes(Binder binder, ITypeParameterSymbol typeParameter)
+    private static ImmutableArray<ITypeSymbol> GetConstraintLookupTypes(
+        Binder binder,
+        ITypeParameterSymbol typeParameter,
+        bool includeObjectMembers)
     {
         var builder = ImmutableArray.CreateBuilder<ITypeSymbol>();
         var seen = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var hasValueTypeConstraint = (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
+        var hasReferenceTypeConstraint = (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
 
         foreach (var constraint in typeParameter.ConstraintTypes)
         {
@@ -101,14 +106,21 @@ internal readonly record struct SymbolQuery(
                 builder.Add(constraint);
         }
 
-        if ((typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0)
+        if (hasValueTypeConstraint)
         {
             var valueType = binder.Compilation.GetSpecialType(SpecialType.System_ValueType);
             if (seen.Add(valueType))
                 builder.Add(valueType);
         }
 
-        if ((typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0)
+        if (hasReferenceTypeConstraint)
+        {
+            var objectType = binder.Compilation.GetSpecialType(SpecialType.System_Object);
+            if (seen.Add(objectType))
+                builder.Add(objectType);
+        }
+
+        if (includeObjectMembers && !hasValueTypeConstraint && !hasReferenceTypeConstraint)
         {
             var objectType = binder.Compilation.GetSpecialType(SpecialType.System_Object);
             if (seen.Add(objectType))
