@@ -1,118 +1,159 @@
-# Generic Math Constraint Investigation
+# Generic Math Constraint Hang Investigation
 
 ## Goal
-Document the current failure when compiling the `generic-math-error.rav` sample and outline hypotheses around the recursive substitution path triggered by `INumber<TSelf>` constraints.
+
+Explain why `samples/generic-math-error.rav` hangs during compilation (no diagnostics/output), and define a concrete fix plan that guarantees termination for self-referential generic math constraints like `where TSelf : INumber<TSelf>`.
 
 ## Reproduction
-1. Run the compiler against the sample:
-   ```bash
-   dotnet run --project src/Raven.Compiler -- samples/generic-math-error.rav
-   ```
-2. The build never produces diagnostics or an output binary. The process remains active until manually cancelled, indicating a hang during compilation rather than an early parse/bind failure.
+
+```bash
+dotnet run --project src/Raven.Compiler -- samples/generic-math-error.rav
+```
+
+Observed: process remains active until cancelled (hang).
+
+---
 
 ## Findings
-- `ConstructedNamedTypeSymbol.NormalizeTypeArguments` substitutes every explicit type argument before storing them, even when the argument is already concrete. The method does not guard against re-entrance or repeated normalization of the same argument set.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L205-L232】
-- `Substitute` rebuilds generic named types by invoking `Construct` whenever any argument changes, which immediately triggers `NormalizeTypeArguments` for the new `ConstructedNamedTypeSymbol`. With self-referential constraints like `INumber<TSelf>`, this loop can re-enter substitution on the same `(type parameter, argument)` pair indefinitely because there is no memoization or visited tracking.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L43-L103】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L131-L189】
-- `SubstituteNamedType` also eagerly constructs nested generic types when substitutions are available, again without a guard to short-circuit previously substituted parameter/argument pairs. This expands the recursion surface when constraints or interface closures contain other generic references.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedNamedTypeSymbol.cs†L234-L284】
 
-## Previous Attempt (for reference)
-### Constructed type caching & substitution guards
-- Added a `ConstructedNamedTypeSymbol.Create(...)` factory with a concurrent cache to canonicalize constructed named types.
-- Introduced a `SubstitutionTrace` (`AsyncLocal`) to track in-progress substitutions, avoid re-entrant loops, and memoize substituted results.
-- Added debug flags (`RAVEN_DEBUG_CONSTRUCTED_NAMED_TYPE`, `RAVEN_DEBUG_COMPILATION`) and conditional file output for tracing.
+### 1) The hang is driven by uncontrolled recursion in `ConstructedNamedTypeSymbol.Substitute`
 
-### Type parameter equality adjustments
-- `TypeParameterSubstitutionComparer` switched to comparing type parameters by `Ordinal`/`Name` + containing symbol key rather than the full `SymbolEqualityComparer`, to avoid recursion and improve stability.
+`Substitute` is a recursive rewriter that:
 
-### Caching policy changes
-- Caching was disabled for synthesized mutable types (state machines/iterators) to avoid stale constructed symbols.
+* substitutes type parameters using `_substitutionMap` and optional `methodMap`
+* recurses into wrappers (`NullableTypeSymbol`, `ByRefTypeSymbol`, address, arrays)
+* for generic named types, substitutes each type argument and then constructs a new generic type
 
-### Tests added
-- `ConstructedNamedTypeSymbolTests` coverage for:
-  - Canonicalization: `ConstructedType_FromMetadata_CanonicalizesByArguments`
-  - Comparer fallback behavior
-  - State machine refresh after mutation
-  - Recursive field substitutions
+Key recursion amplifier:
 
-### Build/workflow changes
-- Added `scripts/codex-build.sh` to run generators and build in a stable order.
-- Marked the script as preferred in `AGENTS.md`.
-- Added investigation docs for samples build/run and generic math constraints.
+```csharp
+return constructedFrom.Construct(substitutedArgs);
+```
 
-## Additional Findings From the Attempted Implementation
-### Substitution & caching behavior
-- Recursion originates from generic constraints (`INumber<TSelf>`) that repeatedly construct and substitute the same named types.
-- Guarding re-entrant substitution is necessary, but it must not return partial results (avoid emitting a partially substituted `ConstructedNamedTypeSymbol`).
-- Canonicalizing constructed types helps reduce duplication but must avoid caching mutable synthesized types.
+This forces a new constructed type and immediately re-triggers type argument normalization and more substitution.
 
-### Debug/diagnostics
-- File I/O for traces is useful but must be strictly gated (environment variables) and throttled to avoid flooding.
+### 2) `NormalizeTypeArguments` re-enters substitution without any cycle guard
 
-### Build reliability
-- Generators and MSBuild tasks can collide or fail in agent environments (file locks, missing generated types).
-- A stable sequence is required: generators → `Raven.CodeAnalysis` → `Raven.Compiler` (no core) → emit `Raven.Core` → `Raven.Compiler` (with core).
+`BuildTypeArguments()` normalizes explicit arguments via:
 
-### Sample build/run status
-- With the codex build script, samples partially compile.
-- Some failures are known (discriminated unions, pattern binding, overload inference gaps).
-- `test-result3.rav` still hits an emission crash (`FieldInfo` null).
-- Runtime failures include missing `runtimeconfig.json`, `BadImageFormat` in async/generators, and missing `TestDep.dll`.
+```csharp
+foreach (var argument in typeArguments)
+    builder.Add(Substitute(argument));
+```
 
-## Restart Plan (what to re-implement cleanly)
-### A) Core substitution & caching
-- Rebuild constructed-type caching around explicit factory usage with a clear cache key.
-- Re-implement recursion guards in `Substitute`:
-  - Track in-progress substitutions separately from completed memoized results.
-  - Ensure re-entrance never returns partial substitutions.
+This creates a self-referential path:
 
-### B) Comparer stability
-- Re-implement type parameter comparison:
-  - Use `Ordinal`/`Name` + containing-type key (only when the containing type is stable).
-  - Avoid recursion into symbol equality.
+* construct → build args → normalize → substitute → construct → ...
 
-### C) Debugging
-- Keep debug trace files strictly behind env flags.
-- Throttle output to avoid flooding.
+This is especially problematic with generic math, where constraints and interface graphs commonly reference “self” repeatedly (`INumber<TSelf>` and many operator interfaces).
 
-### D) Build workflow for agents
-- Provide a reliable agent-only build sequence:
-  - generators → `Raven.CodeAnalysis` → `Raven.Compiler` (no core) → emit `Raven.Core` → `Raven.Compiler` (with core)
-- Ensure output directories exist before emitting.
+### 3) `AllInterfaces`/`Interfaces` are computed by substituting the original definition’s closure
 
-## Suggested Re-implementation Checkpoints
-- ✅ Generators run independently without invoking MSBuild targets.
-- ✅ `Raven.CodeAnalysis` builds without missing generated syntax types.
-- ✅ `Raven.Compiler` builds without `Raven.Core` and can emit `Raven.Core` via `ravc`.
-- ✅ Substitution re-entrance is guarded without returning partial results.
-- ✅ Constructed type caching excludes mutable synthesized types.
-- ✅ Tests for caching/substitution pass.
-- ✅ Samples build/run, with remaining failures categorized and documented.
+Current implementation:
 
-## Next Steps
-- Add lightweight instrumentation (e.g., a recursion depth counter and an `ImmutableHashSet` of `(parameter, argument)` pairs) around `NormalizeTypeArguments`/`Substitute` to capture the exact loop triggered by `INumber<TSelf>`.
-- Introduce a recursion guard or memoization cache inside `Substitute` (and the equality path that calls it) so re-visiting the same substitution returns the existing symbol instead of reconstructing it.
-- Add a regression sample or unit test that exercises an async generic method constrained to `INumber<T>` to confirm the hang is resolved once substitution short-circuits.
+```csharp
+_originalDefinition.AllInterfaces.Select(i => (INamedTypeSymbol)Substitute(i))
+```
 
-## Proposed Investigation: Enumerated Substitution Resolution
-- Create a dedicated enumerator/visitor type that drives substitution resolution instead of inline recursion.
-  - The enumerator owns the current substitution context and yields resolved symbols in a controlled order.
-  - Maintain a `HashSet` cache of `(type parameter, argument)` pairs to short-circuit repeats.
-  - Track the active substitution stack so re-entrance can return a cached or placeholder result instead of re-entering `NormalizeTypeArguments`.
-- Store substitutions in a memoization map keyed by `(containing symbol, parameter, argument)` so nested generic expansions can reuse already-resolved results.
-- Ensure the enumerator records the original source of substitutions (constraint path vs. explicit type arguments) to make diagnostics traceable.
-- This refactor should make the recursion boundary explicit and isolate the stateful logic required to avoid the `INumber<TSelf>` loop.
+This is dangerous for generic math because:
 
-## Investigation Log (Start)
-- Identify candidate entry points for the enumerator:
-  - `ConstructedNamedTypeSymbol.Substitute`
-  - `ConstructedNamedTypeSymbol.NormalizeTypeArguments`
-  - `ConstructedNamedTypeSymbol.SubstituteNamedType`
-- Define the state container for the enumerator:
-  - `HashSet<(ITypeParameterSymbol parameter, ITypeSymbol argument)>` for in-flight pairs.
-  - `Dictionary<(ISymbol? container, ITypeParameterSymbol parameter, ITypeSymbol argument), ITypeSymbol>` for memoized results.
-  - `Stack<SubstitutionFrame>` to track recursion provenance (constraint vs. explicit type arguments).
-- Determine how the enumerator yields results:
-  - Yield substituted type arguments in a stable order before materializing constructed symbols.
-  - Allow short-circuiting when a pair is already in-flight (emit the cached symbol or a placeholder).
-- Record any diagnostics hooks needed to trace cycles:
-  - Emit a single diagnostic or trace entry when a cycle is detected, with the originating substitution path.
+* `_originalDefinition.AllInterfaces` can be very large
+* it may involve self-referential edges via constraints/interface inheritance
+* each `Substitute(i)` can reconstruct more generic interfaces and re-enter normalization/substitution
+
+### 4) `Substitute` currently performs synchronous file I/O per call
+
+`File.WriteAllText(...)` inside `Substitute` can make the compiler appear hung due to massive repeated writes during deep recursion/closure walks. This must be removed or strictly gated and throttled.
+
+---
+
+## Fix Plan (Concise)
+
+### A) Remove per-call file writes in `Substitute`
+
+* Delete `File.WriteAllText(...)` from `Substitute`.
+* If tracing is needed, gate behind env flags and throttle (e.g., every N calls) using buffered logging.
+
+### B) Introduce a cycle-safe `SubstitutionSession`
+
+Create a session object that owns memoization and in-flight detection for substitution work items.
+
+Key rule: memoize by **(type-expression identity, substitution environment)**, where environment includes:
+
+* the constructed owner instance (`this`) and
+* the `methodMap` instance (if present)
+
+Session state:
+
+* `Dictionary<Key, ITypeSymbol> completed`
+* `HashSet<Key> inProgress`
+
+Cycle policy:
+
+* if a key is already `inProgress`, return a stable fallback (**return the original `type` unchanged**).
+  This avoids partial constructed symbols and guarantees termination.
+
+### C) Route all substitution recursion through the session
+
+Refactor:
+
+* `Substitute(...)` becomes a thin entrypoint that creates a session and calls `session.Substitute(this, type, methodMap)`
+* move existing logic into `SubstituteCore(type, methodMap, session)`
+* replace all recursive calls `Substitute(x)` with `session.Substitute(this, x, methodMap)`
+
+### D) Stop calling `named.Construct(...)` from inside substitution
+
+In `SubstituteCore`, for generic named types:
+
+* compute substituted type arguments via the session
+* if changed, create a constructed symbol **without** triggering deep normalization/closure expansion as a side effect
+
+Practical approach with current design:
+
+* avoid `constructedFrom.Construct(substitutedArgs)` within substitution
+* construct via `new ConstructedNamedTypeSymbol(constructedFrom, substitutedArgs.ToImmutableArray(), ...)` or a dedicated shallow factory
+* ensure the constructed symbol’s type-argument normalization uses the session (see next step)
+
+### E) Make type argument normalization session-based (no raw re-entry)
+
+Update normalization so it does not call `Substitute` directly.
+
+* `NormalizeTypeArguments(...)` should accept a `SubstitutionSession` (and optional `methodMap`) and use `session.Substitute(...)` for each argument.
+* `TypeArguments` computation should build once using a session, store `_typeArguments`, and never trigger an unguarded substitution loop.
+
+### F) Re-implement `AllInterfaces` as an explicit visited-set closure walk
+
+Do not compute `AllInterfaces` as:
+
+* “original definition’s `AllInterfaces` then substitute every element”
+
+Instead:
+
+* seed a worklist with substituted **direct** interfaces
+* maintain `visited` set keyed by constructed interface identity
+* pop interface, add to result if new, then push its base interfaces (substituted via session)
+* cache the resulting immutable array
+
+This mirrors Roslyn’s safety properties:
+
+* terminates even with cycles/pathological graphs
+* dedupes constructed interfaces
+* avoids repeated closure recomputation
+
+---
+
+## Verification Checklist
+
+* ✅ `generic-math-error.rav` compilation terminates (may still emit diagnostics, but must not hang)
+* ✅ Substitution of self-referential graphs terminates (unit test)
+* ✅ `AllInterfaces` for `System.Int32` terminates and is duplicate-free (unit test)
+* ✅ Removing debug I/O eliminates I/O-bound “hang” behavior
+* ✅ No substitution path reconstructs types in a way that re-enters normalization without session guards
+
+---
+
+## Minimal Regression Tests
+
+1. **Hang regression:** compile `generic-math-error.rav` with a test harness timeout; must complete.
+2. **Substitution cycle:** substitute a type graph that includes a self-referential interface constraint edge; must complete and return stable results.
+3. **Interface closure:** `AllInterfaces(int)` completes and contains expected constructed interfaces without duplicates.
