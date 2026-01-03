@@ -51,6 +51,16 @@ public enum OperationKind
     Return,
 
     /// <summary>
+    /// A yield return statement.
+    /// </summary>
+    YieldReturn,
+
+    /// <summary>
+    /// A yield break statement.
+    /// </summary>
+    YieldBreak,
+
+    /// <summary>
     /// A throw statement.
     /// </summary>
     Throw,
@@ -69,6 +79,11 @@ public enum OperationKind
     /// A goto statement.
     /// </summary>
     Goto,
+
+    /// <summary>
+    /// A conditional goto statement.
+    /// </summary>
+    ConditionalGoto,
 
     /// <summary>
     /// A labeled statement.
@@ -99,6 +114,11 @@ public enum OperationKind
     /// A reference to a local variable.
     /// </summary>
     LocalReference,
+
+    /// <summary>
+    /// A reference to a variable expression.
+    /// </summary>
+    VariableReference,
 
     /// <summary>
     /// A reference to a method parameter.
@@ -156,6 +176,11 @@ public enum OperationKind
     TryExpression,
 
     /// <summary>
+    /// An await expression.
+    /// </summary>
+    Await,
+
+    /// <summary>
     /// A while loop statement or expression.
     /// </summary>
     WhileLoop,
@@ -206,6 +231,16 @@ public enum OperationKind
     IndexerElement,
 
     /// <summary>
+    /// An index expression.
+    /// </summary>
+    Index,
+
+    /// <summary>
+    /// A range expression.
+    /// </summary>
+    Range,
+
+    /// <summary>
     /// A typeof expression.
     /// </summary>
     TypeOf,
@@ -221,9 +256,74 @@ public enum OperationKind
     Switch,
 
     /// <summary>
+    /// An is-pattern expression.
+    /// </summary>
+    IsPattern,
+
+    /// <summary>
+    /// A case pattern.
+    /// </summary>
+    CasePattern,
+
+    /// <summary>
+    /// A declaration pattern.
+    /// </summary>
+    DeclarationPattern,
+
+    /// <summary>
+    /// A constant pattern.
+    /// </summary>
+    ConstantPattern,
+
+    /// <summary>
+    /// A tuple pattern.
+    /// </summary>
+    TuplePattern,
+
+    /// <summary>
+    /// A discard pattern.
+    /// </summary>
+    DiscardPattern,
+
+    /// <summary>
+    /// A negated pattern.
+    /// </summary>
+    NotPattern,
+
+    /// <summary>
+    /// A pattern conjunction.
+    /// </summary>
+    AndPattern,
+
+    /// <summary>
+    /// A pattern disjunction.
+    /// </summary>
+    OrPattern,
+
+    /// <summary>
+    /// A single-variable designator.
+    /// </summary>
+    SingleVariableDesignator,
+
+    /// <summary>
+    /// A discard designator.
+    /// </summary>
+    DiscardDesignator,
+
+    /// <summary>
     /// A collection expression.
     /// </summary>
     Collection,
+
+    /// <summary>
+    /// An empty collection expression.
+    /// </summary>
+    EmptyCollection,
+
+    /// <summary>
+    /// A collection spread element.
+    /// </summary>
+    SpreadElement,
 
     /// <summary>
     /// A type expression.

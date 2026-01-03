@@ -237,6 +237,52 @@ internal sealed class ReturnOperation : Operation, IReturnOperation
     }
 }
 
+internal sealed class YieldReturnOperation : Operation
+{
+    private readonly BoundYieldReturnStatement _bound;
+    private IOperation? _returnedValue;
+
+    internal YieldReturnOperation(
+        SemanticModel semanticModel,
+        BoundYieldReturnStatement bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.YieldReturn, syntax, null, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? ReturnedValue => _returnedValue ??= ((YieldReturnStatementSyntax)Syntax).Expression is { } expression ? SemanticModel.GetOperation(expression) : null;
+
+    public ITypeSymbol ElementType => _bound.ElementType;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ReturnedValue is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(ReturnedValue);
+    }
+}
+
+internal sealed class YieldBreakOperation : Operation
+{
+    private readonly BoundYieldBreakStatement _bound;
+
+    internal YieldBreakOperation(
+        SemanticModel semanticModel,
+        BoundYieldBreakStatement bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.YieldBreak, syntax, null, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ITypeSymbol ElementType => _bound.ElementType;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
+}
+
 internal sealed class ThrowOperation : Operation
 {
     private readonly BoundThrowStatement _bound;
@@ -330,6 +376,43 @@ internal sealed class GotoOperation : Operation
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
 
+internal sealed class ConditionalGotoOperation : Operation
+{
+    private readonly BoundConditionalGotoStatement _bound;
+    private IOperation? _condition;
+
+    internal ConditionalGotoOperation(SemanticModel semanticModel, BoundConditionalGotoStatement bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.ConditionalGoto, syntax, null, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ILabelSymbol Target => _bound.Target;
+
+    public bool JumpIfTrue => _bound.JumpIfTrue;
+
+    public IOperation? Condition
+    {
+        get
+        {
+            if (_condition is not null)
+                return _condition;
+
+            var conditionSyntax = SemanticModel.GetSyntax(_bound.Condition);
+            _condition = conditionSyntax is null ? null : SemanticModel.GetOperation(conditionSyntax);
+
+            return _condition;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Condition is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Condition);
+    }
+}
+
 internal sealed class LabeledOperation : Operation
 {
     private readonly BoundLabeledStatement _bound;
@@ -375,6 +458,14 @@ internal sealed class LocalReferenceOperation : SymbolReferenceOperation<ILocalS
     }
 }
 
+internal sealed class VariableReferenceOperation : SymbolReferenceOperation<ILocalSymbol>
+{
+    internal VariableReferenceOperation(SemanticModel semanticModel, BoundVariableExpression bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.VariableReference, syntax, bound.Variable, bound.Type, isImplicit)
+    {
+    }
+}
+
 internal sealed class ParameterReferenceOperation : SymbolReferenceOperation<IParameterSymbol>
 {
     internal ParameterReferenceOperation(SemanticModel semanticModel, BoundParameterAccess bound, SyntaxNode syntax, bool isImplicit)
@@ -403,6 +494,19 @@ internal sealed class MethodReferenceOperation : SymbolReferenceOperation<IMetho
 {
     internal MethodReferenceOperation(SemanticModel semanticModel, BoundMethodGroupExpression bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.MethodReference, syntax, bound.Methods.Single(), bound.Type, isImplicit)
+    {
+    }
+}
+
+internal sealed class MemberReferenceOperation : SymbolReferenceOperation<ISymbol>
+{
+    internal MemberReferenceOperation(
+        SemanticModel semanticModel,
+        BoundMemberAccessExpression bound,
+        OperationKind kind,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, kind, syntax, bound.Member, bound.Type, isImplicit)
     {
     }
 }
@@ -557,6 +661,37 @@ internal sealed class ConditionalAccessOperation : Operation
     }
 }
 
+internal sealed class AwaitOperation : Operation
+{
+    private readonly BoundAwaitExpression _bound;
+    private IOperation? _operation;
+
+    internal AwaitOperation(
+        SemanticModel semanticModel,
+        BoundAwaitExpression bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.Await, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((UnaryExpressionSyntax)Syntax).Expression);
+
+    public IMethodSymbol GetAwaiterMethod => _bound.GetAwaiterMethod;
+
+    public IMethodSymbol GetResultMethod => _bound.GetResultMethod;
+
+    public IPropertySymbol IsCompletedProperty => _bound.IsCompletedProperty;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Operation is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Operation);
+    }
+}
+
 internal sealed class InvocationOperation : Operation
 {
     private readonly BoundInvocationExpression _bound;
@@ -637,6 +772,54 @@ internal sealed class ElementAccessOperation : Operation
     }
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+}
+
+internal sealed class IndexOperation : Operation
+{
+    private readonly BoundIndexExpression _bound;
+    private IOperation? _value;
+
+    internal IndexOperation(SemanticModel semanticModel, BoundIndexExpression bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.Index, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public bool IsFromEnd => _bound.IsFromEnd;
+
+    public IOperation? Value => _value ??= SemanticModel.GetOperation(((IndexExpressionSyntax)Syntax).Expression);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Value is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Value);
+    }
+}
+
+internal sealed class RangeOperation : Operation
+{
+    private IOperation? _left;
+    private IOperation? _right;
+
+    internal RangeOperation(SemanticModel semanticModel, BoundRangeExpression bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.Range, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public IOperation? Left => _left ??= ((RangeExpressionSyntax)Syntax).LeftExpression is { } left ? SemanticModel.GetOperation(left) : null;
+
+    public IOperation? Right => _right ??= ((RangeExpressionSyntax)Syntax).RightExpression is { } right ? SemanticModel.GetOperation(right) : null;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+        builder.AddIfNotNull(Left);
+        builder.AddIfNotNull(Right);
+
+        return builder.ToImmutable();
+    }
 }
 
 internal sealed class TypeOfOperation : Operation
@@ -832,6 +1015,228 @@ internal sealed class SwitchOperation : Operation
     protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
 }
 
+internal sealed class IsPatternOperation : Operation
+{
+    private IOperation? _value;
+    private IOperation? _pattern;
+
+    internal IsPatternOperation(SemanticModel semanticModel, BoundIsPatternExpression bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.IsPattern, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public IOperation? Value => _value ??= SemanticModel.GetOperation(((IsPatternExpressionSyntax)Syntax).Expression);
+
+    public IOperation? Pattern => _pattern ??= SemanticModel.GetOperation(((IsPatternExpressionSyntax)Syntax).Pattern);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+        builder.AddIfNotNull(Value);
+        builder.AddIfNotNull(Pattern);
+
+        return builder.ToImmutable();
+    }
+}
+
+internal abstract class PatternOperation : Operation
+{
+    protected PatternOperation(
+        SemanticModel semanticModel,
+        OperationKind kind,
+        SyntaxNode syntax,
+        ITypeSymbol? type,
+        bool isImplicit)
+        : base(semanticModel, kind, syntax, type, isImplicit)
+    {
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+}
+
+internal sealed class CasePatternOperation : PatternOperation
+{
+    private readonly BoundCasePattern _bound;
+
+    internal CasePatternOperation(
+        SemanticModel semanticModel,
+        BoundCasePattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.CasePattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public IDiscriminatedUnionCaseSymbol CaseSymbol => _bound.CaseSymbol;
+
+    public IMethodSymbol TryGetMethod => _bound.TryGetMethod;
+}
+
+internal sealed class DeclarationPatternOperation : PatternOperation
+{
+    private readonly BoundDeclarationPattern _bound;
+    private IOperation? _designator;
+
+    internal DeclarationPatternOperation(
+        SemanticModel semanticModel,
+        BoundDeclarationPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.DeclarationPattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ITypeSymbol DeclaredType => _bound.DeclaredType;
+
+    public IOperation? Designator
+    {
+        get
+        {
+            if (_designator is not null)
+                return _designator;
+
+            var designatorSyntax = SemanticModel.GetSyntax(_bound.Designator);
+            _designator = designatorSyntax is null ? null : SemanticModel.GetOperation(designatorSyntax);
+
+            return _designator;
+        }
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+
+        builder.AddRange(OperationUtilities.CreateChildOperations(SemanticModel, Syntax));
+        builder.AddIfNotNull(Designator);
+
+        return builder.ToImmutable();
+    }
+}
+
+internal sealed class ConstantPatternOperation : PatternOperation
+{
+    private readonly BoundConstantPattern _bound;
+
+    internal ConstantPatternOperation(
+        SemanticModel semanticModel,
+        BoundConstantPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.ConstantPattern, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public object ConstantValue => _bound.ConstantValue;
+}
+
+internal sealed class TuplePatternOperation : PatternOperation
+{
+    internal TuplePatternOperation(
+        SemanticModel semanticModel,
+        BoundTuplePattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.TuplePattern, syntax, bound.Type, isImplicit)
+    {
+    }
+}
+
+internal sealed class DiscardPatternOperation : PatternOperation
+{
+    internal DiscardPatternOperation(
+        SemanticModel semanticModel,
+        BoundDiscardPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.DiscardPattern, syntax, bound.Type, isImplicit)
+    {
+    }
+}
+
+internal sealed class NotPatternOperation : PatternOperation
+{
+    internal NotPatternOperation(
+        SemanticModel semanticModel,
+        BoundNotPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.NotPattern, syntax, bound.Type, isImplicit)
+    {
+    }
+}
+
+internal sealed class AndPatternOperation : PatternOperation
+{
+    internal AndPatternOperation(
+        SemanticModel semanticModel,
+        BoundAndPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.AndPattern, syntax, bound.Type, isImplicit)
+    {
+    }
+}
+
+internal sealed class OrPatternOperation : PatternOperation
+{
+    internal OrPatternOperation(
+        SemanticModel semanticModel,
+        BoundOrPattern bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.OrPattern, syntax, bound.Type, isImplicit)
+    {
+    }
+}
+
+internal abstract class DesignatorOperation : Operation
+{
+    protected DesignatorOperation(
+        SemanticModel semanticModel,
+        OperationKind kind,
+        SyntaxNode syntax,
+        ITypeSymbol? type,
+        bool isImplicit)
+        : base(semanticModel, kind, syntax, type, isImplicit)
+    {
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
+}
+
+internal sealed class SingleVariableDesignatorOperation : DesignatorOperation
+{
+    private readonly BoundSingleVariableDesignator _bound;
+
+    internal SingleVariableDesignatorOperation(
+        SemanticModel semanticModel,
+        BoundSingleVariableDesignator bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.SingleVariableDesignator, syntax, bound.Type, isImplicit)
+    {
+        _bound = bound;
+    }
+
+    public ILocalSymbol Local => _bound.Local;
+}
+
+internal sealed class DiscardDesignatorOperation : DesignatorOperation
+{
+    internal DiscardDesignatorOperation(
+        SemanticModel semanticModel,
+        BoundDiscardDesignator bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.DiscardDesignator, syntax, bound.Type, isImplicit)
+    {
+    }
+}
+
 internal sealed class CollectionOperation : Operation
 {
     internal CollectionOperation(SemanticModel semanticModel, BoundCollectionExpression bound, SyntaxNode syntax, bool isImplicit)
@@ -840,6 +1245,35 @@ internal sealed class CollectionOperation : Operation
     }
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+}
+
+internal sealed class EmptyCollectionOperation : Operation
+{
+    internal EmptyCollectionOperation(SemanticModel semanticModel, BoundEmptyCollectionExpression bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.EmptyCollection, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
+}
+
+internal sealed class SpreadElementOperation : Operation
+{
+    private IOperation? _expression;
+
+    internal SpreadElementOperation(SemanticModel semanticModel, BoundSpreadElement bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.SpreadElement, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public IOperation? Expression => _expression ??= SemanticModel.GetOperation(((SpreadElementSyntax)Syntax).Expression);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Expression is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Expression);
+    }
 }
 
 internal sealed class TypeOperation : Operation
