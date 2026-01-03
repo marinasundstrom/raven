@@ -148,7 +148,7 @@ union Result<T> {
 }
 
 class Formatter {
-    Format(result: Result<int>) -> string {
+    public Format(result: Result<int>) -> string {
         return result match {
             .Ok(value) => "ok ${value}"
             .Error(message) => "error ${message}"
@@ -190,7 +190,7 @@ union Test {
 }
 
 class Formatter {
-    Describe(value: Test) -> string {
+    public Describe(value: Test) -> string {
         return value match {
             .Something(text) => text
             .Nothing => "none"
