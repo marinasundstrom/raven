@@ -73,7 +73,7 @@ internal readonly record struct SymbolQuery(
         foreach (var constraint in constraintTypes)
         {
             var members = preferStaticMembers
-                ? constraint.GetMembers(Name)
+                ? GetStaticAbstractConstraintMembers(constraint)
                 : constraint.ResolveMembers(Name);
 
             foreach (var member in members)
@@ -85,6 +85,29 @@ internal readonly record struct SymbolQuery(
         }
 
         return results;
+    }
+
+    private IEnumerable<ISymbol> GetStaticAbstractConstraintMembers(ITypeSymbol constraint)
+    {
+        if (constraint.TypeKind != TypeKind.Interface)
+            return Enumerable.Empty<ISymbol>();
+
+        return constraint
+            .GetMembers(Name)
+            .Where(IsStaticAbstractMember);
+    }
+
+    private static bool IsStaticAbstractMember(ISymbol member)
+    {
+        if (!member.IsStatic)
+            return false;
+
+        return member switch
+        {
+            IMethodSymbol method => method.IsAbstract,
+            IPropertySymbol property => property.GetMethod?.IsAbstract == true || property.SetMethod?.IsAbstract == true,
+            _ => false
+        };
     }
 
     private static ImmutableArray<ITypeSymbol> GetConstraintLookupTypes(
