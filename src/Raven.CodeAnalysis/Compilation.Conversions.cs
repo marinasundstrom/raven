@@ -673,8 +673,6 @@ public partial class Compilation
         ITypeSymbol argumentType,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
-        File.WriteAllText("Compilation.debug.txt", $"DEBUG (Compilation.TryUnifyExtensionReceiver). Param type: {parameterType}; Argument type: {argumentType}");
-
         parameterType = NormalizeTypeForExtensionInference(parameterType);
         argumentType = NormalizeTypeForExtensionInference(argumentType);
 
