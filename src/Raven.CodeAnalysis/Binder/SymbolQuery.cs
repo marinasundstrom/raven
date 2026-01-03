@@ -18,7 +18,11 @@ internal readonly record struct SymbolQuery(
     {
         IEnumerable<ISymbol> symbols;
         var containingType = NormalizeContainingType(ContainingType);
-        if (containingType is not null)
+        if (containingType is ITypeParameterSymbol typeParameter)
+        {
+            symbols = LookupTypeParameterMembers(binder, typeParameter);
+        }
+        else if (containingType is not null)
         {
             symbols = IsStatic == true
                 ? containingType.GetMembers(Name)
@@ -53,6 +57,61 @@ internal readonly record struct SymbolQuery(
     public IEnumerable<IMethodSymbol> LookupMethods(Binder binder) =>
         Lookup(binder).OfType<IMethodSymbol>();
 
+    private IEnumerable<ISymbol> LookupTypeParameterMembers(Binder binder, ITypeParameterSymbol typeParameter)
+    {
+        binder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(typeParameter));
+
+        var constraintTypes = GetConstraintLookupTypes(binder, typeParameter);
+        if (constraintTypes.IsDefaultOrEmpty)
+            return Enumerable.Empty<ISymbol>();
+
+        var seenSignatures = new HashSet<string>();
+        var results = new List<ISymbol>();
+
+        foreach (var constraint in constraintTypes)
+        {
+            foreach (var member in constraint.ResolveMembers(Name))
+            {
+                var signature = GetSignatureKey(member);
+                if (seenSignatures.Add(signature))
+                    results.Add(member);
+            }
+        }
+
+        return results;
+    }
+
+    private static ImmutableArray<ITypeSymbol> GetConstraintLookupTypes(Binder binder, ITypeParameterSymbol typeParameter)
+    {
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>();
+        var seen = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var constraint in typeParameter.ConstraintTypes)
+        {
+            if (constraint is IErrorTypeSymbol)
+                continue;
+
+            if (seen.Add(constraint))
+                builder.Add(constraint);
+        }
+
+        if ((typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0)
+        {
+            var valueType = binder.Compilation.GetSpecialType(SpecialType.System_ValueType);
+            if (seen.Add(valueType))
+                builder.Add(valueType);
+        }
+
+        if ((typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0)
+        {
+            var objectType = binder.Compilation.GetSpecialType(SpecialType.System_Object);
+            if (seen.Add(objectType))
+                builder.Add(objectType);
+        }
+
+        return builder.ToImmutable();
+    }
+
     private static ITypeSymbol? NormalizeContainingType(ITypeSymbol? type)
     {
         while (type is IAliasSymbol alias && alias.UnderlyingSymbol is ITypeSymbol aliasType)
@@ -62,6 +121,17 @@ internal readonly record struct SymbolQuery(
             return literal.UnderlyingType;
 
         return type;
+    }
+
+    private static string GetSignatureKey(ISymbol symbol)
+    {
+        if (symbol is IMethodSymbol method)
+        {
+            var paramTypes = string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()));
+            return $"{method.Name}({paramTypes})";
+        }
+
+        return symbol.Name;
     }
 
     private static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int argumentCount)
