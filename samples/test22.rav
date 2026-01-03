@@ -1,6 +1,6 @@
 import System.*
 
-val x = Option<int>.None
+val x = Option<int>.Some(42)
 Console.WriteLine(x)
 
 val r: int? = x

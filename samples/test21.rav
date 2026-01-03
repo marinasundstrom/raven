@@ -1,6 +1,6 @@
 import System.*
 
-val x = Option<string>.None
+val x = Option<string>.Some("OK")
 Console.WriteLine(x)
 
 val r: string? = x

@@ -1,0 +1,9 @@
+import System.*
+
+val opt1 = Option<string>.Some("OK")
+val opt12: string? = opt1
+Console.WriteLine(opt12)
+
+val opt2 = Option<int>.Some(42)
+val opt22: int? = opt2
+Console.WriteLine(opt22)
