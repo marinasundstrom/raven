@@ -1032,13 +1032,8 @@ internal class ExpressionGenerator : Generator
             {
                 var labelSuccess = ILGenerator.DefineLabel();
                 var labelDone = ILGenerator.DefineLabel();
-                var requiresUnbox = clrType.IsValueType;
-
-                if (clrType.IsGenericParameter &&
-                    (clrType.GenericParameterAttributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0)
-                {
-                    requiresUnbox = true;
-                }
+                var requiresUnbox = clrType.IsValueType ||
+                                    (clrType.IsGenericParameter && !isReferencePattern);
 
                 ILGenerator.Emit(OpCodes.Isinst, clrType);
                 ILGenerator.Emit(OpCodes.Dup);
