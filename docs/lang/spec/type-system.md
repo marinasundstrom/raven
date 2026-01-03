@@ -1,6 +1,6 @@
 # Raven type system
 
-Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation. Conceptually, every CLR type (including structs and other value types) behaves as an object in Raven: value types keep their value semantics, but they participate uniformly in member lookup, generics, and unions through boxing when necessary.
+Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation. Conceptually, every CLR type (including structs and other value types) behaves as an object in Raven: value types keep their value semantics, but they participate uniformly in member lookup, generics, and unions through boxing when necessary. Nullability is explicit for both reference and value types, so `?` and `null` are treated consistently regardless of runtime representation.
 
 ## Primitive types
 
@@ -137,7 +137,9 @@ annotations, local bindings, generics, and so on.
 
 ### Nullable values
 
-Appending `?` creates a nullable type. Value types are emitted as
+Appending `?` creates a nullable type. Raven does not assume reference types are
+nullable by default; `?` is required to permit `null`, just as it is for value
+types. Value types are emitted as
 `System.Nullable<T>` while reference types use C#'s nullable metadata. Nullable
 types are distinct from their non-nullable counterparts for purposes of type
 identity and overload resolution. The compiler treats `T?` as accepting both
@@ -180,6 +182,12 @@ let a: int | string = "2"   // either an int or a string
 let b: string | null = null // optional string (converts to `string?` when required)
 let c: "yes" | "no" = "yes" // constrained to specific constants
 ```
+
+To model absence explicitly, Raven recommends an **Option union** such as
+`alias Option<T> = T | null`. Option unions behave the same for reference and
+value types, and they implicitly convert to nullable forms (`T?` or
+`Nullable<T>`) when interacting with existing .NET APIs that expect nullable
+types.
 
 A value is assignable to a union when it can convert to at least one member.
 Literal branches are matched by value rather than by type:
@@ -235,9 +243,10 @@ let explicit = identity<double>(42)
 
 Type parameters optionally declare constraints after a colon. The keywords
 `class` and `struct` require reference types or non-nullable value types
-respectively. Additional constraints must be nominal types (classes or
-interfaces) implemented by the argument. Constraints are comma-separated and
-may appear in any order.
+respectively. The `class` constraint admits nullable references, while `struct`
+excludes `Nullable<T>`. Additional constraints must be nominal types (classes
+or interfaces) implemented by the argument. Constraints are comma-separated,
+conjunctive, and may appear in any order.
 
 ```raven
 class Repository<TContext: class, IDisposable>
