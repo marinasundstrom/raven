@@ -92,3 +92,12 @@ Document the current failure when compiling the `generic-math-error.rav` sample 
 - Add lightweight instrumentation (e.g., a recursion depth counter and an `ImmutableHashSet` of `(parameter, argument)` pairs) around `NormalizeTypeArguments`/`Substitute` to capture the exact loop triggered by `INumber<TSelf>`.
 - Introduce a recursion guard or memoization cache inside `Substitute` (and the equality path that calls it) so re-visiting the same substitution returns the existing symbol instead of reconstructing it.
 - Add a regression sample or unit test that exercises an async generic method constrained to `INumber<T>` to confirm the hang is resolved once substitution short-circuits.
+
+## Proposed Investigation: Enumerated Substitution Resolution
+- Create a dedicated enumerator/visitor type that drives substitution resolution instead of inline recursion.
+  - The enumerator owns the current substitution context and yields resolved symbols in a controlled order.
+  - Maintain a `HashSet` cache of `(type parameter, argument)` pairs to short-circuit repeats.
+  - Track the active substitution stack so re-entrance can return a cached or placeholder result instead of re-entering `NormalizeTypeArguments`.
+- Store substitutions in a memoization map keyed by `(containing symbol, parameter, argument)` so nested generic expansions can reuse already-resolved results.
+- Ensure the enumerator records the original source of substitutions (constraint path vs. explicit type arguments) to make diagnostics traceable.
+- This refactor should make the recursion boundary explicit and isolate the stateful logic required to avoid the `INumber<TSelf>` loop.
