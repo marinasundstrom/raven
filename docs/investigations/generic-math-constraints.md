@@ -149,6 +149,7 @@ This mirrors Roslyn’s safety properties:
 * ✅ Routed normalization through the substitution session.
 * ✅ Replaced interface closure substitution with a visited worklist.
 * ✅ Avoided eager `Construct(...)` calls during substitution and named-type member substitution.
+* ✅ Avoid constructing unchanged named-type substitutions without actual replacements.
 * ⏳ Validate `samples/generic-math-error.rav` compilation termination post-fix.
 * ⏳ Add regression coverage for substitution cycles and interface closure.
 

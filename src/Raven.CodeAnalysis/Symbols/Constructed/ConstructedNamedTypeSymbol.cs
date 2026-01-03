@@ -289,12 +289,15 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         }
 
         var typeArguments = new ITypeSymbol[typeParameters.Length];
+        var changed = false;
         for (var i = 0; i < typeParameters.Length; i++)
         {
             var parameter = typeParameters[i];
             if (TryGetSubstitution(parameter, out var replacement))
             {
                 typeArguments[i] = replacement;
+                if (!SymbolEqualityComparer.Default.Equals(replacement, parameter))
+                    changed = true;
             }
             else
             {
@@ -304,7 +307,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
         var immutableArguments = ImmutableArray.Create(typeArguments);
         if (containingOverride is null)
-            return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingTypeOverride: null);
+            return changed
+                ? new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingTypeOverride: null)
+                : namedType;
 
         return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride);
     }
