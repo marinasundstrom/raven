@@ -302,10 +302,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             }
         }
 
-        if (containingOverride is null)
-            return (INamedTypeSymbol)namedType.Construct(typeArguments);
-
         var immutableArguments = ImmutableArray.Create(typeArguments);
+        if (containingOverride is null)
+            return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingTypeOverride: null);
+
         return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride);
     }
 
