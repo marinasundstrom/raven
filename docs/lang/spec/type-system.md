@@ -183,11 +183,11 @@ let b: string | null = null // optional string (converts to `string?` when requi
 let c: "yes" | "no" = "yes" // constrained to specific constants
 ```
 
-To model absence explicitly, Raven recommends an **Option union** such as
-`alias Option<T> = T | null`. Option unions behave the same for reference and
-value types, and they implicitly convert to nullable forms (`T?` or
-`Nullable<T>`) when interacting with existing .NET APIs that expect nullable
-types.
+To model absence explicitly, Raven recommends the **Option union** defined in
+`src/Raven.Core/Option.rav` (`System.Option<T>`). It behaves like a `T | null`
+union for both reference and value types and implicitly converts to nullable
+forms (`T?` or `Nullable<T>`) when interacting with existing .NET APIs that
+expect nullable types.
 
 A value is assignable to a union when it can convert to at least one member.
 Literal branches are matched by value rather than by type:
