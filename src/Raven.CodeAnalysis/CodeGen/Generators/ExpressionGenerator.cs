@@ -3366,13 +3366,37 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
+                if (argument?.Type?.TypeKind == TypeKind.Null &&
+                    paramSymbol.Type is NullableTypeSymbol nullableParam &&
+                    nullableParam.UnderlyingType.IsValueType)
+                {
+                    EmitDefaultValue(paramSymbol.Type);
+                    continue;
+                }
+
                 EmitExpression(argument);
 
-                if (argument?.Type is { } argumentType &&
-                    RequiresValueTypeHandling(argumentType) &&
-                    !RequiresValueTypeHandling(paramSymbol.Type))
+                var argumentType = argument?.Type;
+                var paramType = paramSymbol.Type;
+                var finalType = argumentType;
+
+                if (argumentType is not null &&
+                    paramType is not null &&
+                    !SymbolEqualityComparer.Default.Equals(argumentType, paramType))
                 {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argumentType));
+                    var conversion = Compilation.ClassifyConversion(argumentType, paramType);
+                    if (conversion.Exists && !conversion.IsIdentity)
+                    {
+                        EmitConversion(argumentType, paramType, conversion);
+                        finalType = paramType;
+                    }
+                }
+
+                if (finalType is not null &&
+                    RequiresValueTypeHandling(finalType) &&
+                    !RequiresValueTypeHandling(paramType))
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
                 }
             }
         }

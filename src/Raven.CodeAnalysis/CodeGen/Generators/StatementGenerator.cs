@@ -715,12 +715,26 @@ internal class StatementGenerator : Generator
                 return;
             }
 
+            var finalType = expressionType;
+
             if (expressionType is not null &&
                 localSymbol.Type is not null &&
-                expressionType.IsValueType &&
+                !SymbolEqualityComparer.Default.Equals(expressionType, localSymbol.Type))
+            {
+                var conversion = Compilation.ClassifyConversion(expressionType, localSymbol.Type);
+                if (conversion.Exists && !conversion.IsIdentity)
+                {
+                    EmitConversion(expressionType, localSymbol.Type, conversion);
+                    finalType = localSymbol.Type;
+                }
+            }
+
+            if (finalType is not null &&
+                localSymbol.Type is not null &&
+                finalType.IsValueType &&
                 (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is ITypeUnionSymbol))
             {
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
             }
 
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);
