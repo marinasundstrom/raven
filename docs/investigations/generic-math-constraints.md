@@ -101,3 +101,18 @@ Document the current failure when compiling the `generic-math-error.rav` sample 
 - Store substitutions in a memoization map keyed by `(containing symbol, parameter, argument)` so nested generic expansions can reuse already-resolved results.
 - Ensure the enumerator records the original source of substitutions (constraint path vs. explicit type arguments) to make diagnostics traceable.
 - This refactor should make the recursion boundary explicit and isolate the stateful logic required to avoid the `INumber<TSelf>` loop.
+
+## Investigation Log (Start)
+- Identify candidate entry points for the enumerator:
+  - `ConstructedNamedTypeSymbol.Substitute`
+  - `ConstructedNamedTypeSymbol.NormalizeTypeArguments`
+  - `ConstructedNamedTypeSymbol.SubstituteNamedType`
+- Define the state container for the enumerator:
+  - `HashSet<(ITypeParameterSymbol parameter, ITypeSymbol argument)>` for in-flight pairs.
+  - `Dictionary<(ISymbol? container, ITypeParameterSymbol parameter, ITypeSymbol argument), ITypeSymbol>` for memoized results.
+  - `Stack<SubstitutionFrame>` to track recursion provenance (constraint vs. explicit type arguments).
+- Determine how the enumerator yields results:
+  - Yield substituted type arguments in a stable order before materializing constructed symbols.
+  - Allow short-circuiting when a pair is already in-flight (emit the cached symbol or a placeholder).
+- Record any diagnostics hooks needed to trace cycles:
+  - Emit a single diagnostic or trace entry when a cycle is detected, with the originating substitution path.
