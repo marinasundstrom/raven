@@ -61,14 +61,13 @@ internal readonly record struct SymbolQuery(
     {
         binder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(typeParameter));
 
+        var preferStaticMembers = IsStatic == true;
         var constraintTypes = GetConstraintLookupTypes(binder, typeParameter, includeObjectMembers: !preferStaticMembers);
         if (constraintTypes.IsDefaultOrEmpty)
             return Enumerable.Empty<ISymbol>();
 
         var seenSignatures = new HashSet<string>();
         var results = new List<ISymbol>();
-
-        var preferStaticMembers = IsStatic == true;
 
         foreach (var constraint in constraintTypes)
         {
