@@ -996,7 +996,10 @@ internal class ExpressionGenerator : Generator
 
     private static bool IsKnownReferenceType(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.IsReferenceType == true && typeSymbol.TypeKind != TypeKind.TypeParameter;
+        if (typeSymbol is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
+
+        return typeSymbol.IsReferenceType == true;
     }
 
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
@@ -1014,13 +1017,28 @@ internal class ExpressionGenerator : Generator
         {
             var typeSymbol = declarationPattern.Type;
             var clrType = ResolveClrType(typeSymbol);
+            var isReferencePattern = IsKnownReferenceType(typeSymbol);
+
+            if (!isReferencePattern && clrType.IsGenericParameter)
+            {
+                var attributes = clrType.GenericParameterAttributes;
+                if ((attributes & GenericParameterAttributes.ReferenceTypeConstraint) != 0)
+                    isReferencePattern = true;
+            }
 
             var patternLocal = EmitDesignation(declarationPattern.Designator, scope);
 
-            if (!IsKnownReferenceType(typeSymbol))
+            if (!isReferencePattern)
             {
                 var labelSuccess = ILGenerator.DefineLabel();
                 var labelDone = ILGenerator.DefineLabel();
+                var requiresUnbox = clrType.IsValueType;
+
+                if (clrType.IsGenericParameter &&
+                    (clrType.GenericParameterAttributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0)
+                {
+                    requiresUnbox = true;
+                }
 
                 ILGenerator.Emit(OpCodes.Isinst, clrType);
                 ILGenerator.Emit(OpCodes.Dup);
@@ -1030,7 +1048,7 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Br, labelDone);
 
                 ILGenerator.MarkLabel(labelSuccess);
-                ILGenerator.Emit(OpCodes.Unbox_Any, clrType);
+                ILGenerator.Emit(requiresUnbox ? OpCodes.Unbox_Any : OpCodes.Castclass, clrType);
                 if (patternLocal is not null)
                 {
                     ILGenerator.Emit(OpCodes.Stloc, patternLocal);
