@@ -327,6 +327,79 @@ internal sealed class LiteralOperation : Operation, ILiteralOperation
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
 
+internal sealed class InterpolatedStringOperation : Operation, IInterpolatedStringOperation
+{
+    private ImmutableArray<IInterpolatedStringContentOperation>? _contents;
+
+    internal InterpolatedStringOperation(
+        SemanticModel semanticModel,
+        BoundExpression bound,
+        InterpolatedStringExpressionSyntax syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.InterpolatedString, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public ImmutableArray<IInterpolatedStringContentOperation> Contents
+        => _contents ??= OperationUtilities.CreateChildOperations(SemanticModel, ((InterpolatedStringExpressionSyntax)Syntax).Contents)
+            .OfType<IInterpolatedStringContentOperation>()
+            .ToImmutableArray();
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Contents.IsDefaultOrEmpty
+            ? ImmutableArray<IOperation>.Empty
+            : Contents.Cast<IOperation>().ToImmutableArray();
+    }
+}
+
+internal sealed class InterpolatedStringTextOperation : Operation, IInterpolatedStringTextOperation
+{
+    internal InterpolatedStringTextOperation(
+        SemanticModel semanticModel,
+        InterpolatedStringTextSyntax syntax,
+        bool isImplicit)
+        : base(
+            semanticModel,
+            OperationKind.InterpolatedStringText,
+            syntax,
+            semanticModel.Compilation.GetSpecialType(SpecialType.System_String),
+            isImplicit)
+    {
+    }
+
+    public string Text => ((InterpolatedStringTextSyntax)Syntax).Token.ValueText ?? string.Empty;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
+}
+
+internal sealed class InterpolationOperation : Operation, IInterpolationOperation
+{
+    private IOperation? _expression;
+
+    internal InterpolationOperation(
+        SemanticModel semanticModel,
+        InterpolationSyntax syntax,
+        bool isImplicit)
+        : base(
+            semanticModel,
+            OperationKind.Interpolation,
+            syntax,
+            semanticModel.GetBoundNode(syntax.Expression).Type,
+            isImplicit)
+    {
+    }
+
+    public IOperation? Expression => _expression ??= SemanticModel.GetOperation(((InterpolationSyntax)Syntax).Expression);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Expression is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Expression);
+    }
+}
+
 internal sealed class DefaultValueOperation : Operation, IDefaultValueOperation
 {
     internal DefaultValueOperation(

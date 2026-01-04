@@ -17,6 +17,15 @@ internal static class OperationFactory
 
         var isImplicit = bound is BoundExpression implicitExpr && implicitExpr.Reason != BoundExpressionReason.None;
 
+        if (syntax is InterpolatedStringExpressionSyntax interpolatedString && bound is BoundExpression boundExpression)
+            return new InterpolatedStringOperation(semanticModel, boundExpression, interpolatedString, isImplicit);
+
+        if (syntax is InterpolatedStringTextSyntax interpolatedText)
+            return new InterpolatedStringTextOperation(semanticModel, interpolatedText, isImplicit);
+
+        if (syntax is InterpolationSyntax interpolation)
+            return new InterpolationOperation(semanticModel, interpolation, isImplicit);
+
         return bound switch
         {
             BoundBlockStatement block => new BlockOperation(semanticModel, block, kind, syntax, block.LocalsToDispose, type, isImplicit),
