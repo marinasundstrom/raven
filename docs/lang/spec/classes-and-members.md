@@ -352,8 +352,8 @@ contextual keyword followed by one of the supported operator tokens (`+`, `-`,
 parenthesized parameter list, optional return-type arrow, and either a block
 body or expression body. Operators must be `public static`, and the parameter
 count must match the chosen operator (unary or binary). Operator declarations
-are currently limited to classes and structs; extensions cannot declare
-operators yet.
+are supported in classes, structs, and extensions; extension operators follow
+the same `public static` requirements as type members.
 
 ```raven
 class Vector
@@ -362,6 +362,11 @@ class Vector
     public static operator -(value: Vector) -> Vector { /* ... */ }
 }
 ```
+
+Extensions may also declare `implicit operator` and `explicit operator`
+conversion members. These conversion operators are `public static` and are
+resolved using the same extension lookup rules as other static extension
+members.
 
 ### Invocation operator
 
