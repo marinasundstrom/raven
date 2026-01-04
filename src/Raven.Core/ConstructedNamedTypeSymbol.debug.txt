@@ -1,1 +1,1 @@
-DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: Some; Substituted type: T
+DEBUG: (ConstructedNamedTypeSymbol.Substitute). Constructed type: Error; Substituted type: String

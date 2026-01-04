@@ -2,6 +2,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -31,7 +32,7 @@ class Test {
     public void GetDiagnostics_IncompleteStatement_DoesNotCrashBinder()
     {
         const string source = """
-func main() {
+func Main() {
     if true {
         )
     }

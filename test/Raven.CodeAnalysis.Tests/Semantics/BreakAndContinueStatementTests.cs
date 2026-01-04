@@ -12,7 +12,7 @@ public class BreakStatementDiagnosticsTests : DiagnosticTestBase
     public void BreakOutsideLoop_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     break;
 }
 """;
@@ -30,7 +30,7 @@ func main() {
     public void BreakInExpressionContext_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     let value = {
         break;
         ()
@@ -55,7 +55,7 @@ public class ContinueStatementDiagnosticsTests : DiagnosticTestBase
     public void ContinueOutsideLoop_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     continue;
 }
 """;
@@ -73,7 +73,7 @@ func main() {
     public void ContinueInExpressionContext_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     let value = {
         continue;
         ()
@@ -98,7 +98,7 @@ public class BreakStatementSemanticTests : CompilationTestBase
     public void BreakInWhileLoop_BindsToBoundBreakStatement()
     {
         var code = """
-func main() {
+func Main() {
     while true {
         break;
     }
@@ -120,7 +120,7 @@ public class ContinueStatementSemanticTests : CompilationTestBase
     public void ContinueInWhileLoop_BindsToBoundContinueStatement()
     {
         var code = """
-func main() {
+func Main() {
     while true {
         continue;
     }

@@ -1,9 +1,11 @@
 using System;
 using System.IO;
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -23,7 +25,7 @@ func describe(value: object) -> string {
     }
 }
 
-func main() {
+func Main() {
     let value: object = (1, 2)
     Console.WriteLine(describe(value))
 }
@@ -47,7 +49,7 @@ func main() {
         const string code = """
 import System.*
 
-func main() {
+func Main() {
     let (first, second) = (1, 2)
     Console.WriteLine(first)
     Console.WriteLine(second)
@@ -72,7 +74,7 @@ func main() {
         const string code = """
 import System.*
 
-func main() {
+func Main() {
     var first = 0
     var second = 0
     (first, second, _) = (1, 2, 3)
@@ -98,7 +100,7 @@ func main() {
         const string code = """
 import System.*
 
-func main() {
+func Main() {
     var (first, second, _) = (1, 2, 3)
     Console.WriteLine(first + second)
 }
@@ -122,7 +124,7 @@ func main() {
         const string code = """
 import System.*
 
-func main() {
+func Main() {
     let (first, _) = (1, 2)
     var (second, _) = (3, 4)
     Console.WriteLine(first)

@@ -64,8 +64,8 @@ type C {
 A free function with the same name and parameters already exists.
 
 ```raven
-func main() {}
-func main() {} // RAV0112
+func Main() {}
+func Main() {} // RAV0112
 ```
 
 ## RAV0117: Member does not contain definition
@@ -262,7 +262,7 @@ func main( { } // RAV1003
 Repeated the same modifier.
 
 ```raven
-pub pub func main() {} // RAV1004
+public public func Main() {} // RAV1004
 ```
 
 ## RAV1005: Import directive out of order

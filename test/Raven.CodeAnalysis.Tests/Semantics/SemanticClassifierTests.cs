@@ -62,7 +62,7 @@ class C {
     public void LabeledStatementTokens_ClassifiedAsLabel()
     {
         var source = """
-func main() {
+func Main() {
 label:
     goto label
 }

@@ -17,7 +17,7 @@ public class GotoStatementCodeGenTests
         var code = """
 import System.*
 
-func main() {
+func Main() {
 start:
     Console.WriteLine("start")
     goto end
@@ -73,7 +73,7 @@ end:
         var code = """
 import System.*
 
-func main() {
+func Main() {
     using let outer = Foo("outer")
     {
         using let inner = Foo("inner")

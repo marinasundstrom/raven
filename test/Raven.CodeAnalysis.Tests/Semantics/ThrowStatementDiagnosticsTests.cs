@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -9,7 +10,7 @@ public class ThrowStatementDiagnosticsTests : DiagnosticTestBase
     public void ThrowExpressionMustDeriveFromException()
     {
         var code = """
-func main() {
+func Main() {
     throw 42;
 }
 """;
@@ -27,7 +28,7 @@ func main() {
     public void ThrowStatementInExpressionContext_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     let value = {
         throw System.InvalidOperationException("fail")
         ()

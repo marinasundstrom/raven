@@ -1,6 +1,8 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -60,7 +62,7 @@ public class ArgumentAndParameterListTests
     {
         var tree = SyntaxTree.ParseText(
             """
-            func main() {
+            func Main() {
                 Foo[1
                     2];
             }

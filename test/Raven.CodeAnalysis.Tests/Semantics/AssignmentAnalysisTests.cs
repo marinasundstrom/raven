@@ -110,7 +110,7 @@ value = 1
     public void AnalyzeControlFlow_ReturnFollowedByStatement_MarksUnreachable()
     {
         const string source = """
-func main() {
+func Main() {
     return;
     var value = 1;
 }
@@ -134,7 +134,7 @@ func main() {
     public void GetDiagnostics_UnreachableStatement_ProducesWarning()
     {
         const string source = """
-func main() {
+func Main() {
     return;
     var value = 1;
 }

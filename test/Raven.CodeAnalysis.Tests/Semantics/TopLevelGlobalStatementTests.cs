@@ -15,7 +15,7 @@ public sealed class TopLevelGlobalStatementTests : CompilationTestBase
     [Fact]
     public void GlobalStatements_CanReferenceTopLevelTypes()
     {
-const string source = """
+        const string source = """
 let greeter: IGreeter = Greeter();
 greeter.Greet();
 let shade = Shade.Green;

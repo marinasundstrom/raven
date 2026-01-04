@@ -14,7 +14,7 @@ public class GotoStatementDiagnosticsTests : DiagnosticTestBase
     public void DuplicateLabel_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
 label:
     goto label
 label:
@@ -34,7 +34,7 @@ label:
     public void GotoUndefinedLabel_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     goto missing
 }
 """;
@@ -51,7 +51,7 @@ func main() {
     public void LabelUsingReservedWord_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     int:
         return
 }
@@ -69,7 +69,7 @@ func main() {
     public void GotoUsingReservedWord_ReportsDiagnostic()
     {
         var code = """
-func main() {
+func Main() {
     goto int
 }
 """;
@@ -89,7 +89,7 @@ public class GotoStatementSemanticTests : CompilationTestBase
     public void GetDeclaredSymbol_ForLabel_ReturnsLabelSymbol()
     {
         var code = """
-func main() {
+func Main() {
 label:
     return
 }
@@ -107,7 +107,7 @@ label:
     public void GetSymbolInfo_ForGoto_ReturnsLabelSymbol()
     {
         var code = """
-func main() {
+func Main() {
 label:
     goto label
     return
@@ -127,7 +127,7 @@ label:
     public void GetSymbolInfo_ForGotoWithEscapedIdentifier_ReturnsLabelSymbol()
     {
         var code = """
-func main() {
+func Main() {
 @loop:
     goto @loop
     return
@@ -151,7 +151,7 @@ func main() {
     public void AnalyzeControlFlow_GotoEnteringRegion_ReportsEntry()
     {
         var code = """
-func main() {
+func Main() {
     goto target
 target:
     return
@@ -172,7 +172,7 @@ target:
     public void HasExternalGotoToLabel_GotoOutsideRegion_ReturnsTrue()
     {
         var code = """
-func main() {
+func Main() {
     goto target
 target:
     return

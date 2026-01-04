@@ -604,7 +604,7 @@ ST.
     public void GetCompletions_InGotoStatement_IncludesLabels()
     {
         var code = """
-func main() {
+func Main() {
 label:
     goto
 }
