@@ -1,10 +1,10 @@
 import System.Console.*
 
-func test<T>(x: T -> T) -> T {
+func test(x: int -> int) -> int {
     return x(20)
 }
 
 func Main() {
-    val r = test((x: int) => x + 22)
+    val r = test((x) => x + 22)
     WriteLine(r)
 }
