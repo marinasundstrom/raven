@@ -106,6 +106,21 @@ public enum OperationKind
     Literal,
 
     /// <summary>
+    /// An interpolated string expression.
+    /// </summary>
+    InterpolatedString,
+
+    /// <summary>
+    /// Literal text inside an interpolated string.
+    /// </summary>
+    InterpolatedStringText,
+
+    /// <summary>
+    /// An interpolation inside an interpolated string.
+    /// </summary>
+    Interpolation,
+
+    /// <summary>
     /// A default value expression.
     /// </summary>
     DefaultValue,

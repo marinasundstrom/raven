@@ -100,6 +100,25 @@ public interface ILiteralOperation : IOperation
     object Value { get; }
 }
 
+public interface IInterpolatedStringOperation : IOperation
+{
+    ImmutableArray<IInterpolatedStringContentOperation> Contents { get; }
+}
+
+public interface IInterpolatedStringContentOperation : IOperation
+{
+}
+
+public interface IInterpolatedStringTextOperation : IInterpolatedStringContentOperation
+{
+    string Text { get; }
+}
+
+public interface IInterpolationOperation : IInterpolatedStringContentOperation
+{
+    IOperation? Expression { get; }
+}
+
 public interface IDefaultValueOperation : IOperation
 {
 }
