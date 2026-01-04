@@ -39,7 +39,7 @@ This proposal depends on separate features: user-defined conversion operators an
 
 * ✅ Syntax and binding for `explicit operator` / `implicit operator` declarations are implemented.
 * ✅ Conversion operators are discovered during cast binding and implicit conversion checks used by overload resolution.
-* ⏳ Static extension conversion operators remain blocked on the extension operator work.
+* ✅ Static extension conversion operators are supported and can be discovered during conversion checks.
 
 ## Motivation
 

@@ -11,7 +11,7 @@
 
 ## Implementation status (current)
 * ✅ **Syntax surface and tokens**: `operator` contextual keyword, overloadable operator tokens, `OperatorDeclarationSyntax`, parser support (classes + extensions), and normalizer/formatting support are implemented. Specification + grammar updates are in place.
-* 🟡 **Declaration binding**: operator declarations bind into symbols with static/public/arity diagnostics and metadata name mapping. Extension operator declarations are rejected (diagnostic only) and are not bound into symbols.
+* 🟡 **Declaration binding**: operator declarations bind into symbols with static/public/arity diagnostics and metadata name mapping. Extension operator declarations are bound and participate in member lookup/overload resolution.
 * 🟡 **Consumption**: unary and binary operator binding now use overload resolution for user-defined operators (including extension operators) and bind to operator method invocations; nullable/literal lifting remains pending.
 * ⏳ **Codegen + lowering**: no changes yet for emitting operator methods or ensuring bound operator invocations survive lowering.
 * ⏳ **IDE/semantic model**: `GetDeclaredSymbol` is supported for class/interface operator declarations; richer symbol info for call sites and diagnostics remain.
@@ -39,7 +39,7 @@
 3. 🟡 **Declaration binding and lookup**
    * Update `TypeMemberBinder`/`DeclarationTable` to include operator members when walking type syntax, producing operator symbols alongside methods/constructors.
    * Ensure operators participate in member lookup via their metadata names (e.g., `op_Addition`) and that overload sets are disambiguated by parameter types.
-   * For extensions, allow operator declarations and wire extension operator lookup so consuming sites can see them when the receiver type matches.
+   * For extensions, allow operator declarations and wire extension operator lookup so consuming sites can see them when the receiver type matches. (Done.)
 
 4. 🟡 **Overload resolution for consumption**
    * Expand binary/unary binding in `BlockBinder` to gather operator candidates from both operand types and applicable extensions, using the operator metadata name and enforcing static binding rules. (Done for static extension operators.)

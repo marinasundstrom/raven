@@ -47,7 +47,8 @@ ExtensionDeclaration     ::= 'extension' Identifier 'for' Type ExtensionBody ;
 ExtensionBody            ::= '{' {ExtensionMember} '}' ;
 ExtensionMember          ::= ExtensionMethodDeclaration
                            | ExtensionPropertyDeclaration
-                           | OperatorDeclaration ;
+                           | OperatorDeclaration
+                           | ConversionOperatorDeclaration ;
 ExtensionMethodDeclaration
                            ::= ExtensionMethodModifiers?
                                Identifier '(' ParameterList? ')'
