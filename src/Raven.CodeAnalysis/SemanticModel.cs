@@ -988,6 +988,16 @@ public partial class SemanticModel
             classBinder.EnsureDefaultConstructor();
         }
 
+        var checkedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var (classDecl, classBinder) in classBinders)
+        {
+            var classSymbol = (INamedTypeSymbol)classBinder.ContainingSymbol;
+            if (!checkedClasses.Add(classSymbol))
+                continue;
+
+            ReportMissingAbstractBaseMembers(classSymbol, classDecl, classBinder.Diagnostics);
+        }
+
         foreach (var (interfaceDecl, interfaceBinder) in interfaceBinders)
             RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
 
@@ -1396,6 +1406,8 @@ public partial class SemanticModel
         if (classDecl.ParameterList is not null)
             RegisterPrimaryConstructor(classDecl, classBinder);
 
+        var nestedClassBinders = new List<(ClassDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+
         foreach (var member in classDecl.Members)
         {
             switch (member)
@@ -1551,6 +1563,7 @@ public partial class SemanticModel
                         nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(nestedBaseType.Name, nestedClass.BaseList.Types[0].GetLocation());
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
+                    nestedClassBinders.Add((nestedClass, nestedBinder));
                     break;
 
                 case UnionDeclarationSyntax nestedUnion:
@@ -1643,6 +1656,16 @@ public partial class SemanticModel
                     }
                     break;
             }
+        }
+
+        var checkedNestedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var (nestedSyntax, nestedBinder) in nestedClassBinders)
+        {
+            var nestedSymbol = (INamedTypeSymbol)nestedBinder.ContainingSymbol;
+            if (!checkedNestedClasses.Add(nestedSymbol))
+                continue;
+
+            ReportMissingAbstractBaseMembers(nestedSymbol, nestedSyntax, nestedBinder.Diagnostics);
         }
 
         classBinder.EnsureDefaultConstructor();
@@ -1954,6 +1977,72 @@ public partial class SemanticModel
         }
 
         constructorSymbol.SetParameters(parameters);
+    }
+
+    private void ReportMissingAbstractBaseMembers(
+        INamedTypeSymbol typeSymbol,
+        ClassDeclarationSyntax declaration,
+        DiagnosticBag diagnostics)
+    {
+        if (typeSymbol.IsAbstract)
+            return;
+
+        if (typeSymbol.BaseType is not INamedTypeSymbol baseType ||
+            baseType.TypeKind != TypeKind.Class)
+        {
+            return;
+        }
+
+        foreach (var abstractMember in baseType.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (!abstractMember.IsAbstract || abstractMember.IsStatic)
+                continue;
+
+            if (abstractMember.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
+                continue;
+
+            if (ImplementsAbstractMember(typeSymbol, abstractMember))
+                continue;
+
+            var memberDisplay = GetAbstractMemberDisplay(abstractMember);
+            var baseTypeDisplay = baseType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+            diagnostics.ReportTypeDoesNotImplementAbstractMember(
+                typeSymbol.Name,
+                memberDisplay,
+                baseTypeDisplay,
+                declaration.Identifier.GetLocation());
+        }
+    }
+
+    private static bool ImplementsAbstractMember(INamedTypeSymbol typeSymbol, IMethodSymbol abstractMember)
+    {
+        foreach (var candidate in typeSymbol.GetMembers(abstractMember.Name).OfType<IMethodSymbol>())
+        {
+            if (!candidate.IsOverride)
+                continue;
+
+            if (candidate is SourceMethodSymbol sourceMethod &&
+                sourceMethod.OverriddenMethod is not null &&
+                SymbolEqualityComparer.Default.Equals(sourceMethod.OverriddenMethod, abstractMember))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string GetAbstractMemberDisplay(IMethodSymbol abstractMember)
+    {
+        if (abstractMember.AssociatedSymbol is IPropertySymbol property)
+        {
+            var propertyFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithMemberOptions(SymbolDisplayMemberOptions.None);
+            return property.ToDisplayString(propertyFormat);
+        }
+
+        var methodFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithMemberOptions(SymbolDisplayMemberOptions.IncludeParameters);
+        return abstractMember.ToDisplayString(methodFormat);
     }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)

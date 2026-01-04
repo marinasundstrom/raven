@@ -236,6 +236,10 @@
     Title="Type does not implement interface"
     Message="Type '{typeName}' does not implement interface '{interfaceName}'" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0330" Identifier="TypeDoesNotImplementAbstractMember"
+    Title="Type does not implement abstract member"
+    Message="Type '{typeName}' does not implement abstract member '{memberName}' from base type '{baseTypeName}'"
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0315" Identifier="ExplicitInterfaceMemberNotFound"
     Title="Explicit interface member not found"
     Message="Interface '{interfaceName}' does not contain a member named '{memberName}' matching this signature"
