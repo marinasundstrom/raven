@@ -11,15 +11,17 @@ open abstract class Base {
         WriteLine("Test")
     }
 
-    public abstract Bar()
+    public abstract Bar(x: int)
 }
 
 class Derived : Base {
-
+    public override Bar() {}
 }
 
 class Derived2 : Base {
     public override Foo() {
         WriteLine("Test2")
-    } 
+    }
+
+    public override Bar() {}
 }

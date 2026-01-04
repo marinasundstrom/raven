@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -561,9 +562,11 @@ internal class TypeMemberBinder : Binder
         {
             var candidate = FindOverrideCandidate(name, signatureArray);
 
+            var name2 = CreateSignature(name, returnType, signatureArray);
+
             if (candidate is null || !candidate.IsVirtual)
             {
-                _diagnostics.ReportOverrideMemberNotFound(name, identifierToken.GetLocation());
+                _diagnostics.ReportOverrideMemberNotFound(name2, identifierToken.GetLocation());
                 isOverride = false;
                 isVirtual = false;
                 isSealed = false;
@@ -639,6 +642,33 @@ internal class TypeMemberBinder : Binder
         if (hasInvalidAsyncReturnType)
             methodSymbol.MarkAsyncReturnTypeError();
         return methodBinder;
+    }
+
+    private string CreateSignature(
+        string name,
+        ITypeSymbol returnType,
+        (ITypeSymbol type, RefKind refKind)[] signatureArray)
+    {
+        static string RefPrefix(RefKind refKind) => refKind switch
+        {
+            RefKind.None => string.Empty,
+            RefKind.Ref => "ref ",
+            RefKind.Out => "out ",
+            RefKind.In => "in ",
+            RefKind.RefReadOnly => "ref readonly ",
+            RefKind.RefReadOnlyParameter => "ref readonly ",
+            _ => string.Empty
+        };
+
+        var paramStrings = signatureArray.Select(p =>
+            RefPrefix(p.refKind) +
+            p.type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var paramsString = string.Join(", ", paramStrings);
+
+        var returnString = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        return $"{name}({paramsString}) -> {returnString}";
     }
 
     public MethodBinder BindOperatorDeclaration(OperatorDeclarationSyntax operatorDecl)

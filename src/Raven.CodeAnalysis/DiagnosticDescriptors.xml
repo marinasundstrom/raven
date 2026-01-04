@@ -167,7 +167,7 @@
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0307" Identifier="OverrideMemberNotFound"
     Title="No virtual member to override"
-    Message="No virtual member named '{memberName}' was found in the base type to override"
+    Message="No virtual member with signature '{signature}' was found in the base type to override"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0308" Identifier="VirtualMemberInSealedType"
     Title="Virtual member in sealed type"
