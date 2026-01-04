@@ -6405,6 +6405,12 @@ partial class BlockBinder : Binder
 
             var boundArgument = argument.Value;
             var expression = boundArgument.Expression;
+            var syntaxNode = boundArgument.Syntax switch
+            {
+                ArgumentSyntax argumentSyntax => argumentSyntax.Expression,
+                SyntaxNode node => node,
+                _ => null
+            };
 
             if (parameter.Type is INamedTypeSymbol delegateType && expression is BoundLambdaExpression lambdaArgument)
             {
@@ -6412,6 +6418,20 @@ partial class BlockBinder : Binder
                 if (rebound is null)
                 {
                     lambdaArgument.Unbound?.ReportSuppressedDiagnostics(_diagnostics);
+
+                    if (expression.Type is { } expressionType && !expressionType.ContainsErrorType() &&
+                        parameter.Type.TypeKind != TypeKind.Error)
+                    {
+                        var location = syntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
+                        if (location is not null)
+                        {
+                            _diagnostics.ReportCannotConvertFromTypeToType(
+                                expressionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                location);
+                        }
+                    }
+
                     converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
                     continue;
                 }
@@ -6432,13 +6452,6 @@ partial class BlockBinder : Binder
                 converted[i] = expression;
                 continue;
             }
-
-            var syntaxNode = boundArgument.Syntax switch
-            {
-                ArgumentSyntax argumentSyntax => argumentSyntax.Expression,
-                SyntaxNode node => node,
-                _ => null
-            };
 
             if (!IsAssignable(parameter.Type, expression.Type, out var conversion))
             {
