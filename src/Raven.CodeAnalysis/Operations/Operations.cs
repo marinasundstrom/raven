@@ -235,6 +235,15 @@ public interface IInvocationOperation : IOperation
     ImmutableArray<IOperation> Arguments { get; }
 }
 
+public interface IArgumentOperation : IOperation
+{
+    IOperation? Value { get; }
+
+    string? Name { get; }
+
+    bool IsNamed { get; }
+}
+
 public interface IDelegateCreationOperation : IOperation
 {
 }
