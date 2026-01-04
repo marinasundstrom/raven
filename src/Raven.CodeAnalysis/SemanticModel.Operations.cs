@@ -36,6 +36,9 @@ public partial class SemanticModel
             };
         }
 
+        if (bound is null && node is ArgumentSyntax argument)
+            bound = GetBoundNode(argument.Expression);
+
         if (bound is null && node is InterpolatedStringContentSyntax && node.Parent is InterpolatedStringExpressionSyntax parentExpression)
             bound = GetBoundNode(parentExpression);
 

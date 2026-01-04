@@ -765,6 +765,36 @@ internal sealed class AwaitOperation : Operation, IAwaitOperation
     }
 }
 
+internal sealed class ArgumentOperation : Operation, IArgumentOperation
+{
+    private IOperation? _value;
+    private string? _name;
+
+    internal ArgumentOperation(
+        SemanticModel semanticModel,
+        BoundExpression bound,
+        ArgumentSyntax syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.Argument, syntax, bound.Type, isImplicit)
+    {
+    }
+
+    public IOperation? Value => _value ??= SemanticModel.GetOperation(((ArgumentSyntax)Syntax).Expression);
+
+    public string? Name => _name ??= ((ArgumentSyntax)Syntax).NameColon is { Name: IdentifierNameSyntax identifier }
+        ? identifier.Identifier.ValueText
+        : null;
+
+    public bool IsNamed => Name is not null;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return Value is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Value);
+    }
+}
+
 internal sealed class InvocationOperation : Operation, IInvocationOperation
 {
     private readonly BoundInvocationExpression _bound;

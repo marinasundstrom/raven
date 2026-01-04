@@ -26,6 +26,9 @@ internal static class OperationFactory
         if (syntax is InterpolationSyntax interpolation)
             return new InterpolationOperation(semanticModel, interpolation, isImplicit);
 
+        if (syntax is ArgumentSyntax argumentSyntax && bound is BoundExpression boundArgument)
+            return new ArgumentOperation(semanticModel, boundArgument, argumentSyntax, isImplicit);
+
         return bound switch
         {
             BoundBlockStatement block => new BlockOperation(semanticModel, block, kind, syntax, block.LocalsToDispose, type, isImplicit),

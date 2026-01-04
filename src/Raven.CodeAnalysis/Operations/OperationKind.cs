@@ -211,6 +211,11 @@ public enum OperationKind
     Invocation,
 
     /// <summary>
+    /// An argument in a call or object creation.
+    /// </summary>
+    Argument,
+
+    /// <summary>
     /// An object creation expression.
     /// </summary>
     ObjectCreation,
