@@ -1,0 +1,25 @@
+import System.Console.*
+
+val test = Derived()
+test.Foo()
+
+val test2 = Derived2()
+test2.Foo()
+
+open abstract class Base {
+    public virtual Foo() {
+        WriteLine("Test")
+    }
+
+    public abstract Bar()
+}
+
+class Derived : Base {
+
+}
+
+class Derived2 : Base {
+    public override Foo() {
+        WriteLine("Test2")
+    } 
+}
