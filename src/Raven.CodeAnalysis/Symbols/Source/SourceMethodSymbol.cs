@@ -18,6 +18,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _isOverride;
     private bool _isVirtual;
     private bool _isSealed;
+    private bool _isAbstract;
     private bool _declaredInExtension;
     private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
     private bool? _lazyIsExtensionMethod;
@@ -51,6 +52,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         bool isVirtual = false,
         bool isOverride = false,
         bool isSealed = false,
+        bool isAbstract = false,
         Accessibility declaredAccessibility = Accessibility.NotApplicable)
             : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
@@ -63,7 +65,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         MethodKind = methodKind;
 
         _isOverride = isOverride;
-        _isVirtual = isVirtual || isOverride;
+        _isAbstract = isAbstract;
+        _isVirtual = isVirtual || isOverride || isAbstract;
         _isSealed = isSealed;
     }
 
@@ -114,7 +117,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public IMethodSymbol? OriginalDefinition => this;
 
-    public bool IsAbstract { get; }
+    public bool IsAbstract => _isAbstract;
 
     public bool IsAsync { get; }
 
@@ -190,10 +193,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     internal void SetReturnType(ITypeSymbol returnType) => _returnType = returnType;
 
-    internal void UpdateModifiers(bool isVirtual, bool isOverride, bool isSealed)
+    internal void UpdateModifiers(bool isVirtual, bool isOverride, bool isSealed, bool isAbstract)
     {
         _isOverride = isOverride;
-        _isVirtual = isVirtual || isOverride;
+        _isAbstract = isAbstract;
+        _isVirtual = isVirtual || isOverride || isAbstract;
         _isSealed = isSealed;
     }
 

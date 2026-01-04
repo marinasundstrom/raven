@@ -8,7 +8,7 @@ You can define one or more unique invocation operators for your type.
 
 ## Syntax
 
-The syntax for declaring an invocation operator is this. (as defined in a class)
+The syntax for declaring an invocation operator is this. (as defined in a class or interface)
 
 ```raven
 public class Test {
@@ -17,6 +17,8 @@ public class Test {
     }
 }
 ```
+
+In classes, invocation operators can be marked `virtual` or `abstract` and may be overridden like other members.
 
 When "invoking" an instance of a type with an invocation operator:
 
@@ -50,4 +52,3 @@ var x = test.Invoke(2);
 ## Notes
 
 The `Invoke` method mirrors the one of delegates.
-
