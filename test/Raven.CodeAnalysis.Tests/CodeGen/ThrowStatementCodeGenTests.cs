@@ -17,7 +17,7 @@ public class ThrowStatementCodeGenTests
         var code = """
 import System.*
 
-func main() {
+func Main() {
     try {
         throw System.InvalidOperationException("boom")
     } catch (System.Exception ex) {
@@ -72,7 +72,7 @@ func main() {
         var code = """
 import System.*
 
-func main() {
+func Main() {
     try {
         using let resource = Logger("inner")
         throw System.InvalidOperationException("fail")

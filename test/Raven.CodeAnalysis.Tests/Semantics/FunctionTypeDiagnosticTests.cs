@@ -12,12 +12,13 @@ public class FunctionTypeDiagnosticTests : CompilationTestBase
         var source = """
         func test(x: int -> int) {}
 
-        func main() {
+        func Main() {
             test(() => 1)
         }
         """;
 
-        var (compilation, _) = CreateCompilation(source);
+        var (compilation, _) = CreateCompilation(source,
+            new CompilationOptions(OutputKind.ConsoleApplication));
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.CannotConvertFromTypeToType, diagnostic.Descriptor);

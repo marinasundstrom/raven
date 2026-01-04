@@ -22,7 +22,7 @@ extension MyIntEnumerableExt for IEnumerable<int> {
     }
 }
 
-func main() {
+func Main() {
     let items = List<int>()
     items.Add(3)
     items.Add(5)
