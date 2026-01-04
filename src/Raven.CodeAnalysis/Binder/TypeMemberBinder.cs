@@ -348,6 +348,7 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
 
@@ -357,6 +358,7 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
             isOverride = false;
             isSealed = false;
+            isAbstract = false;
             methodAccessibility = modifiers.Any(m => m.Kind == SyntaxKind.InternalKeyword)
                 ? Accessibility.Internal
                 : Accessibility.Public;
@@ -368,6 +370,7 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
             isOverride = false;
             isSealed = false;
+            isAbstract = false;
             methodAccessibility = Accessibility.Private;
         }
 
@@ -387,6 +390,7 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
             isOverride = false;
             isSealed = false;
+            isAbstract = false;
         }
 
         if (isVirtual && !isOverride && _containingType.IsSealed)
@@ -418,6 +422,7 @@ internal class TypeMemberBinder : Binder
             isVirtual: isVirtual,
             isOverride: isOverride,
             isSealed: isSealed,
+            isAbstract: isAbstract,
             declaredAccessibility: methodAccessibility);
 
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
@@ -577,7 +582,7 @@ internal class TypeMemberBinder : Binder
             }
         }
 
-        methodSymbol.UpdateModifiers(isVirtual, isOverride, isSealed);
+        methodSymbol.UpdateModifiers(isVirtual, isOverride, isSealed, isAbstract);
 
         CheckForDuplicateSignature(metadataName, displayName, signatureArray, identifierToken.GetLocation(), methodDecl);
 

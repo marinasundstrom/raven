@@ -482,6 +482,12 @@ internal class MethodGenerator
             return;
         }
 
+        if (MethodSymbol.IsAbstract)
+        {
+            _bodyEmitted = true;
+            return;
+        }
+
         if (!_liftedExtensionParameters.IsDefaultOrEmpty && _liftedExtensionBuilders is not null)
             TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
 

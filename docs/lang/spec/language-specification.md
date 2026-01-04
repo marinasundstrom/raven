@@ -600,6 +600,8 @@ Console.WriteLine("Test")
 The `()` call operator invokes a function-valued expression. If the target
 expression's type defines an invocation operator via a `self` method, that
 member is invoked instead; see [Invocation operator](#invocation-operator).
+Invocation operators can be declared on classes or interfaces. Class
+declarations may mark them `virtual` or `abstract` to support overrides.
 
 When the target has optional parameters, omitted trailing arguments are filled
 in using the defaults declared on the parameter list. The supplied arguments are
