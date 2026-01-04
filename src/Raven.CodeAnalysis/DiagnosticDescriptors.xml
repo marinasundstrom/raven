@@ -192,15 +192,18 @@
   <Descriptor Id="RAV4000" Identifier="DocumentationCommentNotAttached"
     Title="Documentation comment is not attached"
     Message="Documentation comments must appear immediately before a declaration"
-    Category="documentation" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
+    HelpLinkUri="" />
   <Descriptor Id="RAV4001" Identifier="DocumentationCommentInvalidXml"
     Title="Documentation comment is not valid XML"
     Message="Documentation comment is not well-formed XML: {message}"
-    Category="documentation" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
+    HelpLinkUri="" />
   <Descriptor Id="RAV4002" Identifier="DocumentationCommentInvalidMarkdown"
     Title="Documentation comment is not valid Markdown"
     Message="Documentation comment is not well-formed Markdown: {message}"
-    Category="documentation" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
+    HelpLinkUri="" />
   <Descriptor Id="RAV0600" Identifier="TypeAlreadyDefined" Title="Type already defined"
     Message="A type named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error"
@@ -236,6 +239,10 @@
     Title="Type does not implement interface"
     Message="Type '{typeName}' does not implement interface '{interfaceName}'" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0330" Identifier="TypeDoesNotImplementAbstractMember"
+    Title="Type does not implement abstract member"
+    Message="Type '{typeName}' does not implement abstract member '{memberName}' from base type '{baseTypeName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0315" Identifier="ExplicitInterfaceMemberNotFound"
     Title="Explicit interface member not found"
     Message="Interface '{interfaceName}' does not contain a member named '{memberName}' matching this signature"
@@ -362,7 +369,8 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1021" Identifier="TopLevelStatementsDisallowedWithMainFunction"
     Title="Top-level statements not allowed with top-level Main"
-    Message="Top-level statements are not allowed when 'Main' is declared as a top-level function" Category="compiler"
+    Message="Top-level statements are not allowed when 'Main' is declared as a top-level function"
+    Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1015" Identifier="TryStatementRequiresCatchOrFinally"
     Title="try statement requires catch or finally"
@@ -534,7 +542,8 @@
     Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2603" Identifier="RangeForLoopFromEndNotSupported"
     Title="Range for-loop does not support from-end indices"
-    Message="Range boundaries in for loops must count from the start" Category="compiler" Severity="Error"
+    Message="Range boundaries in for loops must count from the start" Category="compiler"
+    Severity="Error"
     EnabledByDefault="true"
     Description="" HelpLinkUri="" />
   <Descriptor Id="RAV3600" Identifier="UnexpectedTokenInIncompleteSyntax"
