@@ -19,7 +19,11 @@ PrintLine(user2(2003));
 PrintLine(user2("test"));
 
 /// A base class
-public open class Base {}
+public open class Base {
+    public virtual self(str: string) {
+
+    }
+}
 
 /// Sample **class**
 public class Person : Base {
@@ -76,7 +80,7 @@ public class Person : Base {
     }
 
     /// Overloaded invocation operator
-    public self(str: string) {
+    public override self(str: string) {
 
     }
 }
