@@ -566,7 +566,7 @@ internal class TypeMemberBinder : Binder
 
             if (candidate is null || !candidate.IsVirtual)
             {
-                _diagnostics.ReportOverrideMemberNotFound(name2, identifierToken.GetLocation());
+                _diagnostics.ReportOverrideMemberNotFound(methodSymbol.ToDisplayString(), "method", identifierToken.GetLocation());
                 isOverride = false;
                 isVirtual = false;
                 isSealed = false;
@@ -1460,7 +1460,7 @@ internal class TypeMemberBinder : Binder
 
             if (candidate is null)
             {
-                _diagnostics.ReportOverrideMemberNotFound(propertyName, identifierToken.GetLocation());
+                _diagnostics.ReportOverrideMemberNotFound(propertyName, "property", identifierToken.GetLocation());
                 overrideValid = false;
             }
             else
@@ -1469,7 +1469,7 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.GetMethod is null || !candidate.GetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound(propertyName, identifierToken.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound(propertyName, "property", identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.GetMethod.IsSealed)
@@ -1487,7 +1487,7 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.SetMethod is null || !candidate.SetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound(propertyName, identifierToken.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound(propertyName, "property", identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.SetMethod.IsSealed)
@@ -1913,7 +1913,7 @@ internal class TypeMemberBinder : Binder
 
             if (candidate is null)
             {
-                _diagnostics.ReportOverrideMemberNotFound("Item", identifierToken.GetLocation());
+                _diagnostics.ReportOverrideMemberNotFound("Item", "indexer", identifierToken.GetLocation());
                 overrideValid = false;
             }
             else
@@ -1922,7 +1922,7 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.GetMethod is null || !candidate.GetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound("Item", identifierToken.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound("Item", "indexer", identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.GetMethod.IsSealed)
@@ -1940,7 +1940,7 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.SetMethod is null || !candidate.SetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound("Item", identifierToken.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound("Item", "indexer", identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.SetMethod.IsSealed)

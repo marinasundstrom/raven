@@ -15,7 +15,7 @@ open abstract class Base {
 }
 
 class Derived : Base {
-    public override Bar() {}
+    public override Bar(x: int) {}
 }
 
 class Derived2 : Base {
@@ -23,5 +23,5 @@ class Derived2 : Base {
         WriteLine("Test2")
     }
 
-    public override Bar() {}
+    public override Bar(x: int) {}
 }
