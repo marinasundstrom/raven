@@ -724,9 +724,13 @@ internal class TypeDeclarationParser : SyntaxParser
             //typeAnnotation = (ArrowTypeClauseSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
         }
 
+        ArrowExpressionClauseSyntax? expressionBody = null;
+        if (PeekToken().IsKind(SyntaxKind.FatArrowToken))
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+
         TryConsumeTerminator(out var terminatorToken);
 
-        return IndexerDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, parameterList, typeAnnotation, accessorList, null, terminatorToken);
+        return IndexerDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, parameterList, typeAnnotation, accessorList, expressionBody, null, terminatorToken);
     }
 
     private AccessorListSyntax ParseAccessorList()

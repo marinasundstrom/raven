@@ -2,9 +2,11 @@ import System.Console.*
 
 val test = Derived()
 test.Foo()
+test.Bar(2)
 
 val test2 = Derived2()
 test2.Foo()
+test2.Bar(2)
 
 open abstract class Base {
     public virtual Foo() {

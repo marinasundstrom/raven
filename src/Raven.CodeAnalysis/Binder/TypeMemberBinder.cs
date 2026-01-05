@@ -381,6 +381,11 @@ internal class TypeMemberBinder : Binder
             isSealed = false;
         }
 
+        if (isAbstract && (methodDecl.Body is not null || methodDecl.ExpressionBody is not null))
+        {
+            _diagnostics.ReportAbstractMemberCannotHaveBody(name, identifierToken.GetLocation());
+        }
+
         if (isStatic && (isVirtual || isOverride))
         {
             if (isVirtual)
@@ -1285,6 +1290,7 @@ internal class TypeMemberBinder : Binder
         var modifiers = propertyDecl.Modifiers;
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;
+        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
@@ -1522,6 +1528,11 @@ internal class TypeMemberBinder : Binder
             ? explicitInterfaceMetadataName + "."
             : string.Empty;
 
+        if (isAbstract && propertyDecl.ExpressionBody is not null)
+        {
+            _diagnostics.ReportAbstractMemberCannotHaveBody(propertyName, identifierToken.GetLocation());
+        }
+
         if (propertyDecl.AccessorList is not null)
         {
             foreach (var accessor in propertyDecl.AccessorList.Accessors)
@@ -1546,6 +1557,11 @@ internal class TypeMemberBinder : Binder
                         ? propertyTypeSyntax.ToString()
                         : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyTypeSyntax.GetLocation());
+                }
+
+                if (isAbstract && (accessor.Body is not null || accessor.ExpressionBody is not null))
+                {
+                    _diagnostics.ReportAbstractMemberCannotHaveBody(name, identifierToken.GetLocation());
                 }
 
                 var methodSymbol = new SourceMethodSymbol(
@@ -1737,7 +1753,8 @@ internal class TypeMemberBinder : Binder
     {
         var propertyType = ResolveType(indexerDecl.Type.Type);
         var modifiers = indexerDecl.Modifiers;
-        var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isStatic = hasStaticModifier; var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
@@ -1745,6 +1762,26 @@ internal class TypeMemberBinder : Binder
         var indexerAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = indexerDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(indexerDecl.Identifier, explicitInterfaceSpecifier);
+
+        var isExtensionContainer = IsExtensionContainer;
+        var isExtensionMember = isExtensionContainer && !hasStaticModifier;
+
+        ITypeSymbol? receiverType = null;
+        if (isExtensionMember)
+            receiverType = GetExtensionReceiverType();
+
+        if (isExtensionContainer)
+        {
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+            indexerAccessibility = modifiers.Any(m => m.Kind == SyntaxKind.InternalKeyword)
+                ? Accessibility.Internal
+                : Accessibility.Public;
+
+            if (isExtensionMember)
+                isStatic = false;
+        }
 
         var indexerParametersBuilder = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool IsMutable, bool HasDefaultValue, object? DefaultValue)>();
         var seenOptionalParameter = false;
@@ -1874,6 +1911,17 @@ internal class TypeMemberBinder : Binder
             "indexer",
             indexerDecl.Type.Type.GetLocation());
 
+        if (receiverType is not null && _extensionReceiverTypeSyntax is not null)
+        {
+            ValidateTypeAccessibility(
+                receiverType,
+                indexerAccessibility,
+                "indexer",
+                GetMemberDisplayName("Item"),
+                "receiver",
+                _extensionReceiverTypeSyntax.GetLocation());
+        }
+
         foreach (var parameter in indexerParameters)
         {
             ValidateTypeAccessibility(
@@ -1973,6 +2021,11 @@ internal class TypeMemberBinder : Binder
             ? explicitInterfaceMetadataName + "."
             : string.Empty;
 
+        if (isAbstract && indexerDecl.ExpressionBody is not null)
+        {
+            _diagnostics.ReportAbstractMemberCannotHaveBody("Item", identifierToken.GetLocation());
+        }
+
         if (indexerDecl.AccessorList is not null)
         {
             foreach (var accessor in indexerDecl.AccessorList.Accessors)
@@ -1997,6 +2050,12 @@ internal class TypeMemberBinder : Binder
                         ? propertyTypeSyntax.ToString()
                         : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyTypeSyntax.GetLocation());
+                }
+
+
+                if (isAbstract && (accessor.Body is not null || accessor.ExpressionBody is not null))
+                {
+                    _diagnostics.ReportAbstractMemberCannotHaveBody(name, identifierToken.GetLocation());
                 }
 
                 var methodSymbol = new SourceMethodSymbol(
@@ -2078,6 +2137,63 @@ internal class TypeMemberBinder : Binder
                     getMethod = methodSymbol;
                 else
                     setMethod = methodSymbol;
+            }
+        }
+        else if (indexerDecl.ExpressionBody is not null)
+        {
+            var name = explicitIndexerAccessorPrefix + "get_" + propertySymbol.Name;
+            var accessorOverride = isOverride && overriddenGetter is not null;
+            var accessorVirtual = accessorOverride || isVirtual;
+            var accessorSealed = accessorOverride && isSealed;
+
+            var methodSymbol = new SourceMethodSymbol(
+                name,
+                propertyType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                propertySymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [indexerDecl.GetLocation()],
+                [indexerDecl.GetReference()],
+                isStatic: isStatic || isExtensionContainer,
+                methodKind: MethodKind.PropertyGet,
+                isAsync: false,
+                isVirtual: accessorVirtual,
+                isOverride: accessorOverride,
+                isSealed: accessorSealed,
+                declaredAccessibility: indexerAccessibility);
+
+            if (isExtensionMember)
+                methodSymbol.MarkDeclaredInExtension();
+
+            if (isExtensionMember)
+            {
+                var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
+                if (!extensionTypeParameters.IsDefaultOrEmpty)
+                    methodSymbol.SetTypeParameters(extensionTypeParameters);
+            }
+
+            MethodBinder? binder = null;
+            ITypeSymbol? receiverTypeForAccessor = receiverType;
+            if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
+            {
+                binder = new MethodBinder(methodSymbol, this);
+                receiverTypeForAccessor = binder.ResolveType(_extensionReceiverTypeSyntax);
+            }
+
+            var parameters = new List<SourceParameterSymbol>();
+            if (isExtensionMember && receiverTypeForAccessor is not null && _extensionReceiverTypeSyntax is not null)
+            {
+                var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+                var selfParameter = new SourceParameterSymbol(
+                    "self",
+                    receiverTypeForAccessor,
+                    methodSymbol,
+                    _containingType,
+                    receiverNamespace,
+                    [_extensionReceiverTypeSyntax.GetLocation()],
+                    [_extensionReceiverTypeSyntax.GetReference()]);
+                parameters.Add(selfParameter);
             }
         }
 
