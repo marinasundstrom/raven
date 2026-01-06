@@ -108,7 +108,7 @@ internal sealed class AttributeBinder : BlockBinder
                 ImmutableArray.CreateRange(resolution.AmbiguousCandidates, static c => (ISymbol)c));
         }
 
-        _diagnostics.ReportNoOverloadForMethod(attributeType.Name, arguments.Length, attribute.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("constructor for type", attributeType.Name, arguments.Length, attribute.GetLocation());
         return new BoundErrorExpression(attributeType, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
@@ -131,20 +131,20 @@ internal sealed class AttributeBinder : BlockBinder
         switch (attributeName)
         {
             case IdentifierNameSyntax identifier:
-            {
-                var candidateName = AppendAttributeSuffixIfNeeded(identifier.Identifier.ValueText, appendAttributeSuffix);
-                return FindAccessibleNamedType(candidateName, 0);
-            }
+                {
+                    var candidateName = AppendAttributeSuffixIfNeeded(identifier.Identifier.ValueText, appendAttributeSuffix);
+                    return FindAccessibleNamedType(candidateName, 0);
+                }
 
             case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
-            {
-                var container = TryLookupNamespaceOrType(qualified.Left);
-                if (container is null)
-                    return null;
+                {
+                    var container = TryLookupNamespaceOrType(qualified.Left);
+                    if (container is null)
+                        return null;
 
-                var candidateName = AppendAttributeSuffixIfNeeded(rightIdentifier.Identifier.ValueText, appendAttributeSuffix);
-                return container.LookupType(candidateName) as INamedTypeSymbol;
-            }
+                    var candidateName = AppendAttributeSuffixIfNeeded(rightIdentifier.Identifier.ValueText, appendAttributeSuffix);
+                    return container.LookupType(candidateName) as INamedTypeSymbol;
+                }
         }
 
         return null;
@@ -155,33 +155,33 @@ internal sealed class AttributeBinder : BlockBinder
         switch (syntax)
         {
             case IdentifierNameSyntax identifier:
-            {
-                var ns = LookupNamespace(identifier.Identifier.ValueText);
-                if (ns is not null)
-                    return ns;
-
-                var type = FindAccessibleNamedType(identifier.Identifier.ValueText, 0);
-                if (type is not null)
-                    return type;
-
-                return LookupType(identifier.Identifier.ValueText) as INamespaceOrTypeSymbol;
-            }
-
-            case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
-            {
-                var left = TryLookupNamespaceOrType(qualified.Left);
-                if (left is null)
-                    return null;
-
-                if (left is INamespaceSymbol namespaceSymbol)
                 {
-                    var nestedNamespace = namespaceSymbol.LookupNamespace(rightIdentifier.Identifier.ValueText);
-                    if (nestedNamespace is not null)
-                        return nestedNamespace;
+                    var ns = LookupNamespace(identifier.Identifier.ValueText);
+                    if (ns is not null)
+                        return ns;
+
+                    var type = FindAccessibleNamedType(identifier.Identifier.ValueText, 0);
+                    if (type is not null)
+                        return type;
+
+                    return LookupType(identifier.Identifier.ValueText) as INamespaceOrTypeSymbol;
                 }
 
-                return left.LookupType(rightIdentifier.Identifier.ValueText);
-            }
+            case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
+                {
+                    var left = TryLookupNamespaceOrType(qualified.Left);
+                    if (left is null)
+                        return null;
+
+                    if (left is INamespaceSymbol namespaceSymbol)
+                    {
+                        var nestedNamespace = namespaceSymbol.LookupNamespace(rightIdentifier.Identifier.ValueText);
+                        if (nestedNamespace is not null)
+                            return nestedNamespace;
+                    }
+
+                    return left.LookupType(rightIdentifier.Identifier.ValueText);
+                }
         }
 
         return null;

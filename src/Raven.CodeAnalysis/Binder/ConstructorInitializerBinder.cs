@@ -73,7 +73,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
                     return null;
             }
 
-            _diagnostics.ReportNoOverloadForMethod(baseType.Name, boundArguments.Count, initializerSyntax.ArgumentList.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("constructor for type", baseType.Name, boundArguments.Count, initializerSyntax.ArgumentList.GetLocation());
             return null;
         }
 

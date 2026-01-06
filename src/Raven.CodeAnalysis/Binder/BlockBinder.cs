@@ -4180,12 +4180,12 @@ partial class BlockBinder : Binder
             }
 
             ReportSuppressedLambdaDiagnostics(totalArguments);
-            _diagnostics.ReportNoOverloadForMethod(methodName, totalArguments.Length, invocation.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", methodName, totalArguments.Length, invocation.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
-        _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length + 1, invocation.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length + 1, invocation.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 
@@ -4223,7 +4223,7 @@ partial class BlockBinder : Binder
         if (!SupportsArgumentCount(method.Parameters, totalCount))
         {
             ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
-            _diagnostics.ReportNoOverloadForMethod(method.Name, totalCount, invocation.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", method.Name, totalCount, invocation.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
@@ -4258,7 +4258,7 @@ partial class BlockBinder : Binder
         if (!SupportsArgumentCount(invokeMethod.Parameters, totalCount))
         {
             ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
-            _diagnostics.ReportNoOverloadForMethod(invokeMethod.Name, totalCount, invocation.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", invokeMethod.Name, totalCount, invocation.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
@@ -4812,7 +4812,7 @@ partial class BlockBinder : Binder
                 if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver, boundArguments))
                 {
                     ReportSuppressedLambdaDiagnostics(boundArguments);
-                    _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+                    _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
                     return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                 }
 
@@ -4876,7 +4876,7 @@ partial class BlockBinder : Binder
                     return BindConstructorInvocation(nestedType, boundArguments, syntax, receiver);
 
                 ReportSuppressedLambdaDiagnostics(boundArguments);
-                _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+                _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
             }
 
@@ -4930,7 +4930,7 @@ partial class BlockBinder : Binder
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
-            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
@@ -4966,7 +4966,7 @@ partial class BlockBinder : Binder
                 return BindConstructorInvocation(typeFallback, boundArguments, syntax);
 
             ReportSuppressedLambdaDiagnostics(boundArguments);
-            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
@@ -5177,7 +5177,7 @@ partial class BlockBinder : Binder
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
-        _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 
@@ -5211,7 +5211,7 @@ partial class BlockBinder : Binder
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
-        _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
@@ -5292,7 +5292,7 @@ partial class BlockBinder : Binder
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
-        _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("constructor", typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
@@ -5411,7 +5411,7 @@ partial class BlockBinder : Binder
                             else
                             {
                                 ReportSuppressedLambdaDiagnostics(boundArguments);
-                                _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
+                                _diagnostics.ReportNoOverloadForMethod("method", name, boundArguments.Length, invocation.GetLocation());
                                 whenNotNull = ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                             }
                         }

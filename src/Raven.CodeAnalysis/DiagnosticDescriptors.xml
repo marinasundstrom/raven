@@ -401,7 +401,7 @@
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1501" Identifier="NoOverloadForMethod"
     Title="No overload for method taking argument"
-    Message="No overload for method '{method}' takes {count} arguments" Category="compiler"
+    Message="No overload for {type} '{name}' takes {count} arguments" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1503" Identifier="CannotConvertFromTypeToType"
     Title="Cannot convert from type to type"
