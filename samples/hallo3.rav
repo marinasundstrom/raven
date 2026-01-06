@@ -1,29 +1,29 @@
 import System.Console.*
 
-val test = Derived()
+val test = Derived(42)
 test.Foo()
 test.Bar(2)
 
-val test2 = Derived2()
+val test2 = Derived2("Test")
 test2.Foo()
-test2.Bar(2)
+test2.Bar(3)
 
 open abstract class Base {
     public virtual Foo() {
-        WriteLine("Test")
+        WriteLine("Base.Test")
     }
 
     public abstract Bar(x: int)
 }
 
-class Derived : Base {
-    public override Bar(x: int) -> () => WriteLine("Derived.Bar")
+class Derived(value: int) : Base {
+    public override Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
 }
 
-class Derived2 : Base {
+class Derived2(value: string) : Base {
     public override Foo() {
-        WriteLine("Test2")
+        WriteLine("Derived2.Test: $value")
     }
 
-    public override Bar(x: int) -> () => WriteLine("Derived2.Bar")
+    public override Bar(x: int) -> () => WriteLine("Derived2.Bar: $x and $value")
 }
