@@ -173,6 +173,12 @@
     Title="Abstract member cannot have a body"
     Message="'{memberName}' cannot declare a body because it is marked abstract"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0610" Identifier="AbstractMemberInNonAbstractType"
+    Title="Abstract member declared in non-abstract type"
+    Message="'{memberName}' is abstract but is contained in non-abstract type '{typeName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true"
+    Description="Abstract members are only permitted in abstract classes."
+    HelpLinkUri="" />
   <Descriptor Id="RAV0308" Identifier="VirtualMemberInSealedType"
     Title="Virtual member in sealed type"
     Message="Member '{memberName}' cannot be virtual because the containing type '{typeName}' is sealed"

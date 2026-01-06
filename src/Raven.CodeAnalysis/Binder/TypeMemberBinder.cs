@@ -386,6 +386,11 @@ internal class TypeMemberBinder : Binder
             _diagnostics.ReportAbstractMemberCannotHaveBody(name, identifierToken.GetLocation());
         }
 
+        ValidateAbstractMemberInNonAbstractType(
+            isAbstract,
+            GetMemberDisplayName(displayName),
+            identifierToken.GetLocation());
+
         if (isStatic && (isVirtual || isOverride))
         {
             if (isVirtual)
@@ -1309,6 +1314,7 @@ internal class TypeMemberBinder : Binder
 
         if (isExtensionContainer)
         {
+            isAbstract = false;
             isVirtual = false;
             isOverride = false;
             isSealed = false;
@@ -1366,7 +1372,13 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
             isOverride = false;
             isSealed = false;
+            isAbstract = false;
         }
+
+        ValidateAbstractMemberInNonAbstractType(
+            isAbstract,
+            GetMemberDisplayName(propertyName),
+            identifierToken.GetLocation());
 
         if (isSealed && !isOverride)
         {
@@ -1772,6 +1784,7 @@ internal class TypeMemberBinder : Binder
 
         if (isExtensionContainer)
         {
+            isAbstract = false;
             isVirtual = false;
             isOverride = false;
             isSealed = false;
@@ -1877,7 +1890,13 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
             isOverride = false;
             isSealed = false;
+            isAbstract = false;
         }
+
+        ValidateAbstractMemberInNonAbstractType(
+            isAbstract,
+            GetMemberDisplayName("Item"),
+            identifierToken.GetLocation());
 
         if (isSealed && !isOverride)
         {
@@ -2478,5 +2497,33 @@ internal class TypeMemberBinder : Binder
             SyntaxKind.InKeyword => VarianceKind.In,
             _ => VarianceKind.None,
         };
+    }
+
+    private void ValidateAbstractMemberInNonAbstractType(
+        bool isAbstract,
+        string memberDisplayName,
+        Location location)
+    {
+        if (!isAbstract)
+            return;
+
+        // Interfaces are special (members may be abstract-like by default).
+        if (_containingType.TypeKind == TypeKind.Interface)
+            return;
+
+        // If you only want to enforce the “class must be abstract” rule:
+        if (_containingType.TypeKind == TypeKind.Class && !_containingType.IsAbstract)
+        {
+            _diagnostics.ReportAbstractMemberInNonAbstractType(
+                memberDisplayName,
+                _containingType.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat),
+                location);
+        }
+
+        // Optional stricter rule (C#-like): abstract members not allowed in structs.
+        // else if (_containingType.TypeKind == TypeKind.Struct)
+        // {
+        //     _diagnostics.ReportAbstractMemberNotAllowedInStruct(memberDisplayName, location);
+        // }
     }
 }
