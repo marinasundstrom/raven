@@ -618,21 +618,36 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ldloc, objLocal);
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
-        // Determine which runtime type we're matching members against
-        var lookupType = propertyPattern.NarrowedType ?? propertyPattern.InputType;
-        var lookupClrType = ResolveClrType(lookupType);
-
-        // If we have a narrowed type, do a type-test:
-        // Note: for reference types, isinst is perfect.
+        // If an explicit type was written (Foo { ... } or Foo { }),
+        // emit a type-test using the *narrowed* type.
         if (propertyPattern.NarrowedType is not null)
         {
+            var narrowedClrType = ResolveClrType(propertyPattern.NarrowedType);
+
             ILGenerator.Emit(OpCodes.Ldloc, objLocal);
-            ILGenerator.Emit(OpCodes.Isinst, lookupClrType);
+            ILGenerator.Emit(OpCodes.Isinst, narrowedClrType);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
         }
 
-        // We'll keep a typed local for repeated member loads.
-        // (If no NarrowedType, still cast to lookup type if it's not object.)
+        // Special-case: empty property pattern `{ }` => matches any non-null
+        // (plus the explicit type-test above, if present).
+        if (propertyPattern.Properties.Length == 0)
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Br, labelDone);
+
+            ILGenerator.MarkLabel(labelFail);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+            ILGenerator.MarkLabel(labelDone);
+            return;
+        }
+
+        // Determine which runtime type we're matching members against
+        var lookupType = propertyPattern.ReceiverType;
+        var lookupClrType = ResolveClrType(lookupType);
+
+        // Create typed local
         IILocal typedLocal;
         if (lookupClrType == typeof(object))
         {

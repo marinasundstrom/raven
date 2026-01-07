@@ -248,9 +248,7 @@ CasePath                 ::= '.' Identifier
 
 PatternList              ::= Pattern {',' Pattern} ;
 
-(* NEW: Property patterns *)
-
-PropertyPattern          ::= Type '{' PropertySubpatternList? '}' ;
+PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' ;
 
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
 

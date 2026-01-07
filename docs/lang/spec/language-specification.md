@@ -1090,8 +1090,7 @@ flow-sensitive type analysis.
 Patterns compose from the following primitives:
 
 * `Type` — type pattern; succeeds when the scrutinee can convert to `Type`. This
-  behaves like a type test when no designation is provided (for example,
-  `object => value.ToString()`).
+  behaves like a type test when no designation is provided.
 
 * `Type name` — typed binding; succeeds when the scrutinee converts to
   `Type`, then binds the converted value to `name` as an immutable local.
@@ -1100,6 +1099,9 @@ Patterns compose from the following primitives:
   binding. `let`/`val` produces an immutable local while `var` creates a mutable one.
   Parenthesized designations such as `let (first, second): (int, string)` bind
   each element positionally.
+
+  If `let`/`val`/`var` is omitted where a binding is expected, the binding is treated
+  as `val` (immutable). For example, `.Ok(n)` is equivalent to `.Ok(val n)`.
 
 * `_` / `Type _` — discard; matches anything without introducing a binding. The
   typed form asserts the value can convert to `Type` while still discarding it.
@@ -1114,26 +1116,50 @@ Patterns compose from the following primitives:
 
 * `(element1, element2, …)` — tuple pattern; matches when the scrutinee is a
   tuple with the same arity and each element matches the corresponding
-  subpattern. Tuple patterns destructure positionally, so nested patterns may
-  test or bind each element independently. Each element may introduce a name
-  before the colon (for example `(first: int, second: string)`) to bind the
-  matched value while applying the nested subpattern.
+  subpattern.
+
+  Tuple patterns destructure positionally. Each element is itself a pattern and
+  may introduce bindings. For example:
+
+  * `(a, b)`
+  * `(val a, val b)`
+  * `(x: int, y: string)`
+  * `(first: int, second)`
+
+  If an element uses a name without an explicit `let`/`val`/`var`, the binding is
+  treated as `val`.
+
+  An element may optionally include a name before the colon
+  (`name: pattern`) to bind the element value while still applying a nested
+  pattern.
 
 * `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**; matches when the
-  scrutinee can be treated as `Type`, then evaluates each listed member pattern
-  against the corresponding instance member on the value. Members are matched
-  left-to-right and may be nested patterns (including tuple patterns, case
-  patterns, and bindings). Property patterns fail if the scrutinee is `null`.
-  A property subpattern may bind values using variable patterns, for example
-  `{ Value: val v }`.
-  `Type` is required (there is no “type-less” `{ ... }` form).
+  scrutinee is not `null` and can be treated as `Type`, then evaluates each listed
+  member subpattern against the corresponding instance member on the value.
+  Member subpatterns are evaluated left-to-right and may themselves be any pattern
+  (including tuple patterns, case patterns, and bindings).
 
-  * Each `member: pattern` entry targets an **instance field or readable instance property**
-    named `member` on `Type` (after name lookup and overload resolution rules for
-    members). If no such readable member exists, the pattern is invalid.
+  * Each `member: pattern` entry targets an **instance field** or a **readable instance
+    property** named `member` on `Type`. (Properties must have an accessible getter and
+    must not be indexers.)
   * The nested pattern is type-checked against the member’s type.
-  * Access checks apply: a pattern may only read members that are accessible at
+  * Access checks apply: a property pattern may only read members that are accessible at
     the use site.
+  * Property patterns fail if the scrutinee is `null`.
+  * The empty property pattern `Type { }` matches any non-`null` value that can be treated
+    as `Type`.
+
+* `{ member1: pattern1, member2: pattern2, … }` — **inferred property pattern**; like
+  `Type { ... }`, but the receiver type is inferred from the scrutinee’s static type.
+
+  * If the scrutinee’s static type is a concrete named type (and not just `object`), that
+    type is used as the receiver type for member lookup.
+  * If the receiver type cannot be inferred (for example, the scrutinee is `object`,
+    an unconstrained type parameter, or a union where multiple candidates could apply),
+    the pattern is invalid and the compiler reports a diagnostic requiring an explicit
+    type.
+  * The empty inferred property pattern `{ }` matches any non-`null` scrutinee (it is a
+    non-null test).
 
 * `.Case` / `Type.Case` — case pattern; matches a discriminated union case by
   name. The leading `.` resolves against the current scrutinee in a `match` arm
@@ -1152,7 +1178,7 @@ Patterns compose from the following primitives:
   bound from the generated case properties before evaluating the nested
   patterns, so `.Ok(value)` in `match result` binds `value` with the case's
   declared type. Bare payload identifiers implicitly bind immutable locals, so
-  `.Ok(payload)` is equivalent to `.Ok(let payload)`; use `_` to explicitly
+  `.Ok(payload)` is equivalent to `.Ok(val payload)`; use `_` to explicitly
   discard a payload.
 
 * `pattern1 and pattern2` — conjunction; succeeds only when both operands
@@ -1215,6 +1241,16 @@ if x is Foo { Data: (a, b) } {
 if x is Foo { Value: true } and not Foo { Value: false } {
     WriteLine("Consistent Foo")
 }
+
+// Inferred receiver type (x is Foo here), so Foo is implied:
+if fooTrue is { Value: true } {
+    WriteLine("Also consistent Foo")
+}
+
+// Non-null test:
+if x is { } {
+    WriteLine("x is not null")
+}
 ```
 
 #### `is` expression
@@ -1238,70 +1274,9 @@ When the pattern is a property pattern (`Type { ... }`), the `true` branch also
 treats the scrutinee as `Type` for member access, and any bindings introduced by
 nested subpatterns are in scope within the `true` branch.
 
-#### `match` expression
-
-`match` uses braces with newline-separated arms. The keyword follows the scrutinee expression, so any expression can flow directly into a `match`:
-
-```raven
-scrutinee match {
-    pattern [when guard] => result
-    pattern => result
-}
-```
-
-Arms are evaluated top to bottom. The first matching arm produces the
-expression's value. Guards run after the pattern succeeds; they do not
-influence exhaustiveness checking.
-
-The scrutinee expression is evaluated exactly once before any arm runs.
-Each arm introduces its own scope: pattern bindings are in scope for the
-optional `when` guard and the arm's result expression, but they do not leak
-into later arms. Guards use the `when` keyword and execute only after the
-pattern succeeds; if the guard evaluates to `false`, evaluation falls through
-to the next arm.
-
-```raven
-let state: "on" | "off" | "auto"
-
-let description =
-    state match {
-        "on" or "auto" => "enabled"
-        "off"         => "disabled"
-    }
-```
-
-When multiple arms yield different types, the result type is the normalized
-union of the arm results.
-
-```raven
-func classify(value: object) -> string {
-    value match {
-        string text when text.Length > 0 => text
-        0                                 => "zero"
-        _                                 => "unknown ${value}"
-    }
-}
-```
-
-Local helpers use the same `func` syntax—there is no separate F#-style `let` function form.
-
-`match` requires exhaustiveness. For finite literal unions, every literal must
-appear (or `_` used). When the scrutinee type includes an open set (for example
-`int`, `string`, or a class hierarchy), add a catch-all arm (`_` or a broader
-type pattern) to cover the remainder. Because `_` is a discard, it never
-introduces a binding and always matches, so placing it last is a common way to
-describe fallback behavior. Missing coverage produces `RAV2100`; redundant arms
-that can never be chosen produce unreachable diagnostics (`RAV2101`), and
-catch-alls that are unnecessary because earlier arms already cover every case
-produce `RAV2103`.
-
-Discriminated unions contribute a closed set of cases to exhaustiveness
-checking. A `match` over `Result<int>` must handle `Ok` and `Error` (either via
-explicit case patterns or a catch-all). Guards only relax exhaustiveness when
-they are known to succeed—`when payload > 1` still leaves `Ok` uncovered because
-the guard may fail at run time, while `when true` counts as handled. Use `_` to
-cover any remaining cases explicitly when a guarded arm cannot guarantee
-coverage.
+When the pattern is an inferred property pattern (`{ ... }`), the `true` branch
+treats the scrutinee as the inferred receiver type for member access. The empty
+form `{ }` narrows the scrutinee to “non-null”.
 
 #### Flow-sensitive narrowing
 
@@ -1312,9 +1287,9 @@ the opposite branch. Guard expressions do not participate in this narrowing, but
 they may use the bindings established by the pattern they accompany.
 
 Property patterns contribute narrowing as well: inside a successful property
-pattern, the scrutinee is treated as the stated `Type`, and each nested
-subpattern may introduce additional bindings and narrowing for the corresponding
-member values.
+pattern, the scrutinee is treated as the stated `Type` (or the inferred receiver
+type), and each nested subpattern may introduce additional bindings and narrowing
+for the corresponding member values.
 
 ## Namespace declaration
 

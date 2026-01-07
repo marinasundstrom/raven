@@ -522,6 +522,14 @@
     EnabledByDefault="true"
     Description=""
     HelpLinkUri="" />
+  <Descriptor Id="RAV1604" Identifier="PropertyPatternRequiresType"
+    Title="Property pattern requires a type"
+    Message="Property pattern requires an explicit type here because it cannot be inferred from the input"
+    Category="compiler"
+    Severity="Error"
+    EnabledByDefault="true"
+    Description=""
+    HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred"
     Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"

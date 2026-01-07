@@ -705,84 +705,234 @@ internal partial class BlockBinder
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
-        // 1) Bind the type filter (Foo in Foo { ... })
         ITypeSymbol? narrowedType = null;
+
+        // Empty property pattern: { } matches any non-null scrutinee.
+        // It never needs inference and never does member lookup.
+        if (syntax.PropertyPatternClause.Properties.Count == 0)
+        {
+            if (syntax.Type is not null)
+            {
+                var boundType = BindTypeSyntax(syntax.Type);
+                narrowedType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
+
+                // Optional: diagnose incompatibility between input and narrowed type
+                if (narrowedType.TypeKind != TypeKind.Error &&
+                    inputType.TypeKind != TypeKind.Error &&
+                    !Compilation.ClassifyConversion(inputType, narrowedType).Exists)
+                {
+                    _diagnostics.ReportPropertyPatternTypeMismatch(
+                        inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        narrowedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.Type!.GetLocation());
+                }
+            }
+
+            // ReceiverType is irrelevant for empty patterns; keep it as inputType to avoid ErrorType.
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: inputType,
+                narrowedType: narrowedType,
+                properties: ImmutableArray<BoundPropertySubpattern>.Empty);
+        }
+
+        // 1) Bind explicit type filter if present: Foo in Foo { ... }
         if (syntax.Type is not null)
         {
             var boundType = BindTypeSyntax(syntax.Type);
-            narrowedType = boundType.Type;
-            narrowedType = EnsureTypeAccessible(narrowedType, syntax.Type.GetLocation());
+            narrowedType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
         }
 
-        // 2) Decide the "member lookup type"
-        // If there’s a narrowing type, use it for member lookup; otherwise use the input type.
-        var lookupType = narrowedType ?? inputType;
-
-        // If lookup is error, still bind children as discards
-        if (lookupType.TypeKind == TypeKind.Error)
-        {
-            var props = BindPropertySubpatternsAsDiscards(syntax, lookupType);
-            return new BoundPropertyPattern(inputType, narrowedType, props, BoundExpressionReason.TypeMismatch);
-        }
-
-        // Optional: diagnose if narrowing type is incompatible with input type
+        // 2) Decide receiver type:
+        //    - explicit type: receiver = narrowed
+        //    - implicit type: receiver inferred from input type
+        ITypeSymbol receiverType;
         if (narrowedType is not null)
         {
-            // Depending on your conversion/type-test rules, pick your check.
-            // For now: if not related at all, report mismatch.
-            if (!Compilation.ClassifyConversion(inputType, narrowedType).Exists)
+            receiverType = narrowedType;
+
+            // Optional: diagnose incompatibility (same as you had)
+            if (receiverType.TypeKind != TypeKind.Error &&
+                inputType.TypeKind != TypeKind.Error &&
+                !Compilation.ClassifyConversion(inputType, receiverType).Exists)
             {
                 _diagnostics.ReportPropertyPatternTypeMismatch(
                     inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    narrowedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    receiverType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     syntax.Type!.GetLocation());
             }
         }
+        else
+        {
+            receiverType = InferPropertyPatternReceiverType(inputType, syntax);
 
-        var boundProps = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(syntax.PropertyPatternClause.Properties.Count);
+            if (receiverType.TypeKind == TypeKind.Error)
+            {
+                var props = BindPropertySubpatternsAsDiscards(syntax);
+                return new BoundPropertyPattern(
+                    inputType: inputType,
+                    receiverType: Compilation.ErrorTypeSymbol,
+                    narrowedType: null,
+                    properties: props,
+                    reason: BoundExpressionReason.MissingType);
+            }
+        }
+
+        // 3) Bind subpatterns using receiverType for member lookup
+        var boundProps = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(
+            syntax.PropertyPatternClause.Properties.Count);
 
         foreach (var sub in syntax.PropertyPatternClause.Properties)
         {
             var name = sub.NameColon.Name.Identifier.ValueText;
 
-            // 3) Lookup member on lookupType
-            var member = LookupPatternMember(lookupType, name, sub.NameColon.Name.GetLocation());
-
-            ITypeSymbol memberType = Compilation.ErrorTypeSymbol;
-
-            if (member is IPropertySymbol prop)
-                memberType = prop.Type;
-            else if (member is IFieldSymbol field)
-                memberType = field.Type;
-
-            memberType = EnsureTypeAccessible(memberType, sub.GetLocation());
-
-            // 4) Bind nested pattern with expected member type
-            var boundPattern = BindPattern(sub.Pattern, memberType);
+            var member = LookupPatternMember(receiverType, name, sub.NameColon.Name.GetLocation());
 
             if (member is null)
             {
-                // keep binding going; treat as missing member
-                boundPattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+                boundProps.Add(new BoundPropertySubpattern(
+                    Member: Compilation.ErrorSymbol,
+                    Type: Compilation.ErrorTypeSymbol,
+                    Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound)));
+
+                continue;
             }
 
+            ITypeSymbol memberType =
+                member is IPropertySymbol p ? p.Type :
+                member is IFieldSymbol f ? f.Type :
+                Compilation.ErrorTypeSymbol;
+
+            memberType = EnsureTypeAccessible(memberType, sub.GetLocation());
+
+            var boundPattern = BindPattern(sub.Pattern, memberType);
+
             boundProps.Add(new BoundPropertySubpattern(
-                Member: member ?? Compilation.ErrorSymbol,
+                Member: member,
                 Type: memberType,
                 Pattern: boundPattern));
         }
 
-        return new BoundPropertyPattern(inputType, narrowedType, boundProps.ToImmutable());
+        return new BoundPropertyPattern(
+            inputType: inputType,
+            receiverType: receiverType,
+            narrowedType: narrowedType,
+            properties: boundProps.ToImmutable());
     }
 
-    private ISymbol? LookupPatternMember(ITypeSymbol lookupType, string name, Location location)
+    private ITypeSymbol InferPropertyPatternReceiverType(ITypeSymbol inputType, PropertyPatternSyntax syntax)
     {
-        // You decide what “property pattern can match”.
-        // Common set: instance readable properties + instance fields.
-        // (You probably want to exclude indexers and non-readable properties.)
+        // Strip nullable reference wrapper (object? -> object)
+        inputType = StripNullableReference(inputType);
 
-        var named = lookupType as INamedTypeSymbol;
-        if (named is null)
+        // Collect required member names from the pattern: { Value: ..., Data: ... }
+        var requiredMembers = syntax.PropertyPatternClause.Properties
+            .Select(p => p.NameColon.Name.Identifier.ValueText)
+            .Where(n => !string.IsNullOrEmpty(n))
+            .ToImmutableArray();
+
+        // If the input is a concrete named type (and not object), use it directly
+        if (inputType is INamedTypeSymbol named &&
+            named.TypeKind != TypeKind.Error &&
+            named.SpecialType != SpecialType.System_Object)
+        {
+            return named;
+        }
+
+        /*
+        // If it's a union, pick a unique candidate union member that satisfies all members
+        if (inputType.IsTypeUnion)
+        {
+            var unionTypes = inputType.GetTypeUnionTypes(); // <-- use your existing helper for union constituents
+            var candidates = new List<INamedTypeSymbol>();
+
+            foreach (var t in unionTypes)
+            {
+                var tt = StripNullableReference(t);
+
+                if (tt is not INamedTypeSymbol nt)
+                    continue;
+
+                if (nt.TypeKind == TypeKind.Error)
+                    continue;
+
+                if (nt.SpecialType == SpecialType.System_Object)
+                    continue;
+
+                if (HasAllPatternMembers(nt, requiredMembers))
+                    candidates.Add(nt);
+            }
+
+            if (candidates.Count == 1)
+                return candidates[0];
+
+            if (candidates.Count > 1)
+            {
+                // Ambiguous: multiple possible receiver types
+                // You can add a dedicated diagnostic if you want;
+                // using TypeMismatch keeps it simple.
+                _diagnostics.ReportPropertyPatternTypeMismatch(
+                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    "<inferred>",
+                    syntax.GetLocation());
+
+                return Compilation.ErrorTypeSymbol;
+            }
+        }
+        */
+
+        // Otherwise: we can't infer from object / type parameter / etc.
+        // This is where your "Should warn" case lands (x: object?).
+        _diagnostics.ReportPropertyPatternRequiresType(
+            syntax.GetLocation()); // <-- add a WARNING diagnostic for this
+
+        return Compilation.ErrorTypeSymbol;
+    }
+
+    private ITypeSymbol StripNullableReference(ITypeSymbol type)
+    {
+        // If you model nullable reference types with a wrapper symbol, unwrap here.
+        // If you model it via annotations, adapt accordingly.
+        // Simple fallback: treat "T?" (for ref types) as T when you can detect it.
+
+        if (IsNullableReferenceType(type, out var underlying))
+            return underlying;
+
+        return type;
+    }
+
+    private bool HasAllPatternMembers(INamedTypeSymbol type, ImmutableArray<string> requiredMembers)
+    {
+        foreach (var name in requiredMembers)
+        {
+            var members = type.GetMembers(name);
+
+            // readable instance property (no indexers) OR instance field
+            var ok =
+                members.OfType<IPropertySymbol>().Any(p => !p.IsStatic && p.GetMethod is not null && p.Parameters.Length == 0) ||
+                members.OfType<IFieldSymbol>().Any(f => !f.IsStatic);
+
+            if (!ok)
+                return false;
+        }
+
+        return true;
+    }
+
+    internal static bool IsNullableReferenceType(ITypeSymbol type, out INamedTypeSymbol? underlyingType)
+    {
+        if (type is NullableTypeSymbol { IsValueType: false })
+        {
+            underlyingType = (INamedTypeSymbol?)type.GetNullableUnderlyingType();
+            return true;
+        }
+        underlyingType = null;
+        return false;
+    }
+
+    private ISymbol? LookupPatternMember(ITypeSymbol receiverType, string name, Location location)
+    {
+        if (receiverType is not INamedTypeSymbol named)
             return null;
 
         var members = named.GetMembers(name);
@@ -801,17 +951,16 @@ internal partial class BlockBinder
 
         _diagnostics.ReportPropertyPatternMemberNotFound(
             name,
-            lookupType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            receiverType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             location);
 
         return null;
     }
 
-    private ImmutableArray<BoundPropertySubpattern> BindPropertySubpatternsAsDiscards(
-    PropertyPatternSyntax syntax,
-    ITypeSymbol lookupType)
+    private ImmutableArray<BoundPropertySubpattern> BindPropertySubpatternsAsDiscards(PropertyPatternSyntax syntax)
     {
-        var builder = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(syntax.PropertyPatternClause.Properties.Count);
+        var builder = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(
+            syntax.PropertyPatternClause.Properties.Count);
 
         foreach (var sub in syntax.PropertyPatternClause.Properties)
         {
@@ -896,23 +1045,22 @@ internal partial class BlockBinder
 internal sealed class BoundPropertyPattern : BoundPattern
 {
     public BoundPropertyPattern(
-        ITypeSymbol inputType,                // the type we're matching *against* (usually the is-pattern input)
-        ITypeSymbol? narrowedType,             // optional type filter (Foo in Foo { ... })
+        ITypeSymbol inputType,
+        ITypeSymbol receiverType,
+        ITypeSymbol? narrowedType,
         ImmutableArray<BoundPropertySubpattern> properties,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(inputType, reason)
     {
         InputType = inputType;
+        ReceiverType = receiverType;
         NarrowedType = narrowedType;
         Properties = properties;
     }
 
-    // The overall "pattern input" type. (Same as the is-pattern input type.)
     public ITypeSymbol InputType { get; }
-
-    // If syntax has Foo { ... }, this is Foo. If syntax is just { ... } (if you allow it), null.
+    public ITypeSymbol ReceiverType { get; }
     public ITypeSymbol? NarrowedType { get; }
-
     public ImmutableArray<BoundPropertySubpattern> Properties { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
@@ -927,6 +1075,6 @@ internal sealed class BoundPropertyPattern : BoundPattern
 }
 
 internal readonly record struct BoundPropertySubpattern(
-    ISymbol Member,            // IPropertySymbol or IFieldSymbol (or whatever you decide to support)
-    ITypeSymbol Type,          // member type
-    BoundPattern Pattern);     // pattern applied to member value
+    ISymbol Member,
+    ITypeSymbol Type,
+    BoundPattern Pattern);

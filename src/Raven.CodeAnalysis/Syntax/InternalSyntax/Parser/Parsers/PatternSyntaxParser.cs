@@ -69,6 +69,12 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParseTuplePattern();
         }
 
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        {
+            var clause = ParsePropertyPatternClause();
+            return PropertyPattern(null, clause);
+        }
+
         if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
         {
             return ParseVariablePattern();

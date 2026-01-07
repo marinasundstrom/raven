@@ -12,6 +12,10 @@ func Main() {
     test(fooTrue, ok)
     test(fooFalse, ok)
     test(null, err)
+
+    if fooTrue is { Value: true } {
+        WriteLine("Consistent Foo")
+    }
 }
 
 func test(x: object?, r: Result<int>) {
@@ -29,6 +33,10 @@ func test(x: object?, r: Result<int>) {
 
     if x is Foo { Value: true } and not Foo { Value: false } {
         WriteLine("Consistent Foo")
+    }
+
+    if x is { } {
+        WriteLine("Is not null")
     }
 
     val message =
