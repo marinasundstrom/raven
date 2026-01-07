@@ -1,0 +1,22 @@
+import System.Console.*
+import System.Threading.*
+import System.Threading.Tasks.*
+
+val handler: IRequestHandler<SubmitOrder, ()> = SubmitOrderHandler()
+val request = SubmitOrder()
+
+await handler.Handle(request, default)
+
+interface IRequestHandler<TRequest, TReturn> {
+    Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
+}
+
+class SubmitOrder() {}
+
+class SubmitOrderHandler : IRequestHandler<SubmitOrder, ()> {
+    public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<()> {
+        await Task.Delay(500)
+        WriteLine("Test")
+        //return ()
+    }
+}

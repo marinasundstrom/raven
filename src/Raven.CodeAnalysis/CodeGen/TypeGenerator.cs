@@ -369,7 +369,7 @@ internal class TypeGenerator
         var attributes = GetFieldAccessibilityAttributes(fieldSymbol);
 
         if (fieldSymbol.IsConst)
-            attributes |= FieldAttributes.Literal;
+            attributes |= FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault;
 
         if (!fieldSymbol.IsMutable && !fieldSymbol.IsConst)
             attributes |= FieldAttributes.InitOnly;
@@ -1446,34 +1446,69 @@ internal class TypeGenerator
 
     private bool TryGetInterfaceMethodInfo(IMethodSymbol interfaceMethod, out MethodInfo methodInfo)
     {
-        if (interfaceMethod is SourceSymbol sourceSymbol)
+        // 1) If this is a substituted/constructed interface method, unwrap to definition.
+        var definitionMethod = interfaceMethod;
+
+        // Use whatever your symbol model offers:
+        // - Roslyn uses OriginalDefinition / ConstructedFrom
+        // - you likely have something similar on your substituted symbols
+        if (interfaceMethod is SubstitutedMethodSymbol sub)
+            definitionMethod = sub.OriginalDefinition; // or sub.ConstructedFrom / sub.UnderlyingMethod
+
+        // 2) Get MethodInfo for the definition method first (works for source + metadata).
+        if (!TryGetInterfaceDefinitionMethodInfo(definitionMethod, out var definitionMethodInfo))
         {
-            if (CodeGen.GetMemberBuilder(sourceSymbol) is MethodInfo interfaceBuilder)
+            methodInfo = null!;
+            return false;
+        }
+
+        // 3) If containing type is a constructed emitted type, map definition -> constructed.
+        if (interfaceMethod.ContainingType is not null)
+        {
+            var containingClrType = ResolveClrType(interfaceMethod.ContainingType);
+
+            // This is the critical bit: TypeBuilderInstantiation doesn't support GetMethod(...)
+            // but TypeBuilder.GetMethod DOES.
+            if (containingClrType.GetType().Name.Contains("TypeBuilderInstantiation") ||
+                (containingClrType.IsGenericType && containingClrType.ContainsGenericParameters))
             {
-                methodInfo = interfaceBuilder;
+                methodInfo = TypeBuilder.GetMethod(containingClrType, definitionMethodInfo);
                 return true;
             }
         }
-        else if (interfaceMethod.ContainingType is not null)
+
+        // 4) Otherwise we can just use the definition MethodInfo (or do runtime lookup if you prefer).
+        methodInfo = definitionMethodInfo;
+        return true;
+    }
+
+    private bool TryGetInterfaceDefinitionMethodInfo(IMethodSymbol definitionMethod, out MethodInfo methodInfo)
+    {
+        // Source-defined interfaces: we should already have MethodBuilder registered.
+        if (definitionMethod is SourceSymbol src)
         {
-            var interfaceClrType = ResolveClrType(interfaceMethod.ContainingType);
-            var parameterTypes = interfaceMethod.Parameters
-                .Select(GetParameterClrType)
-                .ToArray();
-
-            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
-            bindingFlags |= interfaceMethod.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
-
-            var candidate = interfaceClrType.GetMethod(
-                interfaceMethod.Name,
-                bindingFlags,
-                binder: null,
-                types: parameterTypes,
-                modifiers: null);
-
-            if (candidate is not null)
+            if (CodeGen.GetMemberBuilder(src) is MethodInfo mb)
             {
-                methodInfo = candidate;
+                methodInfo = mb;
+                return true;
+            }
+        }
+
+        // Metadata-defined interfaces: resolve through reflection.
+        if (definitionMethod.ContainingType is not null)
+        {
+            var ifaceClr = ResolveClrType(definitionMethod.ContainingType);
+
+            // If ifaceClr is still a TypeBuilder/TypeBuilderInstantiation, avoid GetMethod here too.
+            // But for metadata this will be a real runtime Type.
+            var parameterTypes = definitionMethod.Parameters.Select(GetParameterClrType).ToArray();
+            var flags = BindingFlags.Public | BindingFlags.NonPublic |
+                        (definitionMethod.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
+
+            var m = ifaceClr.GetMethod(definitionMethod.Name, flags, null, parameterTypes, null);
+            if (m is not null)
+            {
+                methodInfo = m;
                 return true;
             }
         }
