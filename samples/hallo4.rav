@@ -1,8 +1,7 @@
 import System.*
 import System.Console.*
 
-func Main()
-{
+func Main() {
     val fooTrue  = new Foo(true,  (10, 20))
     val fooFalse = new Foo(false, (1, 2))
 
@@ -15,31 +14,25 @@ func Main()
     test(null, err)
 }
 
-func test(x: object?, r: Result<int>)
-{
-    if x is Foo { Value: true }
-    {
+func test(x: object?, r: Result<int>) {
+    if x is Foo { Value: true } {
         WriteLine("Foo with Value == true")
     }
 
-    if x is Foo { Value: val v }
-    {
+    if x is Foo { Value: val v } {
         WriteLine("Foo.Value bound to v = $v")
     }
 
-    if x is Foo { Data: (a, b) }
-    {
+    if x is Foo { Data: (a, b) } {
         WriteLine("Tuple destructured: a=$a, b=$b")
     }
 
-    if x is Foo { Value: true } and not Foo { Value: false }
-    {
+    if x is Foo { Value: true } and not Foo { Value: false } {
         WriteLine("Consistent Foo")
     }
 
     val message =
-        r match
-        {
+        r match {
             .Ok(n) when n > 0 => "Positive: $n"
             .Ok(0)            => "Zero"
             .Error(msg)       => "Error: $msg"
@@ -48,13 +41,11 @@ func test(x: object?, r: Result<int>)
     WriteLine(message)
 }
 
-class Foo
-{
+class Foo {
     public val Value: bool
     public val Data: (int, int)
 
-    public init(value: bool, data: (int, int))
-    {
+    public init(value: bool, data: (int, int)) {
         Value = value
         Data = data
     }
