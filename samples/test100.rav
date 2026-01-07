@@ -1,11 +1,27 @@
+import System.*
 import System.Console.*
 import System.Threading.*
 import System.Threading.Tasks.*
 
-val handler: IRequestHandler<SubmitOrder, ()> = SubmitOrderHandler()
-val request = SubmitOrder()
+async func Main() -> Task {
+    val handler: IRequestHandler<SubmitOrder, Response<int>> = SubmitOrderHandler()
+    val request = SubmitOrder()
 
-await handler.Handle(request, default)
+    val result = await handler.Handle(request, default)
+    WriteLine("Result $result")
+
+    val str = result match {
+        .Success(value) => value.ToString(),
+        .Failure(message) => message
+    }
+
+    WriteLine("$str")
+}
+
+union Response<T> {
+    Success(value: T)
+    Failure(message: string)
+}
 
 interface IRequestHandler<TRequest, TReturn> {
     Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
@@ -13,10 +29,9 @@ interface IRequestHandler<TRequest, TReturn> {
 
 class SubmitOrder() {}
 
-class SubmitOrderHandler : IRequestHandler<SubmitOrder, ()> {
-    public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<()> {
+class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<int>> {
+    public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<int>> {
         await Task.Delay(500)
-        WriteLine("Test")
-        //return ()
+        return .Success(42)
     }
 }
