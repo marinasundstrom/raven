@@ -21,6 +21,7 @@ public enum SymbolKind
     Label,
     Property,
     Field,
+    Error,
     ErrorType,
     TypeParameter
 }
@@ -618,6 +619,10 @@ public interface ILocalSymbol : ISymbol
     bool IsConst { get; }
 
     object? ConstantValue { get; }
+}
+
+public interface IErrorSymbol : ISymbol
+{
 }
 
 public interface IErrorTypeSymbol : INamedTypeSymbol

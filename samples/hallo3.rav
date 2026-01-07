@@ -8,7 +8,8 @@ val test2 = Derived2("Test")
 test2.Foo()
 test2.Bar(3)
 
-open abstract class Base {
+public open abstract class Base {
+    /// Test
     public virtual Foo() {
         WriteLine("Base.Test")
     }
@@ -16,11 +17,11 @@ open abstract class Base {
     public abstract Bar(x: int)
 }
 
-class Derived(value: int) : Base {
+public class Derived(value: int) : Base {
     public override Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
 }
 
-class Derived2(value: string) : Base {
+public class Derived2(value: string) : Base {
     public override Foo() {
         WriteLine("Derived2.Test: $value")
     }

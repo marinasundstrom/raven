@@ -214,15 +214,28 @@ Assignable               ::= Identifier
                            | MemberBindingExpression
                            | ElementAccessExpression ;
 
+(* ---------- Patterns ---------- *)
+
 Pattern                  ::= OrPattern ;
+
 OrPattern                ::= AndPattern {'or' AndPattern} ;
 AndPattern               ::= UnaryPattern {'and' UnaryPattern} ;
 UnaryPattern             ::= 'not' UnaryPattern | PrimaryPattern ;
-PrimaryPattern           ::= ConstantPattern | VariablePattern | DeclarationPattern | TuplePattern | DiscardPattern | CasePattern ;
+
+PrimaryPattern           ::= ConstantPattern
+                           | VariablePattern
+                           | DeclarationPattern
+                           | TuplePattern
+                           | DiscardPattern
+                           | CasePattern
+                           | PropertyPattern ;          (* NEW *)
 
 ConstantPattern          ::= Literal ;
+
 VariablePattern          ::= ('let' | 'val'| 'var') VariableDesignation ;
+
 DeclarationPattern       ::= Type [VariableDesignation] ;
+
 TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [Identifier ':'] Pattern ;
 
@@ -235,8 +248,17 @@ CasePath                 ::= '.' Identifier
 
 PatternList              ::= Pattern {',' Pattern} ;
 
+(* NEW: Property patterns *)
+
+PropertyPattern          ::= Type '{' PropertySubpatternList? '}' ;
+
+PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
+
+PropertySubpattern       ::= Identifier ':' Pattern ;
+
 VariableDesignation      ::= VariableDesignationCore [':' Type] ;
 VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;
+
 ParenthesizedVariableDesignation
                            ::= '(' VariableDesignation {',' VariableDesignation} ')' ;
 

@@ -1,0 +1,61 @@
+import System.*
+import System.Console.*
+
+func Main()
+{
+    val fooTrue  = new Foo(true,  (10, 20))
+    val fooFalse = new Foo(false, (1, 2))
+
+    // If your union case creation is `.Ok(…)` / `.Error(…)`:
+    val ok : Result<int>  = .Ok(42)
+    val err : Result<int> = .Error("boom")
+
+    test(fooTrue, ok)
+    test(fooFalse, ok)
+    test(null, err)
+}
+
+func test(x: object?, r: Result<int>)
+{
+    if x is Foo { Value: true }
+    {
+        WriteLine("Foo with Value == true")
+    }
+
+    if x is Foo { Value: val v }
+    {
+        WriteLine("Foo.Value bound to v = $v")
+    }
+
+    if x is Foo { Data: (a, b) }
+    {
+        WriteLine("Tuple destructured: a=$a, b=$b")
+    }
+
+    if x is Foo { Value: true } and not Foo { Value: false }
+    {
+        WriteLine("Consistent Foo")
+    }
+
+    val message =
+        r match
+        {
+            .Ok(n) when n > 0 => "Positive: $n"
+            .Ok(0)            => "Zero"
+            .Error(msg)       => "Error: $msg"
+        }
+
+    WriteLine(message)
+}
+
+class Foo
+{
+    public val Value: bool
+    public val Data: (int, int)
+
+    public init(value: bool, data: (int, int))
+    {
+        Value = value
+        Data = data
+    }
+}

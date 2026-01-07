@@ -601,6 +601,9 @@
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="Pattern" Inherits="ExpressionOrPattern" IsAbstract="true" />
+  <!-- <Node Name="ConstantPattern" Inherits="Pattern">
+    <Slot Name="Expression" Type="Expression" />
+  </Node> -->
   <Node Name="UnaryPattern" Inherits="Pattern" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Pattern" Type="Pattern" />
@@ -643,6 +646,19 @@
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
     <Slot Name="Arguments" Type="SeparatedList" ElementType="Pattern" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
+  </Node>
+  <Node Name="PropertyPattern" Inherits="Pattern">
+    <Slot Name="Type" Type="Type" IsNullable="true" />
+    <Slot Name="PropertyPatternClause" Type="PropertyPatternClause" />
+  </Node>
+  <Node Name="PropertyPatternClause" Inherits="Node">
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="Properties" Type="SeparatedList" ElementType="PropertySubpattern" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+  </Node>
+  <Node Name="PropertySubpattern" Inherits="Node">
+    <Slot Name="NameColon" Type="NameColon" />
+    <Slot Name="Pattern" Type="Pattern" />
   </Node>
   <Node Name="EnumDeclaration" Inherits="BaseTypeDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />

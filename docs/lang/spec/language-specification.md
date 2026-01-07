@@ -1089,31 +1089,53 @@ flow-sensitive type analysis.
 
 Patterns compose from the following primitives:
 
-- `Type` — type pattern; succeeds when the scrutinee can convert to `Type`. This
+* `Type` — type pattern; succeeds when the scrutinee can convert to `Type`. This
   behaves like a type test when no designation is provided (for example,
   `object => value.ToString()`).
-- `Type name` — typed binding; succeeds when the scrutinee converts to
+
+* `Type name` — typed binding; succeeds when the scrutinee converts to
   `Type`, then binds the converted value to `name` as an immutable local.
-- `let name` / `var name` — variable pattern; always matches and introduces a
-  binding. `let` produces an immutable local while `var` creates a mutable one.
+
+* `let name` / `val name` / `var name` — variable pattern; always matches and introduces a
+  binding. `let`/`val` produces an immutable local while `var` creates a mutable one.
   Parenthesized designations such as `let (first, second): (int, string)` bind
   each element positionally.
-- `_` / `Type _` — discard; matches anything without introducing a binding. The
+
+* `_` / `Type _` — discard; matches anything without introducing a binding. The
   typed form asserts the value can convert to `Type` while still discarding it.
   Because `_` is reserved for discards, writing `_` as the designation never
   creates a binding. Discards participate in pattern exhaustiveness: an
   unguarded `_` arm is considered a catch-all and satisfies any remaining cases
   even when earlier arms introduced bindings.
-- `literal` — constant pattern; matches when the scrutinee equals the literal
+
+* `literal` — constant pattern; matches when the scrutinee equals the literal
   value (`true`, `"on"`, `42`, or `null`). Literal patterns piggyback on Raven's
   literal types, so they also narrow unions precisely.
-- `(element1, element2, …)` — tuple pattern; matches when the scrutinee is a
+
+* `(element1, element2, …)` — tuple pattern; matches when the scrutinee is a
   tuple with the same arity and each element matches the corresponding
   subpattern. Tuple patterns destructure positionally, so nested patterns may
   test or bind each element independently. Each element may introduce a name
   before the colon (for example `(first: int, second: string)`) to bind the
   matched value while applying the nested subpattern.
-- `.Case` / `Type.Case` — case pattern; matches a discriminated union case by
+
+* `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**; matches when the
+  scrutinee can be treated as `Type`, then evaluates each listed member pattern
+  against the corresponding instance member on the value. Members are matched
+  left-to-right and may be nested patterns (including tuple patterns, case
+  patterns, and bindings). Property patterns fail if the scrutinee is `null`.
+  A property subpattern may bind values using variable patterns, for example
+  `{ Value: val v }`.
+  `Type` is required (there is no “type-less” `{ ... }` form).
+
+  * Each `member: pattern` entry targets an **instance field or readable instance property**
+    named `member` on `Type` (after name lookup and overload resolution rules for
+    members). If no such readable member exists, the pattern is invalid.
+  * The nested pattern is type-checked against the member’s type.
+  * Access checks apply: a pattern may only read members that are accessible at
+    the use site.
+
+* `.Case` / `Type.Case` — case pattern; matches a discriminated union case by
   name. The leading `.` resolves against the current scrutinee in a `match` arm
   or `is` expression. A qualifying type name forces lookup against that union
   regardless of the scrutinee's static type. Case patterns may supply nested
@@ -1121,7 +1143,8 @@ Patterns compose from the following primitives:
   parameter list declared on the case: `.Identifier(text)` or
   `Result<int>.Error(let message)`. Parentheses are optional for parameterless
   cases, so `.Unknown` and `.Unknown()` are equivalent.
-- Case patterns are validated against the scrutinee's static type (or the
+
+* Case patterns are validated against the scrutinee's static type (or the
   explicit qualifier). The qualifier must name a discriminated union; omitting
   it relies on the scrutinee being a discriminated union or one of its case
   structs. The payload arity must match the declared parameter list, and each
@@ -1131,11 +1154,14 @@ Patterns compose from the following primitives:
   declared type. Bare payload identifiers implicitly bind immutable locals, so
   `.Ok(payload)` is equivalent to `.Ok(let payload)`; use `_` to explicitly
   discard a payload.
-- `pattern1 and pattern2` — conjunction; succeeds only when both operands
+
+* `pattern1 and pattern2` — conjunction; succeeds only when both operands
   match. Bindings from either operand are available after the conjunction.
-- `pattern1 or pattern2` — alternative; matches when either operand matches.
+
+* `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
-- `not pattern` — complement; succeeds when the operand fails. `not` does not
+
+* `not pattern` — complement; succeeds when the operand fails. `not` does not
   introduce bindings even if its operand would.
 
 `or` associates to the left, `and` binds tighter than `or`, and `not` binds
@@ -1171,12 +1197,32 @@ if token is .Identifier(let text) and text != "" {
 }
 ```
 
+Property patterns:
+
+```raven
+if x is Foo { Value: true } {
+    WriteLine("Foo with Value == true")
+}
+
+if x is Foo { Value: val v } {
+    WriteLine("Foo.Value bound to v = $v")
+}
+
+if x is Foo { Data: (a, b) } {
+    WriteLine("Tuple destructured: a=$a, b=$b")
+}
+
+if x is Foo { Value: true } and not Foo { Value: false } {
+    WriteLine("Consistent Foo")
+}
+```
+
 #### `is` expression
 
 `expr is pattern` evaluates to `bool`. On success, the compiler narrows the
 expression to the pattern's accept set inside the `true` branch and discards the
 matched portion from the `false` branch. Any bindings introduced by the pattern
-are immutable locals scoped to the `true` branch.
+are locals scoped to the `true` branch.
 
 ```raven
 let token: object = read()
@@ -1187,6 +1233,10 @@ if token is int n {
     Console.WriteLine("bye")
 }
 ```
+
+When the pattern is a property pattern (`Type { ... }`), the `true` branch also
+treats the scrutinee as `Type` for member access, and any bindings introduced by
+nested subpatterns are in scope within the `true` branch.
 
 #### `match` expression
 
@@ -1260,6 +1310,11 @@ of `is`, or inside a matched arm, the scrutinee is narrowed to the pattern's
 accept set and all pattern bindings are in scope. The complement carries through
 the opposite branch. Guard expressions do not participate in this narrowing, but
 they may use the bindings established by the pattern they accompany.
+
+Property patterns contribute narrowing as well: inside a successful property
+pattern, the scrutinee is treated as the stated `Type`, and each nested
+subpattern may introduce additional bindings and narrowing for the corresponding
+member values.
 
 ## Namespace declaration
 

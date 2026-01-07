@@ -284,12 +284,13 @@ internal partial class BlockBinder
         var bound = syntax switch
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
-            VariablePatternSyntax variable => BindVariablePattern(variable),
+            VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
             DeclarationPatternSyntax d => BindDeclarationPattern(d),
             TuplePatternSyntax t => BindTuplePattern(t, inputType),
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
             CasePatternSyntax c => BindCasePattern(c, inputType),
+            PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
         };
 
@@ -346,7 +347,7 @@ internal partial class BlockBinder
                 ? elementTypes[i]
                 : null;
 
-            var boundElement = BindPattern(elementSyntax.Pattern, expectedElementType);
+            var boundElement = BindTuplePatternElement(elementSyntax.Pattern, expectedElementType);
             boundElement = BindTuplePatternElementDesignation(elementSyntax, boundElement);
             elementPatterns.Add(boundElement);
         }
@@ -373,10 +374,21 @@ internal partial class BlockBinder
         return new BoundTuplePattern(tupleType, elementPatterns.ToImmutable());
     }
 
-    private BoundPattern BindVariablePattern(VariablePatternSyntax syntax)
+    private BoundPattern BindTuplePatternElement(PatternSyntax syntax, ITypeSymbol? expectedType)
+    {
+        expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        // Enables (a, b) to bind locals like implicit payload designations.
+        if (TryBindImplicitPayloadDesignation(syntax, expectedType) is { } implicitDesignation)
+            return implicitDesignation;
+
+        return BindPattern(syntax, expectedType);
+    }
+
+    private BoundPattern BindVariablePattern(VariablePatternSyntax syntax, ITypeSymbol? expectedType)
     {
         var isMutable = syntax.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
-        return BindVariableDesignation(syntax.Designation, isMutable, expectedType: null);
+        return BindVariableDesignation(syntax.Designation, isMutable, expectedType);
     }
 
     private BoundPattern BindVariableDesignation(
@@ -688,6 +700,129 @@ internal partial class BlockBinder
 
         return null;
     }
+
+    private BoundPattern BindPropertyPattern(PropertyPatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        // 1) Bind the type filter (Foo in Foo { ... })
+        ITypeSymbol? narrowedType = null;
+        if (syntax.Type is not null)
+        {
+            var boundType = BindTypeSyntax(syntax.Type);
+            narrowedType = boundType.Type;
+            narrowedType = EnsureTypeAccessible(narrowedType, syntax.Type.GetLocation());
+        }
+
+        // 2) Decide the "member lookup type"
+        // If there’s a narrowing type, use it for member lookup; otherwise use the input type.
+        var lookupType = narrowedType ?? inputType;
+
+        // If lookup is error, still bind children as discards
+        if (lookupType.TypeKind == TypeKind.Error)
+        {
+            var props = BindPropertySubpatternsAsDiscards(syntax, lookupType);
+            return new BoundPropertyPattern(inputType, narrowedType, props, BoundExpressionReason.TypeMismatch);
+        }
+
+        // Optional: diagnose if narrowing type is incompatible with input type
+        if (narrowedType is not null)
+        {
+            // Depending on your conversion/type-test rules, pick your check.
+            // For now: if not related at all, report mismatch.
+            if (!Compilation.ClassifyConversion(inputType, narrowedType).Exists)
+            {
+                _diagnostics.ReportPropertyPatternTypeMismatch(
+                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    narrowedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.Type!.GetLocation());
+            }
+        }
+
+        var boundProps = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(syntax.PropertyPatternClause.Properties.Count);
+
+        foreach (var sub in syntax.PropertyPatternClause.Properties)
+        {
+            var name = sub.NameColon.Name.Identifier.ValueText;
+
+            // 3) Lookup member on lookupType
+            var member = LookupPatternMember(lookupType, name, sub.NameColon.Name.GetLocation());
+
+            ITypeSymbol memberType = Compilation.ErrorTypeSymbol;
+
+            if (member is IPropertySymbol prop)
+                memberType = prop.Type;
+            else if (member is IFieldSymbol field)
+                memberType = field.Type;
+
+            memberType = EnsureTypeAccessible(memberType, sub.GetLocation());
+
+            // 4) Bind nested pattern with expected member type
+            var boundPattern = BindPattern(sub.Pattern, memberType);
+
+            if (member is null)
+            {
+                // keep binding going; treat as missing member
+                boundPattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            }
+
+            boundProps.Add(new BoundPropertySubpattern(
+                Member: member ?? Compilation.ErrorSymbol,
+                Type: memberType,
+                Pattern: boundPattern));
+        }
+
+        return new BoundPropertyPattern(inputType, narrowedType, boundProps.ToImmutable());
+    }
+
+    private ISymbol? LookupPatternMember(ITypeSymbol lookupType, string name, Location location)
+    {
+        // You decide what “property pattern can match”.
+        // Common set: instance readable properties + instance fields.
+        // (You probably want to exclude indexers and non-readable properties.)
+
+        var named = lookupType as INamedTypeSymbol;
+        if (named is null)
+            return null;
+
+        var members = named.GetMembers(name);
+
+        var prop = members.OfType<IPropertySymbol>()
+            .FirstOrDefault(p => !p.IsStatic && p.GetMethod is not null && p.Parameters.Length == 0);
+
+        if (prop is not null)
+            return prop;
+
+        var field = members.OfType<IFieldSymbol>()
+            .FirstOrDefault(f => !f.IsStatic);
+
+        if (field is not null)
+            return field;
+
+        _diagnostics.ReportPropertyPatternMemberNotFound(
+            name,
+            lookupType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            location);
+
+        return null;
+    }
+
+    private ImmutableArray<BoundPropertySubpattern> BindPropertySubpatternsAsDiscards(
+    PropertyPatternSyntax syntax,
+    ITypeSymbol lookupType)
+    {
+        var builder = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(syntax.PropertyPatternClause.Properties.Count);
+
+        foreach (var sub in syntax.PropertyPatternClause.Properties)
+        {
+            builder.Add(new BoundPropertySubpattern(
+                Member: Compilation.ErrorSymbol,
+                Type: Compilation.ErrorTypeSymbol,
+                Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch)));
+        }
+
+        return builder.ToImmutable();
+    }
 }
 
 internal partial class BlockBinder
@@ -702,16 +837,96 @@ internal partial class BlockBinder
         return new BoundIsPatternExpression(expression, pattern, booleanType);
     }
 
-    private BoundSingleVariableDesignator? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
+    private BoundSingleVariableDesignator? BindSingleVariableDesignation(SingleVariableDesignationSyntax single)
     {
-        var declaration = singleVariableDesignation.Parent as DeclarationPatternSyntax;
-        var name = singleVariableDesignation.Identifier.ValueText;
-        var type = ResolveType(declaration.Type);
+        // Not a real symbol
+        if (single.Identifier.IsMissing || single.Identifier.ValueText == "_" || string.IsNullOrEmpty(single.Identifier.ValueText))
+            return null;
 
-        var local = CreateLocalSymbol(singleVariableDesignation, name, isMutable: false, type);
+        var name = single.Identifier.ValueText;
 
+        // Walk up to figure out:
+        //  - declared type (if any)
+        //  - mutability (var vs let/val)
+        ITypeSymbol type = Compilation.GetSpecialType(SpecialType.System_Object);
+        bool isMutable = false;
+
+        for (SyntaxNode? current = single.Parent; current is not null; current = current.Parent)
+        {
+            // If there's an explicit type annotation on the designation, it wins.
+            if (current is TypedVariableDesignationSyntax typed)
+            {
+                var declaredType = ResolveType(typed.TypeAnnotation.Type);
+                type = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
+                break;
+            }
+
+            // Declaration pattern provides the declared type: `T x`
+            if (current is DeclarationPatternSyntax decl)
+            {
+                var declaredType = ResolveType(decl.Type);
+                type = EnsureTypeAccessible(declaredType, decl.Type.GetLocation());
+                break;
+            }
+
+            // Variable pattern provides mutability: `let/val/var x`
+            if (current is VariablePatternSyntax vp)
+            {
+                isMutable = vp.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
+                // keep walking in case we later hit a TypedVariableDesignationSyntax,
+                // but if we don't, `object` is a fine default for symbol info.
+            }
+
+            // Stop climbing once we leave "designation territory" enough.
+            // (Optional, but avoids walking too far.)
+            if (current is PatternSyntax)
+                break;
+        }
+
+        type = EnsureTypeAccessible(type, single.Identifier.GetLocation());
+
+        var local = CreateLocalSymbol(single, name, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
-        CacheBoundNode(singleVariableDesignation, designator);
+
+        CacheBoundNode(single, designator);
         return designator;
     }
 }
+
+internal sealed class BoundPropertyPattern : BoundPattern
+{
+    public BoundPropertyPattern(
+        ITypeSymbol inputType,                // the type we're matching *against* (usually the is-pattern input)
+        ITypeSymbol? narrowedType,             // optional type filter (Foo in Foo { ... })
+        ImmutableArray<BoundPropertySubpattern> properties,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(inputType, reason)
+    {
+        InputType = inputType;
+        NarrowedType = narrowedType;
+        Properties = properties;
+    }
+
+    // The overall "pattern input" type. (Same as the is-pattern input type.)
+    public ITypeSymbol InputType { get; }
+
+    // If syntax has Foo { ... }, this is Foo. If syntax is just { ... } (if you allow it), null.
+    public ITypeSymbol? NarrowedType { get; }
+
+    public ImmutableArray<BoundPropertySubpattern> Properties { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators()
+    {
+        foreach (var p in Properties)
+            foreach (var d in p.Pattern.GetDesignators())
+                yield return d;
+    }
+
+    public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+}
+
+internal readonly record struct BoundPropertySubpattern(
+    ISymbol Member,            // IPropertySymbol or IFieldSymbol (or whatever you decide to support)
+    ITypeSymbol Type,          // member type
+    BoundPattern Pattern);     // pattern applied to member value

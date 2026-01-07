@@ -82,6 +82,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         var type = new NameSyntaxParser(this).ParseTypeName();
 
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        {
+            var clause = ParsePropertyPatternClause();
+            return PropertyPattern(type, clause);
+        }
+
         if (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
         {
             return ParseCasePattern(type, dotToken);
@@ -100,6 +106,64 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         return DeclarationPattern(type, designation);
+    }
+
+    private PropertyPatternClauseSyntax ParsePropertyPatternClause()
+    {
+        var openBraceToken = ReadToken(); // {
+
+        var elements = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseBraceToken))
+        {
+            elements.Add(ParsePropertySubpattern());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                elements.Add(commaToken);
+
+                // Allow trailing comma before }
+                if (PeekToken().IsKind(SyntaxKind.CloseBraceToken))
+                    break;
+
+                elements.Add(ParsePropertySubpattern());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+
+        return PropertyPatternClause(
+            openBraceToken,
+            List(elements.ToArray()),
+            closeBraceToken);
+    }
+
+    private PropertySubpatternSyntax ParsePropertySubpattern()
+    {
+        SyntaxToken nameToken;
+
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            nameToken = ReadToken();
+            if (nameToken.Kind != SyntaxKind.IdentifierToken)
+            {
+                nameToken = ToIdentifierToken(nameToken);
+                UpdateLastToken(nameToken);
+            }
+        }
+        else
+        {
+            nameToken = ExpectToken(SyntaxKind.IdentifierToken);
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.ColonToken, out var colonToken);
+
+        var nameColon = NameColon(IdentifierName(nameToken), colonToken);
+
+        // IMPORTANT: RHS is a *pattern*, not an expression
+        var pattern = ParsePattern();
+
+        return PropertySubpattern(nameColon, pattern);
     }
 
     private PatternSyntax ParseVariablePattern()
