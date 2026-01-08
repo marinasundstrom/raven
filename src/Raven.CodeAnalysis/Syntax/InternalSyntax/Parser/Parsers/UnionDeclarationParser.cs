@@ -35,6 +35,8 @@ internal class UnionDeclarationParser : SyntaxParser
             typeParameterList = new TypeDeclarationParser(this).ParseTypeParameterList();
         }
 
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
         List<GreenNode> cases = new();
@@ -62,6 +64,7 @@ internal class UnionDeclarationParser : SyntaxParser
             unionKeyword,
             identifier,
             typeParameterList,
+            constraintClauses,
             openBraceToken,
             List(cases),
             closeBraceToken,

@@ -1543,6 +1543,101 @@ emitting `default(T)` for value types that lack a literal representation.
 
 ### Generic functions and methods
 
+### Type parameters and constraints
+
+Functions, methods, types, and local functions may declare one or more **type parameters**
+using a type parameter list written after the declaration name:
+
+```raven
+func identity<T>(value: T) -> T { value }
+class Box<T> { value: T }
+```
+
+Each type parameter introduces a distinct generic placeholder type. Type parameter names
+must be unique within the same type parameter list. A type parameter is in scope within:
+
+* the remainder of the type parameter list
+* parameter types
+* return types
+* constraint clauses
+* the declaration body
+
+#### Variance
+
+Where permitted by the enclosing declaration, a type parameter may be annotated with
+variance:
+
+* `out T` — covariant
+* `in T` — contravariant
+
+Variance annotations affect assignability of constructed generic types and are validated
+by the compiler according to the rules of the enclosing declaration kind.
+
+#### Inline constraints
+
+A type parameter may declare **inline constraints** using a colon immediately following
+its name:
+
+```raven
+func inner<T: struct>(value: T) -> T { value }
+func map<T: class, U>(value: T) -> U { /* ... */ }
+```
+
+Inline constraints are syntactic sugar for an equivalent `where` clause on the same type
+parameter:
+
+```raven
+func inner<T>(value: T) -> T where T: struct { value }
+```
+
+The compiler normalizes inline constraints and `where` clauses into the same internal
+constraint representation.
+
+#### Constraint source rule
+
+For a given type parameter, constraints must be specified using **exactly one** of:
+
+* inline constraints (`T: ...`)
+* one or more `where` clauses targeting that parameter
+
+Specifying constraints for the same type parameter using both forms is a compile-time
+error.
+
+#### Constraint forms
+
+Each constraint in a constraint list must be one of the following:
+
+* `class` — reference type constraint
+* `struct` — non-nullable value type constraint
+* `notnull` — non-null constraint
+* `unmanaged` — unmanaged value type constraint
+* a base class type
+* an interface type
+* `new()` — public parameterless constructor constraint
+
+Constraints are **conjunctive**: all listed constraints must be satisfied.
+
+The following restrictions apply:
+
+* At most one of `class` or `struct` may appear.
+* At most one base class constraint may appear.
+* Any number of interface constraints may appear.
+* `new()` may appear at most once.
+* Duplicate constraints are not permitted.
+
+Violating any of these rules produces a compile-time diagnostic.
+
+#### Constraint ordering
+
+When written, constraints should appear in the following order:
+
+1. `class` or `struct`
+2. base class
+3. interfaces
+4. `new()`
+
+The compiler may diagnose violations of this ordering for consistency.
+
 Functions—including methods declared inside types—may introduce type parameters
 by placing `<...>` after the function name. Each type parameter can be used in
 the parameter list, return type, and body just like any other type annotation.

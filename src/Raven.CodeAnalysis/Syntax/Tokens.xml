@@ -60,6 +60,7 @@
   <TokenKind Name="RefKeyword" Text="ref" IsReservedWord="false" />
   <TokenKind Name="OutKeyword" Text="out" IsReservedWord="false" />
   <TokenKind Name="InKeyword" Text="in" IsReservedWord="false" />
+  <TokenKind Name="WhereKeyword" Text="where" IsReservedWord="false" />
   <TokenKind Name="PublicKeyword" Text="public" IsReservedWord="false" />
   <TokenKind Name="PrivateKeyword" Text="private" IsReservedWord="false" />
   <TokenKind Name="InternalKeyword" Text="internal" IsReservedWord="false" />
@@ -125,16 +126,16 @@
   <TokenKind Name="StringEndToken" Text="&quot;" />
 
   <!-- Trivia and specials -->
-    <TokenKind Name="WhitespaceTrivia" Text=" " IsTrivia="true" />
-    <TokenKind Name="TabTrivia" Text="\t" IsTrivia="true" />
-    <TokenKind Name="LineFeedTrivia" Text="\n" IsTrivia="true" />
-    <TokenKind Name="CarriageReturnTrivia" Text="\r" IsTrivia="true" />
-    <TokenKind Name="CarriageReturnLineFeedTrivia" Text="\r\n" IsTrivia="true" />
-    <TokenKind Name="EndOfLineTrivia" Text="\n" IsTrivia="true" />
-    <TokenKind Name="SingleLineCommentTrivia" Text="//" IsTrivia="true" />
-    <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
-    <TokenKind Name="SingleLineDocumentationCommentTrivia" Text="///" IsTrivia="true" />
-    <TokenKind Name="MultiLineDocumentationCommentTrivia" Text="/**" IsTrivia="true" />
+  <TokenKind Name="WhitespaceTrivia" Text=" " IsTrivia="true" />
+  <TokenKind Name="TabTrivia" Text="\t" IsTrivia="true" />
+  <TokenKind Name="LineFeedTrivia" Text="\n" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnTrivia" Text="\r" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnLineFeedTrivia" Text="\r\n" IsTrivia="true" />
+  <TokenKind Name="EndOfLineTrivia" Text="\n" IsTrivia="true" />
+  <TokenKind Name="SingleLineCommentTrivia" Text="//" IsTrivia="true" />
+  <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
+  <TokenKind Name="SingleLineDocumentationCommentTrivia" Text="///" IsTrivia="true" />
+  <TokenKind Name="MultiLineDocumentationCommentTrivia" Text="/**" IsTrivia="true" />
 
   <TokenKind Name="Whitespace" Text=" " IsTrivia="true" />
   <TokenKind Name="TabToken" Value="\t" IsTrivia="true" />

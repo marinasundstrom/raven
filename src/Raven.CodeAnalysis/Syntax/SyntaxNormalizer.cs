@@ -271,6 +271,8 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
                 .WithTrailingTrivia(SyntaxFactory.Space);
 
+        var constraintClauses = VisitList(node.ConstraintClauses);
+
         return node.Update(
                 node.AttributeLists,
                 node.Modifiers,
@@ -279,6 +281,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 typeParameterList,
                 parameterList,
                 returnType,
+                constraintClauses,
                 (BlockStatementSyntax?)VisitBlockStatement(node.Body),
                 null,
                 node.TerminatorToken)

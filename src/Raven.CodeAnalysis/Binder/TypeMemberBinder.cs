@@ -444,46 +444,7 @@ internal class TypeMemberBinder : Binder
         if (isAsync && methodDecl.ReturnType is null)
             methodSymbol.RequireAsyncReturnTypeInference();
 
-        if (methodDecl.TypeParameterList is not null)
-        {
-            var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
-            var typeParametersBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(
-                extensionTypeParameters.Length + methodDecl.TypeParameterList.Parameters.Count);
-            var ordinal = 0;
-
-            if (!extensionTypeParameters.IsDefaultOrEmpty)
-            {
-                typeParametersBuilder.AddRange(extensionTypeParameters);
-                ordinal = extensionTypeParameters.Length;
-            }
-
-            foreach (var typeParameterSyntax in methodDecl.TypeParameterList.Parameters)
-            {
-                var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(typeParameterSyntax);
-                var variance = GetDeclaredVariance(typeParameterSyntax);
-
-                var typeParameterSymbol = new SourceTypeParameterSymbol(
-                    typeParameterSyntax.Identifier.ValueText,
-                    methodSymbol,
-                    _containingType,
-                    CurrentNamespace!.AsSourceNamespace(),
-                    [typeParameterSyntax.GetLocation()],
-                    [typeParameterSyntax.GetReference()],
-                    ordinal++,
-                    constraintKind,
-                    constraintTypeReferences,
-                    variance);
-                typeParametersBuilder.Add(typeParameterSymbol);
-            }
-
-            methodSymbol.SetTypeParameters(typeParametersBuilder);
-        }
-        else if (isExtensionMember)
-        {
-            var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
-            if (!extensionTypeParameters.IsDefaultOrEmpty)
-                methodSymbol.SetTypeParameters(extensionTypeParameters);
-        }
+        InitializeMethodTypeParameters(methodSymbol, methodDecl.TypeParameterList);
 
         var hasInvalidAsyncReturnType = false;
 
@@ -728,9 +689,7 @@ internal class TypeMemberBinder : Binder
             methodKind: MethodKind.UserDefinedOperator,
             declaredAccessibility: operatorAccessibility);
 
-        var extensionTypeParameters = CreateExtensionTypeParameters(operatorSymbol);
-        if (!extensionTypeParameters.IsDefaultOrEmpty)
-            operatorSymbol.SetTypeParameters(extensionTypeParameters);
+        InitializeMethodTypeParameters(operatorSymbol, typeParameterList: null);
 
         var operatorBinder = new MethodBinder(operatorSymbol, this);
 
@@ -2448,47 +2407,6 @@ internal class TypeMemberBinder : Binder
         return new ParameterDefaultEvaluationResult(true, success: true, defaultValue, ParameterDefaultEvaluationFailure.None);
     }
 
-    private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)
-    {
-        var constraints = parameter.Constraints;
-        if (constraints.Count == 0)
-            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
-
-        var constraintKind = TypeParameterConstraintKind.None;
-        var typeConstraintReferences = ImmutableArray.CreateBuilder<SyntaxReference>();
-
-        foreach (var constraint in constraints)
-        {
-            switch (constraint)
-            {
-                case ClassConstraintSyntax:
-                    constraintKind |= TypeParameterConstraintKind.ReferenceType;
-                    break;
-                case StructConstraintSyntax:
-                    constraintKind |= TypeParameterConstraintKind.ValueType;
-                    break;
-                case TypeConstraintSyntax typeConstraint:
-                    if (IsNotNullConstraint(typeConstraint))
-                    {
-                        constraintKind |= TypeParameterConstraintKind.NotNull;
-                        break;
-                    }
-
-                    constraintKind |= TypeParameterConstraintKind.TypeConstraint;
-                    typeConstraintReferences.Add(typeConstraint.GetReference());
-                    break;
-            }
-        }
-
-        return (constraintKind, typeConstraintReferences.ToImmutable());
-    }
-
-    private static bool IsNotNullConstraint(TypeConstraintSyntax typeConstraint)
-    {
-        return typeConstraint.Type is IdentifierNameSyntax identifier &&
-               string.Equals(identifier.Identifier.Text, "notnull", StringComparison.Ordinal);
-    }
-
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
     {
         return parameter.VarianceKeyword?.Kind switch
@@ -2525,5 +2443,73 @@ internal class TypeMemberBinder : Binder
         // {
         //     _diagnostics.ReportAbstractMemberNotAllowedInStruct(memberDisplayName, location);
         // }
+    }
+
+    private int AddExtensionContainerTypeParameters(
+        SourceMethodSymbol methodSymbol,
+        ImmutableArray<ITypeParameterSymbol>.Builder builder)
+    {
+        if (!IsExtensionContainer || _containingType.TypeParameters.IsDefaultOrEmpty)
+            return 0;
+
+        var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+        var ordinal = 0;
+
+        foreach (var tp in _containingType.TypeParameters.OfType<SourceTypeParameterSymbol>())
+        {
+            builder.Add(new SourceTypeParameterSymbol(
+                tp.Name,
+                methodSymbol,
+                _containingType,
+                receiverNamespace,
+                tp.Locations.ToArray(),
+                tp.DeclaringSyntaxReferences.ToArray(),
+                ordinal++,
+                tp.ConstraintKind,
+                tp.ConstraintTypeReferences,
+                tp.Variance));
+        }
+
+        return ordinal;
+    }
+
+    private void InitializeMethodTypeParameters(
+        SourceMethodSymbol methodSymbol,
+        TypeParameterListSyntax? typeParameterList)
+    {
+        var hasDeclared = typeParameterList is { Parameters.Count: > 0 };
+        var hasExtension = IsExtensionContainer && !_containingType.TypeParameters.IsDefaultOrEmpty;
+
+        if (!hasDeclared && !hasExtension)
+            return;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(
+            (hasExtension ? _containingType.TypeParameters.Length : 0) +
+            (hasDeclared ? typeParameterList!.Parameters.Count : 0));
+
+        var ordinal = AddExtensionContainerTypeParameters(methodSymbol, builder);
+
+        if (hasDeclared)
+        {
+            foreach (var tpSyntax in typeParameterList!.Parameters)
+            {
+                var (constraintKind, constraintTypeRefs) = TypeParameterConstraintAnalyzer.AnalyzeInline(tpSyntax);
+                var variance = GetDeclaredVariance(tpSyntax);
+
+                builder.Add(new SourceTypeParameterSymbol(
+                    tpSyntax.Identifier.ValueText,
+                    methodSymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [tpSyntax.GetLocation()],
+                    [tpSyntax.GetReference()],
+                    ordinal++,
+                    constraintKind,
+                    constraintTypeRefs,
+                    variance));
+            }
+        }
+
+        methodSymbol.SetTypeParameters(builder);
     }
 }

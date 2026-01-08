@@ -54,6 +54,18 @@
   <Node Name="TypeConstraint" Inherits="TypeParameterConstraint">
     <Slot Name="Type" Type="Type" />
   </Node>
+  <Node Name="ConstructorConstraint" Inherits="TypeParameterConstraint">
+    <Slot Name="NewKeyword" Type="Token" DefaultToken="NewKeyword" />
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
+  </Node>
+  <!-- One "where T : ..." clause -->
+  <Node Name="TypeParameterConstraintClause" Inherits="Node">
+    <Slot Name="WhereKeyword" Type="Token" DefaultToken="WhereKeyword" />
+    <Slot Name="TypeParameter" Type="IdentifierName" />
+    <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
+    <Slot Name="Constraints" Type="SeparatedList" ElementType="TypeParameterConstraint" />
+  </Node>
   <Node Name="Expression" Inherits="ExpressionOrPattern" IsAbstract="true" />
   <Node Name="VariableDesignation" Inherits="Node" IsAbstract="true" />
   <Node Name="SingleVariableDesignation" Inherits="VariableDesignation">
@@ -119,6 +131,7 @@
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
     <Slot Name="ReceiverType" Type="Type" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
@@ -132,6 +145,7 @@
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="BaseList" Type="BaseList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" IsInherited="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" DefaultToken="OpenBraceToken" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" DefaultToken="CloseBraceToken" />
@@ -149,6 +163,7 @@
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="BaseList" Type="BaseList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" IsInherited="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" DefaultToken="OpenBraceToken" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" DefaultToken="CloseBraceToken" />
@@ -676,6 +691,7 @@
     <Slot Name="UnionKeyword" Type="Token" DefaultToken="UnionKeyword" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" DefaultToken="OpenBraceToken" />
     <Slot Name="Cases" Type="List" ElementType="UnionCaseClause" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" DefaultToken="CloseBraceToken" />
@@ -784,6 +800,7 @@
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
@@ -806,6 +823,7 @@
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />

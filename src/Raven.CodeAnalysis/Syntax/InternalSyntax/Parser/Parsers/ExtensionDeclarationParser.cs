@@ -31,6 +31,8 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         var forKeyword = ExpectToken(SyntaxKind.ForKeyword);
         var receiverType = new NameSyntaxParser(this).ParseTypeName();
 
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
         List<GreenNode> members = new();
@@ -68,6 +70,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             typeParameterList,
             forKeyword,
             receiverType,
+            constraintClauses,
             openBraceToken,
             List(members),
             closeBraceToken,
@@ -116,6 +119,8 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+
         BlockStatementSyntax? body = null;
         ArrowExpressionClauseSyntax? expressionBody = null;
         var next = PeekToken();
@@ -138,6 +143,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             typeParameterList,
             parameterList,
             returnType,
+            constraintClauses,
             body,
             expressionBody,
             terminatorToken);
@@ -371,7 +377,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
                 var constraintNodes = new List<GreenNode>();
                 while (true)
                 {
-                    var constraint = ParseTypeParameterConstraint();
+                    var constraint = new ConstrainClauseListParser(this).ParseTypeParameterConstraint();
                     constraintNodes.Add(constraint);
 
                     var separator = PeekToken();
@@ -402,25 +408,6 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
         return TypeParameterList(lessThanToken, List(parameters), greaterThanToken);
-    }
-
-    private TypeParameterConstraintSyntax ParseTypeParameterConstraint()
-    {
-        var token = PeekToken();
-        if (token.IsKind(SyntaxKind.ClassKeyword))
-        {
-            var classKeyword = ReadToken();
-            return ClassConstraint(classKeyword);
-        }
-
-        if (token.IsKind(SyntaxKind.StructKeyword))
-        {
-            var structKeyword = ReadToken();
-            return StructConstraint(structKeyword);
-        }
-
-        var type = new NameSyntaxParser(this).ParseTypeName();
-        return TypeConstraint(type);
     }
 
     private SyntaxList ParseMemberModifiers()

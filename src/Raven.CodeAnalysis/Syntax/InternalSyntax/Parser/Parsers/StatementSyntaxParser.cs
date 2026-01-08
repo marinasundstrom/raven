@@ -467,6 +467,8 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+
         BlockStatementSyntax? block = null;
         ArrowExpressionClauseSyntax? expressionBody = null;
 
@@ -492,6 +494,7 @@ internal class StatementSyntaxParser : SyntaxParser
             typeParameterList,
             parameterList,
             returnParameterAnnotation,
+            constraintClauses,
             block,
             expressionBody,
             terminatorToken);

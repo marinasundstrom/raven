@@ -56,6 +56,9 @@ internal sealed partial class PETypeParameterSymbol : Symbol, ITypeParameterSymb
             if ((attributes & GenericParameterAttributes.ReferenceTypeConstraint) != 0)
                 kind |= TypeParameterConstraintKind.ReferenceType;
 
+            if ((attributes & GenericParameterAttributes.DefaultConstructorConstraint) != 0)
+                kind |= TypeParameterConstraintKind.Constructor;
+
             if ((attributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0)
                 kind |= TypeParameterConstraintKind.ValueType;
 

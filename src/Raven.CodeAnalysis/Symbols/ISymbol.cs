@@ -518,6 +518,7 @@ public enum TypeParameterConstraintKind
     ValueType = 1 << 1,
     TypeConstraint = 1 << 2,
     NotNull = 1 << 3,
+    Constructor = 1 << 4,
 }
 
 public enum VarianceKind

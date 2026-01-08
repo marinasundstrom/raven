@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -70,31 +69,13 @@ class FunctionBinder : Binder
             isAsync: isAsync,
             declaredAccessibility: Accessibility.Internal);
 
-        if (_syntax.TypeParameterList is { } typeParameterList && typeParameterList.Parameters.Count > 0)
-        {
-            var typeParametersBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
-            int ordinal = 0;
-            foreach (var typeParameterSyntax in typeParameterList.Parameters)
-            {
-                var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(typeParameterSyntax);
-                var variance = GetDeclaredVariance(typeParameterSyntax);
-
-                var typeParameterSymbol = new SourceTypeParameterSymbol(
-                    typeParameterSyntax.Identifier.ValueText,
-                    _methodSymbol,
-                    container,
-                    container.ContainingNamespace,
-                    [typeParameterSyntax.GetLocation()],
-                    [typeParameterSyntax.GetReference()],
-                    ordinal++,
-                    constraintKind,
-                    constraintTypeReferences,
-                    variance);
-                typeParametersBuilder.Add(typeParameterSymbol);
-            }
-
-            _methodSymbol.SetTypeParameters(typeParametersBuilder);
-        }
+        TypeParameterInitializer.InitializeMethodTypeParameters(
+            _methodSymbol,
+            (INamedTypeSymbol)container, // or container.ContainingType if that’s what you mean by “declaring type context”
+            _syntax.TypeParameterList,
+            _syntax.ConstraintClauses,   // <-- whatever you named it on FunctionStatementSyntax
+            _syntax.SyntaxTree,
+            _diagnostics);
 
         _methodBodyBinder ??= new MethodBinder(_methodSymbol, this);
         var methodBinder = _methodBodyBinder;
@@ -184,56 +165,5 @@ class FunctionBinder : Binder
     {
         var methodSymbol = GetMethodSymbol();
         return _methodBodyBinder ??= new MethodBinder(methodSymbol!, this);
-    }
-
-    private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)
-    {
-        var constraints = parameter.Constraints;
-        if (constraints.Count == 0)
-            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
-
-        var constraintKind = TypeParameterConstraintKind.None;
-        var typeConstraintReferences = ImmutableArray.CreateBuilder<SyntaxReference>();
-
-        foreach (var constraint in constraints)
-        {
-            switch (constraint)
-            {
-                case ClassConstraintSyntax:
-                    constraintKind |= TypeParameterConstraintKind.ReferenceType;
-                    break;
-                case StructConstraintSyntax:
-                    constraintKind |= TypeParameterConstraintKind.ValueType;
-                    break;
-                case TypeConstraintSyntax typeConstraint:
-                    if (IsNotNullConstraint(typeConstraint))
-                    {
-                        constraintKind |= TypeParameterConstraintKind.NotNull;
-                        break;
-                    }
-
-                    constraintKind |= TypeParameterConstraintKind.TypeConstraint;
-                    typeConstraintReferences.Add(typeConstraint.GetReference());
-                    break;
-            }
-        }
-
-        return (constraintKind, typeConstraintReferences.ToImmutable());
-    }
-
-    private static bool IsNotNullConstraint(TypeConstraintSyntax typeConstraint)
-    {
-        return typeConstraint.Type is IdentifierNameSyntax identifier &&
-               string.Equals(identifier.Identifier.Text, "notnull", StringComparison.Ordinal);
-    }
-
-    private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
-    {
-        return parameter.VarianceKeyword?.Kind switch
-        {
-            SyntaxKind.OutKeyword => VarianceKind.Out,
-            SyntaxKind.InKeyword => VarianceKind.In,
-            _ => VarianceKind.None,
-        };
     }
 }

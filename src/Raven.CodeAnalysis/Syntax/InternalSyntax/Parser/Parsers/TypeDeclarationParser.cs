@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
+using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using static SyntaxFactory;
 
@@ -57,6 +58,8 @@ internal class TypeDeclarationParser : SyntaxParser
 
         BaseListSyntax? baseList = ParseBaseList();
 
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+
         List<GreenNode> memberList = new List<GreenNode>();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
@@ -88,10 +91,10 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
         {
-            return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, null, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
     internal TypeParameterListSyntax ParseTypeParameterList()
@@ -169,7 +172,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     var constraintNodes = new List<GreenNode>();
                     while (true)
                     {
-                        var constraint = ParseTypeParameterConstraint();
+                        var constraint = new ConstrainClauseListParser(this).ParseTypeParameterConstraint();
                         constraintNodes.Add(constraint);
 
                         var separator = PeekToken();
@@ -204,26 +207,6 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         return TypeParameterList(lessThanToken, List(parameters), greaterThanToken, Diagnostics);
-    }
-
-    private TypeParameterConstraintSyntax ParseTypeParameterConstraint()
-    {
-        var token = PeekToken();
-
-        if (token.IsKind(SyntaxKind.ClassKeyword))
-        {
-            var classKeyword = ReadToken();
-            return ClassConstraint(classKeyword);
-        }
-
-        if (token.IsKind(SyntaxKind.StructKeyword))
-        {
-            var structKeyword = ReadToken();
-            return StructConstraint(structKeyword);
-        }
-
-        var type = new NameSyntaxParser(this).ParseTypeName();
-        return TypeConstraint(type);
     }
 
     private BaseListSyntax? ParseBaseList()
@@ -583,6 +566,8 @@ internal class TypeDeclarationParser : SyntaxParser
             // ConstructorDeclaration
         }
 
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+
         var token = PeekToken();
 
         BlockStatementSyntax? body = null;
@@ -601,14 +586,14 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (expressionBody is not null)
         {
-            return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, null, expressionBody, terminatorToken);
+            return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, expressionBody, terminatorToken);
         }
         else if (body is not null)
         {
-            return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, body, null, terminatorToken);
+            return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, body, null, terminatorToken);
         }
 
-        return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, null, null, terminatorToken);
+        return MethodDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, constraintClauses, null, null, terminatorToken);
     }
 
     private (ExplicitInterfaceSpecifierSyntax? ExplicitInterfaceSpecifier, SyntaxToken Identifier) ParseMemberNameWithExplicitInterface()

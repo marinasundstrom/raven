@@ -584,7 +584,7 @@ public partial class SemanticModel
                         }
 
                         if (isNewSymbol)
-                            InitializeTypeParameters(classSymbol, classDecl.TypeParameterList);
+                            InitializeTypeParameters(classSymbol, classDecl.TypeParameterList, classDecl.ConstraintClauses);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             classSymbol.SetInterfaces(interfaceList);
@@ -652,7 +652,7 @@ public partial class SemanticModel
                                 interfaceDecl.Modifiers,
                                 AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace())));
 
-                        InitializeTypeParameters(interfaceSymbol, interfaceDecl.TypeParameterList);
+                        InitializeTypeParameters(interfaceSymbol, interfaceDecl.TypeParameterList, interfaceDecl.ConstraintClauses);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             interfaceSymbol.SetInterfaces(interfaceList);
@@ -692,7 +692,7 @@ public partial class SemanticModel
 
                         extensionSymbol.MarkAsExtensionContainer();
 
-                        InitializeTypeParameters(extensionSymbol, extensionDecl.TypeParameterList);
+                        InitializeTypeParameters(extensionSymbol, extensionDecl.TypeParameterList, extensionDecl.ConstraintClauses);
 
                         var extensionBinder = new ExtensionDeclarationBinder(parentBinder, extensionSymbol, extensionDecl);
                         extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
@@ -1080,7 +1080,7 @@ public partial class SemanticModel
             [unionDecl.GetReference()],
             unionAccessibility);
 
-        InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList);
+        InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList, unionDecl.ConstraintClauses);
 
         var unionBinder = new UnionDeclarationBinder(parentBinder, unionSymbol, unionDecl);
         unionBinder.EnsureTypeParameterConstraintTypesResolved(unionSymbol.TypeParameters);
@@ -1301,7 +1301,7 @@ public partial class SemanticModel
                     }
 
                     if (isNewNestedSymbol)
-                        InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList);
+                        InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList, nestedClass.ConstraintClauses);
 
                     if (!nestedInterfaces.IsDefaultOrEmpty)
                         nestedSymbol.SetInterfaces(nestedInterfaces);
@@ -1356,7 +1356,7 @@ public partial class SemanticModel
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentForInterface))
                     );
 
-                    InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList);
+                    InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList, nestedInterface.ConstraintClauses);
 
                     if (!parentInterfaces.IsDefaultOrEmpty)
                         nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
@@ -1560,7 +1560,10 @@ public partial class SemanticModel
         }
     }
 
-    private static void InitializeTypeParameters(SourceNamedTypeSymbol typeSymbol, TypeParameterListSyntax? typeParameterList)
+    private static void InitializeTypeParameters(
+        SourceNamedTypeSymbol typeSymbol,
+        TypeParameterListSyntax? typeParameterList,
+        SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses)
     {
         if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
             return;
@@ -1568,71 +1571,64 @@ public partial class SemanticModel
         var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
         var ordinal = 0;
 
+        // Optional: pre-index clauses by name for fast lookup and duplicate detection
+        var clausesByName = new Dictionary<string, List<TypeParameterConstraintClauseSyntax>>(StringComparer.Ordinal);
+        foreach (var clause in constraintClauses)
+        {
+            var name = clause.TypeParameter.Identifier.ValueText;
+            if (!clausesByName.TryGetValue(name, out var list))
+                clausesByName[name] = list = new List<TypeParameterConstraintClauseSyntax>();
+            list.Add(clause);
+        }
+
         foreach (var parameter in typeParameterList.Parameters)
         {
-            var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(parameter);
+            var name = parameter.Identifier.ValueText;
+
+            // 1) inline
+            var (inlineKind, inlineRefs) = TypeParameterConstraintAnalyzer.AnalyzeInline(parameter);
+
+            // 2) where clauses for this parameter
+            TypeParameterConstraintKind clauseKind = TypeParameterConstraintKind.None;
+            var clauseRefsBuilder = ImmutableArray.CreateBuilder<SyntaxReference>();
+
+            if (clausesByName.TryGetValue(name, out var matchingClauses))
+            {
+                // If you want “at most one where per type parameter”, enforce here.
+                // Otherwise, allow multiple and merge.
+                foreach (var clause in matchingClauses)
+                {
+                    var (k, refs) = TypeParameterConstraintAnalyzer.AnalyzeClause(clause);
+                    clauseKind |= k;
+                    clauseRefsBuilder.AddRange(refs);
+                }
+            }
+
+            var mergedKind = inlineKind | clauseKind;
+            var mergedRefs = inlineRefs.AddRange(clauseRefsBuilder.ToImmutable());
+
             var variance = GetDeclaredVariance(parameter);
 
             var typeParameter = new SourceTypeParameterSymbol(
-                parameter.Identifier.ValueText,
+                name,
                 typeSymbol,
                 typeSymbol,
                 typeSymbol.ContainingNamespace,
                 [parameter.GetLocation()],
                 [parameter.GetReference()],
                 ordinal++,
-                constraintKind,
-                constraintTypeReferences,
+                mergedKind,
+                mergedRefs,
                 variance);
 
             builder.Add(typeParameter);
         }
 
+        // Optional: report where-clauses that reference unknown type parameters
+        // (you likely want diagnostics for this — but that needs a DiagnosticBag)
+        // You can do it in the binder or in the place where you call this helper.
+
         typeSymbol.SetTypeParameters(builder.MoveToImmutable());
-    }
-
-    private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)
-    {
-        if (parameter.ColonToken is null)
-            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
-
-        var constraints = parameter.Constraints;
-        if (constraints.Count == 0)
-            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
-
-        var constraintKind = TypeParameterConstraintKind.None;
-        var typeConstraintReferences = ImmutableArray.CreateBuilder<SyntaxReference>();
-
-        foreach (var constraint in constraints)
-        {
-            switch (constraint)
-            {
-                case ClassConstraintSyntax:
-                    constraintKind |= TypeParameterConstraintKind.ReferenceType;
-                    break;
-                case StructConstraintSyntax:
-                    constraintKind |= TypeParameterConstraintKind.ValueType;
-                    break;
-                case TypeConstraintSyntax typeConstraint:
-                    if (IsNotNullConstraint(typeConstraint))
-                    {
-                        constraintKind |= TypeParameterConstraintKind.NotNull;
-                        break;
-                    }
-
-                    constraintKind |= TypeParameterConstraintKind.TypeConstraint;
-                    typeConstraintReferences.Add(typeConstraint.GetReference());
-                    break;
-            }
-        }
-
-        return (constraintKind, typeConstraintReferences.ToImmutable());
-    }
-
-    private static bool IsNotNullConstraint(TypeConstraintSyntax typeConstraint)
-    {
-        return typeConstraint.Type is IdentifierNameSyntax identifier &&
-               string.Equals(identifier.Identifier.Text, "notnull", StringComparison.Ordinal);
     }
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)

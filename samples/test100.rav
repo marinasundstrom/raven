@@ -23,13 +23,17 @@ union Response<T> {
     Failure(message: string)
 }
 
-interface IRequestHandler<TRequest, TReturn> {
+interface IRequestHandler<TRequest, TReturn> 
+    where TRequest : class 
+    where TReturn : new () {
+ 
     Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
 }
 
 class SubmitOrder() {}
 
 class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<int>> {
+
     public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<int>> {
         await Task.Delay(500)
         return .Success(42)

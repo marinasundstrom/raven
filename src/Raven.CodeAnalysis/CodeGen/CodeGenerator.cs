@@ -177,6 +177,9 @@ internal class CodeGenerator
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0)
             attributes |= GenericParameterAttributes.NotNullableValueTypeConstraint;
 
+        if ((parameter.ConstraintKind & TypeParameterConstraintKind.Constructor) != 0)
+            attributes |= GenericParameterAttributes.DefaultConstructorConstraint;
+
         builder.SetGenericParameterAttributes(attributes);
 
         if (parameter.ConstraintTypes.IsDefaultOrEmpty)

@@ -39,11 +39,17 @@ Declaration              ::= NamespaceDeclaration
 NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {Declaration | Statement} '}' ;
 
 FunctionDeclaration      ::= FunctionModifiers?
-                             'func' Identifier '(' ParameterList? ')'
+                             'func' Identifier TypeParameterList?
+                             '(' ParameterList? ')'
                              ReturnTypeClause?
+                             WhereClauseList?
                              ( Block | '=>' Expression ) ;
 
-ExtensionDeclaration     ::= 'extension' Identifier 'for' Type ExtensionBody ;
+ExtensionDeclaration ::= 'extension' Identifier TypeParameterList?
+                         'for' Type
+                         WhereClauseList?
+                         ExtensionBody ;
+
 ExtensionBody            ::= '{' {ExtensionMember} '}' ;
 ExtensionMember          ::= ExtensionMethodDeclaration
                            | ExtensionPropertyDeclaration
@@ -51,8 +57,10 @@ ExtensionMember          ::= ExtensionMethodDeclaration
                            | ConversionOperatorDeclaration ;
 ExtensionMethodDeclaration
                            ::= ExtensionMethodModifiers?
-                               Identifier '(' ParameterList? ')'
+                               Identifier TypeParameterList?
+                               '(' ParameterList? ')'
                                ReturnTypeClause?
+                               WhereClauseList?
                                ( Block | '=>' Expression ) ;
 ExtensionMethodModifiers ::= AccessModifier ;
 ExtensionPropertyDeclaration
@@ -63,19 +71,36 @@ ExtensionPropertyModifiers ::= AccessModifier ;
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
-Parameter                ::= ['out'] Identifier ':' Type ['=' Expression] ;
+Parameter                ::= RefKindModifier? Identifier ':' Type ['=' Expression] ;
+RefKindModifier           ::= 'ref' | 'out' | 'in' ;
 
 EnumDeclaration          ::= TypeModifiers?
                              'enum' Identifier '{' EnumMembers? '}' ;
 EnumMembers              ::= EnumMember {',' EnumMember} ;
 EnumMember               ::= Identifier ['=' Expression] ;
 
-ClassDeclaration         ::= TypeModifiers? 'class' Identifier PrimaryConstructor? BaseList? ClassBody ;
+ClassDeclaration     ::= TypeModifiers? 'class' Identifier TypeParameterList?
+                         PrimaryConstructor? BaseList?
+                         WhereClauseList?
+                         ClassBody ;
+                         
 PrimaryConstructor       ::= '(' ParameterList? ')' ;
-StructDeclaration        ::= TypeModifiers? 'struct' Identifier ClassBody ;
-InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier BaseList? ClassBody ;
-UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList?
-                             '{' UnionCaseList '}' TypeTerminator? ;
+
+StructDeclaration    ::= TypeModifiers? 'struct' Identifier TypeParameterList?
+                         BaseList?
+                         WhereClauseList?
+                         ClassBody ;
+
+InterfaceDeclaration ::= TypeModifiers? 'interface' Identifier TypeParameterList?
+                         BaseList?
+                         WhereClauseList?
+                         ClassBody ;
+
+
+UnionDeclaration     ::= TypeModifiers? 'union' Identifier TypeParameterList?
+                         WhereClauseList?
+                         '{' UnionCaseList '}' TypeTerminator? ;
+
 UnionCaseList            ::= UnionCaseClause {UnionCaseClause} ;
 UnionCaseClause          ::= Identifier ParameterList? ;
 BaseList                 ::= ':' Type {',' Type} ;
@@ -104,17 +129,24 @@ ConstructorDeclaration   ::= MemberModifiers?
                              ( Block | '=>' Expression ) ;
 
 MethodDeclaration        ::= MemberModifiers?
-                             ExplicitInterfaceSpecifier? Identifier '(' ParameterList? ')'
+                             ExplicitInterfaceSpecifier?
+                             Identifier TypeParameterList?
+                             '(' ParameterList? ')'
                              ReturnTypeClause?
+                             WhereClauseList?
                              ( Block | '=>' Expression ) ;
 ConversionOperatorDeclaration
                          ::= MemberModifiers?
-                             ( 'explicit' | 'implicit' ) 'operator' '(' ParameterList? ')'
+                             ( 'explicit' | 'implicit' ) 'operator' TypeParameterList?
+                             '(' ParameterList? ')'
                              ReturnTypeClause?
+                             WhereClauseList?
                              ( Block | '=>' Expression ) ;
 OperatorDeclaration      ::= MemberModifiers?
-                             'operator' OverloadableOperator '(' ParameterList? ')'
+                             'operator' OverloadableOperator TypeParameterList?
+                             '(' ParameterList? ')'
                              ReturnTypeClause?
+                             WhereClauseList?
                              ( Block | '=>' Expression ) ;
 OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&' | '&&' | 'and'
                            | '|' | '||' | 'or' | '==' | '!=' | '<' | '<=' | '>'
@@ -124,8 +156,10 @@ ExplicitInterfaceSpecifier ::= Type '.' ;
 
 InvocationOperatorDeclaration
                            ::= MemberModifiers?
-                               'self' '(' ParameterList? ')'
+                               'self' TypeParameterList?
+                               '(' ParameterList? ')'
                                ReturnTypeClause?
+                               WhereClauseList?
                                ( Block | '=>' Expression ) ;
 
 PropertyDeclaration      ::= MemberModifiers?
@@ -139,6 +173,29 @@ Accessor                 ::= AccessorModifier? ('get' | 'set')
                              ( Block | '=>' Expression | ';' ) ;
 
 BracketedParameterList   ::= '[' ParameterList? ']' ;
+
+(* ---------- Generics & constraints ---------- *)
+
+TypeParameterList         ::= '<' TypeParameter {',' TypeParameter} '>' ;
+
+TypeParameter              ::= Variance? Identifier InlineConstraints?
+InlineConstraints          ::= ':' ConstraintList
+
+VarianceAnnotation        ::= 'out' | 'in' ;
+
+WhereClauseList           ::= WhereClause { WhereClause } ;
+
+WhereClause               ::= 'where' Identifier ':' TypeParameterConstraintList ;
+
+TypeParameterConstraintList
+                         ::= TypeParameterConstraint {',' TypeParameterConstraint} ;
+
+TypeParameterConstraint   ::= 'class'            (* reference type constraint *)
+                           | 'struct'           (* value type constraint *)
+                           | 'notnull'          (* non-null constraint *)
+                           | 'unmanaged'        (* unmanaged constraint *)
+                           | 'new' '(' ')'      (* public parameterless ctor *)
+                           | Type ;             (* base class / interface constraint *)
 
 (* ---------- Statements ---------- *)
 
@@ -175,7 +232,11 @@ BreakStatement           ::= 'break' ;
 
 ContinueStatement        ::= 'continue' ;
 
-FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList? '(' ParameterList? ')' ReturnTypeClause? Block ;
+FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList?
+                             '(' ParameterList? ')'
+                             ReturnTypeClause?
+                             WhereClauseList?
+                             Block ;
 
 AssignmentStatement      ::= AssignmentTarget AssignmentOperator Expression ;
 
