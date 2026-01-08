@@ -284,6 +284,7 @@ internal partial class BlockBinder
         var bound = syntax switch
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
+            ConstantPatternSyntax constant => BindConstantPattern(constant),
             VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
             DeclarationPatternSyntax d => BindDeclarationPattern(d),
             TuplePatternSyntax t => BindTuplePattern(t, inputType),
@@ -296,6 +297,18 @@ internal partial class BlockBinder
 
         CacheBoundNode(syntax, bound);
         return bound;
+    }
+
+    private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax)
+    {
+        /*var type = BindTypeSyntax(syntax.Expression);
+
+        if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType })
+        {
+            return new BoundConstantPattern(literalType);
+        }*/
+
+        throw new Exception();
     }
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)

@@ -616,9 +616,9 @@
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="Pattern" Inherits="ExpressionOrPattern" IsAbstract="true" />
-  <!-- <Node Name="ConstantPattern" Inherits="Pattern">
+  <Node Name="ConstantPattern" Inherits="Pattern">
     <Slot Name="Expression" Type="Expression" />
-  </Node> -->
+  </Node>
   <Node Name="UnaryPattern" Inherits="Pattern" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Pattern" Type="Pattern" />

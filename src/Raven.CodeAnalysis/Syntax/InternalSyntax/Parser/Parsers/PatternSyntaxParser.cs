@@ -88,6 +88,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         var type = new NameSyntaxParser(this).ParseTypeName();
 
+        if (type is LiteralTypeSyntax)
+        {
+            return DeclarationPattern(type, SingleVariableDesignation(MissingToken(SyntaxKind.None)));
+            //return ConstantPattern(type);
+        }
+
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
         {
             var clause = ParsePropertyPatternClause();

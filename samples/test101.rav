@@ -1,0 +1,9 @@
+import System.*
+
+test(1)
+
+func test(x: int) -> () {
+    if x is 1 {
+        Console.WriteLine("Value in test: $x")
+    }
+}
