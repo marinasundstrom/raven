@@ -51,9 +51,18 @@ internal partial class ExpressionGenerator
         // Value-type DU fast path is orthogonal
         var isValueTypeDU = IsDiscriminatedUnionValueType(scrutineeType);
 
-        // Precompute which arms require object semantics (isinst/ITuple/property/case boxed pipeline)
-        var anyArmNeedsObject = matchExpression.Arms.Any(a =>
-            GetPatternInputRequirement(a.Pattern) == PatternInput.Object);
+        // Precompute which arms truly require object semantics.
+        // If the scrutinee is a value-type DU and the pattern is DU-compatible,
+        // we can skip boxing/isinst entirely and go straight to TryGet*.
+        bool ArmNeedsObject(BoundMatchArm a)
+        {
+            if (isValueTypeDU && IsUnboxedDUCompatible(a.Pattern))
+                return false;
+
+            return GetPatternInputRequirement(a.Pattern) == PatternInput.Object;
+        }
+
+        var anyArmNeedsObject = matchExpression.Arms.Any(ArmNeedsObject);
 
         // Lazy boxed scrutinee cache (only created/filled if needed)
         IILocal? boxedLocal = anyArmNeedsObject ? ILGenerator.DeclareLocal(typeof(object)) : null;
@@ -105,14 +114,14 @@ internal partial class ExpressionGenerator
                 if (!TryEmitPatternTest_UnboxedValueTypeDU(arm.Pattern, scope, typedLocal, scrutineeClrType))
                 {
                     // Fall back to regular pipeline (typed/object depending on requirement)
-                    var req = GetPatternInputRequirement(arm.Pattern);
+                    var req = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
                     LoadScrutineeForArm(req, out var inputTypeForEmit);
                     EmitPattern(arm.Pattern, inputTypeForEmit, scope);
                 }
             }
             else
             {
-                var req = GetPatternInputRequirement(arm.Pattern);
+                var req = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
                 LoadScrutineeForArm(req, out var inputTypeForEmit);
                 EmitPattern(arm.Pattern, inputTypeForEmit, scope);
             }
@@ -235,11 +244,32 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundDeclarationPattern declarationPattern)
         {
-            // Declaration/type patterns use Isinst => must operate on object refs
-            EnsureObjectOnStack(ref inputType);
-
             var typeSymbol = declarationPattern.Type;
             var clrType = ResolveClrType(typeSymbol);
+
+            // Fast path: if the scrutinee is already exactly the declared type, bind directly
+            // without boxing or isinst/unbox.any.
+            if (inputType.TypeKind != TypeKind.Error)
+            {
+                var inputClr = ResolveClrType(inputType);
+                inputClr = Generator.InstantiateType(inputClr);
+                var declaredClr = Generator.InstantiateType(clrType);
+
+                if (inputClr == declaredClr)
+                {
+                    var local = EmitDesignation(declarationPattern.Designator, scope);
+                    if (local is not null)
+                        ILGenerator.Emit(OpCodes.Stloc, local);
+                    else
+                        ILGenerator.Emit(OpCodes.Pop);
+
+                    ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                    return;
+                }
+            }
+
+            // General case: use object semantics
+            EnsureObjectOnStack(ref inputType);
 
             var isReferencePattern = IsKnownReferenceType(typeSymbol);
             if (!isReferencePattern && clrType.IsGenericParameter)
@@ -292,11 +322,74 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundCasePattern casePattern)
         {
-            // Boxed pipeline for case patterns uses Isinst => object input
-            EnsureObjectOnStack(ref inputType);
-
             var unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
             var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+
+            // Fast path: if the scrutinee is already the DU value type, avoid boxing/isinst/unbox.any.
+            // This is the common case for matching directly over a DU-typed value.
+            if (inputType.TypeKind != TypeKind.Error)
+            {
+                var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
+                if (unionClrType.IsValueType && inputClr == unionClrType)
+                {
+                    var unionLocal2 = ILGenerator.DeclareLocal(unionClrType);
+                    var caseLocal2 = ILGenerator.DeclareLocal(caseClrType);
+
+                    var labelFail2 = ILGenerator.DefineLabel();
+                    var labelDone2 = ILGenerator.DefineLabel();
+
+                    // stack: <union>
+                    ILGenerator.Emit(OpCodes.Stloc, unionLocal2);
+
+                    ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
+                    ILGenerator.Emit(OpCodes.Initobj, caseClrType);
+
+                    ILGenerator.Emit(OpCodes.Ldloca, unionLocal2);
+                    ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
+                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+                    ILGenerator.Emit(OpCodes.Brfalse, labelFail2);
+
+                    var parameterCount2 = Math.Min(
+                        casePattern.CaseSymbol.ConstructorParameters.Length,
+                        casePattern.Arguments.Length);
+
+                    for (var i = 0; i < parameterCount2; i++)
+                    {
+                        var parameter = casePattern.CaseSymbol.ConstructorParameters[i];
+                        var propertyName = GetCasePropertyName(parameter.Name);
+
+                        var propertySymbol = casePattern.CaseSymbol
+                            .GetMembers(propertyName)
+                            .OfType<IPropertySymbol>()
+                            .FirstOrDefault();
+
+                        if (propertySymbol?.GetMethod is null)
+                        {
+                            ILGenerator.Emit(OpCodes.Br, labelFail2);
+                            break;
+                        }
+
+                        ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
+                        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
+
+                        // IMPORTANT: do not pre-box; nested patterns decide.
+                        EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope);
+                        ILGenerator.Emit(OpCodes.Brfalse, labelFail2);
+                    }
+
+                    ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                    ILGenerator.Emit(OpCodes.Br, labelDone2);
+
+                    ILGenerator.MarkLabel(labelFail2);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+                    ILGenerator.MarkLabel(labelDone2);
+                    return;
+                }
+            }
+
+            // Boxed pipeline for case patterns uses Isinst => object input
+            EnsureObjectOnStack(ref inputType);
 
             var unionLocal = ILGenerator.DeclareLocal(unionClrType);
             var caseLocal = ILGenerator.DeclareLocal(caseClrType);
@@ -850,6 +943,29 @@ internal partial class ExpressionGenerator
             return true;
         }
 
+        // Binder may insert a redundant declaration/type pattern when the scrutinee is already
+        // statically known to be the DU type (especially for generics). Treat it as always-true
+        // and perform the binding without boxing/isinst.
+        if (pattern is BoundDeclarationPattern dp)
+        {
+            var dpClr = ResolveClrType(dp.Type);
+            dpClr = Generator.InstantiateType(dpClr);
+
+            // Only handle exact DU type matches; anything else must fall back.
+            if (dpClr != unionClrType)
+                return false;
+
+            var boundLocal = EmitDesignation(dp.Designator, scope);
+            if (boundLocal is not null)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
+                ILGenerator.Emit(OpCodes.Stloc, boundLocal);
+            }
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            return true;
+        }
+
         if (pattern is BoundUnaryPattern up && up.Kind == BoundUnaryPatternKind.Not)
         {
             if (!TryEmitPatternTest_UnboxedValueTypeDU(up.Pattern, scope, unionLocal, unionClrType))
@@ -1009,9 +1125,18 @@ internal partial class ExpressionGenerator
 
     private static bool IsDiscriminatedUnionValueType(ITypeSymbol type)
     {
-        return type is INamedTypeSymbol named &&
-               named.IsValueType &&
-               named.TryGetDiscriminatedUnion() is not null;
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        if (!named.IsValueType)
+            return false;
+
+        // Constructed generic DU instances may not carry DU metadata directly.
+        if (named.TryGetDiscriminatedUnion() is not null)
+            return true;
+
+        var def = named.OriginalDefinition;
+        return def is not null && def.TryGetDiscriminatedUnion() is not null;
     }
 
     private static bool RequiresValueTypeHandling(ITypeSymbol typeSymbol)
