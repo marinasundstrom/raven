@@ -1446,38 +1446,49 @@ internal class TypeGenerator
 
     private bool TryGetInterfaceMethodInfo(IMethodSymbol interfaceMethod, out MethodInfo methodInfo)
     {
-        // 1) If this is a substituted/constructed interface method, unwrap to definition.
         var definitionMethod = interfaceMethod;
-
-        // Use whatever your symbol model offers:
-        // - Roslyn uses OriginalDefinition / ConstructedFrom
-        // - you likely have something similar on your substituted symbols
         if (interfaceMethod is SubstitutedMethodSymbol sub)
-            definitionMethod = sub.OriginalDefinition; // or sub.ConstructedFrom / sub.UnderlyingMethod
+            definitionMethod = sub.OriginalDefinition;
 
-        // 2) Get MethodInfo for the definition method first (works for source + metadata).
         if (!TryGetInterfaceDefinitionMethodInfo(definitionMethod, out var definitionMethodInfo))
         {
             methodInfo = null!;
             return false;
         }
 
-        // 3) If containing type is a constructed emitted type, map definition -> constructed.
-        if (interfaceMethod.ContainingType is not null)
+        // If the interface method is constructed, we MUST target the constructed method.
+        if (!SymbolEqualityComparer.Default.Equals(interfaceMethod, definitionMethod) &&
+            interfaceMethod.ContainingType is not null)
         {
-            var containingClrType = ResolveClrType(interfaceMethod.ContainingType);
+            var constructedIfaceClr = ResolveClrType(interfaceMethod.ContainingType);
 
-            // This is the critical bit: TypeBuilderInstantiation doesn't support GetMethod(...)
-            // but TypeBuilder.GetMethod DOES.
-            if (containingClrType.GetType().Name.Contains("TypeBuilderInstantiation") ||
-                (containingClrType.IsGenericType && containingClrType.ContainsGenericParameters))
+            // TypeBuilderInstantiation (emitted generic types)
+            if (constructedIfaceClr is TypeBuilder || constructedIfaceClr.GetType().Name.Contains("TypeBuilderInstantiation"))
             {
-                methodInfo = TypeBuilder.GetMethod(containingClrType, definitionMethodInfo);
+                methodInfo = TypeBuilder.GetMethod(constructedIfaceClr, definitionMethodInfo);
+                return true;
+            }
+
+            // Normal runtime constructed generic types (e.g. typeof(IEnumerable<int>))
+            if (constructedIfaceClr.IsGenericType)
+            {
+                var parms = definitionMethod.Parameters.Select(p => GetParameterClrType(p)).ToArray();
+                var flags = BindingFlags.Public | BindingFlags.NonPublic |
+                            (definitionMethod.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
+
+                var m = constructedIfaceClr.GetMethod(definitionMethodInfo.Name, flags, null, parms, null);
+                if (m is null)
+                {
+                    methodInfo = null!;
+                    return false;
+                }
+
+                methodInfo = m;
                 return true;
             }
         }
 
-        // 4) Otherwise we can just use the definition MethodInfo (or do runtime lookup if you prefer).
+        // Non-constructed case: definition MethodInfo is fine.
         methodInfo = definitionMethodInfo;
         return true;
     }
@@ -1498,6 +1509,10 @@ internal class TypeGenerator
         if (definitionMethod.ContainingType is not null)
         {
             var ifaceClr = ResolveClrType(definitionMethod.ContainingType);
+
+            // Ensure we reflect on the *generic type definition* for the definition method.
+            if (ifaceClr.IsGenericType && !ifaceClr.IsGenericTypeDefinition)
+                ifaceClr = ifaceClr.GetGenericTypeDefinition();
 
             // If ifaceClr is still a TypeBuilder/TypeBuilderInstantiation, avoid GetMethod here too.
             // But for metadata this will be a real runtime Type.
