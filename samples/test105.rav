@@ -1,6 +1,6 @@
 import System.*
 
-val f = Foo()
+val f: IFoo = Foo()
 f.Raised += (s, e) => Console.WriteLine("Hello")
 
 val x = f.RaiseEvent(2)
@@ -8,7 +8,8 @@ val x = f.RaiseEvent(2)
 Console.WriteLine(x)
 
 public interface IFoo {
-
+    RaiseEvent(x: int) -> int
+    event Raised: EventHandler?
 }
 
 public class Foo : IFoo {
