@@ -5383,6 +5383,12 @@ partial class BlockBinder : Binder
         if (typeSymbol.TypeKind == TypeKind.Error)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
 
+        if (typeSymbol.IsStatic)
+        {
+            _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, syntax.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+        }
+
         var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
         if (resolution.Success)
         {
@@ -5442,6 +5448,12 @@ partial class BlockBinder : Binder
         var validatedType = EnsureTypeAccessible(typeSymbol, syntax.Type.GetLocation());
         if (validatedType.TypeKind == TypeKind.Error)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
+
+        if (typeSymbol.IsStatic)
+        {
+            _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, syntax.Type.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+        }
 
         // Bind arguments
         var boundArguments = new BoundArgument[syntax.ArgumentList.Arguments.Count];
