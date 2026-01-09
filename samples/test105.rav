@@ -1,0 +1,13 @@
+import System.*
+
+let f = Foo()
+f.Raised += (s, e) => Console.WriteLine("Hello")
+f.RaiseEvent()
+
+class Foo {
+    public RaiseEvent() -> () {
+        Raised?.Invoke(self, EventArgs.Empty)
+    }
+    
+    public event Raised: EventHandler?
+}

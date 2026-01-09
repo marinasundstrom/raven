@@ -3048,11 +3048,11 @@ partial class BlockBinder : Binder
                     break;
 
                 case AssignmentExpressionSyntax assign when assign.Right == node && assign.Left is ExpressionSyntax leftExpr:
-                    var left = BindExpression(leftExpr);
+                    var left = BindExpressionAllowingEvent(leftExpr);
                     return left.Type;
 
                 case AssignmentStatementSyntax assign when assign.Right.Contains(node) && assign.Left is ExpressionSyntax leftStmtExpr:
-                    var leftStmt = BindExpression(leftStmtExpr);
+                    var leftStmt = BindExpressionAllowingEvent(leftStmtExpr);
                     return leftStmt.Type;
 
                 case ReturnStatementSyntax returnStmt:
@@ -5528,10 +5528,19 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
     {
-        var receiver = BindExpression(syntax.Expression);
+        var receiver = BindExpressionAllowingEvent(syntax.Expression);
 
         if (receiver is BoundErrorExpression)
             return receiver;
+
+        if (receiver is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+        {
+            receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
+            if (IsErrorExpression(receiver))
+                return receiver is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+        }
 
         BoundExpression whenNotNull;
 
