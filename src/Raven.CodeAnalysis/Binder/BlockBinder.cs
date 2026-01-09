@@ -447,6 +447,7 @@ partial class BlockBinder : Binder
             IMethodSymbol => "method",
             IPropertySymbol => "property",
             IFieldSymbol => "field",
+            IEventSymbol => "event",
             INamedTypeSymbol => "type",
             _ => "member"
         };
@@ -2465,7 +2466,10 @@ partial class BlockBinder : Binder
         return new BoundIfExpression(condition, thenExpr, elseExpr);
     }
 
-    private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess, bool preferMethods = false)
+    private BoundExpression BindMemberAccessExpression(
+        MemberAccessExpressionSyntax memberAccess,
+        bool preferMethods = false,
+        bool allowEventAccess = false)
     {
         // Binding for explicit receiver
         var receiver = BindExpression(memberAccess.Expression);
@@ -2563,6 +2567,12 @@ partial class BlockBinder : Binder
 
             if (nonMethodMember is not null)
             {
+                if (nonMethodMember is IEventSymbol && !allowEventAccess)
+                {
+                    _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(nonMethodMember.Name, nameLocation);
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+
                 if (!EnsureMemberAccessible(nonMethodMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(nonMethodMember)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
@@ -2676,6 +2686,12 @@ partial class BlockBinder : Binder
                 return new BoundTypeExpression(typeMemberSymbol);
             }
 
+            if (member is IEventSymbol && !allowEventAccess)
+            {
+                _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(member.Name, nameLocation);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            }
+
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
@@ -2728,6 +2744,12 @@ partial class BlockBinder : Binder
 
             if (nonMethodMember is not null)
             {
+                if (nonMethodMember is IEventSymbol && !allowEventAccess)
+                {
+                    _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(nonMethodMember.Name, nameLocation);
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+
                 if (!EnsureMemberAccessible(nonMethodMember, nameLocation, GetSymbolKindForDiagnostic(nonMethodMember)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
@@ -2782,6 +2804,12 @@ partial class BlockBinder : Binder
                 if (!EnsureMemberAccessible(instanceMember, nameLocation, GetSymbolKindForDiagnostic(instanceMember)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
+                if (instanceMember is IEventSymbol && !allowEventAccess)
+                {
+                    _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(instanceMember.Name, nameLocation);
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+
                 return new BoundMemberAccessExpression(receiver, instanceMember);
             }
 
@@ -2822,7 +2850,9 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private BoundExpression BindMemberBindingExpression(MemberBindingExpressionSyntax memberBinding)
+    private BoundExpression BindMemberBindingExpression(
+        MemberBindingExpressionSyntax memberBinding,
+        bool allowEventAccess = false)
     {
         var simpleName = memberBinding.Name;
         var memberName = simpleName.Identifier.ValueText;
@@ -2932,6 +2962,12 @@ partial class BlockBinder : Binder
                     return unionCase;
 
                 return new BoundTypeExpression(typeMember);
+            }
+
+            if (member is IEventSymbol && !allowEventAccess)
+            {
+                _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(member.Name, nameLocation);
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
@@ -3514,10 +3550,42 @@ partial class BlockBinder : Binder
             return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRight);
         }
 
-        var left = BindExpression(leftSyntax);
+        var left = BindExpressionAllowingEvent(leftSyntax);
 
         if (IsErrorExpression(left))
             return AsErrorExpression(left);
+
+        if (left.Symbol is IEventSymbol eventSymbol)
+        {
+            if (operatorTokenKind is not (SyntaxKind.PlusEqualsToken or SyntaxKind.MinusEqualsToken))
+            {
+                _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(eventSymbol.Name, leftSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            }
+
+            var right = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            var eventType = eventSymbol.Type;
+            var converted = ConvertValueForAssignment(right, eventType, rightSyntax);
+            if (converted is BoundErrorExpression)
+                return converted;
+
+            var receiver = GetReceiver(left);
+            var accessor = operatorTokenKind == SyntaxKind.PlusEqualsToken
+                ? eventSymbol.AddMethod
+                : eventSymbol.RemoveMethod;
+
+            if (accessor is null)
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+            if (!EnsureMemberAccessible(accessor, leftSyntax.GetLocation(), GetSymbolKindForDiagnostic(accessor)))
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+            return new BoundInvocationExpression(accessor, [converted], receiver);
+        }
 
         if (left is BoundLocalAccess localAccess)
         {
@@ -3898,7 +3966,7 @@ partial class BlockBinder : Binder
         return expression.Type is null || expression.Type.TypeKind == TypeKind.Error;
     }
 
-    private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)
+    private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax, bool allowEventAccess = false)
     {
         var name = syntax.Identifier.ValueText;
         var symbol = LookupSymbol(name);
@@ -3940,6 +4008,17 @@ partial class BlockBinder : Binder
                 return new BoundNamespaceExpression(ns);
             case ITypeSymbol type:
                 return new BoundTypeExpression(type);
+            case IEventSymbol @event:
+                if (!allowEventAccess)
+                {
+                    _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(@event.Name, syntax.Identifier.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                }
+
+                if (!EnsureMemberAccessible(@event, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(@event)))
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+                return new BoundMemberAccessExpression(null, @event);
             case ILocalSymbol local:
                 return new BoundLocalAccess(local);
             case IParameterSymbol param:
@@ -4625,7 +4704,7 @@ partial class BlockBinder : Binder
 
         if (syntax.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            var boundMember = BindMemberAccessExpression(memberAccess, preferMethods: true);
+            var boundMember = BindMemberAccessExpression(memberAccess, preferMethods: true, allowEventAccess: true);
 
             if (IsErrorExpression(boundMember))
                 return boundMember is BoundErrorExpression boundError
@@ -4635,7 +4714,17 @@ partial class BlockBinder : Binder
             if (boundMember is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
 
-            if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
+            if (boundMember is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+            {
+                receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
+                if (IsErrorExpression(receiver))
+                    return receiver is BoundErrorExpression boundError
+                        ? boundError
+                        : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+
+                methodName = "Invoke";
+            }
+            else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
                 var argExprs = new List<BoundArgument>();
                 bool argErrors = false;
@@ -4707,7 +4796,7 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is MemberBindingExpressionSyntax memberBinding)
         {
-            var boundMember = BindMemberBindingExpression(memberBinding);
+            var boundMember = BindMemberBindingExpression(memberBinding, allowEventAccess: true);
 
             if (IsErrorExpression(boundMember))
                 return boundMember is BoundErrorExpression boundError
@@ -4717,7 +4806,17 @@ partial class BlockBinder : Binder
             if (boundMember is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
 
-            if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
+            if (boundMember is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+            {
+                receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
+                if (IsErrorExpression(receiver))
+                    return receiver is BoundErrorExpression boundError
+                        ? boundError
+                        : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+
+                methodName = "Invoke";
+            }
+            else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
                 var argExprs = new List<BoundArgument>();
                 bool argErrors = false;
@@ -4789,7 +4888,7 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
-            var boundIdentifier = BindIdentifierName(id);
+            var boundIdentifier = BindIdentifierName(id, allowEventAccess: true);
             if (IsErrorExpression(boundIdentifier))
                 return boundIdentifier is BoundErrorExpression boundError
                     ? boundError
@@ -4798,7 +4897,17 @@ partial class BlockBinder : Binder
             if (boundIdentifier is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
 
-            if (boundIdentifier is BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess)
+            if (boundIdentifier is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+            {
+                receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
+                if (IsErrorExpression(receiver))
+                    return receiver is BoundErrorExpression boundError
+                        ? boundError
+                        : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+
+                methodName = "Invoke";
+            }
+            else if (boundIdentifier is BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess)
             {
                 receiver = boundIdentifier;
                 methodName = "Invoke";
@@ -5663,10 +5772,16 @@ partial class BlockBinder : Binder
         }
 
         // Fall back to normal variable/property assignment
-        var left = BindExpression(leftSyntax);
+        var left = BindExpressionAllowingEvent(leftSyntax);
 
         if (IsErrorExpression(left))
             return AsErrorExpression(left);
+
+        if (left.Symbol is IEventSymbol eventSymbol)
+        {
+            _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(eventSymbol.Name, leftSyntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
 
         if (left is BoundLocalAccess localAccess)
         {
@@ -6329,6 +6444,54 @@ partial class BlockBinder : Binder
             return null;
 
         return left;
+    }
+
+    private BoundExpression BindExpressionAllowingEvent(ExpressionSyntax syntax)
+        => syntax switch
+        {
+            IdentifierNameSyntax identifier => BindIdentifierName(identifier, allowEventAccess: true),
+            MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess, allowEventAccess: true),
+            MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding, allowEventAccess: true),
+            _ => BindExpression(syntax)
+        };
+
+    private bool IsWithinEventContainingType(IEventSymbol eventSymbol)
+    {
+        var containingType = _containingSymbol switch
+        {
+            IMethodSymbol methodSymbol => methodSymbol.ContainingType,
+            INamedTypeSymbol typeSymbol => typeSymbol,
+            _ => null
+        };
+
+        return containingType is not null &&
+            SymbolEqualityComparer.Default.Equals(containingType, eventSymbol.ContainingType);
+    }
+
+    private static bool TryGetEventBackingField(IEventSymbol eventSymbol, out SourceFieldSymbol? backingField)
+    {
+        backingField = eventSymbol is SourceEventSymbol sourceEvent ? sourceEvent.BackingField : null;
+        return backingField is not null;
+    }
+
+    private BoundExpression BindEventInvocationReceiver(
+        IEventSymbol eventSymbol,
+        BoundMemberAccessExpression eventAccess,
+        SyntaxNode syntax)
+    {
+        if (!IsWithinEventContainingType(eventSymbol))
+        {
+            _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(eventSymbol.Name, syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        if (!TryGetEventBackingField(eventSymbol, out var backingField))
+        {
+            _diagnostics.ReportEventCannotBeInvoked(eventSymbol.Name, syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        return new BoundFieldAccess(eventAccess.Receiver, backingField);
     }
 
     private BoundAssignmentExpression CreateFieldAssignmentExpression(

@@ -115,6 +115,7 @@ ClassMember              ::= FieldDeclaration
                            | OperatorDeclaration
                            | InvocationOperatorDeclaration
                            | ConstructorDeclaration
+                           | EventDeclaration
                            | PropertyDeclaration
                            | IndexerDeclaration ;
 
@@ -168,8 +169,15 @@ PropertyDeclaration      ::= MemberModifiers?
 IndexerDeclaration       ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? Identifier BracketedParameterList ':' Type AccessorList ;
 
+EventDeclaration         ::= MemberModifiers?
+                             ExplicitInterfaceSpecifier? 'event' Identifier ':' Type ( EventAccessorList | ';' ) ;
+
 AccessorList             ::= '{' Accessor {Accessor} '}' ;
 Accessor                 ::= AccessorModifier? ('get' | 'set')
+                             ( Block | '=>' Expression | ';' ) ;
+
+EventAccessorList        ::= '{' EventAccessor {EventAccessor} '}' ;
+EventAccessor            ::= AccessorModifier? ('add' | 'remove')
                              ( Block | '=>' Expression | ';' ) ;
 
 BracketedParameterList   ::= '[' ParameterList? ']' ;

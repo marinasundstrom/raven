@@ -207,6 +207,49 @@ exposes the default value of its backing field until assigned from within the
 type (e.g., via a constructor calling another accessor). Auto-properties are not
 available on interfaces, where accessors remain abstract.
 
+### Events
+
+Events expose a delegate-like member that supports handler subscription via
+`+=` and `-=`. An event declaration specifies the `event` keyword, a name, and
+the event handler type:
+
+```raven
+class Button {
+    public event Clicked: System.Action;
+}
+```
+
+#### Event accessors
+
+Custom events supply `add` and `remove` accessors, which receive the implicit
+`value` parameter of the handler type:
+
+```raven
+class Button {
+    public event Clicked: System.Action {
+        add { /* register value */ }
+        remove { /* unregister value */ }
+    }
+}
+```
+
+#### Auto-implemented events
+
+When an event declaration ends with `;`, the compiler synthesizes a hidden
+backing field and trivial `add`/`remove` accessors. Auto-events are the only
+events that can be invoked directly, and invocation is only permitted inside
+the declaring type:
+
+```raven
+class Button {
+    public event Clicked: System.Action;
+
+    public Raise() -> unit {
+        Clicked();
+    }
+}
+```
+
 ### Class inheritance
 
 Classes are sealed by default. Marking a class `open` allows it to be used as a base type. This explicit opt-in keeps instantiable

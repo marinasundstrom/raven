@@ -119,6 +119,14 @@
     Title="Property or indexer '{name}' cannot be assigned to -- it is read only"
     Message="Property or indexer '{name}' cannot be assigned to -- it is read only"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0201" Identifier="EventCanOnlyBeUsedWithPlusOrMinus"
+    Title="Event can only be used with '+=' or '-='"
+    Message="The event '{name}' can only appear on the left hand side of '+=' or '-='"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0202" Identifier="EventCannotBeInvoked"
+    Title="Event cannot be invoked"
+    Message="The event '{name}' cannot be invoked because it does not declare a backing field"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2700" Identifier="AwaitExpressionRequiresAsyncContext"
     Title="Await requires async context"
     Message="The 'await' operator can only be used within an async method or function"
