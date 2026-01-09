@@ -61,4 +61,14 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
         _declaredInExtension = true;
         _extensionReceiverType = receiverType;
     }
+
+    public override void Accept(SymbolVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
 }

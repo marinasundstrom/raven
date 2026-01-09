@@ -623,7 +623,6 @@ internal class TypeGenerator
                             eventBuilder.SetCustomAttribute(nullableAttr);
 
                         CodeGen.ApplyCustomAttributes(eventSymbol.GetAttributes(), attribute => eventBuilder.SetCustomAttribute(attribute));
-                        CodeGen.AddMemberBuilder((SourceSymbol)eventSymbol, eventBuilder);
                         break;
                     }
             }

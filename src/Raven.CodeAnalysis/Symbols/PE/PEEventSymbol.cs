@@ -162,4 +162,5 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
     {
         return _eventInfo;
     }
+
 }
