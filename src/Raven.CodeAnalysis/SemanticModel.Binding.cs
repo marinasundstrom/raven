@@ -472,49 +472,20 @@ public partial class SemanticModel
         var extensionBinders = new List<(ExtensionDeclarationSyntax Syntax, ExtensionDeclarationBinder Binder)>();
         var unionBinders = new List<(UnionDeclarationSyntax Syntax, UnionDeclarationBinder Binder, SourceDiscriminatedUnionSymbol Symbol)>();
 
+        var classSymbols = new Dictionary<ClassDeclarationSyntax, SourceNamedTypeSymbol>();
+        var interfaceSymbols = new Dictionary<InterfaceDeclarationSyntax, SourceNamedTypeSymbol>();
+        var extensionSymbols = new Dictionary<ExtensionDeclarationSyntax, SourceNamedTypeSymbol>();
+        var enumSymbols = new Dictionary<EnumDeclarationSyntax, SourceNamedTypeSymbol>();
+        var unionSymbols = new Dictionary<UnionDeclarationSyntax, SourceDiscriminatedUnionSymbol>();
+
+        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+
         foreach (var member in containerNode.ChildNodes())
         {
             switch (member)
             {
-                case BaseNamespaceDeclarationSyntax nsDecl:
-                    {
-                        var namespaceName = nsDecl is FileScopedNamespaceDeclarationSyntax
-                            ? nsDecl.Name.ToString()
-                            : parentNamespace.QualifyName(nsDecl.Name.ToString());
-
-                        var nsSymbol = Compilation.GetOrCreateNamespaceSymbol(namespaceName);
-
-                        var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
-                        _binderCache[nsDecl] = nsBinder;
-
-                        RegisterNamespaceMembers(nsDecl, nsBinder, nsSymbol);
-                        break;
-                    }
-
                 case ClassDeclarationSyntax classDecl:
                     {
-                        var baseTypeSymbol = Compilation.GetTypeByMetadataName("System.Object");
-                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
-
-                        if (classDecl.BaseList is not null)
-                        {
-                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                            foreach (var t in classDecl.BaseList.Types)
-                            {
-                                var resolved = parentBinder.ResolveType(t) as INamedTypeSymbol;
-                                if (resolved is null)
-                                    continue;
-
-                                if (resolved.TypeKind == TypeKind.Interface)
-                                    builder.Add(resolved);
-                                else
-                                    baseTypeSymbol = resolved;
-                            }
-
-                            if (builder.Count > 0)
-                                interfaceList = builder.ToImmutable();
-                        }
-
                         var isStatic = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
                         var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                         var isSealed = isStatic || (!classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
@@ -570,7 +541,7 @@ public partial class SemanticModel
                         {
                             classSymbol = new SourceNamedTypeSymbol(
                                 classDecl.Identifier.ValueText,
-                                baseTypeSymbol!,
+                                objectType!,
                                 TypeKind.Class,
                                 parentNamespace.AsSourceNamespace(),
                                 null,
@@ -588,61 +559,12 @@ public partial class SemanticModel
                         if (isNewSymbol)
                             InitializeTypeParameters(classSymbol, classDecl.TypeParameterList, classDecl.ConstraintClauses);
 
-                        if (!interfaceList.IsDefaultOrEmpty)
-                            classSymbol.SetInterfaces(interfaceList);
-
-                        var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
-                        classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
-                        _binderCache[classDecl] = classBinder;
-                        RegisterClassSymbol(classDecl, classSymbol);
-                        if (classDecl.BaseList is not null && baseTypeSymbol!.IsStatic)
-                        {
-                            classBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
-                                baseTypeSymbol.Name,
-                                classDecl.BaseList.Types[0].GetLocation());
-                        }
-                        else if (classDecl.BaseList is not null && baseTypeSymbol!.IsSealed)
-                        {
-                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(
-                                baseTypeSymbol.Name,
-                                classDecl.BaseList.Types[0].GetLocation());
-                        }
-
-                        classBinders.Add((classDecl, classBinder));
-                        break;
-                    }
-
-                case UnionDeclarationSyntax unionDecl:
-                    {
-                        var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
-                        var namespaceSymbol = parentNamespace.AsSourceNamespace();
-                        ReportExternalTypeRedeclaration(
-                            parentNamespace,
-                            unionDecl.Identifier,
-                            unionDecl.TypeParameterList?.Parameters.Count ?? 0,
-                            parentBinder.Diagnostics);
-                        var (unionBinder, unionSymbol) = RegisterUnionDeclaration(unionDecl, parentBinder, declaringSymbol, namespaceSymbol);
-                        unionBinders.Add((unionDecl, unionBinder, unionSymbol));
+                        classSymbols[classDecl] = classSymbol;
                         break;
                     }
 
                 case InterfaceDeclarationSyntax interfaceDecl:
                     {
-                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
-
-                        if (interfaceDecl.BaseList is not null)
-                        {
-                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                            foreach (var t in interfaceDecl.BaseList.Types)
-                            {
-                                if (parentBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
-                                    builder.Add(resolved);
-                            }
-
-                            if (builder.Count > 0)
-                                interfaceList = builder.ToImmutable();
-                        }
-
                         ReportExternalTypeRedeclaration(
                             parentNamespace,
                             interfaceDecl.Identifier,
@@ -651,7 +573,7 @@ public partial class SemanticModel
 
                         var interfaceSymbol = new SourceNamedTypeSymbol(
                             interfaceDecl.Identifier.ValueText,
-                            Compilation.GetTypeByMetadataName("System.Object")!,
+                            objectType!,
                             TypeKind.Interface,
                             parentNamespace.AsSourceNamespace(),
                             null,
@@ -666,19 +588,12 @@ public partial class SemanticModel
 
                         InitializeTypeParameters(interfaceSymbol, interfaceDecl.TypeParameterList, interfaceDecl.ConstraintClauses);
 
-                        if (!interfaceList.IsDefaultOrEmpty)
-                            interfaceSymbol.SetInterfaces(interfaceList);
-
-                        var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
-                        interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
-                        _binderCache[interfaceDecl] = interfaceBinder;
-                        interfaceBinders.Add((interfaceDecl, interfaceBinder));
+                        interfaceSymbols[interfaceDecl] = interfaceSymbol;
                         break;
                     }
 
                 case ExtensionDeclarationSyntax extensionDecl:
                     {
-                        var baseType = Compilation.GetTypeByMetadataName("System.Object");
                         var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             extensionDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
@@ -691,7 +606,7 @@ public partial class SemanticModel
 
                         var extensionSymbol = new SourceNamedTypeSymbol(
                             extensionDecl.Identifier.ValueText,
-                            baseType!,
+                            objectType!,
                             TypeKind.Class,
                             parentNamespace.AsSourceNamespace(),
                             null,
@@ -703,14 +618,9 @@ public partial class SemanticModel
                             declaredAccessibility: extensionAccessibility);
 
                         extensionSymbol.MarkAsExtensionContainer();
-
                         InitializeTypeParameters(extensionSymbol, extensionDecl.TypeParameterList, extensionDecl.ConstraintClauses);
 
-                        var extensionBinder = new ExtensionDeclarationBinder(parentBinder, extensionSymbol, extensionDecl);
-                        extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
-                        _binderCache[extensionDecl] = extensionBinder;
-
-                        extensionBinders.Add((extensionDecl, extensionBinder));
+                        extensionSymbols[extensionDecl] = extensionSymbol;
                         break;
                     }
 
@@ -738,6 +648,174 @@ public partial class SemanticModel
                             declaredAccessibility: enumAccessibility
                         );
 
+                        enumSymbols[enumDecl] = enumSymbol;
+                        break;
+                    }
+
+                case UnionDeclarationSyntax unionDecl:
+                    {
+                        var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
+                        var namespaceSymbol = parentNamespace.AsSourceNamespace();
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            unionDecl.Identifier,
+                            unionDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
+
+                        var unionSymbol = new SourceDiscriminatedUnionSymbol(
+                            unionDecl.Identifier.ValueText,
+                            Compilation.GetSpecialType(SpecialType.System_ValueType)!,
+                            declaringSymbol,
+                            null,
+                            namespaceSymbol,
+                            [unionDecl.GetLocation()],
+                            [unionDecl.GetReference()],
+                            AccessibilityUtilities.DetermineAccessibility(
+                                unionDecl.Modifiers,
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol)));
+
+                        InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList, unionDecl.ConstraintClauses);
+
+                        unionSymbols[unionDecl] = unionSymbol;
+                        break;
+                    }
+            }
+        }
+
+        foreach (var member in containerNode.ChildNodes())
+        {
+            switch (member)
+            {
+                case BaseNamespaceDeclarationSyntax nsDecl:
+                    {
+                        var namespaceName = nsDecl is FileScopedNamespaceDeclarationSyntax
+                            ? nsDecl.Name.ToString()
+                            : parentNamespace.QualifyName(nsDecl.Name.ToString());
+
+                        var nsSymbol = Compilation.GetOrCreateNamespaceSymbol(namespaceName);
+
+                        var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
+                        _binderCache[nsDecl] = nsBinder;
+
+                        RegisterNamespaceMembers(nsDecl, nsBinder, nsSymbol);
+                        break;
+                    }
+
+                case ClassDeclarationSyntax classDecl:
+                    {
+                        var classSymbol = classSymbols[classDecl];
+                        var baseTypeSymbol = objectType;
+                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+
+                        if (classDecl.BaseList is not null)
+                        {
+                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                            foreach (var t in classDecl.BaseList.Types)
+                            {
+                                var resolved = parentBinder.ResolveType(t) as INamedTypeSymbol;
+                                if (resolved is null)
+                                    continue;
+
+                                if (resolved.TypeKind == TypeKind.Interface)
+                                    builder.Add(resolved);
+                                else
+                                    baseTypeSymbol = resolved;
+                            }
+
+                            if (builder.Count > 0)
+                                interfaceList = builder.ToImmutable();
+                        }
+
+                        if (baseTypeSymbol is not null &&
+                            !SymbolEqualityComparer.Default.Equals(classSymbol.BaseType, baseTypeSymbol) &&
+                            SymbolEqualityComparer.Default.Equals(classSymbol.BaseType, objectType))
+                        {
+                            classSymbol.SetBaseType(baseTypeSymbol);
+                        }
+
+                        if (!interfaceList.IsDefaultOrEmpty)
+                        {
+                            classSymbol.SetInterfaces(MergeInterfaces(classSymbol.Interfaces, interfaceList));
+                        }
+
+                        var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
+                        classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
+                        _binderCache[classDecl] = classBinder;
+                        RegisterClassSymbol(classDecl, classSymbol);
+                        if (classDecl.BaseList is not null && baseTypeSymbol?.IsStatic == true)
+                        {
+                            classBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
+                                baseTypeSymbol.Name,
+                                classDecl.BaseList.Types[0].GetLocation());
+                        }
+                        else if (classDecl.BaseList is not null && baseTypeSymbol?.IsSealed == true)
+                        {
+                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(
+                                baseTypeSymbol.Name,
+                                classDecl.BaseList.Types[0].GetLocation());
+                        }
+
+                        classBinders.Add((classDecl, classBinder));
+                        break;
+                    }
+
+                case UnionDeclarationSyntax unionDecl:
+                    {
+                        var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
+                        var namespaceSymbol = parentNamespace.AsSourceNamespace();
+                        var unionSymbol = unionSymbols[unionDecl];
+                        var (unionBinder, resolvedSymbol) = RegisterUnionDeclaration(
+                            unionDecl,
+                            parentBinder,
+                            declaringSymbol,
+                            namespaceSymbol,
+                            unionSymbol);
+                        unionBinders.Add((unionDecl, unionBinder, resolvedSymbol));
+                        break;
+                    }
+
+                case InterfaceDeclarationSyntax interfaceDecl:
+                    {
+                        var interfaceSymbol = interfaceSymbols[interfaceDecl];
+                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+
+                        if (interfaceDecl.BaseList is not null)
+                        {
+                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                            foreach (var t in interfaceDecl.BaseList.Types)
+                            {
+                                if (parentBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
+                                    builder.Add(resolved);
+                            }
+
+                            if (builder.Count > 0)
+                                interfaceList = builder.ToImmutable();
+                        }
+
+                        if (!interfaceList.IsDefaultOrEmpty)
+                            interfaceSymbol.SetInterfaces(MergeInterfaces(interfaceSymbol.Interfaces, interfaceList));
+
+                        var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
+                        interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
+                        _binderCache[interfaceDecl] = interfaceBinder;
+                        interfaceBinders.Add((interfaceDecl, interfaceBinder));
+                        break;
+                    }
+
+                case ExtensionDeclarationSyntax extensionDecl:
+                    {
+                        var extensionSymbol = extensionSymbols[extensionDecl];
+                        var extensionBinder = new ExtensionDeclarationBinder(parentBinder, extensionSymbol, extensionDecl);
+                        extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
+                        _binderCache[extensionDecl] = extensionBinder;
+
+                        extensionBinders.Add((extensionDecl, extensionBinder));
+                        break;
+                    }
+
+                case EnumDeclarationSyntax enumDecl:
+                    {
+                        var enumSymbol = enumSymbols[enumDecl];
                         var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDecl);
                         _binderCache[enumDecl] = enumBinder;
 
@@ -790,6 +868,26 @@ public partial class SemanticModel
 
         foreach (var (extensionDecl, extensionBinder) in extensionBinders)
             RegisterExtensionMembers(extensionDecl, extensionBinder);
+
+        static ImmutableArray<INamedTypeSymbol> MergeInterfaces(
+            ImmutableArray<INamedTypeSymbol> existing,
+            ImmutableArray<INamedTypeSymbol> additional)
+        {
+            if (existing.IsDefaultOrEmpty)
+                return additional;
+
+            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var type in existing)
+                if (seen.Add(type))
+                    builder.Add(type);
+
+            foreach (var type in additional)
+                if (seen.Add(type))
+                    builder.Add(type);
+
+            return builder.ToImmutable();
+        }
     }
     private void RegisterUnionCases(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceDiscriminatedUnionSymbol unionSymbol)
     {
@@ -1067,7 +1165,8 @@ public partial class SemanticModel
         UnionDeclarationSyntax unionDecl,
         Binder parentBinder,
         ISymbol declaringSymbol,
-        SourceNamespaceSymbol? namespaceSymbol)
+        SourceNamespaceSymbol? namespaceSymbol,
+        SourceDiscriminatedUnionSymbol? existingSymbol = null)
     {
         var containingType = declaringSymbol as INamedTypeSymbol;
         var containingNamespace = declaringSymbol switch
@@ -1082,7 +1181,7 @@ public partial class SemanticModel
             unionDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
 
-        var unionSymbol = new SourceDiscriminatedUnionSymbol(
+        var unionSymbol = existingSymbol ?? new SourceDiscriminatedUnionSymbol(
             unionDecl.Identifier.ValueText,
             baseTypeSymbol!,
             declaringSymbol,
@@ -1092,7 +1191,8 @@ public partial class SemanticModel
             [unionDecl.GetReference()],
             unionAccessibility);
 
-        InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList, unionDecl.ConstraintClauses);
+        if (unionSymbol.TypeParameters.IsDefaultOrEmpty)
+            InitializeTypeParameters(unionSymbol, unionDecl.TypeParameterList, unionDecl.ConstraintClauses);
 
         var unionBinder = new UnionDeclarationBinder(parentBinder, unionSymbol, unionDecl);
         unionBinder.EnsureTypeParameterConstraintTypesResolved(unionSymbol.TypeParameters);
@@ -1170,6 +1270,154 @@ public partial class SemanticModel
             RegisterPrimaryConstructor(classDecl, classBinder);
 
         var nestedClassBinders = new List<(ClassDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+        var nestedClassSymbols = new Dictionary<ClassDeclarationSyntax, SourceNamedTypeSymbol>();
+        var nestedInterfaceSymbols = new Dictionary<InterfaceDeclarationSyntax, SourceNamedTypeSymbol>();
+        var nestedEnumSymbols = new Dictionary<EnumDeclarationSyntax, SourceNamedTypeSymbol>();
+        var nestedUnionSymbols = new Dictionary<UnionDeclarationSyntax, SourceDiscriminatedUnionSymbol>();
+        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
+
+        foreach (var member in classDecl.Members)
+        {
+            switch (member)
+            {
+                case ClassDeclarationSyntax nestedClass:
+                    {
+                        var nestedStatic = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+                        var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+                        var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
+                        var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            nestedClass.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
+
+                        var nestedLocation = nestedClass.GetLocation();
+                        var nestedReference = nestedClass.GetReference();
+
+                        SourceNamedTypeSymbol nestedSymbol;
+                        var isNewNestedSymbol = true;
+
+                        if (parentType is SourceNamedTypeSymbol parentSourceType &&
+                            parentSourceType.IsMemberDefined(nestedClass.Identifier.ValueText, out var existingNestedMember) &&
+                            existingNestedMember is SourceNamedTypeSymbol existingNested &&
+                            existingNested.TypeKind == TypeKind.Class)
+                        {
+                            var hadPartial = existingNested.HasPartialModifier;
+                            var hadNonPartial = existingNested.HasNonPartialDeclaration;
+                            var previouslyMixed = hadPartial && hadNonPartial;
+                            var willBeMixed = (hadPartial || nestedPartial) && (hadNonPartial || !nestedPartial);
+
+                            if (willBeMixed && !previouslyMixed)
+                            {
+                                classBinder.Diagnostics.ReportPartialTypeDeclarationMissingPartial(
+                                    nestedClass.Identifier.ValueText,
+                                    nestedClass.Identifier.GetLocation());
+                            }
+                            else if (hadNonPartial && !nestedPartial)
+                            {
+                                classBinder.Diagnostics.ReportTypeAlreadyDefined(
+                                    nestedClass.Identifier.ValueText,
+                                    nestedClass.Identifier.GetLocation());
+                            }
+
+                            existingNested.AddDeclaration(nestedLocation, nestedReference);
+                            existingNested.UpdateDeclarationModifiers(nestedSealed, nestedAbstract, nestedStatic);
+                            existingNested.RegisterPartialModifier(nestedPartial);
+
+                            nestedSymbol = existingNested;
+                            isNewNestedSymbol = false;
+                        }
+                        else
+                        {
+                            nestedSymbol = new SourceNamedTypeSymbol(
+                                nestedClass.Identifier.ValueText,
+                                objectType!,
+                                TypeKind.Class,
+                                parentType,
+                                parentType,
+                                classBinder.CurrentNamespace!.AsSourceNamespace(),
+                                [nestedLocation],
+                                [nestedReference],
+                                nestedSealed,
+                                nestedAbstract,
+                                nestedStatic,
+                                declaredAccessibility: nestedAccessibility
+                            );
+
+                            nestedSymbol.RegisterPartialModifier(nestedPartial);
+                        }
+
+                        if (isNewNestedSymbol)
+                            InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList, nestedClass.ConstraintClauses);
+
+                        nestedClassSymbols[nestedClass] = nestedSymbol;
+                        break;
+                    }
+
+                case InterfaceDeclarationSyntax nestedInterface:
+                    {
+                        var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
+                            nestedInterface.Identifier.ValueText,
+                            objectType!,
+                            TypeKind.Interface,
+                            parentType,
+                            parentType,
+                            classBinder.CurrentNamespace!.AsSourceNamespace(),
+                            [nestedInterface.GetLocation()],
+                            [nestedInterface.GetReference()],
+                            true,
+                            isAbstract: true,
+                            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                                nestedInterface.Modifiers,
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType))
+                        );
+
+                        InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList, nestedInterface.ConstraintClauses);
+                        nestedInterfaceSymbols[nestedInterface] = nestedInterfaceSymbol;
+                        break;
+                    }
+
+                case EnumDeclarationSyntax enumDecl:
+                    {
+                        var enumSymbol = new SourceNamedTypeSymbol(
+                            enumDecl.Identifier.ValueText,
+                            Compilation.GetTypeByMetadataName("System.Enum"),
+                            TypeKind.Enum,
+                            parentType,
+                            parentType,
+                            classBinder.CurrentNamespace!.AsSourceNamespace(),
+                            [enumDecl.GetLocation()],
+                            [enumDecl.GetReference()],
+                            true,
+                            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                                enumDecl.Modifiers,
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType))
+                        );
+
+                        nestedEnumSymbols[enumDecl] = enumSymbol;
+                        break;
+                    }
+
+                case UnionDeclarationSyntax nestedUnion:
+                    {
+                        var unionSymbol = new SourceDiscriminatedUnionSymbol(
+                            nestedUnion.Identifier.ValueText,
+                            Compilation.GetSpecialType(SpecialType.System_ValueType)!,
+                            parentType,
+                            parentType,
+                            classBinder.CurrentNamespace!.AsSourceNamespace(),
+                            [nestedUnion.GetLocation()],
+                            [nestedUnion.GetReference()],
+                            AccessibilityUtilities.DetermineAccessibility(
+                                nestedUnion.Modifiers,
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentType)));
+
+                        InitializeTypeParameters(unionSymbol, nestedUnion.TypeParameterList, nestedUnion.ConstraintClauses);
+                        nestedUnionSymbols[nestedUnion] = unionSymbol;
+                        break;
+                    }
+            }
+        }
 
         foreach (var member in classDecl.Members)
         {
@@ -1238,8 +1486,7 @@ public partial class SemanticModel
                     break;
 
                 case ClassDeclarationSyntax nestedClass:
-                    var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
-                    var nestedBaseType = Compilation.GetTypeByMetadataName("System.Object");
+                    var nestedBaseType = objectType;
                     ImmutableArray<INamedTypeSymbol> nestedInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
                     if (nestedClass.BaseList is not null)
                     {
@@ -1258,75 +1505,16 @@ public partial class SemanticModel
                         if (builder.Count > 0)
                             nestedInterfaces = builder.ToImmutable();
                     }
-                    var nestedStatic = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-                    var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
-                    var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
-                    var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
-                    var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
-                        nestedClass.Modifiers,
-                        AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
-
-                    var nestedLocation = nestedClass.GetLocation();
-                    var nestedReference = nestedClass.GetReference();
-
-                    SourceNamedTypeSymbol nestedSymbol;
-                    var isNewNestedSymbol = true;
-
-                    if (parentType is SourceNamedTypeSymbol parentSourceType &&
-                        parentSourceType.IsMemberDefined(nestedClass.Identifier.ValueText, out var existingNestedMember) &&
-                        existingNestedMember is SourceNamedTypeSymbol existingNested &&
-                        existingNested.TypeKind == TypeKind.Class)
+                    var nestedSymbol = nestedClassSymbols[nestedClass];
+                    if (nestedBaseType is not null &&
+                        !SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, nestedBaseType) &&
+                        SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, objectType))
                     {
-                        var hadPartial = existingNested.HasPartialModifier;
-                        var hadNonPartial = existingNested.HasNonPartialDeclaration;
-                        var previouslyMixed = hadPartial && hadNonPartial;
-                        var willBeMixed = (hadPartial || nestedPartial) && (hadNonPartial || !nestedPartial);
-
-                        if (willBeMixed && !previouslyMixed)
-                        {
-                            classBinder.Diagnostics.ReportPartialTypeDeclarationMissingPartial(
-                                nestedClass.Identifier.ValueText,
-                                nestedClass.Identifier.GetLocation());
-                        }
-                        else if (hadNonPartial && !nestedPartial)
-                        {
-                            classBinder.Diagnostics.ReportTypeAlreadyDefined(
-                                nestedClass.Identifier.ValueText,
-                                nestedClass.Identifier.GetLocation());
-                        }
-
-                        existingNested.AddDeclaration(nestedLocation, nestedReference);
-                        existingNested.UpdateDeclarationModifiers(nestedSealed, nestedAbstract, nestedStatic);
-                        existingNested.RegisterPartialModifier(nestedPartial);
-
-                        nestedSymbol = existingNested;
-                        isNewNestedSymbol = false;
+                        nestedSymbol.SetBaseType(nestedBaseType);
                     }
-                    else
-                    {
-                        nestedSymbol = new SourceNamedTypeSymbol(
-                            nestedClass.Identifier.ValueText,
-                            nestedBaseType!,
-                            TypeKind.Class,
-                            parentType,
-                            parentType,
-                            classBinder.CurrentNamespace!.AsSourceNamespace(),
-                            [nestedLocation],
-                            [nestedReference],
-                            nestedSealed,
-                            nestedAbstract,
-                            nestedStatic,
-                            declaredAccessibility: nestedAccessibility
-                        );
-
-                        nestedSymbol.RegisterPartialModifier(nestedPartial);
-                    }
-
-                    if (isNewNestedSymbol)
-                        InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList, nestedClass.ConstraintClauses);
 
                     if (!nestedInterfaces.IsDefaultOrEmpty)
-                        nestedSymbol.SetInterfaces(nestedInterfaces);
+                        nestedSymbol.SetInterfaces(MergeInterfaces(nestedSymbol.Interfaces, nestedInterfaces));
 
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
                     nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
@@ -1353,13 +1541,18 @@ public partial class SemanticModel
                     {
                         var declaringSymbol = (ISymbol)classBinder.ContainingSymbol;
                         var namespaceSymbol = classBinder.CurrentNamespace?.AsSourceNamespace();
-                        var (unionBinder, unionSymbol) = RegisterUnionDeclaration(nestedUnion, classBinder, declaringSymbol, namespaceSymbol);
-                        RegisterUnionCases(nestedUnion, unionBinder, unionSymbol);
+                        var unionSymbol = nestedUnionSymbols[nestedUnion];
+                        var (unionBinder, resolvedSymbol) = RegisterUnionDeclaration(
+                            nestedUnion,
+                            classBinder,
+                            declaringSymbol,
+                            namespaceSymbol,
+                            unionSymbol);
+                        RegisterUnionCases(nestedUnion, unionBinder, resolvedSymbol);
                         break;
                     }
 
                 case InterfaceDeclarationSyntax nestedInterface:
-                    var parentForInterface = (INamedTypeSymbol)classBinder.ContainingSymbol;
                     ImmutableArray<INamedTypeSymbol> parentInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
                     if (nestedInterface.BaseList is not null)
                     {
@@ -1372,26 +1565,11 @@ public partial class SemanticModel
                         if (builder.Count > 0)
                             parentInterfaces = builder.ToImmutable();
                     }
-                    var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
-                        nestedInterface.Identifier.ValueText,
-                        Compilation.GetTypeByMetadataName("System.Object")!,
-                        TypeKind.Interface,
-                        parentForInterface,
-                        parentForInterface,
-                        classBinder.CurrentNamespace!.AsSourceNamespace(),
-                        [nestedInterface.GetLocation()],
-                        [nestedInterface.GetReference()],
-                        true,
-                        isAbstract: true,
-                        declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
-                            nestedInterface.Modifiers,
-                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentForInterface))
-                    );
-
-                    InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList, nestedInterface.ConstraintClauses);
 
                     if (!parentInterfaces.IsDefaultOrEmpty)
-                        nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
+                        nestedInterfaceSymbols[nestedInterface].SetInterfaces(
+                            MergeInterfaces(nestedInterfaceSymbols[nestedInterface].Interfaces, parentInterfaces));
+                    var nestedInterfaceSymbol = nestedInterfaceSymbols[nestedInterface];
                     var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
                     nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
                     _binderCache[nestedInterface] = nestedInterfaceBinder;
@@ -1399,21 +1577,7 @@ public partial class SemanticModel
                     break;
 
                 case EnumDeclarationSyntax enumDecl:
-                    var parentTypeForEnum = (INamedTypeSymbol)classBinder.ContainingSymbol;
-                    var enumSymbol = new SourceNamedTypeSymbol(
-                        enumDecl.Identifier.ValueText,
-                        Compilation.GetTypeByMetadataName("System.Enum"),
-                        TypeKind.Enum,
-                        parentTypeForEnum,
-                        parentTypeForEnum,
-                        classBinder.CurrentNamespace!.AsSourceNamespace(),
-                        [enumDecl.GetLocation()],
-                        [enumDecl.GetReference()],
-                        true,
-                        declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
-                            enumDecl.Modifiers,
-                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentTypeForEnum))
-                    );
+                    var enumSymbol = nestedEnumSymbols[enumDecl];
 
                     var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
                     _binderCache[enumDecl] = enumBinder;
@@ -1452,6 +1616,26 @@ public partial class SemanticModel
         }
 
         classBinder.EnsureDefaultConstructor();
+
+        static ImmutableArray<INamedTypeSymbol> MergeInterfaces(
+            ImmutableArray<INamedTypeSymbol> existing,
+            ImmutableArray<INamedTypeSymbol> additional)
+        {
+            if (existing.IsDefaultOrEmpty)
+                return additional;
+
+            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var type in existing)
+                if (seen.Add(type))
+                    builder.Add(type);
+
+            foreach (var type in additional)
+                if (seen.Add(type))
+                    builder.Add(type);
+
+            return builder.ToImmutable();
+        }
     }
 
     private void RegisterInterfaceMembers(InterfaceDeclarationSyntax interfaceDecl, InterfaceDeclarationBinder interfaceBinder)
