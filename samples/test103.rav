@@ -13,7 +13,7 @@ public class Dumper {
         val type = typeof(T)
         for each propertyInfo in type
             .GetProperties()
-            .Where(pi => !pi.GetMethod.IsStatic) 
+            .Where(pi => !pi.GetMethod.IsStatic && pi.GetMethod.GetParameters().Length == 0) 
         {
             val value = propertyInfo.GetValue(obj)
             WriteLine("${propertyInfo.Name} = $value")
