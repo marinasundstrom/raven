@@ -100,6 +100,7 @@ internal class TypeMemberBinder : Binder
             OperatorDeclarationSyntax opDecl => BindOperatorSymbol(opDecl),
             ConversionOperatorDeclarationSyntax conversionDecl => BindConversionOperatorSymbol(conversionDecl),
             PropertyDeclarationSyntax property => BindPropertySymbol(property),
+            EventDeclarationSyntax @event => BindEventSymbol(@event),
             IndexerDeclarationSyntax indexer => BindIndexerSymbol(indexer),
             AccessorDeclarationSyntax accessor => BindAccessorSymbol(accessor),
             VariableDeclaratorSyntax variable => BindFieldSymbol(variable),
@@ -188,7 +189,19 @@ internal class TypeMemberBinder : Binder
         return _containingType.GetMembers()
             .OfType<IPropertySymbol>()
             .SelectMany(p => new[] { p.GetMethod, p.SetMethod }.Where(m => m is not null))
+            .Concat(_containingType.GetMembers()
+                .OfType<IEventSymbol>()
+                .SelectMany(e => new[] { e.AddMethod, e.RemoveMethod }.Where(m => m is not null)))
             .FirstOrDefault(m => m!.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == accessor));
+    }
+
+    private ISymbol? BindEventSymbol(EventDeclarationSyntax @event)
+    {
+        var identifierToken = ResolveExplicitInterfaceIdentifier(@event.Identifier, @event.ExplicitInterfaceSpecifier);
+        return _containingType.GetMembers()
+            .OfType<IEventSymbol>()
+            .FirstOrDefault(e => e.Name == identifierToken.ValueText &&
+                                 e.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == @event));
     }
 
     public void BindFieldDeclaration(FieldDeclarationSyntax fieldDecl)
@@ -982,6 +995,25 @@ internal class TypeMemberBinder : Binder
         return null;
     }
 
+    private IEventSymbol? FindExplicitInterfaceEventImplementation(
+        INamedTypeSymbol interfaceType,
+        string eventName,
+        ITypeSymbol eventType)
+    {
+        foreach (var @event in interfaceType.GetMembers(eventName).OfType<IEventSymbol>())
+        {
+            var existingType = StripNullableReference(@event.Type);
+            var newType = StripNullableReference(eventType);
+
+            if (!SymbolEqualityComparer.Default.Equals(existingType, newType))
+                continue;
+
+            return @event;
+        }
+
+        return null;
+    }
+
     private static string GetInterfaceMetadataName(INamedTypeSymbol interfaceType)
     {
         var metadataName = interfaceType.ToFullyQualifiedMetadataName();
@@ -1740,6 +1772,498 @@ internal class TypeMemberBinder : Binder
         return binders;
     }
 
+    public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindEventDeclaration(EventDeclarationSyntax eventDecl)
+    {
+        var eventType = ResolveType(eventDecl.Type.Type);
+        var modifiers = eventDecl.Modifiers;
+        var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isStatic = hasStaticModifier;
+        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+        var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
+        var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
+        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var eventAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
+        var explicitInterfaceSpecifier = eventDecl.ExplicitInterfaceSpecifier;
+        var identifierToken = ResolveExplicitInterfaceIdentifier(eventDecl.Identifier, explicitInterfaceSpecifier);
+        var eventName = identifierToken.Text;
+        var metadataName = eventName;
+        INamedTypeSymbol? explicitInterfaceType = null;
+        string? explicitInterfaceMetadataName = null;
+        IEventSymbol? explicitInterfaceEvent = null;
+
+        var isExtensionContainer = IsExtensionContainer;
+        var isExtensionMember = isExtensionContainer && !hasStaticModifier;
+
+        if (isExtensionContainer)
+        {
+            isAbstract = false;
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+            eventAccessibility = modifiers.Any(m => m.Kind == SyntaxKind.InternalKeyword)
+                ? Accessibility.Internal
+                : Accessibility.Public;
+
+            if (isExtensionMember)
+                isStatic = false;
+        }
+
+        if (explicitInterfaceSpecifier is not null)
+        {
+            var resolved = ResolveType(explicitInterfaceSpecifier.Name);
+            if (resolved is INamedTypeSymbol interfaceType && interfaceType.TypeKind == TypeKind.Interface)
+            {
+                explicitInterfaceType = interfaceType;
+                var interfaceMetadataName = GetInterfaceMetadataName(interfaceType);
+                metadataName = $"{interfaceMetadataName}.{eventName}";
+                explicitInterfaceMetadataName = interfaceMetadataName;
+                eventAccessibility = Accessibility.Private;
+
+                if (!ImplementsInterface(interfaceType))
+                {
+                    _diagnostics.ReportContainingTypeDoesNotImplementInterface(
+                        _containingType.Name,
+                        interfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        explicitInterfaceSpecifier.Name.GetLocation());
+                }
+
+                explicitInterfaceEvent = FindExplicitInterfaceEventImplementation(interfaceType, eventName, eventType);
+
+                if (explicitInterfaceEvent is null)
+                {
+                    _diagnostics.ReportExplicitInterfaceMemberNotFound(
+                        interfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        eventName,
+                        identifierToken.GetLocation());
+                }
+            }
+            else
+            {
+                _diagnostics.ReportExplicitInterfaceSpecifierMustBeInterface(explicitInterfaceSpecifier.Name.GetLocation());
+            }
+        }
+
+        if (explicitInterfaceType is not null)
+        {
+            isStatic = false;
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+            isAbstract = false;
+        }
+
+        ValidateInheritanceModifiers(
+            ref isAbstract,
+            ref isVirtual,
+            ref isOverride,
+            ref isSealed,
+            isStatic,
+            eventName,
+            identifierToken.GetLocation());
+
+        ValidateAbstractMemberInNonAbstractType(
+            isAbstract,
+            GetMemberDisplayName(eventName),
+            identifierToken.GetLocation());
+
+        if (isSealed && !isOverride)
+        {
+            _diagnostics.ReportSealedMemberMustOverride(eventName, identifierToken.GetLocation());
+            isSealed = false;
+        }
+
+        if (isStatic && (isVirtual || isOverride))
+        {
+            if (isVirtual)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(eventName, "virtual", identifierToken.GetLocation());
+            if (isOverride)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(eventName, "override", identifierToken.GetLocation());
+
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+        }
+
+        if (isVirtual && !isOverride && _containingType.IsSealed)
+        {
+            _diagnostics.ReportVirtualMemberInSealedType(eventName, _containingType.Name, identifierToken.GetLocation());
+            isVirtual = false;
+        }
+
+        ValidateTypeAccessibility(
+            eventType,
+            eventAccessibility,
+            "event",
+            GetMemberDisplayName(eventName),
+            "event",
+            eventDecl.Type.Type.GetLocation());
+
+        ITypeSymbol? receiverType = null;
+        if (isExtensionMember)
+            receiverType = GetExtensionReceiverType();
+
+        if (receiverType is not null && _extensionReceiverTypeSyntax is not null)
+        {
+            ValidateTypeAccessibility(
+                receiverType,
+                eventAccessibility,
+                "event",
+                GetMemberDisplayName(eventName),
+                "receiver",
+                _extensionReceiverTypeSyntax.GetLocation());
+        }
+
+        var eventSymbol = new SourceEventSymbol(
+            eventName,
+            eventType,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [eventDecl.GetLocation()],
+            [eventDecl.GetReference()],
+            isStatic: isStatic,
+            metadataName: metadataName,
+            declaredAccessibility: eventAccessibility);
+
+        if (isExtensionMember)
+            eventSymbol.MarkDeclaredInExtension(receiverType);
+
+        if (!isExtensionContainer &&
+            _containingType.TypeKind != TypeKind.Interface)
+        {
+            var isAutoEvent = eventDecl.AccessorList is null ||
+                eventDecl.AccessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null);
+
+            if (isAutoEvent)
+            {
+                var backingField = new SourceFieldSymbol(
+                    $"<{eventSymbol.Name}>k__BackingField",
+                    eventType,
+                    isStatic: isStatic,
+                    isMutable: true,
+                    isConst: false,
+                    constantValue: null,
+                    _containingType,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [eventDecl.GetLocation()],
+                    [eventDecl.GetReference()],
+                    declaredAccessibility: Accessibility.Private);
+
+                eventSymbol.SetBackingField(backingField);
+            }
+        }
+
+        IMethodSymbol? overriddenAdder = null;
+        IMethodSymbol? overriddenRemover = null;
+
+        if (isOverride)
+        {
+            var candidate = FindEventOverrideCandidate(eventName, eventType, isStatic);
+            bool overrideValid = true;
+
+            if (candidate is null)
+            {
+                _diagnostics.ReportOverrideMemberNotFound(eventName, "event", identifierToken.GetLocation());
+                overrideValid = false;
+            }
+            else
+            {
+                if (candidate.AddMethod is null || !candidate.AddMethod.IsVirtual)
+                {
+                    _diagnostics.ReportOverrideMemberNotFound(eventName, "event", identifierToken.GetLocation());
+                    overrideValid = false;
+                }
+                else if (candidate.AddMethod.IsSealed)
+                {
+                    _diagnostics.ReportCannotOverrideSealedMember(eventName, candidate.Name, identifierToken.GetLocation());
+                    overrideValid = false;
+                }
+                else
+                {
+                    overriddenAdder = candidate.AddMethod;
+                }
+
+                if (overrideValid)
+                {
+                    if (candidate.RemoveMethod is null || !candidate.RemoveMethod.IsVirtual)
+                    {
+                        _diagnostics.ReportOverrideMemberNotFound(eventName, "event", identifierToken.GetLocation());
+                        overrideValid = false;
+                    }
+                    else if (candidate.RemoveMethod.IsSealed)
+                    {
+                        _diagnostics.ReportCannotOverrideSealedMember(eventName, candidate.Name, identifierToken.GetLocation());
+                        overrideValid = false;
+                    }
+                    else
+                    {
+                        overriddenRemover = candidate.RemoveMethod;
+                    }
+                }
+            }
+
+            if (!overrideValid)
+            {
+                isOverride = false;
+                isVirtual = false;
+                isSealed = false;
+            }
+            else
+            {
+                isVirtual = true;
+            }
+        }
+
+        var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
+        SourceMethodSymbol? addMethod = null;
+        SourceMethodSymbol? removeMethod = null;
+        var explicitAccessorPrefix = explicitInterfaceMetadataName is not null
+            ? explicitInterfaceMetadataName + "."
+            : string.Empty;
+
+        if (eventDecl.AccessorList is not null)
+        {
+            foreach (var accessor in eventDecl.AccessorList.Accessors)
+            {
+                bool isAdd = accessor.Kind == SyntaxKind.AddAccessorDeclaration;
+                bool isRemove = accessor.Kind == SyntaxKind.RemoveAccessorDeclaration;
+
+                if (!isAdd && !isRemove)
+                    continue;
+
+                var name = explicitAccessorPrefix + (isAdd ? "add_" : "remove_") + eventSymbol.Name;
+                var accessorOverride = isOverride && (isAdd ? overriddenAdder is not null : overriddenRemover is not null);
+                var accessorVirtual = accessorOverride || isVirtual;
+                var accessorSealed = accessorOverride && isSealed;
+
+                if (isAbstract && (accessor.Body is not null || accessor.ExpressionBody is not null))
+                {
+                    _diagnostics.ReportAbstractMemberCannotHaveBody(name, identifierToken.GetLocation());
+                }
+
+                var methodSymbol = new SourceMethodSymbol(
+                    name,
+                    Compilation.GetSpecialType(SpecialType.System_Unit),
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    eventSymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [accessor.GetLocation()],
+                    [accessor.GetReference()],
+                    isStatic: isStatic || isExtensionContainer,
+                    methodKind: isAdd ? MethodKind.EventAdd : MethodKind.EventRemove,
+                    isAsync: false,
+                    isVirtual: accessorVirtual,
+                    isOverride: accessorOverride,
+                    isSealed: accessorSealed,
+                    isAbstract: isAbstract,
+                    declaredAccessibility: eventAccessibility);
+
+                if (isExtensionMember)
+                    methodSymbol.MarkDeclaredInExtension();
+
+                if (isExtensionMember)
+                {
+                    var extensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
+                    if (!extensionTypeParameters.IsDefaultOrEmpty)
+                        methodSymbol.SetTypeParameters(extensionTypeParameters);
+                }
+
+                MethodBinder? binder = null;
+                ITypeSymbol? receiverTypeForAccessor = receiverType;
+                if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
+                {
+                    binder = new MethodBinder(methodSymbol, this);
+                    receiverTypeForAccessor = binder.ResolveType(_extensionReceiverTypeSyntax);
+                }
+
+                var parameters = new List<SourceParameterSymbol>();
+                if (isExtensionMember && receiverTypeForAccessor is not null && _extensionReceiverTypeSyntax is not null)
+                {
+                    var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+                    var selfParameter = new SourceParameterSymbol(
+                        "self",
+                        receiverTypeForAccessor,
+                        methodSymbol,
+                        _containingType,
+                        receiverNamespace,
+                        [_extensionReceiverTypeSyntax.GetLocation()],
+                        [_extensionReceiverTypeSyntax.GetReference()]);
+                    parameters.Add(selfParameter);
+                }
+
+                parameters.Add(new SourceParameterSymbol(
+                    "value",
+                    eventType,
+                    methodSymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [accessor.GetLocation()],
+                    [accessor.GetReference()]));
+
+                methodSymbol.SetParameters(parameters);
+
+                if (explicitInterfaceType is not null && explicitInterfaceEvent is not null)
+                {
+                    var interfaceAccessor = isAdd
+                        ? explicitInterfaceEvent.AddMethod
+                        : explicitInterfaceEvent.RemoveMethod;
+
+                    if (interfaceAccessor is not null)
+                    {
+                        methodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceAccessor));
+                    }
+                    else
+                    {
+                        _diagnostics.ReportExplicitInterfaceMemberNotFound(
+                            explicitInterfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            eventName,
+                            accessor.Keyword.GetLocation());
+                    }
+                }
+
+                if (accessorOverride)
+                {
+                    var overriddenMethod = isAdd ? overriddenAdder : overriddenRemover;
+                    if (overriddenMethod is not null)
+                        methodSymbol.SetOverriddenMethod(overriddenMethod);
+                }
+
+                binder ??= new MethodBinder(methodSymbol, this);
+                binders[accessor] = binder;
+
+                if (isAdd)
+                    addMethod = methodSymbol;
+                else
+                    removeMethod = methodSymbol;
+            }
+        }
+        else
+        {
+            var addName = explicitAccessorPrefix + "add_" + eventSymbol.Name;
+            var removeName = explicitAccessorPrefix + "remove_" + eventSymbol.Name;
+            var accessorVirtual = isOverride || isVirtual;
+            var accessorSealed = isOverride && isSealed;
+
+            var addMethodSymbol = new SourceMethodSymbol(
+                addName,
+                Compilation.GetSpecialType(SpecialType.System_Unit),
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                eventSymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [eventDecl.GetLocation()],
+                [eventDecl.GetReference()],
+                isStatic: isStatic || isExtensionContainer,
+                methodKind: MethodKind.EventAdd,
+                isAsync: false,
+                isVirtual: accessorVirtual,
+                isOverride: isOverride,
+                isSealed: accessorSealed,
+                isAbstract: isAbstract,
+                declaredAccessibility: eventAccessibility);
+
+            var removeMethodSymbol = new SourceMethodSymbol(
+                removeName,
+                Compilation.GetSpecialType(SpecialType.System_Unit),
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                eventSymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [eventDecl.GetLocation()],
+                [eventDecl.GetReference()],
+                isStatic: isStatic || isExtensionContainer,
+                methodKind: MethodKind.EventRemove,
+                isAsync: false,
+                isVirtual: accessorVirtual,
+                isOverride: isOverride,
+                isSealed: accessorSealed,
+                isAbstract: isAbstract,
+                declaredAccessibility: eventAccessibility);
+
+            if (isExtensionMember)
+            {
+                addMethodSymbol.MarkDeclaredInExtension();
+                removeMethodSymbol.MarkDeclaredInExtension();
+            }
+
+            var parameters = new List<SourceParameterSymbol>();
+            if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+            {
+                var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+                var selfParameter = new SourceParameterSymbol(
+                    "self",
+                    receiverType,
+                    addMethodSymbol,
+                    _containingType,
+                    receiverNamespace,
+                    [_extensionReceiverTypeSyntax.GetLocation()],
+                    [_extensionReceiverTypeSyntax.GetReference()]);
+                parameters.Add(selfParameter);
+            }
+
+            parameters.Add(new SourceParameterSymbol(
+                "value",
+                eventType,
+                addMethodSymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [eventDecl.GetLocation()],
+                [eventDecl.GetReference()]));
+            addMethodSymbol.SetParameters(parameters);
+
+            var removeParameters = new List<SourceParameterSymbol>();
+            if (isExtensionMember && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+            {
+                var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+                var selfParameter = new SourceParameterSymbol(
+                    "self",
+                    receiverType,
+                    removeMethodSymbol,
+                    _containingType,
+                    receiverNamespace,
+                    [_extensionReceiverTypeSyntax.GetLocation()],
+                    [_extensionReceiverTypeSyntax.GetReference()]);
+                removeParameters.Add(selfParameter);
+            }
+
+            removeParameters.Add(new SourceParameterSymbol(
+                "value",
+                eventType,
+                removeMethodSymbol,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [eventDecl.GetLocation()],
+                [eventDecl.GetReference()]));
+            removeMethodSymbol.SetParameters(removeParameters);
+
+            if (explicitInterfaceType is not null && explicitInterfaceEvent is not null)
+            {
+                if (explicitInterfaceEvent.AddMethod is not null)
+                    addMethodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceEvent.AddMethod));
+                if (explicitInterfaceEvent.RemoveMethod is not null)
+                    removeMethodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceEvent.RemoveMethod));
+            }
+
+            if (isOverride)
+            {
+                if (overriddenAdder is not null)
+                    addMethodSymbol.SetOverriddenMethod(overriddenAdder);
+                if (overriddenRemover is not null)
+                    removeMethodSymbol.SetOverriddenMethod(overriddenRemover);
+            }
+
+            addMethod = addMethodSymbol;
+            removeMethod = removeMethodSymbol;
+        }
+
+        eventSymbol.SetAccessors(addMethod, removeMethod);
+
+        return binders;
+    }
+
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)
     {
         var propertyType = ResolveType(indexerDecl.Type.Type);
@@ -2233,6 +2757,28 @@ internal class TypeMemberBinder : Binder
                     continue;
 
                 return property;
+            }
+        }
+
+        return null;
+    }
+
+    private IEventSymbol? FindEventOverrideCandidate(string name, ITypeSymbol eventType, bool isStatic)
+    {
+        for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            foreach (var @event in baseType.GetMembers(name).OfType<IEventSymbol>())
+            {
+                if (@event.IsStatic != isStatic)
+                    continue;
+
+                var existingType = StripNullableReference(@event.Type);
+                var newType = StripNullableReference(eventType);
+
+                if (!SymbolEqualityComparer.Default.Equals(existingType, newType))
+                    continue;
+
+                return @event;
             }
         }
 

@@ -55,7 +55,7 @@ internal class MethodGenerator
         if (_lambdaClosure is not null)
             attributes = (attributes & ~MethodAttributes.MemberAccessMask) | MethodAttributes.Public;
 
-        if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet)
+        if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove)
             attributes |= MethodAttributes.SpecialName;
 
         var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;

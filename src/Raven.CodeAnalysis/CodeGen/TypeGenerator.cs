@@ -500,7 +500,7 @@ internal class TypeGenerator
 
             switch (memberSymbol)
             {
-                case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
+                case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove):
                     {
                         if (methodSymbol is SynthesizedMainMethodSymbol { ContainsExecutableCode: false })
                             break;
@@ -584,6 +584,46 @@ internal class TypeGenerator
                         ApplyExtensionMarkerNameAttribute(propertySymbol, propBuilder.SetCustomAttribute);
 
                         CodeGen.AddMemberBuilder((SourceSymbol)propertySymbol, propBuilder);
+                        break;
+                    }
+                case IEventSymbol eventSymbol:
+                    {
+                        var addSymbol = eventSymbol.AddMethod as IMethodSymbol;
+                        var removeSymbol = eventSymbol.RemoveMethod as IMethodSymbol;
+
+                        MethodGenerator? addGen = null;
+                        MethodGenerator? removeGen = null;
+
+                        if (addSymbol is not null)
+                        {
+                            addGen = new MethodGenerator(this, addSymbol, CodeGen.ILBuilderFactory);
+                            _methodGenerators[addSymbol] = addGen;
+                            addGen.DefineMethodBuilder();
+                            CodeGen.AddMemberBuilder((SourceSymbol)addSymbol, addGen.MethodBase);
+                        }
+
+                        if (removeSymbol is not null)
+                        {
+                            removeGen = new MethodGenerator(this, removeSymbol, CodeGen.ILBuilderFactory);
+                            _methodGenerators[removeSymbol] = removeGen;
+                            removeGen.DefineMethodBuilder();
+                            CodeGen.AddMemberBuilder((SourceSymbol)removeSymbol, removeGen.MethodBase);
+                        }
+
+                        var eventType = ResolveClrType(eventSymbol.Type);
+                        var eventBuilder = TypeBuilder.DefineEvent(eventSymbol.MetadataName, EventAttributes.None, eventType);
+
+                        if (addGen != null)
+                            eventBuilder.SetAddOnMethod((MethodBuilder)addGen.MethodBase);
+                        if (removeGen != null)
+                            eventBuilder.SetRemoveOnMethod((MethodBuilder)removeGen.MethodBase);
+
+                        var nullableAttr = CodeGen.CreateNullableAttribute(eventSymbol.Type);
+                        if (nullableAttr is not null)
+                            eventBuilder.SetCustomAttribute(nullableAttr);
+
+                        CodeGen.ApplyCustomAttributes(eventSymbol.GetAttributes(), attribute => eventBuilder.SetCustomAttribute(attribute));
+                        CodeGen.AddMemberBuilder((SourceSymbol)eventSymbol, eventBuilder);
                         break;
                     }
             }

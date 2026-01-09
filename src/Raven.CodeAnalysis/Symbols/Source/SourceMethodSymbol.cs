@@ -147,7 +147,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsVirtual => _isVirtual;
 
-    public ISymbol? AssociatedSymbol => ContainingSymbol?.Kind == SymbolKind.Property ? ContainingSymbol : null;
+    public ISymbol? AssociatedSymbol => ContainingSymbol?.Kind is SymbolKind.Property or SymbolKind.Event ? ContainingSymbol : null;
 
     public IMethodSymbol? OverriddenMethod { get; private set; }
 

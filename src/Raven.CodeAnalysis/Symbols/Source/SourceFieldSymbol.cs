@@ -11,6 +11,7 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
     private readonly bool _isMutable;
     private readonly bool _isStatic;
     private SourcePropertySymbol? _associatedProperty;
+    private SourceEventSymbol? _associatedEvent;
     private ImmutableArray<AttributeData> _lazyAttributesWithSynthesized;
 
     public SourceFieldSymbol(string name, ITypeSymbol fieldType, bool isStatic, bool isMutable, bool isConst, object constantValue, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, BoundExpression? initializer = null, Accessibility declaredAccessibility = Accessibility.NotApplicable)
@@ -32,7 +33,7 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
 
     public BoundExpression? Initializer { get; }
 
-    internal bool IsAutoPropertyBackingField => _associatedProperty is not null;
+    internal bool IsAutoPropertyBackingField => _associatedProperty is not null || _associatedEvent is not null;
 
     public object? GetConstantValue()
     {
@@ -70,6 +71,11 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
     internal void SetAssociatedProperty(SourcePropertySymbol property)
     {
         _associatedProperty = property;
+    }
+
+    internal void SetAssociatedEvent(SourceEventSymbol @event)
+    {
+        _associatedEvent = @event;
     }
 
     private AttributeData? CreateDebuggerBrowsableAttribute()

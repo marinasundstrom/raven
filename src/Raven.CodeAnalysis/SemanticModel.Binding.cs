@@ -1197,6 +1197,14 @@ public partial class SemanticModel
                         _binderCache[kv.Key] = kv.Value;
                     break;
 
+                case EventDeclarationSyntax eventDecl:
+                    var eventMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var eventAccessors = eventMemberBinder.BindEventDeclaration(eventDecl);
+                    _binderCache[eventDecl] = eventMemberBinder;
+                    foreach (var kv in eventAccessors)
+                        _binderCache[kv.Key] = kv.Value;
+                    break;
+
                 case IndexerDeclarationSyntax indexerDecl:
                     var indexerMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var indexerAccessorBinders = indexerMemberBinder.BindIndexerDeclaration(indexerDecl);
@@ -1458,6 +1466,15 @@ public partial class SemanticModel
                             _binderCache[kv.Key] = kv.Value;
                         break;
                     }
+                case EventDeclarationSyntax eventDecl:
+                    {
+                        var eventBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var accessorBinders = eventBinder.BindEventDeclaration(eventDecl);
+                        _binderCache[eventDecl] = eventBinder;
+                        foreach (var kv in accessorBinders)
+                            _binderCache[kv.Key] = kv.Value;
+                        break;
+                    }
                 case IndexerDeclarationSyntax indexerDecl:
                     {
                         var indexerBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
@@ -1552,6 +1569,15 @@ public partial class SemanticModel
                         var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var accessorBinders = memberBinder.BindPropertyDeclaration(propertyDecl);
                         _binderCache[propertyDecl] = memberBinder;
+                        foreach (var kv in accessorBinders)
+                            _binderCache[kv.Key] = kv.Value;
+                        break;
+                    }
+                case EventDeclarationSyntax eventDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var accessorBinders = memberBinder.BindEventDeclaration(eventDecl);
+                        _binderCache[eventDecl] = memberBinder;
                         foreach (var kv in accessorBinders)
                             _binderCache[kv.Key] = kv.Value;
                         break;

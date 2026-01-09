@@ -159,6 +159,7 @@ internal abstract class SourceSymbol : Symbol
             NamedConstructorDeclarationSyntax namedConstructorDeclaration => namedConstructorDeclaration.AttributeLists,
             PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.AttributeLists,
             IndexerDeclarationSyntax indexerDeclaration => indexerDeclaration.AttributeLists,
+            EventDeclarationSyntax eventDeclaration => eventDeclaration.AttributeLists,
             AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.AttributeLists,
             FieldDeclarationSyntax fieldDeclaration => fieldDeclaration.AttributeLists,
             VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is FieldDeclarationSyntax field => field.AttributeLists,
