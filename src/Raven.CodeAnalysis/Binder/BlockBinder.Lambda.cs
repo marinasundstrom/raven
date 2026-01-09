@@ -31,6 +31,8 @@ partial class BlockBinder
             !asyncKeywordToken.Value.IsMissing;
 
         var targetType = GetTargetType(syntax);
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
         var candidateDelegates = GetLambdaDelegateTargets(syntax);
         if (candidateDelegates.IsDefaultOrEmpty)
             candidateDelegates = ComputeLambdaDelegateTargets(syntax);

@@ -5528,10 +5528,19 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
     {
-        var receiver = BindExpression(syntax.Expression);
+        var receiver = BindExpressionAllowingEvent(syntax.Expression);
 
         if (receiver is BoundErrorExpression)
             return receiver;
+
+        if (receiver is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+        {
+            receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
+            if (IsErrorExpression(receiver))
+                return receiver is BoundErrorExpression boundError
+                    ? boundError
+                    : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+        }
 
         BoundExpression whenNotNull;
 
