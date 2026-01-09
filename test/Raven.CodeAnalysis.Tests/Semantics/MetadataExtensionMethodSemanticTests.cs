@@ -662,7 +662,10 @@ let properties = builder.GetType().GetProperties()
 let result = properties.Where(pi => !pi.GetMethod.IsStatic)
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication),
+            references: TestMetadataReferences.Default);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();

@@ -1119,6 +1119,7 @@ partial class BlockBinder
             capturedVariables,
             candidateDelegates);
         rebound.AttachUnbound(unbound);
+        CacheBoundNode(syntax, rebound);
         instrumentation.RecordBindingSuccess();
         return rebound;
     }

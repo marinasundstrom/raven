@@ -160,6 +160,16 @@ internal readonly record struct SymbolQuery(
         if (type is LiteralTypeSymbol literal)
             return literal.UnderlyingType;
 
+        if (type is NullableTypeSymbol nullable)
+            return nullable.UnderlyingType;
+
+        if (type is ITypeUnionSymbol union)
+        {
+            var nonNullMembers = union.Types.Where(member => member.TypeKind != TypeKind.Null).ToArray();
+            if (nonNullMembers.Length == 1)
+                return nonNullMembers[0];
+        }
+
         return type;
     }
 
