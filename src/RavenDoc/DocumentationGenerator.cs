@@ -1219,7 +1219,26 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
         string name = typeSymbol.ToDisplayString(MemberDisplayFormat.WithKindOptions(SymbolDisplayKindOptions.None));
 
+        sb.AppendLine($"**{EscapeName(typeSymbol.TypeKind.ToString())}**");
         sb.AppendLine($"# {EscapeName(name)}");
+
+        if (typeSymbol.ContainingType is not null)
+        {
+            var containingType = typeSymbol.ContainingType!;
+            sb.AppendLine($"**Containing type**: {FormatTypeLink(currentDir, containingType, ContainingTypeDisplayFormat)}<br />");
+        }
+        if (typeSymbol.ContainingNamespace is not null)
+        {
+            var containingNamespace = typeSymbol.ContainingNamespace!;
+            var target = GetNamespaceIndexPath(containingNamespace);
+            var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
+            sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
+        }
+
+        AppendSourceAndAssemblyLines(sb, compilation, typeSymbol);
+
+        sb.AppendLine();
+
         var inheritanceChain = GetInheritanceChain(typeSymbol);
         if (inheritanceChain.Count > 1)
         {
@@ -1237,20 +1256,6 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
                 .Select(type => FormatTypeLink(currentDir, (ITypeSymbol)type, BaseTypeDisplayFormat));
             sb.AppendLine($"**Implements**: {string.Join(", ", interfaceLinks)}<br />");
         }
-        if (typeSymbol.ContainingType is not null)
-        {
-            var containingType = typeSymbol.ContainingType!;
-            sb.AppendLine($"**Containing type**: {FormatTypeLink(currentDir, containingType, ContainingTypeDisplayFormat)}<br />");
-        }
-        if (typeSymbol.ContainingNamespace is not null)
-        {
-            var containingNamespace = typeSymbol.ContainingNamespace!;
-            var target = GetNamespaceIndexPath(containingNamespace);
-            var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
-            sb.AppendLine($"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
-        }
-
-        AppendSourceAndAssemblyLines(sb, compilation, typeSymbol);
 
         sb.AppendLine();
 
