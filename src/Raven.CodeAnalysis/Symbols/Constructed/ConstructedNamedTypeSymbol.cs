@@ -353,7 +353,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public IAssemblySymbol? ContainingAssembly => _originalDefinition.ContainingAssembly;
     public IModuleSymbol? ContainingModule => _originalDefinition.ContainingModule;
     public Accessibility DeclaredAccessibility => _originalDefinition.DeclaredAccessibility;
-    public bool IsStatic => false;
+    public bool IsStatic => _originalDefinition.IsStatic;
     public bool IsImplicitlyDeclared => true;
     public bool CanBeReferencedByName => true;
     public ImmutableArray<Location> Locations => _originalDefinition.Locations;

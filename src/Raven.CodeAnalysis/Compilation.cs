@@ -487,8 +487,9 @@ public partial class Compilation
                     interfaceList = builder.ToImmutable();
             }
 
-            var isAbstract = classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
-            var isSealed = !classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract;
+            var isStatic = classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+            var isAbstract = isStatic || classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+            var isSealed = isStatic || (!classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
             var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
                 classDeclaration.Modifiers,
                 AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
@@ -504,6 +505,7 @@ public partial class Compilation
                 references,
                 isSealed,
                 isAbstract,
+                isStatic,
                 declaredAccessibility: typeAccessibility);
 
             InitializeTypeParameters(symbol, classDeclaration.TypeParameterList, classDeclaration.ConstraintClauses, syntaxTree);
