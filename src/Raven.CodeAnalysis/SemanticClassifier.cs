@@ -35,6 +35,10 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.NumericLiteral;
             }
+            else if (kind == SyntaxKind.QuestionToken && descendant.Parent is NullableTypeSyntax)
+            {
+                tokenMap[descendant] = SemanticClassification.NullableAnnotation;
+            }
             // Identifiers (with symbol resolution)
             else if (kind == SyntaxKind.IdentifierToken)
             {
@@ -146,5 +150,6 @@ public enum SemanticClassification
     Label,
     Property,
     Field,
-    Event
+    Event,
+    NullableAnnotation
 }

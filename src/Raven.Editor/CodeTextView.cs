@@ -203,6 +203,7 @@ public class CodeTextView : TextView
             SemanticClassification.Local => new(Color.BrightMagenta, background),
             SemanticClassification.Label => new(Color.White, background),
             SemanticClassification.Event => new(Color.BrightCyan, background),
+            SemanticClassification.NullableAnnotation => new(Color.BrightBlack, background),
             _ => new(Color.BrightBlue, background)
         };
     }
