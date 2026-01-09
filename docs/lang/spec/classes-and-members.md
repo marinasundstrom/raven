@@ -41,6 +41,9 @@ class Counter
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
 
+Use `final` alongside `override` to seal an override and prevent further overrides in derived types (`final override` in Raven,
+equivalent to C#'s `sealed override`). The compiler reports an error if `final` is applied without `override`.
+
 `const` fields behave like their local counterparts: they must specify a
 compile-time constant initializer, and the compiler records the folded value in
 metadata. Raven treats these declarations as implicitly `static` even if the

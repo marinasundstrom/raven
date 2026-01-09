@@ -89,6 +89,7 @@ internal class EnumDeclarationParser : SyntaxParser
                      SyntaxKind.ProtectedKeyword or
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.AbstractKeyword or
+                     SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
                      SyntaxKind.VirtualKeyword or

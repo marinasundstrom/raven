@@ -138,7 +138,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
-                 nextToken.IsKind(SyntaxKind.SealedKeyword) || nextToken.IsKind(SyntaxKind.OpenKeyword) ||
+                 nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
+                 nextToken.IsKind(SyntaxKind.OpenKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) || nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken))
         {
@@ -243,6 +244,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                      SyntaxKind.ProtectedKeyword or
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.AbstractKeyword or
+                     SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
                      SyntaxKind.VirtualKeyword or

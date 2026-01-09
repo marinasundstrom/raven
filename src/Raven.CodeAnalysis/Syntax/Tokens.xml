@@ -68,6 +68,7 @@
   <TokenKind Name="ProtectedKeyword" Text="protected" IsReservedWord="false" />
   <TokenKind Name="StaticKeyword" Text="static" IsReservedWord="false" />
   <TokenKind Name="AbstractKeyword" Text="abstract" IsReservedWord="false" />
+  <TokenKind Name="FinalKeyword" Text="final" IsReservedWord="false" />
   <TokenKind Name="SealedKeyword" Text="sealed" IsReservedWord="false" />
   <TokenKind Name="PartialKeyword" Text="partial" IsReservedWord="false" />
   <TokenKind Name="OpenKeyword" Text="open" IsReservedWord="false" />

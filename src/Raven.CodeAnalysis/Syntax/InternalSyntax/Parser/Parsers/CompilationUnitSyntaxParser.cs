@@ -85,7 +85,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or
-            SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.SealedKeyword or SyntaxKind.OpenKeyword or
+            SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
+            SyntaxKind.OpenKeyword or
             SyntaxKind.PartialKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword;
     }
 
@@ -141,7 +142,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
-                 nextToken.IsKind(SyntaxKind.SealedKeyword) || nextToken.IsKind(SyntaxKind.OpenKeyword) ||
+                 nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
+                 nextToken.IsKind(SyntaxKind.OpenKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
                  nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken))
@@ -289,6 +291,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                      SyntaxKind.ProtectedKeyword or
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.AbstractKeyword or
+                     SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
                      SyntaxKind.VirtualKeyword or
