@@ -3048,11 +3048,11 @@ partial class BlockBinder : Binder
                     break;
 
                 case AssignmentExpressionSyntax assign when assign.Right == node && assign.Left is ExpressionSyntax leftExpr:
-                    var left = BindExpression(leftExpr);
+                    var left = BindExpressionAllowingEvent(leftExpr);
                     return left.Type;
 
                 case AssignmentStatementSyntax assign when assign.Right.Contains(node) && assign.Left is ExpressionSyntax leftStmtExpr:
-                    var leftStmt = BindExpression(leftStmtExpr);
+                    var leftStmt = BindExpressionAllowingEvent(leftStmtExpr);
                     return leftStmt.Type;
 
                 case ReturnStatementSyntax returnStmt:
