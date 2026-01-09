@@ -82,6 +82,7 @@ public static class SemanticClassifier
             ILabelSymbol => SemanticClassification.Label,
             IFieldSymbol => SemanticClassification.Field,
             IPropertySymbol => SemanticClassification.Property,
+            IEventSymbol => SemanticClassification.Event,
             _ => SemanticClassification.Default
         };
     }
@@ -142,5 +143,6 @@ public enum SemanticClassification
     Local,
     Label,
     Property,
-    Field
+    Field,
+    Event
 }
