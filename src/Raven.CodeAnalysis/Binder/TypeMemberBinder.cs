@@ -209,6 +209,7 @@ internal class TypeMemberBinder : Binder
         var bindingKeyword = fieldDecl.Declaration.BindingKeyword;
         var isConstDeclaration = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
         var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
+        var hasNewModifier = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
             fieldDecl.Modifiers,
             AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType));
@@ -275,6 +276,12 @@ internal class TypeMemberBinder : Binder
                 GetMemberDisplayName(decl.Identifier.ValueText),
                 $"field '{decl.Identifier.ValueText}'",
                 fieldTypeLocation);
+
+            if (!IsExtensionContainer)
+            {
+                var hiddenMember = FindHidingFieldCandidate(decl.Identifier.ValueText, isStatic, fieldType);
+                ReportMemberHidingIfNeeded(hiddenMember, decl.Identifier.ValueText, hasNewModifier, decl.Identifier.GetLocation());
+            }
 
             _ = new SourceFieldSymbol(
                 decl.Identifier.ValueText,
@@ -2870,6 +2877,28 @@ internal class TypeMemberBinder : Binder
 
                 if (SignaturesMatch(method, parameters))
                     return method;
+            }
+        }
+
+        return null;
+    }
+
+    private IFieldSymbol? FindHidingFieldCandidate(string name, bool isStatic, ITypeSymbol fieldType)
+    {
+        for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            foreach (var field in baseType.GetMembers(name).OfType<IFieldSymbol>())
+            {
+                if (field.IsStatic != isStatic)
+                    continue;
+
+                var existingType = StripNullableReference(field.Type);
+                var newType = StripNullableReference(fieldType);
+
+                if (!SymbolEqualityComparer.Default.Equals(existingType, newType))
+                    continue;
+
+                return field;
             }
         }
 
