@@ -147,6 +147,7 @@ public static class CompletionProvider
                         _ => null
                     },
                     PropertyDeclarationSyntax property => (model.GetDeclaredSymbol(property) as IPropertySymbol)?.Type,
+                    EventDeclarationSyntax @event => (model.GetDeclaredSymbol(@event) as IEventSymbol)?.Type,
                     IndexerDeclarationSyntax indexer => (model.GetDeclaredSymbol(indexer) as IPropertySymbol)?.Type,
                     ParameterSyntax parameter => (model.GetDeclaredSymbol(parameter) as IParameterSymbol)?.Type,
                     EnumMemberDeclarationSyntax enumMember => (model.GetDeclaredSymbol(enumMember) as IFieldSymbol)?.Type,
@@ -195,19 +196,19 @@ public static class CompletionProvider
                     return true;
 
                 case ITypeUnionSymbol union:
-                {
-                    var start = results.Count;
-                    foreach (var member in union.Types)
                     {
-                        if (!TryCollectLiteralMembers(member, results))
+                        var start = results.Count;
+                        foreach (var member in union.Types)
                         {
-                            results.RemoveRange(start, results.Count - start);
-                            return false;
+                            if (!TryCollectLiteralMembers(member, results))
+                            {
+                                results.RemoveRange(start, results.Count - start);
+                                return false;
+                            }
                         }
-                    }
 
-                    return results.Count > start;
-                }
+                        return results.Count > start;
+                    }
 
                 default:
                     return false;

@@ -19,6 +19,7 @@ public enum SymbolKind
     Parameter,
     Local,
     Label,
+    Event,
     Property,
     Field,
     Error,
@@ -120,6 +121,7 @@ public interface ISymbol : IEquatable<ISymbol?>
     {
         INamespaceOrTypeSymbol => true,
         IMethodSymbol => true,
+        IEventSymbol => true,
         IPropertySymbol => true,
         IFieldSymbol => true,
         IParameterSymbol => true,
@@ -369,6 +371,14 @@ public interface IPropertySymbol : ISymbol
     bool IsIndexer { get; }
     ImmutableArray<IParameterSymbol> Parameters => IsIndexer ? GetMethod?.Parameters ?? [] : [];
     ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => [];
+}
+
+public interface IEventSymbol : ISymbol
+{
+    ITypeSymbol Type { get; }
+    IMethodSymbol? AddMethod { get; }
+    IMethodSymbol? RemoveMethod { get; }
+    ImmutableArray<IEventSymbol> ExplicitInterfaceImplementations => [];
 }
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol

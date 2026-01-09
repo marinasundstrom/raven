@@ -497,6 +497,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         Indexers,
         Methods,
         Operators,
+        Events,
         Other
     }
 
@@ -510,6 +511,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     MemberSectionKind.Indexers,
     MemberSectionKind.Methods,
     MemberSectionKind.Operators,
+    MemberSectionKind.Events,
     MemberSectionKind.Other
 };
 
@@ -531,6 +533,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         MemberSectionKind.Indexers => "Indexers",
         MemberSectionKind.Methods => "Methods",
         MemberSectionKind.Operators => "Operators",
+        MemberSectionKind.Events => "Events",
         _ => "Members"
     };
 
@@ -651,6 +654,8 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
             IPropertySymbol ps when ps.Parameters.Length > 0 => MemberSectionKind.Indexers,
             IPropertySymbol => MemberSectionKind.Properties,
+
+            IEventSymbol => MemberSectionKind.Events,
 
             _ => MemberSectionKind.Other
         };
@@ -1050,7 +1055,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
             IMethodSymbol ms => $"M:{GetMethodDocName(ms)}",
             IPropertySymbol ps => $"P:{GetPropertyDocName(ps)}",
             IFieldSymbol fs => $"F:{GetFieldDocName(fs)}",
-            //IEventSymbol es => $"E:{GetEventDocName(es)}",
+            IEventSymbol es => $"E:{GetEventDocName(es)}",
             _ => ""
         };
     }
@@ -1163,8 +1168,8 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     private static string GetFieldDocName(IFieldSymbol fs)
         => $"{GetTypeDocName(fs.ContainingType!)}.{fs.Name}";
 
-    //private static string GetEventDocName(IEventSymbol es)
-    //    => $"{GetTypeDocName(es.ContainingType!)}.{es.Name}";
+    private static string GetEventDocName(IEventSymbol es)
+        => $"{GetTypeDocName(es.ContainingType!)}.{es.Name}";
 
     private static string GetParamTypeDocName(ITypeSymbol t)
     {

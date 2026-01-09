@@ -7,6 +7,8 @@
 <NodeKinds>
   <NodeKind Name="GetAccessorDeclaration" Type="AccessorDeclaration" />
   <NodeKind Name="SetAccessorDeclaration" Type="AccessorDeclaration" />
+  <NodeKind Name="AddAccessorDeclaration" Type="AccessorDeclaration" />
+  <NodeKind Name="RemoveAccessorDeclaration" Type="AccessorDeclaration" />
   <NodeKind Name="NumericLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="TrueLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="FalseLiteralExpression" Type="LiteralExpression" />

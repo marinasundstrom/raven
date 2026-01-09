@@ -480,45 +480,52 @@ internal class MethodBodyGenerator
                 break;
 
             case AccessorDeclarationSyntax accessorDeclaration:
-                if (boundBody != null)
                 {
-                    EmitMethodBlock(boundBody);
-                }
-                else if (expressionBody is not null)
-                {
-                    if (expressionBodySyntax is not null)
-                        EmitSequencePoint(expressionBodySyntax);
-
-                    if (MethodSymbol.MethodKind == MethodKind.PropertyGet)
+                    if (boundBody != null)
                     {
-                        new ExpressionGenerator(baseGenerator, expressionBody).Emit();
+                        EmitMethodBlock(boundBody);
                     }
-                    else
+                    else if (expressionBody is not null)
                     {
-                        if (expressionBody is BoundAssignmentExpression assignment)
+                        if (expressionBodySyntax is not null)
+                            EmitSequencePoint(expressionBodySyntax);
+
+                        if (MethodSymbol.MethodKind == MethodKind.PropertyGet)
                         {
-                            var stmt = new BoundAssignmentStatement(assignment);
-                            new StatementGenerator(baseGenerator, stmt).Emit();
+                            new ExpressionGenerator(baseGenerator, expressionBody).Emit();
                         }
                         else
                         {
-                            var stmt = new BoundExpressionStatement(expressionBody);
-                            new StatementGenerator(baseGenerator, stmt).Emit();
+                            if (expressionBody is BoundAssignmentExpression assignment)
+                            {
+                                var stmt = new BoundAssignmentStatement(assignment);
+                                new StatementGenerator(baseGenerator, stmt).Emit();
+                            }
+                            else
+                            {
+                                var stmt = new BoundExpressionStatement(expressionBody);
+                                new StatementGenerator(baseGenerator, stmt).Emit();
+                            }
                         }
-                    }
 
-                    ILGenerator.Emit(OpCodes.Ret);
+                        ILGenerator.Emit(OpCodes.Ret);
+                    }
+                    else if (MethodSymbol.ContainingSymbol is SourceEventSymbol eventSymbol &&
+                             eventSymbol.BackingField is SourceFieldSymbol eventBackingField)
+                    {
+                        EmitAutoEventAccessor(eventSymbol, eventBackingField);
+                    }
+                    else if (MethodSymbol.ContainingSymbol is SourcePropertySymbol propertySymbol &&
+                             propertySymbol.BackingField is SourceFieldSymbol backingField)
+                    {
+                        EmitAutoPropertyAccessor(accessorDeclaration, propertySymbol, backingField);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ret);
+                    }
+                    break;
                 }
-                else if (MethodSymbol.ContainingSymbol is SourcePropertySymbol propertySymbol &&
-                         propertySymbol.BackingField is SourceFieldSymbol backingField)
-                {
-                    EmitAutoPropertyAccessor(accessorDeclaration, propertySymbol, backingField);
-                }
-                else
-                {
-                    ILGenerator.Emit(OpCodes.Ret);
-                }
-                break;
 
             case PropertyDeclarationSyntax propertyDeclaration:
                 if (expressionBody is not null)
@@ -534,6 +541,19 @@ internal class MethodBodyGenerator
                     ILGenerator.Emit(OpCodes.Ret);
                 }
                 break;
+            case EventDeclarationSyntax:
+                {
+                    if (MethodSymbol.ContainingSymbol is SourceEventSymbol eventSymbol &&
+                        eventSymbol.BackingField is SourceFieldSymbol backingField)
+                    {
+                        EmitAutoEventAccessor(eventSymbol, backingField);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ret);
+                    }
+                    break;
+                }
 
             case ClassDeclarationSyntax:
                 if (!MethodSymbol.IsStatic)
@@ -841,6 +861,39 @@ internal class MethodBodyGenerator
                 ILGenerator.Emit(OpCodes.Ldarg_0);
                 ILGenerator.Emit(OpCodes.Stsfld, fieldInfo);
             }
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitAutoEventAccessor(SourceEventSymbol eventSymbol, SourceFieldSymbol backingField)
+    {
+        var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var delegateType = MethodGenerator.ResolveClrType(eventSymbol.Type);
+        var combineMethod = typeof(Delegate).GetMethod(nameof(Delegate.Combine), [typeof(Delegate), typeof(Delegate)]);
+        var removeMethod = typeof(Delegate).GetMethod(nameof(Delegate.Remove), [typeof(Delegate), typeof(Delegate)]);
+        var updateMethod = MethodSymbol.MethodKind == MethodKind.EventAdd ? combineMethod : removeMethod;
+
+        if (updateMethod is null)
+            throw new InvalidOperationException("Delegate combine/remove method not found.");
+
+        if (eventSymbol.IsStatic)
+        {
+            ILGenerator.Emit(OpCodes.Ldsfld, fieldInfo);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Call, updateMethod);
+            ILGenerator.Emit(OpCodes.Castclass, delegateType);
+            ILGenerator.Emit(OpCodes.Stsfld, fieldInfo);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            ILGenerator.Emit(OpCodes.Ldarg_1);
+            ILGenerator.Emit(OpCodes.Call, updateMethod);
+            ILGenerator.Emit(OpCodes.Castclass, delegateType);
+            ILGenerator.Emit(OpCodes.Stfld, fieldInfo);
         }
 
         ILGenerator.Emit(OpCodes.Ret);

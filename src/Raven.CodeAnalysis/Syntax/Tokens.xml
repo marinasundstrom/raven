@@ -23,6 +23,7 @@
   <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />
   <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
   <TokenKind Name="InterfaceKeyword" Text="interface" IsReservedWord="true" />
+  <TokenKind Name="EventKeyword" Text="event" IsReservedWord="true" />
   <TokenKind Name="ExtensionKeyword" Text="extension" IsReservedWord="false" />
   <TokenKind Name="ExplicitKeyword" Text="explicit" IsReservedWord="false" />
   <TokenKind Name="ImplicitKeyword" Text="implicit" IsReservedWord="false" />
@@ -75,6 +76,8 @@
   <TokenKind Name="OverrideKeyword" Text="override" IsReservedWord="false" />
   <TokenKind Name="GetKeyword" Text="get" IsReservedWord="false" />
   <TokenKind Name="SetKeyword" Text="set" IsReservedWord="false" />
+  <TokenKind Name="AddKeyword" Text="add" IsReservedWord="false" />
+  <TokenKind Name="RemoveKeyword" Text="remove" IsReservedWord="false" />
 
   <!-- Operators and punctuation -->
   <TokenKind Name="ArrowToken" Text="->" />

@@ -19,6 +19,7 @@ internal partial class BoundMemberAccessExpression : BoundExpression
             IFieldSymbol field => field.Type,
             IPropertySymbol prop => prop.Type,
             IMethodSymbol method => method.ReturnType,
+            IEventSymbol @event => @event.Type,
             _ => throw new InvalidOperationException($"Unsupported member type: {member.GetType()}")
         };
     }

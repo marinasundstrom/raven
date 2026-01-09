@@ -90,6 +90,9 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.OperatorKeyword))
             return ParseOperatorMember(attributeLists, modifiers);
 
+        if (PeekToken().IsKind(SyntaxKind.EventKeyword))
+            return ParseEventMember(attributeLists, modifiers);
+
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
         {
@@ -253,6 +256,44 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             terminatorToken);
     }
 
+    private MemberDeclarationSyntax ParseEventMember(
+        SyntaxList attributeLists,
+        SyntaxList modifiers)
+    {
+        var eventKeyword = ReadToken();
+
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
+
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause();
+
+        AccessorListSyntax? accessorList = null;
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        {
+            accessorList = ParseAccessorList();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return EventDeclaration(
+            attributeLists,
+            modifiers,
+            eventKeyword,
+            explicitInterfaceSpecifier: null,
+            identifier,
+            typeAnnotation,
+            accessorList,
+            terminatorToken);
+    }
+
     private TypeAnnotationClauseSyntax CreateMissingTypeAnnotationClause()
     {
         var colonToken = MissingToken(SyntaxKind.ColonToken);
@@ -289,7 +330,9 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         var modifiers = ParseAccessorModifiers();
 
         if (!ConsumeToken(SyntaxKind.GetKeyword, out var keyword) &&
-            !ConsumeToken(SyntaxKind.SetKeyword, out keyword))
+            !ConsumeToken(SyntaxKind.SetKeyword, out keyword) &&
+            !ConsumeToken(SyntaxKind.AddKeyword, out keyword) &&
+            !ConsumeToken(SyntaxKind.RemoveKeyword, out keyword))
         {
             keyword = MissingToken(SyntaxKind.GetKeyword);
         }
@@ -311,9 +354,14 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
         SetTreatNewlinesAsTokens(false);
 
-        var accessorKind = keyword.IsKind(SyntaxKind.GetKeyword)
-            ? SyntaxKind.GetAccessorDeclaration
-            : SyntaxKind.SetAccessorDeclaration;
+        var accessorKind = keyword.Kind switch
+        {
+            SyntaxKind.GetKeyword => SyntaxKind.GetAccessorDeclaration,
+            SyntaxKind.SetKeyword => SyntaxKind.SetAccessorDeclaration,
+            SyntaxKind.AddKeyword => SyntaxKind.AddAccessorDeclaration,
+            SyntaxKind.RemoveKeyword => SyntaxKind.RemoveAccessorDeclaration,
+            _ => SyntaxKind.GetAccessorDeclaration,
+        };
 
         return AccessorDeclaration(accessorKind, attributeLists, modifiers, keyword, body, expressionBody, terminatorToken);
     }
