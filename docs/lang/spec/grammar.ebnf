@@ -12,7 +12,7 @@ AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fu
 
 MemberModifiers          ::= { MemberModifier } ;
 MemberModifier           ::= AccessModifier
-                           | 'static' | 'abstract' | 'virtual' | 'override' | 'sealed'
+                           | 'static' | 'abstract' | 'virtual' | 'override' | 'final' | 'sealed'
                            | 'readonly' | 'async' | 'extern' ;
 
 AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;

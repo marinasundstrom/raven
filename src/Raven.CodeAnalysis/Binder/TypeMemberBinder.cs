@@ -361,7 +361,7 @@ internal class TypeMemberBinder : Binder
         var isAsync = modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
-        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
@@ -1298,7 +1298,7 @@ internal class TypeMemberBinder : Binder
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
-        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var propertyAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = propertyDecl.ExplicitInterfaceSpecifier;
@@ -1781,7 +1781,7 @@ internal class TypeMemberBinder : Binder
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
-        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var eventAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = eventDecl.ExplicitInterfaceSpecifier;
@@ -2272,7 +2272,7 @@ internal class TypeMemberBinder : Binder
         var isStatic = hasStaticModifier; var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
-        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var indexerAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = indexerDecl.ExplicitInterfaceSpecifier;

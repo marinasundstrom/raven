@@ -192,12 +192,12 @@
     Message="Member '{memberName}' cannot be virtual because the containing type '{typeName}' is sealed"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0309" Identifier="SealedMemberMustOverride"
-    Title="'sealed' modifier requires override"
-    Message="Member '{memberName}' cannot be marked 'sealed' because it is not an override"
+    Title="'final' modifier requires override"
+    Message="Member '{memberName}' cannot be marked 'final' because it is not an override"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0310" Identifier="CannotOverrideSealedMember"
-    Title="Cannot override sealed member"
-    Message="Member '{memberName}' cannot override sealed member '{overriddenMemberName}'"
+    Title="Cannot override final member"
+    Message="Member '{memberName}' cannot override final member '{overriddenMemberName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0311" Identifier="StaticMemberCannotBeVirtualOrOverride"
     Title="Static members cannot be virtual or override"
