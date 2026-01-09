@@ -1,0 +1,22 @@
+namespace System
+
+import System.Console.*
+import System.Text.*
+import System.Linq.*
+
+val obj = new StringBuilder()
+
+Dumper.Dump(obj)
+
+public class Dumper {
+    public static Dump<T>(obj: T) {
+        val type = typeof(T)
+        for each propertyInfo in type
+            .GetProperties()
+            .Where(pi => !pi.GetMethod.IsStatic) 
+        {
+            val value = propertyInfo.GetValue(obj)
+            WriteLine("${propertyInfo.Name} = $value")
+        }
+    }
+}
