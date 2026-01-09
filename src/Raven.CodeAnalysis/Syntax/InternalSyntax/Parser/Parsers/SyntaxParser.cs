@@ -43,7 +43,8 @@ internal class SyntaxParser : ParseContext
                      SyntaxKind.VirtualKeyword or
                      SyntaxKind.AsyncKeyword or
                      SyntaxKind.OpenKeyword or
-                     SyntaxKind.OverrideKeyword)
+                     SyntaxKind.OverrideKeyword or
+                     SyntaxKind.NewKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());
             }

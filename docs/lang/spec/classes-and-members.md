@@ -40,6 +40,7 @@ class Counter
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
+* Members that intentionally hide inherited members should use the `new` modifier; otherwise the compiler emits a warning.
 
 Use `final` alongside `override` to seal an override and prevent further overrides in derived types (`final override` in Raven,
 equivalent to C#'s `sealed override`). The compiler reports an error if `final` is applied without `override`.
