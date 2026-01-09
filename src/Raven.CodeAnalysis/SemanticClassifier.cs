@@ -94,6 +94,7 @@ public static class SemanticClassifier
             InvocationExpressionSyntax => SemanticClassification.Method,
             MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
             MemberBindingExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
+            ParameterSyntax => SemanticClassification.Parameter,
             _ => SemanticClassification.Default
         };
     }
