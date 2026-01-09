@@ -1526,6 +1526,17 @@ internal abstract class Binder
         if (TryGetCachedBoundNode(node) is BoundNode cached)
             return cached;
 
+        if (node is LambdaExpressionSyntax lambdaSyntax &&
+            lambdaSyntax.Parent is ArgumentSyntax argument &&
+            argument.Parent is ArgumentListSyntax argumentList &&
+            argumentList.Parent is InvocationExpressionSyntax invocation)
+        {
+            _ = BindExpression(invocation);
+
+            if (TryGetCachedBoundNode(node) is BoundNode rebound)
+                return rebound;
+        }
+
         BoundNode result = node switch
         {
             ExpressionSyntax expr => BindExpression(expr),

@@ -241,7 +241,7 @@ let anyPositive = numbers.Any((value: int) => value > 0)
         var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
         Assert.NotNull(boundInvocation.ExtensionReceiver);
-        Assert.Equal(1, boundInvocation.Arguments.Count());
+        Assert.Single(boundInvocation.Arguments);
 
         var symbolInfo = model.GetSymbolInfo(invocation);
         var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
@@ -307,7 +307,7 @@ let anyItems = numbers.Any()
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Any", selected.Name);
-        Assert.Equal(1, selected.Parameters.Length);
+        Assert.Single(selected.Parameters);
         Assert.Single(selected.TypeArguments, type => type.SpecialType == SpecialType.System_Int32);
         Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
     }
@@ -646,6 +646,43 @@ let positives = numbers.Where((value: int, index: int) => value > index)
         Assert.All(boundLambda.Parameters.Take(2), parameter => Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType));
         Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_SystemLinqWhereWithMemberAccessLambda_BindsBody()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Text.*
+import System.Reflection.*
+
+let builder = StringBuilder()
+let properties = builder.GetType().GetProperties()
+let result = properties.Where(pi => !pi.GetMethod.IsStatic)
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication),
+            references: TestMetadataReferences.Default);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<LambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal("PropertyInfo", lambdaParameter.Type.Name);
+        Assert.Equal("Reflection", lambdaParameter.Type.ContainingNamespace?.Name);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.IsNotType<BoundErrorExpression>(boundLambda.Body);
     }
 
     private static MemberAccessExpressionSyntax GetMemberAccess(SyntaxTree tree, string methodName)

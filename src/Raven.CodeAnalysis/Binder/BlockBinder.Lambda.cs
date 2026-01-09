@@ -550,7 +550,7 @@ partial class BlockBinder
         var boundLambda = new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
 
         var suppressed = suppressedDiagnostics.ToImmutable();
-        if ((!candidateDelegates.IsDefaultOrEmpty || suppressed.Length > 0) && lambdaSymbol is SourceLambdaSymbol source)
+        if (lambdaSymbol is SourceLambdaSymbol source)
         {
             var parameters = parameterSymbols.ToImmutableArray();
             var unbound = new BoundUnboundLambda(source, syntax, parameters, candidateDelegates, suppressed);
@@ -1119,6 +1119,7 @@ partial class BlockBinder
             capturedVariables,
             candidateDelegates);
         rebound.AttachUnbound(unbound);
+        CacheBoundNode(syntax, rebound);
         instrumentation.RecordBindingSuccess();
         return rebound;
     }
