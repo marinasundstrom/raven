@@ -182,6 +182,9 @@ internal class CodeGenerator
 
         builder.SetGenericParameterAttributes(attributes);
 
+        if ((parameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)
+            builder.SetCustomAttribute(CreateNullableAnnotationAttribute(isNullable: false));
+
         if (parameter.ConstraintTypes.IsDefaultOrEmpty)
             return;
 
@@ -235,8 +238,8 @@ internal class CodeGenerator
     ConstructorInfo? _extensionMarkerNameCtor;
     ConstructorInfo? _extensionAttributeCtor;
 
-    bool _emitTypeUnionAttribute = true;
-    bool _emitNullType = true;
+    readonly bool _emitTypeUnionAttribute = true;
+    readonly bool _emitNullType = true;
     bool _emitExtensionMarkerNameAttribute = true;
 
     internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
@@ -402,6 +405,12 @@ internal class CodeGenerator
 
         EnsureNullableAttributeType();
         return new CustomAttributeBuilder(_nullableCtor!, new object[] { (byte)2 });
+    }
+
+    internal CustomAttributeBuilder CreateNullableAnnotationAttribute(bool isNullable)
+    {
+        EnsureNullableAttributeType();
+        return new CustomAttributeBuilder(_nullableCtor!, new object[] { isNullable ? (byte)2 : (byte)1 });
     }
 
     internal CustomAttributeBuilder? CreateTupleElementNamesAttribute(ITypeSymbol type)

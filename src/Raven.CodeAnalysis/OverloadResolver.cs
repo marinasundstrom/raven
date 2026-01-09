@@ -569,6 +569,12 @@ internal sealed class OverloadResolver
                 return false;
             }
 
+            if ((constraintKind & TypeParameterConstraintKind.Constructor) != 0 &&
+                !SemanticFacts.SatisfiesConstructorConstraint(typeArgument))
+            {
+                return false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) == 0)
                 continue;
 

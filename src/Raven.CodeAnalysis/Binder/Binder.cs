@@ -1633,6 +1633,12 @@ internal abstract class Binder
                 allSatisfied = false;
             }
 
+            if ((constraintKind & TypeParameterConstraintKind.Constructor) != 0 && !SemanticFacts.SatisfiesConstructorConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "new()", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
             {
                 var constraintTypes = typeParameter.ContainingSymbol is SubstitutedMethodSymbol substituted &&
@@ -1755,6 +1761,12 @@ internal abstract class Binder
             if ((constraintKind & TypeParameterConstraintKind.NotNull) != 0 && !SemanticFacts.SatisfiesNotNullConstraint(typeArgument))
             {
                 ReportConstraintViolation(typeArgument, "notnull", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.Constructor) != 0 && !SemanticFacts.SatisfiesConstructorConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "new()", typeParameter, displayName, getArgumentLocation(i));
                 allSatisfied = false;
             }
 
