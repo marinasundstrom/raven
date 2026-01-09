@@ -42,6 +42,13 @@ class Counter
 * Members can be marked `static` to associate them with the type rather than an instance.
 * Members that intentionally hide inherited members should use the `new` modifier; otherwise the compiler emits a warning.
 
+### Static classes
+
+Classes marked `static` are utility containers. They are implicitly `abstract`
+and `sealed`, and all members must be `static`. Instance fields, methods,
+constructors (including primary constructors), properties, events, or indexers
+are not permitted inside a static class.
+
 Use `final` alongside `override` to seal an override and prevent further overrides in derived types (`final override` in Raven,
 equivalent to C#'s `sealed override`). The compiler reports an error if `final` is applied without `override`.
 

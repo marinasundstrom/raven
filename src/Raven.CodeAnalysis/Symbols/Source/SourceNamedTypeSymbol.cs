@@ -11,20 +11,31 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
+    private bool _isStatic;
     private ImmutableArray<INamedTypeSymbol> _interfaces = ImmutableArray<INamedTypeSymbol>.Empty;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
     private ITypeSymbol? _extensionReceiverType;
 
-    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, Accessibility declaredAccessibility = Accessibility.NotApplicable)
+    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
 
         TypeKind = DetermineTypeKind(TypeKind.Class, BaseType);
-        IsSealed = true;
-        IsAbstract = false;
+        _isStatic = isStatic;
+
+        if (isStatic)
+        {
+            IsSealed = true;
+            IsAbstract = true;
+        }
+        else
+        {
+            IsSealed = true;
+            IsAbstract = false;
+        }
     }
 
     public SourceNamedTypeSymbol(
@@ -38,14 +49,25 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         SyntaxReference[] declaringSyntaxReferences,
         bool isSealed = false,
         bool isAbstract = false,
+        bool isStatic = false,
         Accessibility declaredAccessibility = Accessibility.NotApplicable)
     : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         BaseType = baseType;
 
         TypeKind = DetermineTypeKind(typeKind, baseType);
-        IsSealed = isSealed;
-        IsAbstract = isAbstract;
+        _isStatic = isStatic;
+
+        if (isStatic)
+        {
+            IsSealed = true;
+            IsAbstract = true;
+        }
+        else
+        {
+            IsSealed = isSealed;
+            IsAbstract = isAbstract;
+        }
     }
 
     public bool IsNamespace { get; } = false;
@@ -65,6 +87,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ITypeSymbol? ConstructedFrom => this;
     public bool IsAbstract { get; private set; }
     public bool IsSealed { get; private set; }
+    public override bool IsStatic => _isStatic;
     public bool IsGenericType => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
     public bool IsUnboundGenericType => false;
 
@@ -167,8 +190,16 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         DeclaringSyntaxReferences = DeclaringSyntaxReferences.Add(reference);
     }
 
-    internal void UpdateDeclarationModifiers(bool isSealed, bool isAbstract)
+    internal void UpdateDeclarationModifiers(bool isSealed, bool isAbstract, bool isStatic)
     {
+        if (isStatic)
+        {
+            _isStatic = true;
+            IsSealed = true;
+            IsAbstract = true;
+            return;
+        }
+
         if (!isSealed)
             IsSealed = false;
 

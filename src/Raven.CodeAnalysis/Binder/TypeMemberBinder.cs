@@ -277,6 +277,11 @@ internal class TypeMemberBinder : Binder
                 $"field '{decl.Identifier.ValueText}'",
                 fieldTypeLocation);
 
+            ReportInstanceMemberInStaticTypeIfNeeded(
+                isStatic,
+                decl.Identifier.ValueText,
+                decl.Identifier.GetLocation());
+
             if (!IsExtensionContainer)
             {
                 var hiddenMember = FindHidingFieldCandidate(decl.Identifier.ValueText, isStatic, fieldType);
@@ -395,6 +400,11 @@ internal class TypeMemberBinder : Binder
             isAbstract = false;
             methodAccessibility = Accessibility.Private;
         }
+
+        ReportInstanceMemberInStaticTypeIfNeeded(
+            isStatic,
+            displayName,
+            identifierToken.GetLocation());
 
         ValidateInheritanceModifiers(
             ref isAbstract,
@@ -1059,6 +1069,11 @@ internal class TypeMemberBinder : Binder
         if (isStatic)
             ctorAccessibility = Accessibility.Private;
 
+        ReportInstanceMemberInStaticTypeIfNeeded(
+            isStatic,
+            "init",
+            ctorDecl.GetLocation());
+
         var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
@@ -1171,6 +1186,11 @@ internal class TypeMemberBinder : Binder
     {
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var ctorAccessibility = AccessibilityUtilities.DetermineAccessibility(ctorDecl.Modifiers, defaultAccessibility);
+
+        ReportInstanceMemberInStaticTypeIfNeeded(
+            false,
+            ctorDecl.Identifier.ValueText,
+            ctorDecl.Identifier.GetLocation());
 
         var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
@@ -1389,6 +1409,11 @@ internal class TypeMemberBinder : Binder
             isSealed = false;
             isAbstract = false;
         }
+
+        ReportInstanceMemberInStaticTypeIfNeeded(
+            isStatic,
+            propertyName,
+            identifierToken.GetLocation());
 
         ValidateInheritanceModifiers(
             ref isAbstract,
@@ -1874,6 +1899,11 @@ internal class TypeMemberBinder : Binder
             isSealed = false;
             isAbstract = false;
         }
+
+        ReportInstanceMemberInStaticTypeIfNeeded(
+            isStatic,
+            eventName,
+            identifierToken.GetLocation());
 
         ValidateInheritanceModifiers(
             ref isAbstract,
@@ -2424,6 +2454,11 @@ internal class TypeMemberBinder : Binder
             isSealed = false;
             isAbstract = false;
         }
+
+        ReportInstanceMemberInStaticTypeIfNeeded(
+            isStatic,
+            "Item",
+            identifierToken.GetLocation());
 
         ValidateInheritanceModifiers(
             ref isAbstract,
@@ -3113,6 +3148,20 @@ internal class TypeMemberBinder : Binder
         // {
         //     _diagnostics.ReportAbstractMemberNotAllowedInStruct(memberDisplayName, location);
         // }
+    }
+
+    private void ReportInstanceMemberInStaticTypeIfNeeded(
+        bool isStaticMember,
+        string memberName,
+        Location location)
+    {
+        if (!_containingType.IsStatic || isStaticMember)
+            return;
+
+        _diagnostics.ReportStaticClassCannotContainInstanceMember(
+            _containingType.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat),
+            memberName,
+            location);
     }
 
     private void ValidateInheritanceModifiers(

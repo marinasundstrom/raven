@@ -515,8 +515,9 @@ public partial class SemanticModel
                                 interfaceList = builder.ToImmutable();
                         }
 
-                        var isAbstract = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
-                        var isSealed = !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract;
+                        var isStatic = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+                        var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+                        var isSealed = isStatic || (!classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
                         var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             classDecl.Modifiers,
@@ -559,7 +560,7 @@ public partial class SemanticModel
                             }
 
                             existingType.AddDeclaration(declarationLocation, declarationReference);
-                            existingType.UpdateDeclarationModifiers(isSealed, isAbstract);
+                            existingType.UpdateDeclarationModifiers(isSealed, isAbstract, isStatic);
                             existingType.RegisterPartialModifier(isPartial);
 
                             classSymbol = existingType;
@@ -578,6 +579,7 @@ public partial class SemanticModel
                                 new[] { declarationReference },
                                 isSealed,
                                 isAbstract,
+                                isStatic,
                                 declaredAccessibility: typeAccessibility);
 
                             classSymbol.RegisterPartialModifier(isPartial);
@@ -1246,8 +1248,9 @@ public partial class SemanticModel
                         if (builder.Count > 0)
                             nestedInterfaces = builder.ToImmutable();
                     }
-                    var nestedAbstract = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
-                    var nestedSealed = !nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract;
+                    var nestedStatic = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+                    var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+                    var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
                     var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                     var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                         nestedClass.Modifiers,
@@ -1283,7 +1286,7 @@ public partial class SemanticModel
                         }
 
                         existingNested.AddDeclaration(nestedLocation, nestedReference);
-                        existingNested.UpdateDeclarationModifiers(nestedSealed, nestedAbstract);
+                        existingNested.UpdateDeclarationModifiers(nestedSealed, nestedAbstract, nestedStatic);
                         existingNested.RegisterPartialModifier(nestedPartial);
 
                         nestedSymbol = existingNested;
@@ -1302,6 +1305,7 @@ public partial class SemanticModel
                             [nestedReference],
                             nestedSealed,
                             nestedAbstract,
+                            nestedStatic,
                             declaredAccessibility: nestedAccessibility
                         );
 
@@ -1672,6 +1676,15 @@ public partial class SemanticModel
         var classSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
         var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        if (classSymbol.IsStatic)
+        {
+            classBinder.Diagnostics.ReportStaticClassCannotContainInstanceMember(
+                classSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                "init",
+                classDecl.ParameterList!.GetLocation());
+            return;
+        }
 
         var constructorSymbol = new SourceMethodSymbol(
             ".ctor",

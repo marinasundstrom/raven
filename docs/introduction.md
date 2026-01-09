@@ -56,10 +56,12 @@ Because string interpolation uses `${...}` inside ordinary quotes, the final lin
 Raven leans on the familiar .NET extension model so you can add helpers to
 existing types without modifying their definitions. Declare an extension by
 placing `[Extension]` on a `static` method declared inside a module or static
-class and giving the receiver as the first parameter. Because extensions live in
-ordinary types, you bring them into scope with the same `import` directives used
-for metadata types. Raven emits the standard `ExtensionAttribute` metadata, so
-both Raven and C# callers recognize the helper.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
+class and giving the receiver as the first parameter. Static classes may only
+declare static members, which makes them a natural home for extension helpers.
+Because extensions live in ordinary types, you bring them into scope with the
+same `import` directives used for metadata types. Raven emits the standard
+`ExtensionAttribute` metadata, so both Raven and C# callers recognize the
+helper.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
 
 ```raven
 import System.Runtime.CompilerServices.*
@@ -97,4 +99,3 @@ lowering, producing the same IL that C# would emit.【F:src/Raven.CodeAnalysis/B
 > the remaining lambda compatibility work lands, the bundled fixture provides a
 > stable way to exercise LINQ-style pipelines. Progress is now tracked in the
 > [extension methods and lambda integration investigation](investigations/extension-lambda-integration.md).
-

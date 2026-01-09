@@ -19,6 +19,12 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
         {
             var classSyntax = (ClassDeclarationSyntax)Syntax;
 
+            if (named.IsStatic)
+            {
+                EnsureStaticConstructorIfNeeded(named, classSyntax);
+                return;
+            }
+
             var hasPrimaryConstructor = classSyntax.ParameterList is not null;
             var hasExplicitInstanceConstructor = classSyntax.Members
                 .OfType<ConstructorDeclarationSyntax>()
@@ -75,26 +81,31 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
 
             if (!hasStaticCtor)
             {
-                bool needsStaticCtor = named.GetMembers()
-                    .OfType<SourceFieldSymbol>()
-                    .Any(f => f.IsStatic && f.Initializer is not null);
-
-                if (needsStaticCtor)
-                {
-                    _ = new SourceMethodSymbol(
-                        ".cctor",
-                        Compilation.GetSpecialType(SpecialType.System_Unit),
-                        ImmutableArray<SourceParameterSymbol>.Empty,
-                        ContainingSymbol,
-                        ContainingSymbol,
-                        CurrentNamespace!.AsSourceNamespace(),
-                        [classSyntax.GetLocation()],
-                        [classSyntax.GetReference()],
-                        isStatic: true,
-                        methodKind: MethodKind.Constructor,
-                        declaredAccessibility: Accessibility.Private);
-                }
+                EnsureStaticConstructorIfNeeded(named, classSyntax);
             }
         }
+    }
+
+    private void EnsureStaticConstructorIfNeeded(INamedTypeSymbol named, ClassDeclarationSyntax classSyntax)
+    {
+        bool needsStaticCtor = named.GetMembers()
+            .OfType<SourceFieldSymbol>()
+            .Any(f => f.IsStatic && f.Initializer is not null);
+
+        if (!needsStaticCtor)
+            return;
+
+        _ = new SourceMethodSymbol(
+            ".cctor",
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            ContainingSymbol,
+            ContainingSymbol,
+            CurrentNamespace!.AsSourceNamespace(),
+            [classSyntax.GetLocation()],
+            [classSyntax.GetReference()],
+            isStatic: true,
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: Accessibility.Private);
     }
 }

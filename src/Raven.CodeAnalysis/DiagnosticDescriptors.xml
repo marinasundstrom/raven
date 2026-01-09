@@ -211,6 +211,10 @@
     Title="Invalid modifier combination"
     Message="Member '{memberName}' cannot be marked both '{modifier1}' and '{modifier2}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0327" Identifier="StaticClassCannotContainInstanceMember"
+    Title="Static class cannot declare instance members"
+    Message="Static class '{typeName}' cannot declare instance member '{memberName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0316" Identifier="OptionalParameterDefaultValueCannotConvert"
     Title="Optional parameter default value cannot be converted"
     Message="The default value for optional parameter '{parameterName}' cannot be converted to type '{parameterType}'"
