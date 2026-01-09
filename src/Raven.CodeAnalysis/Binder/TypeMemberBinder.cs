@@ -363,6 +363,7 @@ internal class TypeMemberBinder : Binder
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+        var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
 
@@ -579,6 +580,12 @@ internal class TypeMemberBinder : Binder
         }
 
         methodSymbol.UpdateModifiers(isVirtual, isOverride, isSealed, isAbstract);
+
+        if (explicitInterfaceType is null && !isOverride && !isExtensionContainer)
+        {
+            var hiddenMember = FindHidingMethodCandidate(name, isStatic, signatureArray);
+            ReportMemberHidingIfNeeded(hiddenMember, name, hasNewModifier, identifierToken.GetLocation());
+        }
 
         CheckForDuplicateSignature(metadataName, displayName, signatureArray, identifierToken.GetLocation(), methodDecl);
 
@@ -1299,6 +1306,7 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
+        var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var propertyAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = propertyDecl.ExplicitInterfaceSpecifier;
@@ -1539,6 +1547,12 @@ internal class TypeMemberBinder : Binder
             {
                 isVirtual = true;
             }
+        }
+
+        if (explicitInterfaceType is null && !isOverride && !isExtensionContainer)
+        {
+            var hiddenMember = FindPropertyOverrideCandidate(propertyName, propertyType, isStatic, isIndexer: false, parameters: Array.Empty<(ITypeSymbol type, RefKind refKind)>());
+            ReportMemberHidingIfNeeded(hiddenMember, propertyName, hasNewModifier, identifierToken.GetLocation());
         }
 
         var binders = new Dictionary<SyntaxNode, Binder>();
@@ -1782,6 +1796,7 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
+        var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var eventAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = eventDecl.ExplicitInterfaceSpecifier;
@@ -2014,6 +2029,12 @@ internal class TypeMemberBinder : Binder
             {
                 isVirtual = true;
             }
+        }
+
+        if (explicitInterfaceType is null && !isOverride && !isExtensionContainer)
+        {
+            var hiddenMember = FindEventOverrideCandidate(eventName, eventType, isStatic);
+            ReportMemberHidingIfNeeded(hiddenMember, eventName, hasNewModifier, identifierToken.GetLocation());
         }
 
         var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
@@ -2273,6 +2294,7 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
+        var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var indexerAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = indexerDecl.ExplicitInterfaceSpecifier;
@@ -2544,6 +2566,12 @@ internal class TypeMemberBinder : Binder
             {
                 isVirtual = true;
             }
+        }
+
+        if (explicitInterfaceType is null && !isOverride && !isExtensionContainer)
+        {
+            var hiddenMember = FindPropertyOverrideCandidate("Item", propertyType, isStatic, isIndexer: true, overrideParameters);
+            ReportMemberHidingIfNeeded(hiddenMember, "Item", hasNewModifier, identifierToken.GetLocation());
         }
 
         SourceMethodSymbol? getMethod = null;
@@ -2829,6 +2857,42 @@ internal class TypeMemberBinder : Binder
         }
 
         return null;
+    }
+
+    private IMethodSymbol? FindHidingMethodCandidate(string name, bool isStatic, (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            foreach (var method in baseType.GetMembers(name).OfType<IMethodSymbol>())
+            {
+                if (method.IsStatic != isStatic)
+                    continue;
+
+                if (SignaturesMatch(method, parameters))
+                    return method;
+            }
+        }
+
+        return null;
+    }
+
+    private void ReportMemberHidingIfNeeded(ISymbol? hiddenMember, string memberName, bool hasNewModifier, Location location)
+    {
+        if (hiddenMember is null || hasNewModifier)
+            return;
+
+        _diagnostics.ReportMemberHidesInheritedMember(
+            GetMemberDisplayName(memberName),
+            GetInheritedMemberDisplayName(hiddenMember),
+            location);
+    }
+
+    private static string GetInheritedMemberDisplayName(ISymbol member)
+    {
+        if (member.ContainingType is null)
+            return member.Name;
+
+        return $"{member.ContainingType.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat)}.{member.Name}";
     }
 
     private static SyntaxToken ResolveExplicitInterfaceIdentifier(

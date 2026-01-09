@@ -177,6 +177,10 @@
     Title="No virtual member to override"
     Message="\'{memberName}': no suitable {memberType} found to override"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0331" Identifier="MemberHidesInheritedMember"
+    Title="Member hides inherited member"
+    Message="Member '{memberName}' hides inherited member '{hiddenMemberName}'. Add the 'new' modifier if hiding was intended."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0608" Identifier="AbstractMemberCannotHaveBody"
     Title="Abstract member cannot have a body"
     Message="'{memberName}' cannot declare a body because it is marked abstract"
