@@ -1271,11 +1271,13 @@ public static partial class SymbolExtensions
 
                 break;
 
-            /*
             case IEventSymbol @event:
                 if (@event.IsStatic)
                     parts.Add("static");
 
+                parts.Add("event");
+
+                /*
                 if (@event.IsAbstract)
                     parts.Add("abstract");
 
@@ -1287,9 +1289,8 @@ public static partial class SymbolExtensions
 
                 if (@event.IsOverride)
                     parts.Add("override");
-
+                */
                 break;
-            */
 
             case ILocalSymbol localSymbol:
 
