@@ -7,7 +7,11 @@ val x = f.RaiseEvent(2)
 
 Console.WriteLine(x)
 
-public class Foo {
+public interface IFoo {
+
+}
+
+public class Foo : IFoo {
     public RaiseEvent(x: int) -> int {
         Raised?.Invoke(self, EventArgs.Empty)
         return 42
