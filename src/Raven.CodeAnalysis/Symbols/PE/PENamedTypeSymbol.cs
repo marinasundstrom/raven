@@ -737,6 +737,37 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             }
         }
 
+        foreach (var eventInfo in _typeInfo.DeclaredEvents)
+        {
+            var @event = new PEEventSymbol(
+                _typeResolver,
+                eventInfo,
+                this,
+                [new MetadataLocation(ContainingModule!)]);
+
+            if (eventInfo.AddMethod is not null)
+            {
+                @event.AddMethod = new PEMethodSymbol(
+                    _typeResolver,
+                    eventInfo.AddMethod,
+                    this,
+                    this,
+                    [new MetadataLocation(ContainingModule!)],
+                    associatedSymbol: @event);
+            }
+
+            if (eventInfo.RemoveMethod is not null)
+            {
+                @event.RemoveMethod = new PEMethodSymbol(
+                    _typeResolver,
+                    eventInfo.RemoveMethod,
+                    this,
+                    this,
+                    [new MetadataLocation(ContainingModule!)],
+                    associatedSymbol: @event);
+            }
+        }
+
         foreach (var fieldInfo in _typeInfo.DeclaredFields)
         {
             if (fieldInfo.IsSpecialName)

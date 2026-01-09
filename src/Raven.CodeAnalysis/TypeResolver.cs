@@ -85,6 +85,21 @@ internal class TypeResolver(Compilation compilation)
         return ApplyNullability(type!, nullInfo);
     }
 
+    public ITypeSymbol? ResolveType(EventInfo eventInfo)
+    {
+        var handlerType = eventInfo.EventHandlerType;
+        if (handlerType is null)
+            return null;
+
+        var type = ResolveType(handlerType);
+
+        if (type is ITypeParameterSymbol typeParameterSymbol)
+            return type;
+
+        var nullInfo = _nullabilityContext.Create(eventInfo);
+        return ApplyNullability(type!, nullInfo);
+    }
+
     public FieldInfo? ResolveRuntimeField(FieldInfo fieldInfo)
     {
         if (fieldInfo is null)
@@ -116,6 +131,7 @@ internal class TypeResolver(Compilation compilation)
             {
                 PropertyInfo propertyInfo => ResolveType(propertyInfo.PropertyType),
                 FieldInfo fieldInfo => ResolveType(fieldInfo.FieldType),
+                EventInfo eventInfo => ResolveType(eventInfo.EventHandlerType!),
                 MethodInfo methodInfo => ResolveType(methodInfo.ReturnType, methodInfo),
                 _ => null
             };
@@ -323,5 +339,16 @@ internal class TypeResolver(Compilation compilation)
             .OfType<IPropertySymbol>()
             // TODO: Better condition for filtering
             .FirstOrDefault(x => x.Name == ifaceProp.Name);
+    }
+
+    internal IEventSymbol? ResolveEventSymbol(EventInfo ifaceEvent)
+    {
+        var type = ResolveType(ifaceEvent.DeclaringType!);
+
+        if (type is null) return null;
+        return type.GetMembers()
+            .OfType<IEventSymbol>()
+            // TODO: Better condition for filtering
+            .FirstOrDefault(x => x.Name == ifaceEvent.Name);
     }
 }
