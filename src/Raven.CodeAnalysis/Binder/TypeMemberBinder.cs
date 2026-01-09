@@ -375,6 +375,15 @@ internal class TypeMemberBinder : Binder
             methodAccessibility = Accessibility.Private;
         }
 
+        ValidateInheritanceModifiers(
+            ref isAbstract,
+            ref isVirtual,
+            ref isOverride,
+            ref isSealed,
+            isStatic,
+            displayName,
+            identifierToken.GetLocation());
+
         if (isSealed && !isOverride)
         {
             _diagnostics.ReportSealedMemberMustOverride(name, identifierToken.GetLocation());
@@ -1334,6 +1343,15 @@ internal class TypeMemberBinder : Binder
             isAbstract = false;
         }
 
+        ValidateInheritanceModifiers(
+            ref isAbstract,
+            ref isVirtual,
+            ref isOverride,
+            ref isSealed,
+            isStatic,
+            propertyName,
+            identifierToken.GetLocation());
+
         ValidateAbstractMemberInNonAbstractType(
             isAbstract,
             GetMemberDisplayName(propertyName),
@@ -1550,6 +1568,7 @@ internal class TypeMemberBinder : Binder
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
                     isSealed: accessorSealed,
+                    isAbstract: isAbstract,
                     declaredAccessibility: propertyAccessibility);
 
                 if (isExtensionMember)
@@ -1655,6 +1674,7 @@ internal class TypeMemberBinder : Binder
                 isVirtual: accessorVirtual,
                 isOverride: accessorOverride,
                 isSealed: accessorSealed,
+                isAbstract: isAbstract,
                 declaredAccessibility: propertyAccessibility);
 
             if (isExtensionMember)
@@ -1851,6 +1871,15 @@ internal class TypeMemberBinder : Binder
             isSealed = false;
             isAbstract = false;
         }
+
+        ValidateInheritanceModifiers(
+            ref isAbstract,
+            ref isVirtual,
+            ref isOverride,
+            ref isSealed,
+            isStatic,
+            "Item",
+            identifierToken.GetLocation());
 
         ValidateAbstractMemberInNonAbstractType(
             isAbstract,
@@ -2051,6 +2080,7 @@ internal class TypeMemberBinder : Binder
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
                     isSealed: accessorSealed,
+                    isAbstract: isAbstract,
                     declaredAccessibility: indexerAccessibility);
 
                 var parameters = new List<SourceParameterSymbol>();
@@ -2139,6 +2169,7 @@ internal class TypeMemberBinder : Binder
                 isVirtual: accessorVirtual,
                 isOverride: accessorOverride,
                 isSealed: accessorSealed,
+                isAbstract: isAbstract,
                 declaredAccessibility: indexerAccessibility);
 
             if (isExtensionMember)
@@ -2443,6 +2474,40 @@ internal class TypeMemberBinder : Binder
         // {
         //     _diagnostics.ReportAbstractMemberNotAllowedInStruct(memberDisplayName, location);
         // }
+    }
+
+    private void ValidateInheritanceModifiers(
+        ref bool isAbstract,
+        ref bool isVirtual,
+        ref bool isOverride,
+        ref bool isSealed,
+        bool isStatic,
+        string memberName,
+        Location location)
+    {
+        if (isVirtual && isOverride)
+        {
+            _diagnostics.ReportInvalidMemberModifierCombination(memberName, "virtual", "override", location);
+            isVirtual = false;
+        }
+
+        if (isAbstract && isVirtual)
+        {
+            _diagnostics.ReportInvalidMemberModifierCombination(memberName, "abstract", "virtual", location);
+            isVirtual = false;
+        }
+
+        if (isAbstract && isSealed)
+        {
+            _diagnostics.ReportInvalidMemberModifierCombination(memberName, "abstract", "sealed", location);
+            isSealed = false;
+        }
+
+        if (isAbstract && isStatic)
+        {
+            _diagnostics.ReportInvalidMemberModifierCombination(memberName, "abstract", "static", location);
+            isAbstract = false;
+        }
     }
 
     private int AddExtensionContainerTypeParameters(
