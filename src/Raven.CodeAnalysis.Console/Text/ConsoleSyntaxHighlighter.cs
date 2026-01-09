@@ -27,6 +27,8 @@ public class ColorScheme
     public AnsiColor Property { get; internal set; }
     public AnsiColor Local { get; internal set; }
     public AnsiColor Label { get; internal set; }
+    public AnsiColor Event { get; internal set; }
+    public AnsiColor NullableAnnotation { get; internal set; }
     public AnsiColor Error { get; internal set; }
     public AnsiColor Warning { get; internal set; }
     public AnsiColor Info { get; internal set; }
@@ -47,6 +49,8 @@ public class ColorScheme
         Property = AnsiColor.BrightGreen,
         Local = AnsiColor.BrightMagenta,
         Label = AnsiColor.White,
+        Event = AnsiColor.BrightCyan,
+        NullableAnnotation = AnsiColor.BrightBlack,
         Error = AnsiColor.BrightRed,
         Warning = AnsiColor.BrightGreen,
         Info = AnsiColor.BrightBlue
@@ -68,6 +72,8 @@ public class ColorScheme
         Property = AnsiColor.Green,
         Local = AnsiColor.Magenta,
         Label = AnsiColor.BrightWhite,
+        Event = AnsiColor.BrightCyan,
+        NullableAnnotation = AnsiColor.BrightBlack,
         Error = AnsiColor.BrightRed,
         Warning = AnsiColor.BrightGreen,
         Info = AnsiColor.BrightBlue
@@ -329,10 +335,12 @@ public static class ConsoleSyntaxHighlighter
 
         // symbols
         SemanticClassification.Property => 50,
+        SemanticClassification.Event => 47,
         SemanticClassification.Field => 45,
         SemanticClassification.Parameter => 40,
         SemanticClassification.Local => 35,
         SemanticClassification.Label => 30,
+        SemanticClassification.NullableAnnotation => 25,
 
         _ => 0
     };
@@ -459,6 +467,8 @@ public static class ConsoleSyntaxHighlighter
         SemanticClassification.Property => ColorScheme.Property,
         SemanticClassification.Local => ColorScheme.Local,
         SemanticClassification.Label => ColorScheme.Label,
+        SemanticClassification.Event => ColorScheme.Event,
+        SemanticClassification.NullableAnnotation => ColorScheme.NullableAnnotation,
         _ => ColorScheme.Default
     };
 

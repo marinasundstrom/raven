@@ -460,6 +460,15 @@ public static partial class SymbolExtensions
                 result.Append(FormatConstant(fieldSymbol.GetConstantValue(), fieldSymbol.Type, format));
             }
         }
+        else if (symbol is IEventSymbol eventSymbol)
+        {
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            {
+                var typeDisplay = FormatType(eventSymbol.Type, format);
+                result.Append(": ");
+                result.Append(typeDisplay);
+            }
+        }
 
         // Prefix: accessibility + modifiers + kind keyword (top-level only)
         string? accessibilityPrefix = null;

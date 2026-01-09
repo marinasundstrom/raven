@@ -35,6 +35,10 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.NumericLiteral;
             }
+            else if (kind == SyntaxKind.QuestionToken && descendant.Parent is NullableTypeSyntax)
+            {
+                tokenMap[descendant] = SemanticClassification.NullableAnnotation;
+            }
             // Identifiers (with symbol resolution)
             else if (kind == SyntaxKind.IdentifierToken)
             {
@@ -47,7 +51,7 @@ public static class SemanticClassifier
                                  ?? model.GetDeclaredSymbol(bindNode);
 
                     var classification = symbol is null
-                        ? ClassifyBySyntax(bindNode)
+                        ? ClassifyBySyntaxOrEventFallback(bindNode, model)
                         : ClassifySymbol(symbol);
 
                     tokenMap[descendant] = classification;
@@ -82,6 +86,7 @@ public static class SemanticClassifier
             ILabelSymbol => SemanticClassification.Label,
             IFieldSymbol => SemanticClassification.Field,
             IPropertySymbol => SemanticClassification.Property,
+            IEventSymbol => SemanticClassification.Event,
             _ => SemanticClassification.Default
         };
     }
@@ -93,8 +98,38 @@ public static class SemanticClassifier
             InvocationExpressionSyntax => SemanticClassification.Method,
             MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
             MemberBindingExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
+            ParameterSyntax => SemanticClassification.Parameter,
+            TypeSyntax => SemanticClassification.Type,
             _ => SemanticClassification.Default
         };
+    }
+
+    private static SemanticClassification ClassifyBySyntaxOrEventFallback(SyntaxNode node, SemanticModel model)
+    {
+        var bySyntax = ClassifyBySyntax(node);
+        if (bySyntax != SemanticClassification.Default)
+            return bySyntax;
+
+        if (node is MemberAccessExpressionSyntax memberAccess)
+        {
+            var receiverType = model.GetTypeInfo(memberAccess.Expression).Type;
+            if (receiverType is not null)
+            {
+                var memberName = memberAccess.Name.Identifier.ValueText;
+                var member = receiverType.GetMembers(memberName).OfType<IEventSymbol>().FirstOrDefault();
+                if (member is not null)
+                    return SemanticClassification.Event;
+            }
+        }
+        else if (node is IdentifierNameSyntax identifier)
+        {
+            var binder = model.GetBinder(identifier);
+            var memberName = identifier.Identifier.ValueText;
+            if (binder.LookupSymbols(memberName).OfType<IEventSymbol>().Any())
+                return SemanticClassification.Event;
+        }
+
+        return SemanticClassification.Default;
     }
 
     private static SyntaxNode? GetBindableParent(SyntaxToken token)
@@ -142,5 +177,7 @@ public enum SemanticClassification
     Local,
     Label,
     Property,
-    Field
+    Field,
+    Event,
+    NullableAnnotation
 }
