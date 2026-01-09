@@ -595,8 +595,18 @@ public partial class SemanticModel
                         classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
-                        if (classDecl.BaseList is not null && baseTypeSymbol!.IsSealed)
-                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(baseTypeSymbol.Name, classDecl.BaseList.Types[0].GetLocation());
+                        if (classDecl.BaseList is not null && baseTypeSymbol!.IsStatic)
+                        {
+                            classBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
+                                baseTypeSymbol.Name,
+                                classDecl.BaseList.Types[0].GetLocation());
+                        }
+                        else if (classDecl.BaseList is not null && baseTypeSymbol!.IsSealed)
+                        {
+                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(
+                                baseTypeSymbol.Name,
+                                classDecl.BaseList.Types[0].GetLocation());
+                        }
 
                         classBinders.Add((classDecl, classBinder));
                         break;
@@ -1322,8 +1332,18 @@ public partial class SemanticModel
                     nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
                     _binderCache[nestedClass] = nestedBinder;
                     RegisterClassSymbol(nestedClass, nestedSymbol);
-                    if (nestedClass.BaseList is not null && nestedBaseType!.IsSealed)
-                        nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(nestedBaseType.Name, nestedClass.BaseList.Types[0].GetLocation());
+                    if (nestedClass.BaseList is not null && nestedBaseType!.IsStatic)
+                    {
+                        nestedBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
+                            nestedBaseType.Name,
+                            nestedClass.BaseList.Types[0].GetLocation());
+                    }
+                    else if (nestedClass.BaseList is not null && nestedBaseType!.IsSealed)
+                    {
+                        nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(
+                            nestedBaseType.Name,
+                            nestedClass.BaseList.Types[0].GetLocation());
+                    }
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
                     nestedClassBinders.Add((nestedClass, nestedBinder));
