@@ -147,7 +147,18 @@ internal abstract class Symbol : ISymbol
 
     public virtual DocumentationComment? GetDocumentationComment() => null;
 
-    public virtual bool CanBeReferencedByName { get; } = false;
+    public virtual bool CanBeReferencedByName => this switch
+    {
+        INamespaceOrTypeSymbol => true,
+        IMethodSymbol => true,
+        IEventSymbol => true,
+        IPropertySymbol => true,
+        IFieldSymbol => true,
+        IParameterSymbol => true,
+        ILocalSymbol => true,
+        ILabelSymbol => true,
+        _ => false
+    };
 
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
     {

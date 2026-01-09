@@ -203,4 +203,21 @@ class Program {
         var program = global.LookupType("Program");
         Assert.Null(program);
     }
+
+    [Fact]
+    public void TopLevelStatements_SynthesizeImplicitEntryPoint()
+    {
+        var tree = SyntaxTree.ParseText("let x = 0");
+        var compilation = Compilation.Create(
+            "app",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var entryPoint = compilation.GetEntryPoint();
+
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
+        Assert.True(method.IsImplicitlyDeclared);
+        Assert.True(method.CanBeReferencedByName);
+    }
 }
