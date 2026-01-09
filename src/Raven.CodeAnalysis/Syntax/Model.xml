@@ -758,6 +758,16 @@
     <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
+  <Node Name="EventDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="EventKeyword" Type="Token" DefaultToken="EventKeyword" />
+    <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="Type" Type="TypeAnnotationClause" />
+    <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
   <Node Name="BinaryExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Left" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />
