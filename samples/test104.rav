@@ -2,6 +2,6 @@ import System.*
 import System.Linq.*
 
 let arr = [1, 2, 3]
-let count = arr.Count()
+let count = arr.Count(x => x > 2)
 
 Console.WriteLine(count)
