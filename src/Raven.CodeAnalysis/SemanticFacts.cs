@@ -97,6 +97,12 @@ public static class SemanticFacts
             return false;
         }
 
+        if ((constraintKind & TypeParameterConstraintKind.Constructor) != 0 &&
+            !SatisfiesConstructorConstraint(typeArgument))
+        {
+            return false;
+        }
+
         if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
         {
             foreach (var constraintType in typeParameter.ConstraintTypes)
@@ -150,6 +156,37 @@ public static class SemanticFacts
         }
 
         return true;
+    }
+
+    public static bool SatisfiesConstructorConstraint(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+            return true;
+
+        if (type is ITypeParameterSymbol typeParameter)
+        {
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.Constructor) != 0
+                || (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
+        }
+
+        if (type is INamedTypeSymbol namedType)
+        {
+            if (namedType.IsAbstract)
+                return false;
+
+            foreach (var constructor in namedType.InstanceConstructors)
+            {
+                if (constructor.Parameters.Length == 0 &&
+                    constructor.DeclaredAccessibility == Accessibility.Public)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
     }
 
     public static bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
