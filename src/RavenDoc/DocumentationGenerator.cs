@@ -66,11 +66,13 @@ public static class DocumentationGenerator
 
         BaseTypeDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
-                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly);
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                .WithKindOptions(SymbolDisplayKindOptions.None);
 
         ContainingTypeDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
-                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly);
+                .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+                .WithKindOptions(SymbolDisplayKindOptions.None);
 
         ContainingNamespaceDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
@@ -1232,7 +1234,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         if (implementedInterfaces.Length > 0)
         {
             var interfaceLinks = implementedInterfaces
-                .Select(type => FormatTypeLink(currentDir, type, BaseTypeDisplayFormat));
+                .Select(type => FormatTypeLink(currentDir, (ITypeSymbol)type, BaseTypeDisplayFormat));
             sb.AppendLine($"**Implements**: {string.Join(", ", interfaceLinks)}<br />");
         }
         if (typeSymbol.ContainingType is not null)
