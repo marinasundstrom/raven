@@ -1,12 +1,12 @@
+using System.Diagnostics;
 using System.Text;
-
-using Raven.CodeAnalysis;
 
 using Markdig;
 using Markdig.Extensions.AutoIdentifiers;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-using System.Diagnostics;
+
+using Raven.CodeAnalysis;
 
 public static class DocumentationGenerator
 {
@@ -934,7 +934,7 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
 
     private static void BuildXrefIndex(INamespaceSymbol globalNamespace)
     {
-        void Visit(ISymbol s)
+        static void Visit(ISymbol s)
         {
             if (!GetMembersFilterPredicate(s))
                 return;
@@ -1184,6 +1184,27 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
     // Page generators
     // ----------------------------
 
+    private static IReadOnlyList<ITypeSymbol> GetInheritanceChain(ITypeSymbol typeSymbol)
+    {
+        var chain = new Stack<ITypeSymbol>();
+        var current = typeSymbol;
+
+        while (current is not null)
+        {
+            chain.Push(current);
+            current = current.BaseType;
+        }
+
+        return chain.ToArray();
+    }
+
+    private static string FormatTypeLink(string currentDir, ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        var target = GetTypeIndexPath(typeSymbol);
+        var memberName = EscapeName(typeSymbol.ToDisplayString(format));
+        return $"[{memberName}]({RelLink(currentDir, target)})";
+    }
+
     private static void GenerateTypePage(Compilation compilation, ITypeSymbol typeSymbol)
     {
         var commentInfo = GetOrCreateDocInfo(typeSymbol);
@@ -1197,19 +1218,27 @@ a.broken-xref { color: var(--muted); pointer-events: none; text-decoration: none
         string name = typeSymbol.ToDisplayString(MemberDisplayFormat.WithKindOptions(SymbolDisplayKindOptions.None));
 
         sb.AppendLine($"# {EscapeName(name)}");
-        if (typeSymbol.BaseType is not null)
+        var inheritanceChain = GetInheritanceChain(typeSymbol);
+        if (inheritanceChain.Count > 1)
         {
-            var baseTypeSymbol = typeSymbol.BaseType;
-            var target = GetTypeIndexPath(baseTypeSymbol);
-            var memberName = EscapeName(baseTypeSymbol.ToDisplayString(BaseTypeDisplayFormat));
-            sb.AppendLine($"**Base type**: [{memberName}]({RelLink(currentDir, target)})<br />");
+            var inheritanceLinks = inheritanceChain
+                .Select(type => FormatTypeLink(currentDir, type, BaseTypeDisplayFormat));
+            sb.AppendLine($"**Inheritance**: {string.Join(" → ", inheritanceLinks)}<br />");
+        }
+        var implementedInterfaces = typeSymbol.Interfaces
+            .Distinct(SymbolEqualityComparer.Default)
+            .OrderBy(type => type.ToDisplayString(BaseTypeDisplayFormat))
+            .ToArray();
+        if (implementedInterfaces.Length > 0)
+        {
+            var interfaceLinks = implementedInterfaces
+                .Select(type => FormatTypeLink(currentDir, type, BaseTypeDisplayFormat));
+            sb.AppendLine($"**Implements**: {string.Join(", ", interfaceLinks)}<br />");
         }
         if (typeSymbol.ContainingType is not null)
         {
             var containingType = typeSymbol.ContainingType!;
-            var target = GetTypeIndexPath(containingType);
-            var memberName = EscapeName(containingType.ToDisplayString(ContainingTypeDisplayFormat));
-            sb.AppendLine($"**Containing type**: [{memberName}]({RelLink(currentDir, target)})<br />");
+            sb.AppendLine($"**Containing type**: {FormatTypeLink(currentDir, containingType, ContainingTypeDisplayFormat)}<br />");
         }
         if (typeSymbol.ContainingNamespace is not null)
         {
