@@ -2465,7 +2465,7 @@ partial class BlockBinder : Binder
         return new BoundIfExpression(condition, thenExpr, elseExpr);
     }
 
-    private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
+    private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess, bool preferMethods = false)
     {
         // Binding for explicit receiver
         var receiver = BindExpression(memberAccess.Expression);
@@ -2518,6 +2518,45 @@ partial class BlockBinder : Binder
 
         if (receiver is BoundTypeExpression typeExpr)
         {
+            if (preferMethods)
+            {
+                var methodCandidates = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+                    .LookupMethods(this)
+                    .ToImmutableArray();
+
+                if (!methodCandidates.IsDefaultOrEmpty)
+                {
+                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                    {
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        if (!instantiated.IsDefaultOrEmpty)
+                            return BindMethodGroup(typeExpr, instantiated, nameLocation);
+                    }
+                    else
+                    {
+                        return BindMethodGroup(typeExpr, methodCandidates, nameLocation);
+                    }
+                }
+                else
+                {
+                    var extensionCandidates = LookupExtensionStaticMethods(name, typeExpr.Type).ToImmutableArray();
+
+                    if (!extensionCandidates.IsDefaultOrEmpty)
+                    {
+                        if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                        {
+                            var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                            if (!instantiated.IsDefaultOrEmpty)
+                                return BindMethodGroup(typeExpr, instantiated, nameLocation);
+                        }
+                        else
+                        {
+                            return BindMethodGroup(typeExpr, extensionCandidates, nameLocation);
+                        }
+                    }
+                }
+            }
+
             var nonMethodMember = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
                 .Lookup(this)
                 .FirstOrDefault(static m => m is not IMethodSymbol);
@@ -2544,38 +2583,41 @@ partial class BlockBinder : Binder
                 return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
             }
 
-            var methodCandidates = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
-                .LookupMethods(this)
-                .ToImmutableArray();
-
-            if (!methodCandidates.IsDefaultOrEmpty)
+            if (!preferMethods)
             {
-                if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
-                {
-                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
-                    if (!instantiated.IsDefaultOrEmpty)
-                        return BindMethodGroup(typeExpr, instantiated, nameLocation);
-                }
-                else
-                {
-                    return BindMethodGroup(typeExpr, methodCandidates, nameLocation);
-                }
-            }
-            else
-            {
-                var extensionCandidates = LookupExtensionStaticMethods(name, typeExpr.Type).ToImmutableArray();
+                var methodCandidates = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+                    .LookupMethods(this)
+                    .ToImmutableArray();
 
-                if (!extensionCandidates.IsDefaultOrEmpty)
+                if (!methodCandidates.IsDefaultOrEmpty)
                 {
                     if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                     {
-                        var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
                         if (!instantiated.IsDefaultOrEmpty)
                             return BindMethodGroup(typeExpr, instantiated, nameLocation);
                     }
                     else
                     {
-                        return BindMethodGroup(typeExpr, extensionCandidates, nameLocation);
+                        return BindMethodGroup(typeExpr, methodCandidates, nameLocation);
+                    }
+                }
+                else
+                {
+                    var extensionCandidates = LookupExtensionStaticMethods(name, typeExpr.Type).ToImmutableArray();
+
+                    if (!extensionCandidates.IsDefaultOrEmpty)
+                    {
+                        if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                        {
+                            var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                            if (!instantiated.IsDefaultOrEmpty)
+                                return BindMethodGroup(typeExpr, instantiated, nameLocation);
+                        }
+                        else
+                        {
+                            return BindMethodGroup(typeExpr, extensionCandidates, nameLocation);
+                        }
                     }
                 }
             }
@@ -2641,6 +2683,45 @@ partial class BlockBinder : Binder
         {
             var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
 
+            if (preferMethods)
+            {
+                var methodCandidates = ImmutableArray<IMethodSymbol>.Empty;
+
+                var instanceMethods = new SymbolQuery(name, receiverType, IsStatic: false)
+                    .LookupMethods(this)
+                    .ToImmutableArray();
+
+                if (!instanceMethods.IsDefaultOrEmpty)
+                    methodCandidates = instanceMethods;
+
+                if (IsExtensionReceiver(receiver))
+                {
+                    var extensionMethods = LookupExtensionMethods(name, receiverType)
+                        .ToImmutableArray();
+
+                    if (!extensionMethods.IsDefaultOrEmpty)
+                    {
+                        methodCandidates = methodCandidates.IsDefaultOrEmpty
+                            ? extensionMethods
+                            : methodCandidates.AddRange(extensionMethods);
+                    }
+                }
+
+                if (!methodCandidates.IsDefaultOrEmpty)
+                {
+                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                    {
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        if (!instantiated.IsDefaultOrEmpty)
+                            return BindMethodGroup(receiver, instantiated, nameLocation);
+                    }
+                    else
+                    {
+                        return BindMethodGroup(receiver, methodCandidates, nameLocation);
+                    }
+                }
+            }
+
             var nonMethodMember = new SymbolQuery(name, receiverType, IsStatic: false)
                 .Lookup(this)
                 .FirstOrDefault(static m => m is not IMethodSymbol);
@@ -2653,39 +2734,42 @@ partial class BlockBinder : Binder
                 return new BoundMemberAccessExpression(receiver, nonMethodMember);
             }
 
-            var methodCandidates = ImmutableArray<IMethodSymbol>.Empty;
-
-            var instanceMethods = new SymbolQuery(name, receiverType, IsStatic: false)
-                .LookupMethods(this)
-                .ToImmutableArray();
-
-            if (!instanceMethods.IsDefaultOrEmpty)
-                methodCandidates = instanceMethods;
-
-            if (IsExtensionReceiver(receiver))
+            if (!preferMethods)
             {
-                var extensionMethods = LookupExtensionMethods(name, receiverType)
+                var methodCandidates = ImmutableArray<IMethodSymbol>.Empty;
+
+                var instanceMethods = new SymbolQuery(name, receiverType, IsStatic: false)
+                    .LookupMethods(this)
                     .ToImmutableArray();
 
-                if (!extensionMethods.IsDefaultOrEmpty)
-                {
-                    methodCandidates = methodCandidates.IsDefaultOrEmpty
-                        ? extensionMethods
-                        : methodCandidates.AddRange(extensionMethods);
-                }
-            }
+                if (!instanceMethods.IsDefaultOrEmpty)
+                    methodCandidates = instanceMethods;
 
-            if (!methodCandidates.IsDefaultOrEmpty)
-            {
-                if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                if (IsExtensionReceiver(receiver))
                 {
-                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
-                    if (!instantiated.IsDefaultOrEmpty)
-                        return BindMethodGroup(receiver, instantiated, nameLocation);
+                    var extensionMethods = LookupExtensionMethods(name, receiverType)
+                        .ToImmutableArray();
+
+                    if (!extensionMethods.IsDefaultOrEmpty)
+                    {
+                        methodCandidates = methodCandidates.IsDefaultOrEmpty
+                            ? extensionMethods
+                            : methodCandidates.AddRange(extensionMethods);
+                    }
                 }
-                else
+
+                if (!methodCandidates.IsDefaultOrEmpty)
                 {
-                    return BindMethodGroup(receiver, methodCandidates, nameLocation);
+                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                    {
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        if (!instantiated.IsDefaultOrEmpty)
+                            return BindMethodGroup(receiver, instantiated, nameLocation);
+                    }
+                    else
+                    {
+                        return BindMethodGroup(receiver, methodCandidates, nameLocation);
+                    }
                 }
             }
 
@@ -2973,7 +3057,7 @@ partial class BlockBinder : Binder
 
                             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
                             {
-                                var boundMember = BindMemberAccessExpression(memberAccess);
+                                var boundMember = BindMemberAccessExpression(memberAccess, preferMethods: true);
                                 if (boundMember is BoundMethodGroupExpression methodGroup)
                                 {
                                     var extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
@@ -4541,7 +4625,7 @@ partial class BlockBinder : Binder
 
         if (syntax.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            var boundMember = BindMemberAccessExpression(memberAccess);
+            var boundMember = BindMemberAccessExpression(memberAccess, preferMethods: true);
 
             if (IsErrorExpression(boundMember))
                 return boundMember is BoundErrorExpression boundError

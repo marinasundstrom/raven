@@ -12,6 +12,47 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class ExtensionMethodSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void MemberAccess_WithInaccessibleProperty_PrefersExtensionInvocation()
+    {
+        const string source = """
+func Main() {
+    let widget = Widget()
+    let total = widget.Count()
+}
+
+class Widget {
+    protected Count: int { get { return 0; } }
+}
+
+extension WidgetExtensions for Widget {
+    Count() -> int {
+        return 1
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Count");
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Count", selected.Name);
+        Assert.Equal("WidgetExtensions", selected.ContainingType?.Name);
+    }
+
+    [Fact]
     public void MemberAccess_WithNamespaceImport_BindsExtensionInvocation()
     {
         const string mainSource = """
