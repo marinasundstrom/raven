@@ -2292,6 +2292,18 @@ Here `str` is `string?`, and the call to `ToString` only occurs when `x` is not
 `System.Nullable<T>` storage, invokes the member on the underlying value, and
 wraps the result back into a nullable type.
 
+Null-conditional access also supports direct invocations and element access.
+Use `?(...)` to invoke a nullable delegate or callable value, and `?[...]` to
+index into a nullable collection or array.
+
+```raven
+let f: Func<int, int>? = null
+let result = f?(2)
+
+let values: int[]? = null
+let first = values?[0]
+```
+
 ### Enums
 
 An enum declaration introduces a distinct type whose instances are one of a

@@ -5,11 +5,11 @@ using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Text;
 
-using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
-
 using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
+
+using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
 
 internal class ExpressionSyntaxParser : SyntaxParser
 {
@@ -789,8 +789,27 @@ internal class ExpressionSyntaxParser : SyntaxParser
                         memberName = IdentifierName(identifier);
                     }
 
-                    whenNotNull = MemberBindingExpression(dotToken, memberName);
-                    whenNotNull = AddTrailers(start, whenNotNull);
+                    var memberBinding = MemberBindingExpression(dotToken, memberName);
+                    if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+                    {
+                        var argumentList = ParseArgumentListSyntax();
+                        whenNotNull = InvocationExpression(memberBinding, argumentList);
+                    }
+                    else
+                    {
+                        whenNotNull = memberBinding;
+                    }
+                }
+                else if (next.IsKind(SyntaxKind.OpenParenToken))
+                {
+                    var argumentList = ParseArgumentListSyntax();
+                    var receiverBinding = ReceiverBindingExpression(Token(SyntaxKind.None));
+                    whenNotNull = InvocationExpression(receiverBinding, argumentList);
+                }
+                else if (next.IsKind(SyntaxKind.OpenBracketToken))
+                {
+                    var argumentList = ParseBracketedArgumentListSyntax();
+                    whenNotNull = ElementBindingExpression(argumentList);
                 }
                 else
                 {

@@ -537,6 +537,12 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Name" Type="SimpleName" />
   </Node>
+  <Node Name="ElementBindingExpression" Inherits="Expression">
+    <Slot Name="ArgumentList" Type="BracketedArgumentList" />
+  </Node>
+  <Node Name="ReceiverBindingExpression" Inherits="Expression">
+    <Slot Name="OperatorToken" Type="Token" />
+  </Node>
   <Node Name="ConditionalAccessExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />

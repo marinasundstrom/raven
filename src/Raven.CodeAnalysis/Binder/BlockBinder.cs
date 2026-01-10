@@ -4787,7 +4787,7 @@ partial class BlockBinder : Binder
                         AsSymbolCandidates(constructors));
                 }
 
-                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax);
+                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax, syntax.Expression);
             }
             else
             {
@@ -4879,7 +4879,7 @@ partial class BlockBinder : Binder
                         AsSymbolCandidates(constructors));
                 }
 
-                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax);
+                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax, syntax.Expression);
             }
             else
             {
@@ -4958,7 +4958,7 @@ partial class BlockBinder : Binder
 
             var typeExpr = BindTypeSyntax(generic);
             if (typeExpr is BoundTypeExpression type && type.Type is INamedTypeSymbol namedType)
-                return BindConstructorInvocation(namedType, genericBoundArguments, syntax);
+                return BindConstructorInvocation(namedType, genericBoundArguments, syntax, syntax.Expression);
 
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
@@ -4973,24 +4973,20 @@ partial class BlockBinder : Binder
             methodName = "Invoke";
         }
 
-        // Bind arguments
-        var boundArgumentsList = new List<BoundArgument>();
-        bool hasErrors = false;
-        foreach (var arg in syntax.ArgumentList.Arguments)
-        {
-            var boundArg = BindExpression(arg.Expression);
-            if (HasExpressionErrors(boundArg))
-                hasErrors = true;
-            var name = arg.NameColon?.Name.Identifier.ValueText;
-            if (string.IsNullOrEmpty(name))
-                name = null;
-            boundArgumentsList.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
-        }
+        return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
+    }
+
+    private BoundExpression BindInvocationExpressionCore(
+        BoundExpression? receiver,
+        string methodName,
+        ArgumentListSyntax argumentList,
+        SyntaxNode receiverSyntax,
+        SyntaxNode callSyntax)
+    {
+        var boundArguments = BindInvocationArguments(argumentList.Arguments, out var hasErrors);
 
         if (hasErrors)
             return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
-
-        var boundArguments = boundArgumentsList.ToArray();
 
         if (receiver is not null)
         {
@@ -5000,13 +4996,13 @@ partial class BlockBinder : Binder
                 receiverType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
                 delegateType.GetDelegateInvokeMethod() is { } invokeMethod)
             {
-                if (!EnsureMemberAccessible(invokeMethod, syntax.Expression.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
+                if (!EnsureMemberAccessible(invokeMethod, receiverSyntax.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver, boundArguments))
                 {
                     ReportSuppressedLambdaDiagnostics(boundArguments);
-                    _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
+                    _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
                     return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                 }
 
@@ -5015,7 +5011,6 @@ partial class BlockBinder : Binder
             }
         }
 
-        // Handle different receiver kinds
         if (receiver is BoundNamespaceExpression nsReceiver)
         {
             var typeInNs = nsReceiver.Namespace
@@ -5025,11 +5020,11 @@ partial class BlockBinder : Binder
 
             if (typeInNs is null)
             {
-                _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(methodName, nsReceiver.Namespace.Name, syntax.Expression.GetLocation());
+                _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(methodName, nsReceiver.Namespace.Name, receiverSyntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            return BindConstructorInvocation(typeInNs, boundArguments, syntax, receiver);
+            return BindConstructorInvocation(typeInNs, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
         if (receiver is BoundTypeExpression typeReceiver)
@@ -5040,12 +5035,12 @@ partial class BlockBinder : Binder
 
             if (!candidateMethods.IsDefaultOrEmpty)
             {
-                var accessibleMethods = GetAccessibleMethods(candidateMethods, syntax.Expression.GetLocation());
+                var accessibleMethods = GetAccessibleMethods(candidateMethods, receiverSyntax.GetLocation());
 
                 if (accessibleMethods.IsDefaultOrEmpty)
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+                var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
@@ -5055,7 +5050,7 @@ partial class BlockBinder : Binder
 
                 if (resolution.IsAmbiguous)
                 {
-                    _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                    _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, callSyntax.GetLocation());
                     return ErrorExpression(
                         reason: BoundExpressionReason.Ambiguous,
                         candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
@@ -5067,10 +5062,10 @@ partial class BlockBinder : Binder
                     .FirstOrDefault();
 
                 if (nestedType is not null)
-                    return BindConstructorInvocation(nestedType, boundArguments, syntax, receiver);
+                    return BindConstructorInvocation(nestedType, boundArguments, callSyntax, receiverSyntax, receiver);
 
                 ReportSuppressedLambdaDiagnostics(boundArguments);
-                _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
+                _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
             }
 
@@ -5080,9 +5075,9 @@ partial class BlockBinder : Binder
                 .FirstOrDefault();
 
             if (nested is not null)
-                return BindConstructorInvocation(nested, boundArguments, syntax, receiver);
+                return BindConstructorInvocation(nested, boundArguments, callSyntax, receiverSyntax, receiver);
 
-            _diagnostics.ReportMemberDoesNotContainDefinition(typeReceiver.Type.Name, methodName, syntax.Expression.GetLocation());
+            _diagnostics.ReportMemberDoesNotContainDefinition(typeReceiver.Type.Name, methodName, receiverSyntax.GetLocation());
 
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
@@ -5096,19 +5091,19 @@ partial class BlockBinder : Binder
             if (candidates.IsDefaultOrEmpty)
             {
                 if (methodName == "Invoke")
-                    _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
+                    _diagnostics.ReportInvalidInvocation(receiverSyntax.GetLocation());
                 else
-                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntax.Expression.GetLocation());
+                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, receiverSyntax.GetLocation());
 
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            var accessibleCandidates = GetAccessibleMethods(candidates, syntax.Expression.GetLocation());
+            var accessibleCandidates = GetAccessibleMethods(candidates, receiverSyntax.GetLocation());
 
             if (accessibleCandidates.IsDefaultOrEmpty)
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -5118,27 +5113,26 @@ partial class BlockBinder : Binder
 
             if (resolution.IsAmbiguous)
             {
-                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, callSyntax.GetLocation());
                 return ErrorExpression(
                     reason: BoundExpressionReason.Ambiguous,
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
-            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        // No receiver -> try methods first, then constructors
         var methodCandidates = new SymbolQuery(methodName).LookupMethods(this).ToImmutableArray();
 
         if (!methodCandidates.IsDefaultOrEmpty)
         {
-            var accessibleMethods = GetAccessibleMethods(methodCandidates, syntax.Expression.GetLocation());
+            var accessibleMethods = GetAccessibleMethods(methodCandidates, receiverSyntax.GetLocation());
 
             if (accessibleMethods.IsDefaultOrEmpty)
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-            var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+            var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -5148,27 +5142,26 @@ partial class BlockBinder : Binder
 
             if (resolution.IsAmbiguous)
             {
-                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, callSyntax.GetLocation());
                 return ErrorExpression(
                     reason: BoundExpressionReason.Ambiguous,
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
-            // Fall back to type if overload resolution failed
             var typeFallback = LookupType(methodName) as INamedTypeSymbol;
             if (typeFallback is not null)
-                return BindConstructorInvocation(typeFallback, boundArguments, syntax);
+                return BindConstructorInvocation(typeFallback, boundArguments, callSyntax, receiverSyntax);
 
             ReportSuppressedLambdaDiagnostics(boundArguments);
-            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         var typeSymbol = LookupType(methodName) as INamedTypeSymbol;
         if (typeSymbol is not null)
-            return BindConstructorInvocation(typeSymbol, boundArguments, syntax);
+            return BindConstructorInvocation(typeSymbol, boundArguments, callSyntax, receiverSyntax);
 
-        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntax.Expression.GetLocation());
+        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, receiverSyntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
@@ -5367,7 +5360,7 @@ partial class BlockBinder : Binder
 
         if (LookupType(methodName) is INamedTypeSymbol typeFallback)
         {
-            return BindConstructorInvocation(typeFallback, boundArguments, syntax, receiver: null);
+            return BindConstructorInvocation(typeFallback, boundArguments, syntax, receiverSyntax: syntax.Expression, receiver: null);
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
@@ -5378,7 +5371,8 @@ partial class BlockBinder : Binder
     private BoundExpression BindConstructorInvocation(
         INamedTypeSymbol typeSymbol,
         BoundArgument[] boundArguments,
-        InvocationExpressionSyntax syntax,
+        SyntaxNode callSyntax,
+        SyntaxNode receiverSyntax,
         BoundExpression? receiver = null)
     {
         if (typeSymbol.TypeKind == TypeKind.Error)
@@ -5386,15 +5380,15 @@ partial class BlockBinder : Binder
 
         if (typeSymbol.IsStatic)
         {
-            _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, syntax.GetLocation());
+            _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, callSyntax.GetLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
 
-        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
-            if (!EnsureMemberAccessible(constructor, syntax.Expression.GetLocation(), "constructor"))
+            if (!EnsureMemberAccessible(constructor, receiverSyntax.GetLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver);
@@ -5402,7 +5396,7 @@ partial class BlockBinder : Binder
 
         if (resolution.IsAmbiguous)
         {
-            _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, syntax.GetLocation());
+            _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, callSyntax.GetLocation());
             return new BoundErrorExpression(
                 typeSymbol,
                 null,
@@ -5411,7 +5405,7 @@ partial class BlockBinder : Binder
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
-        _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, callSyntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
@@ -5634,6 +5628,24 @@ partial class BlockBinder : Binder
                     break;
                 }
 
+            case InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } invocation:
+                {
+                    var result = BindInvocationExpressionCore(receiver, "Invoke", invocation.ArgumentList, syntax.Expression, invocation);
+                    if (IsErrorExpression(result))
+                        whenNotNull = AsErrorExpression(result);
+                    else
+                        whenNotNull = result;
+                    break;
+                }
+
+            case ElementBindingExpressionSyntax elementBinding:
+                {
+                    whenNotNull = BindElementAccessExpression(receiver, elementBinding.ArgumentList, elementBinding);
+                    if (IsErrorExpression(whenNotNull))
+                        whenNotNull = AsErrorExpression(whenNotNull);
+                    break;
+                }
+
             default:
                 whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
                 break;
@@ -5649,7 +5661,15 @@ partial class BlockBinder : Binder
     private BoundExpression BindElementAccessExpression(ElementAccessExpressionSyntax syntax)
     {
         var receiver = BindExpression(syntax.Expression);
-        var argumentExprs = syntax.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
+        return BindElementAccessExpression(receiver, syntax.ArgumentList, syntax);
+    }
+
+    private BoundExpression BindElementAccessExpression(
+        BoundExpression receiver,
+        BracketedArgumentListSyntax argumentList,
+        SyntaxNode syntax)
+    {
+        var argumentExprs = argumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
         if (IsErrorExpression(receiver))
             return receiver is BoundErrorExpression boundError
