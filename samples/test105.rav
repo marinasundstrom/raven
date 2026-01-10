@@ -1,11 +1,16 @@
 import System.*
 
 val f: IFoo = Foo()
-f.Raised += (s, e) => Console.WriteLine("Hello")
+
+val handler: EventHandler = (s: object?, e: EventArgs) => Console.WriteLine("Hello");
+
+f.Raised += handler
 
 val x = f.RaiseEvent(2)
 
-Console.WriteLine(x)
+f.Raised -= handler
+
+f.RaiseEvent(3)
 
 public interface IFoo {
     RaiseEvent(x: int) -> int
