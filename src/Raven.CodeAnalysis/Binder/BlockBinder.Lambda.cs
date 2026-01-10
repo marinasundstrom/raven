@@ -671,7 +671,8 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
-            if (parameter.Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            var delegateType = TryUnwrapDelegateType(parameter.Type);
+            if (delegateType is not null)
             {
                 if (!builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateType)))
                     builder.Add(delegateType);
@@ -714,7 +715,8 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
-            if (parameter.Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            var delegateType = TryUnwrapDelegateType(parameter.Type);
+            if (delegateType is not null)
             {
                 if (seen.Add(delegateType))
                     builder.Add(delegateType);
@@ -818,6 +820,17 @@ partial class BlockBinder
         return parameterType;
     }
 
+    private static INamedTypeSymbol? TryUnwrapDelegateType(ITypeSymbol type)
+    {
+        if (type is NullableTypeSymbol nullable)
+            type = nullable.UnderlyingType;
+
+        if (type is INamedTypeSymbol named && named.TypeKind == TypeKind.Delegate)
+            return named;
+
+        return null;
+    }
+
     private ImmutableArray<IMethodSymbol> FilterMethodsForLambda(
         ImmutableArray<IMethodSymbol> methods,
         int parameterIndex,
@@ -844,8 +857,8 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
-            var parameterType = parameter.Type;
-            if (parameterType is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            var delegateType = TryUnwrapDelegateType(parameter.Type);
+            if (delegateType is not null)
             {
                 var invoke = delegateType.GetDelegateInvokeMethod();
                 if (invoke is null)
@@ -863,7 +876,8 @@ partial class BlockBinder
 
     private bool EnsureLambdaCompatible(IParameterSymbol parameter, BoundLambdaExpression lambda)
     {
-        if (parameter.Type is not INamedTypeSymbol delegateType)
+        var delegateType = TryUnwrapDelegateType(parameter.Type);
+        if (delegateType is null)
             return false;
 
         return ReplayLambda(lambda, delegateType) is not null;
