@@ -650,6 +650,8 @@ partial class BlockBinder
 
                     if (ShouldAttemptConversion(expr) && targetType.TypeKind != TypeKind.Error)
                     {
+                        expr = BindLambdaToDelegateIfNeeded(expr, targetType);
+
                         if (!IsAssignable(targetType, expr.Type, out var conversion))
                         {
                             _diagnostics.ReportCannotConvertFromTypeToType(

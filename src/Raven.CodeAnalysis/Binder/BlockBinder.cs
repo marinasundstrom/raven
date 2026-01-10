@@ -194,6 +194,7 @@ partial class BlockBinder : Binder
             boundInitializer is not null &&
             ShouldAttemptConversion(boundInitializer))
         {
+            boundInitializer = BindLambdaToDelegateIfNeeded(boundInitializer, type);
             if (!IsAssignable(type, boundInitializer.Type!, out var conversion))
             {
                 if (isConst &&
@@ -5748,6 +5749,7 @@ partial class BlockBinder : Binder
                 if (arrayType.ElementType.TypeKind != TypeKind.Error &&
                     ShouldAttemptConversion(right))
                 {
+                    right = BindLambdaToDelegateIfNeeded(right, arrayType.ElementType);
                     if (!IsAssignable(arrayType.ElementType, right.Type, out var conversion))
                     {
                         _diagnostics.ReportCannotAssignFromTypeToType(
@@ -5777,6 +5779,7 @@ partial class BlockBinder : Binder
             if (indexer.Type.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right))
             {
+                right = BindLambdaToDelegateIfNeeded(right, indexer.Type);
                 if (!IsAssignable(indexer.Type, right.Type, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
@@ -5837,6 +5840,7 @@ partial class BlockBinder : Binder
             if (localType.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right2))
             {
+                right2 = BindLambdaToDelegateIfNeeded(right2, localType);
                 if (!IsAssignable(localType, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
@@ -5880,6 +5884,7 @@ partial class BlockBinder : Binder
             if (parameterType.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right2))
             {
+                right2 = BindLambdaToDelegateIfNeeded(right2, parameterType);
                 if (!IsAssignable(parameterType, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
@@ -5920,6 +5925,7 @@ partial class BlockBinder : Binder
             if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right2))
             {
+                right2 = BindLambdaToDelegateIfNeeded(right2, fieldSymbol.Type);
                 if (!IsAssignable(fieldSymbol.Type, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
@@ -5972,6 +5978,7 @@ partial class BlockBinder : Binder
             if (propertySymbol.Type.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(right2))
             {
+                right2 = BindLambdaToDelegateIfNeeded(right2, propertySymbol.Type);
                 if (!IsAssignable(propertySymbol.Type, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
@@ -6007,6 +6014,8 @@ partial class BlockBinder : Binder
     {
         if (targetType.TypeKind == TypeKind.Error || value.Type is null || !ShouldAttemptConversion(value))
             return value;
+
+        value = BindLambdaToDelegateIfNeeded(value, targetType);
 
         if (!IsAssignable(targetType, value.Type, out var conversion))
         {
@@ -6572,6 +6581,17 @@ partial class BlockBinder : Binder
     {
         return expression is BoundMethodGroupExpression ||
             expression.Type is { } type && !type.ContainsErrorType();
+    }
+
+    private BoundExpression BindLambdaToDelegateIfNeeded(BoundExpression expression, ITypeSymbol targetType)
+    {
+        if (expression is not BoundLambdaExpression lambda)
+            return expression;
+
+        if (targetType is not INamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
+            return expression;
+
+        return ReplayLambda(lambda, delegateType) ?? expression;
     }
 
     private ITypeSymbol GetIndexType() =>

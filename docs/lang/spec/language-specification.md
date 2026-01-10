@@ -1748,6 +1748,14 @@ modifiers) from the delegate's `Invoke` signature and converts the body to the
 delegate's return type. If no delegate context is available, diagnostic
 `RAV2200` is reported and explicit parameter annotations are required.
 
+Lambdas are target-typed: the same lambda expression may be assigned to, passed
+to, or returned as any compatible delegate type. Compatibility is determined
+solely by the delegate's `Invoke` signature (parameter types, `ref`/`out`
+modifiers, and return type). Delegate types themselves are **not** implicitly
+convertible between one another even when their signatures match; preserving
+delegate identity requires an explicit cast when converting from one delegate
+type to another.
+
 ### Function values and method references
 
 Functions and methods are first-class values. Referencing a function or method
