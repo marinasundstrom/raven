@@ -19,6 +19,7 @@ partial class BlockBinder : Binder
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
     private readonly Dictionary<LambdaExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<LambdaRebindKey, BoundLambdaExpression> _reboundLambdaCache = new();
+    private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private int _loopDepth;
@@ -5211,7 +5212,140 @@ partial class BlockBinder : Binder
         if (receiver.Type is null || !receiver.Type.IsNullable)
             return;
 
+        if (IsReceiverKnownNotNull(receiver))
+            return;
+
         _diagnostics.ReportPossibleNullReferenceAccess(receiverSyntax.GetLocation());
+    }
+
+    private void ClearNonNullSymbolsAtDepth(int depth)
+    {
+        foreach (var local in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Value.Symbol))
+            _nonNullSymbols.Remove(local);
+    }
+
+    private void ClearNullableFlowOnAssignment(BoundAssignmentExpression assignment)
+    {
+        switch (assignment)
+        {
+            case BoundLocalAssignmentExpression localAssignment:
+                _nonNullSymbols.Remove(localAssignment.Local);
+                break;
+            case BoundParameterAssignmentExpression parameterAssignment:
+                _nonNullSymbols.Remove(parameterAssignment.Parameter);
+                break;
+        }
+    }
+
+    private bool IsReceiverKnownNotNull(BoundExpression receiver)
+    {
+        if (TryGetFlowSymbol(receiver, out var symbol))
+            return _nonNullSymbols.Contains(symbol);
+
+        return false;
+    }
+
+    private static bool IsNullLiteral(BoundExpression expression)
+    {
+        return expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral };
+    }
+
+    private static BoundExpression UnwrapFlowExpression(BoundExpression expression)
+    {
+        while (expression is BoundParenthesizedExpression parenthesized)
+            expression = parenthesized.Expression;
+
+        return expression;
+    }
+
+    private bool TryGetFlowSymbol(BoundExpression expression, out ISymbol symbol)
+    {
+        expression = UnwrapFlowExpression(expression);
+
+        switch (expression)
+        {
+            case BoundLocalAccess localAccess:
+                symbol = localAccess.Local;
+                return true;
+            case BoundVariableExpression variableExpression:
+                symbol = variableExpression.Variable;
+                return true;
+            case BoundParameterAccess parameterAccess:
+                symbol = parameterAccess.Parameter;
+                return true;
+            default:
+                symbol = null!;
+                return false;
+        }
+    }
+
+    private bool TryGetNullCheckFlow(
+        BoundExpression condition,
+        out ISymbol symbol,
+        out bool nonNullWhenTrue,
+        out bool nonNullWhenFalse)
+    {
+        condition = UnwrapFlowExpression(condition);
+
+        if (condition is BoundBinaryExpression binary &&
+            (binary.Operator.OperatorKind == BinaryOperatorKind.Equality || binary.Operator.OperatorKind == BinaryOperatorKind.Inequality))
+        {
+            if (IsNullLiteral(binary.Left) && TryGetFlowSymbol(binary.Right, out symbol))
+            {
+                nonNullWhenTrue = binary.Operator.OperatorKind == BinaryOperatorKind.Inequality;
+                nonNullWhenFalse = binary.Operator.OperatorKind == BinaryOperatorKind.Equality;
+                return true;
+            }
+
+            if (IsNullLiteral(binary.Right) && TryGetFlowSymbol(binary.Left, out symbol))
+            {
+                nonNullWhenTrue = binary.Operator.OperatorKind == BinaryOperatorKind.Inequality;
+                nonNullWhenFalse = binary.Operator.OperatorKind == BinaryOperatorKind.Equality;
+                return true;
+            }
+        }
+
+        if (condition is BoundIsPatternExpression isPattern &&
+            TryGetFlowSymbol(isPattern.Expression, out symbol) &&
+            TryGetNullPatternFlow(isPattern.Pattern, out var patternNonNullWhenTrue))
+        {
+            nonNullWhenTrue = patternNonNullWhenTrue;
+            nonNullWhenFalse = !patternNonNullWhenTrue;
+            return true;
+        }
+
+        symbol = null!;
+        nonNullWhenTrue = false;
+        nonNullWhenFalse = false;
+        return false;
+    }
+
+    private static bool TryGetNullPatternFlow(BoundPattern pattern, out bool nonNullWhenTrue)
+    {
+        if (pattern is BoundConstantPattern constantPattern && constantPattern.ConstantValue is null)
+        {
+            nonNullWhenTrue = false;
+            return true;
+        }
+
+        if (pattern is BoundNotPattern { Pattern: BoundConstantPattern constant } && constant.ConstantValue is null)
+        {
+            nonNullWhenTrue = true;
+            return true;
+        }
+
+        nonNullWhenTrue = false;
+        return false;
+    }
+
+    private static HashSet<ISymbol> IntersectFlowStates(HashSet<ISymbol> left, HashSet<ISymbol> right)
+    {
+        if (left.Count == 0 || right.Count == 0)
+            return new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        var result = new HashSet<ISymbol>(left, SymbolEqualityComparer.Default);
+        result.IntersectWith(right);
+        return result;
     }
 
     private static bool IsErrorExpression(BoundExpression expression)
@@ -6076,9 +6210,13 @@ partial class BlockBinder : Binder
     private BoundStatement BindAssignmentStatement(AssignmentStatementSyntax syntax)
     {
         var bound = BindAssignment(syntax.Left, syntax.Right, syntax, syntax.OperatorToken.Kind);
-        return bound is BoundAssignmentExpression assignment
-            ? new BoundAssignmentStatement(assignment)
-            : new BoundExpressionStatement(bound);
+        if (bound is BoundAssignmentExpression assignment)
+        {
+            ClearNullableFlowOnAssignment(assignment);
+            return new BoundAssignmentStatement(assignment);
+        }
+
+        return new BoundExpressionStatement(bound);
     }
 
     private BoundExpression BindAssignment(ExpressionOrPatternSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node, SyntaxKind operatorTokenKind)

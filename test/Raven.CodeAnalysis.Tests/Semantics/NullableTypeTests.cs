@@ -125,7 +125,7 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
-    public void NullableDelegateInvocation_ReportsWarning()
+    public void NullableDelegateInvocation_ReportsError()
     {
         var source = """
 import System.*
@@ -142,10 +142,10 @@ class Foo {
 
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         Assert.Contains(
             diagnostics,
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess &&
+                          diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -158,6 +158,123 @@ class Foo {
     Run() -> unit {
         val f: Action<int>? = null
         f?(2)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NullableDelegateInvocation_AfterNullCheck_AllowsAccess()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        if f != null {
+            f(2)
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NullableDelegateInvocation_AfterIsNotNull_AllowsAccess()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        if f is not null {
+            f(2)
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NullableDelegateInvocation_AfterIsNotNull_WithParens_AllowsAccess()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        if (f is not null) {
+            f.Invoke(2)
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NullableDelegateInvocation_AfterGuardReturn_AllowsAccess()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        if f == null {
+            return
+        }
+        f(2)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NullableDelegateInvocation_AfterIsNullGuard_AllowsAccess()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        if f is null {
+            return
+        }
+        f(2)
     }
 }
 """;

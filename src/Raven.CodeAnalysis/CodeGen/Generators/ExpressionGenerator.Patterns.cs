@@ -736,22 +736,19 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        if (scrutineeType.IsNullable)
+        if (scrutineeType.IsReferenceType)
         {
-            var loc = ILGenerator.DeclareLocal(scrutineeClr);
-            ILGenerator.Emit(OpCodes.Stloc, loc);
-
-            ILGenerator.Emit(OpCodes.Ldloca_S, loc);
-            ILGenerator.Emit(OpCodes.Call, scrutineeClr.GetProperty("HasValue")!.GetGetMethod()!);
-            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ldnull);
             ILGenerator.Emit(OpCodes.Ceq);
             return;
         }
 
-        var obj = ILGenerator.DeclareLocal(typeof(object));
-        ILGenerator.Emit(OpCodes.Stloc, obj);
-        ILGenerator.Emit(OpCodes.Ldloc, obj);
-        ILGenerator.Emit(OpCodes.Ldnull);
+        var loc = ILGenerator.DeclareLocal(scrutineeClr);
+        ILGenerator.Emit(OpCodes.Stloc, loc);
+
+        ILGenerator.Emit(OpCodes.Ldloca_S, loc);
+        ILGenerator.Emit(OpCodes.Call, scrutineeClr.GetProperty("HasValue")!.GetGetMethod()!);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Ceq);
     }
 

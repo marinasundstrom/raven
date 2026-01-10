@@ -26,6 +26,11 @@ partial class BlockBinder
     private BoundStatement BindIfStatement(IfStatementSyntax ifStmt)
     {
         var condition = BindExpression(ifStmt.Condition);
+        var entryState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
+        var thenEntryState = entryState;
+        var elseEntryState = entryState;
+        var thenExits = IsEarlyExitStatement(ifStmt.ThenStatement);
+        var elseExits = ifStmt.ElseClause is not null && IsEarlyExitStatement(ifStmt.ElseClause.Statement);
 
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
@@ -34,11 +39,84 @@ partial class BlockBinder
             _diagnostics.ReportCannotConvertFromTypeToType(condition.Type, boolType, ifStmt.Condition.GetLocation());
         }
 
+        if (TryGetNullCheckFlow(condition, out var symbol, out var nonNullWhenTrue, out var nonNullWhenFalse))
+        {
+            thenEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
+            elseEntryState = new HashSet<ISymbol>(entryState, SymbolEqualityComparer.Default);
+
+            if (nonNullWhenTrue)
+                thenEntryState.Add(symbol);
+            else
+                thenEntryState.Remove(symbol);
+
+            if (nonNullWhenFalse)
+                elseEntryState.Add(symbol);
+            else
+                elseEntryState.Remove(symbol);
+        }
+
+        _nonNullSymbols.Clear();
+        _nonNullSymbols.UnionWith(thenEntryState);
         var thenBound = BindStatement(ifStmt.ThenStatement);
+        var thenExitState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
         BoundStatement? elseBound = null;
+        HashSet<ISymbol> elseExitState = elseEntryState;
         if (ifStmt.ElseClause is not null)
+        {
+            _nonNullSymbols.Clear();
+            _nonNullSymbols.UnionWith(elseEntryState);
             elseBound = BindStatement(ifStmt.ElseClause.Statement);
+            elseExitState = new HashSet<ISymbol>(_nonNullSymbols, SymbolEqualityComparer.Default);
+        }
+
+        if (ifStmt.ElseClause is not null)
+        {
+            if (thenExits && elseExits)
+            {
+                _nonNullSymbols.Clear();
+                _nonNullSymbols.UnionWith(entryState);
+            }
+            else if (thenExits)
+            {
+                _nonNullSymbols.Clear();
+                _nonNullSymbols.UnionWith(elseExitState);
+            }
+            else if (elseExits)
+            {
+                _nonNullSymbols.Clear();
+                _nonNullSymbols.UnionWith(thenExitState);
+            }
+            else
+            {
+                _nonNullSymbols.Clear();
+                _nonNullSymbols.UnionWith(IntersectFlowStates(thenExitState, elseExitState));
+            }
+        }
+        else if (thenExits)
+        {
+            _nonNullSymbols.Clear();
+            _nonNullSymbols.UnionWith(elseExitState);
+        }
+        else
+        {
+            _nonNullSymbols.Clear();
+            _nonNullSymbols.UnionWith(IntersectFlowStates(entryState, thenExitState));
+        }
+
         return new BoundIfStatement(condition, thenBound, elseBound);
+    }
+
+    private static bool IsEarlyExitStatement(StatementSyntax statement)
+    {
+        return statement switch
+        {
+            ReturnStatementSyntax => true,
+            ThrowStatementSyntax => true,
+            BreakStatementSyntax => true,
+            ContinueStatementSyntax => true,
+            BlockStatementSyntax block when block.Statements.Count == 1 => IsEarlyExitStatement(block.Statements[0]),
+            _ => false
+        };
     }
 
     private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
@@ -188,6 +266,8 @@ partial class BlockBinder
 
         ReportUnreachableStatements(block);
 
+        ClearNonNullSymbolsAtDepth(depth);
+
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
             _locals.Remove(name);
 
@@ -262,6 +342,8 @@ partial class BlockBinder
         CacheBoundNode(block, blockExpr);
 
         ReportUnreachableStatements(block);
+
+        ClearNonNullSymbolsAtDepth(depth);
 
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
             _locals.Remove(name);

@@ -71,8 +71,10 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
         {
-            var clause = ParsePropertyPatternClause();
-            return PropertyPattern(null, clause);
+            if (TryParsePropertyPatternClause(out var clause))
+                return PropertyPattern(null, clause);
+
+            return CreateMissingPattern();
         }
 
         if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
@@ -96,8 +98,10 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
         {
-            var clause = ParsePropertyPatternClause();
-            return PropertyPattern(type, clause);
+            if (TryParsePropertyPatternClause(out var clause))
+                return PropertyPattern(type, clause);
+
+            return DeclarationPattern(type, SingleVariableDesignation(MissingToken(SyntaxKind.None)));
         }
 
         if (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
@@ -150,8 +154,73 @@ internal class PatternSyntaxParser : SyntaxParser
             closeBraceToken);
     }
 
+    private bool TryParsePropertyPatternClause(out PropertyPatternClauseSyntax clause)
+    {
+        clause = null!;
+
+        if (!IsPropertyPatternClauseStart())
+            return false;
+
+        var checkpoint = CreateCheckpoint("property-pattern-clause");
+        var parsedClause = ParsePropertyPatternClause();
+
+        if (!IsValidPropertyPatternClause(parsedClause))
+        {
+            checkpoint.Dispose();
+            return false;
+        }
+
+        clause = parsedClause;
+        return true;
+    }
+
+    private bool IsPropertyPatternClauseStart()
+    {
+        if (!PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+            return false;
+
+        var offset = 1;
+        var token = PeekToken(offset);
+
+        if (token.IsKind(SyntaxKind.CloseBraceToken))
+            return true;
+
+        if (token.IsKind(SyntaxKind.DotToken))
+        {
+            offset++;
+            token = PeekToken(offset);
+        }
+
+        if (!CanTokenBeIdentifier(token))
+            return false;
+
+        return PeekToken(offset + 1).IsKind(SyntaxKind.ColonToken);
+    }
+
+    private static bool IsValidPropertyPatternClause(PropertyPatternClauseSyntax clause)
+    {
+        if (clause.OpenBraceToken.IsMissing || clause.CloseBraceToken.IsMissing)
+            return false;
+
+        var properties = clause.Properties;
+
+        for (int i = 0; i < properties.SlotCount; i++)
+        {
+            var element = properties[i];
+            if (element is not PropertySubpatternSyntax subpattern)
+                continue;
+
+            if (subpattern.NameColon.Name.Identifier.IsMissing || subpattern.NameColon.ColonToken.IsMissing)
+                return false;
+        }
+
+        return true;
+    }
+
     private PropertySubpatternSyntax ParsePropertySubpattern()
     {
+        ConsumeToken(SyntaxKind.DotToken, out _);
+
         SyntaxToken nameToken;
 
         if (CanTokenBeIdentifier(PeekToken()))
@@ -176,6 +245,11 @@ internal class PatternSyntaxParser : SyntaxParser
         var pattern = ParsePattern();
 
         return PropertySubpattern(nameColon, pattern);
+    }
+
+    private static PatternSyntax CreateMissingPattern()
+    {
+        return DiscardPattern(MissingToken(SyntaxKind.UnderscoreToken));
     }
 
     private PatternSyntax ParseVariablePattern()

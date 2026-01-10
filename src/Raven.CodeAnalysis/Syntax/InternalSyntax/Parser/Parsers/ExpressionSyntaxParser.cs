@@ -14,12 +14,14 @@ using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
 internal class ExpressionSyntaxParser : SyntaxParser
 {
     private readonly bool _allowMatchExpressionSuffixes;
+    private readonly bool _stopOnOpenBrace;
     private const int RangeOperatorPrecedence = 4;
 
-    public ExpressionSyntaxParser(ParseContext parent, bool allowMatchExpressionSuffixes = true)
+    public ExpressionSyntaxParser(ParseContext parent, bool allowMatchExpressionSuffixes = true, bool stopOnOpenBrace = false)
         : base(parent)
     {
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
+        _stopOnOpenBrace = stopOnOpenBrace;
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -169,6 +171,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
         while (true)
         {
             var token = PeekToken();
+
+            if (_stopOnOpenBrace && token.IsKind(SyntaxKind.OpenBraceToken))
+                return expr;
 
             switch (token.Kind)
             {
