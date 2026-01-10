@@ -1,101 +1,178 @@
 # Raven Programming Language
 
-Raven is a modern, general-purpose language that embraces expressive syntax, strong static typing, and first-class tooling. It is designed for day-to-day application development on .NET while borrowing the best ideas from contemporary languages.
+Raven is a modern, general-purpose programming language for the .NET platform.
+It emphasizes clarity, safety, and expressive APIs while remaining deeply
+interoperable with the CLR ecosystem. Raven is designed for everyday application
+development, with language features that help model absence, failure, and control
+flow explicitly—without excessive ceremony.
 
 ## Influences at a glance
 
-- **Swift & Kotlin** inform Raven's expression-oriented surface syntax and emphasis on concise declarations.
-- **Rust** contributes exhaustiveness checking, algebraic patterns, and flow-sensitive type analysis that keep code safe without ceremony.
-- **F# and functional heritage** inspire immutable-by-default semantics, higher-order programming, and a focus on composing small expressions into larger behaviours.
-- **The .NET ecosystem** anchors Raven in pragmatic interop: every Raven project can call into existing libraries and surface analyzers for C# developers.
+- **Swift & Kotlin** influence Raven’s concise, expression-oriented syntax and
+  focus on readable, intention-revealing code.
+- **Rust** contributes ideas around explicit error handling, exhaustiveness, and
+  flow-sensitive analysis.
+- **F# and functional heritage** inspire immutable-by-default bindings,
+  composable abstractions, and small, reusable expressions.
+- **The .NET ecosystem** anchors Raven in pragmatic interop: existing libraries,
+  metadata, and tooling work seamlessly alongside Raven code.
 
 ## Language philosophy
 
-Raven aims to balance expressive power with approachability:
+Raven aims to make common programming concerns explicit and safe:
 
-- **Expression-first, imperative when you need it.** Most constructs produce values, enabling pipeline-style code, yet familiar statements like `return` remain available when clarity calls for them.
-- **Types that flow with your logic.** Unions, literal types, and bidirectional inference let values carry precise information through branches, matches, and guards.
-- **Interop without friction.** Raven maps cleanly onto .NET metadata, so classes, generics, and async workflows feel at home alongside existing CLR code.
-- **Tooling built in.** The compiler follows the Roslyn architecture, unlocking analyzers, IDE support, and incremental compilation from the start.
+- **Model absence and failure directly.**  
+  Instead of relying on sentinel values or unchecked exceptions, Raven encourages
+  the use of discriminated unions such as `Option<T>` and `Result<T>` to represent
+  missing values and recoverable errors.
+
+- **Expression-oriented by default.**  
+  Control-flow constructs like `if`, `match`, loops, and blocks are expressions
+  that produce values. Statement forms remain available when clarity or control
+  flow demands them.
+
+- **Interop without friction.**  
+  Raven maps cleanly onto .NET concepts such as delegates, async workflows,
+  generics, and extension methods, allowing Raven and C# code to coexist naturally
+  in the same solution.
+
+- **Tooling built in.**  
+  The compiler follows a Roslyn-style architecture, enabling analyzers, IDE
+  services, and incremental compilation from the start.
 
 ## A quick taste of Raven
 
-Raven uses familiar keywords, but patterns and unions make branching concise:
+Raven uses familiar syntax, but encourages explicit handling of absence and
+failure through standard library types like `Option<T>` and `Result<T>`:
+
+```raven
+import System.Console.*
+import Raven.Core.*
+
+func parsePort(text: string) -> Result<int> {
+    if text.Length == 0 {
+        return .Error("Port is required")
+    }
+
+    let value = int.TryParse(text)
+    value match {
+        .Some(port) => .Ok(port)
+        .None => .Error("Invalid number")
+    }
+}
+
+let result = parsePort("8080")
+
+let message =
+    result match {
+        .Ok(port) => "Listening on port ${port}"
+        .Error(msg) => "Configuration error: ${msg}"
+    }
+
+WriteLine(message)
+````
+
+Here, `Result<int>` makes success and failure explicit. The `match` expression is
+exhaustive, so both outcomes must be handled. Each arm narrows the value to the
+appropriate case, and any bindings introduced by the pattern are scoped to that
+arm.
+
+String interpolation uses `${...}` inside ordinary string literals, producing:
+
+```
+Listening on port 8080
+```
+
+> **Status:** Discriminated unions such as `Option<T>` and `Result<T>` are fully
+> supported, including pattern matching and exhaustiveness checking. Code
+> generation emits case structs and helpers used by `match` expressions. Follow
+> the [discriminated unions investigation](investigations/discriminated-unions.md)
+> for ongoing work.
+
+## Working with extensions
+
+Raven provides first-class language support for extension members—methods and
+properties that attach to existing types without modifying their original
+definitions. Extensions are declared using the `extension` keyword and target a
+specific receiver type.
+
+```raven
+extension OptionExtensions for Option<int>
+{
+    OrZero() -> int {
+        self match {
+            .Some(value) => value
+            .None => 0
+        }
+    }
+}
+```
+
+Inside an extension member, `self` is a synthesized immutable parameter whose
+type matches the receiver. Extension members may be functions or computed
+properties and default to `public` accessibility.
+
+Once imported, extension members participate in ordinary member lookup:
+
+```raven
+import OptionExtensions.*
+
+let port = parsePort("invalid")
+    |> Result.ToOption()
+    |> OrZero()
+```
+
+When resolving `expr.Member(...)`, the compiler first considers instance members
+on the receiver’s type. If no instance member matches, it searches imported
+extensions whose receiver type is compatible. Instance members always win over
+extensions when both are applicable.
+
+Under the hood, extension invocations are rewritten to static method calls that
+pass the receiver as the leading argument. Raven emits standard CLR metadata, so
+extensions authored in Raven and extensions imported from referenced assemblies
+(such as `System.Linq.Enumerable`) participate uniformly in overload resolution
+and code generation.
+
+## Pipelines
+
+Raven supports a pipeline operator (`|>`) that feeds a value into a call,
+encouraging a clear, left-to-right style when working with transformations:
+
+```raven
+let port =
+    readConfig("PORT")
+        |> parsePort
+        |> Result.ToOption()
+        |> Option.OrElse(8080)
+```
+
+When the pipeline targets an extension method, the left-hand value becomes the
+extension receiver. Otherwise, it is passed as the first argument to the call.
+Normal overload resolution and type inference rules apply.
+
+## File-scope code
+
+Raven supports file-scope code—no `Main` function is required for simple
+programs:
 
 ```raven
 import System.Console.*
 
-func describe(input: string | int | null) -> string {
-    input match {
-        null => "Nothing to report."
-        string text when text.Length > 0 => "Saw \"${text}\""
-        int number => "Counted ${number}"
-        _ => "Empty input."
-    }
-}
-
-let first = describe("Raven")
-let second = describe(3)
-let third = describe(null)
-
-let summary = "${first}; ${second}; ${third}"
-
-WriteLine(summary)
+WriteLine("Hello, World!")
 ```
 
-Because string interpolation uses `${...}` inside ordinary quotes, the final line prints `Saw "Raven"; Counted 3; Nothing to report.`. Flow-sensitive analysis ensures that `text` and `number` have the right types inside each `match` arm, and the `_` discard keeps the expression exhaustive without introducing a binding.
+File-scope statements form the application entry point for console programs and
+coexist naturally with functions, types, and namespaces in the same file.
 
-> **Status:** Discriminated unions parse, bind, and participate in pattern
-> matching (including case-pattern exhaustiveness). Code generation emits the
-> case structs, implicit conversions, and `TryGet*` helpers used by `match`
-> expressions. Follow the [discriminated unions investigation](investigations/discriminated-unions.md)
-> for ongoing work.
+## Where to go next
 
-## Working with extension methods
+* The **language specification** defines Raven’s syntax and semantics in detail:
+  see the [Language specification](specification.md).
+* Implementation details describing how Raven maps to .NET are documented in
+  [dotnet-implementation.md](dotnet-implementation.md).
+* Runnable examples live in the repository’s [`samples/`](../../../samples/)
+  directory and exercise real language features such as `Option`, `Result`,
+  pipelines, and .NET interop.
 
-Raven leans on the familiar .NET extension model so you can add helpers to
-existing types without modifying their definitions. Declare an extension by
-placing `[Extension]` on a `static` method declared inside a module or static
-class and giving the receiver as the first parameter. Static classes may only
-declare static members, which makes them a natural home for extension helpers.
-Because extensions live in ordinary types, you bring them into scope with the
-same `import` directives used for metadata types. Raven emits the standard
-`ExtensionAttribute` metadata, so both Raven and C# callers recognize the
-helper.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
-
-```raven
-import System.Runtime.CompilerServices.*
-
-public static class DescribeExtensions {
-    [Extension]
-    public static Describe(x: string) -> string {
-        return $"{x} !"
-    }
-}
-
-public static class EnumerableExtensions {
-    [Extension]
-    public static Where<T>(source: IEnumerable<T>, predicate: Func<T, bool>)
-        -> IEnumerable<T> {
-        // implementation omitted
-    }
-}
-
-let greeting = "Raven".Describe()
-let evens = [1, 2, 3, 4].Where(n => n % 2 == 0)
-```
-
-When you call the method-style syntax, Raven checks the receiver for instance
-members first and then considers any imported extensions whose first parameter
-matches the receiver's type. Metadata extensions delivered through referenced
-assemblies—including the LINQ-inspired fixture that ships with the compiler—flow
-through the same pipeline as Raven-authored helpers, so overload resolution sees
-a unified candidate set. The compiler rewrites successful extension invocations
-to pass the receiver as the leading argument to the static method before
-lowering, producing the same IL that C# would emit.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
-
-> **Note:** The CLI automatically references `System.Linq.dll`, but support for
-> the full BCL surface still depends on ongoing delegate inference polish. Until
-> the remaining lambda compatibility work lands, the bundled fixture provides a
-> stable way to exercise LINQ-style pipelines. Progress is now tracked in the
-> [extension methods and lambda integration investigation](investigations/extension-lambda-integration.md).
+> ⚠️ This is a living document. Raven is actively evolving, and details may
+> change as the language and tooling mature.
