@@ -320,7 +320,7 @@
   <Descriptor Id="RAV0402" Identifier="PossibleNullReferenceAccess"
     Title="Possible null reference access"
     Message="Possible null reference access"
-    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0426" Identifier="TypeNameDoesNotExistInType"
     Title="Type name does not exist in type"
     Message="The type name '{name}' does not exist in the type '{container}'"
