@@ -136,7 +136,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public SpecialType SpecialType => SpecialType.None;
 
-    public virtual INamedTypeSymbol? BaseType { get; }
+    public virtual INamedTypeSymbol? BaseType { get; private set; }
 
     public TypeKind TypeKind { get; }
 
@@ -181,6 +181,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     internal void SetInterfaces(IEnumerable<INamedTypeSymbol> interfaces)
     {
         _interfaces = interfaces.ToImmutableArray();
+        _allInterfaces = null;
+    }
+
+    internal void SetBaseType(INamedTypeSymbol baseType)
+    {
+        BaseType = baseType;
         _allInterfaces = null;
     }
 
