@@ -2274,11 +2274,11 @@ Nullable types participate in the type system and overload resolution.
 
 ### Null-conditional access
 
-The null-conditional operator `?.` safely accesses members or elements of a
-nullable value. The expression `expr?.Member` evaluates `expr`; if the result is
-`null`, the overall expression evaluates to `null` instead of throwing. When the
-receiver is not `null`, the member access proceeds normally. This operator works
-for both nullable reference types and nullable value types.
+The null-conditional operators `?.` and `?` safely access members, elements, or
+invoke nullable values. The expression `expr?.Member` evaluates `expr`; if the
+result is `null`, the overall expression evaluates to `null` instead of
+throwing. When the receiver is not `null`, the member access proceeds normally.
+These operators work for both nullable reference types and nullable value types.
 
 ```raven
 var str = x?.ToString()
@@ -2291,6 +2291,21 @@ Here `str` is `string?`, and the call to `ToString` only occurs when `x` is not
 `null`. When the receiver is a nullable value type, the compiler unwraps the
 `System.Nullable<T>` storage, invokes the member on the underlying value, and
 wraps the result back into a nullable type.
+
+Null-conditional access also supports direct invocations and element access.
+Use `?(...)` to invoke a nullable delegate or callable value, and `?[...]` to
+index into a nullable collection or array.
+
+```raven
+let f: Func<int, int>? = null
+let result = f?(2)
+
+let values: int[]? = null
+let first = values?[0]
+```
+
+Invoking or indexing a nullable value without a null-conditional operator
+produces a diagnostic, since the receiver may be `null`.
 
 ### Enums
 

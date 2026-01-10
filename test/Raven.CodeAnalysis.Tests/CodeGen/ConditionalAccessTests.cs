@@ -60,4 +60,58 @@ class Foo {
         var value = (string?)method.Invoke(instance, Array.Empty<object>());
         Assert.Equal("1", value);
     }
+
+    [Fact]
+    public void ConditionalInvocation_NullDelegate_ReturnsNull()
+    {
+        var code = """
+class Foo {
+    Run() -> int? {
+        var f: Func<int, int>? = null
+        return f?(2)
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = method.Invoke(instance, Array.Empty<object>());
+        Assert.Null(value);
+    }
+
+    [Fact]
+    public void ConditionalElementAccess_NullArray_ReturnsNull()
+    {
+        var code = """
+class Foo {
+    Run() -> int? {
+        var values: int[]? = null
+        return values?[0]
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = method.Invoke(instance, Array.Empty<object>());
+        Assert.Null(value);
+    }
 }

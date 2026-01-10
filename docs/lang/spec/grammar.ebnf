@@ -374,7 +374,7 @@ Argument                 ::= [Identifier ':'] Expression ;
 
 MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;
-ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer) ;
+ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
 MemberBindingExpression  ::= '.' Identifier ;
 

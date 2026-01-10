@@ -125,6 +125,51 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void NullableDelegateInvocation_ReportsWarning()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        f(2)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
+    public void NullableDelegateConditionalInvocation_SuppressesWarning()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        f?(2)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
     public void NonNullable_To_Nullable_Conversion_IsImplicit()
     {
         var compilation = CreateCompilation();
