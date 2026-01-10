@@ -273,7 +273,7 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var ifKeyword = ReadToken();
 
-        var condition = new ExpressionSyntaxParser(this).ParseExpression();
+        var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
         var p = PeekToken();
 
@@ -319,7 +319,7 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var whileKeyword = ReadToken();
 
-        var condition = new ExpressionSyntaxParser(this).ParseExpression();
+        var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
         var statement = ParseStatement();
 
         SetTreatNewlinesAsTokens(true);
@@ -432,7 +432,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
 
-        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
         var body = ParseStatement();
 
         SetTreatNewlinesAsTokens(true);
