@@ -2274,11 +2274,11 @@ Nullable types participate in the type system and overload resolution.
 
 ### Null-conditional access
 
-The null-conditional operator `?.` safely accesses members or elements of a
-nullable value. The expression `expr?.Member` evaluates `expr`; if the result is
-`null`, the overall expression evaluates to `null` instead of throwing. When the
-receiver is not `null`, the member access proceeds normally. This operator works
-for both nullable reference types and nullable value types.
+The null-conditional operators `?.` and `?` safely access members, elements, or
+invoke nullable values. The expression `expr?.Member` evaluates `expr`; if the
+result is `null`, the overall expression evaluates to `null` instead of
+throwing. When the receiver is not `null`, the member access proceeds normally.
+These operators work for both nullable reference types and nullable value types.
 
 ```raven
 var str = x?.ToString()
