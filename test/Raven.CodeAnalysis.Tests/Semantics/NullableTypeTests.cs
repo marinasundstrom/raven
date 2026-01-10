@@ -216,6 +216,29 @@ class Foo {
     }
 
     [Fact]
+    public void NullableDelegateInvocation_AfterIsNotNull_WithParens_AllowsAccess()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        if (f is not null) {
+            f.Invoke(2)
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+    }
+
+    [Fact]
     public void NullableDelegateInvocation_AfterGuardReturn_AllowsAccess()
     {
         var source = """
