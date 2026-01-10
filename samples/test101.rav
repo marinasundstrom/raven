@@ -1,0 +1,13 @@
+import System.Console.*
+
+val str = "Test"
+
+Foo(str)
+
+func Foo(str: string?) {
+    if str is not null {
+        val len = str.Length
+
+        WriteLine("Length: $len")
+    }
+}
