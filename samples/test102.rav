@@ -1,0 +1,12 @@
+import System.Console.*
+
+val f: Foo? = Foo(21);
+val s = f?(2)
+
+WriteLine("Result: $s")
+
+public class Foo(b: int) {
+    public self(factor: int) -> int {
+        return b * factor
+    }
+}

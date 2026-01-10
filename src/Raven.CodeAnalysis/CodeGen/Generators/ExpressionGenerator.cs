@@ -2209,9 +2209,32 @@ internal partial class ExpressionGenerator : Generator
 
         EmitWhenNotNull(conditional.WhenNotNull);
 
+        if (conditional.Type is NullableTypeSymbol nullableResult &&
+            nullableResult.UnderlyingType.IsValueType)
+        {
+            var whenNotNullType = conditional.WhenNotNull.Type;
+
+            // normalize: if WhenNotNull is a literal type, unwrap like you do in patterns
+            whenNotNullType = whenNotNullType?.UnwrapLiteralType();
+
+            if (whenNotNullType is not null &&
+                SymbolEqualityComparer.Default.Equals(whenNotNullType, nullableResult.UnderlyingType))
+            {
+                var nullableClr = ResolveClrType(conditional.Type);                // Nullable<T>
+                var underlyingClr = ResolveClrType(nullableResult.UnderlyingType); // T
+
+                var ctor = nullableClr.GetConstructor(new[] { underlyingClr })
+                    ?? throw new InvalidOperationException($"Missing Nullable<{underlyingClr}>.ctor({underlyingClr}).");
+
+                ILGenerator.Emit(OpCodes.Newobj, ctor); // stack: Nullable<T>
+            }
+        }
+
         ILGenerator.Emit(OpCodes.Br, endLabel);
+
         ILGenerator.MarkLabel(whenNullLabel);
         EmitDefaultValue(conditional.Type);
+
         ILGenerator.MarkLabel(endLabel);
     }
 
