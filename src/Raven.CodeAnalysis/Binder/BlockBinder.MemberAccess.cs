@@ -314,6 +314,28 @@ partial class BlockBinder
         return new SubstitutedMethodSymbol(constructor, constructed);
     }
 
+    // ============================
+    // Conditional access helpers
+    // ============================
+
+    private ITypeSymbol? GetConditionalAccessLookupType(ITypeSymbol? type)
+    {
+        if (type is null)
+            return null;
+
+        type = type.UnwrapLiteralType() ?? type;
+
+        // Raven nullable wrapper
+        if (type is NullableTypeSymbol nullable)
+            return nullable.UnderlyingType;
+
+        return type;
+    }
+
+    // ============================
+    // Conditional access binding
+    // ============================
+
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
     {
         var receiver = BindExpressionAllowingEvent(syntax.Expression);
@@ -330,104 +352,72 @@ partial class BlockBinder
                     : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
         }
 
+        var lookupType = GetConditionalAccessLookupType(receiver.Type);
+
         BoundExpression whenNotNull;
 
         switch (syntax.WhenNotNull)
         {
             case MemberBindingExpressionSyntax memberBinding:
                 {
-                    var name = memberBinding.Name.Identifier.ValueText;
-                    var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+                    // Bind using the same logic as '.' (including extensions),
+                    // but:
+                    // - lookup against underlying type (T? -> T)
+                    // - suppress null warning (because it's conditional access)
+                    // - force extension lookup even if receiver is nullable
+                    whenNotNull = BindMemberAccessOnReceiver(
+                        receiver,
+                        memberBinding.Name,
+                        preferMethods: false,
+                        allowEventAccess: false,
+                        suppressNullWarning: true,
+                        receiverTypeForLookup: lookupType,
+                        forceExtensionReceiver: true);
 
-                    var member = receiverType is null
-                        ? null
-                        : new SymbolQuery(name, receiverType, IsStatic: false).Lookup(this).FirstOrDefault();
+                    if (IsErrorExpression(whenNotNull))
+                        whenNotNull = AsErrorExpression(whenNotNull);
 
-                    if (member is null)
-                    {
-                        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberBinding.Name.GetLocation());
-                        whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
-                    }
-                    else
-                    {
-                        if (!EnsureMemberAccessible(member, memberBinding.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
-                        {
-                            whenNotNull = ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-                        }
-                        else
-                        {
-                            whenNotNull = new BoundMemberAccessExpression(receiver, member);
-                        }
-                    }
                     break;
                 }
 
             case InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding } invocation:
                 {
-                    var name = memberBinding.Name.Identifier.ValueText;
-                    var boundArguments = invocation.ArgumentList.Arguments
-                        .Select(a =>
-                        {
-                            var expr = BindExpression(a.Expression);
-                            var name = a.NameColon?.Name.Identifier.ValueText;
-                            if (string.IsNullOrEmpty(name))
-                                name = null;
-                            return new BoundArgument(expr, RefKind.None, name, a);
-                        })
-                        .ToArray();
+                    // First bind "<receiver>.<name>" as a method group (incl. extensions),
+                    // then reuse normal invocation binding.
+                    var member = BindMemberAccessOnReceiver(
+                        receiver,
+                        memberBinding.Name,
+                        preferMethods: true,
+                        allowEventAccess: false,
+                        suppressNullWarning: true,
+                        receiverTypeForLookup: lookupType,
+                        forceExtensionReceiver: true);
 
-                    var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
-
-                    var candidates = receiverType is null
-                        ? ImmutableArray<IMethodSymbol>.Empty
-                        : new SymbolQuery(name, receiverType, IsStatic: false).LookupMethods(this).ToImmutableArray();
-
-                    if (candidates.IsDefaultOrEmpty)
+                    if (IsErrorExpression(member))
                     {
-                        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberBinding.Name.GetLocation());
-                        whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
+                        whenNotNull = AsErrorExpression(member);
+                        break;
+                    }
+
+                    if (member is BoundMethodGroupExpression mg)
+                    {
+                        whenNotNull = BindInvocationOnMethodGroup(mg, invocation);
+                        if (IsErrorExpression(whenNotNull))
+                            whenNotNull = AsErrorExpression(whenNotNull);
                     }
                     else
                     {
-                        var accessibleCandidates = GetAccessibleMethods(candidates, memberBinding.Name.GetLocation());
-
-                        if (accessibleCandidates.IsDefaultOrEmpty)
-                        {
-                            whenNotNull = ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-                        }
-                        else
-                        {
-                            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: invocation);
-                            if (resolution.Success)
-                            {
-                                var converted = ConvertArguments(resolution.Method!.Parameters, boundArguments);
-                                whenNotNull = new BoundInvocationExpression(resolution.Method!, converted, receiver);
-                            }
-                            else if (resolution.IsAmbiguous)
-                            {
-                                _diagnostics.ReportCallIsAmbiguous(name, resolution.AmbiguousCandidates, invocation.GetLocation());
-                                whenNotNull = ErrorExpression(
-                                    reason: BoundExpressionReason.Ambiguous,
-                                    candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
-                            }
-                            else
-                            {
-                                ReportSuppressedLambdaDiagnostics(boundArguments);
-                                _diagnostics.ReportNoOverloadForMethod("method", name, boundArguments.Length, invocation.GetLocation());
-                                whenNotNull = ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
-                            }
-                        }
+                        _diagnostics.ReportInvalidInvocation(invocation.GetLocation());
+                        whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
                     }
+
                     break;
                 }
 
             case InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } invocation:
                 {
                     var result = BindInvocationExpressionCore(receiver, "Invoke", invocation.ArgumentList, syntax.Expression, invocation, suppressNullWarning: true);
-                    if (IsErrorExpression(result))
-                        whenNotNull = AsErrorExpression(result);
-                    else
-                        whenNotNull = result;
+                    whenNotNull = IsErrorExpression(result) ? AsErrorExpression(result) : result;
                     break;
                 }
 
@@ -879,6 +869,10 @@ partial class BlockBinder
         return ErrorExpression(right.Type, reason: BoundExpressionReason.NotFound);
     }
 
+    // ============================
+    // Member access (updated)
+    // ============================
+
     private BoundExpression BindMemberAccessExpression(
        MemberAccessExpressionSyntax memberAccess,
        bool preferMethods = false,
@@ -897,7 +891,32 @@ partial class BlockBinder
 
         ReportPossibleNullReferenceAccess(receiver, memberAccess.Expression);
 
-        var simpleName = memberAccess.Name;
+        return BindMemberAccessOnReceiver(
+            receiver,
+            memberAccess.Name,
+            preferMethods,
+            allowEventAccess,
+            suppressNullWarning: true,
+            receiverTypeForLookup: null,
+            forceExtensionReceiver: false);
+    }
+
+    /// <summary>
+    /// Shared member-access core used by both '.' and '?.' so conditional access can see extensions.
+    /// </summary>
+    private BoundExpression BindMemberAccessOnReceiver(
+        BoundExpression receiver,
+        SimpleNameSyntax simpleName,
+        bool preferMethods,
+        bool allowEventAccess,
+        bool suppressNullWarning,
+        ITypeSymbol? receiverTypeForLookup,
+        bool forceExtensionReceiver)
+    {
+        // NOTE: For '.' we already reported null-ref and pass suppressNullWarning=true here.
+        // For '?.' we also suppress, because conditional access handles null.
+        // This method should not report possible null reference itself.
+
         if (simpleName.Identifier.IsMissing)
         {
             _diagnostics.ReportIdentifierExpected(simpleName.Identifier.GetLocation());
@@ -931,7 +950,7 @@ partial class BlockBinder
             if (member is ITypeSymbol type)
                 return new BoundTypeExpression(type);
 
-            _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(name, nsExpr.Namespace.Name, memberAccess.Name.GetLocation());
+            _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(name, nsExpr.Namespace.Name, nameLocation);
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
@@ -947,7 +966,7 @@ partial class BlockBinder
                 {
                     if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                     {
-                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, nameLocation);
                         if (!instantiated.IsDefaultOrEmpty)
                             return BindMethodGroup(typeExpr, instantiated, nameLocation);
                     }
@@ -964,7 +983,7 @@ partial class BlockBinder
                     {
                         if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                         {
-                            var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                            var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, nameLocation);
                             if (!instantiated.IsDefaultOrEmpty)
                                 return BindMethodGroup(typeExpr, instantiated, nameLocation);
                         }
@@ -988,7 +1007,7 @@ partial class BlockBinder
                     return ErrorExpression(reason: BoundExpressionReason.NotFound);
                 }
 
-                if (!EnsureMemberAccessible(nonMethodMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(nonMethodMember)))
+                if (!EnsureMemberAccessible(nonMethodMember, nameLocation, GetSymbolKindForDiagnostic(nonMethodMember)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 if (nonMethodMember is ITypeSymbol typeMember)
@@ -1018,7 +1037,7 @@ partial class BlockBinder
                 {
                     if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                     {
-                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, nameLocation);
                         if (!instantiated.IsDefaultOrEmpty)
                             return BindMethodGroup(typeExpr, instantiated, nameLocation);
                     }
@@ -1035,7 +1054,7 @@ partial class BlockBinder
                     {
                         if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                         {
-                            var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                            var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, nameLocation);
                             if (!instantiated.IsDefaultOrEmpty)
                                 return BindMethodGroup(typeExpr, instantiated, nameLocation);
                         }
@@ -1082,15 +1101,15 @@ partial class BlockBinder
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
                 }
 
-                if (TryBindDiscriminatedUnionCase(typeExpr.Type, name, memberAccess.Name.GetLocation()) is BoundExpression unionCase)
+                if (TryBindDiscriminatedUnionCase(typeExpr.Type, name, nameLocation) is BoundExpression unionCase)
                     return unionCase;
 
                 var typeName = typeExpr.Symbol!.Name;
-                _diagnostics.ReportMemberDoesNotContainDefinition(typeName, memberAccess.Name.ToString(), memberAccess.Name.GetLocation());
+                _diagnostics.ReportMemberDoesNotContainDefinition(typeName, simpleName.ToString(), nameLocation);
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            if (!EnsureMemberAccessible(member, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
+            if (!EnsureMemberAccessible(member, nameLocation, GetSymbolKindForDiagnostic(member)))
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
             if (member is ITypeSymbol typeMemberSymbol)
@@ -1112,7 +1131,12 @@ partial class BlockBinder
 
         if (receiver.Type is not null)
         {
-            var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+            var receiverType = receiverTypeForLookup ?? (receiver.Type.UnwrapLiteralType() ?? receiver.Type);
+
+            if (!suppressNullWarning)
+                ReportPossibleNullReferenceAccess(receiver, simpleName);
+
+            var allowExtensions = forceExtensionReceiver || IsExtensionReceiver(receiver);
 
             if (preferMethods)
             {
@@ -1125,7 +1149,7 @@ partial class BlockBinder
                 if (!instanceMethods.IsDefaultOrEmpty)
                     methodCandidates = instanceMethods;
 
-                if (IsExtensionReceiver(receiver))
+                if (allowExtensions)
                 {
                     var extensionMethods = LookupExtensionMethods(name, receiverType)
                         .ToImmutableArray();
@@ -1142,7 +1166,7 @@ partial class BlockBinder
                 {
                     if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                     {
-                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, nameLocation);
                         if (!instantiated.IsDefaultOrEmpty)
                             return BindMethodGroup(receiver, instantiated, nameLocation);
                     }
@@ -1182,7 +1206,7 @@ partial class BlockBinder
                 if (!instanceMethods.IsDefaultOrEmpty)
                     methodCandidates = instanceMethods;
 
-                if (IsExtensionReceiver(receiver))
+                if (allowExtensions)
                 {
                     var extensionMethods = LookupExtensionMethods(name, receiverType)
                         .ToImmutableArray();
@@ -1199,7 +1223,7 @@ partial class BlockBinder
                 {
                     if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                     {
-                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                        var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, nameLocation);
                         if (!instantiated.IsDefaultOrEmpty)
                             return BindMethodGroup(receiver, instantiated, nameLocation);
                     }
@@ -1228,7 +1252,7 @@ partial class BlockBinder
                 return new BoundMemberAccessExpression(receiver, instanceMember);
             }
 
-            if (IsExtensionReceiver(receiver))
+            if (allowExtensions)
             {
                 var extensionProperties = LookupExtensionProperties(name, receiverType).ToImmutableArray();
 
@@ -1264,6 +1288,9 @@ partial class BlockBinder
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation);
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
+
+    // --- your BindMemberBindingExpression and below remains unchanged ---
+    // (keeping your original implementation)
 
     private BoundExpression BindMemberBindingExpression(
         MemberBindingExpressionSyntax memberBinding,

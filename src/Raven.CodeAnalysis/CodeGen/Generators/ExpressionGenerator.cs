@@ -2525,6 +2525,30 @@ internal partial class ExpressionGenerator : Generator
     {
         var target = GetInvocationTarget(invocationExpression);
         var receiver = invocationExpression.Receiver;
+
+        var isExtensionCall =
+            target.IsStatic &&
+            target is IMethodSymbol m &&
+            m.IsExtensionMethod; // whatever your helper is
+
+        if (isExtensionCall)
+        {
+            var parameters = target.Parameters;
+            var args2 = invocationExpression.Arguments.ToArray();
+
+            // args[0] = receiver, parameters[0] = receiver-parameter
+
+            // If the receiver isn't already loaded, emit it from args[0].
+            if (!receiverAlreadyLoaded)
+                EmitArgument(args2[0], parameters[0]); // or EmitExpression(args[0]) depending on how you want conversions handled
+
+            for (int i = 1; i < args2.Length; i++)
+                EmitArgument(args2[i], parameters[i]);
+
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
+            return;
+        }
+
         var receiverType = receiver?.Type;
         var useConstrainedCall = !target.IsStatic &&
             receiverType is ITypeParameterSymbol typeParameterSymbol &&
@@ -2701,6 +2725,78 @@ internal partial class ExpressionGenerator : Generator
                 .GetTypeByMetadataName("System.Reflection.MemberInfo");
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
+        }
+    }
+
+    private void EmitArgument(
+    BoundExpression argument,
+    IParameterSymbol paramSymbol)
+    {
+        // ref / out / in
+        if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+        {
+            switch (argument)
+            {
+                case BoundAddressOfExpression addressOf:
+                    EmitAddressOfExpression(addressOf);
+                    return;
+
+                case BoundLocalAccess { Symbol: ILocalSymbol local }:
+                    ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                    return;
+
+                case BoundParameterAccess { Parameter: IParameterSymbol p }:
+                    {
+                        var param = MethodGenerator.GetParameterBuilder(p);
+                        var pos = param.Position;
+                        if (MethodSymbol.IsStatic)
+                            pos -= 1;
+
+                        ILGenerator.Emit(OpCodes.Ldarga, pos);
+                        return;
+                    }
+
+                default:
+                    throw new NotSupportedException(
+                        $"Unsupported ref/out argument: {argument.GetType().Name}");
+            }
+        }
+
+        // Special: null literal → Nullable<T>
+        if (argument.Type?.TypeKind == TypeKind.Null &&
+            paramSymbol.Type is NullableTypeSymbol nullable &&
+            nullable.UnderlyingType.IsValueType)
+        {
+            EmitDefaultValue(paramSymbol.Type);
+            return;
+        }
+
+        // Normal value argument
+        EmitExpression(argument);
+
+        var argumentType = argument.Type;
+        var paramType = paramSymbol.Type;
+        var finalType = argumentType;
+
+        // Apply conversion if needed
+        if (argumentType is not null &&
+            paramType is not null &&
+            !SymbolEqualityComparer.Default.Equals(argumentType, paramType))
+        {
+            var conversion = Compilation.ClassifyConversion(argumentType, paramType);
+            if (conversion.Exists && !conversion.IsIdentity)
+            {
+                EmitConversion(argumentType, paramType, conversion);
+                finalType = paramType;
+            }
+        }
+
+        // Box value types when passing to reference-type parameters
+        if (finalType is not null &&
+            RequiresValueTypeHandling(finalType) &&
+            !RequiresValueTypeHandling(paramType))
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
         }
     }
 

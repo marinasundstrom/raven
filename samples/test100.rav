@@ -2,7 +2,7 @@ import System.*
 
 val f: Action<int>? = null //(x) => Console.WriteLine("Test")
 
-f.Invoke(2) // Report that 'f' might be null.
+f?.Invoke(2) // Report that 'f' might be null.
 
 if f is not null {
     f.Invoke(2) // OK

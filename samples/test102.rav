@@ -1,10 +1,17 @@
 import System.Console.*
 
 val f: Foo? = Foo(21);
-//val s = f?(2)
-f?.Hello()
+val s = f?(2)
 
-//WriteLine("Result: $s")
+WriteLine("Invocation operator: $s")
+
+val s2 = f?.Hello()
+
+WriteLine("Extension: $s2")
+
+val s3 = Foo.Hello2()
+
+WriteLine("Static extension: $s3")
 
 public class Foo(b: int) {
     public self(factor: int) -> int {
@@ -14,6 +21,10 @@ public class Foo(b: int) {
 
 public extension Test for Foo {
     public Hello() -> string {
-        return ""
+        return self.ToString() 
+    }
+
+    public static Hello2() -> string {
+        return "Foobar" 
     }
 }
