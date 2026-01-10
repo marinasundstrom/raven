@@ -355,6 +355,13 @@ captured. Synthesized delegates participate in metadata emission just like
 framework `Func<>`/`Action<>` types, allowing reflection or interop scenarios to
 discover the generated `MulticastDelegate` definitions at runtime.
 
+Lambda expressions are implicitly convertible to any compatible delegate type
+provided by their target-typed context (assignment, return, or argument
+position). Compatibility checks use the delegate's `Invoke` signature. Delegate
+types themselves remain distinct; Raven does not perform implicit conversions
+between delegate types that merely share the same signature, so converting
+between delegate types requires an explicit cast.
+
 ## Interoperability
 
 Because Raven reuses .NET types, existing libraries can be consumed seamlessly:
