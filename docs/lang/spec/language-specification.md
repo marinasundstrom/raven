@@ -2304,6 +2304,9 @@ let values: int[]? = null
 let first = values?[0]
 ```
 
+Invoking or indexing a nullable value without a null-conditional operator
+produces a diagnostic, since the receiver may be `null`.
+
 ### Enums
 
 An enum declaration introduces a distinct type whose instances are one of a

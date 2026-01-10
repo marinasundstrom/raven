@@ -2483,6 +2483,8 @@ partial class BlockBinder : Binder
         if (receiver.Type is { } boundReceiverType && boundReceiverType.ContainsErrorType())
             return new BoundErrorExpression(boundReceiverType, receiver.Symbol, BoundExpressionReason.OtherError);
 
+        ReportPossibleNullReferenceAccess(receiver, memberAccess.Expression);
+
         var simpleName = memberAccess.Name;
         if (simpleName.Identifier.IsMissing)
         {
@@ -4981,8 +4983,12 @@ partial class BlockBinder : Binder
         string methodName,
         ArgumentListSyntax argumentList,
         SyntaxNode receiverSyntax,
-        SyntaxNode callSyntax)
+        SyntaxNode callSyntax,
+        bool suppressNullWarning = false)
     {
+        if (!suppressNullWarning)
+            ReportPossibleNullReferenceAccess(receiver, receiverSyntax);
+
         var boundArguments = BindInvocationArguments(argumentList.Arguments, out var hasErrors);
 
         if (hasErrors)
@@ -5192,6 +5198,20 @@ partial class BlockBinder : Binder
 
         hasErrors = seenErrors;
         return boundArguments;
+    }
+
+    private void ReportPossibleNullReferenceAccess(BoundExpression? receiver, SyntaxNode receiverSyntax)
+    {
+        if (receiver is null)
+            return;
+
+        if (receiver is BoundTypeExpression or BoundNamespaceExpression)
+            return;
+
+        if (receiver.Type is null || !receiver.Type.IsNullable)
+            return;
+
+        _diagnostics.ReportPossibleNullReferenceAccess(receiverSyntax.GetLocation());
     }
 
     private static bool IsErrorExpression(BoundExpression expression)
@@ -5630,7 +5650,7 @@ partial class BlockBinder : Binder
 
             case InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } invocation:
                 {
-                    var result = BindInvocationExpressionCore(receiver, "Invoke", invocation.ArgumentList, syntax.Expression, invocation);
+                    var result = BindInvocationExpressionCore(receiver, "Invoke", invocation.ArgumentList, syntax.Expression, invocation, suppressNullWarning: true);
                     if (IsErrorExpression(result))
                         whenNotNull = AsErrorExpression(result);
                     else
@@ -5640,7 +5660,7 @@ partial class BlockBinder : Binder
 
             case ElementBindingExpressionSyntax elementBinding:
                 {
-                    whenNotNull = BindElementAccessExpression(receiver, elementBinding.ArgumentList, elementBinding);
+                    whenNotNull = BindElementAccessExpression(receiver, elementBinding.ArgumentList, elementBinding, suppressNullWarning: true);
                     if (IsErrorExpression(whenNotNull))
                         whenNotNull = AsErrorExpression(whenNotNull);
                     break;
@@ -5661,14 +5681,18 @@ partial class BlockBinder : Binder
     private BoundExpression BindElementAccessExpression(ElementAccessExpressionSyntax syntax)
     {
         var receiver = BindExpression(syntax.Expression);
-        return BindElementAccessExpression(receiver, syntax.ArgumentList, syntax);
+        return BindElementAccessExpression(receiver, syntax.ArgumentList, syntax, suppressNullWarning: false);
     }
 
     private BoundExpression BindElementAccessExpression(
         BoundExpression receiver,
         BracketedArgumentListSyntax argumentList,
-        SyntaxNode syntax)
+        SyntaxNode syntax,
+        bool suppressNullWarning)
     {
+        if (!suppressNullWarning)
+            ReportPossibleNullReferenceAccess(receiver, syntax);
+
         var argumentExprs = argumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
         if (IsErrorExpression(receiver))

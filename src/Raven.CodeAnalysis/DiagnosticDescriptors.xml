@@ -317,6 +317,10 @@
     Title="Type parameter cannot be nullable"
     Message="Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0402" Identifier="PossibleNullReferenceAccess"
+    Title="Possible null reference access"
+    Message="Possible null reference access"
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0426" Identifier="TypeNameDoesNotExistInType"
     Title="Type name does not exist in type"
     Message="The type name '{name}' does not exist in the type '{container}'"
