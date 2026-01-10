@@ -1,3 +1,17 @@
-val f: (int) -> () = (x) => ()
+import System.*
 
-f(2)
+val f: Action<int>? = null //(x) => Console.WriteLine("Test")
+
+f.Invoke(2) // Report that 'f' might be null.
+
+if f is not null {
+    f.Invoke(2) // OK
+}
+
+//f(2) // Report that 'f' might be null.
+
+f?(2) // OK since its null-conditional
+
+if f is not null {
+    f(2) // OK
+}
