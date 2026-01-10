@@ -2307,6 +2307,25 @@ let first = values?[0]
 Invoking or indexing a nullable value without a null-conditional operator
 produces a diagnostic, since the receiver may be `null`.
 
+The compiler also performs local flow analysis to recognize when a nullable
+receiver is proven non-null. In the `true` branch of checks like `if value != null`
+or `if value is not null`, or after guard statements like `if value == null { return }`,
+member access and invocation on `value` are allowed without `?.` or `?`.
+
+```raven
+let f: Func<int, int>? = null
+
+if f != null {
+    let result = f(2)
+}
+
+if f == null {
+    return
+}
+
+let result2 = f(2)
+```
+
 ### Enums
 
 An enum declaration introduces a distinct type whose instances are one of a

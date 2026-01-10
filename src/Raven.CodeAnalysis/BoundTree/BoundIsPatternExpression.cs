@@ -284,7 +284,7 @@ internal partial class BlockBinder
         var bound = syntax switch
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
-            ConstantPatternSyntax constant => BindConstantPattern(constant),
+            ConstantPatternSyntax constant => BindConstantPattern(constant, inputType),
             VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
             DeclarationPatternSyntax d => BindDeclarationPattern(d),
             TuplePatternSyntax t => BindTuplePattern(t, inputType),
@@ -299,16 +299,25 @@ internal partial class BlockBinder
         return bound;
     }
 
-    private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax)
+    private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax, ITypeSymbol? inputType)
     {
-        /*var type = BindTypeSyntax(syntax.Expression);
-
-        if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType })
+        var expression = BindExpression(syntax.Expression);
+        if (expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral })
         {
-            return new BoundConstantPattern(literalType);
-        }*/
+            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+            var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, Compilation);
+            return new BoundConstantPattern(nullLiteralType);
+        }
 
-        throw new Exception();
+        if (expression.Type is LiteralTypeSymbol literalType)
+            return new BoundConstantPattern(literalType);
+
+        var patternType = expression.Type ?? Compilation.ErrorTypeSymbol;
+        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+            patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            inputType?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "unknown",
+            syntax.Expression.GetLocation());
+        return new BoundDiscardPattern(expression.Type ?? Compilation.ErrorTypeSymbol, BoundExpressionReason.ConstantExpected);
     }
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)
