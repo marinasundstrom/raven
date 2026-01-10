@@ -2,6 +2,8 @@ import System.*
 
 val f: IFoo = Foo()
 
+f.Raised += (s, e) => Console.WriteLine("Hello");
+
 val handler: EventHandler = (s: object?, e: EventArgs) => Console.WriteLine("Hello");
 
 f.Raised += handler
