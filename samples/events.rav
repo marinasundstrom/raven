@@ -16,6 +16,7 @@ f.RaiseEvent(3)
 
 public interface IFoo {
     RaiseEvent(x: int) -> int
+
     event Raised: EventHandler?
 }
 

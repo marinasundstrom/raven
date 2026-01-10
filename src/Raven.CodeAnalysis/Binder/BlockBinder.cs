@@ -4013,12 +4013,6 @@ partial class BlockBinder : Binder
             case ITypeSymbol type:
                 return new BoundTypeExpression(type);
             case IEventSymbol @event:
-                if (!allowEventAccess)
-                {
-                    _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(@event.Name, syntax.Identifier.GetLocation());
-                    return ErrorExpression(reason: BoundExpressionReason.NotFound);
-                }
-
                 if (!EnsureMemberAccessible(@event, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(@event)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
