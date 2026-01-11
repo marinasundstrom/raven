@@ -1,0 +1,35 @@
+import System.*
+import System.Threading.Tasks.*
+
+val foo = Foo(42)
+val result = await foo(true) // foo.Test(true)
+
+Console.WriteLine("Result: $result")
+
+val v = result match {
+    .Some(value) => "Value: $value"
+    .None => "None"
+}
+
+Console.WriteLine(v)
+
+Console.WriteLine(foo.Value)
+
+class Foo(value: int) {
+    public async Test(flag: bool) -> Task<Option<int>> {
+        val delay = Random.Shared.Next(1, 2000)
+
+        await Task.Delay(delay)
+
+        if flag {
+            return .Some(value)
+        }
+        return .None
+    }
+
+    public Value: int => value
+
+    public self(flag: bool) -> Task<Option<int>> {
+        return Test(flag)
+    }
+}
