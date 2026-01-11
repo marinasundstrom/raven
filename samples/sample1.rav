@@ -7,7 +7,7 @@ func Main() {
     val sarah = Person("Sarah Truong", 34)
     val jesse = Person("Jesse Mills", 30)
 
-    var people = [rex, charlie, sarah, jesse]
+    val people = [rex, charlie, sarah, jesse]
 
     for person in people {
         if person is { Age: not > 30 } {
