@@ -1,0 +1,25 @@
+import System.*
+import System.Console.*
+
+func Main() {
+    val rex = Person("Rex", 6)
+    val charlie = Person("Charlie Hudson", 36)
+    val sarah = Person("Sarah Truong", 34)
+    val jesse = Person("Jesse Mills", 30)
+
+    var people = [rex, charlie, sarah, jesse]
+
+    for person in people {
+        if person is { Age: not > 30 } {
+            Print(person)
+        }
+    }
+}
+
+func Print(person: Person) => WriteLine("Name = ${person.Name}, Age = ${person.Age}")
+
+class Person(name: string, age: int) {
+    public Name: string => name
+
+    public Age: int => age
+}

@@ -59,6 +59,15 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParsePrimaryPattern()
     {
+        // Relational pattern: > expr, >= expr, < expr, <= expr
+        if (IsRelationalPatternStart(PeekToken()))
+            return ParseRelationalPattern();
+
+        if (PeekToken().IsKind(SyntaxKind.DotToken))
+        {
+            return ParseCasePattern(qualifier: null, dotToken: ReadToken());
+        }
+
         if (PeekToken().IsKind(SyntaxKind.DotToken))
         {
             return ParseCasePattern(qualifier: null, dotToken: ReadToken());
@@ -395,5 +404,39 @@ internal class PatternSyntaxParser : SyntaxParser
 
         var pattern = new PatternSyntaxParser(this).ParsePattern();
         return TuplePatternElement(nameColon, pattern);
+    }
+
+    private static bool IsRelationalPatternStart(SyntaxToken token)
+    {
+        return token.Kind is
+            SyntaxKind.GreaterThanToken or
+            SyntaxKind.GreaterThanOrEqualsToken or
+            SyntaxKind.LessThanToken or
+            SyntaxKind.LessThanOrEqualsToken;
+    }
+
+    private PatternSyntax ParseRelationalPattern()
+    {
+        // >, >=, <, <=
+        var operatorToken = ReadToken();
+
+        // Parse RHS as an EXPRESSION (not a pattern)
+        // This allows: > 30, > x + 1, > Foo(3), etc.
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        var kind = GetRelationalPatternKind(operatorToken.Kind);
+        return RelationalPattern(kind, operatorToken, expression);
+    }
+
+    private static SyntaxKind GetRelationalPatternKind(SyntaxKind operatorTokenKind)
+    {
+        return operatorTokenKind switch
+        {
+            SyntaxKind.GreaterThanToken => SyntaxKind.GreaterThanPattern,
+            SyntaxKind.GreaterThanOrEqualsToken => SyntaxKind.GreaterThanOrEqualPattern,
+            SyntaxKind.LessThanToken => SyntaxKind.LessThanPattern,
+            SyntaxKind.LessThanOrEqualsToken => SyntaxKind.LessThanOrEqualPattern,
+            _ => throw new InvalidOperationException($"Unexpected relational operator token: {operatorTokenKind}")
+        };
     }
 }

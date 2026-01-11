@@ -77,5 +77,9 @@
   <NodeKind Name="NotPattern" Type="UnaryPattern" />
   <NodeKind Name="AndPattern" Type="BinaryPattern" />
   <NodeKind Name="OrPattern" Type="BinaryPattern" />
+  <NodeKind Name="GreaterThanPattern" Type="RelationalPattern" />
+  <NodeKind Name="GreaterThanOrEqualPattern" Type="RelationalPattern" />
+  <NodeKind Name="LessThanPattern" Type="RelationalPattern" />
+  <NodeKind Name="LessThanOrEqualPattern" Type="RelationalPattern" />
   <NodeKind Name="SkippedTokensTrivia" Type="StructuredTrivia" />
 </NodeKinds>

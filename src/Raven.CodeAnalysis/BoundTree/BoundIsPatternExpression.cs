@@ -292,11 +292,103 @@ internal partial class BlockBinder
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
             CasePatternSyntax c => BindCasePattern(c, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
+            RelationalPatternSyntax r => BindRelationalPattern(r, inputType),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
         };
 
         CacheBoundNode(syntax, bound);
         return bound;
+    }
+
+    private BoundPattern BindRelationalPattern(RelationalPatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var @operator = syntax.Kind switch
+        {
+            SyntaxKind.GreaterThanPattern => BoundRelationalPatternOperator.GreaterThan,
+            SyntaxKind.GreaterThanOrEqualPattern => BoundRelationalPatternOperator.GreaterThanOrEqual,
+            SyntaxKind.LessThanPattern => BoundRelationalPatternOperator.LessThan,
+            SyntaxKind.LessThanOrEqualPattern => BoundRelationalPatternOperator.LessThanOrEqual,
+            _ => throw new NotImplementedException($"Unsupported relational pattern kind: {syntax.Kind}")
+        };
+
+        // RHS is an EXPRESSION (already parsed that way)
+        var value = BindExpression(syntax.Expression);
+
+        if (inputType.TypeKind == TypeKind.Error || value.Type?.TypeKind == TypeKind.Error)
+            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
+
+        // The pattern compares: (inputType <op> valueConvertedToInputType)
+        // so we want RHS to be convertible to inputType.
+        if (value.Type is null)
+        {
+            // Defensive: should not happen often
+            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.MissingType);
+        }
+
+        var conversion = Compilation.ClassifyConversion(value.Type, inputType);
+
+        if (!conversion.Exists)
+        {
+            // You can create a dedicated diagnostic if you want.
+            // For now: reuse "pattern invalid" style reporting.
+            _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                value.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Expression.GetLocation());
+
+            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
+        }
+
+        // Optional but recommended:
+        // if you have a BindConversion(...) helper, do it here so codegen doesn’t need to guess.
+        //
+        // value = BindConversion(value, inputType, syntax.Expression.GetLocation());
+        //
+        // If you DON'T have conversion nodes yet, it’s still fine to keep as-is;
+        // codegen can emit a comparison using normal operator resolution rules later.
+
+        // One more safety: relational operators require orderability.
+        // If you have a helper that checks whether <, > is defined, call it.
+        // Minimal baseline: allow numeric + char + enums. Extend later.
+        if (!IsOrderableType(inputType))
+        {
+            _diagnostics.ReportRelationalPatternNotSupported(
+                syntax.OperatorToken,
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+
+            return new BoundRelationalPattern(inputType, @operator, value, BoundExpressionReason.TypeMismatch);
+        }
+
+        return new BoundRelationalPattern(inputType, @operator, value);
+    }
+
+    private static bool IsOrderableType(ITypeSymbol type)
+    {
+        // Keep it conservative to start. You can later expand to:
+        // - string (ordinal compare?) if you want
+        // - IComparable / IComparable<T> if you want
+        // - custom operators if Raven supports them
+        if (type is null)
+            return false;
+
+        if (type.TypeKind == TypeKind.Enum)
+            return true;
+
+        return type.SpecialType is
+            SpecialType.System_SByte or
+            SpecialType.System_Byte or
+            SpecialType.System_Int16 or
+            SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or
+            SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or
+            SpecialType.System_UInt64 or
+            SpecialType.System_Single or
+            SpecialType.System_Double or
+            SpecialType.System_Char;
     }
 
     private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax, ITypeSymbol? inputType)
@@ -1100,3 +1192,33 @@ internal readonly record struct BoundPropertySubpattern(
     ISymbol Member,
     ITypeSymbol Type,
     BoundPattern Pattern);
+
+internal enum BoundRelationalPatternOperator
+{
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+}
+
+internal sealed class BoundRelationalPattern : BoundPattern
+{
+    public BoundRelationalPattern(
+        ITypeSymbol inputType,
+        BoundRelationalPatternOperator @operator,
+        BoundExpression value,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(inputType, reason)
+    {
+        InputType = inputType;
+        Operator = @operator;
+        Value = value;
+    }
+
+    public ITypeSymbol InputType { get; }
+    public BoundRelationalPatternOperator Operator { get; }
+    public BoundExpression Value { get; }
+
+    public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+}

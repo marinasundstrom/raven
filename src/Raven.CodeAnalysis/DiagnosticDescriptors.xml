@@ -620,4 +620,20 @@
     Title="Unmatched character"
     Message="Unmatched '{character}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1605" Identifier="RelationalPatternNotSupported"
+    Title="Relational pattern not supported for type"
+    Message="Relational pattern operator '{operatorToken}' is not supported for type '{typeName}'"
+    Category="compiler"
+    Severity="Error"
+    EnabledByDefault="true"
+    Description=""
+    HelpLinkUri="" />
+  <Descriptor Id="RAV1606" Identifier="RelationalPatternCannotConvert"
+    Title="Relational pattern value cannot be converted"
+    Message="Relational pattern value of type '{valueType}' cannot be converted to '{inputType}'"
+    Category="compiler"
+    Severity="Error"
+    EnabledByDefault="true"
+    Description=""
+    HelpLinkUri="" />
 </Diagnostics>

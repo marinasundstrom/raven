@@ -184,6 +184,9 @@ internal partial class ExpressionGenerator
             case BoundConstantPattern:
                 return PatternInput.Typed;
 
+            case BoundRelationalPattern:
+                return PatternInput.Typed;
+
             // combinations inherit the "worst" requirement
             case BoundUnaryPattern up:
                 return GetPatternInputRequirement(up.Pattern);
@@ -227,6 +230,12 @@ internal partial class ExpressionGenerator
             var loc = ILGenerator.DeclareLocal(clr);
             ILGenerator.Emit(OpCodes.Stloc, loc);
             return loc;
+        }
+
+        if (pattern is BoundRelationalPattern relational)
+        {
+            EmitRelationalPattern(relational, inputType, scope);
+            return;
         }
 
         if (pattern is BoundDiscardPattern)
@@ -579,6 +588,75 @@ internal partial class ExpressionGenerator
         }
 
         throw new NotSupportedException("Unsupported pattern");
+    }
+
+    private void EmitRelationalPattern(BoundRelationalPattern pattern, ITypeSymbol inputType, Generator scope)
+    {
+        // Stack on entry: <scrutinee>  (typed if PatternInput.Typed worked correctly)
+
+        // If binder already marked it as error-ish, just evaluate to false safely.
+        if (inputType.TypeKind == TypeKind.Error || pattern.Value.Type.TypeKind == TypeKind.Error)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            return;
+        }
+
+        // Spill scrutinee so we can reuse it (and handle nullable without duplicating stack games)
+        var scrutineeClr = ResolveClrType(inputType);
+        var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClr);
+        ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+        // Nullable<T> path
+        if (inputType.IsNullable)
+        {
+            var nullableClr = scrutineeClr;
+            var underlyingType = inputType.GetNullableUnderlyingType();
+            var underlyingClr = ResolveClrType(underlyingType);
+
+            var hasValueGetter = nullableClr.GetProperty("HasValue")!.GetGetMethod()!;
+            var getValueOrDefault = nullableClr.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+
+            var labelFalse = ILGenerator.DefineLabel();
+            var labelDone = ILGenerator.DefineLabel();
+
+            // if (!loc.HasValue) -> false
+            ILGenerator.Emit(OpCodes.Ldloca_S, scrutineeLocal);
+            ILGenerator.Emit(OpCodes.Call, hasValueGetter);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFalse);
+
+            // left = loc.GetValueOrDefault()
+            ILGenerator.Emit(OpCodes.Ldloca_S, scrutineeLocal);
+            ILGenerator.Emit(OpCodes.Call, getValueOrDefault); // underlying T on stack
+
+            // right = constant (emit in underlying type)
+            EmitConstantForRelational((BoundConstantPattern)pattern.Value, underlyingType);
+
+            // compare => int
+            EmitCompare(underlyingType);
+
+            // apply operator vs 0
+            EmitRelationalOperator(pattern.Operator);
+
+            ILGenerator.Emit(OpCodes.Br, labelDone);
+
+            ILGenerator.MarkLabel(labelFalse);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+            ILGenerator.MarkLabel(labelDone);
+            return;
+        }
+
+        // Non-nullable path
+        ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+
+        var t = (BoundLiteralExpression)pattern.Value;
+
+        EmitConstantForRelational(new BoundConstantPattern((LiteralTypeSymbol)t.Type), inputType);
+
+        EmitCompare(inputType);
+
+        EmitRelationalOperator(pattern.Operator);
     }
 
     // ============================================
@@ -1180,5 +1258,76 @@ internal partial class ExpressionGenerator
             return null;
 
         throw new NotSupportedException("Unsupported designation");
+    }
+
+    // Helpers
+
+    private void EmitConstantForRelational(BoundConstantPattern constant, ITypeSymbol targetType)
+    {
+        var value = constant.ConstantValue; // from LiteralTypeSymbol
+        if (value is null)
+        {
+            // binder should prevent this; be defensive
+            ILGenerator.Emit(OpCodes.Ldnull);
+            return;
+        }
+
+        // Use your existing literal emitter, but ensure it's emitted as the target type.
+        // For relational comparisons, the "targetType" should be the scrutinee/member type.
+        EmitLiteralInTargetType(value, targetType, constant.LiteralType);
+    }
+
+    private void EmitCompare(ITypeSymbol type)
+    {
+        var clr = Generator.InstantiateType(ResolveClrType(type));
+
+        var rightLocal = ILGenerator.DeclareLocal(clr);
+        ILGenerator.Emit(OpCodes.Stloc, rightLocal); // pop right
+
+        var leftLocal = ILGenerator.DeclareLocal(clr);
+        ILGenerator.Emit(OpCodes.Stloc, leftLocal); // pop left
+
+        var comparerType = typeof(System.Collections.Generic.Comparer<>).MakeGenericType(clr);
+        var defaultGetter = comparerType.GetProperty("Default")!.GetGetMethod()!;
+        var compareMethod = comparerType.GetMethod("Compare", new[] { clr, clr })!;
+
+        ILGenerator.Emit(OpCodes.Call, defaultGetter);
+        ILGenerator.Emit(OpCodes.Ldloc, leftLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, rightLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, compareMethod); // int
+    }
+
+    private void EmitRelationalOperator(BoundRelationalPatternOperator op)
+    {
+        // Stack: <compareResult:int>
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+        switch (op)
+        {
+            case BoundRelationalPatternOperator.LessThan:
+                ILGenerator.Emit(OpCodes.Clt);
+                break;
+
+            case BoundRelationalPatternOperator.LessThanOrEqual:
+                // !(result > 0)
+                ILGenerator.Emit(OpCodes.Cgt);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            case BoundRelationalPatternOperator.GreaterThan:
+                ILGenerator.Emit(OpCodes.Cgt);
+                break;
+
+            case BoundRelationalPatternOperator.GreaterThanOrEqual:
+                // !(result < 0)
+                ILGenerator.Emit(OpCodes.Clt);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            default:
+                throw new NotSupportedException();
+        }
     }
 }

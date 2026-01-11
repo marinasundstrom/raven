@@ -634,6 +634,10 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Right" Type="Pattern" />
   </Node>
+  <Node Name="RelationalPattern" Inherits="Pattern" HasExplicitKind="true">
+    <Slot Name="OperatorToken" Type="Token" />
+    <Slot Name="Expression" Type="Expression" />
+  </Node>
   <Node Name="CasePattern" Inherits="Pattern">
     <Slot Name="Path" Type="CasePatternPath" />
     <Slot Name="ArgumentList" Type="CasePatternArgumentList" IsNullable="true" />

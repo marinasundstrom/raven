@@ -45,16 +45,17 @@ FunctionDeclaration      ::= FunctionModifiers?
                              WhereClauseList?
                              ( Block | '=>' Expression ) ;
 
-ExtensionDeclaration ::= 'extension' Identifier TypeParameterList?
-                         'for' Type
-                         WhereClauseList?
-                         ExtensionBody ;
+ExtensionDeclaration     ::= 'extension' Identifier TypeParameterList?
+                             'for' Type
+                             WhereClauseList?
+                             ExtensionBody ;
 
 ExtensionBody            ::= '{' {ExtensionMember} '}' ;
 ExtensionMember          ::= ExtensionMethodDeclaration
                            | ExtensionPropertyDeclaration
                            | OperatorDeclaration
                            | ConversionOperatorDeclaration ;
+
 ExtensionMethodDeclaration
                            ::= ExtensionMethodModifiers?
                                Identifier TypeParameterList?
@@ -62,48 +63,52 @@ ExtensionMethodDeclaration
                                ReturnTypeClause?
                                WhereClauseList?
                                ( Block | '=>' Expression ) ;
+
 ExtensionMethodModifiers ::= AccessModifier ;
+
 ExtensionPropertyDeclaration
                            ::= ExtensionPropertyModifiers?
                                Identifier ':' Type AccessorList ;
+
 ExtensionPropertyModifiers ::= AccessModifier ;
 
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
 Parameter                ::= RefKindModifier? Identifier ':' Type ['=' Expression] ;
-RefKindModifier           ::= 'ref' | 'out' | 'in' ;
+RefKindModifier          ::= 'ref' | 'out' | 'in' ;
 
 EnumDeclaration          ::= TypeModifiers?
                              'enum' Identifier '{' EnumMembers? '}' ;
 EnumMembers              ::= EnumMember {',' EnumMember} ;
 EnumMember               ::= Identifier ['=' Expression] ;
 
-ClassDeclaration     ::= TypeModifiers? 'class' Identifier TypeParameterList?
-                         PrimaryConstructor? BaseList?
-                         WhereClauseList?
-                         ClassBody ;
-                         
+ClassDeclaration         ::= TypeModifiers? 'class' Identifier TypeParameterList?
+                             PrimaryConstructor? BaseList?
+                             WhereClauseList?
+                             ClassBody ;
+
 PrimaryConstructor       ::= '(' ParameterList? ')' ;
 
-StructDeclaration    ::= TypeModifiers? 'struct' Identifier TypeParameterList?
-                         BaseList?
-                         WhereClauseList?
-                         ClassBody ;
+StructDeclaration        ::= TypeModifiers? 'struct' Identifier TypeParameterList?
+                             BaseList?
+                             WhereClauseList?
+                             ClassBody ;
 
-InterfaceDeclaration ::= TypeModifiers? 'interface' Identifier TypeParameterList?
-                         BaseList?
-                         WhereClauseList?
-                         ClassBody ;
+InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier TypeParameterList?
+                             BaseList?
+                             WhereClauseList?
+                             ClassBody ;
 
-
-UnionDeclaration     ::= TypeModifiers? 'union' Identifier TypeParameterList?
-                         WhereClauseList?
-                         '{' UnionCaseList '}' TypeTerminator? ;
+UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList?
+                             WhereClauseList?
+                             '{' UnionCaseList '}' TypeTerminator? ;
 
 UnionCaseList            ::= UnionCaseClause {UnionCaseClause} ;
 UnionCaseClause          ::= Identifier ParameterList? ;
+
 BaseList                 ::= ':' Type {',' Type} ;
+
 ClassBody                ::= '{' {ClassMember} '}' ;
 
 TypeTerminator           ::= NewLineToken | ';' ;
@@ -136,6 +141,7 @@ MethodDeclaration        ::= MemberModifiers?
                              ReturnTypeClause?
                              WhereClauseList?
                              ( Block | '=>' Expression ) ;
+
 ConversionOperatorDeclaration
                          ::= MemberModifiers?
                              ( 'explicit' | 'implicit' ) 'operator' TypeParameterList?
@@ -143,12 +149,14 @@ ConversionOperatorDeclaration
                              ReturnTypeClause?
                              WhereClauseList?
                              ( Block | '=>' Expression ) ;
+
 OperatorDeclaration      ::= MemberModifiers?
                              'operator' OverloadableOperator TypeParameterList?
                              '(' ParameterList? ')'
                              ReturnTypeClause?
                              WhereClauseList?
                              ( Block | '=>' Expression ) ;
+
 OverloadableOperator     ::= '+' | '-' | '*' | '/' | '%' | '^' | '&' | '&&' | 'and'
                            | '|' | '||' | 'or' | '==' | '!=' | '<' | '<=' | '>'
                            | '>=' | '!' | '++' | '--' ;
@@ -184,21 +192,22 @@ BracketedParameterList   ::= '[' ParameterList? ']' ;
 
 (* ---------- Generics & constraints ---------- *)
 
-TypeParameterList         ::= '<' TypeParameter {',' TypeParameter} '>' ;
+TypeParameterList        ::= '<' TypeParameter {',' TypeParameter} '>' ;
 
-TypeParameter              ::= Variance? Identifier InlineConstraints?
-InlineConstraints          ::= ':' ConstraintList
+TypeParameter            ::= Variance? Identifier InlineConstraints? ;
 
-VarianceAnnotation        ::= 'out' | 'in' ;
+InlineConstraints        ::= ':' TypeParameterConstraintList ;
 
-WhereClauseList           ::= WhereClause { WhereClause } ;
+Variance                 ::= 'out' | 'in' ;
 
-WhereClause               ::= 'where' Identifier ':' TypeParameterConstraintList ;
+WhereClauseList          ::= WhereClause { WhereClause } ;
+
+WhereClause              ::= 'where' Identifier ':' TypeParameterConstraintList ;
 
 TypeParameterConstraintList
                          ::= TypeParameterConstraint {',' TypeParameterConstraint} ;
 
-TypeParameterConstraint   ::= 'class'            (* reference type constraint *)
+TypeParameterConstraint  ::= 'class'            (* reference type constraint *)
                            | 'struct'           (* value type constraint *)
                            | 'notnull'          (* non-null constraint *)
                            | 'unmanaged'        (* unmanaged constraint *)
@@ -233,11 +242,8 @@ LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarato
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
 ReturnStatement          ::= 'return' Expression? ;
-
 ThrowStatement           ::= 'throw' Expression ;
-
 BreakStatement           ::= 'break' ;
-
 ContinueStatement        ::= 'continue' ;
 
 FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList?
@@ -245,8 +251,6 @@ FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList?
                              ReturnTypeClause?
                              WhereClauseList?
                              Block ;
-
-AssignmentStatement      ::= AssignmentTarget AssignmentOperator Expression ;
 
 ExpressionStatement      ::= Expression ;
 
@@ -261,6 +265,15 @@ CatchClause              ::= 'catch' CatchDeclaration? Block ;
 CatchDeclaration         ::= '(' Type [Identifier] ')' ;
 FinallyClause            ::= 'finally' Block ;
 
+(* Keep statement assignments consistent with expression assignments:
+   - LHS must be assignable OR a deconstruction designation.
+   - Patterns are NOT assignment targets. *)
+AssignmentStatement      ::= Assignable AssignmentOperator Expression
+                           | DeconstructionAssignmentStatement ;
+
+DeconstructionAssignmentStatement
+                         ::= VariableDesignation AssignmentOperator Expression ;
+
 (* ---------- Expressions & precedence (lowest → highest) ---------- *)
 
 Expression               ::= AssignmentExpression {MatchExpressionSuffix} ;
@@ -271,12 +284,13 @@ MatchArm                 ::= Pattern MatchGuardClause? '=>' Expression MatchArmT
 MatchGuardClause         ::= 'when' Expression ;
 MatchArmTerminator       ::= NewLineToken | ';' ;
 
-AssignmentExpression     ::= AssignmentTarget AssignmentOperator AssignmentExpression
+AssignmentExpression     ::= Assignable AssignmentOperator AssignmentExpression
+                           | DeconstructionAssignment
                            | ConditionalNullCoalesceExpression ;
 
-AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' ;
+DeconstructionAssignment ::= VariableDesignation AssignmentOperator AssignmentExpression ;
 
-AssignmentTarget         ::= Assignable | Pattern ;
+AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' ;
 
 Assignable               ::= Identifier
                            | MemberAccessExpression
@@ -291,13 +305,15 @@ OrPattern                ::= AndPattern {'or' AndPattern} ;
 AndPattern               ::= UnaryPattern {'and' UnaryPattern} ;
 UnaryPattern             ::= 'not' UnaryPattern | PrimaryPattern ;
 
-PrimaryPattern           ::= ConstantPattern
+PrimaryPattern           ::= ParenthesizedPattern
+                           | RelationalPattern
+                           | ConstantPattern
                            | VariablePattern
                            | DeclarationPattern
                            | TuplePattern
                            | DiscardPattern
                            | CasePattern
-                           | PropertyPattern ;          (* NEW *)
+                           | PropertyPattern ;
 
 ConstantPattern          ::= Literal ;
 
@@ -305,32 +321,35 @@ VariablePattern          ::= ('let' | 'val'| 'var') VariableDesignation ;
 
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
-TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
+TuplePattern             ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [Identifier ':'] Pattern ;
 
 DiscardPattern           ::= '_' | Type '_' ;
 
 CasePattern              ::= CasePath [ '(' PatternList? ')' ] ;
-
 CasePath                 ::= '.' Identifier
                            | Type '.' Identifier ;
 
 PatternList              ::= Pattern {',' Pattern} ;
 
 PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' ;
-
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
-
 PropertySubpattern       ::= Identifier ':' Pattern ;
+
+ParenthesizedPattern     ::= '(' Pattern ')' ;
+
+RelationalPattern        ::= RelationalOperator RelationalPatternOperand ;
+RelationalOperator       ::= '<' | '<=' | '>' | '>=' | '==' | '!=' ;
+RelationalPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
 
 VariableDesignation      ::= VariableDesignationCore [':' Type] ;
 VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;
 
 ParenthesizedVariableDesignation
-                           ::= '(' VariableDesignation {',' VariableDesignation} ')' ;
+                         ::= '(' VariableDesignation {',' VariableDesignation} ')' ;
 
 ConditionalNullCoalesceExpression
-                           ::= LogicalOrExpression {'??' LogicalOrExpression} ;
+                         ::= LogicalOrExpression {'??' LogicalOrExpression} ;
 
 LogicalOrExpression      ::= LogicalAndExpression {'||' LogicalAndExpression} ;
 LogicalAndExpression     ::= BitwiseOrExpression {'&&' BitwiseOrExpression} ;
@@ -340,7 +359,7 @@ EqualityExpression       ::= RelationalExpression {('==' | '!=') RelationalExpre
 RelationalExpression     ::= TypeTestExpression
                              {('<' | '>' | '<=' | '>=') TypeTestExpression} ;
 
-TypeTestExpression       ::= RangeExpression {('is' | 'as') Type} ;
+TypeTestExpression       ::= RangeExpression { 'as' Type } [ 'is' Pattern ] ;
 
 RangeExpression          ::= RangeStart '..' RangeEnd
                            | AdditiveExpression ;
@@ -381,6 +400,7 @@ MemberBindingExpression  ::= '.' Identifier ;
 (* ---------- Primaries ----------
    NOTE: Block and IfExpression can appear as expressions.
          While and for constructs exist only as statements. *)
+
 PrimaryExpression        ::= Literal
                            | DefaultExpression
                            | Identifier
@@ -400,7 +420,9 @@ TryExpression            ::= 'try' Expression ;
 Block                    ::= '{' {Statement} '}' ;
 
 IfExpression             ::= 'if' Expression Expression 'else' Expression ;
-InterpolatedStringExpression ::= '"' {InterpolatedStringContent} '"' ;
+
+InterpolatedStringExpression
+                         ::= '"' {InterpolatedStringContent} '"' ;
 InterpolatedStringContent ::= InterpolatedStringText | Interpolation ;
 InterpolatedStringText   ::= /* text segment without ${ or closing quote */ ;
 Interpolation            ::= '${' Expression '}' ;
@@ -421,10 +443,9 @@ Literal                  ::= NumericLiteral
 Type                     ::= ByRefType | PointerType | UnionType ;
 
 ByRefType                ::= '&' Type ;
-
 PointerType              ::= '*' Type ;
 
-UnionType                ::= FunctionType {'|' FunctionType} ;     (* left-assoc *)
+UnionType                ::= FunctionType {'|' FunctionType} ; (* left-assoc *)
 
 FunctionType             ::= FunctionParameterClause '->' Type
                            | NullableType ;
@@ -432,7 +453,7 @@ FunctionType             ::= FunctionParameterClause '->' Type
 FunctionParameterClause  ::= FunctionTypeParameterList | NullableType ;
 
 FunctionTypeParameterList
-                           ::= '(' [Type {',' Type}] ')' ;
+                         ::= '(' [Type {',' Type}] ')' ;
 
 NullableType             ::= PrimaryType ['?'] ;
 
@@ -452,13 +473,16 @@ TypeList                 ::= Type {',' Type} ;
 
 TupleType                ::= '(' TupleTypeElement {',' TupleTypeElement} ')' ;
 TupleTypeElement         ::= [Identifier ':'] Type ;
+
 ParenthesizedType        ::= '(' Type ')' ;
 
 QualifiedName            ::= Identifier {'.' Identifier} ;
 
 Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, digits, '_' or '$'.
                                The single '_' token is reserved for discards. */ ;
+
 NumericLiteral           ::= /* int | float | hex | bin (lexically resolved) */ ;
+
 StringLiteral            ::= '"' {InterpolatedStringText | Interpolation} '"' ;
 InterpolatedStringText   ::= /* content with escapes */ ;
 Interpolation            ::= '$' Identifier | '$' '{' Expression '}' ;
