@@ -269,7 +269,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/test103-error{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/test104{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)
@@ -427,6 +427,7 @@ foreach (var r in additionalRefs)
 
 project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()));
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
