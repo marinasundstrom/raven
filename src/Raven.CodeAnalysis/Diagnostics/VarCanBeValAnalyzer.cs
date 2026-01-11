@@ -92,11 +92,9 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
     {
         private readonly SemanticModel _semanticModel;
 
-        // var locals declared in this body (and their diagnostic location)
         private readonly Dictionary<ILocalSymbol, VarCandidate> _varLocals =
             new(SymbolEqualityComparer.Default);
 
-        // locals that are written via assignment/compound assignment/etc (excluding declaration)
         private readonly HashSet<ILocalSymbol> _writtenAfterDeclaration =
             new(SymbolEqualityComparer.Default);
 
@@ -117,41 +115,55 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             }
         }
 
+        // --- Core traversal helpers ---------------------------------------------
+
+        private void VisitMaybe(SyntaxNode? node)
+        {
+            if (node is not null)
+                node.Accept(this);
+        }
+
+        private void VisitMaybe(ExpressionSyntax? expr)
+        {
+            if (expr is not null)
+                Visit(expr);
+        }
+
+        private void VisitMaybe(StatementSyntax? stmt)
+        {
+            if (stmt is not null)
+                stmt.Accept(this);
+        }
+
+        // --- Blocks --------------------------------------------------------------
+
         public override void VisitBlockStatement(BlockStatementSyntax node)
         {
             foreach (var statement in node.Statements)
-            {
                 statement.Accept(this);
-            }
         }
+
+        // --- Decls / writes ------------------------------------------------------
 
         public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
         {
-            // Detect "var" declarations. Adjust this to your syntax model.
-            // Common shapes:
-            // - node.Declaration.Keyword.Kind == SyntaxKind.VarKeyword
-            // - node.Declaration.IsVar
-            // - node.Declaration.Kind == LocalDeclarationKind.Var
             var isVar = IsVarDeclaration(node);
 
             if (isVar)
             {
                 foreach (var declarator in node.Declaration.Declarators)
                 {
-                    // Use declarator symbol as the ground truth for the local.
                     if (_semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
                     {
-                        // Prefer declarator.Identifier; fall back to local.Name if needed.
                         var name = local.Name;
-
-                        // Again, adjust if your declarator token differs.
                         var idToken = declarator.Identifier;
-
                         _varLocals[local] = new VarCandidate(local, name, idToken);
                     }
                 }
             }
 
+            // Keep walking initializer expressions etc (if your base walker does it).
+            // If it doesn't, you should explicitly visit them here.
             base.VisitLocalDeclarationStatement(node);
         }
 
@@ -167,40 +179,12 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             Visit(node.Right);
         }
 
-        public override void VisitInvocationExpression(InvocationExpressionSyntax node)
-        {
-            // If you can reach bound invocation info, treat ref/out arguments as writes.
-            // If not, this safely does nothing beyond normal traversal.
-            var bound = _semanticModel.GetBoundNode(node) as BoundInvocationExpression;
-            if (bound is not null)
-            {
-                foreach (var arg in bound.Arguments)
-                {
-                    /*
-                    if (arg.RefKind is RefKind.Ref or RefKind.Out)
-                    {
-                        // If the argument expression is (or contains) a local lvalue, mark it written.
-                        // We can use the syntax-side expression if available; otherwise you can extend this.
-                        if (arg.Syntax is ArgumentSyntax argSyntax)
-                            MarkWrittenFromExpression(argSyntax.Expression);
-                    }
-                    */
-                }
-            }
-
-            // Regular traversal
-            Visit(node.Expression);
-            foreach (var arg in node.ArgumentList.Arguments)
-                Visit(arg.Expression);
-        }
-
-        // If Raven has ++/-- syntax nodes, add these overrides.
-        // If you don’t, you can delete them; they’re here for completeness.
         public override void VisitUnaryExpression(UnaryExpressionSyntax node)
         {
             if (IsIncrementOrDecrement(node.OperatorToken))
                 MarkWrittenFromExpression(node.Expression);
 
+            // If your base walker does nothing, replace with explicit Visit(...) calls.
             base.VisitUnaryExpression(node);
         }
 
@@ -212,6 +196,70 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             base.VisitPostfixUnaryExpression(node);
         }
 
+        public override void VisitInvocationExpression(InvocationExpressionSyntax node)
+        {
+            // Optional: ref/out handling (as you already sketched)
+            // ...
+
+            Visit(node.Expression);
+            foreach (var arg in node.ArgumentList.Arguments)
+                Visit(arg.Expression);
+        }
+
+        // --- CONTROL FLOW: add these --------------------------------------------
+
+        public override void VisitIfStatement(IfStatementSyntax node)
+        {
+            Visit(node.Condition);
+
+            // adjust names: ThenStatement/Then, ElseClause/Else, etc.
+            VisitMaybe(node.ThenStatement);
+
+            if (node.ElseClause is not null)
+                VisitMaybe(node.ElseClause.Statement);
+        }
+
+        public override void VisitWhileStatement(WhileStatementSyntax node)
+        {
+            Visit(node.Condition);
+            VisitMaybe(node.Statement);
+        }
+
+        public override void VisitForStatement(ForStatementSyntax node)
+        {
+            VisitMaybe(node.Expression);
+
+            VisitMaybe(node.Body);
+        }
+
+        public override void VisitReturnStatement(ReturnStatementSyntax node)
+        {
+            VisitMaybe(node.Expression);
+        }
+
+        public override void VisitExpressionStatement(ExpressionStatementSyntax node)
+        {
+            Visit(node.Expression);
+        }
+
+        // If you have match/switch-like constructs, add them too:
+        public override void VisitMatchExpression(MatchExpressionSyntax node)
+        {
+            Visit(node.Expression);
+            foreach (var arm in node.Arms)
+                arm.Accept(this);
+        }
+
+        public override void VisitMatchArm(MatchArmSyntax node)
+        {
+            // arm pattern + optional guard + expression/body
+            // adjust names
+            VisitMaybe(node.Pattern);
+            VisitMaybe(node.Expression);
+        }
+
+        // --- write marking -------------------------------------------------------
+
         private void MarkWritten(ExpressionOrPatternSyntax left)
         {
             foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, left))
@@ -220,33 +268,17 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         private void MarkWrittenFromExpression(ExpressionSyntax expression)
         {
-            // This covers cases where we only have ExpressionSyntax (e.g. ref/out arguments, ++x operand).
             foreach (var local in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, expression))
                 _writtenAfterDeclaration.Add(local);
         }
 
         private static bool IsIncrementOrDecrement(SyntaxToken operatorToken)
-        {
-            // Adjust these kinds to your SyntaxKind names.
-            return operatorToken.Kind is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken;
-        }
+            => operatorToken.Kind is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken;
 
         private bool IsVarDeclaration(LocalDeclarationStatementSyntax node)
         {
-            // Adjust to your Raven syntax surface.
-            // Here are a few common patterns; pick the one that matches your AST.
-
-            // Pattern A: keyword token on the declaration (recommended)
             if (node.Declaration.BindingKeyword.Kind == SyntaxKind.VarKeyword)
                 return true;
-
-            // Pattern B: explicit property
-            // if (node.Declaration.IsVar)
-            //     return true;
-
-            // Pattern C: enum kind
-            // if (node.Declaration.DeclarationKind == LocalDeclarationKind.Var)
-            //     return true;
 
             return false;
         }
