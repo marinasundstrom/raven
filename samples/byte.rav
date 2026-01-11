@@ -1,3 +1,11 @@
 import System.Console.*
 
-WriteLine(2b)
+val x1 = 2
+val x2 = 2b
+val x3: byte = 2
+
+WriteLine(x3)
+
+val x0 = 2 + 3b
+
+WriteLine(x0)
