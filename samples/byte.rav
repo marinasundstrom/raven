@@ -1,0 +1,5 @@
+val x1 = 2
+val x2 = 2b
+val x3: byte = 2
+
+val x = 2 + 3b

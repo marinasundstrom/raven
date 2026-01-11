@@ -308,17 +308,57 @@ multiple primitive types, the union retains each one. Assigning that union to a
 single numeric type triggers a diagnostic because not every branch converts to
 the target.
 
-Numeric literals choose an underlying primitive type. Integer literals default
-to `int` but upgrade to `long` when the value exceeds the `int` range.
-Floating-point literals default to `double`; appending `f` or `F` produces a
-`float` literal; appending `m` or `M` produced as `decimal`.
+Numeric literals choose an underlying primitive type according to their form
+and optional suffix. The default rules are designed to be predictable while
+still allowing safe narrowing through implicit *constant* conversions.
+
+#### Integer literals
+
+* **Unsuffixed integer literals** default to `int`.
+  * If the value does not fit in `int`, the literal is typed as `long`.
+* The following suffixes override the default:
+  * `b` / `B` — `byte`
+  * `l` / `L` — `long`
+
+Unsuffixed integer literals may still convert implicitly to smaller integral
+types (such as `byte` or `char`) **when used as constant expressions** and the
+value fits in the target type. This mirrors C#’s constant conversion rules and
+avoids accidental narrowing for non-constant values.
 
 ```raven
-var l = 4_000_000_000  // l : long
-var f = 3.14f          // f : float
-var d = 3.14           // d : double
-var m = 9.99m          // m : decimal
+let a = 42        // int
+let b = 4_000_000_000 // long
+
+let x: byte = 12 // OK: constant int fits in byte
+let y: byte = 300 // error: constant out of range
+
+let z = 32b      // explicit byte literal
+let n = 10L      // explicit long literal
 ```
+
+#### Floating-point literals
+
+* **Unsuffixed floating-point literals** (those containing a decimal point or
+  exponent) default to `double`.
+* The following suffixes override the default:
+  * `f` / `F` — `float`
+  * `d` / `D` — `double`
+  * `m` / `M` — `decimal`
+
+```raven
+let d = 3.14     // double
+let f = 3.14f    // float
+let m = 9.99m    // decimal
+let e = 1e3      // double
+```
+
+Decimal literals do not support exponent notation. Attempting to combine an
+exponent with the `m`/`M` suffix produces a diagnostic.
+
+Literal values participate in overload resolution and type inference using
+their underlying primitive type. When a literal appears in a context that
+supplies a target type, the compiler may apply implicit constant conversions
+before considering explicit casts.
 
 Overload resolution applies the same rule: a literal argument converts to its
 underlying type when selecting among method overloads. For example,

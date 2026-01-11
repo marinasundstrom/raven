@@ -498,6 +498,7 @@ Interpolation            ::= '$' Identifier | '$' '{' Expression '}' ;
      0b1010   (* binary integer *)
 
    Suffixes (optional, case-insensitive):
+     B  -> byte
      L  -> long
      F  -> float
      D  -> double
@@ -511,7 +512,8 @@ Interpolation            ::= '$' Identifier | '$' '{' Expression '}' ;
 NumericLiteral           ::= IntegerLiteral NumericSuffix?
                            | RealLiteral NumericSuffix? ;
 
-NumericSuffix            ::= 'l' | 'L'
+NumericSuffix            ::=  'b' | 'B'
+                           | 'l' | 'L'
                            | 'f' | 'F'
                            | 'd' | 'D'
                            | 'm' | 'M' ;

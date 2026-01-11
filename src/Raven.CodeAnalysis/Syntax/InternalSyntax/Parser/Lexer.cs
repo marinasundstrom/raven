@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
@@ -623,7 +624,10 @@ internal class Lexer : ILexer
     private Token ParseNumber(List<DiagnosticInfo> diagnostics, ref char ch, bool negative = false)
     {
         bool isFloat = false;
+        bool isDouble = false;
         bool isDecimal = false;
+        bool isLong = false;
+        bool isByte = false;
         bool hasDecimal = ch == '.';
         bool hasExponent = false;
 
@@ -706,15 +710,38 @@ internal class Lexer : ILexer
         }
 
         // Suffix
-        if (PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D' || ch == 'm' || ch == 'M'))
+        if (PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D' || ch == 'm' || ch == 'M' || ch == 'l' || ch == 'L' || ch == 'b' || ch == 'B'))
         {
             ReadChar();
             _stringBuilder.Append(ch);
 
-            if (ch == 'm' || ch == 'M')
-                isDecimal = true;
-            else
-                isFloat = true;
+            switch (ch)
+            {
+                case 'm':
+                case 'M':
+                    isDecimal = true;
+                    break;
+
+                case 'f':
+                case 'F':
+                    isFloat = true;
+                    break;
+
+                case 'd':
+                case 'D':
+                    isDouble = true;
+                    break;
+
+                case 'l':
+                case 'L':
+                    isLong = true;
+                    break;
+
+                case 'b':
+                case 'B':
+                    isByte = true;
+                    break;
+            }
         }
 
         var text = GetStringBuilderValue();
@@ -722,9 +749,20 @@ internal class Lexer : ILexer
         // Decimal literal
         if (isDecimal || text.EndsWith("m", StringComparison.OrdinalIgnoreCase))
         {
+            // Strip suffix and separators
             var numericText = text[..^1].Replace("_", string.Empty);
 
-            // Note: This intentionally does not accept exponent notation for decimals.
+            // Note: Raven follows C# here: decimal literals do not support exponent notation.
+            if (numericText.IndexOf('e') >= 0 || numericText.IndexOf('E') >= 0)
+            {
+                diagnostics.Add(DiagnosticInfo.Create(
+                    CompilerDiagnostics.NumericLiteralOutOfRange,
+                    new TextSpan(_tokenStartPosition, text.Length)
+                ));
+
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length, diagnostics: diagnostics);
+            }
+
             if (decimal.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue))
             {
                 return new Token(SyntaxKind.NumericLiteralToken, text, decimalValue, text.Length, diagnostics: diagnostics);
@@ -740,9 +778,13 @@ internal class Lexer : ILexer
         }
 
         // Float literal
-        if (text.EndsWith("f", StringComparison.OrdinalIgnoreCase))
+        if (isFloat || text.EndsWith("f", StringComparison.OrdinalIgnoreCase))
         {
-            var numericText = text[..^1].Replace("_", string.Empty);
+            var numericText = text.EndsWith("f", StringComparison.OrdinalIgnoreCase)
+                ? text[..^1]
+                : text;
+            numericText = numericText.Replace("_", string.Empty);
+
             if (float.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue))
             {
                 return new Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length, diagnostics: diagnostics);
@@ -757,8 +799,8 @@ internal class Lexer : ILexer
             }
         }
 
-        // Double literal
-        if (hasDecimal || hasExponent || text.EndsWith("d", StringComparison.OrdinalIgnoreCase))
+        // Double literal (explicit 'd' suffix OR any literal with '.'/exponent). Unsuffixed real literals default to double.
+        if (isDouble || hasDecimal || hasExponent || text.EndsWith("d", StringComparison.OrdinalIgnoreCase))
         {
             var numericText = text.EndsWith("d", StringComparison.OrdinalIgnoreCase)
                 ? text[..^1]
@@ -767,6 +809,7 @@ internal class Lexer : ILexer
 
             if (double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
             {
+
                 return new Token(SyntaxKind.NumericLiteralToken, text, doubleValue, text.Length, diagnostics: diagnostics);
             }
             else
@@ -779,25 +822,63 @@ internal class Lexer : ILexer
             }
         }
 
-        // Integer literal (default case)
+        // Integer literal
+        // Strip separators and (optional) suffix.
         var numericIntText = text.Replace("_", string.Empty);
-        if (int.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+
+        // Byte suffix
+        if (isByte || numericIntText.EndsWith("b", StringComparison.OrdinalIgnoreCase))
         {
-            return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
-        }
-        // Long literal
-        else if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
-        {
-            return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length, diagnostics: diagnostics);
-        }
-        else
-        {
+            if (numericIntText.EndsWith("b", StringComparison.OrdinalIgnoreCase))
+                numericIntText = numericIntText[..^1];
+
+            if (byte.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var byteValue))
+            {
+                return new Token(SyntaxKind.NumericLiteralToken, text, byteValue, text.Length, diagnostics: diagnostics);
+            }
+
             diagnostics.Add(DiagnosticInfo.Create(
                 CompilerDiagnostics.NumericLiteralOutOfRange,
                 new TextSpan(_tokenStartPosition, text.Length)
             ));
-            return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length, diagnostics: diagnostics);
+            return new Token(SyntaxKind.NumericLiteralToken, text, (byte)0, text.Length, diagnostics: diagnostics);
         }
+
+        // Long suffix
+        if (isLong || numericIntText.EndsWith("l", StringComparison.OrdinalIgnoreCase))
+        {
+            if (numericIntText.EndsWith("l", StringComparison.OrdinalIgnoreCase))
+                numericIntText = numericIntText[..^1];
+
+            if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
+            {
+                return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length, diagnostics: diagnostics);
+            }
+
+            diagnostics.Add(DiagnosticInfo.Create(
+                CompilerDiagnostics.NumericLiteralOutOfRange,
+                new TextSpan(_tokenStartPosition, text.Length)
+            ));
+            return new Token(SyntaxKind.NumericLiteralToken, text, 0L, text.Length, diagnostics: diagnostics);
+        }
+
+        // Default integer literal chooses the smallest integral type starting at int (not byte).
+
+        if (int.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+        {
+            return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
+        }
+
+        if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue2))
+        {
+            return new Token(SyntaxKind.NumericLiteralToken, text, longValue2, text.Length, diagnostics: diagnostics);
+        }
+
+        diagnostics.Add(DiagnosticInfo.Create(
+            CompilerDiagnostics.NumericLiteralOutOfRange,
+            new TextSpan(_tokenStartPosition, text.Length)
+        ));
+        return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length, diagnostics: diagnostics);
     }
 
     private bool IsEndOfLine(char ch)

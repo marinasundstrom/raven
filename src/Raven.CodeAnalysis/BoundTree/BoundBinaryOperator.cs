@@ -263,18 +263,38 @@ internal partial class BoundBinaryOperator
         var int64Type = compilation.GetSpecialType(SpecialType.System_Int64);
         var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
         var decimalType = compilation.GetSpecialType(SpecialType.System_Decimal);
+        var byteType = compilation.GetSpecialType(SpecialType.System_Byte);
+        var charType = compilation.GetSpecialType(SpecialType.System_Char);
 
         static bool Eq(ITypeSymbol a, ITypeSymbol b) => SymbolEqualityComparer.Default.Equals(a, b);
 
-        static bool IsIntOrLong(ITypeSymbol t, ITypeSymbol intType, ITypeSymbol int64Type) =>
+        static bool IsIntegralForPromotion(ITypeSymbol t, ITypeSymbol byteType, ITypeSymbol charType, ITypeSymbol intType, ITypeSymbol int64Type) =>
+            SymbolEqualityComparer.Default.Equals(t, byteType) ||
+            SymbolEqualityComparer.Default.Equals(t, charType) ||
             SymbolEqualityComparer.Default.Equals(t, intType) ||
             SymbolEqualityComparer.Default.Equals(t, int64Type);
+
+        static bool IsSmallIntegral(ITypeSymbol t, ITypeSymbol byteType, ITypeSymbol charType) =>
+            SymbolEqualityComparer.Default.Equals(t, byteType) ||
+            SymbolEqualityComparer.Default.Equals(t, charType);
 
         var leftIsDecimal = Eq(left, decimalType);
         var rightIsDecimal = Eq(right, decimalType);
 
         var leftIsDouble = Eq(left, doubleType);
         var rightIsDouble = Eq(right, doubleType);
+
+        // C#-style: small integral types (byte/char) are promoted to int before further numeric promotion.
+        // This ensures e.g. `byte + byte` binds as `int + int` and mixed operations work naturally.
+        if (IsSmallIntegral(left, byteType, charType))
+            promotedLeft = intType;
+
+        if (IsSmallIntegral(right, byteType, charType))
+            promotedRight = intType;
+
+        // If we promoted either operand, update the working types.
+        left = promotedLeft;
+        right = promotedRight;
 
         // decimal "wins" over integral, but does NOT implicitly mix with double.
         if (leftIsDecimal || rightIsDecimal)
@@ -285,13 +305,13 @@ internal partial class BoundBinaryOperator
             if (leftIsDecimal && rightIsDecimal)
                 return true;
 
-            if (leftIsDecimal && IsIntOrLong(right, intType, int64Type))
+            if (leftIsDecimal && IsIntegralForPromotion(right, byteType, charType, intType, int64Type))
             {
                 promotedRight = decimalType;
                 return true;
             }
 
-            if (rightIsDecimal && IsIntOrLong(left, intType, int64Type))
+            if (rightIsDecimal && IsIntegralForPromotion(left, byteType, charType, intType, int64Type))
             {
                 promotedLeft = decimalType;
                 return true;
@@ -306,19 +326,55 @@ internal partial class BoundBinaryOperator
             if (leftIsDouble && rightIsDouble)
                 return true;
 
-            if (leftIsDouble && IsIntOrLong(right, intType, int64Type))
+            if (leftIsDouble && IsIntegralForPromotion(right, byteType, charType, intType, int64Type))
             {
                 promotedRight = doubleType;
                 return true;
             }
 
-            if (rightIsDouble && IsIntOrLong(left, intType, int64Type))
+            if (rightIsDouble && IsIntegralForPromotion(left, byteType, charType, intType, int64Type))
             {
                 promotedLeft = doubleType;
                 return true;
             }
 
             return false;
+        }
+
+        // Pure integral promotion (e.g. int + long, byte + int, etc.)
+        var leftIsLong = Eq(left, int64Type);
+        var rightIsLong = Eq(right, int64Type);
+
+        if (leftIsLong || rightIsLong)
+        {
+            if (leftIsLong && IsIntegralForPromotion(right, byteType, charType, intType, int64Type))
+            {
+                promotedRight = int64Type;
+                return true;
+            }
+
+            if (rightIsLong && IsIntegralForPromotion(left, byteType, charType, intType, int64Type))
+            {
+                promotedLeft = int64Type;
+                return true;
+            }
+        }
+
+        // If we had only small integrals, we already promoted them to int above.
+        if (Eq(promotedLeft, intType) && Eq(promotedRight, intType))
+            return true;
+
+        // If either side is int and the other is integral, promote the other to int.
+        if (Eq(promotedLeft, intType) && IsIntegralForPromotion(promotedRight, byteType, charType, intType, int64Type))
+        {
+            promotedRight = intType;
+            return true;
+        }
+
+        if (Eq(promotedRight, intType) && IsIntegralForPromotion(promotedLeft, byteType, charType, intType, int64Type))
+        {
+            promotedLeft = intType;
+            return true;
         }
 
         return false;

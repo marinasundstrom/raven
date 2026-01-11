@@ -3288,6 +3288,7 @@ partial class BlockBinder : Binder
         var value = syntax.Token.Value ?? syntax.Token.Text!;
         var underlying = value switch
         {
+            byte => Compilation.GetSpecialType(SpecialType.System_Byte),
             int => Compilation.GetSpecialType(SpecialType.System_Int32),
             long => Compilation.GetSpecialType(SpecialType.System_Int64),
             float => Compilation.GetSpecialType(SpecialType.System_Single),

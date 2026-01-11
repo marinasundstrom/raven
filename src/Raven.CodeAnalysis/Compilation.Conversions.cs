@@ -89,6 +89,23 @@ public partial class Compilation
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
 
+        // Implicit constant numeric conversions (C#-style):
+        // An integral constant expression of type int can be implicitly converted to certain smaller integral types
+        // (e.g. byte/char) if the value is within the target type's range.
+        if (source is LiteralTypeSymbol literalSource)
+        {
+            // Unwrap literal sources to their underlying numeric type.
+            var underlying = literalSource.UnderlyingType;
+            if (underlying.SpecialType == SpecialType.System_Int32)
+            {
+                if (TryGetInt32ConstantValue(literalSource.ConstantValue, out var intValue) &&
+                    IsImplicitInt32ConstantConversion(intValue, destination.SpecialType))
+                {
+                    return Finalize(new Conversion(isImplicit: true, isNumeric: true));
+                }
+            }
+        }
+
         if (source is INamedTypeSymbol { OriginalDefinition: { } taskSourceDefinition } taskSourceNamed &&
             taskSourceNamed.TypeKind != TypeKind.Error &&
             taskSourceDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
@@ -423,6 +440,52 @@ public partial class Compilation
         }
 
         return Conversion.None;
+
+        static bool TryGetInt32ConstantValue(object? constantValue, out int value)
+        {
+            switch (constantValue)
+            {
+                case int i:
+                    value = i;
+                    return true;
+
+                case byte b:
+                    value = b;
+                    return true;
+
+                case char c:
+                    value = c;
+                    return true;
+
+                case sbyte sb:
+                    value = sb;
+                    return true;
+
+                case short s:
+                    value = s;
+                    return true;
+
+                case ushort us:
+                    value = us;
+                    return true;
+
+                default:
+                    value = default;
+                    return false;
+            }
+        }
+
+        static bool IsImplicitInt32ConstantConversion(int value, SpecialType destination)
+        {
+            // Match C#'s implicit constant expression conversions for the subset Raven currently supports.
+            // Today we only need byte/char, but keeping this structured makes it easy to extend.
+            return destination switch
+            {
+                SpecialType.System_Byte => (uint)value <= byte.MaxValue,
+                SpecialType.System_Char => (uint)value <= char.MaxValue,
+                _ => false
+            };
+        }
 
         static bool SourceMatchesDiscriminatedUnionCase(ITypeSymbol sourceType, ITypeSymbol parameterType)
         {
@@ -925,20 +988,35 @@ public partial class Compilation
 
         // NOTE:
         // - No implicit conversion between decimal and float/double in C#.
-        // - We include int/long -> double and int/long -> decimal to support binary numeric promotion.
+        // - C# treats byte and char as numeric for conversion purposes.
+        // - We include integral/char -> double and integral/char -> decimal to support binary numeric promotion.
 
         return (sourceType, destType) switch
         {
-            // integral widening
+            // -------- integral widening --------
+            (SpecialType.System_Byte, SpecialType.System_Int32) => true,
+            (SpecialType.System_Byte, SpecialType.System_Int64) => true,
+
+            (SpecialType.System_Char, SpecialType.System_Int32) => true,
+            (SpecialType.System_Char, SpecialType.System_Int64) => true,
+
             (SpecialType.System_Int32, SpecialType.System_Int64) => true,
 
-            // to floating
+            // -------- to floating --------
+            (SpecialType.System_Byte, SpecialType.System_Single) => true,
+            (SpecialType.System_Byte, SpecialType.System_Double) => true,
+
+            (SpecialType.System_Char, SpecialType.System_Single) => true,
+            (SpecialType.System_Char, SpecialType.System_Double) => true,
+
             (SpecialType.System_Int32, SpecialType.System_Double) => true,
             (SpecialType.System_Int64, SpecialType.System_Double) => true,
             (SpecialType.System_Single, SpecialType.System_Double) => true,
             (SpecialType.System_Decimal, SpecialType.System_Double) => true,
 
-            // to decimal (C# allows implicit integral -> decimal)
+            // -------- to decimal (C# allows implicit integral/char -> decimal) --------
+            (SpecialType.System_Byte, SpecialType.System_Decimal) => true,
+            (SpecialType.System_Char, SpecialType.System_Decimal) => true,
             (SpecialType.System_Int32, SpecialType.System_Decimal) => true,
             (SpecialType.System_Int64, SpecialType.System_Decimal) => true,
 
@@ -951,38 +1029,45 @@ public partial class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
-        // NOTE:
-        // - Explicit conversions exist for most numeric pairs (except identity/implicit which are already handled).
-        // - decimal <-> float/double is explicit only.
-        // - double -> long is explicit (and lossy).
-        // - long -> int is explicit.
-
         return (sourceType, destType) switch
         {
-            // floating to integral
+            // -------- to byte --------
+            (SpecialType.System_Int32, SpecialType.System_Byte) => true,
+            (SpecialType.System_Int64, SpecialType.System_Byte) => true,
+            (SpecialType.System_Char, SpecialType.System_Byte) => true,
+            (SpecialType.System_Single, SpecialType.System_Byte) => true,
+            (SpecialType.System_Double, SpecialType.System_Byte) => true,
+            (SpecialType.System_Decimal, SpecialType.System_Byte) => true,
+
+            // -------- to char --------
+            (SpecialType.System_Byte, SpecialType.System_Char) => true,
+            (SpecialType.System_Int32, SpecialType.System_Char) => true,
+            (SpecialType.System_Int64, SpecialType.System_Char) => true,
+            (SpecialType.System_Single, SpecialType.System_Char) => true,
+            (SpecialType.System_Double, SpecialType.System_Char) => true,
+            (SpecialType.System_Decimal, SpecialType.System_Char) => true,
+
+            // -------- floating to integral --------
             (SpecialType.System_Double, SpecialType.System_Int32) => true,
             (SpecialType.System_Double, SpecialType.System_Int64) => true,
+            (SpecialType.System_Single, SpecialType.System_Int32) => true,
+            (SpecialType.System_Single, SpecialType.System_Int64) => true,
 
-            // integral narrowing
+            // -------- integral narrowing --------
             (SpecialType.System_Int64, SpecialType.System_Int32) => true,
 
-            // decimal to integral
+            // -------- decimal to integral --------
             (SpecialType.System_Decimal, SpecialType.System_Int32) => true,
             (SpecialType.System_Decimal, SpecialType.System_Int64) => true,
 
-            // integral to decimal is implicit above; reverse is explicit above
-
-            // decimal <-> floating are explicit only in C#
+            // -------- decimal <-> floating are explicit only in C# --------
             (SpecialType.System_Decimal, SpecialType.System_Double) => true,
             (SpecialType.System_Double, SpecialType.System_Decimal) => true,
             (SpecialType.System_Decimal, SpecialType.System_Single) => true,
             (SpecialType.System_Single, SpecialType.System_Decimal) => true,
 
-            // (Optional but common) explicit from double to float
+            // explicit from double to float
             (SpecialType.System_Double, SpecialType.System_Single) => true,
-
-            // (Optional but common) explicit from decimal to float
-            //(SpecialType.System_Decimal, SpecialType.System_Single) => true,
 
             _ => false
         };

@@ -736,6 +736,7 @@ public partial class Compilation
             SyntaxKind.DoubleKeyword => SpecialType.System_Double,
             SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,
             SyntaxKind.IntKeyword => SpecialType.System_Int32,
+            SyntaxKind.ByteKeyword => SpecialType.System_Byte,
             SyntaxKind.ObjectKeyword => SpecialType.System_Object,
             SyntaxKind.StringKeyword => SpecialType.System_String,
             SyntaxKind.UnitKeyword => SpecialType.System_Unit,
