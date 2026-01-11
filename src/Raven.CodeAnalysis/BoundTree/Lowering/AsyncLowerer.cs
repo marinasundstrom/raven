@@ -1835,6 +1835,20 @@ internal static class AsyncLowerer
 
                         return blockExpression;
                     }
+
+                case BoundIsPatternExpression isPattern:
+                    {
+                        var expr = VisitExpression(isPattern.Expression) ?? isPattern.Expression;
+                        var pat = VisitPattern(isPattern.Pattern);
+
+                        if (!ReferenceEquals(expr, isPattern.Expression) ||
+                            !ReferenceEquals(pat, isPattern.Pattern))
+                        {
+                            return new BoundIsPatternExpression(expr, pat, isPattern.BooleanType, isPattern.Reason);
+                        }
+
+                        return isPattern;
+                    }
             }
 
             return base.VisitExpression(node);
@@ -1887,6 +1901,135 @@ internal static class AsyncLowerer
                 return new BoundLocalAssignmentExpression(node.Local, right, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
 
             return node;
+        }
+
+        public override BoundPattern VisitPattern(BoundPattern pattern)
+        {
+            switch (pattern)
+            {
+                case BoundCasePattern c:
+                    {
+                        var args = c.Arguments;
+                        var changed = false;
+                        var b = ImmutableArray.CreateBuilder<BoundPattern>(args.Length);
+
+                        for (int i = 0; i < args.Length; i++)
+                        {
+                            var a = VisitPattern(args[i]);
+                            b.Add(a);
+                            changed |= !ReferenceEquals(a, args[i]);
+                        }
+
+                        if (!changed)
+                            return c;
+
+                        return new BoundCasePattern(c.CaseSymbol, c.TryGetMethod, b.ToImmutable(), c.Reason);
+                    }
+
+                case BoundNotPattern n:
+                    {
+                        var inner = VisitPattern(n.Pattern);
+                        return ReferenceEquals(inner, n.Pattern) ? n : new BoundNotPattern(inner);
+                    }
+
+                case BoundAndPattern a:
+                    {
+                        var left = VisitPattern(a.Left);
+                        var right = VisitPattern(a.Right);
+                        return (ReferenceEquals(left, a.Left) && ReferenceEquals(right, a.Right))
+                            ? a
+                            : new BoundAndPattern(left, right);
+                    }
+
+                case BoundOrPattern o:
+                    {
+                        var left = VisitPattern(o.Left);
+                        var right = VisitPattern(o.Right);
+                        return (ReferenceEquals(left, o.Left) && ReferenceEquals(right, o.Right))
+                            ? o
+                            : new BoundOrPattern(left, right);
+                    }
+
+                case BoundTuplePattern t:
+                    {
+                        var elems = t.Elements;
+                        var changed = false;
+                        var b = ImmutableArray.CreateBuilder<BoundPattern>(elems.Length);
+
+                        for (int i = 0; i < elems.Length; i++)
+                        {
+                            var e = VisitPattern(elems[i]);
+                            b.Add(e);
+                            changed |= !ReferenceEquals(e, elems[i]);
+                        }
+
+                        return changed ? new BoundTuplePattern(t.Type!, b.ToImmutable(), t.Reason) : t;
+                    }
+
+                case BoundPropertyPattern p:
+                    {
+                        var props = p.Properties;
+                        var changed = false;
+                        var b = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(props.Length);
+
+                        for (int i = 0; i < props.Length; i++)
+                        {
+                            var sp = props[i];
+                            var rewritten = VisitPattern(sp.Pattern);
+                            if (!ReferenceEquals(rewritten, sp.Pattern))
+                            {
+                                changed = true;
+                                b.Add(sp with { Pattern = rewritten });
+                            }
+                            else
+                            {
+                                b.Add(sp);
+                            }
+                        }
+
+                        return changed
+                            ? new BoundPropertyPattern(p.InputType, p.ReceiverType, p.NarrowedType, b.ToImmutable(), p.Reason)
+                            : p;
+                    }
+
+                case BoundConstantPattern:
+                    return pattern;
+
+                case BoundDiscardPattern:
+                    return pattern;
+
+                case BoundDeclarationPattern d:
+                    {
+                        var des = VisitDesignator(d.Designator);
+
+                        // Usually DeclaredType doesn't change during async rewriting.
+                        // If you ever substitute types, do it here.
+                        if (!ReferenceEquals(des, d.Designator))
+                            return new BoundDeclarationPattern(d.DeclaredType, des, d.Reason);
+
+                        return d;
+                    }
+
+                default:
+                    return pattern;
+            }
+        }
+
+        public override BoundDesignator VisitDesignator(BoundDesignator designator)
+        {
+            switch (designator)
+            {
+                case BoundSingleVariableDesignator d:
+                    // Typically nothing to rewrite here for async lowering.
+                    // But if you ever remap locals, this is the hook.
+                    return d;
+
+                case BoundDiscardDesignator dd:
+                    return dd;
+
+                default:
+                    return designator;
+            }
         }
 
         private BoundExpression LowerAwaitExpressionToBlock(BoundAwaitExpression awaitExpression)
@@ -2199,13 +2342,13 @@ internal static class AsyncLowerer
         }
     }
 
-        private static class StateDispatchInjector
-        {
-            public static BoundBlockStatement Inject(
-                BoundBlockStatement body,
-                SynthesizedAsyncStateMachineTypeSymbol stateMachine,
-            ImmutableArray<StateDispatch> dispatches,
-            out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
+    private static class StateDispatchInjector
+    {
+        public static BoundBlockStatement Inject(
+            BoundBlockStatement body,
+            SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        ImmutableArray<StateDispatch> dispatches,
+        out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
         {
             if (body is null)
                 throw new ArgumentNullException(nameof(body));
@@ -2408,6 +2551,11 @@ internal static class AsyncLowerer
             {
                 _stateMachine = stateMachine;
                 _blockDispatches = blockDispatches;
+            }
+
+            public override BoundNode DefaultVisit(BoundNode boundNode)
+            {
+                return boundNode;
             }
 
             public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
