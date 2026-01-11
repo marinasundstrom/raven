@@ -4,8 +4,15 @@ import System.Console.*
 let x = int.Hello()
 WriteLine(x)
 
+let z = int.Value
+WriteLine(z)
+
 public extension IntExtensions for int {
     public static Hello() -> int {
         return 42
+    }
+
+    public static Value: string {
+        get { return "test" }
     }
 }
