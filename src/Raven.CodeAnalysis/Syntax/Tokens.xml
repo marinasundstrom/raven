@@ -5,6 +5,7 @@
   <TokenKind Name="NullKeyword" Text="null" IsReservedWord="true" />
   <TokenKind Name="IntKeyword" Text="int" IsReservedWord="true" />
   <TokenKind Name="DoubleKeyword" Text="double" IsReservedWord="true" />
+  <TokenKind Name="DecimalKeyword" Text="decimal" IsReservedWord="true" />
   <TokenKind Name="StringKeyword" Text="string" IsReservedWord="true" />
   <TokenKind Name="BoolKeyword" Text="bool" IsReservedWord="true" />
   <TokenKind Name="CharKeyword" Text="char" IsReservedWord="true" />

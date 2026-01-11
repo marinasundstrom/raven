@@ -1929,80 +1929,120 @@ internal partial class ExpressionGenerator : Generator
         var op = binaryExpression.Operator;
         var operatorKind = op.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
 
-        // Short-circuiting operators must control evaluation order themselves
         if (operatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr)
         {
             EmitShortCircuitLogical(operatorKind, binaryExpression.Left, binaryExpression.Right);
             return;
         }
 
-        // All other operators: evaluate both operands then apply the opcode
+        // Evaluate operands (and ensure they are converted to the operator's expected operand types).
+        // Raven's binder may represent operand conversions on the BoundBinaryOperator rather than by
+        // injecting explicit BoundConversion nodes into Left/Right.
         EmitExpression(binaryExpression.Left);
-        EmitExpression(binaryExpression.Right);
+        EmitBinaryOperandConversionIfNeeded(binaryExpression.Left.Type, op.LeftType);
 
+        EmitExpression(binaryExpression.Right);
+        EmitBinaryOperandConversionIfNeeded(binaryExpression.Right.Type, op.RightType);
+
+        // DECIMAL PATH
+        if (IsDecimalBinary(op))
+        {
+            EmitDecimalBinary(operatorKind);
+            return;
+        }
+
+        // Normal primitive path
         switch (operatorKind)
         {
-            case BinaryOperatorKind.Addition:
-                ILGenerator.Emit(OpCodes.Add);
-                break;
-
-            case BinaryOperatorKind.Subtraction:
-                ILGenerator.Emit(OpCodes.Sub);
-                break;
-
-            case BinaryOperatorKind.Multiplication:
-                ILGenerator.Emit(OpCodes.Mul);
-                break;
-
-            case BinaryOperatorKind.Division:
-                ILGenerator.Emit(OpCodes.Div);
-                break;
-
-            case BinaryOperatorKind.Modulo:
-                ILGenerator.Emit(OpCodes.Rem);
-                break;
-
-            case BinaryOperatorKind.BitwiseAnd:
-                ILGenerator.Emit(OpCodes.And);
-                break;
-
-            case BinaryOperatorKind.BitwiseOr:
-                ILGenerator.Emit(OpCodes.Or);
-                break;
-
-            case BinaryOperatorKind.Equality:
-                ILGenerator.Emit(OpCodes.Ceq);
-                break;
-
+            case BinaryOperatorKind.Addition: ILGenerator.Emit(OpCodes.Add); break;
+            case BinaryOperatorKind.Subtraction: ILGenerator.Emit(OpCodes.Sub); break;
+            case BinaryOperatorKind.Multiplication: ILGenerator.Emit(OpCodes.Mul); break;
+            case BinaryOperatorKind.Division: ILGenerator.Emit(OpCodes.Div); break;
+            case BinaryOperatorKind.Modulo: ILGenerator.Emit(OpCodes.Rem); break;
+            case BinaryOperatorKind.BitwiseAnd: ILGenerator.Emit(OpCodes.And); break;
+            case BinaryOperatorKind.BitwiseOr: ILGenerator.Emit(OpCodes.Or); break;
+            case BinaryOperatorKind.Equality: ILGenerator.Emit(OpCodes.Ceq); break;
             case BinaryOperatorKind.Inequality:
                 ILGenerator.Emit(OpCodes.Ceq);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
-
-            case BinaryOperatorKind.GreaterThan:
-                ILGenerator.Emit(OpCodes.Cgt);
-                break;
-
-            case BinaryOperatorKind.LessThan:
-                ILGenerator.Emit(OpCodes.Clt);
-                break;
-
+            case BinaryOperatorKind.GreaterThan: ILGenerator.Emit(OpCodes.Cgt); break;
+            case BinaryOperatorKind.LessThan: ILGenerator.Emit(OpCodes.Clt); break;
             case BinaryOperatorKind.GreaterThanOrEqual:
                 ILGenerator.Emit(OpCodes.Clt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
-
             case BinaryOperatorKind.LessThanOrEqual:
                 ILGenerator.Emit(OpCodes.Cgt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
-
             default:
                 throw new InvalidOperationException($"Invalid operator kind '{op.OperatorKind}'");
         }
+    }
+
+    private void EmitBinaryOperandConversionIfNeeded(ITypeSymbol? fromType, ITypeSymbol toType)
+    {
+        if (fromType is null)
+            return;
+
+        // Most operators already get operands of the expected type.
+        if (SymbolEqualityComparer.Default.Equals(fromType, toType))
+            return;
+
+        var conversion = Compilation.ClassifyConversion(fromType, toType);
+        if (!conversion.Exists)
+            return;
+
+        EmitConversion(fromType, toType, conversion);
+    }
+
+    private bool IsDecimalBinary(BoundBinaryOperator op)
+    {
+        return op.LeftType.TypeKind != TypeKind.Error &&
+               op.RightType.TypeKind != TypeKind.Error &&
+               op.LeftType.SpecialType == SpecialType.System_Decimal &&
+               op.RightType.SpecialType == SpecialType.System_Decimal;
+    }
+
+    private void EmitDecimalBinary(BinaryOperatorKind operatorKind)
+    {
+        // These are all static methods on System.Decimal
+        // (operator overloads compiled to op_Addition/op_Subtraction/etc)
+        var decimalType = typeof(decimal);
+
+        string name = operatorKind switch
+        {
+            BinaryOperatorKind.Addition => "op_Addition",
+            BinaryOperatorKind.Subtraction => "op_Subtraction",
+            BinaryOperatorKind.Multiplication => "op_Multiply",
+            BinaryOperatorKind.Division => "op_Division",
+            BinaryOperatorKind.Modulo => "op_Modulus",
+
+            BinaryOperatorKind.Equality => "op_Equality",
+            BinaryOperatorKind.Inequality => "op_Inequality",
+            BinaryOperatorKind.GreaterThan => "op_GreaterThan",
+            BinaryOperatorKind.LessThan => "op_LessThan",
+            BinaryOperatorKind.GreaterThanOrEqual => "op_GreaterThanOrEqual",
+            BinaryOperatorKind.LessThanOrEqual => "op_LessThanOrEqual",
+
+            _ => throw new NotSupportedException($"Decimal operator not supported: {operatorKind}")
+        };
+
+        var mi = decimalType.GetMethod(
+            name,
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: new[] { decimalType, decimalType },
+            modifiers: null);
+
+        if (mi is null)
+            throw new InvalidOperationException($"Missing decimal.{name}(decimal, decimal)");
+
+        ILGenerator.Emit(OpCodes.Call, mi);
     }
 
     private void EmitShortCircuitLogical(

@@ -623,6 +623,7 @@ internal class Lexer : ILexer
     private Token ParseNumber(List<DiagnosticInfo> diagnostics, ref char ch, bool negative = false)
     {
         bool isFloat = false;
+        bool isDecimal = false;
         bool hasDecimal = ch == '.';
         bool hasExponent = false;
 
@@ -705,13 +706,38 @@ internal class Lexer : ILexer
         }
 
         // Suffix
-        if (PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D'))
+        if (PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D' || ch == 'm' || ch == 'M'))
         {
-            isFloat = true;
-            ReadChar(); _stringBuilder.Append(ch);
+            ReadChar();
+            _stringBuilder.Append(ch);
+
+            if (ch == 'm' || ch == 'M')
+                isDecimal = true;
+            else
+                isFloat = true;
         }
 
         var text = GetStringBuilderValue();
+
+        // Decimal literal
+        if (isDecimal || text.EndsWith("m", StringComparison.OrdinalIgnoreCase))
+        {
+            var numericText = text[..^1].Replace("_", string.Empty);
+
+            // Note: This intentionally does not accept exponent notation for decimals.
+            if (decimal.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue))
+            {
+                return new Token(SyntaxKind.NumericLiteralToken, text, decimalValue, text.Length, diagnostics: diagnostics);
+            }
+            else
+            {
+                diagnostics.Add(DiagnosticInfo.Create(
+                    CompilerDiagnostics.NumericLiteralOutOfRange,
+                    new TextSpan(_tokenStartPosition, text.Length)
+                ));
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length, diagnostics: diagnostics);
+            }
+        }
 
         // Float literal
         if (text.EndsWith("f", StringComparison.OrdinalIgnoreCase))

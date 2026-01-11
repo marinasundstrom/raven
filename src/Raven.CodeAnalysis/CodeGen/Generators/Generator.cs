@@ -307,27 +307,38 @@ internal abstract class Generator
 
         if (conversion.IsNumeric)
         {
-            EmitNumericConversion(to);
+            EmitNumericConversion(from, to);
             return;
         }
 
         if (conversion.IsUnboxing)
         {
-            if (fromClrType.IsValueType)
-            {
-                if (toClrType == fromClrType)
-                    return;
-
-                if (conversion.IsNumeric)
-                {
-                    EmitNumericConversion(to);
-                    return;
-                }
-            }
-
+            // Unboxing is always "object -> exact value type".
+            // Numeric conversion is a separate step and should be represented
+            // by a different conversion in the bound tree (or happen after unbox).
             ILGenerator.Emit(OpCodes.Unbox_Any, toClrType);
             return;
         }
+
+        /*
+                if (conversion.IsUnboxing)
+                {
+                    if (fromClrType.IsValueType)
+                    {
+                        if (toClrType == fromClrType)
+                            return;
+
+                        if (conversion.IsNumeric)
+                        {
+
+                            EmitNumericConversion(from, to);
+                            return;
+                        }
+                    }
+
+                    ILGenerator.Emit(OpCodes.Unbox_Any, toClrType);
+                    return;
+                }*/
 
         if (conversion.IsBoxing)
         {
@@ -513,44 +524,143 @@ internal abstract class Generator
         ILGenerator.MarkLabel(doneLabel);
     }
 
-    private void EmitNumericConversion(ITypeSymbol to)
+    protected void EmitNumericConversion(ITypeSymbol from, ITypeSymbol to)
+    {
+        // If you have literal types (e.g. int literal) normalize them.
+        from = from.UnwrapLiteralType() ?? from;
+        to = to.UnwrapLiteralType() ?? to;
+
+        // Numeric conversion should not be called for nullable.
+        // (You already handle nullable earlier, but keep this as a sanity check.)
+        if (from is NullableTypeSymbol || to is NullableTypeSymbol)
+            throw new InvalidOperationException("Numeric conversion called for nullable types; expected nullable lowering earlier.");
+
+        // decimal involved? -> call helper methods
+        if (from.SpecialType == SpecialType.System_Decimal ||
+            to.SpecialType == SpecialType.System_Decimal)
+        {
+            EmitDecimalNumericConversion(from, to);
+            return;
+        }
+
+        // existing conv.* path
+        EmitPrimitiveNumericConversion(to);
+    }
+
+    private void EmitPrimitiveNumericConversion(ITypeSymbol to)
     {
         switch (to.SpecialType)
         {
-            case SpecialType.System_Int32:
-                ILGenerator.Emit(OpCodes.Conv_I4);
-                break;
-            case SpecialType.System_Int64:
-                ILGenerator.Emit(OpCodes.Conv_I8);
-                break;
-            case SpecialType.System_Single:
-                ILGenerator.Emit(OpCodes.Conv_R4);
-                break;
-            case SpecialType.System_Double:
-                ILGenerator.Emit(OpCodes.Conv_R8);
-                break;
-            case SpecialType.System_Int16:
-                ILGenerator.Emit(OpCodes.Conv_I2);
-                break;
+            case SpecialType.System_Int32: ILGenerator.Emit(OpCodes.Conv_I4); break;
+            case SpecialType.System_Int64: ILGenerator.Emit(OpCodes.Conv_I8); break;
+            case SpecialType.System_Single: ILGenerator.Emit(OpCodes.Conv_R4); break;
+            case SpecialType.System_Double: ILGenerator.Emit(OpCodes.Conv_R8); break;
+            case SpecialType.System_Int16: ILGenerator.Emit(OpCodes.Conv_I2); break;
             case SpecialType.System_UInt16:
-            case SpecialType.System_Char:
-                ILGenerator.Emit(OpCodes.Conv_U2);
-                break;
-            case SpecialType.System_UInt32:
-                ILGenerator.Emit(OpCodes.Conv_U4);
-                break;
-            case SpecialType.System_UInt64:
-                ILGenerator.Emit(OpCodes.Conv_U8);
-                break;
-            case SpecialType.System_SByte:
-                ILGenerator.Emit(OpCodes.Conv_I1);
-                break;
-            case SpecialType.System_Byte:
-                ILGenerator.Emit(OpCodes.Conv_U1);
-                break;
+            case SpecialType.System_Char: ILGenerator.Emit(OpCodes.Conv_U2); break;
+            case SpecialType.System_UInt32: ILGenerator.Emit(OpCodes.Conv_U4); break;
+            case SpecialType.System_UInt64: ILGenerator.Emit(OpCodes.Conv_U8); break;
+            case SpecialType.System_SByte: ILGenerator.Emit(OpCodes.Conv_I1); break;
+            case SpecialType.System_Byte: ILGenerator.Emit(OpCodes.Conv_U1); break;
+            case SpecialType.System_IntPtr: ILGenerator.Emit(OpCodes.Conv_I); break;
+            case SpecialType.System_UIntPtr: ILGenerator.Emit(OpCodes.Conv_U); break;
             default:
                 throw new NotSupportedException($"Unsupported numeric conversion to {to.ToDisplayString()}");
         }
+    }
+
+    private void EmitDecimalNumericConversion(ITypeSymbol from, ITypeSymbol to)
+    {
+        // Stack already contains a value of type `from`.
+        // We must emit a CALL to the right Decimal operator.
+
+        if (from.SpecialType == SpecialType.System_Decimal &&
+            to.SpecialType == SpecialType.System_Decimal)
+        {
+            return;
+        }
+
+        if (to.SpecialType == SpecialType.System_Decimal)
+        {
+            // <primitive> -> decimal
+            var mi = GetDecimalToDecimalOperator(from);
+            ILGenerator.Emit(OpCodes.Call, mi);
+            return;
+        }
+
+        if (from.SpecialType == SpecialType.System_Decimal)
+        {
+            // decimal -> <primitive>
+            var mi = GetDecimalFromDecimalOperator(to);
+            ILGenerator.Emit(OpCodes.Call, mi);
+            return;
+        }
+
+        throw new InvalidOperationException("EmitDecimalNumericConversion called without decimal involvement.");
+    }
+
+    private static MethodInfo GetDecimalToDecimalOperator(ITypeSymbol from)
+    {
+        var dec = typeof(decimal);
+
+        // implicit for integral types, explicit for float/double
+        return from.SpecialType switch
+        {
+            SpecialType.System_SByte => dec.GetMethod("op_Implicit", new[] { typeof(sbyte) })!,
+            SpecialType.System_Byte => dec.GetMethod("op_Implicit", new[] { typeof(byte) })!,
+            SpecialType.System_Int16 => dec.GetMethod("op_Implicit", new[] { typeof(short) })!,
+            SpecialType.System_UInt16 => dec.GetMethod("op_Implicit", new[] { typeof(ushort) })!,
+            SpecialType.System_Int32 => dec.GetMethod("op_Implicit", new[] { typeof(int) })!,
+            SpecialType.System_UInt32 => dec.GetMethod("op_Implicit", new[] { typeof(uint) })!,
+            SpecialType.System_Int64 => dec.GetMethod("op_Implicit", new[] { typeof(long) })!,
+            SpecialType.System_UInt64 => dec.GetMethod("op_Implicit", new[] { typeof(ulong) })!,
+            SpecialType.System_Char => dec.GetMethod("op_Implicit", new[] { typeof(char) })!,
+
+            SpecialType.System_Single => dec.GetMethod("op_Explicit", new[] { typeof(float) })!,
+            SpecialType.System_Double => dec.GetMethod("op_Explicit", new[] { typeof(double) })!,
+
+            _ => throw new NotSupportedException($"No numeric conversion from {from.ToDisplayString()} to decimal.")
+        };
+    }
+
+    private static MethodInfo GetDecimalFromDecimalOperator(ITypeSymbol to)
+    {
+        // We need: op_Explicit(decimal) -> <target primitive>
+        // Decimal has MANY op_Explicit overloads, so pick by return type.
+
+        Type? returnType = to.SpecialType switch
+        {
+            SpecialType.System_SByte => typeof(sbyte),
+            SpecialType.System_Byte => typeof(byte),
+            SpecialType.System_Int16 => typeof(short),
+            SpecialType.System_UInt16 => typeof(ushort),
+            SpecialType.System_Int32 => typeof(int),
+            SpecialType.System_UInt32 => typeof(uint),
+            SpecialType.System_Int64 => typeof(long),
+            SpecialType.System_UInt64 => typeof(ulong),
+            SpecialType.System_Char => typeof(char),
+            SpecialType.System_Single => typeof(float),
+            SpecialType.System_Double => typeof(double),
+            _ => null
+        };
+
+        if (returnType is null)
+            throw new NotSupportedException($"No numeric conversion from decimal to {to.ToDisplayString()}.");
+
+        var dec = typeof(decimal);
+
+        var mi = dec.GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == "op_Explicit")
+            .Where(m =>
+            {
+                var ps = m.GetParameters();
+                return ps.Length == 1 &&
+                       ps[0].ParameterType == typeof(decimal) &&
+                       m.ReturnType == returnType;
+            })
+            .FirstOrDefault();
+
+        return mi ?? throw new InvalidOperationException($"Missing decimal.op_Explicit(decimal) -> {returnType}.");
     }
 
     protected void EmitDefaultValue(ITypeSymbol type)

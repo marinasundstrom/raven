@@ -466,7 +466,7 @@ PrimaryType              ::= TupleType
 NullType                 ::= 'null' ;
 
 SimpleType               ::= BuiltinType | QualifiedName ;
-BuiltinType              ::= 'int' | 'string' | 'bool' | 'unit' | 'char' | '(' ')' ;
+BuiltinType              ::= 'int' | 'long' | 'float' | 'double' | 'decimal' | 'string' | 'bool' | 'unit' | 'char' | '(' ')' ;
 
 GenericType              ::= QualifiedName '<' TypeList '>' ;
 TypeList                 ::= Type {',' Type} ;
@@ -481,8 +481,66 @@ QualifiedName            ::= Identifier {'.' Identifier} ;
 Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, digits, '_' or '$'.
                                The single '_' token is reserved for discards. */ ;
 
-NumericLiteral           ::= /* int | float | hex | bin (lexically resolved) */ ;
-
 StringLiteral            ::= '"' {InterpolatedStringText | Interpolation} '"' ;
 InterpolatedStringText   ::= /* content with escapes */ ;
 Interpolation            ::= '$' Identifier | '$' '{' Expression '}' ;
+
+(* ---------- Numeric literals (lexical forms) ---------- *)
+
+(* Numeric literals are lexically resolved by the lexer. This grammar documents the allowed surface forms.
+
+   Examples:
+     1        (* integer *)
+     1.0      (* decimal-point real *)
+     .0       (* leading-dot real *)
+     1e3      (* exponent real *)
+     0xFF     (* hex integer *)
+     0b1010   (* binary integer *)
+
+   Suffixes (optional, case-insensitive):
+     L  -> long
+     F  -> float
+     D  -> double
+     M  -> decimal
+
+   If no suffix is present, the default type is determined by the lexer:
+     - integer literals default to int (or a wider integral type if specified/required by the binder)
+     - real literals default to double
+*)
+
+NumericLiteral           ::= IntegerLiteral NumericSuffix?
+                           | RealLiteral NumericSuffix? ;
+
+NumericSuffix            ::= 'l' | 'L'
+                           | 'f' | 'F'
+                           | 'd' | 'D'
+                           | 'm' | 'M' ;
+
+IntegerLiteral           ::= DecimalIntegerLiteral
+                           | HexIntegerLiteral
+                           | BinaryIntegerLiteral ;
+
+DecimalIntegerLiteral    ::= DecimalDigits ;
+HexIntegerLiteral        ::= '0' ('x' | 'X') HexDigits ;
+BinaryIntegerLiteral     ::= '0' ('b' | 'B') BinaryDigits ;
+
+(* Real literals support:
+   - a decimal point: 1.0, 1., .0
+   - an exponent: 1e3, 1.0e-3, .5E+2
+   A real literal must contain either a '.' or an exponent part (or both). *)
+RealLiteral              ::= RealWithDot ExponentPart?
+                           | DecimalDigits ExponentPart ;
+
+RealWithDot              ::= DecimalDigits '.' DecimalDigits?
+                           | '.' DecimalDigits ;
+
+ExponentPart             ::= ('e' | 'E') Sign? DecimalDigits ;
+Sign                     ::= '+' | '-' ;
+
+DecimalDigits            ::= DecimalDigit { DecimalDigit | '_' } ;
+HexDigits                ::= HexDigit { HexDigit | '_' } ;
+BinaryDigits             ::= BinaryDigit { BinaryDigit | '_' } ;
+
+DecimalDigit             ::= '0'..'9' ;
+HexDigit                 ::= DecimalDigit | 'a'..'f' | 'A'..'F' ;
+BinaryDigit              ::= '0' | '1' ;

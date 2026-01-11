@@ -555,6 +555,7 @@ internal class NameSyntaxParser : SyntaxParser
             case SyntaxKind.CharKeyword:
             case SyntaxKind.IntKeyword:
             case SyntaxKind.DoubleKeyword:
+            case SyntaxKind.DecimalKeyword:
             case SyntaxKind.ObjectKeyword:
             case SyntaxKind.UnitKeyword:
                 return true;

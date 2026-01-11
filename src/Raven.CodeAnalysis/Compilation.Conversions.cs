@@ -923,9 +923,27 @@ public partial class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
-        return (sourceType is SpecialType.System_Int32 && destType is SpecialType.System_Int64) ||
-               (sourceType is SpecialType.System_Int32 && destType is SpecialType.System_Double) ||
-               (sourceType is SpecialType.System_Single && destType is SpecialType.System_Double);
+        // NOTE:
+        // - No implicit conversion between decimal and float/double in C#.
+        // - We include int/long -> double and int/long -> decimal to support binary numeric promotion.
+
+        return (sourceType, destType) switch
+        {
+            // integral widening
+            (SpecialType.System_Int32, SpecialType.System_Int64) => true,
+
+            // to floating
+            (SpecialType.System_Int32, SpecialType.System_Double) => true,
+            (SpecialType.System_Int64, SpecialType.System_Double) => true,
+            (SpecialType.System_Single, SpecialType.System_Double) => true,
+            (SpecialType.System_Decimal, SpecialType.System_Double) => true,
+
+            // to decimal (C# allows implicit integral -> decimal)
+            (SpecialType.System_Int32, SpecialType.System_Decimal) => true,
+            (SpecialType.System_Int64, SpecialType.System_Decimal) => true,
+
+            _ => false
+        };
     }
 
     private bool IsExplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
@@ -933,7 +951,40 @@ public partial class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
-        return (sourceType is SpecialType.System_Double && destType is SpecialType.System_Int32) ||
-               (sourceType is SpecialType.System_Int64 && destType is SpecialType.System_Int32);
+        // NOTE:
+        // - Explicit conversions exist for most numeric pairs (except identity/implicit which are already handled).
+        // - decimal <-> float/double is explicit only.
+        // - double -> long is explicit (and lossy).
+        // - long -> int is explicit.
+
+        return (sourceType, destType) switch
+        {
+            // floating to integral
+            (SpecialType.System_Double, SpecialType.System_Int32) => true,
+            (SpecialType.System_Double, SpecialType.System_Int64) => true,
+
+            // integral narrowing
+            (SpecialType.System_Int64, SpecialType.System_Int32) => true,
+
+            // decimal to integral
+            (SpecialType.System_Decimal, SpecialType.System_Int32) => true,
+            (SpecialType.System_Decimal, SpecialType.System_Int64) => true,
+
+            // integral to decimal is implicit above; reverse is explicit above
+
+            // decimal <-> floating are explicit only in C#
+            (SpecialType.System_Decimal, SpecialType.System_Double) => true,
+            (SpecialType.System_Double, SpecialType.System_Decimal) => true,
+            (SpecialType.System_Decimal, SpecialType.System_Single) => true,
+            (SpecialType.System_Single, SpecialType.System_Decimal) => true,
+
+            // (Optional but common) explicit from double to float
+            (SpecialType.System_Double, SpecialType.System_Single) => true,
+
+            // (Optional but common) explicit from decimal to float
+            //(SpecialType.System_Decimal, SpecialType.System_Single) => true,
+
+            _ => false
+        };
     }
 }

@@ -3292,11 +3292,13 @@ partial class BlockBinder : Binder
             long => Compilation.GetSpecialType(SpecialType.System_Int64),
             float => Compilation.GetSpecialType(SpecialType.System_Single),
             double => Compilation.GetSpecialType(SpecialType.System_Double),
+            decimal => Compilation.GetSpecialType(SpecialType.System_Decimal),
             bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
             char => Compilation.GetSpecialType(SpecialType.System_Char),
             string => Compilation.GetSpecialType(SpecialType.System_String),
             _ => throw new Exception("Unsupported literal type")
         };
+
         ITypeSymbol type = new LiteralTypeSymbol(underlying, value, Compilation);
 
         BoundLiteralExpressionKind kind = syntax.Kind switch

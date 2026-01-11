@@ -734,6 +734,7 @@ public partial class Compilation
             SyntaxKind.BoolKeyword => SpecialType.System_Boolean,
             SyntaxKind.CharKeyword => SpecialType.System_Char,
             SyntaxKind.DoubleKeyword => SpecialType.System_Double,
+            SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,
             SyntaxKind.IntKeyword => SpecialType.System_Int32,
             SyntaxKind.ObjectKeyword => SpecialType.System_Object,
             SyntaxKind.StringKeyword => SpecialType.System_String,

@@ -311,12 +311,13 @@ the target.
 Numeric literals choose an underlying primitive type. Integer literals default
 to `int` but upgrade to `long` when the value exceeds the `int` range.
 Floating-point literals default to `double`; appending `f` or `F` produces a
-`float` literal.
+`float` literal; appending `m` or `M` produced as `decimal`.
 
 ```raven
 var l = 4_000_000_000  // l : long
 var f = 3.14f          // f : float
 var d = 3.14           // d : double
+var m = 9.99m          // m : decimal
 ```
 
 Overload resolution applies the same rule: a literal argument converts to its

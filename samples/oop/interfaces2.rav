@@ -4,8 +4,15 @@ import System.Threading.*
 import System.Threading.Tasks.*
 
 async func Main() -> Task {
-    val handler: IRequestHandler<SubmitOrder, Response<int>> = SubmitOrderHandler()
-    val request = SubmitOrder()
+    val handler: IRequestHandler<SubmitOrder, Response<decimal>> = SubmitOrderHandler()
+
+    val items = [
+        OrderItem("Item 1", 20.99m, "pc", 1),
+        OrderItem("Item 2", 5.0m, "pc", 1),
+        OrderItem("Item 3", 10.0m, "l", 2)
+    ]
+
+    val request = SubmitOrder(items)
 
     val result = await handler.Handle(request, default)
     WriteLine("Result $result")
@@ -30,12 +37,28 @@ interface IRequestHandler<TRequest, TReturn>
     Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
 }
 
-class SubmitOrder() {}
+class SubmitOrder(orderItems: OrderItem[]) {
+    public OrderItems: OrderItem[] => orderItems
+}
 
-class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<int>> {
+class OrderItem(product: string, unitPrice: decimal, unit: string, quantity: int) {
+    public Product: string => product
 
-    public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<int>> {
+    public UnitPrice: decimal => unitPrice
+
+    public Unit: string => unit
+
+    public Quantity: int => quantity
+}
+
+class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
+
+    public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
         await Task.Delay(500)
-        return .Success(42)
+        var total: decimal = .0m
+        for item in request.OrderItems {
+            total += item.UnitPrice * item.Quantity
+        }
+        return .Success(total)
     }
 }
