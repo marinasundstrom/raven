@@ -728,6 +728,23 @@ internal sealed class OverloadResolver
                 continue;
             }
 
+            // Tie-breaker (C#-like): if one parameter type implicitly converts to the other (but not vice versa),
+            // prefer the more specific type. This is essential for numeric overload resolution where inheritance
+            // distance is not informative (e.g. byte -> int vs byte -> double/decimal).
+            {
+                var candToCurrent = IsImplicitConversion(compilation, candParamType, currentParamType);
+                var currentToCand = IsImplicitConversion(compilation, currentParamType, candParamType);
+
+                if (candToCurrent && !currentToCand)
+                {
+                    better = true;
+                }
+                else if (!candToCurrent && currentToCand)
+                {
+                    return false;
+                }
+            }
+
             var candType = GetUnderlying(candParamType);
             var currentType = GetUnderlying(currentParamType);
             var underlyingArgType = GetUnderlying(argType);

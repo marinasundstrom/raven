@@ -1,5 +1,3 @@
-val x1 = 2
-val x2 = 2b
-val x3: byte = 2
+import System.Console.*
 
-val x = 2 + 3b
+WriteLine(2b)

@@ -1009,10 +1009,11 @@ public partial class Compilation
             (SpecialType.System_Char, SpecialType.System_Single) => true,
             (SpecialType.System_Char, SpecialType.System_Double) => true,
 
+            (SpecialType.System_Int32, SpecialType.System_Single) => true,
             (SpecialType.System_Int32, SpecialType.System_Double) => true,
+            (SpecialType.System_Int64, SpecialType.System_Single) => true,
             (SpecialType.System_Int64, SpecialType.System_Double) => true,
             (SpecialType.System_Single, SpecialType.System_Double) => true,
-            (SpecialType.System_Decimal, SpecialType.System_Double) => true,
 
             // -------- to decimal (C# allows implicit integral/char -> decimal) --------
             (SpecialType.System_Byte, SpecialType.System_Decimal) => true,
