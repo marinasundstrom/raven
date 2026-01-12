@@ -681,7 +681,85 @@ namespace-scoped container that targets a specific type via a `for` clause.
 Importing the container (for example, `import MyApp.StringExt.*`) brings its
 members into scope for lookup.
 
+
 Extensions may be declared using either the `extension` keyword or the `trait` keyword. Both forms declare the same construct and are semantically equivalent in the current version of Raven; the choice of keyword is intended to communicate author intent. The `trait` keyword emphasizes behavioral composition, while `extension` emphasizes convenience and interoperability.
+
+An extension/trait declaration may omit its identifier, in which case the compiler synthesizes a private, mangled name for the generated container type. **Public** extensions/traits (those intended to be consumed across assemblies) must declare an explicit identifier so the container can be referenced and imported by name. Unnamed extensions are intended for internal, assembly-local augmentation.
+
+
+Extensions and traits may declare type parameters and generic constraints (`where` clauses). These constraints participate in extension resolution: an extension is considered applicable only when its type parameters can be inferred and all declared constraints are satisfied for the receiver type. Extensions whose constraints are not met are ignored during member lookup.
+
+Examples:
+
+```raven
+// Named extension: can be imported and referenced by name.
+public extension StringExt for string
+{
+    ToSlug() -> string => self.Trim().ToLowerInvariant().Replace(" ", "-")
+}
+
+import MyApp.StringExt.*
+let slug = " Hello World ".ToSlug()
+```
+
+```raven
+// Unnamed extension: identifier omitted; the compiler synthesizes a mangled container name.
+// Intended for internal / assembly-local augmentation (and cannot be imported by name).
+extension for string
+{
+    IsNullOrWhiteSpace() -> bool => self.Trim().Length == 0
+}
+
+// In the same compilation unit where it is visible:
+let empty = "   ".IsNullOrWhiteSpace()
+```
+
+```raven
+// Constrained extension: applicable only when the receiver satisfies the constraints.
+public trait ValueSequenceExt<T> for System.Collections.Generic.IEnumerable<T>
+    where T: struct
+{
+    Sum() -> T { /* ... */ }
+}
+
+// If the receiver's element type is not a struct, this extension is ignored during lookup.
+```
+
+```raven
+// Extension property: participates in member lookup like an instance property.
+extension ListIntExt for System.Collections.Generic.List<int>
+{
+    CountPlusOne: int
+    {
+        get => self.Count + 1
+        set => self.Add(value)
+    }
+}
+
+import System.Collections.Generic.*
+import MyApp.ListIntExt.*
+
+let items = List<int>()
+items.Add(1)
+
+let c = items.CountPlusOne      // invokes getter
+items.CountPlusOne = 5          // invokes setter
+```
+
+```raven
+// Static extension members: accessed through the receiver type when no real static member matches.
+public extension ListStatics for System.Collections.Generic.List<int>
+{
+    public static Empty() -> System.Collections.Generic.List<int> => System.Collections.Generic.List<int>()
+    public static DefaultCapacity: int { get => 4 }
+}
+
+import System.Collections.Generic.*
+import MyApp.ListStatics.*
+
+let empty = List<int>.Empty()
+let cap = List<int>.DefaultCapacity
+```
 
 > **Note:** Extensions are trait-like: they group behavior that is treated as part of the target type for member lookup and overload resolution, without introducing storage or inheritance. In the current version of Raven, extensions and traits are applied implicitly based on scope. The design is still evolving, and future versions may introduce explicitly applied traits.
 

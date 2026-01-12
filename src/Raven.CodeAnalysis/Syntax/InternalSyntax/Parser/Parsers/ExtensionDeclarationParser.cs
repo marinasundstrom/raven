@@ -22,6 +22,11 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         else
         {
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
+
+            if (identifier.IsMissing)
+            {
+                identifier = Token(SyntaxKind.None);
+            }
         }
 
         TypeParameterListSyntax? typeParameterList = null;

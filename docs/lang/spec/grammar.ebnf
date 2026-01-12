@@ -47,7 +47,9 @@ FunctionDeclaration      ::= FunctionModifiers?
 
 ExtensionKeyword         ::= 'extension' | 'trait'
 
-ExtensionDeclaration     ::= ExtensionKeyword Identifier TypeParameterList?
+(* The extension/trait identifier is optional. When omitted, the compiler synthesizes an internal name (e.g., via mangling) and the declaration cannot be referenced by name. *)
+(* Unnamed extensions are intended for local/assembly-private augmentation; public APIs should use a stable explicit name. *)
+ExtensionDeclaration     ::= ExtensionKeyword Identifier? TypeParameterList?
                              'for' Type
                              WhereClauseList?
                              ExtensionBody ;

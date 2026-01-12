@@ -128,7 +128,7 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="ExtensionKeyword" Type="Token" DefaultToken="ExtensionKeyword" />
-    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="Identifier" Type="Token" IsOptional="true" />
     <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword" />
     <Slot Name="ReceiverType" Type="Type" />

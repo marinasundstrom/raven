@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -465,6 +466,57 @@ public partial class SemanticModel
 
     }
 
+    private static string MangleUnnamedExtensionName(ExtensionDeclarationSyntax extensionDecl)
+    {
+        // Stable, deterministic mangling for unnamed extensions.
+        // The name is not intended to be user-visible; it exists to provide a unique symbol identity
+        // within the assembly for binding, caching, and metadata emission.
+        var loc = extensionDecl.GetLocation();
+        var span = loc.SourceSpan;
+
+        var filePath = extensionDecl.SyntaxTree?.FilePath ?? string.Empty;
+
+        // FNV-1a 32-bit hash for stability across processes/runs.
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (var ch in filePath)
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+
+            // Include span to avoid collisions within the same file.
+            hash ^= (uint)span.Start;
+            hash *= 16777619;
+            hash ^= (uint)span.Length;
+            hash *= 16777619;
+
+            return $"__ext${hash:x8}_{span.Start}_{span.Length}";
+        }
+    }
+
+    private void ReportExternalTypeRedeclaration(
+        INamespaceSymbol? namespaceSymbol,
+        string name,
+        Location location,
+        int arity,
+        DiagnosticBag diagnostics)
+    {
+        var mergedNamespace = GetMergedNamespace(namespaceSymbol);
+        if (mergedNamespace is null)
+            return;
+
+        foreach (var member in mergedNamespace.GetMembers(name).OfType<INamedTypeSymbol>())
+        {
+            if (member.Arity == arity && member.ContainingAssembly != Compilation.Assembly)
+            {
+                diagnostics.ReportTypeAlreadyDefined(name, location);
+                break;
+            }
+        }
+    }
+
     private void RegisterNamespaceMembers(SyntaxNode containerNode, Binder parentBinder, INamespaceSymbol parentNamespace)
     {
         var classBinders = new List<(ClassDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
@@ -598,14 +650,26 @@ public partial class SemanticModel
                             extensionDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
 
+                        if (extensionAccessibility == Accessibility.Public &&
+                            extensionDecl.Identifier.Kind == SyntaxKind.None)
+                        {
+                            parentBinder.Diagnostics.ReportPublicExtensionRequiresIdentifier(
+                                extensionDecl.GetLocation());
+                        }
+
+                        var extensionName = extensionDecl.Identifier.Kind == SyntaxKind.None
+                            ? MangleUnnamedExtensionName(extensionDecl)
+                            : extensionDecl.Identifier.ValueText;
+
                         ReportExternalTypeRedeclaration(
                             parentNamespace,
-                            extensionDecl.Identifier,
+                            extensionName,
+                            extensionDecl.GetLocation(),
                             extensionDecl.TypeParameterList?.Parameters.Count ?? 0,
                             parentBinder.Diagnostics);
 
                         var extensionSymbol = new SourceNamedTypeSymbol(
-                            extensionDecl.Identifier.ValueText,
+                            extensionName,
                             objectType!,
                             TypeKind.Class,
                             parentNamespace.AsSourceNamespace(),

@@ -644,4 +644,8 @@
     EnabledByDefault="true"
     Description=""
     HelpLinkUri="" />
+  <Descriptor Id="RAV1050" Identifier="PublicExtensionRequiresIdentifier"
+    Title="Public extension requires an identifier"
+    Message="Public extension declarations must have an explicit identifier"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>
