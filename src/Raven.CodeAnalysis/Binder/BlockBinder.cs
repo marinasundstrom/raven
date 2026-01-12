@@ -1632,25 +1632,50 @@ partial class BlockBinder : Binder
                 }
             case BoundConstantPattern constant:
                 {
-                    var underlyingType = UnwrapAlias(constant.LiteralType.UnderlyingType);
-
-                    if (underlyingType.TypeKind == TypeKind.Error)
-                        return;
-
-                    if (PatternCanMatch(scrutineeType, underlyingType))
-                        return;
-
-                    var patternDisplay = GetMatchPatternDisplay(constant.LiteralType);
-                    var location = patternSyntax switch
+                    // Literal-backed constant pattern
+                    if (constant.LiteralType is not null)
                     {
-                        DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
-                        _ => patternSyntax.GetLocation(),
-                    };
+                        var underlyingType = UnwrapAlias(constant.LiteralType.UnderlyingType);
 
-                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                        patternDisplay,
-                        scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        location);
+                        if (underlyingType.TypeKind == TypeKind.Error)
+                            return;
+
+                        if (PatternCanMatch(scrutineeType, underlyingType))
+                            return;
+
+                        var patternDisplay = GetMatchPatternDisplay(constant.LiteralType);
+                        var location = patternSyntax.GetLocation();
+
+                        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                            patternDisplay,
+                            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            location);
+                        return;
+                    }
+
+                    // Expression-backed value pattern
+                    if (constant.Expression is not null)
+                    {
+                        var valueType = constant.Expression.Type ?? Compilation.ErrorTypeSymbol;
+                        valueType = UnwrapAlias(valueType);
+
+                        if (valueType.TypeKind == TypeKind.Error)
+                            return;
+
+                        if (PatternCanMatch(scrutineeType, valueType))
+                            return;
+
+                        var patternDisplay = GetMatchPatternDisplay(valueType);
+                        var location = patternSyntax.GetLocation();
+
+                        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                            patternDisplay,
+                            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            location);
+                        return;
+                    }
+
+                    // Defensive fallback: should never happen
                     return;
                 }
             case BoundCasePattern casePattern:

@@ -7,7 +7,7 @@ val result = await foo(true) // foo.Test(true)
 Console.WriteLine("Result: $result")
 
 val v = result match {
-    .Some(value) => "Value: $value"
+    .Some(val value) => "Value: $value"
     .None => "None"
 }
 

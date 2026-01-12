@@ -13,8 +13,8 @@ WriteLine(f.Result)
 val v = await f.Test(21);
 
 val r = v match {
-    .Ok(x) => "Value is: $x"
-    .Error(msg) => "Error: $msg"
+    .Ok(val x) => "Value is: $x"
+    .Error(val msg) => "Error: $msg"
 }
 
 WriteLine(r)

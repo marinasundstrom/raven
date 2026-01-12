@@ -9,8 +9,8 @@ val test: Result<int> = .Ok(42)
 Console.WriteLine(test)
 
 val x = test match {
-    .Ok(v) => v.ToString()
-    .Error(msg) => msg 
+    .Ok(val v) => v.ToString()
+    .Error(val msg) => msg 
 }
 
 Console.WriteLine(x.GetType())

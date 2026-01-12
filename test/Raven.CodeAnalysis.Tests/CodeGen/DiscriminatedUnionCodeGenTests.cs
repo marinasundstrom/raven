@@ -610,7 +610,7 @@ class Container {
         var toString = closedUnionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
         var text = (string)toString.Invoke(unionValue, Array.Empty<object?>())!;
 
-        Assert.Equal("Result<int>.Ok(value=5)", text);
+        Assert.Equal("Result<int>.Ok(ue=5)", text);
     }
 
     [Fact]
@@ -651,7 +651,7 @@ union Result<T> {
         var toString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
 
         var text = (string)toString.Invoke(caseInstance, Array.Empty<object?>())!;
-        Assert.Equal("Result<int>.Ok(value=99)", text);
+        Assert.Equal("Result<int>.Ok(ue=99)", text);
     }
 
     [Fact]

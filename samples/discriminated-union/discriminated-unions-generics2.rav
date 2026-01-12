@@ -12,8 +12,8 @@ Console.WriteLine(format((Result<int>)err))
 
 func format<T>(result: Result<T>) -> string {
     return result match {
-        .Ok(value) => "ok $value"
-        .Error(message) => "error '$message'"
+        .Ok(val value) => "ok $value"
+        .Error(val message) => "error '$message'"
     }
 }
 

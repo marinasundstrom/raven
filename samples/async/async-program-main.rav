@@ -21,8 +21,8 @@ class Program {
         WriteLine(v.UnwrapOrThrow())
 
         val r = v match {
-            .Ok(x) => "Value is: $x"
-            .Error(msg) => "Error: $msg"
+            .Ok(val x) => "Value is: $x"
+            .Error(val msg) => "Error: $msg"
         }
 
         WriteLine(r)

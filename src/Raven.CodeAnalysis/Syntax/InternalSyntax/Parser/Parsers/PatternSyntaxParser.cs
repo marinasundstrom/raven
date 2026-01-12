@@ -98,6 +98,15 @@ internal class PatternSyntaxParser : SyntaxParser
             return DiscardPattern(underscoreToken);
         }
 
+        // Constant pattern (expression pattern): allow matching against an in-scope value
+        // e.g. `{ Product: discountedProduct, Quantity: > 10 }`
+        // We parse it as an expression pattern here and let binding decide if it is a type-name or a value.
+        if (CanStartConstantPatternExpression(PeekToken()))
+        {
+            if (TryParseConstantPattern(out var constantPattern))
+                return constantPattern;
+        }
+
         var type = new NameSyntaxParser(this).ParseTypeName();
 
         if (type is LiteralTypeSyntax)
@@ -446,5 +455,48 @@ internal class PatternSyntaxParser : SyntaxParser
             SyntaxKind.LessThanOrEqualsToken => SyntaxKind.LessThanOrEqualPattern,
             _ => throw new InvalidOperationException($"Unexpected relational operator token: {operatorTokenKind}")
         };
+    }
+
+    // Helper for constant pattern expressions (identifiers, member access, etc.)
+    private bool CanStartConstantPatternExpression(SyntaxToken token)
+    {
+        // We only attempt this for identifiers (locals/fields/params/constants) and member-access roots.
+        // Other literals are handled elsewhere (e.g. relational patterns and existing literal handling).
+        return CanTokenBeIdentifier(token);
+    }
+
+    private bool TryParseConstantPattern(out PatternSyntax constantPattern)
+    {
+        constantPattern = null!;
+
+        // Speculative parse to avoid stealing input from other pattern forms.
+        var checkpoint = CreateCheckpoint("constant-pattern");
+
+        // Parse as expression (NOT a pattern). This enables: `x`, `x.y`, `SomeType.StaticField`, etc.
+        var expr = new ExpressionSyntaxParser(this).ParseExpression();
+
+        // Only accept if the next token can legally terminate a pattern at this precedence level.
+        // This avoids capturing type declarations like `Foo bar`.
+        if (!IsPatternTerminator(PeekToken()))
+        {
+            checkpoint.Dispose();
+            return false;
+        }
+
+        // NOTE: The binder should decide whether `expr` is a constant/readonly value, enum member,
+        // static field, etc. If it binds to a type, it can be interpreted as a type/declaration pattern.
+        constantPattern = ConstantPattern(expr);
+        return true;
+    }
+
+    private bool IsPatternTerminator(SyntaxToken token)
+    {
+        // Tokens that end the current pattern or separate patterns.
+        return token.Kind is
+            SyntaxKind.CommaToken or
+            SyntaxKind.CloseParenToken or
+            SyntaxKind.CloseBraceToken or
+            SyntaxKind.AndToken or
+            SyntaxKind.OrToken;
     }
 }

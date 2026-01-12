@@ -41,9 +41,9 @@ func test(x: object?, r: Result<int>) {
 
     val message =
         r match {
-            .Ok(n) when n > 0 => "Positive: $n"
-            .Ok(0)            => "Zero"
-            .Error(msg)       => "Error: $msg"
+            .Ok(0)                => "Zero"
+            .Ok(val n) when n > 0 => "Positive: $n"
+            .Error(val msg)       => "Error: $msg"
         }
 
     WriteLine(message)

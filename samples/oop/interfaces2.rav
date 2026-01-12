@@ -18,8 +18,8 @@ async func Main() -> Task {
     WriteLine("Result $result")
 
     val str = result match {
-        .Success(value) => value.ToString(),
-        .Failure(message) => message
+        .Success(val value) => value.ToString(),
+        .Failure(val message) => message
     }
 
     WriteLine("$str")
@@ -60,7 +60,7 @@ class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
         var total: decimal = .0m
         for item in request.OrderItems {
             var lineTotal = item.UnitPrice * item.Quantity
-            if item is { Product: "Item 2", Quantity: > 10 } p {
+            if item is { Product: discountedProduct, Quantity: > 10 } p {
                 WriteLine("Applied 20% discount to: ${p.Product}")
                 lineTotal = lineTotal * 0.8m
             }

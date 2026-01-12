@@ -1976,6 +1976,20 @@ internal static class AsyncLowerer
                         return changed ? new BoundTuplePattern(t.Type!, b.ToImmutable(), t.Reason) : t;
                     }
 
+                case BoundConstantPattern c:
+                    {
+                        // Literal-backed constant pattern needs no rewriting.
+                        if (c.Expression is null)
+                            return c;
+
+                        // Rewrite the expression so captured locals/parameters are hoisted correctly.
+                        var rewrittenExpr = VisitExpression(c.Expression) ?? c.Expression;
+                        if (ReferenceEquals(rewrittenExpr, c.Expression))
+                            return c;
+
+                        return new BoundConstantPattern(rewrittenExpr, c.Reason);
+                    }
+
                 case BoundPropertyPattern p:
                     {
                         var props = p.Properties;
@@ -2003,9 +2017,6 @@ internal static class AsyncLowerer
                             ? new BoundPropertyPattern(p.InputType, p.ReceiverType, p.NarrowedType, designator, b.ToImmutable(), p.Reason)
                             : p;
                     }
-
-                case BoundConstantPattern:
-                    return pattern;
 
                 case BoundDiscardPattern:
                     return pattern;

@@ -1146,9 +1146,15 @@ Patterns compose from the following primitives.
   Parenthesized designations such as `let (first, second): (int, string)` bind
   each element positionally.
 
-* **Implicit `val` in bindings.** When a binding is expected but `let`/`val`/`var`
-  is omitted, the binding is treated as `val` (immutable). For example, `.Ok(n)`
-  is equivalent to `.Ok(val n)`.
+* **Explicit binding keyword required.** When a variable binding is intended in a pattern position, you must write an explicit binding keyword (`let`, `val`, or `var`). This disambiguates bindings from *value patterns* (constants) such as `.Ok(42)` or `.Ok(discountedProduct)`.
+
+  For example:
+
+  * `.Ok(42)` matches the literal value `42`.
+  * `.Ok(discountedProduct)` matches the runtime value of the in-scope symbol `discountedProduct`.
+  * `.Ok(val n)` binds the payload to a new immutable local `n`.
+
+  The same rule applies in tuple and positional patterns: when a tuple element should introduce a binding, it must use `let`/`val`/`var`.
 
 ##### Discards
 
@@ -1297,11 +1303,11 @@ if mode is not ("on" or "off") {
     Console.WriteLine("unexpected mode")
 }
 
-if token is .Identifier(text) {
+if token is .Identifier(val text) {
     Console.WriteLine($"identifier {text}")
 }
 
-if token is .Identifier(let text) and text != "" {
+if token is .Identifier(val text) and text != "" {
     Console.WriteLine($"non-empty identifier {text}")
 }
 ```
@@ -1317,7 +1323,7 @@ if x is Foo { Value: val v } {
     WriteLine("Foo.Value bound to v = $v")
 }
 
-if x is Foo { Data: (a, b) } {
+if x is Foo { Data: (val a, val b) } {
     WriteLine("Tuple destructured: a=$a, b=$b")
 }
 

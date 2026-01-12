@@ -202,15 +202,33 @@ internal sealed class BoundTuplePattern : BoundPattern
 
 internal sealed class BoundConstantPattern : BoundPattern
 {
+    // Literal-backed constant pattern (fast path)
     public BoundConstantPattern(LiteralTypeSymbol literalType, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(literalType, reason)
     {
         LiteralType = literalType;
+        Expression = null;
     }
 
-    public LiteralTypeSymbol LiteralType { get; }
+    // Expression-backed value pattern (e.g. matching against an in-scope variable)
+    public BoundConstantPattern(BoundExpression expression, BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(expression.Type ?? throw new System.ArgumentNullException(nameof(expression.Type)), reason)
+    {
+        Expression = expression;
+        LiteralType = null;
+    }
 
-    public object ConstantValue => LiteralType.ConstantValue;
+    /// <summary>
+    /// When non-null, this constant pattern was produced from a literal and can be treated as a compile-time constant.
+    /// </summary>
+    public LiteralTypeSymbol? LiteralType { get; }
+
+    /// <summary>
+    /// When non-null, this constant pattern compares against a runtime value expression.
+    /// </summary>
+    public BoundExpression? Expression { get; }
+
+    public object? ConstantValue => LiteralType?.ConstantValue;
 
     public override void Accept(BoundTreeVisitor visitor)
     {
@@ -393,7 +411,11 @@ internal partial class BlockBinder
 
     private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax, ITypeSymbol? inputType)
     {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
         var expression = BindExpression(syntax.Expression);
+
+        // null literal stays a literal-backed constant pattern
         if (expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral })
         {
             var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
@@ -401,15 +423,40 @@ internal partial class BlockBinder
             return new BoundConstantPattern(nullLiteralType);
         }
 
+        // Literal constant pattern fast path
         if (expression.Type is LiteralTypeSymbol literalType)
             return new BoundConstantPattern(literalType);
 
-        var patternType = expression.Type ?? Compilation.ErrorTypeSymbol;
-        _diagnostics.ReportMatchExpressionArmPatternInvalid(
-            patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            inputType?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "unknown",
-            syntax.Expression.GetLocation());
-        return new BoundDiscardPattern(expression.Type ?? Compilation.ErrorTypeSymbol, BoundExpressionReason.ConstantExpected);
+        // Runtime "value pattern" (identifier/member access/etc.)
+        // Ensure the RHS can convert to the input type so codegen can compare meaningfully.
+        if (expression.Type is null)
+        {
+            _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                "unknown",
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Expression.GetLocation());
+
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.MissingType);
+        }
+
+        if (expression.Type.TypeKind == TypeKind.Error || inputType.TypeKind == TypeKind.Error)
+            return new BoundConstantPattern(expression, BoundExpressionReason.TypeMismatch);
+
+        var conversion = Compilation.ClassifyConversion(expression.Type, inputType);
+        if (!conversion.Exists)
+        {
+            _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                expression.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Expression.GetLocation());
+
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+        }
+
+        // NOTE: If you later introduce explicit conversion bound nodes, bind it here so codegen is simpler.
+        // expression = BindConversion(expression, inputType, syntax.Expression.GetLocation());
+
+        return new BoundConstantPattern(expression);
     }
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)

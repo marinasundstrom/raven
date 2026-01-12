@@ -6,8 +6,8 @@ import System.Threading.Tasks.*
 val res = await fetch("http://www.contoso.com/")
 
 val str = res match {
-    .Ok(str) => "Response is: $str"
-    .Error(message) => "Error is: $message"
+    .Ok(val str) => "Response is: $str"
+    .Error(val message) => "Error is: $message"
 }
 
 WriteLine(str)

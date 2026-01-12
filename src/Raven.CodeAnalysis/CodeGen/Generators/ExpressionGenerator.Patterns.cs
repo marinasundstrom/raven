@@ -782,7 +782,23 @@ internal partial class ExpressionGenerator
 
     private void EmitConstantPattern(BoundConstantPattern constantPattern, ITypeSymbol inputType)
     {
+        // Runtime "value pattern" (e.g. identifier/member access) – compare by object.Equals.
+        if (constantPattern.Expression is not null)
+        {
+            EmitRuntimeValueConstantCompare(constantPattern.Expression, inputType);
+            return;
+        }
+
+        // Literal-backed constant pattern (fast path)
         var literal = constantPattern.LiteralType;
+        if (literal is null)
+        {
+            // Defensive: binder should always provide either Expression or LiteralType.
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            return;
+        }
+
         var value = literal.ConstantValue;
 
         var scrutineeType = inputType;
@@ -1276,17 +1292,75 @@ internal partial class ExpressionGenerator
 
     private void EmitConstantForRelational(BoundConstantPattern constant, ITypeSymbol targetType)
     {
+        // Relational patterns must be constant literals. Binder should enforce this.
+        var literal = constant.LiteralType;
+        if (literal is null)
+        {
+            // Be defensive: emit default(T) and let compare produce deterministic result.
+            EmitDefaultValue(targetType);
+            return;
+        }
+
         var value = constant.ConstantValue; // from LiteralTypeSymbol
         if (value is null)
         {
             // binder should prevent this; be defensive
-            ILGenerator.Emit(OpCodes.Ldnull);
+            EmitDefaultValue(targetType);
             return;
         }
 
         // Use your existing literal emitter, but ensure it's emitted as the target type.
         // For relational comparisons, the "targetType" should be the scrutinee/member type.
-        EmitLiteralInTargetType(value, targetType, constant.LiteralType);
+        EmitLiteralInTargetType(value, targetType, literal);
+    }
+
+    private void EmitDefaultValue(ITypeSymbol type)
+    {
+        if (type.TypeKind == TypeKind.Error)
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+            return;
+        }
+
+        var clr = ResolveClrType(type);
+
+        if (!clr.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+            return;
+        }
+
+        var tmp = ILGenerator.DeclareLocal(clr);
+        ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+        ILGenerator.Emit(OpCodes.Initobj, clr);
+        ILGenerator.Emit(OpCodes.Ldloc, tmp);
+    }
+
+    private void EmitRuntimeValueConstantCompare(BoundExpression valueExpression, ITypeSymbol scrutineeType)
+    {
+        // Stack on entry: <scrutinee>
+        // Spill the scrutinee, evaluate the value expression, box as needed, and call object.Equals(a,b).
+
+        var scrutineeClr = ResolveClrType(scrutineeType);
+        var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClr);
+        ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+        // left: box(scrutinee)
+        ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+        if (RequiresValueTypeHandling(scrutineeType) && scrutineeType.TypeKind != TypeKind.Error)
+            ILGenerator.Emit(OpCodes.Box, Generator.InstantiateType(scrutineeClr));
+
+        // right: evaluate and box
+        new ExpressionGenerator(this, valueExpression).Emit();
+
+        var valueType = valueExpression.Type;
+        if (valueType is not null && RequiresValueTypeHandling(valueType) && valueType.TypeKind != TypeKind.Error)
+            ILGenerator.Emit(OpCodes.Box, Generator.InstantiateType(ResolveClrType(valueType)));
+
+        var equals2 = typeof(object).GetMethod(nameof(object.Equals), new[] { typeof(object), typeof(object) })
+            ?? throw new InvalidOperationException("Failed to resolve object.Equals(object, object).");
+
+        ILGenerator.Emit(OpCodes.Call, equals2);
     }
 
     private void EmitCompare(ITypeSymbol type)

@@ -22,7 +22,7 @@ import System.*
 /// val result = Test(2)
 /// 
 /// val r = result match {
-///     .Some(value) => "Some: $value"
+///     .Some(val value) => "Some: $value"
 ///     .None => "None"
 /// }
 /// ```
@@ -30,7 +30,7 @@ import System.*
 /// Simple pattern:
 ///
 /// ```raven
-/// if result is .Some(value) {
+/// if result is .Some(val value) {
 ///     // Omitted
 /// } else if result is .None {
 ///     // Omitted
@@ -49,7 +49,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Unwrap the value if Some, otherwise return the default value
     public UnwrapOrDefault() -> T {
-        if self is .Some(value) {
+        if self is .Some(val value) {
             return value
         }
 
@@ -58,7 +58,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Unwrap the value if Some, otherwise throw an exception
     public UnwrapOrThrow() -> T {
-        if self is .Some(value) {
+        if self is .Some(val value) {
             return value
         }
 
@@ -67,7 +67,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Unwrap the value if Some, otherwise return the specified value
     public UnwrapOr(defaultValue: T) -> T {
-        if self is .Some(value) {
+        if self is .Some(val value) {
             return value
         }
 
@@ -79,7 +79,7 @@ public extension OptionExtensions<T> for Option<T> {
 public extension OptionExtensions1<T : class> for Option<T> {
 
     public static implicit operator(opt: Option<T>) -> T? {
-        if opt is .Some(value) {
+        if opt is .Some(val value) {
             return value
         }
         return null
@@ -89,7 +89,7 @@ public extension OptionExtensions1<T : class> for Option<T> {
 public extension OptionExtensions2<T : struct> for Option<T> {
 
     public static implicit operator(opt: Option<T>) -> T? {
-        if opt is .Some(value) {
+        if opt is .Some(val value) {
             return value
         }
         return null

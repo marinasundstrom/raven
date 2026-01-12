@@ -9,8 +9,8 @@ val res = parseNumber("foo")
 Console.WriteLine("Is error: ${res.IsError}")
 
 val str = res match {
-    .Ok(v) => "Number is: $v"
-    .Error(message) => message
+    .Ok(val v) => "Number is: $v"
+    .Error(val message) => message
 }
 
 Console.WriteLine(str)
