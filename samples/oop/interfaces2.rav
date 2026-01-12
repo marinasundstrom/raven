@@ -58,7 +58,7 @@ class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
 
     public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
         await Task.Delay(500)
-        var total: decimal = .0m
+        var total = .0m
         for item in request.OrderItems {
             var lineTotal = item.UnitPrice * item.Quantity
             if item is { Product: discountedProduct, Quantity: > discountedQuantityThreshold } p {
