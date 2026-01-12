@@ -1997,8 +1997,10 @@ internal static class AsyncLowerer
                             }
                         }
 
+                        var designator = p.Designator is null ? null : VisitDesignator(p.Designator);
+
                         return changed
-                            ? new BoundPropertyPattern(p.InputType, p.ReceiverType, p.NarrowedType, b.ToImmutable(), p.Reason)
+                            ? new BoundPropertyPattern(p.InputType, p.ReceiverType, p.NarrowedType, designator, b.ToImmutable(), p.Reason)
                             : p;
                     }
 

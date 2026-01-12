@@ -1200,8 +1200,9 @@ Patterns compose from the following primitives.
 ##### Property patterns
 
 * `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**. Matches
-  when the scrutinee is not `null` and can be treated as `Type`, then evaluates each
-  listed member subpattern against the corresponding instance member on the value.
+  when the scrutinee is not `null` and can be treated as `Type`, then evaluates
+  each listed member subpattern against the corresponding instance member on the
+  value.
 
   * Each `member: pattern` entry targets an **instance field** or a **readable instance
     property** named `member` on `Type`. (Properties must have an accessible getter and
@@ -1215,6 +1216,15 @@ Patterns compose from the following primitives.
   * The empty property pattern `Type { }` matches any non-`null` value that can be treated
     as `Type`.
 
+* `Type { … } name` — **property pattern with designation**. Like `Type { … }`, but also
+  binds the successfully matched receiver value to `name` as an immutable local in the
+  success scope.
+
+  * The binding is treated as an implicit `val` (immutable).
+  * The bound value has type `Type` (after any successful type test).
+  * The designation is introduced only if the entire property pattern succeeds.
+  * Writing `_` discards the receiver value while still enforcing the property pattern.
+
 * `{ member1: pattern1, member2: pattern2, … }` — **inferred property pattern**. Like
   `Type { ... }`, but the receiver type is inferred from the scrutinee’s static type.
 
@@ -1226,6 +1236,10 @@ Patterns compose from the following primitives.
     type.
   * The empty inferred property pattern `{ }` matches any non-`null` scrutinee (it is a
     non-null test).
+
+* `{ … } name` — **inferred property pattern with designation**. Binds the inferred
+  receiver value to `name` when the pattern succeeds. The same inference and error rules
+  apply as for `{ … }`.
 
 ##### Discriminated union case patterns
 

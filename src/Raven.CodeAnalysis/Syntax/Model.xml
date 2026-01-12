@@ -675,6 +675,7 @@
   <Node Name="PropertyPattern" Inherits="Pattern">
     <Slot Name="Type" Type="Type" IsNullable="true" />
     <Slot Name="PropertyPatternClause" Type="PropertyPatternClause" />
+    <Slot Name="Designation" Type="VariableDesignation" IsNullable="true" />
   </Node>
   <Node Name="PropertyPatternClause" Inherits="Node">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />

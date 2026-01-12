@@ -719,6 +719,18 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Stloc, typedLocal);
         }
 
+        // If the property pattern has a top-level designation (e.g. `Type { ... } name`),
+        // bind it to the (possibly cast) receiver value.
+        if (propertyPattern.Designator is not null)
+        {
+            var boundLocal = EmitDesignation(propertyPattern.Designator, scope);
+            if (boundLocal is not null)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, typedLocal);
+                ILGenerator.Emit(OpCodes.Stloc, boundLocal);
+            }
+        }
+
         foreach (var sub in propertyPattern.Properties)
         {
             ILGenerator.Emit(OpCodes.Ldloc, typedLocal);

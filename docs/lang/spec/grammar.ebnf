@@ -332,9 +332,13 @@ CasePath                 ::= '.' Identifier
 
 PatternList              ::= Pattern {',' Pattern} ;
 
-PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' ;
+PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' PropertyPatternDesignation? ;
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
 PropertySubpattern       ::= Identifier ':' Pattern ;
+
+PropertyPatternDesignation
+                         ::= VariableDesignation
+                           | '_' ;
 
 ParenthesizedPattern     ::= '(' Pattern ')' ;
 

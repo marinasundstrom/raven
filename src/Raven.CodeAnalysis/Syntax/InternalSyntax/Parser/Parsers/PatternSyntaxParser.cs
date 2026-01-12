@@ -1,4 +1,3 @@
-
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
@@ -68,11 +67,6 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParseCasePattern(qualifier: null, dotToken: ReadToken());
         }
 
-        if (PeekToken().IsKind(SyntaxKind.DotToken))
-        {
-            return ParseCasePattern(qualifier: null, dotToken: ReadToken());
-        }
-
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             return ParseTuplePattern();
@@ -81,7 +75,14 @@ internal class PatternSyntaxParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
         {
             if (TryParsePropertyPatternClause(out var clause))
-                return PropertyPattern(null, clause);
+            {
+                // Allow an optional designation after a property pattern: `{ ... } name` / `{ ... } (a, b)`
+                VariableDesignationSyntax? designation3 = null;
+                if (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.OpenParenToken))
+                    designation3 = ParseDesignation();
+
+                return PropertyPattern(null, clause, designation3);
+            }
 
             return CreateMissingPattern();
         }
@@ -108,7 +109,14 @@ internal class PatternSyntaxParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
         {
             if (TryParsePropertyPatternClause(out var clause))
-                return PropertyPattern(type, clause);
+            {
+                // Allow an optional designation after a property pattern: `Type { ... } name` / `Type { ... } (a, b)`
+                VariableDesignationSyntax? designation2 = null;
+                if (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.OpenParenToken))
+                    designation2 = ParseDesignation();
+
+                return PropertyPattern(type, clause, designation2);
+            }
 
             return DeclarationPattern(type, SingleVariableDesignation(MissingToken(SyntaxKind.None)));
         }

@@ -842,11 +842,14 @@ internal partial class BlockBinder
                 }
             }
 
+            var designator3 = BindPropertyPatternDesignation(syntax.Designation, narrowedType ?? inputType);
+
             // ReceiverType is irrelevant for empty patterns; keep it as inputType to avoid ErrorType.
             return new BoundPropertyPattern(
                 inputType: inputType,
                 receiverType: inputType,
                 narrowedType: narrowedType,
+                designator3,
                 properties: ImmutableArray<BoundPropertySubpattern>.Empty);
         }
 
@@ -883,10 +886,14 @@ internal partial class BlockBinder
             if (receiverType.TypeKind == TypeKind.Error)
             {
                 var props = BindPropertySubpatternsAsDiscards(syntax);
+
+                var designator2 = BindPropertyPatternDesignation(syntax.Designation, inputType);
+
                 return new BoundPropertyPattern(
                     inputType: inputType,
                     receiverType: Compilation.ErrorTypeSymbol,
                     narrowedType: null,
+                    designator2,
                     properties: props,
                     reason: BoundExpressionReason.MissingType);
             }
@@ -927,11 +934,56 @@ internal partial class BlockBinder
                 Pattern: boundPattern));
         }
 
+        var designator = BindPropertyPatternDesignation(syntax.Designation, narrowedType ?? inputType);
+
         return new BoundPropertyPattern(
             inputType: inputType,
             receiverType: receiverType,
             narrowedType: narrowedType,
+            designator,
             properties: boundProps.ToImmutable());
+    }
+
+    private BoundDesignator? BindPropertyPatternDesignation(VariableDesignationSyntax? designation, ITypeSymbol expectedType)
+    {
+        if (designation is null)
+            return null;
+
+        expectedType = EnsureTypeAccessible(expectedType, designation.GetLocation());
+
+        switch (designation)
+        {
+            case SingleVariableDesignationSyntax single:
+                {
+                    if (single.Identifier.IsMissing || string.IsNullOrEmpty(single.Identifier.ValueText) || single.Identifier.ValueText == "_")
+                    {
+                        var discard = new BoundDiscardDesignator(expectedType);
+                        CacheBoundNode(designation, discard);
+                        return discard;
+                    }
+
+                    // Property-pattern designation has no let/val/var keyword: treat as immutable (val).
+                    var local = CreateLocalSymbol(single, single.Identifier.ValueText, isMutable: false, expectedType);
+                    var bound = new BoundSingleVariableDesignator(local);
+                    CacheBoundNode(designation, bound);
+                    return bound;
+                }
+
+            case TypedVariableDesignationSyntax typed:
+                {
+                    var declaredType = ResolveType(typed.TypeAnnotation.Type);
+                    declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
+
+                    var inner = BindPropertyPatternDesignation(typed.Designation, declaredType);
+                    if (inner is not null)
+                        CacheBoundNode(designation, inner);
+                    return inner;
+                }
+
+            // Parenthesized designations after a property pattern are parsed, but not bound (yet).
+            default:
+                return null;
+        }
     }
 
     private ITypeSymbol InferPropertyPatternReceiverType(ITypeSymbol inputType, PropertyPatternSyntax syntax)
@@ -1162,6 +1214,7 @@ internal sealed class BoundPropertyPattern : BoundPattern
         ITypeSymbol inputType,
         ITypeSymbol receiverType,
         ITypeSymbol? narrowedType,
+        BoundDesignator? designator,
         ImmutableArray<BoundPropertySubpattern> properties,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(inputType, reason)
@@ -1169,16 +1222,21 @@ internal sealed class BoundPropertyPattern : BoundPattern
         InputType = inputType;
         ReceiverType = receiverType;
         NarrowedType = narrowedType;
+        Designator = designator;
         Properties = properties;
     }
 
     public ITypeSymbol InputType { get; }
     public ITypeSymbol ReceiverType { get; }
     public ITypeSymbol? NarrowedType { get; }
+    public BoundDesignator? Designator { get; }
     public ImmutableArray<BoundPropertySubpattern> Properties { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
     {
+        if (Designator is not null && Designator is not BoundDiscardDesignator)
+            yield return Designator;
+
         foreach (var p in Properties)
             foreach (var d in p.Pattern.GetDesignators())
                 yield return d;
