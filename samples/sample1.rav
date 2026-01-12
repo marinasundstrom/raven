@@ -2,12 +2,13 @@ import System.*
 import System.Console.*
 
 func Main() {
-    val rex = Person("Rex", 6)
-    val charlie = Person("Charlie Hudson", 36)
-    val sarah = Person("Sarah Truong", 34)
-    val jesse = Person("Jesse Mills", 30)
+    val rex = Person("Rex", 5)
+    val charlie = Person("Charlie Hudson", 42)
+    val sarah = Person("Sarah Truong", 39)
+    val jesse = Person("Jesse Mills", 34)
+    val joe = Person("Joe Donovan", 52)
 
-    val people = [rex, charlie, sarah, jesse]
+    var people = [rex, charlie, sarah, jesse, joe]
 
     for person in people {
         if person is { Age: not > 30 } {
