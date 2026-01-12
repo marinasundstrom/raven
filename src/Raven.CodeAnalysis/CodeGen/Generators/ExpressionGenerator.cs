@@ -3100,17 +3100,88 @@ internal partial class ExpressionGenerator : Generator
             var constant = fieldSymbol.GetConstantValue();
             switch (constant)
             {
+                case sbyte sb:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)sb);
+                    break;
+
+                case byte b:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)b);
+                    break;
+
+                case short s:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)s);
+                    break;
+
+                case ushort us:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)us);
+                    break;
+
                 case int i:
                     ILGenerator.Emit(OpCodes.Ldc_I4, i);
                     break;
+
+                case uint ui:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, unchecked((int)ui));
+                    break;
+
+                case long l:
+                    ILGenerator.Emit(OpCodes.Ldc_I8, l);
+                    break;
+
+                case ulong ul:
+                    ILGenerator.Emit(OpCodes.Ldc_I8, unchecked((long)ul));
+                    break;
+
+                case float f:
+                    ILGenerator.Emit(OpCodes.Ldc_R4, f);
+                    break;
+
+                case double d:
+                    ILGenerator.Emit(OpCodes.Ldc_R8, d);
+                    break;
+
+                case decimal dec:
+                    {
+                        // decimal has no IL literal — must construct it
+                        var bits = decimal.GetBits(dec);
+
+                        ILGenerator.Emit(OpCodes.Ldc_I4, bits[0]);
+                        ILGenerator.Emit(OpCodes.Ldc_I4, bits[1]);
+                        ILGenerator.Emit(OpCodes.Ldc_I4, bits[2]);
+                        ILGenerator.Emit(OpCodes.Ldc_I4, (bits[3] >> 16) & 0x7F); // scale
+                        ILGenerator.Emit(((bits[3] & unchecked((int)0x80000000)) != 0)
+                            ? OpCodes.Ldc_I4_1
+                            : OpCodes.Ldc_I4_0);
+
+                        var ctor = typeof(decimal).GetConstructor(new[]
+                        {
+            typeof(int), typeof(int), typeof(int), typeof(bool), typeof(byte)
+        })!;
+
+                        ILGenerator.Emit(OpCodes.Newobj, ctor);
+                        break;
+                    }
+
                 case bool b:
                     ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                     break;
+
+                case char ch:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)ch);
+                    break;
+
+                case string s:
+                    ILGenerator.Emit(OpCodes.Ldstr, s);
+                    break;
+
                 case null:
                     ILGenerator.Emit(OpCodes.Ldnull);
                     break;
+
                 default:
-                    throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
+                    throw new NotSupportedException(
+                        $"Literal value type not supported: {constant?.GetType()}"
+                    );
             }
             return;
         }
