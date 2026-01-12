@@ -2,25 +2,36 @@ import System.*
 import System.Console.*
 
 func Main() {
-    val rex = Person("Rex", 5)
-    val charlie = Person("Charlie Hudson", 42)
-    val sarah = Person("Sarah Truong", 39)
-    val jesse = Person("Jesse Mills", 34)
-    val joe = Person("Joe Donovan", 52)
+    val rex = Character("Rex", Species.Dog, 5)
+    val charlie = Character("Charlie Hudson", Species.Human, 42)
+    val sarah = Character("Sarah Truong", Species.Human, 39)
+    val jesse = Character("Jesse Mills", Species.Human, 34)
+    val joe = Character("Joe Donovan", Species.Human, 52)
 
-    var people = [rex, charlie, sarah, jesse, joe]
+    var characters = [rex, charlie, sarah, jesse, joe]
 
-    for person in people {
-        if person is { Age: not > 30 } {
-            Print(person)
+    for character in characters {
+        if character is { Age: not > 34, Species: Species.Dog } {
+            Print(character)
+        }
+
+        if character is { Age: >= 35 } {
+            Print(character)
         }
     }
 }
 
-func Print(person: Person) => WriteLine("Name = ${person.Name}, Age = ${person.Age}")
+func Print(character: Character) => WriteLine("Name = ${character.Name}, Species = ${character.Species}, Age = ${character.Age}")
 
-class Person(name: string, age: int) {
+class Character(name: string, species: Species, age: int) {
     public Name: string => name
 
+    public Species: Species => species
+
     public Age: int => age
+}
+
+enum Species {
+    Human,
+    Dog
 }
