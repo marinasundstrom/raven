@@ -8,7 +8,7 @@ async func Main() -> Task {
 
     val items = [
         OrderItem("Item 1", 20.99m, "pc", 1),
-        OrderItem("Item 2", 5.0m, "pc", 1),
+        OrderItem("Item 2", 5.0m, "pc", 11),
         OrderItem("Item 3", 10.0m, "l", 2)
     ]
 
@@ -53,11 +53,18 @@ class OrderItem(product: string, unitPrice: decimal, unit: string, quantity: int
 
 class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
 
+    val discountedProduct = "Item 2"
+
     public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
         await Task.Delay(500)
         var total: decimal = .0m
         for item in request.OrderItems {
-            total += item.UnitPrice * item.Quantity
+            var lineTotal = item.UnitPrice * item.Quantity
+            if item is { Product: "Item 2", Quantity: > 10 } {
+                WriteLine("Applied 20% discount to: ${item.Product}")
+                lineTotal = lineTotal * 0.8m
+            }
+            total += lineTotal
         }
         return .Success(total)
     }

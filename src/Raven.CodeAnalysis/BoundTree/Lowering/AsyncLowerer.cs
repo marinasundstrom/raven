@@ -548,6 +548,11 @@ internal static class AsyncLowerer
             return (BoundBlockStatement)VisitBlockStatement(body)!;
         }
 
+        public override BoundNode DefaultVisit(BoundNode boundNode)
+        {
+            return boundNode;
+        }
+
         public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
         {
             if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
@@ -1885,6 +1890,11 @@ internal static class AsyncLowerer
                 return new BoundFieldAccess(field, node.Reason);
 
             return node;
+        }
+
+        public override BoundNode DefaultVisit(BoundNode boundNode)
+        {
+            return boundNode;
         }
 
         public override BoundNode? VisitLocalAssignmentExpression(BoundLocalAssignmentExpression node)

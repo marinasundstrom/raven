@@ -587,7 +587,7 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        throw new NotSupportedException("Unsupported pattern");
+        throw new NotSupportedException($"Unsupported pattern");
     }
 
     private void EmitRelationalPattern(BoundRelationalPattern pattern, ITypeSymbol inputType, Generator scope)
