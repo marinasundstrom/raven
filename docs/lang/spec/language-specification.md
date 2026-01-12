@@ -673,13 +673,17 @@ The compiler binds each named argument to its declared parameter. The call to
 first named argument, while the `invalid` call is rejected because it attempts
 to supply a positional argument (`2`) after specifying `x` by name.
 
-### Extensions
+### Extensions (Traits)
 
 Extensions provide helper members for an existing receiver type without
 modifying the original declaration. The `extension` keyword declares a
 namespace-scoped container that targets a specific type via a `for` clause.
 Importing the container (for example, `import MyApp.StringExt.*`) brings its
 members into scope for lookup.
+
+Extensions may be declared using either the `extension` keyword or the `trait` keyword. Both forms declare the same construct and are semantically equivalent in the current version of Raven; the choice of keyword is intended to communicate author intent. The `trait` keyword emphasizes behavioral composition, while `extension` emphasizes convenience and interoperability.
+
+> **Note:** Extensions are trait-like: they group behavior that is treated as part of the target type for member lookup and overload resolution, without introducing storage or inheritance. In the current version of Raven, extensions and traits are applied implicitly based on scope. The design is still evolving, and future versions may introduce explicitly applied traits.
 
 Each member inside the body is implicitly an extension member for the receiver
 type. Members may be function declarations or computed properties. The compiler

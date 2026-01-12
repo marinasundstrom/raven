@@ -27,6 +27,7 @@
   <TokenKind Name="InterfaceKeyword" Text="interface" IsReservedWord="true" />
   <TokenKind Name="EventKeyword" Text="event" IsReservedWord="true" />
   <TokenKind Name="ExtensionKeyword" Text="extension" IsReservedWord="false" />
+  <TokenKind Name="TraitKeyword" Text="trait" IsReservedWord="false" />
   <TokenKind Name="ExplicitKeyword" Text="explicit" IsReservedWord="false" />
   <TokenKind Name="ImplicitKeyword" Text="implicit" IsReservedWord="false" />
   <TokenKind Name="OperatorKeyword" Text="operator" IsReservedWord="false" />

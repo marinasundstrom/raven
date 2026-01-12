@@ -83,7 +83,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     {
         return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
             SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
-            SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or
+            SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or
             SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
             SyntaxKind.OpenKeyword or
@@ -138,7 +138,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         }
         else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
-                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) ||
+                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) || nextToken.IsKind(SyntaxKind.TraitKeyword) ||
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
@@ -189,7 +189,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 return;
             }
 
-            if (typeKeywordKind == SyntaxKind.ExtensionKeyword)
+            if (typeKeywordKind is SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword)
             {
                 var extensionDeclaration = new ExtensionDeclarationParser(this).Parse(attributeLists, modifiers);
 

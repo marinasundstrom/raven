@@ -12,7 +12,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
 
     internal ExtensionDeclarationSyntax Parse(SyntaxList attributeLists, SyntaxList modifiers)
     {
-        var extensionKeyword = ExpectToken(SyntaxKind.ExtensionKeyword);
+        var extensionKeyword = ReadToken();
 
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))

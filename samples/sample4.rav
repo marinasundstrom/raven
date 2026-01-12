@@ -19,7 +19,7 @@ public class Foo(b: int) {
     }
 }
 
-public extension Test for Foo {
+public trait Test for Foo {
     public Hello() -> string {
         return self.ToString() 
     }

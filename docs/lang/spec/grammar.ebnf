@@ -45,7 +45,9 @@ FunctionDeclaration      ::= FunctionModifiers?
                              WhereClauseList?
                              ( Block | '=>' Expression ) ;
 
-ExtensionDeclaration     ::= 'extension' Identifier TypeParameterList?
+ExtensionKeyword         ::= 'extension' | 'trait'
+
+ExtensionDeclaration     ::= ExtensionKeyword Identifier TypeParameterList?
                              'for' Type
                              WhereClauseList?
                              ExtensionBody ;
