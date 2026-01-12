@@ -5216,9 +5216,6 @@ partial class BlockBinder : Binder
             isShadowingExistingInScope = true;
         }
 
-        if (!isShadowingExistingInScope && LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
-            isShadowingExistingInScope = true;
-
         if (isShadowingExistingInScope)
             _diagnostics.ReportVariableShadowsPreviousDeclaration(name, designationSyntax.GetLocation());
 
