@@ -69,6 +69,7 @@
   <Node Name="Expression" Inherits="ExpressionOrPattern" IsAbstract="true" />
   <Node Name="VariableDesignation" Inherits="Node" IsAbstract="true" />
   <Node Name="SingleVariableDesignation" Inherits="VariableDesignation">
+    <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Identifier" Type="Token" />
   </Node>
   <Node Name="ParenthesizedVariableDesignation" Inherits="VariableDesignation">

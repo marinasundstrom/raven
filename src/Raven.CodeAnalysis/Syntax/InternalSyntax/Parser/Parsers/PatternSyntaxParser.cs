@@ -77,11 +77,18 @@ internal class PatternSyntaxParser : SyntaxParser
             if (TryParsePropertyPatternClause(out var clause))
             {
                 // Allow an optional designation after a property pattern: `{ ... } name` / `{ ... } (a, b)`
-                VariableDesignationSyntax? designation3 = null;
-                if (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.OpenParenToken))
-                    designation3 = ParseDesignation();
+                VariableDesignationSyntax? designation2 = null;
 
-                return PropertyPattern(null, clause, designation3);
+                var next = PeekToken();
+                var canStartDesignation =
+                    CanTokenBeIdentifier(next) ||
+                    next.IsKind(SyntaxKind.OpenParenToken) ||
+                    next.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+
+                if (canStartDesignation)
+                    designation2 = ParseDesignation();
+
+                return PropertyPattern(null, clause, designation2);
             }
 
             return CreateMissingPattern();
@@ -111,7 +118,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (type is LiteralTypeSyntax)
         {
-            return DeclarationPattern(type, SingleVariableDesignation(MissingToken(SyntaxKind.None)));
+            return DeclarationPattern(type, SingleVariableDesignation(Token(SyntaxKind.None), MissingToken(SyntaxKind.None)));
             //return ConstantPattern(type);
         }
 
@@ -121,13 +128,19 @@ internal class PatternSyntaxParser : SyntaxParser
             {
                 // Allow an optional designation after a property pattern: `Type { ... } name` / `Type { ... } (a, b)`
                 VariableDesignationSyntax? designation2 = null;
-                if (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.OpenParenToken))
+                var next = PeekToken();
+                var canStartDesignation =
+                    CanTokenBeIdentifier(next) ||
+                    next.IsKind(SyntaxKind.OpenParenToken) ||
+                    next.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+
+                if (canStartDesignation)
                     designation2 = ParseDesignation();
 
                 return PropertyPattern(type, clause, designation2);
             }
 
-            return DeclarationPattern(type, SingleVariableDesignation(MissingToken(SyntaxKind.None)));
+            return DeclarationPattern(type, SingleVariableDesignation(Token(SyntaxKind.None), MissingToken(SyntaxKind.None)));
         }
 
         if (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
@@ -144,7 +157,7 @@ internal class PatternSyntaxParser : SyntaxParser
         else
         {
             // TODO: Investigate
-            designation = SingleVariableDesignation(Token(SyntaxKind.None));
+            designation = SingleVariableDesignation(Token(SyntaxKind.None), Token(SyntaxKind.None));
         }
 
         return DeclarationPattern(type, designation);
@@ -281,7 +294,7 @@ internal class PatternSyntaxParser : SyntaxParser
     private PatternSyntax ParseVariablePattern()
     {
         var bindingKeyword = ReadToken();
-        var designation = ParseDesignation();
+        var designation = ParseDesignation(allowBindingKeyword: false);
         return VariablePattern(bindingKeyword, designation);
     }
 
@@ -347,16 +360,20 @@ internal class PatternSyntaxParser : SyntaxParser
         return CasePatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
     }
 
-    private VariableDesignationSyntax ParseDesignation()
+    private VariableDesignationSyntax ParseDesignation(bool allowBindingKeyword = true)
     {
         VariableDesignationSyntax designation;
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            designation = ParseParenthesizedDesignation();
+            designation = ParseParenthesizedDesignation(allowBindingKeyword);
         }
         else
         {
+            SyntaxToken bindingKeyword = Token(SyntaxKind.None);
+            if (allowBindingKeyword && PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                bindingKeyword = ReadToken();
+
             SyntaxToken identifier;
             if (CanTokenBeIdentifier(PeekToken()))
             {
@@ -367,7 +384,7 @@ internal class PatternSyntaxParser : SyntaxParser
                 identifier = ExpectToken(SyntaxKind.IdentifierToken);
             }
 
-            designation = SingleVariableDesignation(identifier);
+            designation = SingleVariableDesignation(bindingKeyword, identifier);
         }
 
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
@@ -380,7 +397,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return designation;
     }
 
-    private VariableDesignationSyntax ParseParenthesizedDesignation()
+    private VariableDesignationSyntax ParseParenthesizedDesignation(bool allowBindingKeyword)
     {
         var openParenToken = ReadToken();
 
@@ -388,12 +405,12 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            elements.Add(ParseDesignation());
+            elements.Add(ParseDesignation(allowBindingKeyword));
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 elements.Add(commaToken);
-                elements.Add(ParseDesignation());
+                elements.Add(ParseDesignation(allowBindingKeyword));
             }
         }
 

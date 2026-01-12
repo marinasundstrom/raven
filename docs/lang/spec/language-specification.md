@@ -1235,11 +1235,12 @@ Patterns compose from the following primitives.
   * The empty property pattern `Type { }` matches any non-`null` value that can be treated
     as `Type`.
 
-* `Type { … } name` — **property pattern with designation**. Like `Type { … }`, but also
-  binds the successfully matched receiver value to `name` as an immutable local in the
-  success scope.
+* `Type { … } designation` — **property pattern with designation**. Like `Type { … }`, but also
+  introduces a designation for the successfully matched receiver value in the success scope.
 
-  * The binding is treated as an implicit `val` (immutable).
+  * The designation may be a single name (`p`) or a parenthesized designation (`(p)`), following the same rules as other variable designations.
+  * If the designation omits a binding keyword, it defaults to `val` (immutable).
+  * Writing `var p` produces a mutable binding.
   * The bound value has type `Type` (after any successful type test).
   * The designation is introduced only if the entire property pattern succeeds.
   * Writing `_` discards the receiver value while still enforcing the property pattern.
@@ -1256,9 +1257,11 @@ Patterns compose from the following primitives.
   * The empty inferred property pattern `{ }` matches any non-`null` scrutinee (it is a
     non-null test).
 
-* `{ … } name` — **inferred property pattern with designation**. Binds the inferred
-  receiver value to `name` when the pattern succeeds. The same inference and error rules
-  apply as for `{ … }`.
+* `{ … } designation` — **inferred property pattern with designation**. Introduces a designation for the inferred
+  receiver value when the pattern succeeds. The same inference and error rules apply as for `{ … }`.
+
+  * If the designation omits a binding keyword, it defaults to `val` (immutable).
+  * Writing `var p` produces a mutable binding.
 
 ##### Discriminated union case patterns
 
@@ -1331,6 +1334,10 @@ if x is Foo { Value: true } {
     WriteLine("Foo with Value == true")
 }
 
+if x is Foo { Value: true } val p {
+    WriteLine("Matched receiver: ${p}")
+}
+
 if x is Foo { Value: val v } {
     WriteLine("Foo.Value bound to v = $v")
 }
@@ -1346,6 +1353,11 @@ if x is Foo { Age: not > 30 } {
 // Inferred receiver type (x is Foo here), so Foo is implied:
 if fooTrue is { Value: true } {
     WriteLine("Also consistent Foo")
+}
+
+if fooTrue is { Value: true } var p {
+    // `p` is mutable here (though reassignment rules still apply like any other var local)
+    WriteLine("Receiver bound to p = ${p}")
 }
 
 // Non-null test:

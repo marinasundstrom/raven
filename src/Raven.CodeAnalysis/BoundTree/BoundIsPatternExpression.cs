@@ -585,14 +585,12 @@ internal partial class BlockBinder
 
     private void ReportTypedPatternBindingsMissingKeyword(VariableDesignationSyntax designation)
     {
-        // Report on each single variable under a typed designation when the enclosing variable pattern
-        // has no explicit let/val/var keyword.
+        // Report on each single variable under a typed designation when the single variable
+        // is a real binding and its BindingKeyword is missing/None.
         switch (designation)
         {
             case TypedVariableDesignationSyntax typed:
                 {
-                    // If the typed designation directly (or indirectly) contains a single variable,
-                    // report it (and still keep walking).
                     void WalkInner(VariableDesignationSyntax inner)
                     {
                         switch (inner)
@@ -601,20 +599,25 @@ internal partial class BlockBinder
                                 !single.Identifier.IsMissing &&
                                 single.Identifier.ValueText != "_" &&
                                 !string.IsNullOrEmpty(single.Identifier.ValueText):
-                                _diagnostics.ReportPatternTypedBindingRequiresKeyword(
-                                    single.Identifier.ValueText,
-                                    typed.TypeAnnotation.Type.ToString(),
-                                    single.Identifier.GetLocation());
-                                break;
-
+                                {
+                                    // Typed designations require an explicit binding keyword on each single variable.
+                                    // Example that should diagnose: (a: bool, b: string)
+                                    // Example that should NOT diagnose: (val a: bool, var b: string)
+                                    if (single.BindingKeyword.IsMissing || single.BindingKeyword.Kind == SyntaxKind.None)
+                                    {
+                                        _diagnostics.ReportPatternTypedBindingRequiresKeyword(
+                                            single.Identifier.ValueText,
+                                            typed.TypeAnnotation.Type.ToString(),
+                                            single.Identifier.GetLocation());
+                                    }
+                                    break;
+                                }
                             case ParenthesizedVariableDesignationSyntax p:
                                 foreach (var v in p.Variables)
                                     WalkInner(v);
                                 break;
-
                             case TypedVariableDesignationSyntax t:
                                 // Nested typed designations: report using the nested type annotation.
-                                // Recurse by calling this helper so the right type name is used.
                                 ReportTypedPatternBindingsMissingKeyword(t);
                                 break;
                         }
@@ -633,12 +636,7 @@ internal partial class BlockBinder
 
     private BoundPattern BindVariablePattern(VariablePatternSyntax syntax, ITypeSymbol? expectedType)
     {
-        // Enforce: typed bindings in patterns require an explicit let/val/var keyword.
-        // Example that should diagnose: (a: bool, _)
-        // Example that should NOT diagnose: (val a: bool, _)
-        if (syntax.BindingKeyword.IsMissing || syntax.BindingKeyword.Kind == SyntaxKind.None)
-            ReportTypedPatternBindingsMissingKeyword(syntax.Designation);
-
+        // No longer enforce here; enforcement is now handled at the single variable level.
         var isMutable = syntax.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
         return BindVariableDesignation(syntax.Designation, isMutable, expectedType);
     }
@@ -664,6 +662,9 @@ internal partial class BlockBinder
         bool isMutable,
         ITypeSymbol? expectedType)
     {
+        // Enforce: typed bindings in patterns require explicit let/val/var on each single variable.
+        ReportTypedPatternBindingsMissingKeyword(typedDesignation);
+
         var declaredType = ResolveType(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
 
@@ -676,6 +677,10 @@ internal partial class BlockBinder
         ITypeSymbol expectedType)
     {
         var normalizedType = TypeSymbolNormalization.NormalizeForInference(expectedType);
+
+        // If a binding keyword is present on this single variable, it overrides the ambient mutability.
+        if (!single.BindingKeyword.IsMissing && single.BindingKeyword.Kind != SyntaxKind.None)
+            isMutable = single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
 
         if (single.Identifier.IsMissing || single.Identifier.ValueText == "_")
         {
@@ -1104,8 +1109,9 @@ internal partial class BlockBinder
                         return discard;
                     }
 
-                    // Property-pattern designation has no let/val/var keyword: treat as immutable (val).
-                    var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable: false, expectedType);
+                    // Property-pattern designations default to immutable (val), but may specify var explicitly.
+                    var isMutable = !single.BindingKeyword.IsMissing && single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
+                    var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable, expectedType);
                     var bound = new BoundSingleVariableDesignator(local);
                     CacheBoundNode(designation, bound);
                     return bound;
@@ -1301,14 +1307,7 @@ internal partial class BlockBinder
             return null;
 
         var name = single.Identifier.ValueText;
-
-        // Walk up to figure out:
-        //  - declared type (if any)
-        //  - mutability (var vs let/val)
-        bool sawVariablePattern = false;
-        var bindingKeyword = default(SyntaxToken);
         ITypeSymbol type = Compilation.GetSpecialType(SpecialType.System_Object);
-        bool isMutable = false;
 
         for (SyntaxNode? current = single.Parent; current is not null; current = current.Parent)
         {
@@ -1318,7 +1317,7 @@ internal partial class BlockBinder
                 // Enforce: typed pattern bindings require explicit let/val/var.
                 // Example that should diagnose: (a: bool, b: string)
                 // Example that should NOT diagnose: (val a: bool, var b: string)
-                if (!sawVariablePattern || bindingKeyword.IsMissing || bindingKeyword.Kind == SyntaxKind.None)
+                if (single.BindingKeyword.IsMissing || single.BindingKeyword.Kind == SyntaxKind.None)
                 {
                     _diagnostics.ReportPatternTypedBindingRequiresKeyword(
                         single.Identifier.ValueText,
@@ -1339,23 +1338,15 @@ internal partial class BlockBinder
                 break;
             }
 
-            // Variable pattern provides mutability: `let/val/var x`
-            if (current is VariablePatternSyntax vp)
-            {
-                sawVariablePattern = true;
-                bindingKeyword = vp.BindingKeyword;
-                isMutable = vp.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
-                // keep walking in case we later hit a TypedVariableDesignationSyntax,
-                // but if we don't, `object` is a fine default for symbol info.
-            }
-
             // Stop climbing once we leave "designation territory" enough.
-            // (Optional, but avoids walking too far.)
             if (current is PatternSyntax)
                 break;
         }
 
         type = EnsureTypeAccessible(type, single.Identifier.GetLocation());
+
+        // If a binding keyword is present on this single variable, it overrides the mutability.
+        var isMutable = !single.BindingKeyword.IsMissing && single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
 
         var local = DeclarePatternLocal(single, name, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);

@@ -363,8 +363,9 @@ RelationalPattern        ::= RelationalOperator RelationalPatternOperand ;
 RelationalOperator       ::= '<' | '<=' | '>' | '>=' | '==' | '!=' ;
 RelationalPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
 
-VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* In patterns, a type annotation requires an explicit BindingKeyword (let/val/var). *)
-VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;
+VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* In patterns, a type annotation requires an explicit BindingKeyword (let/val/var) on each single variable. *)
+VariableDesignationCore  ::= SingleVariableDesignation | ParenthesizedVariableDesignation ;
+SingleVariableDesignation ::= [BindingKeyword] Identifier ;
 
 ParenthesizedVariableDesignation
                          ::= '(' VariableDesignation {',' VariableDesignation} ')' ;
