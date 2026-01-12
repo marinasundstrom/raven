@@ -7,7 +7,7 @@ WriteLine(x)
 let z = int.Value
 WriteLine(z)
 
-public extension IntExtensions for int {
+extension for int {
     public static Hello() -> int {
         return 42
     }
