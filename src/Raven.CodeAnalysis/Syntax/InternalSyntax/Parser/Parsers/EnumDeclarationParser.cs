@@ -28,6 +28,8 @@ internal class EnumDeclarationParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
+        BaseListSyntax? baseList = ParseBaseList();
+
         List<GreenNode> parameterList = new List<GreenNode>();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
@@ -58,6 +60,34 @@ internal class EnumDeclarationParser : SyntaxParser
         return EnumDeclaration(attributeLists, modifiers, enumKeyword, identifier, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
     }
 
+    private BaseListSyntax? ParseBaseList()
+    {
+        if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+        {
+            var types = new List<GreenNode>();
+            while (true)
+            {
+                var type = new NameSyntaxParser(this).ParseTypeName();
+                types.Add(type);
+
+                var commaToken = PeekToken();
+                if (commaToken.IsKind(SyntaxKind.CommaToken))
+                {
+                    ReadToken();
+                    types.Add(commaToken);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return BaseList(colonToken, List(types));
+        }
+
+        return null;
+    }
+
     private GreenNode ParseMember()
     {
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
@@ -72,7 +102,11 @@ internal class EnumDeclarationParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
-        return EnumMemberDeclaration(attributeLists, SyntaxList.Empty, identifier);
+        EqualsValueClauseSyntax? initializer = null;
+        if (IsNextToken(SyntaxKind.EqualsToken, out _))
+            initializer = new EqualsValueClauseSyntaxParser(this).Parse();
+
+        return EnumMemberDeclaration(attributeLists, SyntaxList.Empty, identifier, initializer);
     }
 
     private SyntaxList ParseModifiers()

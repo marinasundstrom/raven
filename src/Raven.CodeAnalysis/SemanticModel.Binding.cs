@@ -712,6 +712,28 @@ public partial class SemanticModel
                             declaredAccessibility: enumAccessibility
                         );
 
+                        // Bind optional enum underlying type: `enum E : byte { ... }`
+                        if (enumDecl.BaseList is { } baseList && baseList.Types.Count > 0)
+                        {
+                            // We currently accept the first type after ':' as the underlying type.
+                            // (Matches C# shape where enums have a single underlying type.)
+                            var underlyingTypeSyntax = baseList.Types[0];
+                            var underlyingType = parentBinder.ResolveType(underlyingTypeSyntax);
+
+                            if (underlyingType is not null && underlyingType != Compilation.ErrorTypeSymbol)
+                            {
+                                // Attach the bound underlying type to the enum symbol.
+                                // (TypeGenerator/DefineEnum should use this when emitting value__.)
+                                enumSymbol.SetEnumUnderlyingType(underlyingType);
+                            }
+                        }
+                        else
+                        {
+                            // Default enum underlying type: Int32
+                            var int32 = Compilation.GetSpecialType(SpecialType.System_Int32);
+                            enumSymbol.SetEnumUnderlyingType(int32);
+                        }
+
                         enumSymbols[enumDecl] = enumSymbol;
                         break;
                     }
@@ -883,26 +905,7 @@ public partial class SemanticModel
                         var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDecl);
                         _binderCache[enumDecl] = enumBinder;
 
-                        int value = 0;
-                        foreach (var enumMember in enumDecl.Members)
-                        {
-                            _ = new SourceFieldSymbol(
-                                enumMember.Identifier.ValueText,
-                                enumSymbol,
-                                isStatic: true,
-                                isMutable: false,
-                                isConst: true,
-                                constantValue: value++,
-                                enumSymbol,
-                                enumSymbol,
-                                parentNamespace.AsSourceNamespace(),
-                                new[] { enumMember.GetLocation() },
-                                new[] { enumMember.GetReference() },
-                                null,
-                                declaredAccessibility: Accessibility.Public
-                            );
-                        }
-
+                        RegisterEnumMembers(enumDecl, enumBinder, enumSymbol, parentNamespace.AsSourceNamespace());
                         break;
                     }
             }
@@ -1458,6 +1461,18 @@ public partial class SemanticModel
                                 AccessibilityUtilities.GetDefaultTypeAccessibility(parentType))
                         );
 
+                        // Bind optional enum underlying type: `enum E : byte { ... }`
+                        if (enumDecl.BaseList is { } baseList && baseList.Types.Count > 0)
+                        {
+                            var underlyingTypeSyntax = baseList.Types[0];
+                            var underlyingType = classBinder.ResolveType(underlyingTypeSyntax);
+
+                            if (underlyingType is not null && underlyingType != Compilation.ErrorTypeSymbol)
+                            {
+                                enumSymbol.SetEnumUnderlyingType(underlyingType);
+                            }
+                        }
+
                         nestedEnumSymbols[enumDecl] = enumSymbol;
                         break;
                     }
@@ -1641,31 +1656,15 @@ public partial class SemanticModel
                     break;
 
                 case EnumDeclarationSyntax enumDecl:
-                    var enumSymbol = nestedEnumSymbols[enumDecl];
-
-                    var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
-                    _binderCache[enumDecl] = enumBinder;
-
-                    int value = 0;
-                    foreach (var enumMember in enumDecl.Members)
                     {
-                        _ = new SourceFieldSymbol(
-                            enumMember.Identifier.ValueText,
-                            enumSymbol,
-                            isStatic: true,
-                            isMutable: false,
-                            isConst: true,
-                            constantValue: value++,
-                            enumSymbol,
-                            enumSymbol,
-                            classBinder.CurrentNamespace!.AsSourceNamespace(),
-                            [enumMember.GetLocation()],
-                            [enumMember.GetReference()],
-                            null,
-                            declaredAccessibility: Accessibility.Public
-                        );
+                        var enumSymbol = nestedEnumSymbols[enumDecl];
+
+                        var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
+                        _binderCache[enumDecl] = enumBinder;
+
+                        RegisterEnumMembers(enumDecl, enumBinder, enumSymbol, classBinder.CurrentNamespace!.AsSourceNamespace());
+                        break;
                     }
-                    break;
             }
         }
 
@@ -1700,6 +1699,157 @@ public partial class SemanticModel
 
             return builder.ToImmutable();
         }
+    }
+
+
+    private static void RegisterEnumMembers(
+        EnumDeclarationSyntax enumDecl,
+        EnumDeclarationBinder enumBinder,
+        SourceNamedTypeSymbol enumSymbol,
+        SourceNamespaceSymbol? containingNamespace)
+    {
+        // C#-like enum member semantics:
+        // - If no initializer is present, the value is previous + 1 (first defaults to 0).
+        // - If an initializer is present, it must be a constant expression.
+        // - Previous enum members must be in scope while binding later initializers.
+
+        var nextValue = 0;
+
+        foreach (var enumMember in enumDecl.Members)
+        {
+            var memberValue = nextValue;
+
+            var equalsValue = enumMember.EqualsValue;
+            if (equalsValue is not null)
+            {
+                var bound = enumBinder.BindExpression(equalsValue.Value);
+
+                if (TryGetEnumConstantInt32(bound, out var constant))
+                {
+                    memberValue = constant;
+                    nextValue = unchecked(memberValue + 1);
+                }
+                else
+                {
+                    // Best-effort fallback; a dedicated diagnostic can be added later.
+                    memberValue = nextValue;
+                    nextValue = unchecked(nextValue + 1);
+                }
+            }
+            else
+            {
+                nextValue = unchecked(nextValue + 1);
+            }
+
+            var fieldSymbol = new SourceFieldSymbol(
+                enumMember.Identifier.ValueText,
+                enumSymbol,
+                isStatic: true,
+                isMutable: false,
+                isConst: true,
+                constantValue: memberValue,
+                enumSymbol,
+                enumSymbol,
+                containingNamespace,
+                new[] { enumMember.GetLocation() },
+                new[] { enumMember.GetReference() },
+                null,
+                declaredAccessibility: Accessibility.Public);
+
+            // Ensure later member initializers can resolve earlier members.
+            if (!enumSymbol.GetMembers().Any(m => SymbolEqualityComparer.Default.Equals(m, fieldSymbol)))
+                enumSymbol.AddMember(fieldSymbol);
+        }
+    }
+
+    private static bool TryGetEnumConstantInt32(BoundExpression expression, out int value)
+    {
+        // Handles the common cases needed for enum member binding:
+        // - literal constants
+        // - references to const fields (including earlier enum members)
+        // If your binder performs constant folding, more complex expressions should
+        // arrive here as BoundLiteralExpression already.
+
+        switch (expression)
+        {
+            case BoundLiteralExpression literal:
+                if (literal.Value is int i)
+                {
+                    value = i;
+                    return true;
+                }
+                if (literal.Value is byte b)
+                {
+                    value = b;
+                    return true;
+                }
+                if (literal.Value is sbyte sb)
+                {
+                    value = sb;
+                    return true;
+                }
+                if (literal.Value is short s)
+                {
+                    value = s;
+                    return true;
+                }
+                if (literal.Value is ushort us)
+                {
+                    value = us;
+                    return true;
+                }
+                if (literal.Value is char ch)
+                {
+                    value = ch;
+                    return true;
+                }
+                break;
+
+            case BoundFieldAccess fieldAccess:
+                {
+                    var field = fieldAccess.Field;
+                    if (field is not null && field.IsConst && field.GetConstantValue() is not null)
+                    {
+                        var constantValue = field.GetConstantValue();
+
+                        if (constantValue is int fi)
+                        {
+                            value = fi;
+                            return true;
+                        }
+                        if (constantValue is byte fb)
+                        {
+                            value = fb;
+                            return true;
+                        }
+                        if (constantValue is sbyte fsb)
+                        {
+                            value = fsb;
+                            return true;
+                        }
+                        if (constantValue is short fs)
+                        {
+                            value = fs;
+                            return true;
+                        }
+                        if (constantValue is ushort fus)
+                        {
+                            value = fus;
+                            return true;
+                        }
+                        if (constantValue is char fch)
+                        {
+                            value = fch;
+                            return true;
+                        }
+                    }
+
+                    break;
+                }
+        }
+
+        value = default;
+        return false;
     }
 
     private void RegisterInterfaceMembers(InterfaceDeclarationSyntax interfaceDecl, InterfaceDeclarationBinder interfaceBinder)

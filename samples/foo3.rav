@@ -1,0 +1,10 @@
+import System.Console.*
+
+let x = Foo.A
+
+WriteLine("Value: $x = ${(int)x}")
+
+enum Foo {
+    A = 4,
+    B = 3
+}

@@ -93,12 +93,13 @@ internal class TypeGenerator
                 ResolveClrType(TypeSymbol.BaseType) // bör vara System.Enum
             );
 
-            // Lägg till value__ direkt här
-            // Raven enums currently default to an Int32 underlying type. If the language adds support
-            // for explicit enum bases we should thread that information through the symbol model and
-            // resolve it here instead of hard-coding Int32.
-            var enumUnderlyingType = Compilation.GetSpecialType(SpecialType.System_Int32);
-            var runtimeUnderlyingType = ResolveClrType(enumUnderlyingType);
+            // Add value__ using the enum's bound underlying type
+            // Defaults to Int32 if no explicit underlying type was specified
+            var enumUnderlyingTypeSymbol =
+                (TypeSymbol as INamedTypeSymbol)?.EnumUnderlyingType
+               ?? Compilation.GetSpecialType(SpecialType.System_Int32);
+
+            var runtimeUnderlyingType = ResolveClrType(enumUnderlyingTypeSymbol);
 
             TypeBuilder.DefineField(
                 "value__",
@@ -468,18 +469,52 @@ internal class TypeGenerator
         if (TypeSymbol.BaseType.ContainingNamespace.Name == "System"
             && TypeSymbol.BaseType.Name == "Enum")
         {
+            // Enum types only emit fields (value__ is created in DefineTypeBuilder).
+            // Use the normal field path so const values, accessibility, and attributes are consistent.
             foreach (var fieldSymbol in TypeSymbol.GetMembers().OfType<IFieldSymbol>())
             {
-                var fieldBuilder = TypeBuilder.DefineField(
-                    fieldSymbol.Name,
-                    TypeBuilder,
-                    FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal
-                );
+                // The runtime backing field is injected directly when defining the enum type.
+                if (string.Equals(fieldSymbol.Name, "value__", StringComparison.Ordinal))
+                    continue;
 
-                fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
+                if (fieldSymbol is SourceFieldSymbol sourceField)
+                {
+                    _ = EnsureFieldBuilder(sourceField);
+                }
+                else if (fieldSymbol is SourceSymbol src)
+                {
+                    // Best-effort fallback for any non-SourceFieldSymbol fields that still
+                    // participate in codegen (should be rare for enums).
+                    var fieldType = ResolveFieldClrType(fieldSymbol);
+                    var attributes = GetFieldAccessibilityAttributes(fieldSymbol);
 
-                CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
-                CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
+                    if (fieldSymbol.IsConst)
+                        attributes |= FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault;
+
+                    if (!fieldSymbol.IsMutable && !fieldSymbol.IsConst)
+                        attributes |= FieldAttributes.InitOnly;
+
+                    if (fieldSymbol.IsStatic)
+                        attributes |= FieldAttributes.Static;
+
+                    var builder = TypeBuilder.DefineField(fieldSymbol.Name, fieldType, attributes);
+
+                    if (fieldSymbol.IsConst)
+                        builder.SetConstant(fieldSymbol.GetConstantValue());
+
+                    var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
+                    if (nullableAttr is not null)
+                        builder.SetCustomAttribute(nullableAttr);
+
+                    var tupleNamesAttr = CodeGen.CreateTupleElementNamesAttribute(fieldSymbol.Type);
+                    if (tupleNamesAttr is not null)
+                        builder.SetCustomAttribute(tupleNamesAttr);
+
+                    CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => builder.SetCustomAttribute(attribute));
+
+                    _fieldBuilders[fieldSymbol] = builder;
+                    CodeGen.AddMemberBuilder(src, builder);
+                }
             }
 
             return;

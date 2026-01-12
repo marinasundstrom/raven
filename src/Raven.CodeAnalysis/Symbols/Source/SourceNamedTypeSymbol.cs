@@ -144,6 +144,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public int Arity => _typeParameters.Length;
 
+    public ITypeSymbol EnumUnderlyingType { get; private set; }
+
     public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
 
     public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
@@ -353,5 +355,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         }
 
         return declaredTypeKind;
+    }
+
+    public void SetEnumUnderlyingType(ITypeSymbol underlyingType)
+    {
+        EnumUnderlyingType = underlyingType;
     }
 }

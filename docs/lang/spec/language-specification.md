@@ -1491,6 +1491,77 @@ The outermost undeclared namespace is the **global namespace**.
 
 ## Entry points
 
+## Enum declarations
+
+An `enum` declaration defines a closed set of named constants backed by an integral
+underlying type.
+
+```raven
+enum Color {
+    Red
+    Green
+    Blue
+}
+```
+
+### Underlying type
+
+An enum may optionally specify an explicit underlying type using a base list after
+the enum name:
+
+```raven
+enum Status : byte {
+    Ok = 1
+    Error = 2
+}
+```
+
+If no underlying type is specified, the underlying type defaults to `int`.
+
+Only a single underlying type may be specified. The underlying type must be a
+non-nullable integral primitive type (`byte`, `sbyte`, `short`, `ushort`, `int`,
+`uint`, `long`, `ulong`, or `char`). Specifying any other type is a compile-time error.
+
+### Enum members
+
+Each enum member introduces a public constant whose type is the enclosing enum.
+
+An enum member may optionally declare an explicit value using `=` followed by a
+constant expression:
+
+```raven
+enum ErrorCode : int {
+    None = 0
+    NotFound = 404
+    Timeout = NotFound + 1
+}
+```
+
+If an enum member does not specify a value, its value is implicitly defined as one
+greater than the previous member. The first member defaults to zero when no
+explicit initializer is present.
+
+Enum member initializers must be constant expressions. They may reference previously
+declared enum members. References to non-constant values are invalid.
+
+### Conversions
+
+An explicit conversion exists from an enum type to its underlying type:
+
+```raven
+let code: int = (int)ErrorCode.NotFound
+```
+
+The reverse conversion—from the underlying type to the enum type—requires an
+explicit cast and is not validated for named membership at compile time.
+
+### Runtime representation
+
+At runtime, enums are emitted as CLR enum types. The compiler emits a special
+instance field named `value__` whose type is the enum’s underlying type. Each
+enum member is emitted as a public static literal field whose constant value is
+stored using the underlying type.
+
 ### Supported entry-point forms
 
 Console applications may start in any of the following shapes, all of which obey

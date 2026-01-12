@@ -616,7 +616,7 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" />
-    <Slot Name="EqualsValueClauseSyntax" Type="EqualsValueClause" IsNullable="true" />
+    <Slot Name="EqualsValue" Type="EqualsValueClause" IsNullable="true" />
   </Node>
   <Node Name="ArrowExpressionClause" Inherits="Node">
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken" />
@@ -692,6 +692,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="EnumKeyword" Type="Token" DefaultToken="EnumKeyword" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
+    <Slot Name="BaseList" Type="BaseList" IsNullable="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" DefaultToken="OpenBraceToken" />
     <Slot Name="Members" Type="SeparatedList" ElementType="EnumMemberDeclaration" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" DefaultToken="CloseBraceToken" />

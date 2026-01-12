@@ -383,6 +383,25 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: false, isUnboxing: true));
         }
 
+        // Explicit enum -> underlying enum type conversion.
+        // Example: `val x: E = ...; val i: int = (int)x`.
+        // Treat as an explicit numeric conversion.
+        if (source is INamedTypeSymbol sourceNamedEnum &&
+            sourceNamedEnum.TypeKind == TypeKind.Enum &&
+            sourceNamedEnum.EnumUnderlyingType is { } enumUnderlyingType &&
+            destination.MetadataIdentityEquals(enumUnderlyingType))
+        {
+            return Finalize(new Conversion(isImplicit: false, isNumeric: true));
+        }
+
+        if (destination is INamedTypeSymbol destNamedEnum &&
+            destNamedEnum.TypeKind == TypeKind.Enum &&
+            destNamedEnum.EnumUnderlyingType is { } enumUnderlyingType2 &&
+            source.MetadataIdentityEquals(enumUnderlyingType2))
+        {
+            return Finalize(new Conversion(isImplicit: false, isNumeric: true));
+        }
+
         if (IsImplicitNumericConversion(source, destination))
         {
             return Finalize(new Conversion(isImplicit: true, isNumeric: true));

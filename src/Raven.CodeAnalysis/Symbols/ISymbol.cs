@@ -544,6 +544,8 @@ public interface INamedTypeSymbol : ITypeSymbol
     ImmutableArray<IMethodSymbol> Constructors { get; }
     ImmutableArray<IMethodSymbol> InstanceConstructors { get; }
     IMethodSymbol? StaticConstructor { get; }
+
+    ITypeSymbol EnumUnderlyingType => null!;
     INamedTypeSymbol UnderlyingTupleType { get; }
     ImmutableArray<IFieldSymbol> TupleElements { get; }
     ImmutableArray<ITypeSymbol> TypeArguments { get; }

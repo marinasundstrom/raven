@@ -83,7 +83,10 @@ Parameter                ::= RefKindModifier? Identifier ':' Type ['=' Expressio
 RefKindModifier          ::= 'ref' | 'out' | 'in' ;
 
 EnumDeclaration          ::= TypeModifiers?
-                             'enum' Identifier '{' EnumMembers? '}' ;
+                             'enum' Identifier EnumBaseList?
+                             '{' EnumMembers? '}' ;
+
+EnumBaseList             ::= ':' Type ;
 EnumMembers              ::= EnumMember {',' EnumMember} ;
 EnumMember               ::= Identifier ['=' Expression] ;
 
