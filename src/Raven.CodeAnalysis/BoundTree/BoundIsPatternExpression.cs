@@ -576,10 +576,6 @@ internal partial class BlockBinder
     {
         expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
-        // Enables (a, b) to bind locals like implicit payload designations.
-        if (TryBindImplicitPayloadDesignation(syntax, expectedType) is { } implicitDesignation)
-            return implicitDesignation;
-
         return BindPattern(syntax, expectedType);
     }
 
@@ -940,12 +936,13 @@ internal partial class BlockBinder
 
     private BoundPattern BindCasePatternArgument(PatternSyntax syntax, ITypeSymbol parameterType)
     {
-        if (TryBindImplicitPayloadDesignation(syntax, parameterType) is { } implicitDesignation)
-            return implicitDesignation;
-
         return BindPattern(syntax, parameterType);
     }
 
+    // NOTE: Currently unused.
+    // Raven now requires an explicit binding keyword (let/val/var) for bindings in pattern position.
+    // This means bare identifiers inside tuple/case argument patterns are treated as value patterns
+    // (i.e. they match against an in-scope value) rather than introducing new bindings.
     private BoundPattern? TryBindImplicitPayloadDesignation(PatternSyntax syntax, ITypeSymbol parameterType)
     {
         if (parameterType.TypeKind == TypeKind.Error)

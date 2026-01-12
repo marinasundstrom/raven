@@ -18,8 +18,8 @@ Console.WriteLine(describe(third))
 
 func describe(token: Token) -> string {
     return token match {
-        .Identifier(text) => "identifier '$text'"
-        .Number(value) => "number $value"
+        .Identifier(val text) => "identifier '$text'"
+        .Number(val value) => "number $value"
         .Unknown => "unknown token"
     }
 }

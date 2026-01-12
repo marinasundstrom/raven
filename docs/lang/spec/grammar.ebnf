@@ -322,11 +322,15 @@ PrimaryPattern           ::= ParenthesizedPattern
 ConstantPattern          ::= Literal | ConstantPatternOperand ;
 
 ConstantPatternOperand    ::= Identifier ;
-(* A bare identifier in pattern position is context-sensitive:
+
+(* A bare identifier in pattern position never introduces a binding.
+   Bindings require an explicit BindingKeyword (let/val/var).
+
+   A bare identifier is context-sensitive:
    - If it binds to an in-scope value, it is a value/constant pattern (matches by equality).
    - Otherwise it is interpreted as a type name and forms a DeclarationPattern.
    This disambiguation is performed by the binder. *)
-
+   
 BindingKeyword           ::= 'let' | 'val' | 'var' ;
 
 VariablePattern          ::= BindingKeyword VariableDesignation ;
@@ -367,9 +371,9 @@ RelationalPattern        ::= RelationalOperator RelationalPatternOperand ;
 RelationalOperator       ::= '<' | '<=' | '>' | '>=' | '==' | '!=' ;
 RelationalPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
 
-VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* In patterns, a type annotation requires an explicit BindingKeyword (let/val/var) on each single variable. *)
+VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* In patterns, a single-variable designation always requires an explicit BindingKeyword (let/val/var), including when a type annotation is present. *)
 VariableDesignationCore  ::= SingleVariableDesignation | ParenthesizedVariableDesignation ;
-SingleVariableDesignation ::= [BindingKeyword] Identifier ;
+SingleVariableDesignation ::= BindingKeyword Identifier ;
 
 ParenthesizedVariableDesignation
                          ::= '(' VariableDesignation {',' VariableDesignation} ')' ;

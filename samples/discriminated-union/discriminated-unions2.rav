@@ -8,8 +8,8 @@ Console.WriteLine(area(.Rectangle(3, 4)))
 
 func area(shape: Shape) -> int {
     return shape match {
-        .Circle(r) => r * r * 3,
-        .Rectangle(w, h) => w * h,
+        .Circle(val r) => r * r * 3,
+        .Rectangle(val w, val h) => w * h,
     }
 }
 

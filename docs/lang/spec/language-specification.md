@@ -1202,17 +1202,17 @@ iterators. Each `yield return` resumes exactly where it left off on the next
 `MoveNext` call, allowing Raven iterators to interoperate seamlessly with .NET's
 enumeration APIs. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L46-L128】
 
-### Pattern matching
+## Pattern matching
 
 Patterns let you inspect values using concise, algebraic syntax. They appear in `is`
 predicates and in `match` expressions and participate in Raven’s flow-sensitive
 type analysis.
 
-#### Pattern forms
+### Pattern forms
 
 Patterns compose from the following primitives.
 
-##### Type and binding patterns
+#### Type and binding patterns
 
 * `Type` — **type pattern**. Succeeds when the scrutinee can be treated as `Type`.
   If the pattern introduces no designation, it behaves like a type test.
@@ -1228,17 +1228,22 @@ Patterns compose from the following primitives.
   Parenthesized designations such as `let (first, second): (int, string)` bind
   each element positionally.
 
-* **Explicit binding keyword required.** When a variable binding is intended in a pattern position, you must write an explicit binding keyword (`let`, `val`, or `var`). This disambiguates bindings from *value patterns* (constants) such as `.Ok(42)` or `.Ok(val discountedProduct)`.
+* **Explicit binding keyword required.** In pattern position, introducing a new
+  binding always requires an explicit binding keyword (`let`, `val`, or `var`).
+  A bare identifier never introduces a binding; it is interpreted as a *value
+  pattern* (constant) or, if applicable, as a type name.
 
   For example:
 
   * `.Ok(42)` matches the literal value `42`.
-  * `.Ok(val discountedProduct)` matches the runtime value of the in-scope symbol `discountedProduct`.
+  * `.Ok(discountedProduct)` matches the runtime value of the in-scope symbol
+    `discountedProduct`.
   * `.Ok(val n)` binds the payload to a new immutable local `n`.
 
-  The same rule applies in tuple and positional patterns: when a tuple element should introduce a binding, it must use `let`/`val`/`var`.
+  The same rule applies uniformly in tuple patterns and discriminated-union case
+  payloads.
 
-##### Discards
+#### Discards
 
 * `_` / `Type _` — **discard**. Matches without introducing a binding. The typed
   form asserts the value can be treated as `Type` while still discarding it.
@@ -1247,38 +1252,38 @@ Patterns compose from the following primitives.
   Discards participate in exhaustiveness: an unguarded `_` arm is a catch-all and
   satisfies any remaining cases (even if earlier arms introduced bindings).
 
-##### Constant patterns
+#### Constant patterns
 
 * `literal` — **constant pattern**. Matches when the scrutinee equals the literal
   value (`true`, `"on"`, `42`, or `null`). Literal patterns piggyback on Raven’s
-  literal types, so they also narrow unions precisely.
+  literal types and participate precisely in union narrowing.
 
 * `identifier` — **value pattern**. When a bare identifier appears in pattern
   position and resolves to an in-scope value (local, parameter, field, or property),
   the pattern matches when the scrutinee equals the runtime value of that identifier.
 
-  Value patterns are *not* bindings. To introduce a new binding, an explicit binding
-  keyword (`let`, `val`, or `var`) is required.
+  Value patterns are *not* bindings. To introduce a new binding, an explicit
+  binding keyword (`let`, `val`, or `var`) is required.
 
-> **Note:** A bare identifier in pattern position is context-sensitive. If the name
-> resolves to a value symbol, it forms a value pattern. Otherwise, it is interpreted
-> as a type name and participates in a type or declaration pattern. This
-> disambiguation is performed by the binder, not the grammar.
+> **Note:** A bare identifier in pattern position is context-sensitive. If the
+> name resolves to a value symbol, it forms a value pattern. Otherwise, it is
+> interpreted as a type name and participates in a type or declaration pattern.
+> This disambiguation is performed by the binder, not the grammar.
 
-##### Relational patterns
+#### Relational patterns
 
 * `< expr`, `<= expr`, `> expr`, `>= expr`, `== expr`, `!= expr` — **relational
   pattern**. Matches when the scrutinee compares to the operand using the given
   operator.
 
-  The operand is an expression, but the binder should restrict it to “constant-ish”
-  operands (for example, literals, consts, or other side-effect-free values), so
-  relational patterns remain predictable and optimizable.
+  The operand must be a side-effect-free expression (for example, literals,
+  consts, or other stable values), ensuring relational patterns remain predictable
+  and optimizable.
 
-  Relational patterns are often used under `not`, `and`, and property patterns, e.g.
-  `{ Age: not > 30 }`.
+  Relational patterns are commonly used under `not`, `and`, and property patterns,
+  e.g. `{ Age: not > 30 }`.
 
-##### Tuple patterns
+#### Tuple patterns
 
 * `(element1, element2, …)` — **tuple pattern**. Matches when the scrutinee is a
   tuple with the same arity and each element matches the corresponding subpattern.
@@ -1286,207 +1291,87 @@ Patterns compose from the following primitives.
   Tuple patterns destructure positionally. Each element is itself a pattern and
   may introduce bindings. For example:
 
-  * ✅ `(val a, val b)` 
+  * ✅ `(val a, val b)`
   * ✅ `(val a: int, val b: string)`
   * ✅ `(val a: int, _)`
-  * ❌ `(a: int, _) (error: keyword required)`
+  * ❌ `(a, b)` — does **not** introduce bindings; both elements are treated as
+    value patterns and must resolve to in-scope values.
 
-  A tuple element introduces a new binding *only* when an explicit binding keyword
-  (let, val, or var) is present. A bare identifier is treated as a value pattern
-  that matches an existing in-scope symbol.
+  A tuple element introduces a new binding **only** when an explicit binding
+  keyword (`let`, `val`, or `var`) is present.
 
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.
 
-##### Property patterns
+#### Property patterns
 
-* `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**. Matches
-  when the scrutinee is not `null` and can be treated as `Type`, then evaluates
-  each listed member subpattern against the corresponding instance member on the
-  value.
+* `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**.
+  Matches when the scrutinee is not `null` and can be treated as `Type`, then
+  evaluates each listed member subpattern against the corresponding instance
+  member.
 
-  * Each `member: pattern` entry targets an **instance field** or a **readable instance
-    property** named `member` on `Type`. (Properties must have an accessible getter and
-    must not be indexers.)
-  * The nested pattern is type-checked against the member’s type.
-  * Access checks apply: a property pattern may only read members that are accessible at
-    the use site.
-  * Property patterns fail if the scrutinee is `null`.
-  * Member subpatterns are evaluated left-to-right. Bindings introduced by earlier
-    subpatterns are in scope for later subpatterns in the same property pattern.
-  * The empty property pattern `Type { }` matches any non-`null` value that can be treated
+  * Each `member: pattern` targets an accessible instance field or readable
+    instance property.
+  * Nested patterns are type-checked against the member’s type.
+  * Member subpatterns are evaluated left-to-right; bindings from earlier entries
+    are in scope for later ones.
+  * The empty pattern `Type { }` matches any non-`null` value that can be treated
     as `Type`.
 
-* `Type { … } designation` — **property pattern with designation**. Like `Type { … }`, but also
-  introduces a designation for the successfully matched receiver value in the success scope.
+* `Type { … } designation` — **property pattern with designation**. Like
+  `Type { … }`, but also introduces a designation for the matched receiver.
 
-  * The designation may be a single name (`p`) or a parenthesized designation (`(p)`), following the same rules as other variable designations.
-  * If the designation omits a binding keyword, it defaults to `val` (immutable).
+  * The designation must include an explicit binding keyword (`let`, `val`, or
+    `var`).
   * Writing `var p` produces a mutable binding.
-  * The bound value has type `Type` (after any successful type test).
   * The designation is introduced only if the entire property pattern succeeds.
-  * Writing `_` discards the receiver value while still enforcing the property pattern.
+  * Writing `_` discards the receiver value while still enforcing the pattern.
 
-* `{ member1: pattern1, member2: pattern2, … }` — **inferred property pattern**. Like
-  `Type { ... }`, but the receiver type is inferred from the scrutinee’s static type.
+* `{ member1: pattern1, member2: pattern2, … }` — **inferred property pattern**.
+  Like `Type { … }`, but the receiver type is inferred from the scrutinee’s static
+  type.
 
-  * If the scrutinee’s static type is a concrete named type (and not just `object`), that
-    type is used as the receiver type for member lookup.
-  * If the receiver type cannot be inferred (for example, the scrutinee is `object`,
-    an unconstrained type parameter, or a union where multiple candidates could apply),
-    the pattern is invalid and the compiler reports a diagnostic requiring an explicit
-    type.
-  * The empty inferred property pattern `{ }` matches any non-`null` scrutinee (it is a
-    non-null test).
+  * If the receiver type cannot be inferred, the pattern is invalid and requires
+    an explicit type.
+  * `{ }` acts as a non-null test.
 
-* `{ … } designation` — **inferred property pattern with designation**. Introduces a designation for the inferred
-  receiver value when the pattern succeeds. The same inference and error rules apply as for `{ … }`.
+* `{ … } designation` — **inferred property pattern with designation**.
 
-  * If the designation omits a binding keyword, it defaults to `val` (immutable).
+  * The designation must include an explicit binding keyword (`let`, `val`, or
+    `var`).
   * Writing `var p` produces a mutable binding.
 
-##### Discriminated union case patterns
+#### Discriminated union case patterns
 
 * `.Case` / `Type.Case` — **case pattern**. Matches a discriminated union case by
   name.
 
-  * The leading `.` resolves against the current scrutinee in a `match` arm or `is`
-    expression.
-  * A qualifying type name forces lookup against that union regardless of the scrutinee’s
-    static type.
-  * Case patterns may supply nested subpatterns in parentheses to bind or validate payload
-    fields, mirroring the parameter list declared on the case:
-    `.Identifier(text)` or `Result<int>.Error(let message)`.
-  * Parentheses are optional for parameterless cases: `.Unknown` and `.Unknown()` are
-    equivalent.
-  * The payload arity must match the declared parameter list.
+  * The leading `.` resolves against the current scrutinee.
+  * Case payloads may supply nested subpatterns matching the case’s parameter
+    list, e.g. `.Identifier(text)` or `Result<int>.Error(let message)`.
+  * Parentheses are optional for parameterless cases.
+  * Payload arity must match the declared parameters.
   * Each nested subpattern is typed to the corresponding case parameter.
-  * Case payloads are read from the generated case properties before evaluating nested
-    patterns, so `.Ok(value)` binds `value` with the case’s declared type.
+  * A payload element introduces a new binding **only** when it uses
+    `let`/`val`/`var`. A bare identifier is a value pattern that matches an
+    existing in-scope symbol.
+
+    * Example: `.Case(let a, b)` binds `a` and matches the second payload against
+      the runtime value of in-scope `b`.
   * Use `_` to explicitly discard a payload.
 
-##### Pattern combinators
+#### Pattern combinators
 
-* `pattern1 and pattern2` — **conjunction**. Succeeds only when both operands match.
-  Bindings from either operand are available after the conjunction.
+* `pattern1 and pattern2` — **conjunction**. Succeeds only when both operands
+  match. Bindings from either operand are available after the conjunction.
 
 * `pattern1 or pattern2` — **alternative**. Matches when either operand matches.
-  Parentheses may be used to group alternatives.
 
-* `not pattern` — **complement**. Succeeds when the operand fails. `not` does not
-  introduce bindings even if its operand would.
+* `not pattern` — **complement**. Succeeds when the operand fails. `not` never
+  introduces bindings.
 
-Precedence: `not` binds tighter than `and`, which binds tighter than `or`. `or` associates
-left-to-right. Parentheses override precedence.
-
-```raven
-if payload is string {
-    Console.WriteLine("plain text payload")
-}
-
-if payload is string body {
-    Console.WriteLine("bytes ${body.Length}")
-}
-
-if payload is string _ {
-    Console.WriteLine("stringly typed legacy input")
-}
-
-if value is "ok" or "pending" {
-    Console.WriteLine("proceed")
-}
-
-if mode is not ("on" or "off") {
-    Console.WriteLine("unexpected mode")
-}
-
-if token is .Identifier(val text) {
-    Console.WriteLine($"identifier {text}")
-}
-
-if token is .Identifier(val text) and text != "" {
-    Console.WriteLine($"non-empty identifier {text}")
-}
-```
-
-Property patterns:
-
-```raven
-if x is Foo { Value: true } {
-    WriteLine("Foo with Value == true")
-}
-
-if x is Foo { Value: true } val p {
-    WriteLine("Matched receiver: ${p}")
-}
-
-if x is Foo { Value: val v } {
-    WriteLine("Foo.Value bound to v = $v")
-}
-
-if x is Foo { Data: (val a, val b) } {
-    WriteLine("Tuple destructured: a=$a, b=$b")
-}
-
-if x is Foo { Age: not > 30 } {
-    WriteLine("Age <= 30")
-}
-
-// Inferred receiver type (x is Foo here), so Foo is implied:
-if fooTrue is { Value: true } {
-    WriteLine("Also consistent Foo")
-}
-
-if fooTrue is { Value: true } var p {
-    // `p` is mutable here (though reassignment rules still apply like any other var local)
-    WriteLine("Receiver bound to p = ${p}")
-}
-
-// Non-null test:
-if x is { } {
-    WriteLine("x is not null")
-}
-```
-
-#### `is` expression
-
-`expr is pattern` evaluates to `bool`. On success, the compiler narrows the
-expression to the pattern’s accept set inside the `true` branch and discards the
-matched portion from the `false` branch. Any bindings introduced by the pattern
-are locals scoped to the `true` branch.
-
-```raven
-let token: object = read()
-
-if token is int n {
-    Console.WriteLine(n + 1) // token is narrowed to int here
-} else if token is "quit" {
-    Console.WriteLine("bye")
-}
-```
-
-When the pattern is a property pattern (`Type { ... }`), the `true` branch also
-treats the scrutinee as `Type` for member access, and any bindings introduced by
-nested subpatterns are in scope within the `true` branch.
-
-When the pattern is an inferred property pattern (`{ ... }`), the `true` branch
-treats the scrutinee as the inferred receiver type for member access. The empty
-form `{ }` narrows the scrutinee to “non-null”.
-
-#### Flow-sensitive narrowing
-
-Both `is` and `match` feed Raven’s flow analysis. Within the successful branch
-of `is`, or inside a matched arm, the scrutinee is narrowed to the pattern’s
-accept set and all pattern bindings are in scope. The complement carries through
-the opposite branch.
-
-Guard expressions (`when ...`) do not participate in narrowing themselves, but they
-may reference bindings established by the pattern they accompany.
-
-Property patterns contribute narrowing as well: inside a successful property
-pattern, the scrutinee is treated as the stated `Type` (or the inferred receiver
-type), and each nested subpattern may introduce additional bindings and narrowing
-for the corresponding member values.
+Precedence: `not` > `and` > `or`. `or` associates left-to-right. Parentheses
+override precedence.
 
 ## Namespace declaration
 
