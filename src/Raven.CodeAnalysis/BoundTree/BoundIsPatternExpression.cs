@@ -603,7 +603,7 @@ internal partial class BlockBinder
                                     // Typed designations require an explicit binding keyword on each single variable.
                                     // Example that should diagnose: (a: bool, b: string)
                                     // Example that should NOT diagnose: (val a: bool, var b: string)
-                                    if (single.BindingKeyword.IsMissing || single.BindingKeyword.Kind == SyntaxKind.None)
+                                    if (!HasExplicitBindingKeyword(single))
                                     {
                                         _diagnostics.ReportPatternTypedBindingRequiresKeyword(
                                             single.Identifier.ValueText,
@@ -632,6 +632,26 @@ internal partial class BlockBinder
                     ReportTypedPatternBindingsMissingKeyword(v);
                 break;
         }
+    }
+
+    private static bool HasExplicitBindingKeyword(SingleVariableDesignationSyntax single)
+    {
+        // Explicit on the single variable itself?
+        if (!single.BindingKeyword.IsMissing && single.BindingKeyword.Kind != SyntaxKind.None)
+            return true;
+
+        // Or provided by an enclosing variable pattern (`val`/`var`/`let`)?
+        for (SyntaxNode? current = single.Parent; current is not null; current = current.Parent)
+        {
+            if (current is VariablePatternSyntax vp)
+                return !vp.BindingKeyword.IsMissing && vp.BindingKeyword.Kind != SyntaxKind.None;
+
+            // Stop once we leave the pattern subtree.
+            if (current is PatternSyntax)
+                break;
+        }
+
+        return false;
     }
 
     private BoundPattern BindVariablePattern(VariablePatternSyntax syntax, ITypeSymbol? expectedType)
@@ -1317,7 +1337,7 @@ internal partial class BlockBinder
                 // Enforce: typed pattern bindings require explicit let/val/var.
                 // Example that should diagnose: (a: bool, b: string)
                 // Example that should NOT diagnose: (val a: bool, var b: string)
-                if (single.BindingKeyword.IsMissing || single.BindingKeyword.Kind == SyntaxKind.None)
+                if (!HasExplicitBindingKeyword(single))
                 {
                     _diagnostics.ReportPatternTypedBindingRequiresKeyword(
                         single.Identifier.ValueText,
