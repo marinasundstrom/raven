@@ -1493,8 +1493,9 @@ The outermost undeclared namespace is the **global namespace**.
 
 ## Enum declarations
 
-An `enum` declaration defines a closed set of named constants backed by an integral
-underlying type.
+An `enum` declaration defines a set of **named constants** backed by an integral
+underlying type. Enums model simple symbolic values and are primarily intended
+for interoperability and compatibility with existing .NET APIs.
 
 ```raven
 enum Color {
@@ -1503,6 +1504,17 @@ enum Color {
     Blue
 }
 ```
+
+> **Design note**
+>
+> Enums in Raven represent *named constants only*. They do **not** support
+> attaching additional data to individual members, and they are treated as
+> **non-exhaustive** in pattern matching. This reflects their CLR representation
+> and preserves compatibility with existing .NET libraries.
+>
+> Because enum values are not closed over time (new values may appear via casts,
+> interop, or future versions), `match` expressions over enums are not required
+> to be exhaustive, and the compiler does not enforce completeness.
 
 ### Underlying type
 
@@ -1525,6 +1537,9 @@ non-nullable integral primitive type (`byte`, `sbyte`, `short`, `ushort`, `int`,
 ### Enum members
 
 Each enum member introduces a public constant whose type is the enclosing enum.
+
+Enum members carry no associated payload or structure beyond their constant
+value. They cannot declare fields, parameters, or additional data.
 
 An enum member may optionally declare an explicit value using `=` followed by a
 constant expression:
@@ -1554,6 +1569,24 @@ let code: int = (int)ErrorCode.NotFound
 
 The reverse conversion—from the underlying type to the enum type—requires an
 explicit cast and is not validated for named membership at compile time.
+
+### Enums vs. discriminated unions
+
+When modeling a *closed* set of alternatives where:
+
+* every case must be handled exhaustively, or
+* individual cases need to carry associated data,
+
+**discriminated unions** should be used instead of enums.
+
+Discriminated unions provide:
+
+* compile-time exhaustiveness checking in `match` expressions,
+* strongly typed payloads attached to each case, and
+* safer evolution as new cases are added.
+
+Enums remain appropriate for simple symbolic values, flags, and interop
+scenarios where CLR compatibility is required.
 
 ### Runtime representation
 
