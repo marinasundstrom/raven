@@ -315,12 +315,21 @@ PrimaryPattern           ::= ParenthesizedPattern
                            | CasePattern
                            | PropertyPattern ;
 
-ConstantPattern          ::= Literal ;
+ConstantPattern          ::= Literal | ConstantPatternOperand ;
+
+ConstantPatternOperand    ::= Identifier ;
+(* A bare identifier in pattern position is context-sensitive:
+   - If it binds to an in-scope value, it is a value/constant pattern (matches by equality).
+   - Otherwise it is interpreted as a type name and forms a DeclarationPattern.
+   This disambiguation is performed by the binder. *)
 
 BindingKeyword           ::= 'let' | 'val' | 'var' ;
 
 VariablePattern          ::= BindingKeyword VariableDesignation ;
 
+(* NOTE: A single Identifier can be parsed as either ConstantPatternOperand or as the `Type` in a
+   DeclarationPattern. The binder resolves the ambiguity by preferring a value/constant pattern
+   when the identifier resolves to a value symbol in scope; otherwise it is treated as a type. *)
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
 TuplePattern             ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;

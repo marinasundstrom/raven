@@ -2033,6 +2033,14 @@ partial class BlockBinder : Binder
 
     private bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
     {
+        // Value-testing patterns are never catch-all.
+        // This keeps reachability/exhaustiveness conservative when patterns depend on runtime values.
+        if (pattern is BoundConstantPattern)
+            return false;
+
+        if (pattern is BoundRelationalPattern)
+            return false;
+
         switch (pattern)
         {
             case BoundDiscardPattern:
@@ -2136,6 +2144,28 @@ partial class BlockBinder : Binder
         }
     }
 
+    private static bool TryGetLiteralBoolConstant(BoundPattern pattern, out bool value)
+    {
+        value = default;
+
+        if (pattern is not BoundConstantPattern constant)
+            return false;
+
+        // Expression-backed constant patterns may depend on runtime values and must not
+        // participate in compile-time exhaustiveness reasoning.
+        if (constant.Expression is not null)
+            return false;
+
+        if (constant.LiteralType is not LiteralTypeSymbol literal)
+            return false;
+
+        if (literal.ConstantValue is not bool b)
+            return false;
+
+        value = b;
+        return true;
+    }
+
     private void RemoveCoveredUnionMembers(
         HashSet<ITypeSymbol> remaining,
         BoundPattern pattern,
@@ -2152,6 +2182,15 @@ partial class BlockBinder : Binder
                 break;
             case BoundConstantPattern constant:
                 {
+                    // Expression-backed value patterns may depend on runtime values and must not
+                    // participate in compile-time coverage reasoning.
+                    if (constant.Expression is not null)
+                        break;
+
+                    // Defensive: literal-backed patterns should always have a literal type.
+                    if (constant.LiteralType is null)
+                        break;
+
                     var literalType = (LiteralTypeSymbol)UnwrapAlias(constant.LiteralType);
 
                     if (TryUpdateLiteralCoverage(remaining, literalCoverage, literalType))
@@ -2351,16 +2390,22 @@ partial class BlockBinder : Binder
         {
             case BoundDiscardPattern:
                 return BooleanCoverage.All;
+
             case BoundDeclarationPattern declaration when IsBooleanType(declaration.DeclaredType):
                 return BooleanCoverage.All;
-            case BoundConstantPattern { ConstantValue: bool value }:
+
+            case BoundConstantPattern constant when TryGetLiteralBoolConstant(constant, out var value):
                 return value ? BooleanCoverage.True : BooleanCoverage.False;
+
             case BoundOrPattern orPattern:
                 return GetBooleanCoverage(orPattern.Left) | GetBooleanCoverage(orPattern.Right);
+
             case BoundAndPattern andPattern:
                 return GetBooleanCoverage(andPattern.Left) & GetBooleanCoverage(andPattern.Right);
+
             case BoundNotPattern notPattern:
                 return BooleanCoverage.All & ~GetBooleanCoverage(notPattern.Pattern);
+
             default:
                 return BooleanCoverage.None;
         }

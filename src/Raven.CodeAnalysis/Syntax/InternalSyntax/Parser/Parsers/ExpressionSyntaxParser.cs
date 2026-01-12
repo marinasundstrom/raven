@@ -15,13 +15,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
 {
     private readonly bool _allowMatchExpressionSuffixes;
     private readonly bool _stopOnOpenBrace;
+    private readonly bool _allowLambdaExpressions;
     private const int RangeOperatorPrecedence = 4;
 
-    public ExpressionSyntaxParser(ParseContext parent, bool allowMatchExpressionSuffixes = true, bool stopOnOpenBrace = false)
+    public ExpressionSyntaxParser(
+        ParseContext parent,
+        bool allowMatchExpressionSuffixes = true,
+        bool stopOnOpenBrace = false,
+        bool allowLambdaExpressions = true)
         : base(parent)
     {
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
         _stopOnOpenBrace = stopOnOpenBrace;
+        _allowLambdaExpressions = allowLambdaExpressions;
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -444,7 +450,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
     /// <returns>An expression.</returns>
     private ExpressionSyntax ParseFactorExpression()
     {
-        if (TryParseLambdaExpression(out var lambda))
+        if (_allowLambdaExpressions && TryParseLambdaExpression(out var lambda))
         {
             if (!_allowMatchExpressionSuffixes)
                 return lambda;

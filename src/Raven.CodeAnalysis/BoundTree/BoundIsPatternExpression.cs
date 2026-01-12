@@ -299,6 +299,43 @@ internal partial class BlockBinder
 {
     public virtual BoundPattern BindPattern(PatternSyntax syntax, ITypeSymbol? inputType = null)
     {
+        // Disambiguate bare identifiers in pattern position.
+        // The parser currently represents a lone identifier in a match arm as a DeclarationPatternSyntax
+        // with a missing designation. If the identifier binds as an in-scope value, treat it as a
+        // value pattern (expression-backed constant pattern) rather than a type/declaration pattern.
+        if (syntax is DeclarationPatternSyntax
+            {
+                Type: IdentifierNameSyntax identifierType,
+                Designation: SingleVariableDesignationSyntax { Identifier: { Kind: SyntaxKind.None } }
+            })
+        {
+            // Try bind as a value expression first.
+            var valueExpr = BindExpression(identifierType);
+
+            // If it resolved to a value symbol, reinterpret as a value/constant pattern.
+            if (valueExpr.Symbol is not null && valueExpr.Type is not null && valueExpr.Type.TypeKind != TypeKind.Error)
+            {
+                var expected = inputType ?? Compilation.GetSpecialType(SpecialType.System_Object);
+
+                var conversion = Compilation.ClassifyConversion(valueExpr.Type, expected);
+                if (!conversion.Exists)
+                {
+                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                        valueExpr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        expected.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        identifierType.GetLocation());
+
+                    var discard = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+                    CacheBoundNode(syntax, discard);
+                    return discard;
+                }
+
+                var constant = new BoundConstantPattern(valueExpr);
+                CacheBoundNode(syntax, constant);
+                return constant;
+            }
+        }
+
         var bound = syntax switch
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),

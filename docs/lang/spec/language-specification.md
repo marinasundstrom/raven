@@ -1171,6 +1171,18 @@ Patterns compose from the following primitives.
   value (`true`, `"on"`, `42`, or `null`). Literal patterns piggyback on Raven’s
   literal types, so they also narrow unions precisely.
 
+* `identifier` — **value pattern**. When a bare identifier appears in pattern
+  position and resolves to an in-scope value (local, parameter, field, or property),
+  the pattern matches when the scrutinee equals the runtime value of that identifier.
+
+  Value patterns are *not* bindings. To introduce a new binding, an explicit binding
+  keyword (`let`, `val`, or `var`) is required.
+
+> **Note:** A bare identifier in pattern position is context-sensitive. If the name
+> resolves to a value symbol, it forms a value pattern. Otherwise, it is interpreted
+> as a type name and participates in a type or declaration pattern. This
+> disambiguation is performed by the binder, not the grammar.
+
 ##### Relational patterns
 
 * `< expr`, `<= expr`, `> expr`, `>= expr`, `== expr`, `!= expr` — **relational

@@ -1,0 +1,10 @@
+val x: object = "hey"
+val discountedFlag = "hey"
+
+val r = x match {
+  discountedFlag => discountedFlag
+  string => "Other"
+  _ => "No"
+}
+
+System.Console.WriteLine(r)
