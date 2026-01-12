@@ -1,9 +1,10 @@
-val x: object = "hey"
+val x: object? = "hey"
 val discountedFlag = "hey"
 
 val r = x match {
   discountedFlag => discountedFlag
   string => "Other"
+  null => "Null"
   _ => "No"
 }
 

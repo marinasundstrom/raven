@@ -1632,6 +1632,16 @@ partial class BlockBinder : Binder
                 }
             case BoundConstantPattern constant:
                 {
+                    // Null patterns are unreachable when the scrutinee is non-nullable.
+                    // `IsNullable` covers both reference and value types.
+                    if (constant.Expression is null && constant.ConstantValue is null && !scrutineeType.IsNullable)
+                    {
+                        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                            "null",
+                            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            patternSyntax.GetLocation());
+                        return;
+                    }
                     // Literal-backed constant pattern
                     if (constant.LiteralType is not null)
                     {
