@@ -1614,6 +1614,20 @@ partial class BlockBinder : Binder
                     if (patternType.TypeKind == TypeKind.Error)
                         return;
 
+                    // `null` is parsed as a type in some contexts (e.g. `null => ...`).
+                    // Treat it as a constant null pattern: it is valid whenever the scrutinee can be null.
+                    if (patternType is NullTypeSymbol)
+                    {
+                        if (CanBeNull(scrutineeType))
+                            return;
+
+                        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                            "null",
+                            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            patternSyntax.GetLocation());
+                        return;
+                    }
+
                     if (PatternCanMatch(scrutineeType, patternType))
                         return;
 
@@ -1634,7 +1648,7 @@ partial class BlockBinder : Binder
                 {
                     // Null patterns are unreachable when the scrutinee is non-nullable.
                     // `IsNullable` covers both reference and value types.
-                    if (constant.Expression is null && constant.ConstantValue is null && !scrutineeType.IsNullable)
+                    if (constant.Expression is null && constant.ConstantValue is null && !CanBeNull(scrutineeType))
                     {
                         _diagnostics.ReportMatchExpressionArmPatternInvalid(
                             "null",
@@ -1806,6 +1820,9 @@ partial class BlockBinder : Binder
         if (scrutineeType.TypeKind == TypeKind.Error || patternType.TypeKind == TypeKind.Error)
             return true;
 
+        if (patternType is NullTypeSymbol)
+            return CanBeNull(scrutineeType);
+
         if (scrutineeType is ITypeUnionSymbol scrutineeUnion)
         {
             foreach (var member in scrutineeUnion.Types)
@@ -1842,6 +1859,35 @@ partial class BlockBinder : Binder
 
         return IsAssignable(patternType, scrutineeType, out _) ||
                IsAssignable(scrutineeType, patternType, out _);
+
+    }
+
+    private bool CanBeNull(ITypeSymbol type)
+    {
+        type = UnwrapAlias(type);
+
+        if (type.TypeKind == TypeKind.Error)
+            return true;
+
+        // Direct null type.
+        if (type is NullTypeSymbol)
+            return true;
+
+        // Explicit nullable wrapper.
+        if (type.IsNullable)
+            return true;
+
+        // Union can be null if any member can be null.
+        if (type is ITypeUnionSymbol union)
+        {
+            foreach (var member in union.Types)
+            {
+                if (CanBeNull(member))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private ImmutableArray<ITypeSymbol> GetTupleElementTypes(ITypeSymbol type)

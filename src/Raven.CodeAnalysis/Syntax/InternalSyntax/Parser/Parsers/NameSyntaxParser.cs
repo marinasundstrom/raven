@@ -27,6 +27,29 @@ internal class NameSyntaxParser : SyntaxParser
 
     public TypeSyntax ParseTypeName()
     {
+        // Parse a single (non-union) type first.
+        var first = ParseTypeNameElement();
+
+        // Union types are a sequence of type elements separated by '|'.
+        // IMPORTANT: the right-hand side must parse as a *single element* to avoid
+        // producing nested UnionType nodes (right-associative trees).
+        if (!PeekToken().IsKind(SyntaxKind.BarToken))
+            return first;
+
+        SyntaxList types = SyntaxList.Empty;
+        types = types.Add(first);
+
+        while (ConsumeToken(SyntaxKind.BarToken, out var barToken))
+        {
+            types = types.Add(barToken);
+            types = types.Add(ParseTypeNameElement());
+        }
+
+        return UnionType(types);
+    }
+
+    private TypeSyntax ParseTypeNameElement()
+    {
         if (ConsumeToken(SyntaxKind.AmpersandToken, out var ampToken))
         {
             var elementType = ParseTypeName();
@@ -81,27 +104,6 @@ internal class NameSyntaxParser : SyntaxParser
         {
             var returnType = new NameSyntaxParser(this).ParseTypeName();
             name = FunctionType(name, null, arrowToken, returnType);
-        }
-
-        SyntaxList types = SyntaxList.Empty;
-
-        bool IsTypeUnion = false;
-
-        if (IsNextToken(SyntaxKind.BarToken))
-        {
-            IsTypeUnion = true;
-            types = types.Add(name);
-        }
-
-        while (ConsumeToken(SyntaxKind.BarToken, out var barToken))
-        {
-            types = types.Add(barToken);
-            types = types.Add(ParseTypeName());
-        }
-
-        if (IsTypeUnion)
-        {
-            return UnionType(types);
         }
 
         return name;
