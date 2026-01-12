@@ -54,13 +54,14 @@ class OrderItem(product: string, unitPrice: decimal, unit: string, quantity: int
 class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
 
     val discountedProduct = "Item 2"
+    val discountedQuantityThreshold = 10
 
     public async Handle(request: SubmitOrder, cancellationToken: CancellationToken) -> Task<Response<decimal>> {
         await Task.Delay(500)
         var total: decimal = .0m
         for item in request.OrderItems {
             var lineTotal = item.UnitPrice * item.Quantity
-            if item is { Product: discountedProduct, Quantity: > 10 } p {
+            if item is { Product: discountedProduct, Quantity: > discountedQuantityThreshold } p {
                 WriteLine("Applied 20% discount to: ${p.Product}")
                 lineTotal = lineTotal * 0.8m
             }

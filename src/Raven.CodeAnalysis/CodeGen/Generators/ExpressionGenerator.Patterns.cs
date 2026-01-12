@@ -612,7 +612,6 @@ internal partial class ExpressionGenerator
         {
             var nullableClr = scrutineeClr;
             var underlyingType = inputType.GetNullableUnderlyingType();
-            var underlyingClr = ResolveClrType(underlyingType);
 
             var hasValueGetter = nullableClr.GetProperty("HasValue")!.GetGetMethod()!;
             var getValueOrDefault = nullableClr.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
@@ -629,8 +628,8 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Ldloca_S, scrutineeLocal);
             ILGenerator.Emit(OpCodes.Call, getValueOrDefault); // underlying T on stack
 
-            // right = constant (emit in underlying type)
-            EmitConstantForRelational((BoundConstantPattern)pattern.Value, underlyingType);
+            // right = emit relational RHS as underlying type
+            EmitRelationalRhs(pattern.Value, underlyingType, scope);
 
             // compare => int
             EmitCompare(underlyingType);
@@ -649,14 +648,125 @@ internal partial class ExpressionGenerator
 
         // Non-nullable path
         ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-
-        var t = (BoundLiteralExpression)pattern.Value;
-
-        EmitConstantForRelational(new BoundConstantPattern((LiteralTypeSymbol)t.Type), inputType);
-
+        EmitRelationalRhs(pattern.Value, inputType, scope);
         EmitCompare(inputType);
-
         EmitRelationalOperator(pattern.Operator);
+    }
+
+    private void EmitRelationalRhs(BoundExpression rhs, ITypeSymbol targetType, Generator scope)
+    {
+        // Relational patterns are intended to be constant expressions, but be defensive:
+        // - literals are fine
+        // - const fields (or other compile-time constants) are fine
+        // - otherwise we fall back to evaluating the expression normally
+
+        if (rhs is BoundConstantPattern cp)
+        {
+            EmitConstantForRelational(cp, targetType);
+            return;
+        }
+
+        if (rhs is BoundLiteralExpression litExpr && rhs.Type is LiteralTypeSymbol litType)
+        {
+            var value = litType.ConstantValue;
+            if (value is null)
+            {
+                EmitDefaultValue(targetType);
+                return;
+            }
+
+            EmitLiteralInTargetType(value, targetType, litType);
+            return;
+        }
+
+        if (rhs is BoundFieldAccess fieldAccess)
+        {
+            // Support `const` fields / literal-like symbols in relational patterns.
+            var constantValue = fieldAccess.Field.GetConstantValue();
+            if (constantValue is not null)
+            {
+                EmitLiteralInTargetType(constantValue, targetType);
+                return;
+            }
+        }
+
+        // Fallback: evaluate the RHS expression and rely on binder + conversions.
+        new ExpressionGenerator(scope, rhs).Emit();
+    }
+    private void EmitLiteralInTargetType(object value, ITypeSymbol targetType)
+    {
+        // Best-effort emission for compile-time constants that are not represented as LiteralTypeSymbol.
+        // This is primarily used for const fields in patterns.
+        if (targetType is LiteralTypeSymbol lt)
+            targetType = lt.UnderlyingType;
+
+        if (targetType.TypeKind == TypeKind.Enum)
+        {
+            // TODO: once EnumUnderlyingType is available, emit using that.
+            // For now, treat as Int32 which matches the most common underlying type.
+            ILGenerator.Emit(OpCodes.Ldc_I4, Convert.ToInt32(value, CultureInfo.InvariantCulture));
+            return;
+        }
+
+        switch (targetType.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+                ILGenerator.Emit(Convert.ToBoolean(value, CultureInfo.InvariantCulture) ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                return;
+
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToChar(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToSByte(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_Byte:
+                ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToByte(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_Int16:
+                ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToInt16(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_UInt16:
+                ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToUInt16(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_Int32:
+                ILGenerator.Emit(OpCodes.Ldc_I4, Convert.ToInt32(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_UInt32:
+                unchecked { ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToUInt32(value, CultureInfo.InvariantCulture)); }
+                return;
+
+            case SpecialType.System_Int64:
+                ILGenerator.Emit(OpCodes.Ldc_I8, Convert.ToInt64(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_UInt64:
+                unchecked { ILGenerator.Emit(OpCodes.Ldc_I8, (long)Convert.ToUInt64(value, CultureInfo.InvariantCulture)); }
+                return;
+
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Ldc_R4, Convert.ToSingle(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Ldc_R8, Convert.ToDouble(value, CultureInfo.InvariantCulture));
+                return;
+
+            case SpecialType.System_String:
+                ILGenerator.Emit(OpCodes.Ldstr, (string)value);
+                return;
+        }
+
+        // Fallback: boxed constant (caller must compare via Equals)
+        EmitLiteral(value);
+        if (targetType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(targetType));
     }
 
     // ============================================
