@@ -1146,12 +1146,12 @@ Patterns compose from the following primitives.
   Parenthesized designations such as `let (first, second): (int, string)` bind
   each element positionally.
 
-* **Explicit binding keyword required.** When a variable binding is intended in a pattern position, you must write an explicit binding keyword (`let`, `val`, or `var`). This disambiguates bindings from *value patterns* (constants) such as `.Ok(42)` or `.Ok(discountedProduct)`.
+* **Explicit binding keyword required.** When a variable binding is intended in a pattern position, you must write an explicit binding keyword (`let`, `val`, or `var`). This disambiguates bindings from *value patterns* (constants) such as `.Ok(42)` or `.Ok(val discountedProduct)`.
 
   For example:
 
   * `.Ok(42)` matches the literal value `42`.
-  * `.Ok(discountedProduct)` matches the runtime value of the in-scope symbol `discountedProduct`.
+  * `.Ok(val discountedProduct)` matches the runtime value of the in-scope symbol `discountedProduct`.
   * `.Ok(val n)` binds the payload to a new immutable local `n`.
 
   The same rule applies in tuple and positional patterns: when a tuple element should introduce a binding, it must use `let`/`val`/`var`.
@@ -1192,13 +1192,14 @@ Patterns compose from the following primitives.
   Tuple patterns destructure positionally. Each element is itself a pattern and
   may introduce bindings. For example:
 
-  * `(a, b)`
-  * `(val a, val b)`
-  * `(x: int, y: string)`
-  * `(first: int, second)`
+  * ✅ `(val a, val b)` 
+  * ✅ `(val a: int, val b: string)`
+  * ✅ `(val a: int, _)`
+  * ❌ `(a: int, _) (error: keyword required)`
 
-  If an element uses a name without an explicit `let`/`val`/`var`, the binding is
-  treated as `val`.
+  A tuple element introduces a new binding *only* when an explicit binding keyword
+  (let, val, or var) is present. A bare identifier is treated as a value pattern
+  that matches an existing in-scope symbol.
 
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.
@@ -1265,8 +1266,7 @@ Patterns compose from the following primitives.
   * Each nested subpattern is typed to the corresponding case parameter.
   * Case payloads are read from the generated case properties before evaluating nested
     patterns, so `.Ok(value)` binds `value` with the case’s declared type.
-  * Bare payload identifiers implicitly bind immutable locals, so `.Ok(payload)` is
-    equivalent to `.Ok(val payload)`; use `_` to explicitly discard a payload.
+  * Use `_` to explicitly discard a payload.
 
 ##### Pattern combinators
 

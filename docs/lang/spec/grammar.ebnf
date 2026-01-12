@@ -317,12 +317,20 @@ PrimaryPattern           ::= ParenthesizedPattern
 
 ConstantPattern          ::= Literal ;
 
-VariablePattern          ::= ('let' | 'val'| 'var') VariableDesignation ;
+BindingKeyword           ::= 'let' | 'val' | 'var' ;
+
+VariablePattern          ::= BindingKeyword VariableDesignation ;
 
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
 TuplePattern             ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;
-PatternElement           ::= [Identifier ':'] Pattern ;
+PatternElement           ::= [TuplePatternElementDesignation] Pattern ;
+
+(* Tuple element designations introduce a new binding for the element.
+   To avoid ambiguity with value/constant patterns, the binding keyword is required.
+   For example: (val a: bool, _) is permitted, but (a: bool, _) is an error. *)
+TuplePatternElementDesignation
+                         ::= BindingKeyword Identifier ':' ;
 
 DiscardPattern           ::= '_' | Type '_' ;
 
@@ -346,7 +354,7 @@ RelationalPattern        ::= RelationalOperator RelationalPatternOperand ;
 RelationalOperator       ::= '<' | '<=' | '>' | '>=' | '==' | '!=' ;
 RelationalPatternOperand ::= Expression ; (* binder should enforce “constant-ish” rules *)
 
-VariableDesignation      ::= VariableDesignationCore [':' Type] ;
+VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* In patterns, a type annotation requires an explicit BindingKeyword (let/val/var). *)
 VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;
 
 ParenthesizedVariableDesignation

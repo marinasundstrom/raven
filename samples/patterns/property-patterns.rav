@@ -27,7 +27,7 @@ func test(x: object?, r: Result<int>) {
         WriteLine("Foo.Value bound to v = $v")
     }
 
-    if x is Foo { Data: (a, b) } {
+    if x is Foo { Data: (val a, val b) } {
         WriteLine("Tuple destructured: a=$a, b=$b")
     }
 

@@ -20,7 +20,7 @@ val r = x match {
     false => "false"
     true => "true"
     //bool => "bool"
-    (a: bool, b: string) => "tuple"
+    (val a: bool, val b: string) => "tuple"
     _ => "none"
 }
 

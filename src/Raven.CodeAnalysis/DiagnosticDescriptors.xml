@@ -636,4 +636,12 @@
     EnabledByDefault="true"
     Description=""
     HelpLinkUri="" />
+  <Descriptor Id="RAV1607" Identifier="PatternTypedBindingRequiresKeyword"
+    Title="Pattern binding requires a binding keyword"
+    Message="Pattern binding '{name}: {typeName}' requires an explicit binding keyword ('val', 'var', or 'let')."
+    Category="compiler"
+    Severity="Error"
+    EnabledByDefault="true"
+    Description=""
+    HelpLinkUri="" />
 </Diagnostics>
