@@ -253,10 +253,10 @@ the declaring type:
 
 ```raven
 class Button {
-    public event Clicked: System.Action;
+    public event Clicked: System.Action? // Events can be null
 
     public Raise() -> unit {
-        Clicked();
+        Clicked?();
     }
 }
 ```
