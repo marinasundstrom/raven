@@ -1,5 +1,5 @@
 // BUG: Re-assignment to "x" in test is not diagnosed appropriately as not in the context, 
-// Functions (function statements) should not act as closures.
+// Function statements) should not act as closures.
 
 var x = 2
 

@@ -6169,46 +6169,96 @@ partial class BlockBinder : Binder
         return false;
     }
 
+    private bool IsNonClosureFunctionBody
+    {
+        get
+        {
+            if (_containingSymbol is not IMethodSymbol method)
+                return false;
+
+            // Lambdas have their own closure semantics; this rule is for function statements.
+            if (method.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+                return false;
+
+            return method.DeclaringSyntaxReferences
+                .Select(r => r.GetSyntax())
+                .OfType<FunctionStatementSyntax>()
+                .Any();
+        }
+    }
+
     public override IEnumerable<ISymbol> LookupSymbols(string name)
     {
         var seen = new HashSet<ISymbol>();
         Binder? current = this;
 
+        // If we're inside a function statement body (non-closure), we must NOT see locals/params
+        // from enclosing blocks/top-level/methods. We still want types/imports/members.
+        var restrict = IsNonClosureFunctionBody;
+        var boundarySymbol = restrict ? _containingSymbol : null;
+        var pastBoundary = false;
+
         while (current is not null)
         {
-            if (current is BlockBinder block)
+            if (restrict && !pastBoundary)
             {
-                if (block._locals.TryGetValue(name, out var local) && seen.Add(local.Symbol))
-                    yield return local.Symbol;
-
-                if (block._functions.TryGetValue(name, out var func) && seen.Add(func))
-                    yield return func;
-
-                if (block._labelsByName.TryGetValue(name, out var label) && seen.Add(label))
-                    yield return label;
+                // Once we encounter a binder that belongs to a different containing symbol,
+                // we've left the function body scope. After that we must not see locals/params.
+                if (current is BlockBinder bb &&
+                    !SymbolEqualityComparer.Default.Equals(bb.ContainingSymbol, boundarySymbol))
+                {
+                    pastBoundary = true;
+                }
+                else if (current is MethodBinder mb &&
+                         !SymbolEqualityComparer.Default.Equals(mb.GetMethodSymbol(), boundarySymbol))
+                {
+                    pastBoundary = true;
+                }
+                else if (current is TopLevelBinder or LambdaBinder)
+                {
+                    pastBoundary = true;
+                }
             }
 
-            if (current is TopLevelBinder topLevelBinder)
+            var allowLocalsAndParams = !pastBoundary;
+
+            if (current is BlockBinder block)
+            {
+                if (allowLocalsAndParams)
+                {
+                    if (block._locals.TryGetValue(name, out var local) && seen.Add(local.Symbol))
+                        yield return local.Symbol;
+
+                    if (block._functions.TryGetValue(name, out var func) && seen.Add(func))
+                        yield return func;
+
+                    if (block._labelsByName.TryGetValue(name, out var label) && seen.Add(label))
+                        yield return label;
+                }
+            }
+
+            if (allowLocalsAndParams && current is TopLevelBinder topLevelBinder)
             {
                 foreach (var param in topLevelBinder.GetParameters())
                     if (param.Name == name && seen.Add(param))
                         yield return param;
             }
 
-            if (current is MethodBinder methodBinder)
+            if (allowLocalsAndParams && current is MethodBinder methodBinder)
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
                     if (param.Name == name && seen.Add(param))
                         yield return param;
             }
 
-            if (current is LambdaBinder lambdaBinder)
+            if (allowLocalsAndParams && current is LambdaBinder lambdaBinder)
             {
                 foreach (var param in lambdaBinder.GetParameters())
                     if (param.Name == name && seen.Add(param))
                         yield return param;
             }
 
+            // Members/imports remain visible even after the boundary.
             if (current is TypeMemberBinder typeMemberBinder)
             {
                 foreach (var member in typeMemberBinder.ContainingSymbol.GetMembers(name))
