@@ -1,0 +1,10 @@
+// BUG:
+// It seems like the spread operation emit fails for user-defined type (Item) in collection. 
+// Most likely because they are in separate universes. Loads collection types from Private lib when binding spread operation. 
+// And the operation fails on: GetConstructor, line 1029 in ConstructedNamedTypeSymbol.cs. 
+
+import System.Collections.Generic.*
+
+let items: List<Item> = [Item()]
+
+class Item() { }

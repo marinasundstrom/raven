@@ -1,0 +1,9 @@
+// BUG:
+// I couldn’t get target-typed enums to work when passing them to the constructor and in patterns: .A and .B. 
+// This might only be for user-defined enums (Source), not enums loaded from metadata (PE).
+
+let item = Item(.A)
+
+class Item(value: Value) { }
+
+enum Value { A, B }

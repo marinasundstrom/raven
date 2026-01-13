@@ -1,3 +1,5 @@
+// BUG: Problem (similar to generic-math.rav) when iterating .AllInterfaces on int because of the constructed INumber<TSelf> interface.
+
 namespace MyTokenizer
 
 import System.*

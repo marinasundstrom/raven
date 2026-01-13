@@ -1,3 +1,5 @@
+// BUG: Problem (similar to tokenizer.rav) when iterating .AllInterfaces on int because of the constructed INumber<TSelf> interface.
+
 import System.*
 import System.Console.*
 import System.Threading.Tasks.*
