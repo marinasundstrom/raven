@@ -2,11 +2,11 @@ import System.*
 import System.Console.*
 
 func Main() {
-    val rex = Character("Rex", Species.Dog, 5)
-    val charlie = Character("Charlie Hudson", Species.Human, 42)
-    val sarah = Character("Sarah Truong", Species.Human, 39)
-    val jesse = Character("Jesse Mills", Species.Human, 34)
-    val joe = Character("Joe Donovan", Species.Human, 52)
+    val rex = Character("Rex", Species.Dog, Gender.Male, 5)
+    val charlie = Character("Charlie Hudson", Species.Human, Gender.Male, 42)
+    val sarah = Character("Sarah Truong", Species.Human, Gender.Female, 39)
+    val jesse = Character("Jesse Mills", Species.Human, Gender.Male, 34)
+    val joe = Character("Joe Donovan", Species.Human, Gender.Male, 50)
 
     var characters = [rex, charlie, sarah, jesse, joe]
 
@@ -15,18 +15,20 @@ func Main() {
             Print(character)
         }
 
-        if character is { Age: >= 35 } {
+        if character is { Age: >= 35, Gender: Gender.Female } {
             Print(character)
         }
     }
 }
 
-func Print(character: Character) => WriteLine("Name = ${character.Name}, Species = ${character.Species}, Age = ${character.Age}")
+func Print(character: Character) => WriteLine("Name = ${character.Name}, Species = ${character.Species}, Gender = ${character.Gender}, Age = ${character.Age}")
 
-class Character(name: string, species: Species, age: int) {
+class Character(name: string, species: Species, gender: Gender, age: int) {
     public Name: string => name
 
     public Species: Species => species
+
+    public Gender: Gender => gender
 
     public Age: int => age
 }
@@ -34,4 +36,10 @@ class Character(name: string, species: Species, age: int) {
 enum Species {
     Human,
     Dog
+}
+
+enum Gender {
+    Unspecified,
+    Male,
+    Female
 }
