@@ -1,6 +1,7 @@
 // BUG:
 // I couldn’t get target-typed enums to work when passing them to the constructor. 
-// I think we need to refactor so target-types apply equally for both methods invocations and new constructors invocations. Simplify paths.
+// I think we need to refactor so target-types apply equally for both methods invocations and new constructors invocations. And also identify other places where target-types may be applied, such as pattern.
+// Refactor if needed
 
 let item = foo(.A) // Works
 let item = Item(.A) // Don't work
