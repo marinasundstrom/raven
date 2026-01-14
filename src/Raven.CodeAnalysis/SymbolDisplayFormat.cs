@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 public class SymbolDisplayFormat
 {
-    public static SymbolDisplayFormat CSharpTooltipFormat { get; } = new SymbolDisplayFormat
+    public static SymbolDisplayFormat RavenTooltipFormat { get; } = new SymbolDisplayFormat
     {
         DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
         ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
@@ -18,7 +18,7 @@ public class SymbolDisplayFormat
                            SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers
     };
 
-    public static SymbolDisplayFormat CSharpDebuggerFormat { get; } = new SymbolDisplayFormat
+    public static SymbolDisplayFormat RavenDebuggerFormat { get; } = new SymbolDisplayFormat
     {
         DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
         ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.StaticMethod,
@@ -44,7 +44,7 @@ public class SymbolDisplayFormat
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
     };
 
-    public static SymbolDisplayFormat CSharpCodeGenerationFormat { get; } = new SymbolDisplayFormat
+    public static SymbolDisplayFormat RavenCodeGenerationFormat { get; } = new SymbolDisplayFormat
     {
         DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
@@ -58,7 +58,7 @@ public class SymbolDisplayFormat
                            SymbolDisplayMiscellaneousOptions.RemoveAttributeSuffix
     };
 
-    public static SymbolDisplayFormat CSharpSymbolKeyFormat { get; } = new SymbolDisplayFormat
+    public static SymbolDisplayFormat RavenSymbolKeyFormat { get; } = new SymbolDisplayFormat
     {
         DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
@@ -69,7 +69,7 @@ public class SymbolDisplayFormat
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes
     };
 
-    public static SymbolDisplayFormat CSharpErrorMessageFormat { get; } = new SymbolDisplayFormat
+    public static SymbolDisplayFormat RavenErrorMessageFormat { get; } = new SymbolDisplayFormat
     {
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
@@ -80,7 +80,7 @@ public class SymbolDisplayFormat
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType
     };
 
-    public static SymbolDisplayFormat CSharpShortErrorMessageFormat { get; } = new SymbolDisplayFormat
+    public static SymbolDisplayFormat RavenShortErrorMessageFormat { get; } = new SymbolDisplayFormat
     {
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         GenericsOptions = SymbolDisplayGenericsOptions.None,

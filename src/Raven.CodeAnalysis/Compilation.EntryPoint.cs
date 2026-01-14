@@ -92,7 +92,7 @@ public partial class Compilation
                     continue;
                 }
 
-                var key = method.ToDisplayString(SymbolDisplayFormat.CSharpSymbolKeyFormat);
+                var key = method.ToDisplayString(SymbolDisplayFormat.RavenSymbolKeyFormat);
                 if (!uniqueCandidates.ContainsKey(key))
                     uniqueCandidates.Add(key, method);
             }

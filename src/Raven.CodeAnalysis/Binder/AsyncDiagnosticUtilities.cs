@@ -19,7 +19,7 @@ internal static class AsyncDiagnosticUtilities
             _ => "function",
         };
 
-        var display = methodSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var display = methodSymbol.ToDisplayString(SymbolDisplayFormat.RavenShortErrorMessageFormat);
 
         if (string.IsNullOrWhiteSpace(display) || display == "<lambda>")
             return kind;

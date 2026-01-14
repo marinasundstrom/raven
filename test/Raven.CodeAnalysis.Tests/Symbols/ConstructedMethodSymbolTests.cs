@@ -52,7 +52,7 @@ class Outer<T>
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(stringType, parameter.Type)),
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type)));
 
-        var display = constructedWrap.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        var display = constructedWrap.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Equal("Outer<string>.Wrap<int>(string, int) -> string", display);
     }
 
@@ -89,7 +89,7 @@ class Outer<T>
 
         var constructedWrap = Assert.IsAssignableFrom<IMethodSymbol>(wrapDefinition.Construct(intType));
 
-        var errorDisplay = constructedWrap.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        var errorDisplay = constructedWrap.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Equal(errorDisplay, constructedWrap.ToString());
 
         var debuggerMethod = typeof(ConstructedMethodSymbol).GetMethod(
@@ -115,7 +115,7 @@ class Outer<T>
 
         var find = Assert.Single(listOfString.GetMembers("Find").OfType<IMethodSymbol>());
 
-        var errorDisplay = find.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        var errorDisplay = find.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Equal("List<string>.Find(Predicate<string>) -> string", errorDisplay);
         Assert.Equal(errorDisplay, find.ToString());
 

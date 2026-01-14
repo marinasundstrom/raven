@@ -162,7 +162,7 @@ class Outer<T>
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, runtimeArguments[0]));
         Assert.True(SymbolEqualityComparer.Default.Equals(stringType, runtimeArguments[1]));
 
-        var display = constructedInner.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        var display = constructedInner.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Equal("Outer<int>.Inner<string>", display);
 
         var metadataName = constructedInner.ToFullyQualifiedMetadataName();
@@ -249,7 +249,7 @@ class Outer<T>
         var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedOuter.LookupType("Inner"));
         var constructedInner = Assert.IsAssignableFrom<ConstructedNamedTypeSymbol>(innerDefinition.Construct(stringType));
 
-        var errorDisplay = constructedInner.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        var errorDisplay = constructedInner.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Equal(errorDisplay, constructedInner.ToString());
 
         var debuggerMethod = typeof(ConstructedNamedTypeSymbol).GetMethod(
@@ -294,7 +294,7 @@ class Outer<T>
 
         var enumerator = Assert.IsAssignableFrom<INamedTypeSymbol>(listOfInt.LookupType("Enumerator"));
 
-        var errorDisplay = enumerator.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+        var errorDisplay = enumerator.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Equal("List<int>.Enumerator<int>", errorDisplay);
 
         var fullyQualified = enumerator.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);

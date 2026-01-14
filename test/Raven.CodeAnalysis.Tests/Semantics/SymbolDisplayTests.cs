@@ -24,7 +24,7 @@ class C {
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
 
-        var display = field.ToDisplayString(SymbolDisplayFormat.CSharpCodeGenerationFormat);
+        var display = field.ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat);
 
         Assert.Equal("public const MaxValue: char", display);
         Assert.True(field.IsStatic);
@@ -45,7 +45,7 @@ class C {
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
         var symbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
 
-        var format = SymbolDisplayFormat.CSharpCodeGenerationFormat
+        var format = SymbolDisplayFormat.RavenCodeGenerationFormat
             .WithPropertyStyle(SymbolDisplayPropertyStyle.ShowReadWriteDescriptor);
         var display = symbol.ToDisplayString(format);
 

@@ -48,8 +48,8 @@ public static partial class SymbolExtensions
         if (left is null || right is null)
             return false;
 
-        var leftIdentity = left.ToDisplayString(SymbolDisplayFormat.CSharpSymbolKeyFormat);
-        var rightIdentity = right.ToDisplayString(SymbolDisplayFormat.CSharpSymbolKeyFormat);
+        var leftIdentity = left.ToDisplayString(SymbolDisplayFormat.RavenSymbolKeyFormat);
+        var rightIdentity = right.ToDisplayString(SymbolDisplayFormat.RavenSymbolKeyFormat);
         return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal);
     }
 
@@ -169,7 +169,7 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat? format = default!)
     {
-        format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
+        format ??= SymbolDisplayFormat.RavenErrorMessageFormat;
 
         if (symbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
             format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
