@@ -2773,6 +2773,13 @@ partial class BlockBinder : Binder
                                     if (TryGetCommonParameterType(accessible, index, extensionReceiverImplicit: false) is ITypeSymbol common)
                                         return common;
                                 }
+
+                                if (targetMethod is null &&
+                                    LookupType(id.Identifier.ValueText) is INamedTypeSymbol invokedType &&
+                                    GetConstructorArgumentTargetType(invokedType, argList.Arguments, arg) is { } constructorParameterType)
+                                {
+                                    return constructorParameterType;
+                                }
                             }
 
                             if (targetMethod is not null && targetMethod.Parameters.Length > index)
@@ -2785,75 +2792,11 @@ partial class BlockBinder : Binder
                         else if (arg.Parent is ArgumentListSyntax ctorArgList &&
                             ctorArgList.Parent is ObjectCreationExpressionSyntax objectCreation)
                         {
-                            var argumentIndex = -1;
-                            for (var i = 0; i < ctorArgList.Arguments.Count; i++)
-                            {
-                                if (ctorArgList.Arguments[i] == arg)
-                                {
-                                    argumentIndex = i;
-                                    break;
-                                }
-                            }
-
-                            if (argumentIndex < 0)
-                            {
-                                current = current.Parent;
-                                continue;
-                            }
-
-                            var argumentCount = ctorArgList.Arguments.Count;
-                            var argumentExpression = arg.Expression;
-                            var argumentName = arg.NameColon?.Name.Identifier.ValueText;
-
-                            if (BindTypeSyntax(objectCreation.Type) is not BoundTypeExpression typeExpression ||
-                                typeExpression.Type is not INamedTypeSymbol typeSymbol)
-                            {
-                                current = current.Parent;
-                                continue;
-                            }
-
-                            var placeholderArguments = new BoundArgument[argumentCount];
-                            for (var i = 0; i < argumentCount; i++)
-                            {
-                                var syntax = ctorArgList.Arguments[i];
-                                var name = syntax.NameColon?.Name.Identifier.ValueText;
-                                placeholderArguments[i] = new BoundArgument(BoundFactory.NullLiteral(), RefKind.None, name, syntax);
-                            }
-
-                            var constructors = typeSymbol.Constructors
-                                .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, receiver: null, placeholderArguments))
-                                .ToImmutableArray();
-
-                            RecordLambdaTargets(argumentExpression, constructors, argumentIndex, extensionReceiverImplicit: false);
-
-                            ITypeSymbol? parameterType = null;
-
-                            foreach (var constructor in constructors)
-                            {
-                                IParameterSymbol? parameter = null;
-                                if (!string.IsNullOrEmpty(argumentName))
-                                    parameter = constructor.Parameters.FirstOrDefault(p => p.Name == argumentName);
-                                else if (argumentIndex < constructor.Parameters.Length)
-                                    parameter = constructor.Parameters[argumentIndex];
-
-                                if (parameter is null)
-                                    continue;
-
-                                if (parameterType is null)
-                                {
-                                    parameterType = parameter.Type;
-                                    continue;
-                                }
-
-                                if (!SymbolEqualityComparer.Default.Equals(parameterType, parameter.Type))
-                                {
-                                    parameterType = null;
-                                    break;
-                                }
-                            }
-
-                            if (parameterType is not null)
+                            if (GetConstructorArgumentTargetTypeFromSyntax(objectCreation.Type, ctorArgList.Arguments, arg) is { } parameterType)
                                 return parameterType;
+
+                            current = current.Parent;
+                            continue;
                         }
 
                         current = current.Parent;
@@ -2880,6 +2823,85 @@ partial class BlockBinder : Binder
         }
 
         return null;
+    }
+
+    private ITypeSymbol? GetConstructorArgumentTargetTypeFromSyntax(
+        TypeSyntax typeSyntax,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument)
+    {
+        if (BindTypeSyntax(typeSyntax) is not BoundTypeExpression typeExpression ||
+            typeExpression.Type is not INamedTypeSymbol typeSymbol)
+        {
+            return null;
+        }
+
+        return GetConstructorArgumentTargetType(typeSymbol, arguments, argument);
+    }
+
+    private ITypeSymbol? GetConstructorArgumentTargetType(
+        INamedTypeSymbol typeSymbol,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument)
+    {
+        var argumentIndex = -1;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i] == argument)
+            {
+                argumentIndex = i;
+                break;
+            }
+        }
+
+        if (argumentIndex < 0)
+            return null;
+
+        var argumentCount = arguments.Count;
+        var argumentExpression = argument.Expression;
+        var argumentName = argument.NameColon?.Name.Identifier.ValueText;
+
+        var placeholderArguments = new BoundArgument[argumentCount];
+        for (var i = 0; i < argumentCount; i++)
+        {
+            var syntax = arguments[i];
+            var name = syntax.NameColon?.Name.Identifier.ValueText;
+            placeholderArguments[i] = new BoundArgument(BoundFactory.NullLiteral(), RefKind.None, name, syntax);
+        }
+
+        var constructors = typeSymbol.Constructors
+            .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, receiver: null, placeholderArguments))
+            .ToImmutableArray();
+
+        RecordLambdaTargets(argumentExpression, constructors, argumentIndex, extensionReceiverImplicit: false);
+
+        ITypeSymbol? parameterType = null;
+
+        foreach (var constructor in constructors)
+        {
+            IParameterSymbol? parameter = null;
+            if (!string.IsNullOrEmpty(argumentName))
+                parameter = constructor.Parameters.FirstOrDefault(p => p.Name == argumentName);
+            else if (argumentIndex < constructor.Parameters.Length)
+                parameter = constructor.Parameters[argumentIndex];
+
+            if (parameter is null)
+                continue;
+
+            if (parameterType is null)
+            {
+                parameterType = parameter.Type;
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterType, parameter.Type))
+            {
+                parameterType = null;
+                break;
+            }
+        }
+
+        return parameterType;
     }
 
     private static ITypeSymbol GetReturnTargetType(IMethodSymbol method)
