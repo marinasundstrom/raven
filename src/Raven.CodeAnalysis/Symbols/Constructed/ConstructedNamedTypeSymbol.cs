@@ -1022,6 +1022,13 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             {
                 var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
 
+                if (constructedType.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation")
+                {
+                    var constructedCtor = TypeBuilder.GetConstructor(constructedType, baseCtor);
+                    if (constructedCtor is not null)
+                        return constructedCtor;
+                }
+
                 var parameterTypes = Parameters
                     .Select(parameter => parameter.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
                     .ToArray();
