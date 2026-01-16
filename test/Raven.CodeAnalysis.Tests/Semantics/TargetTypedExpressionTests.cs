@@ -94,4 +94,24 @@ class Program {
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
+
+    [Fact]
+    public void TargetTypedMemberBinding_UsesConstructorParameterType()
+    {
+        string testCode = """
+enum Value { A, B }
+
+class Item {
+    public init(value: Value) {}
+}
+
+class Program {
+    static Run() -> unit {
+        let item = Item(.A)
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
 }
