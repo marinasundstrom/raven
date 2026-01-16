@@ -501,6 +501,31 @@ union Result<T> {
     }
 
     [Fact]
+    public void CasePattern_WithPartialArguments_IsNotExhaustive()
+    {
+        const string source = """
+func area(shape: Shape) -> int {
+    return shape match {
+        .Circle(let r) => r * r * 3
+        .Rectangle(4, let h) => 42
+    }
+}
+
+union Shape {
+    Circle(radius: int)
+    Rectangle(width: int, height: int)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.MatchExpressionNotExhaustive, diagnostic.Descriptor);
+        Assert.Contains("Rectangle", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void CasePattern_ReportsArgumentCountMismatch()
     {
         const string source = """
