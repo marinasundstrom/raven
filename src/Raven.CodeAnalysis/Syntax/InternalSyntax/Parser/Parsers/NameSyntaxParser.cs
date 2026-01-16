@@ -329,18 +329,18 @@ internal class NameSyntaxParser : SyntaxParser
     {
         var name = PeekToken();
 
+        if (name.IsKind(SyntaxKind.StarToken))
+        {
+            ReadToken();
+            return WildcardName(name);
+        }
+
         if (!IsIdentifierToken(name)
             && HasLeadingEndOfLineTrivia(name))
         {
             AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
             return IdentifierName(
                 MissingToken(SyntaxKind.IdentifierToken), Diagnostics);
-        }
-
-        if (name.IsKind(SyntaxKind.StarToken))
-        {
-            ReadToken();
-            return WildcardName(name);
         }
 
         if (CanTokenBeIdentifier(name))
