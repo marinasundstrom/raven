@@ -1265,6 +1265,10 @@ Patterns compose from the following primitives.
   Value patterns are *not* bindings. To introduce a new binding, an explicit
   binding keyword (`let`, `val`, or `var`) is required.
 
+* `.Member` — **target-typed value pattern**. When the scrutinee type is known
+  (for example, an enum type or a type with static fields), the leading-dot
+  expression resolves against that target type and matches the resulting value.
+
 > **Note:** A bare identifier in pattern position is context-sensitive. If the
 > name resolves to a value symbol, it forms a value pattern. Otherwise, it is
 > interpreted as a type name and participates in a type or declaration pattern.

@@ -1296,7 +1296,29 @@ partial class BlockBinder
         MemberBindingExpressionSyntax memberBinding,
         bool allowEventAccess = false)
     {
-        var simpleName = memberBinding.Name;
+        var expectedType = GetTargetType(memberBinding);
+        if (expectedType is null)
+        {
+            _diagnostics.ReportMemberAccessRequiresTargetType(memberBinding.Name.Identifier.ValueText, memberBinding.Name.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        return BindMemberBindingExpression(memberBinding, expectedType, allowEventAccess);
+    }
+
+    private BoundExpression BindMemberBindingExpression(
+        MemberBindingExpressionSyntax memberBinding,
+        ITypeSymbol expectedType,
+        bool allowEventAccess = false)
+    {
+        return BindTargetTypedMemberAccess(memberBinding.Name, expectedType, allowEventAccess);
+    }
+
+    private BoundExpression BindTargetTypedMemberAccess(
+        SimpleNameSyntax simpleName,
+        ITypeSymbol expectedType,
+        bool allowEventAccess = false)
+    {
         var memberName = simpleName.Identifier.ValueText;
         ImmutableArray<ITypeSymbol>? explicitTypeArguments = null;
         GenericNameSyntax? genericTypeSyntax = null;
@@ -1313,110 +1335,102 @@ partial class BlockBinder
 
         var nameLocation = simpleName.GetLocation();
 
-        var expectedType = GetTargetType(memberBinding);
+        var methodCandidates = new SymbolQuery(memberName, expectedType, IsStatic: true)
+            .LookupMethods(this)
+            .ToImmutableArray();
 
-        if (expectedType is not null)
+        if (!methodCandidates.IsDefaultOrEmpty)
         {
-            var methodCandidates = new SymbolQuery(memberName, expectedType, IsStatic: true)
-                .LookupMethods(this)
-                .ToImmutableArray();
+            if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+            {
+                var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, simpleName.GetLocation());
+                if (!instantiated.IsDefaultOrEmpty)
+                    return BindMethodGroup(new BoundTypeExpression(expectedType), instantiated, nameLocation);
+            }
+            else
+            {
+                return BindMethodGroup(new BoundTypeExpression(expectedType), methodCandidates, nameLocation);
+            }
+        }
+        else
+        {
+            var extensionCandidates = LookupExtensionStaticMethods(memberName, expectedType).ToImmutableArray();
 
-            if (!methodCandidates.IsDefaultOrEmpty)
+            if (!extensionCandidates.IsDefaultOrEmpty)
             {
                 if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                 {
-                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, simpleName.GetLocation());
+                    var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, simpleName.GetLocation());
                     if (!instantiated.IsDefaultOrEmpty)
                         return BindMethodGroup(new BoundTypeExpression(expectedType), instantiated, nameLocation);
                 }
                 else
                 {
-                    return BindMethodGroup(new BoundTypeExpression(expectedType), methodCandidates, nameLocation);
+                    return BindMethodGroup(new BoundTypeExpression(expectedType), extensionCandidates, nameLocation);
                 }
             }
-            else
-            {
-                var extensionCandidates = LookupExtensionStaticMethods(memberName, expectedType).ToImmutableArray();
-
-                if (!extensionCandidates.IsDefaultOrEmpty)
-                {
-                    if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
-                    {
-                        var instantiated = InstantiateMethodCandidates(extensionCandidates, typeArgs, genericTypeSyntax, simpleName.GetLocation());
-                        if (!instantiated.IsDefaultOrEmpty)
-                            return BindMethodGroup(new BoundTypeExpression(expectedType), instantiated, nameLocation);
-                    }
-                    else
-                    {
-                        return BindMethodGroup(new BoundTypeExpression(expectedType), extensionCandidates, nameLocation);
-                    }
-                }
-            }
-
-            var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
-                .Lookup(this)
-                .FirstOrDefault();
-
-            if (member is null)
-            {
-                var extensionProperties = LookupExtensionStaticProperties(memberName, expectedType).ToImmutableArray();
-
-                if (!extensionProperties.IsDefaultOrEmpty)
-                {
-                    var accessibleProperties = GetAccessibleProperties(extensionProperties, nameLocation);
-
-                    if (!accessibleProperties.IsDefaultOrEmpty)
-                    {
-                        if (accessibleProperties.Length == 1)
-                            return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), accessibleProperties[0]);
-
-                        var ambiguousMethods = accessibleProperties
-                            .Select(p => p.GetMethod ?? p.SetMethod)
-                            .Where(m => m is not null)
-                            .Cast<IMethodSymbol>()
-                            .ToImmutableArray();
-
-                        if (!ambiguousMethods.IsDefaultOrEmpty)
-                            _diagnostics.ReportCallIsAmbiguous(memberName, ambiguousMethods, nameLocation);
-
-                        return ErrorExpression(
-                            reason: BoundExpressionReason.Ambiguous,
-                            candidates: AsSymbolCandidates(ambiguousMethods));
-                    }
-
-                    EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
-                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-                }
-
-                if (TryBindDiscriminatedUnionCase(expectedType, memberName, nameLocation) is BoundExpression unionCase)
-                    return unionCase;
-
-                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, nameLocation);
-                return ErrorExpression(reason: BoundExpressionReason.NotFound);
-            }
-
-            if (!EnsureMemberAccessible(member, nameLocation, GetSymbolKindForDiagnostic(member)))
-                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-
-            if (member is ITypeSymbol typeMember)
-            {
-                if (BindDiscriminatedUnionCaseType(typeMember) is { } unionCase)
-                    return unionCase;
-
-                return new BoundTypeExpression(typeMember);
-            }
-
-            if (member is IEventSymbol && !allowEventAccess)
-            {
-                _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(member.Name, nameLocation);
-                return ErrorExpression(reason: BoundExpressionReason.NotFound);
-            }
-
-            return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
 
-        _diagnostics.ReportMemberAccessRequiresTargetType(memberName, nameLocation);
-        return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
+            .Lookup(this)
+            .FirstOrDefault();
+
+        if (member is null)
+        {
+            var extensionProperties = LookupExtensionStaticProperties(memberName, expectedType).ToImmutableArray();
+
+            if (!extensionProperties.IsDefaultOrEmpty)
+            {
+                var accessibleProperties = GetAccessibleProperties(extensionProperties, nameLocation);
+
+                if (!accessibleProperties.IsDefaultOrEmpty)
+                {
+                    if (accessibleProperties.Length == 1)
+                        return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), accessibleProperties[0]);
+
+                    var ambiguousMethods = accessibleProperties
+                        .Select(p => p.GetMethod ?? p.SetMethod)
+                        .Where(m => m is not null)
+                        .Cast<IMethodSymbol>()
+                        .ToImmutableArray();
+
+                    if (!ambiguousMethods.IsDefaultOrEmpty)
+                        _diagnostics.ReportCallIsAmbiguous(memberName, ambiguousMethods, nameLocation);
+
+                    return ErrorExpression(
+                        reason: BoundExpressionReason.Ambiguous,
+                        candidates: AsSymbolCandidates(ambiguousMethods));
+                }
+
+                EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+            }
+
+            if (TryBindDiscriminatedUnionCase(expectedType, memberName, nameLocation) is BoundExpression unionCase)
+                return unionCase;
+
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, nameLocation);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        if (!EnsureMemberAccessible(member, nameLocation, GetSymbolKindForDiagnostic(member)))
+            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+        if (member is ITypeSymbol typeMember)
+        {
+            if (BindDiscriminatedUnionCaseType(typeMember) is { } unionCase)
+                return unionCase;
+
+            return new BoundTypeExpression(typeMember);
+        }
+
+        if (member is IEventSymbol && !allowEventAccess)
+        {
+            _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(member.Name, nameLocation);
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
     }
 
     private BoundExpression? TryBindDiscriminatedUnionCase(ITypeSymbol? receiverType, string memberName, Location location)
