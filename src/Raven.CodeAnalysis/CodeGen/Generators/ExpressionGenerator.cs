@@ -1009,7 +1009,8 @@ internal partial class ExpressionGenerator : Generator
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
         ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
-        var addMethodInfo = ResolveClrType(listType).GetMethod("Add")!;
+        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
+        var addMethodInfo = addMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
 
         foreach (var element in collectionExpression.Elements)
         {
@@ -1032,7 +1033,8 @@ internal partial class ExpressionGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-        var toArrayInfo = ResolveClrType(listType).GetMethod("ToArray")!;
+        var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+        var toArrayInfo = toArrayMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
         ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
     }
 
