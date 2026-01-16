@@ -1577,6 +1577,9 @@ internal class CodeGenerator
 
     private void EnsureTypeBuilderDefined(ITypeSymbol typeSymbol, HashSet<ITypeSymbol> visited, HashSet<ITypeSymbol> visiting)
     {
+        var originalTypeSymbol = typeSymbol;
+        typeSymbol = GetDefinitionTypeSymbol(typeSymbol);
+
         if (visited.Contains(typeSymbol))
             return;
 
@@ -1589,16 +1592,19 @@ internal class CodeGenerator
             return;
         }
 
-        if (generator.TypeBuilder is null && generator.Type is null && typeSymbol is INamedTypeSymbol named)
+        if (generator.TypeBuilder is null && generator.Type is null)
         {
-            var baseType = named.BaseType;
-            if (baseType is not null && baseType.DeclaringSyntaxReferences.Length > 0)
-                EnsureTypeBuilderDefined(baseType, visited, visiting);
-
-            foreach (var interfaceType in named.Interfaces)
+            if (originalTypeSymbol is INamedTypeSymbol named)
             {
-                if (interfaceType.DeclaringSyntaxReferences.Length > 0)
-                    EnsureTypeBuilderDefined(interfaceType, visited, visiting);
+                var baseType = named.BaseType;
+                if (baseType is not null)
+                    EnsureTypeDependencies(baseType, visited, visiting);
+
+                foreach (var interfaceType in named.Interfaces)
+                    EnsureTypeDependencies(interfaceType, visited, visiting);
+
+                foreach (var typeArgument in named.TypeArguments)
+                    EnsureTypeDependencies(typeArgument, visited, visiting);
             }
         }
 
@@ -1607,6 +1613,66 @@ internal class CodeGenerator
 
         visiting.Remove(typeSymbol);
         visited.Add(typeSymbol);
+    }
+
+    private static ITypeSymbol GetDefinitionTypeSymbol(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is INamedTypeSymbol named &&
+            named.IsGenericType &&
+            named.ConstructedFrom is INamedTypeSymbol definition &&
+            !ReferenceEquals(named, definition))
+        {
+            return definition;
+        }
+
+        return typeSymbol;
+    }
+
+    private void EnsureTypeDependencies(ITypeSymbol typeSymbol, HashSet<ITypeSymbol> visited, HashSet<ITypeSymbol> visiting)
+    {
+        if (typeSymbol.IsAlias && typeSymbol is IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasType })
+        {
+            EnsureTypeDependencies(aliasType, visited, visiting);
+            return;
+        }
+
+        switch (typeSymbol)
+        {
+            case INamedTypeSymbol named:
+            {
+                var definition = GetDefinitionTypeSymbol(named);
+                if (definition.DeclaringSyntaxReferences.Length > 0)
+                    EnsureTypeBuilderDefined(definition, visited, visiting);
+
+                foreach (var typeArgument in named.TypeArguments)
+                    EnsureTypeDependencies(typeArgument, visited, visiting);
+
+                break;
+            }
+            case IArrayTypeSymbol arrayType:
+                EnsureTypeDependencies(arrayType.ElementType, visited, visiting);
+                break;
+            case ByRefTypeSymbol byRefType:
+                EnsureTypeDependencies(byRefType.ElementType, visited, visiting);
+                break;
+            case IPointerTypeSymbol pointerType:
+                EnsureTypeDependencies(pointerType.PointedAtType, visited, visiting);
+                break;
+            case NullableTypeSymbol nullableType:
+                EnsureTypeDependencies(nullableType.UnderlyingType, visited, visiting);
+                break;
+            case LiteralTypeSymbol literalType:
+                EnsureTypeDependencies(literalType.UnderlyingType, visited, visiting);
+                break;
+            case ITupleTypeSymbol tupleType:
+                foreach (var element in tupleType.TupleElements)
+                    EnsureTypeDependencies(element.Type, visited, visiting);
+                break;
+            case ITypeUnionSymbol unionType:
+                var emission = unionType.GetUnionEmissionInfo(Compilation);
+                EnsureTypeDependencies(emission.UnderlyingTypeSymbol, visited, visiting);
+                break;
+        }
     }
 
     private void DefineMemberBuilders()
@@ -1660,8 +1726,17 @@ internal class CodeGenerator
     {
         if (_typeGenerators.TryGetValue(symbol, out var builder))
         {
-            type = builder.TypeBuilder!; //.CreateType();
-            return true;
+            if (builder.TypeBuilder is not null)
+            {
+                type = builder.TypeBuilder;
+                return true;
+            }
+
+            if (builder.Type is not null)
+            {
+                type = builder.Type;
+                return true;
+            }
         }
 
         type = null!;
