@@ -161,6 +161,31 @@ let result = character match {
     }
 
     [Fact]
+    public void MatchExpression_WithEnumArms_MissingCaseReportsDiagnostic()
+    {
+        const string code = """
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+let value: Color = .Red
+
+let result = value match {
+    .Red => 1
+    .Green => 2
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Blue")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
     {
         const string code = """

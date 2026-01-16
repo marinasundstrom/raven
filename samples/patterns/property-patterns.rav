@@ -44,6 +44,7 @@ func test(x: object?, r: Result<int>) {
             .Ok(0)                => "Zero"
             .Ok(val n) when n > 0 => "Positive: $n"
             .Error(val msg)       => "Error: $msg"
+            _ => "No"
         }
 
     WriteLine(message)

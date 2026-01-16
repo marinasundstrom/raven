@@ -1973,6 +1973,12 @@ partial class BlockBinder : Binder
             return;
         }
 
+        if (scrutineeType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        {
+            EnsureEnumMatchExhaustive(matchExpression, arms, enumType, catchAllIndex);
+            return;
+        }
+
         if (scrutineeType is not ITypeUnionSymbol union)
         {
             if (catchAllIndex >= 0)
@@ -2200,6 +2206,118 @@ partial class BlockBinder : Binder
         }
     }
 
+    private void EnsureEnumMatchExhaustive(
+        MatchExpressionSyntax matchExpression,
+        ImmutableArray<BoundMatchArm> arms,
+        INamedTypeSymbol enumType,
+        int catchAllIndex)
+    {
+        var remaining = new HashSet<IFieldSymbol>(GetEnumMembers(enumType), SymbolEqualityComparer.Default);
+
+        if (remaining.Count == 0)
+            return;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (!guardGuaranteesMatch)
+                continue;
+
+            RemoveCoveredEnumMembers(remaining, enumType, arm.Pattern);
+
+            if (remaining.Count == 0)
+                return;
+        }
+
+        if (catchAllIndex >= 0)
+            return;
+
+        foreach (var missing in remaining.Select(field => field.Name).OrderBy(name => name, StringComparer.Ordinal))
+        {
+            _diagnostics.ReportMatchExpressionNotExhaustive(
+                missing,
+                matchExpression.GetLocation());
+        }
+    }
+
+    private bool CasePatternCoversAllArguments(BoundCasePattern casePattern)
+    {
+        var parameters = casePattern.CaseSymbol.ConstructorParameters;
+        var argumentCount = Math.Min(parameters.Length, casePattern.Arguments.Length);
+
+        for (var i = 0; i < argumentCount; i++)
+        {
+            if (!IsTotalPattern(parameters[i].Type, casePattern.Arguments[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern)
+    {
+        inputType = UnwrapAlias(inputType);
+
+        switch (pattern)
+        {
+            case BoundDiscardPattern:
+                return true;
+            case BoundDeclarationPattern declaration:
+                {
+                    var declaredType = UnwrapAlias(declaration.DeclaredType);
+
+                    if (declaredType.TypeKind == TypeKind.Error || inputType.TypeKind == TypeKind.Error)
+                        return true;
+
+                    return IsAssignable(declaredType, inputType, out _);
+                }
+            case BoundTuplePattern tuplePattern:
+                {
+                    var elementTypes = GetTupleElementTypes(inputType);
+
+                    if (elementTypes.Length == 0 || elementTypes.Length != tuplePattern.Elements.Length)
+                        return false;
+
+                    for (var i = 0; i < tuplePattern.Elements.Length; i++)
+                    {
+                        if (!IsTotalPattern(elementTypes[i], tuplePattern.Elements[i]))
+                            return false;
+                    }
+
+                    return true;
+                }
+            case BoundPropertyPattern propertyPattern:
+                {
+                    if (CanBeNull(inputType))
+                        return false;
+
+                    if (propertyPattern.NarrowedType is not null &&
+                        !IsAssignable(propertyPattern.NarrowedType, inputType, out _))
+                    {
+                        return false;
+                    }
+
+                    foreach (var property in propertyPattern.Properties)
+                    {
+                        if (!IsTotalPattern(property.Type, property.Pattern))
+                            return false;
+                    }
+
+                    return true;
+                }
+            case BoundOrPattern orPattern:
+                return IsTotalPattern(inputType, orPattern.Left) ||
+                       IsTotalPattern(inputType, orPattern.Right);
+            case BoundAndPattern andPattern:
+                return IsTotalPattern(inputType, andPattern.Left) &&
+                       IsTotalPattern(inputType, andPattern.Right);
+            default:
+                return false;
+        }
+    }
+
     private static bool TryGetLiteralBoolConstant(BoundPattern pattern, out bool value)
     {
         value = default;
@@ -2324,12 +2442,58 @@ partial class BlockBinder : Binder
                     break;
                 }
             case BoundCasePattern casePattern:
-                if (SymbolEqualityComparer.Default.Equals(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)))
+                if (SymbolEqualityComparer.Default.Equals(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
+                    CasePatternCoversAllArguments(casePattern))
+                {
                     remaining.Remove(casePattern.CaseSymbol);
+                }
                 break;
             case BoundOrPattern orPattern:
                 RemoveCoveredCases(remaining, orPattern.Left, union);
                 RemoveCoveredCases(remaining, orPattern.Right, union);
+                break;
+        }
+    }
+
+    private static IEnumerable<IFieldSymbol> GetEnumMembers(INamedTypeSymbol enumType)
+    {
+        var normalizedEnum = (INamedTypeSymbol)UnwrapAlias(enumType);
+
+        return normalizedEnum
+            .GetMembers()
+            .OfType<IFieldSymbol>()
+            .Where(field =>
+                field.IsConst &&
+                SymbolEqualityComparer.Default.Equals(UnwrapAlias(field.Type), normalizedEnum));
+    }
+
+    private void RemoveCoveredEnumMembers(
+        HashSet<IFieldSymbol> remaining,
+        INamedTypeSymbol enumType,
+        BoundPattern pattern)
+    {
+        enumType = (INamedTypeSymbol)UnwrapAlias(enumType);
+
+        if (IsCatchAllPattern(enumType, pattern))
+        {
+            remaining.Clear();
+            return;
+        }
+
+        switch (pattern)
+        {
+            case BoundConstantPattern constant:
+                if (constant.Expression is BoundFieldAccess fieldAccess &&
+                    fieldAccess.Field.IsConst &&
+                    SymbolEqualityComparer.Default.Equals(UnwrapAlias(fieldAccess.Field.Type), enumType))
+                {
+                    remaining.Remove(fieldAccess.Field);
+                }
+
+                break;
+            case BoundOrPattern orPattern:
+                RemoveCoveredEnumMembers(remaining, enumType, orPattern.Left);
+                RemoveCoveredEnumMembers(remaining, enumType, orPattern.Right);
                 break;
         }
     }
