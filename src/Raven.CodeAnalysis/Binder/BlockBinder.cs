@@ -6253,10 +6253,72 @@ partial class BlockBinder : Binder
 
         if (type is INamedTypeSymbol named)
         {
+            var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable") as INamedTypeSymbol;
+            var genericEnumerable = Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1") as INamedTypeSymbol;
+
+            bool MatchesEnumerable(INamedTypeSymbol candidate)
+            {
+                if (candidate.SpecialType == SpecialType.System_Collections_IEnumerable ||
+                    candidate.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
+                {
+                    return true;
+                }
+
+                var definition = candidate.OriginalDefinition ?? candidate;
+                if (enumerable is not null && SymbolEqualityComparer.Default.Equals(definition, enumerable))
+                    return true;
+                if (genericEnumerable is not null && SymbolEqualityComparer.Default.Equals(definition, genericEnumerable))
+                    return true;
+
+                if (definition.MetadataName == "IEnumerable" &&
+                    IsInNamespace(definition.ContainingNamespace, "System.Collections"))
+                {
+                    return true;
+                }
+
+                if (definition.MetadataName == "IEnumerable`1" &&
+                    IsInNamespace(definition.ContainingNamespace, "System.Collections.Generic"))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            static bool IsInNamespace(INamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
+            {
+                if (namespaceSymbol is null)
+                    return false;
+
+                var remaining = qualifiedNamespace;
+
+                while (!namespaceSymbol.IsGlobalNamespace)
+                {
+                    var lastDot = remaining.LastIndexOf('.');
+                    var segment = lastDot >= 0 ? remaining[(lastDot + 1)..] : remaining;
+
+                    if (!string.Equals(namespaceSymbol.Name, segment, StringComparison.Ordinal))
+                        return false;
+
+                    if (lastDot < 0)
+                        return namespaceSymbol.ContainingNamespace.IsGlobalNamespace;
+
+                    remaining = remaining[..lastDot];
+                    namespaceSymbol = namespaceSymbol.ContainingNamespace;
+
+                    if (namespaceSymbol is null)
+                        return false;
+                }
+
+                return false;
+            }
+
+            if (MatchesEnumerable(named))
+                return true;
+
             foreach (var iface in named.AllInterfaces)
             {
-                if (iface.SpecialType == SpecialType.System_Collections_IEnumerable ||
-                    iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
+                if (MatchesEnumerable(iface))
                     return true;
             }
         }

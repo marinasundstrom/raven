@@ -1042,6 +1042,13 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
                         return constructedCtor;
                 }
 
+                if (constructedType.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation")
+                {
+                    var constructedCtor = TypeBuilder.GetConstructor(constructedType, baseCtor);
+                    if (constructedCtor is not null)
+                        return constructedCtor;
+                }
+
                 throw new InvalidOperationException($"Unable to resolve constructed constructor for '{_constructed}' from metadata definition '{_original}'.");
             }
 
