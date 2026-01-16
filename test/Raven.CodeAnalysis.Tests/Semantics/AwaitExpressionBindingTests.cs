@@ -1,6 +1,8 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -55,6 +57,21 @@ import System.Threading.Tasks.*
 
 func outer() {
     await Task.CompletedTask;
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.AwaitExpressionRequiresAsyncContext, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void AwaitExpression_OutsideAsyncContext_WithTaskReturn_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+func outer() -> Task {
+    await Task.Delay(200);
 }
 """;
         var (compilation, _) = CreateCompilation(source);
