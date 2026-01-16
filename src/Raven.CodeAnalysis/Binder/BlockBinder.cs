@@ -1267,23 +1267,15 @@ partial class BlockBinder : Binder
 
     private bool IsAwaitExpressionAllowed()
     {
-        static bool IsAsyncSymbol(ISymbol? symbol)
-        {
-            return symbol switch
-            {
-                ILambdaSymbol lambda => lambda.IsAsync,
-                IMethodSymbol method => method.IsAsync,
-                _ => false,
-            };
-        }
-
         for (Binder? current = this; current is not null; current = current.ParentBinder)
         {
-            if (IsAsyncSymbol(current.ContainingSymbol))
-                return true;
-
-            if (current is BlockBinder block && IsAsyncSymbol(block.ContainingSymbol))
-                return true;
+            switch (current.ContainingSymbol)
+            {
+                case ILambdaSymbol lambda:
+                    return lambda.IsAsync;
+                case IMethodSymbol method:
+                    return method.IsAsync;
+            }
         }
 
         return false;
