@@ -8,11 +8,7 @@ let z = int.Value
 WriteLine(z)
 
 extension for int {
-    public static Hello() -> int {
-        return 42
-    }
+    public static Hello() -> int => 42
 
-    public static Value: string {
-        get { return "test" }
-    }
+    public static Value: string => "test"
 }
