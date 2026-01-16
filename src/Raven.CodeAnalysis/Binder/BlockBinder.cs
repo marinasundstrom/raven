@@ -2782,6 +2782,79 @@ partial class BlockBinder : Binder
                                     return parameter.Type;
                             }
                         }
+                        else if (arg.Parent is ArgumentListSyntax ctorArgList &&
+                            ctorArgList.Parent is ObjectCreationExpressionSyntax objectCreation)
+                        {
+                            var argumentIndex = -1;
+                            for (var i = 0; i < ctorArgList.Arguments.Count; i++)
+                            {
+                                if (ctorArgList.Arguments[i] == arg)
+                                {
+                                    argumentIndex = i;
+                                    break;
+                                }
+                            }
+
+                            if (argumentIndex < 0)
+                            {
+                                current = current.Parent;
+                                continue;
+                            }
+
+                            var argumentCount = ctorArgList.Arguments.Count;
+                            var argumentExpression = arg.Expression;
+                            var argumentName = arg.NameColon?.Name.Identifier.ValueText;
+
+                            if (BindTypeSyntax(objectCreation.Type) is not BoundTypeExpression typeExpression ||
+                                typeExpression.Type is not INamedTypeSymbol typeSymbol)
+                            {
+                                current = current.Parent;
+                                continue;
+                            }
+
+                            var placeholderArguments = new BoundArgument[argumentCount];
+                            for (var i = 0; i < argumentCount; i++)
+                            {
+                                var syntax = ctorArgList.Arguments[i];
+                                var name = syntax.NameColon?.Name.Identifier.ValueText;
+                                placeholderArguments[i] = new BoundArgument(BoundFactory.NullLiteral(), RefKind.None, name, syntax);
+                            }
+
+                            var constructors = typeSymbol.Constructors
+                                .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, receiver: null, placeholderArguments))
+                                .ToImmutableArray();
+
+                            RecordLambdaTargets(argumentExpression, constructors, argumentIndex, extensionReceiverImplicit: false);
+
+                            ITypeSymbol? parameterType = null;
+
+                            foreach (var constructor in constructors)
+                            {
+                                IParameterSymbol? parameter = null;
+                                if (!string.IsNullOrEmpty(argumentName))
+                                    parameter = constructor.Parameters.FirstOrDefault(p => p.Name == argumentName);
+                                else if (argumentIndex < constructor.Parameters.Length)
+                                    parameter = constructor.Parameters[argumentIndex];
+
+                                if (parameter is null)
+                                    continue;
+
+                                if (parameterType is null)
+                                {
+                                    parameterType = parameter.Type;
+                                    continue;
+                                }
+
+                                if (!SymbolEqualityComparer.Default.Equals(parameterType, parameter.Type))
+                                {
+                                    parameterType = null;
+                                    break;
+                                }
+                            }
+
+                            if (parameterType is not null)
+                                return parameterType;
+                        }
 
                         current = current.Parent;
                         continue;
