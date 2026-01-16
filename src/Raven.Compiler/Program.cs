@@ -269,7 +269,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/bugs/scope{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/bugs/ordering-bug{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)

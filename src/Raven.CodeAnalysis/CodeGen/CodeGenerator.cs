@@ -1638,17 +1638,24 @@ internal class CodeGenerator
 
         switch (typeSymbol)
         {
-            case INamedTypeSymbol named:
-            {
-                var definition = GetDefinitionTypeSymbol(named);
-                if (definition.DeclaringSyntaxReferences.Length > 0)
-                    EnsureTypeBuilderDefined(definition, visited, visiting);
-
-                foreach (var typeArgument in named.TypeArguments)
-                    EnsureTypeDependencies(typeArgument, visited, visiting);
-
+            case ITupleTypeSymbol tupleType:
+                foreach (var element in tupleType.TupleElements)
+                    EnsureTypeDependencies(element.Type, visited, visiting);
                 break;
-            }
+            case INamedTypeSymbol named:
+                {
+                    var definition = GetDefinitionTypeSymbol(named);
+                    if (definition.DeclaringSyntaxReferences.Length > 0)
+                        EnsureTypeBuilderDefined(definition, visited, visiting);
+
+                    if (named.TypeArguments.IsDefaultOrEmpty)
+                        break;
+
+                    foreach (var typeArgument in named.TypeArguments)
+                        EnsureTypeDependencies(typeArgument, visited, visiting);
+
+                    break;
+                }
             case IArrayTypeSymbol arrayType:
                 EnsureTypeDependencies(arrayType.ElementType, visited, visiting);
                 break;
@@ -1663,10 +1670,6 @@ internal class CodeGenerator
                 break;
             case LiteralTypeSymbol literalType:
                 EnsureTypeDependencies(literalType.UnderlyingType, visited, visiting);
-                break;
-            case ITupleTypeSymbol tupleType:
-                foreach (var element in tupleType.TupleElements)
-                    EnsureTypeDependencies(element.Type, visited, visiting);
                 break;
             case ITypeUnionSymbol unionType:
                 var emission = unionType.GetUnionEmissionInfo(Compilation);
