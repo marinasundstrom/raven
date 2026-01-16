@@ -18,7 +18,7 @@ public open abstract class Base {
 }
 
 public class Derived(value: int) : Base {
-    public override Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
+    public final override Bar(x: int) -> () => WriteLine("Derived.Bar: $x and $value")
 }
 
 public class Derived2(value: string) : Base {
@@ -26,5 +26,5 @@ public class Derived2(value: string) : Base {
         WriteLine("Derived2.Test: $value")
     }
 
-    public override Bar(x: int) -> () => WriteLine("Derived2.Bar: $x and $value")
+    public final override Bar(x: int) -> () => WriteLine("Derived2.Bar: $x and $value")
 }
