@@ -1,5 +1,76 @@
 # Known Issues
 
+## Top stability issues (priority ordered)
+1. **Syntax model generation drift (SyntaxKind + generated nodes missing or stale).**
+   - **Impact:** The compiler fails to build when generated artifacts are out of sync with `Model.xml` / `NodeKinds.xml`, because the hand-written syntax helpers depend on generated `SyntaxKind` and node types.
+   - **Evidence:** `SyntaxFacts` and `SyntaxFactory` hardcode `SyntaxKind` usage, which fails if the generated enum is missing. (`src/Raven.CodeAnalysis/Syntax/SyntaxFacts.Operators.cs`, `src/Raven.CodeAnalysis/Syntax/SyntaxFactory.cs`)
+   - **Plan:** 
+     1) Regenerate syntax outputs during CI/build and validate `SyntaxKind` is present in `src/Raven.CodeAnalysis/Syntax/generated`.
+     2) Add a build-time guard that fails with a clear diagnostic if the generated files are missing or stale.
+
+2. **Attribute syntax generation drift (AttributeSyntax missing).**
+   - **Impact:** Attribute binding and metadata construction rely on `AttributeSyntax`; missing generated nodes break compilation.
+   - **Evidence:** Attribute binding/metadata helpers depend on `AttributeSyntax`. (`src/Raven.CodeAnalysis/Binder/AttributeBinder.cs`, `src/Raven.CodeAnalysis/AttributeDataFactory.cs`)
+   - **Plan:**
+     1) Ensure generators emit `AttributeSyntax` and related nodes.
+     2) Add a unit test that validates attribute parsing/binding with generator outputs in place.
+
+3. **Binder throws `NotSupportedException` for unknown statements/expressions.**
+   - **Impact:** New or unhandled syntax kinds crash the compiler instead of reporting diagnostics.
+   - **Evidence:** Binding switch defaults throw for statements and expressions. (`src/Raven.CodeAnalysis/Binder/BlockBinder.cs`)
+   - **Plan:**
+     1) Replace `NotSupportedException` with diagnostics plus `BoundErrorExpression`/`BoundExpressionStatement`.
+     2) Add regression tests for unknown/unsupported syntax to ensure graceful failure.
+
+4. **Expression codegen throws `NotSupportedException` for unsupported bound nodes.**
+   - **Impact:** Code generation crashes for newly introduced or partially supported bound expressions.
+   - **Evidence:** Default case in expression emission throws. (`src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs`)
+   - **Plan:**
+     1) Map unsupported nodes to diagnostics earlier in binding/lowering.
+     2) Add a fallback `EmitErrorExpression` path with a diagnostic marker to keep emission stable.
+
+5. **Conversion codegen throws `NotSupportedException` on legal but unhandled conversions.**
+   - **Impact:** Type conversions can crash IL emission instead of issuing errors.
+   - **Evidence:** Conversion paths throw for missing union/nullable conversions and other unsupported cases. (`src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs`)
+   - **Plan:**
+     1) Move conversion validation into binding (classify + diagnose before IL emission).
+     2) Ensure conversion failures surface as diagnostics and emit error placeholders.
+
+6. **Async entry point bridging crashes on non-awaitable return types.**
+   - **Impact:** Async `Main` or entry-point bridge generation can throw instead of diagnosing.
+   - **Evidence:** Bridge emission throws when awaitable pattern is not found. (`src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs`)
+   - **Plan:**
+     1) Validate async entry point return types during binding and report diagnostics.
+     2) Add tests for invalid async entry points to confirm graceful failure.
+
+7. **Special type resolution fails for unsupported or missing runtime types.**
+   - **Impact:** Missing runtime types (e.g., `System.Type`) cause hard failures in type resolution and codegen.
+   - **Evidence:** `GetFrameworkType` throws for unsupported special types and missing runtime types. (`src/Raven.CodeAnalysis/TypeSymbolExtensions.cs`)
+   - **Plan:**
+     1) Harden runtime/metadata resolution with diagnostics and fallback error symbols.
+     2) Add a dedicated test for special type resolution against reference assemblies.
+
+8. **Array/Tuple constructed symbol member queries throw `NotSupportedException`.**
+   - **Impact:** Semantic analysis or tooling that queries members can crash on these symbols.
+   - **Evidence:** `IsMemberDefined` throws for arrays/tuples. (`src/Raven.CodeAnalysis/Symbols/Constructed/ArrayTypeSymbol.cs`, `src/Raven.CodeAnalysis/Symbols/Constructed/TupleTypeSymbol.cs`)
+   - **Plan:**
+     1) Implement `IsMemberDefined`/`LookupType` with safe lookups.
+     2) Add tests covering member queries on constructed array/tuple symbols.
+
+9. **Error type construction throws in recovery paths.**
+   - **Impact:** Error recovery can crash when generic instantiation is attempted on error symbols.
+   - **Evidence:** `ErrorTypeSymbol.Construct` throws `NotSupportedException`. (`src/Raven.CodeAnalysis/Symbols/ErrorTypeSymbol.cs`)
+   - **Plan:**
+     1) Return a new `ErrorTypeSymbol` with the requested type arguments to keep analysis flowing.
+     2) Add regression tests for generic error recovery.
+
+10. **Workspace persistence/syntax tree operations throw `NotSupportedException`.**
+   - **Impact:** Editor/IDE scenarios can crash when persistence or syntax tree replacement is used with unsupported workspace types.
+   - **Evidence:** `PersistenceService` and `Document.WithSyntaxRoot` throw for unsupported contexts. (`src/Raven.CodeAnalysis/Workspaces/Persistence/PersistenceService.cs`, `src/Raven.CodeAnalysis/Workspaces/Objects/Document.cs`)
+   - **Plan:**
+     1) Provide no-op or diagnostic-based fallbacks instead of throwing.
+     2) Add workspace integration tests that exercise persistence and syntax tree updates.
+
 ## Unit test failures
 - **`typeof` binding regressions** – Both the semantic and code generation suites fail on the `TypeOfExpression` scenarios (`Raven.CodeAnalysis.Semantics.Tests.TypeOfExpressionTests` and `Raven.CodeAnalysis.Tests.TypeOfTests`). The compiler now reports `RAV0103` for every use of `System.Type`, causing the bound node to lack an operand type and the emitted assembly to fail verification.【bc616e†L1-L18】【2ae51e†L1-L11】 Probable cause: the metadata loader no longer resolves the `System.Type` special type from the reference assemblies, so `Compilation.GetSpecialType(SpecialType.System_Type)` returns an error symbol during binding.
 - **Missing BCL metadata coverage** – Several metadata-facing suites (e.g., `MetadataGenericMethodTests` and the `FunctionTypeSemanticTests`) now crash or return simplified names because `System.Exception`, `System.ArgumentException`, and even `System.Func`/`System.Action` no longer resolve during binding.【1a9861†L1-L20】【70fc25†L1-L16】 Likewise, the code generation accessibility checks (`AccessibilityTests`) and symbol identity assertions (`SymbolEqualityComparerTests`) fail to load `System.Private.CoreLib`, so metadata lookups for nested types return different symbols.【a4ed9d†L1-L20】【26a01f†L1-L10】 These tests were scrapped until the runtime reference set is restored.
