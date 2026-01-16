@@ -1577,6 +1577,8 @@ internal class CodeGenerator
 
     private void EnsureTypeBuilderDefined(ITypeSymbol typeSymbol, HashSet<ITypeSymbol> visited, HashSet<ITypeSymbol> visiting)
     {
+        typeSymbol = GetDefinitionTypeSymbol(typeSymbol);
+
         if (visited.Contains(typeSymbol))
             return;
 
@@ -1592,13 +1594,18 @@ internal class CodeGenerator
         if (generator.TypeBuilder is null && generator.Type is null && typeSymbol is INamedTypeSymbol named)
         {
             var baseType = named.BaseType;
-            if (baseType is not null && baseType.DeclaringSyntaxReferences.Length > 0)
-                EnsureTypeBuilderDefined(baseType, visited, visiting);
+            if (baseType is not null)
+            {
+                var baseDefinition = GetDefinitionTypeSymbol(baseType);
+                if (baseDefinition.DeclaringSyntaxReferences.Length > 0)
+                    EnsureTypeBuilderDefined(baseDefinition, visited, visiting);
+            }
 
             foreach (var interfaceType in named.Interfaces)
             {
-                if (interfaceType.DeclaringSyntaxReferences.Length > 0)
-                    EnsureTypeBuilderDefined(interfaceType, visited, visiting);
+                var interfaceDefinition = GetDefinitionTypeSymbol(interfaceType);
+                if (interfaceDefinition.DeclaringSyntaxReferences.Length > 0)
+                    EnsureTypeBuilderDefined(interfaceDefinition, visited, visiting);
             }
         }
 
@@ -1607,6 +1614,19 @@ internal class CodeGenerator
 
         visiting.Remove(typeSymbol);
         visited.Add(typeSymbol);
+    }
+
+    private static ITypeSymbol GetDefinitionTypeSymbol(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is INamedTypeSymbol named &&
+            named.IsGenericType &&
+            named.ConstructedFrom is INamedTypeSymbol definition &&
+            !ReferenceEquals(named, definition))
+        {
+            return definition;
+        }
+
+        return typeSymbol;
     }
 
     private void DefineMemberBuilders()
@@ -1660,8 +1680,17 @@ internal class CodeGenerator
     {
         if (_typeGenerators.TryGetValue(symbol, out var builder))
         {
-            type = builder.TypeBuilder!; //.CreateType();
-            return true;
+            if (builder.TypeBuilder is not null)
+            {
+                type = builder.TypeBuilder;
+                return true;
+            }
+
+            if (builder.Type is not null)
+            {
+                type = builder.Type;
+                return true;
+            }
         }
 
         type = null!;
