@@ -87,7 +87,7 @@ EnumDeclaration          ::= TypeModifiers?
                              '{' EnumMembers? '}' ;
 
 EnumBaseList             ::= ':' Type ;
-EnumMembers              ::= EnumMember {',' EnumMember} ;
+EnumMembers              ::= EnumMember {',' EnumMember} [','] ;
 EnumMember               ::= Identifier ['=' Expression] ;
 
 ClassDeclaration         ::= TypeModifiers? 'class' Identifier TypeParameterList?
