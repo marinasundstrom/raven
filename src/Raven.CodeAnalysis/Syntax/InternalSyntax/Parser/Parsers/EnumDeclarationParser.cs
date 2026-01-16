@@ -57,7 +57,7 @@ internal class EnumDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return EnumDeclaration(attributeLists, modifiers, enumKeyword, identifier, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
+        return EnumDeclaration(attributeLists, modifiers, enumKeyword, identifier, baseList, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
     }
 
     private BaseListSyntax? ParseBaseList()

@@ -321,6 +321,22 @@
     Title="Possible null reference access"
     Message="Possible null reference access"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0410" Identifier="EnumUnderlyingTypeMustBeSingle"
+    Title="Enum underlying type list must be a single type"
+    Message="Enum declarations may specify only one underlying type"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0411" Identifier="EnumUnderlyingTypeMustBeIntegral"
+    Title="Enum underlying type must be integral"
+    Message="Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0412" Identifier="EnumMemberValueMustBeConstant"
+    Title="Enum member value must be constant"
+    Message="Enum member '{name}' must be initialized with a constant expression"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0413" Identifier="EnumMemberValueCannotConvert"
+    Title="Enum member value cannot be converted"
+    Message="Enum member '{name}' value cannot be converted to '{typeName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0426" Identifier="TypeNameDoesNotExistInType"
     Title="Type name does not exist in type"
     Message="The type name '{name}' does not exist in the type '{container}'"

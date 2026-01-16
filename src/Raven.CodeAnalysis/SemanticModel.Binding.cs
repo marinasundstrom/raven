@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
-using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -712,27 +712,8 @@ public partial class SemanticModel
                             declaredAccessibility: enumAccessibility
                         );
 
-                        // Bind optional enum underlying type: `enum E : byte { ... }`
-                        if (enumDecl.BaseList is { } baseList && baseList.Types.Count > 0)
-                        {
-                            // We currently accept the first type after ':' as the underlying type.
-                            // (Matches C# shape where enums have a single underlying type.)
-                            var underlyingTypeSyntax = baseList.Types[0];
-                            var underlyingType = parentBinder.ResolveType(underlyingTypeSyntax);
-
-                            if (underlyingType is not null && underlyingType != Compilation.ErrorTypeSymbol)
-                            {
-                                // Attach the bound underlying type to the enum symbol.
-                                // (TypeGenerator/DefineEnum should use this when emitting value__.)
-                                enumSymbol.SetEnumUnderlyingType(underlyingType);
-                            }
-                        }
-                        else
-                        {
-                            // Default enum underlying type: Int32
-                            var int32 = Compilation.GetSpecialType(SpecialType.System_Int32);
-                            enumSymbol.SetEnumUnderlyingType(int32);
-                        }
+                        var enumUnderlyingType = ResolveEnumUnderlyingType(enumDecl, parentBinder);
+                        enumSymbol.SetEnumUnderlyingType(enumUnderlyingType);
 
                         enumSymbols[enumDecl] = enumSymbol;
                         break;
@@ -1461,17 +1442,8 @@ public partial class SemanticModel
                                 AccessibilityUtilities.GetDefaultTypeAccessibility(parentType))
                         );
 
-                        // Bind optional enum underlying type: `enum E : byte { ... }`
-                        if (enumDecl.BaseList is { } baseList && baseList.Types.Count > 0)
-                        {
-                            var underlyingTypeSyntax = baseList.Types[0];
-                            var underlyingType = classBinder.ResolveType(underlyingTypeSyntax);
-
-                            if (underlyingType is not null && underlyingType != Compilation.ErrorTypeSymbol)
-                            {
-                                enumSymbol.SetEnumUnderlyingType(underlyingType);
-                            }
-                        }
+                        var enumUnderlyingType = ResolveEnumUnderlyingType(enumDecl, classBinder);
+                        enumSymbol.SetEnumUnderlyingType(enumUnderlyingType);
 
                         nestedEnumSymbols[enumDecl] = enumSymbol;
                         break;
@@ -1702,7 +1674,7 @@ public partial class SemanticModel
     }
 
 
-    private static void RegisterEnumMembers(
+    private void RegisterEnumMembers(
         EnumDeclarationSyntax enumDecl,
         EnumDeclarationBinder enumBinder,
         SourceNamedTypeSymbol enumSymbol,
@@ -1712,33 +1684,66 @@ public partial class SemanticModel
         // - If no initializer is present, the value is previous + 1 (first defaults to 0).
         // - If an initializer is present, it must be a constant expression.
         // - Previous enum members must be in scope while binding later initializers.
-
-        var nextValue = 0;
+        var underlyingType = enumSymbol.EnumUnderlyingType;
+        var nextValue = (object?)null;
 
         foreach (var enumMember in enumDecl.Members)
         {
-            var memberValue = nextValue;
-
+            var memberValue = nextValue ?? GetDefaultEnumMemberValue(underlyingType);
             var equalsValue = enumMember.EqualsValue;
             if (equalsValue is not null)
             {
-                var bound = enumBinder.BindExpression(equalsValue.Value);
+                var exprBinder = new BlockBinder(enumSymbol, enumBinder);
+                var bound = exprBinder.BindExpression(equalsValue.Value);
+                foreach (var diagnostic in exprBinder.Diagnostics.AsEnumerable())
+                    enumBinder.Diagnostics.Report(diagnostic);
 
-                if (TryGetEnumConstantInt32(bound, out var constant))
+                CacheBoundNode(equalsValue.Value, bound);
+
+                if (TryGetEnumMemberConstantValue(bound, out var constant) &&
+                    TryConvertEnumMemberValue(underlyingType, constant, out memberValue))
                 {
-                    memberValue = constant;
-                    nextValue = unchecked(memberValue + 1);
+                    if (!TryIncrementEnumValue(memberValue, underlyingType, out nextValue))
+                    {
+                        enumBinder.Diagnostics.ReportEnumMemberValueCannotConvert(
+                            enumMember.Identifier.ValueText,
+                            underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            equalsValue.Value.GetLocation());
+                        nextValue = null;
+                    }
                 }
                 else
                 {
-                    // Best-effort fallback; a dedicated diagnostic can be added later.
-                    memberValue = nextValue;
-                    nextValue = unchecked(nextValue + 1);
+                    var typeDisplay = underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    if (!TryGetEnumMemberConstantValue(bound, out _))
+                    {
+                        enumBinder.Diagnostics.ReportEnumMemberValueMustBeConstant(
+                            enumMember.Identifier.ValueText,
+                            equalsValue.Value.GetLocation());
+                    }
+                    else
+                    {
+                        enumBinder.Diagnostics.ReportEnumMemberValueCannotConvert(
+                            enumMember.Identifier.ValueText,
+                            typeDisplay,
+                            equalsValue.Value.GetLocation());
+                    }
+
+                    memberValue = nextValue ?? GetDefaultEnumMemberValue(underlyingType);
+                    if (!TryIncrementEnumValue(memberValue, underlyingType, out nextValue))
+                        nextValue = null;
                 }
             }
             else
             {
-                nextValue = unchecked(nextValue + 1);
+                if (!TryIncrementEnumValue(memberValue, underlyingType, out nextValue))
+                {
+                    enumBinder.Diagnostics.ReportEnumMemberValueCannotConvert(
+                        enumMember.Identifier.ValueText,
+                        underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        enumMember.Identifier.GetLocation());
+                    nextValue = null;
+                }
             }
 
             var fieldSymbol = new SourceFieldSymbol(
@@ -1762,93 +1767,171 @@ public partial class SemanticModel
         }
     }
 
-    private static bool TryGetEnumConstantInt32(BoundExpression expression, out int value)
+    private ITypeSymbol ResolveEnumUnderlyingType(EnumDeclarationSyntax enumDecl, Binder binder)
     {
-        // Handles the common cases needed for enum member binding:
-        // - literal constants
-        // - references to const fields (including earlier enum members)
-        // If your binder performs constant folding, more complex expressions should
-        // arrive here as BoundLiteralExpression already.
+        var defaultType = Compilation.GetSpecialType(SpecialType.System_Int32);
 
+        if (enumDecl.BaseList is not { } baseList || baseList.Types.Count == 0)
+            return defaultType;
+
+        if (baseList.Types.Count > 1)
+        {
+            for (var i = 1; i < baseList.Types.Count; i++)
+            {
+                binder.Diagnostics.ReportEnumUnderlyingTypeMustBeSingle(baseList.Types[i].GetLocation());
+            }
+        }
+
+        var underlyingTypeSyntax = baseList.Types[0];
+        var resolvedType = binder.ResolveType(underlyingTypeSyntax);
+
+        if (resolvedType is null || resolvedType == Compilation.ErrorTypeSymbol)
+            return defaultType;
+
+        var normalizedType = UnwrapAliasType(resolvedType);
+        if (normalizedType is NullableTypeSymbol || !IsValidEnumUnderlyingType(normalizedType))
+        {
+            binder.Diagnostics.ReportEnumUnderlyingTypeMustBeIntegral(
+                resolvedType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                underlyingTypeSyntax.GetLocation());
+            return defaultType;
+        }
+
+        return normalizedType;
+    }
+
+    private static bool IsValidEnumUnderlyingType(ITypeSymbol type)
+    {
+        return type.SpecialType is
+            SpecialType.System_SByte or
+            SpecialType.System_Byte or
+            SpecialType.System_Int16 or
+            SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or
+            SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or
+            SpecialType.System_UInt64 or
+            SpecialType.System_Char;
+    }
+
+    private static ITypeSymbol UnwrapAliasType(ITypeSymbol type)
+    {
+        while (type is IAliasSymbol alias && alias.UnderlyingSymbol is ITypeSymbol underlying)
+            type = underlying;
+
+        return type;
+    }
+
+    private static object GetDefaultEnumMemberValue(ITypeSymbol underlyingType)
+    {
+        return underlyingType.SpecialType switch
+        {
+            SpecialType.System_SByte => (sbyte)0,
+            SpecialType.System_Byte => (byte)0,
+            SpecialType.System_Int16 => (short)0,
+            SpecialType.System_UInt16 => (ushort)0,
+            SpecialType.System_Int32 => 0,
+            SpecialType.System_UInt32 => (uint)0,
+            SpecialType.System_Int64 => 0L,
+            SpecialType.System_UInt64 => 0UL,
+            SpecialType.System_Char => '\0',
+            _ => 0
+        };
+    }
+
+    private static bool TryGetEnumMemberConstantValue(BoundExpression expression, out object? value)
+    {
         switch (expression)
         {
-            case BoundLiteralExpression literal:
-                if (literal.Value is int i)
-                {
-                    value = i;
-                    return true;
-                }
-                if (literal.Value is byte b)
-                {
-                    value = b;
-                    return true;
-                }
-                if (literal.Value is sbyte sb)
-                {
-                    value = sb;
-                    return true;
-                }
-                if (literal.Value is short s)
-                {
-                    value = s;
-                    return true;
-                }
-                if (literal.Value is ushort us)
-                {
-                    value = us;
-                    return true;
-                }
-                if (literal.Value is char ch)
-                {
-                    value = ch;
-                    return true;
-                }
-                break;
-
+            case BoundLiteralExpression literal when literal.Value is not null:
+                value = literal.Value;
+                return true;
             case BoundFieldAccess fieldAccess:
                 {
                     var field = fieldAccess.Field;
-                    if (field is not null && field.IsConst && field.GetConstantValue() is not null)
+                    if (field is not null && field.IsConst)
                     {
-                        var constantValue = field.GetConstantValue();
-
-                        if (constantValue is int fi)
-                        {
-                            value = fi;
-                            return true;
-                        }
-                        if (constantValue is byte fb)
-                        {
-                            value = fb;
-                            return true;
-                        }
-                        if (constantValue is sbyte fsb)
-                        {
-                            value = fsb;
-                            return true;
-                        }
-                        if (constantValue is short fs)
-                        {
-                            value = fs;
-                            return true;
-                        }
-                        if (constantValue is ushort fus)
-                        {
-                            value = fus;
-                            return true;
-                        }
-                        if (constantValue is char fch)
-                        {
-                            value = fch;
-                            return true;
-                        }
+                        value = field.GetConstantValue();
+                        return value is not null;
                     }
 
                     break;
                 }
         }
 
-        value = default;
+        value = null;
+        return false;
+    }
+
+    private bool TryConvertEnumMemberValue(ITypeSymbol underlyingType, object? value, out object? converted)
+    {
+        if (value is null)
+        {
+            converted = null;
+            return false;
+        }
+
+        underlyingType = UnwrapAliasType(underlyingType);
+
+        if (underlyingType.SpecialType == SpecialType.System_Char)
+        {
+            if (value is char ch)
+            {
+                converted = ch;
+                return true;
+            }
+
+            if (ConstantValueEvaluator.TryConvert(
+                    Compilation.GetSpecialType(SpecialType.System_UInt16),
+                    value,
+                    out var ushortValue) &&
+                ushortValue is ushort u16)
+            {
+                converted = (char)u16;
+                return true;
+            }
+
+            converted = null;
+            return false;
+        }
+
+        return ConstantValueEvaluator.TryConvert(underlyingType, value, out converted);
+    }
+
+    private static bool TryIncrementEnumValue(object? value, ITypeSymbol underlyingType, out object? incremented)
+    {
+        switch (underlyingType.SpecialType)
+        {
+            case SpecialType.System_SByte when value is sbyte sb && sb < sbyte.MaxValue:
+                incremented = (sbyte)(sb + 1);
+                return true;
+            case SpecialType.System_Byte when value is byte b && b < byte.MaxValue:
+                incremented = (byte)(b + 1);
+                return true;
+            case SpecialType.System_Int16 when value is short s && s < short.MaxValue:
+                incremented = (short)(s + 1);
+                return true;
+            case SpecialType.System_UInt16 when value is ushort us && us < ushort.MaxValue:
+                incremented = (ushort)(us + 1);
+                return true;
+            case SpecialType.System_Int32 when value is int i && i < int.MaxValue:
+                incremented = i + 1;
+                return true;
+            case SpecialType.System_UInt32 when value is uint ui && ui < uint.MaxValue:
+                incremented = ui + 1;
+                return true;
+            case SpecialType.System_Int64 when value is long l && l < long.MaxValue:
+                incremented = l + 1;
+                return true;
+            case SpecialType.System_UInt64 when value is ulong ul && ul < ulong.MaxValue:
+                incremented = ul + 1;
+                return true;
+            case SpecialType.System_Char when value is char ch && ch < char.MaxValue:
+                incremented = (char)(ch + 1);
+                return true;
+        }
+
+        incremented = null;
         return false;
     }
 

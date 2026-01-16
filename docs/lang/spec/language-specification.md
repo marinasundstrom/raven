@@ -1542,13 +1542,13 @@ Enum members carry no associated payload or structure beyond their constant
 value. They cannot declare fields, parameters, or additional data.
 
 An enum member may optionally declare an explicit value using `=` followed by a
-constant expression:
+constant expression that is convertible to the enum’s underlying type:
 
 ```raven
 enum ErrorCode : int {
     None = 0
     NotFound = 404
-    Timeout = NotFound + 1
+    Timeout = 405
 }
 ```
 
@@ -1557,7 +1557,8 @@ greater than the previous member. The first member defaults to zero when no
 explicit initializer is present.
 
 Enum member initializers must be constant expressions. They may reference previously
-declared enum members. References to non-constant values are invalid.
+declared enum members. References to non-constant values are invalid, and values
+that cannot be represented in the underlying type are compile-time errors.
 
 ### Conversions
 
