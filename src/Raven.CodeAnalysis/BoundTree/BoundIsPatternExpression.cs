@@ -450,8 +450,18 @@ internal partial class BlockBinder
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
-        var expression = BindExpression(syntax.Expression);
+        var expression = syntax.Expression is MemberBindingExpressionSyntax memberBinding
+            ? BindMemberBindingExpression(memberBinding, inputType)
+            : BindExpression(syntax.Expression);
 
+        return BindConstantPatternFromExpression(expression, syntax.Expression, inputType);
+    }
+
+    private BoundPattern BindConstantPatternFromExpression(
+        BoundExpression expression,
+        ExpressionSyntax expressionSyntax,
+        ITypeSymbol inputType)
+    {
         // null literal stays a literal-backed constant pattern
         if (expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral })
         {
@@ -471,7 +481,7 @@ internal partial class BlockBinder
             _diagnostics.ReportMatchExpressionArmPatternInvalid(
                 "unknown",
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntax.Expression.GetLocation());
+                expressionSyntax.GetLocation());
 
             return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.MissingType);
         }
@@ -485,13 +495,13 @@ internal partial class BlockBinder
             _diagnostics.ReportMatchExpressionArmPatternInvalid(
                 expression.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                syntax.Expression.GetLocation());
+                expressionSyntax.GetLocation());
 
             return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
         }
 
         // NOTE: If you later introduce explicit conversion bound nodes, bind it here so codegen is simpler.
-        // expression = BindConversion(expression, inputType, syntax.Expression.GetLocation());
+        // expression = BindConversion(expression, inputType, expressionSyntax.GetLocation());
 
         return new BoundConstantPattern(expression);
     }
@@ -813,23 +823,13 @@ internal partial class BlockBinder
         var lookupType = qualifierType ?? inputType;
 
         if (lookupType is null)
-        {
-            _diagnostics.ReportCasePatternRequiresDiscriminatedUnion(
-                syntax.Path.Identifier.ValueText,
-                syntax.GetLocation());
-            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.MissingType);
-        }
+            return BindCasePatternAsConstant(syntax, qualifierType, inputType);
 
         var unionType = lookupType.TryGetDiscriminatedUnion()
             ?? lookupType.TryGetDiscriminatedUnionCase()?.Union;
 
         if (unionType is null)
-        {
-            _diagnostics.ReportCasePatternRequiresDiscriminatedUnion(
-                syntax.Path.Identifier.ValueText,
-                syntax.GetLocation());
-            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
-        }
+            return BindCasePatternAsConstant(syntax, qualifierType, inputType);
 
         var caseName = syntax.Path.Identifier.ValueText;
         var caseSymbol = unionType.Cases.FirstOrDefault(c => c.Name == caseName);
@@ -885,6 +885,33 @@ internal partial class BlockBinder
         }
 
         return new BoundCasePattern(caseSymbol, tryGetMethod, boundArguments.ToImmutable());
+    }
+
+    private BoundPattern BindCasePatternAsConstant(
+        CasePatternSyntax syntax,
+        ITypeSymbol? qualifierType,
+        ITypeSymbol? inputType)
+    {
+        if (syntax.ArgumentList is not null)
+        {
+            _diagnostics.ReportCasePatternRequiresDiscriminatedUnion(
+                syntax.Path.Identifier.ValueText,
+                syntax.GetLocation());
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+        }
+
+        var targetType = qualifierType ?? inputType;
+        if (targetType is null)
+        {
+            _diagnostics.ReportMemberAccessRequiresTargetType(
+                syntax.Path.Identifier.ValueText,
+                syntax.Path.Identifier.GetLocation());
+            return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.MissingType);
+        }
+
+        var nameSyntax = SyntaxFactory.IdentifierName(syntax.Path.Identifier);
+        var expression = BindTargetTypedMemberAccess(nameSyntax, targetType);
+        return BindConstantPatternFromExpression(expression, nameSyntax, inputType ?? targetType);
     }
 
     private IMethodSymbol? FindTryGetMethod(

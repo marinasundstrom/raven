@@ -131,6 +131,36 @@ let result = false match {
     }
 
     [Fact]
+    public void MatchExpression_WithTargetTypedMemberPattern_ResolvesAgainstInputType()
+    {
+        const string code = """
+enum Species {
+    Human,
+    Dog
+}
+
+class Character(name: string, species: Species, age: int) {
+    public Name: string => name
+
+    public Species: Species => species
+
+    public Age: int => age
+}
+
+let character = new Character("Rex", .Dog, 4)
+
+let result = character match {
+    { Age: not > 34, Species: .Dog } => true
+    _ => false
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
     {
         const string code = """
@@ -699,4 +729,3 @@ let result = value match {
         verifier.Verify();
     }
 }
-
