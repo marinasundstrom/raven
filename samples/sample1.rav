@@ -2,20 +2,20 @@ import System.*
 import System.Console.*
 
 func Main() {
-    val rex = Character("Rex", Species.Dog, Gender.Male, 5)
-    val charlie = Character("Charlie Hudson", Species.Human, Gender.Male, 42)
-    val sarah = Character("Sarah Truong", Species.Human, Gender.Female, 39)
-    val jesse = Character("Jesse Mills", Species.Human, Gender.Male, 34)
-    val joe = Character("Joe Donovan", Species.Human, Gender.Male, 50)
+    val rex = Character("Rex", .Dog, .Male, 5)
+    val charlie = Character("Charlie Hudson", .Human, .Male, 42)
+    val sarah = Character("Sarah Truong", .Human, .Female, 39)
+    val jesse = Character("Jesse Mills", .Human, .Male, 34)
+    val joe = Character("Joe Donovan", .Human, .Male, 50)
 
     var characters = [rex, charlie, sarah, jesse, joe]
 
     for character in characters {
-        if character is { Age: not > 34, Species: Species.Dog } {
+        if character is { Age: not > 34, Species: .Dog } {
             Print(character)
         }
 
-        if character is { Age: >= 35, Gender: Gender.Female } {
+        if character is { Age: >= 35, Gender: .Female } {
             Print(character)
         }
     }

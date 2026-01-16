@@ -2,10 +2,10 @@ import System.*
 import System.Console.*
 
 func Main() {
-    val charlie = Character("Charlie Hudson", Species.Human, 42)
-    val sarah = Character("Sarah Truong", Species.Human, 39)
-    val jesse = Character("Jesse Mills", Species.Human, 34)
-    val joe = Character("Joe Donovan", Species.Human, 52)
+    val charlie = Character("Charlie Hudson", .Human, 42)
+    val sarah = Character("Sarah Truong", .Human, 39)
+    val jesse = Character("Jesse Mills", .Human, 34)
+    val joe = Character("Joe Donovan", .Human, 52)
 
     var characters = [charlie, sarah, jesse, joe]
 
@@ -14,7 +14,7 @@ func Main() {
     val fullCast = [rex, ..characters]
 
     for character in fullCast {
-        if character is { Age: not > 34, Species: Species.Dog } {
+        if character is { Age: not > 34, Species: .Dog } {
             Print(character)
         }
 
