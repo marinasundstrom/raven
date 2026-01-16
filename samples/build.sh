@@ -48,7 +48,7 @@ is_excluded() {
   return 1
 }
 
-rav_files=( *.rav async/*.rav generics/*.rav )
+rav_files=( *.rav async/*.rav generics/*.rav discriminated-union/*.rav extensions/*.rav linq/*.rav oop/*.rav patterns/*.rav )
 
 if (( ${#rav_files[@]} == 0 )); then
   echo "No .rav files found under samples/."

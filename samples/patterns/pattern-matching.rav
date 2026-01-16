@@ -2,7 +2,7 @@ val x : bool | (a: bool, b: string) = false
 
 val r = x match {
     true => "true"
-    (a: bool, b: string) => "tuple $a $b"
+    (val a: bool, val b: string) => "tuple $a $b"
     _ => "else"
 }
 
