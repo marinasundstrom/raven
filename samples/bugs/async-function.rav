@@ -1,24 +1,6 @@
 import System.Threading.Tasks.*
 
-await test()
-
-// You should be able to return from an async method.
-async func test() -> Task {
-    //await Task.Delay(200)
-    return
-}
-
-// Appropriate error
-async func test2() -> Task {
-    //await Task.Delay(200)
-    return ()
-}
-
-// OK
-async func test3() -> Task<()> {
-    //await Task.Delay(200)
-    return ()
-}
+await test4()
 
 // Should report and error telling that await can only be used within an async context (or similar to C#)
 func test4() -> Task {
