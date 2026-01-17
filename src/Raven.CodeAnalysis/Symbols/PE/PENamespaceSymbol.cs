@@ -95,7 +95,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 
         var assemblyInfo = PEContainingAssembly.GetAssemblyInfo();
 
-        foreach (var type in assemblyInfo.GetTypes())
+        foreach (var type in assemblyInfo.GetTypes().Where(x => !x.IsNested))
         {
             if (type.Namespace != MetadataName)
                 continue;

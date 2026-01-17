@@ -39,6 +39,8 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
                     .GetAllMembersRecursive()
                     .OfType<IDiscriminatedUnionCaseSymbol>()
                     .Where(caseSymbol => SymbolEqualityComparer.Default.Equals(caseSymbol.Union, this))
+                    .Distinct(SymbolEqualityComparer.Default)
+                    .OfType<IDiscriminatedUnionCaseSymbol>()
                     .ToImmutableArray();
             }
 
