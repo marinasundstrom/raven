@@ -1295,6 +1295,9 @@ Patterns compose from the following primitives.
   Tuple patterns destructure positionally. Each element is itself a pattern and
   may introduce bindings. For example:
 
+  * If the scrutinee type exposes a `Deconstruct` method with matching arity, the
+    tuple pattern uses that method to obtain positional values.
+
   * ✅ `(val a, val b)`
   * ✅ `(val a: int, val b: string)`
   * ✅ `(val a: int, _)`
@@ -1352,6 +1355,8 @@ Patterns compose from the following primitives.
   the corresponding record property in primary-constructor order.
 
   * Record patterns are only valid on `record` types.
+  * Record patterns use the record’s `Deconstruct` method to obtain positional
+    values.
   * Each positional element is a pattern, so bindings still require `let`/`val`/`var`.
   * The number of positional elements must match the record’s primary-constructor
     parameters; mismatches are errors.

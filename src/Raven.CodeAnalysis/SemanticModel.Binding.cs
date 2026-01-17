@@ -2428,11 +2428,12 @@ public partial class SemanticModel
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
         var location = classDecl.GetLocation();
         var references = Array.Empty<SyntaxReference>();
 
-        if (objectType is null || boolType is null || intType is null)
+        if (objectType is null || boolType is null || intType is null || unitType is null)
             return;
 
         var equalsObject = objectType.GetMembers(nameof(object.Equals))
@@ -2584,6 +2585,40 @@ public partial class SemanticModel
                 references);
             notEqualsOperator.SetParameters(ImmutableArray.Create(leftParameter, rightParameter));
         }
+
+        if (!HasDeconstruct(recordSymbol))
+        {
+            var deconstructMethod = new SourceMethodSymbol(
+                "Deconstruct",
+                unitType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                declaredAccessibility: Accessibility.Public);
+
+            var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(recordSymbol.RecordProperties.Length);
+            foreach (var property in recordSymbol.RecordProperties)
+            {
+                var parameter = new SourceParameterSymbol(
+                    property.Name,
+                    property.Type,
+                    deconstructMethod,
+                    recordSymbol,
+                    namespaceSymbol,
+                    [location],
+                    references,
+                    refKind: RefKind.Out);
+
+                parameters.Add(parameter);
+            }
+
+            deconstructMethod.SetParameters(parameters.ToImmutable());
+        }
     }
 
     private static bool HasMethod(
@@ -2612,6 +2647,28 @@ public partial class SemanticModel
 
             if (matches)
                 return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasDeconstruct(SourceNamedTypeSymbol typeSymbol)
+    {
+        foreach (var method in typeSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>())
+        {
+            if (method.MethodKind != MethodKind.Ordinary || method.IsStatic)
+                continue;
+
+            if (method.ReturnType.SpecialType != SpecialType.System_Unit)
+                continue;
+
+            if (method.Parameters.Any(parameter => parameter.RefKind != RefKind.Out))
+                continue;
+
+            if (method.Parameters.Length != typeSymbol.RecordProperties.Length)
+                continue;
+
+            return true;
         }
 
         return false;

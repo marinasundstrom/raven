@@ -339,6 +339,26 @@ internal sealed class MatchExhaustivenessEvaluator
 
                     return true;
                 }
+            case BoundDeconstructPattern deconstructPattern:
+                {
+                    if (CanBeNull(inputType))
+                        return false;
+
+                    if (deconstructPattern.NarrowedType is not null &&
+                        !IsAssignable(deconstructPattern.NarrowedType, inputType))
+                    {
+                        return false;
+                    }
+
+                    var parameters = deconstructPattern.DeconstructMethod.Parameters;
+                    for (var i = 0; i < parameters.Length; i++)
+                    {
+                        if (!IsTotalPattern(parameters[i].Type, deconstructPattern.Arguments[i]))
+                            return false;
+                    }
+
+                    return true;
+                }
             case BoundOrPattern orPattern:
                 return IsTotalPattern(inputType, orPattern.Left) ||
                        IsTotalPattern(inputType, orPattern.Right);

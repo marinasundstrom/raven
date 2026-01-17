@@ -54,6 +54,12 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
             person.GetMembers("op_Inequality").OfType<IMethodSymbol>(),
             method => method.MethodKind == MethodKind.UserDefinedOperator);
 
+        var deconstruct = Assert.Single(
+            person.GetMembers("Deconstruct").OfType<IMethodSymbol>()
+                .Where(method => method.Parameters.Length == 2));
+        Assert.Equal(SpecialType.System_Unit, deconstruct.ReturnType.SpecialType);
+        Assert.All(deconstruct.Parameters, parameter => Assert.Equal(RefKind.Out, parameter.RefKind));
+
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -75,11 +81,36 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
 
         var recordPattern = tree.GetRoot().DescendantNodes().OfType<RecordPatternSyntax>().Single();
-        var boundPattern = Assert.IsType<BoundPropertyPattern>(model.GetBoundNode(recordPattern));
+        var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(recordPattern));
 
-        Assert.Equal(2, boundPattern.Properties.Length);
-        Assert.Equal("Name", Assert.IsType<IPropertySymbol>(boundPattern.Properties[0].Member).Name);
-        Assert.Equal("Age", Assert.IsType<IPropertySymbol>(boundPattern.Properties[1].Member).Name);
+        Assert.Equal(2, boundPattern.Arguments.Length);
+        Assert.Equal("Deconstruct", boundPattern.DeconstructMethod.Name);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TuplePattern_UsesDeconstructWhenAvailable()
+    {
+        var source = """
+            record class Pair(Left: int, Right: int);
+
+            let value: Pair = new Pair(1, 2);
+
+            let result = value match {
+                (let left, let right) => left
+                _ => 0
+            };
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var tuplePattern = tree.GetRoot().DescendantNodes().OfType<TuplePatternSyntax>().Single();
+        var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(tuplePattern));
+
+        Assert.Equal(2, boundPattern.Arguments.Length);
+        Assert.Equal("Deconstruct", boundPattern.DeconstructMethod.Name);
 
         Assert.Empty(compilation.GetDiagnostics());
     }

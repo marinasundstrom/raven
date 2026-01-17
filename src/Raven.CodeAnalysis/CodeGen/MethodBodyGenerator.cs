@@ -957,6 +957,14 @@ internal class MethodBodyGenerator
             return true;
         }
 
+        if (MethodSymbol.Name == "Deconstruct" &&
+            MethodSymbol.MethodKind == MethodKind.Ordinary &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            EmitRecordDeconstruct(recordType);
+            return true;
+        }
+
         if (MethodSymbol.MethodKind == MethodKind.UserDefinedOperator &&
             MethodSymbol.Parameters.Length == 2 &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
@@ -1162,6 +1170,23 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
+    private void EmitRecordDeconstruct(SourceNamedTypeSymbol recordType)
+    {
+        var recordProperties = recordType.RecordProperties;
+        var parameterCount = Math.Min(recordProperties.Length, MethodSymbol.Parameters.Length);
+
+        for (var i = 0; i < parameterCount; i++)
+        {
+            if (recordProperties[i].BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            EmitStoreRecordDeconstructParameter(MethodSymbol.Parameters[i], recordProperties[i].Type, fieldInfo);
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
     private void EmitRecordFieldComparisons(
         SourceNamedTypeSymbol recordType,
         Action loadLeft,
@@ -1302,6 +1327,44 @@ internal class MethodBodyGenerator
         if (parameterType.IsValueType)
         {
             var parameterClrType = ResolveUnionCaseClrType(parameterType);
+
+            if (!payloadType.IsValueType)
+                ILGenerator.Emit(OpCodes.Unbox_Any, parameterClrType);
+
+            ILGenerator.Emit(OpCodes.Stobj, parameterClrType);
+            return;
+        }
+
+        if (payloadType.IsValueType)
+        {
+            var payloadClrType = ResolveClrType(payloadType);
+            ILGenerator.Emit(OpCodes.Box, payloadClrType);
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(parameterType, payloadType))
+        {
+            var parameterClrType = ResolveClrType(parameterType);
+            ILGenerator.Emit(OpCodes.Castclass, parameterClrType);
+        }
+
+        ILGenerator.Emit(OpCodes.Stind_Ref);
+    }
+
+    private void EmitStoreRecordDeconstructParameter(
+        IParameterSymbol parameter,
+        ITypeSymbol payloadType,
+        FieldInfo payloadField)
+    {
+        var parameterPosition = GetParameterPosition(parameter);
+        ILGenerator.Emit(OpCodes.Ldarg, parameterPosition);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+
+        var parameterType = parameter.Type;
+
+        if (parameterType.IsValueType)
+        {
+            var parameterClrType = ResolveClrType(parameterType);
 
             if (!payloadType.IsValueType)
                 ILGenerator.Emit(OpCodes.Unbox_Any, parameterClrType);
