@@ -20,7 +20,7 @@ AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 AccessorModifier         ::= AccessModifier | 'async' | 'ref' | 'out' | 'in' ;
 
 TypeModifiers            ::= { TypeModifier } ;
-TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
+TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' | 'record' ;
 
 FunctionModifiers        ::= { FunctionModifier } ;
 FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
@@ -320,6 +320,7 @@ PrimaryPattern           ::= ParenthesizedPattern
                            | TuplePattern
                            | DiscardPattern
                            | MemberPattern
+                           | RecordPattern
                            | PropertyPattern ;
 
 ConstantPattern          ::= Literal | ConstantPatternOperand ;
@@ -359,6 +360,8 @@ MemberPath               ::= '.' Identifier
                            | Type '.' Identifier ;
 
 PatternList              ::= Pattern {',' Pattern} ;
+
+RecordPattern            ::= Type '(' PatternList? ')' ;
 
 PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' PropertyPatternDesignation? ;
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;

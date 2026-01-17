@@ -201,6 +201,7 @@ internal partial class ExpressionGenerator
             // These need object semantics in your implementation (isinst, ITuple, member lookup pipeline, etc.)
             case BoundDeclarationPattern:
             case BoundTuplePattern:
+            case BoundDeconstructPattern:
             case BoundPropertyPattern:
             case BoundCasePattern:
                 return PatternInput.Object;
@@ -581,6 +582,12 @@ internal partial class ExpressionGenerator
             return;
         }
 
+        if (pattern is BoundDeconstructPattern deconstructPattern)
+        {
+            EmitDeconstructPattern(deconstructPattern, inputType, scope);
+            return;
+        }
+
         if (pattern is BoundPropertyPattern propertyPattern)
         {
             EmitPropertyPattern(propertyPattern, inputType, scope);
@@ -772,6 +779,89 @@ internal partial class ExpressionGenerator
     // ============================================
     // Property patterns
     // ============================================
+
+    private void EmitDeconstructPattern(BoundDeconstructPattern deconstructPattern, ITypeSymbol inputType, Generator scope)
+    {
+        if (RequiresValueTypeHandling(inputType) && inputType.TypeKind != TypeKind.Error)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
+
+        var objLocal = ILGenerator.DeclareLocal(typeof(object));
+        ILGenerator.Emit(OpCodes.Stloc, objLocal);
+
+        var labelFail = ILGenerator.DefineLabel();
+        var labelDone = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+        if (deconstructPattern.NarrowedType is not null)
+        {
+            var narrowedClrType = ResolveClrType(deconstructPattern.NarrowedType);
+            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+            ILGenerator.Emit(OpCodes.Isinst, narrowedClrType);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+        }
+
+        var receiverType = deconstructPattern.ReceiverType;
+        var receiverClrType = ResolveClrType(receiverType);
+        IILocal receiverLocal;
+
+        if (receiverClrType == typeof(object))
+        {
+            receiverLocal = ILGenerator.DeclareLocal(typeof(object));
+            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+        }
+        else if (receiverType.IsValueType)
+        {
+            receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
+            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+            ILGenerator.Emit(OpCodes.Unbox_Any, receiverClrType);
+            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+        }
+        else
+        {
+            receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
+            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+            ILGenerator.Emit(OpCodes.Castclass, receiverClrType);
+            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+        }
+
+        var parameters = deconstructPattern.DeconstructMethod.Parameters;
+        var argumentLocals = new IILocal[parameters.Length];
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var parameterClrType = ResolveClrType(parameters[i].Type);
+            argumentLocals[i] = ILGenerator.DeclareLocal(parameterClrType);
+        }
+
+        if (receiverType.IsValueType)
+            ILGenerator.Emit(OpCodes.Ldloca, receiverLocal);
+        else
+            ILGenerator.Emit(OpCodes.Ldloc, receiverLocal);
+
+        for (var i = 0; i < argumentLocals.Length; i++)
+            ILGenerator.Emit(OpCodes.Ldloca, argumentLocals[i]);
+
+        var callOpCode = receiverType.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
+        ILGenerator.Emit(callOpCode, GetMethodInfo(deconstructPattern.DeconstructMethod));
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, argumentLocals[i]);
+            EmitPattern(deconstructPattern.Arguments[i], parameters[i].Type, scope);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Br, labelDone);
+
+        ILGenerator.MarkLabel(labelFail);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+        ILGenerator.MarkLabel(labelDone);
+    }
 
     private void EmitPropertyPattern(BoundPropertyPattern propertyPattern, ITypeSymbol inputType, Generator scope)
     {

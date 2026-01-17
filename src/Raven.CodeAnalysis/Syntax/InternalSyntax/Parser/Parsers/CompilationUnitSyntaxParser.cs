@@ -86,7 +86,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or
             SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
-            SyntaxKind.OpenKeyword or
+            SyntaxKind.OpenKeyword or SyntaxKind.RecordKeyword or
             SyntaxKind.PartialKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword;
     }
 
@@ -143,7 +143,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
                  nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
-                 nextToken.IsKind(SyntaxKind.OpenKeyword) ||
+                 nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
                  nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken))
@@ -297,6 +297,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                      SyntaxKind.VirtualKeyword or
                      SyntaxKind.AsyncKeyword or
                      SyntaxKind.OpenKeyword or
+                     SyntaxKind.RecordKeyword or
                      SyntaxKind.OverrideKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());

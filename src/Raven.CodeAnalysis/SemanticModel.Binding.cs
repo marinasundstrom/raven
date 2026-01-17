@@ -542,6 +542,7 @@ public partial class SemanticModel
                         var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                         var isSealed = isStatic || (!classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
                         var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        var isRecord = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
                         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             classDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
@@ -585,6 +586,7 @@ public partial class SemanticModel
                             existingType.AddDeclaration(declarationLocation, declarationReference);
                             existingType.UpdateDeclarationModifiers(isSealed, isAbstract, isStatic);
                             existingType.RegisterPartialModifier(isPartial);
+                            existingType.RegisterRecordModifier(isRecord);
 
                             classSymbol = existingType;
                             isNewSymbol = false;
@@ -606,6 +608,7 @@ public partial class SemanticModel
                                 declaredAccessibility: typeAccessibility);
 
                             classSymbol.RegisterPartialModifier(isPartial);
+                            classSymbol.RegisterRecordModifier(isRecord);
                         }
 
                         if (isNewSymbol)
@@ -791,6 +794,22 @@ public partial class SemanticModel
 
                             if (builder.Count > 0)
                                 interfaceList = builder.ToImmutable();
+                        }
+
+                        if (classSymbol is SourceNamedTypeSymbol recordSymbol && recordSymbol.IsRecord)
+                        {
+                            if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
+                            {
+                                var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(classSymbol);
+                                if (interfaceList.IsDefaultOrEmpty)
+                                {
+                                    interfaceList = ImmutableArray.Create(equatableType);
+                                }
+                                else if (!interfaceList.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
+                                {
+                                    interfaceList = interfaceList.Add(equatableType);
+                                }
+                            }
                         }
 
                         if (baseTypeSymbol is not null &&
@@ -1335,6 +1354,7 @@ public partial class SemanticModel
                         var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                         var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
                         var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        var nestedRecord = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
                         var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             nestedClass.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
@@ -1371,6 +1391,7 @@ public partial class SemanticModel
                             existingNested.AddDeclaration(nestedLocation, nestedReference);
                             existingNested.UpdateDeclarationModifiers(nestedSealed, nestedAbstract, nestedStatic);
                             existingNested.RegisterPartialModifier(nestedPartial);
+                            existingNested.RegisterRecordModifier(nestedRecord);
 
                             nestedSymbol = existingNested;
                             isNewNestedSymbol = false;
@@ -1393,6 +1414,7 @@ public partial class SemanticModel
                             );
 
                             nestedSymbol.RegisterPartialModifier(nestedPartial);
+                            nestedSymbol.RegisterRecordModifier(nestedRecord);
                         }
 
                         if (isNewNestedSymbol)
@@ -1557,6 +1579,21 @@ public partial class SemanticModel
                             nestedInterfaces = builder.ToImmutable();
                     }
                     var nestedSymbol = nestedClassSymbols[nestedClass];
+                    if (nestedSymbol is SourceNamedTypeSymbol nestedRecordSymbol && nestedRecordSymbol.IsRecord)
+                    {
+                        if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
+                        {
+                            var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(nestedSymbol);
+                            if (nestedInterfaces.IsDefaultOrEmpty)
+                            {
+                                nestedInterfaces = ImmutableArray.Create(equatableType);
+                            }
+                            else if (!nestedInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
+                            {
+                                nestedInterfaces = nestedInterfaces.Add(equatableType);
+                            }
+                        }
+                    }
                     if (nestedBaseType is not null &&
                         !SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, nestedBaseType) &&
                         SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, objectType))
@@ -1650,6 +1687,7 @@ public partial class SemanticModel
             ReportMissingAbstractBaseMembers(nestedSymbol, nestedSyntax, nestedBinder.Diagnostics);
         }
 
+        RegisterRecordValueMembers(classDecl, classBinder);
         classBinder.EnsureDefaultConstructor();
 
         static ImmutableArray<INamedTypeSymbol> MergeInterfaces(
@@ -2177,6 +2215,7 @@ public partial class SemanticModel
         var classSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
         var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var isRecord = classSymbol.IsRecord;
 
         if (classSymbol.IsStatic)
         {
@@ -2201,6 +2240,9 @@ public partial class SemanticModel
             declaredAccessibility: classSymbol.DeclaredAccessibility);
 
         var parameters = new List<SourceParameterSymbol>();
+        var recordProperties = isRecord
+            ? ImmutableArray.CreateBuilder<SourcePropertySymbol>()
+            : null;
 
         var seenOptionalParameter = false;
         foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
@@ -2246,24 +2288,393 @@ public partial class SemanticModel
 
             if (refKind == RefKind.None)
             {
-                _ = new SourceFieldSymbol(
-                    parameterSyntax.Identifier.ValueText,
-                    parameterType,
-                    isStatic: false,
-                    isMutable: parameterSymbol.IsMutable,
-                    isConst: false,
-                    constantValue: null,
-                    classSymbol,
-                    classSymbol,
-                    namespaceSymbol,
-                    [parameterSyntax.GetLocation()],
-                    [parameterSyntax.GetReference()],
-                    new BoundParameterAccess(parameterSymbol),
-                    declaredAccessibility: Accessibility.Private);
+                if (isRecord)
+                {
+                    var propertySymbol = CreateRecordPropertyFromPrimaryConstructor(
+                        classSymbol,
+                        parameterSymbol,
+                        parameterSyntax,
+                        parameterType,
+                        namespaceSymbol,
+                        classBinder);
+
+                    if (propertySymbol is not null)
+                        recordProperties?.Add(propertySymbol);
+                }
+                else
+                {
+                    _ = new SourceFieldSymbol(
+                        parameterSyntax.Identifier.ValueText,
+                        parameterType,
+                        isStatic: false,
+                        isMutable: parameterSymbol.IsMutable,
+                        isConst: false,
+                        constantValue: null,
+                        classSymbol,
+                        classSymbol,
+                        namespaceSymbol,
+                        [parameterSyntax.GetLocation()],
+                        [parameterSyntax.GetReference()],
+                        new BoundParameterAccess(parameterSymbol),
+                        declaredAccessibility: Accessibility.Private);
+                }
             }
         }
 
         constructorSymbol.SetParameters(parameters);
+
+        if (recordProperties is not null)
+            classSymbol.SetRecordProperties(recordProperties.ToImmutable());
+    }
+
+    private SourcePropertySymbol? CreateRecordPropertyFromPrimaryConstructor(
+        SourceNamedTypeSymbol classSymbol,
+        SourceParameterSymbol parameterSymbol,
+        ParameterSyntax parameterSyntax,
+        ITypeSymbol parameterType,
+        SourceNamespaceSymbol? namespaceSymbol,
+        ClassDeclarationBinder classBinder)
+    {
+        var propertyName = parameterSyntax.Identifier.ValueText;
+        if (classSymbol.IsMemberDefined(propertyName, out _))
+        {
+            classBinder.Diagnostics.ReportTypeAlreadyDefinesMember(
+                classSymbol.Name,
+                propertyName,
+                parameterSyntax.Identifier.GetLocation());
+            return null;
+        }
+
+        var location = parameterSyntax.GetLocation();
+        var references = Array.Empty<SyntaxReference>();
+
+        var propertySymbol = new SourcePropertySymbol(
+            propertyName,
+            parameterType,
+            classSymbol,
+            classSymbol,
+            namespaceSymbol,
+            [location],
+            references,
+            isStatic: false,
+            declaredAccessibility: Accessibility.Public);
+
+        var backingField = new SourceFieldSymbol(
+            $"<{propertySymbol.Name}>k__BackingField",
+            parameterType,
+            isStatic: false,
+            isMutable: parameterSymbol.IsMutable,
+            isConst: false,
+            constantValue: null,
+            classSymbol,
+            classSymbol,
+            namespaceSymbol,
+            [location],
+            references,
+            new BoundParameterAccess(parameterSymbol),
+            declaredAccessibility: Accessibility.Private);
+
+        propertySymbol.SetBackingField(backingField);
+
+        var getMethod = new SourceMethodSymbol(
+            $"get_{propertySymbol.Name}",
+            parameterType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            propertySymbol,
+            classSymbol,
+            namespaceSymbol,
+            [location],
+            references,
+            isStatic: false,
+            methodKind: MethodKind.PropertyGet,
+            declaredAccessibility: Accessibility.Public);
+
+        SourceMethodSymbol? setMethod = null;
+        if (parameterSymbol.IsMutable)
+        {
+            setMethod = new SourceMethodSymbol(
+                $"set_{propertySymbol.Name}",
+                Compilation.GetSpecialType(SpecialType.System_Unit),
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                propertySymbol,
+                classSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.PropertySet,
+                declaredAccessibility: Accessibility.Public);
+
+            var valueParameter = new SourceParameterSymbol(
+                "value",
+                parameterType,
+                setMethod,
+                classSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            setMethod.SetParameters(ImmutableArray.Create(valueParameter));
+        }
+
+        propertySymbol.SetAccessors(getMethod, setMethod);
+        return propertySymbol;
+    }
+
+    private void RegisterRecordValueMembers(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
+    {
+        if (classBinder.ContainingSymbol is not SourceNamedTypeSymbol recordSymbol || !recordSymbol.IsRecord)
+            return;
+
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
+        var location = classDecl.GetLocation();
+        var references = Array.Empty<SyntaxReference>();
+
+        if (objectType is null || boolType is null || intType is null || unitType is null)
+            return;
+
+        var equalsObject = objectType.GetMembers(nameof(object.Equals))
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Parameters.Length == 1 && m.Parameters[0].Type is NullableTypeSymbol { UnderlyingType: { SpecialType: SpecialType.System_Object } });
+
+        var getHashCode = objectType.GetMembers(nameof(object.GetHashCode))
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Parameters.Length == 0);
+
+        if (equalsObject is null || getHashCode is null)
+            return;
+
+        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol))
+        {
+            var equalsTyped = new SourceMethodSymbol(
+                "Equals",
+                boolType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                declaredAccessibility: Accessibility.Public);
+
+            var otherParameter = new SourceParameterSymbol(
+                "other",
+                recordSymbol,
+                equalsTyped,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            equalsTyped.SetParameters(ImmutableArray.Create(otherParameter));
+        }
+
+        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, objectType))
+        {
+            var equalsObj = new SourceMethodSymbol(
+                "Equals",
+                boolType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                isOverride: true,
+                declaredAccessibility: Accessibility.Public);
+
+            equalsObj.SetOverriddenMethod(equalsObject);
+
+            var otherParameter = new SourceParameterSymbol(
+                "obj",
+                objectType,
+                equalsObj,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            equalsObj.SetParameters(ImmutableArray.Create(otherParameter));
+        }
+
+        if (!HasMethod(recordSymbol, "GetHashCode", MethodKind.Ordinary))
+        {
+            var hashMethod = new SourceMethodSymbol(
+                "GetHashCode",
+                intType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                isOverride: true,
+                declaredAccessibility: Accessibility.Public);
+
+            hashMethod.SetOverriddenMethod(getHashCode);
+        }
+
+        if (!HasMethod(recordSymbol, "op_Equality", MethodKind.UserDefinedOperator, recordSymbol, recordSymbol))
+        {
+            var equalsOperator = new SourceMethodSymbol(
+                "op_Equality",
+                boolType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: true,
+                methodKind: MethodKind.UserDefinedOperator,
+                declaredAccessibility: Accessibility.Public);
+
+            var leftParameter = new SourceParameterSymbol(
+                "left",
+                recordSymbol,
+                equalsOperator,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            var rightParameter = new SourceParameterSymbol(
+                "right",
+                recordSymbol,
+                equalsOperator,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            equalsOperator.SetParameters(ImmutableArray.Create(leftParameter, rightParameter));
+        }
+
+        if (!HasMethod(recordSymbol, "op_Inequality", MethodKind.UserDefinedOperator, recordSymbol, recordSymbol))
+        {
+            var notEqualsOperator = new SourceMethodSymbol(
+                "op_Inequality",
+                boolType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: true,
+                methodKind: MethodKind.UserDefinedOperator,
+                declaredAccessibility: Accessibility.Public);
+
+            var leftParameter = new SourceParameterSymbol(
+                "left",
+                recordSymbol,
+                notEqualsOperator,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            var rightParameter = new SourceParameterSymbol(
+                "right",
+                recordSymbol,
+                notEqualsOperator,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            notEqualsOperator.SetParameters(ImmutableArray.Create(leftParameter, rightParameter));
+        }
+
+        if (!HasDeconstruct(recordSymbol))
+        {
+            var deconstructMethod = new SourceMethodSymbol(
+                "Deconstruct",
+                unitType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                declaredAccessibility: Accessibility.Public);
+
+            var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(recordSymbol.RecordProperties.Length);
+            foreach (var property in recordSymbol.RecordProperties)
+            {
+                var parameter = new SourceParameterSymbol(
+                    property.Name,
+                    property.Type,
+                    deconstructMethod,
+                    recordSymbol,
+                    namespaceSymbol,
+                    [location],
+                    references,
+                    refKind: RefKind.Out);
+
+                parameters.Add(parameter);
+            }
+
+            deconstructMethod.SetParameters(parameters.ToImmutable());
+        }
+    }
+
+    private static bool HasMethod(
+        SourceNamedTypeSymbol typeSymbol,
+        string name,
+        MethodKind methodKind,
+        params ITypeSymbol[] parameters)
+    {
+        foreach (var method in typeSymbol.GetMembers(name).OfType<IMethodSymbol>())
+        {
+            if (method.MethodKind != methodKind)
+                continue;
+
+            if (method.Parameters.Length != parameters.Length)
+                continue;
+
+            var matches = true;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(method.Parameters[i].Type, parameters[i]))
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasDeconstruct(SourceNamedTypeSymbol typeSymbol)
+    {
+        foreach (var method in typeSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>())
+        {
+            if (method.MethodKind != MethodKind.Ordinary || method.IsStatic)
+                continue;
+
+            if (method.ReturnType.SpecialType != SpecialType.System_Unit)
+                continue;
+
+            if (method.Parameters.Any(parameter => parameter.RefKind != RefKind.Out))
+                continue;
+
+            if (method.Parameters.Length != typeSymbol.RecordProperties.Length)
+                continue;
+
+            return true;
+        }
+
+        return false;
     }
 
     private void ReportMissingAbstractBaseMembers(

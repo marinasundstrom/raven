@@ -40,6 +40,7 @@ internal class SyntaxParser : ParseContext
                      SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
+                     SyntaxKind.RecordKeyword or
                      SyntaxKind.VirtualKeyword or
                      SyntaxKind.AsyncKeyword or
                      SyntaxKind.OpenKeyword or

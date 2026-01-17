@@ -24,6 +24,7 @@
   <TokenKind Name="UnionKeyword" Text="union" IsReservedWord="true" />
   <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />
   <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
+  <TokenKind Name="RecordKeyword" Text="record" IsReservedWord="true" />
   <TokenKind Name="InterfaceKeyword" Text="interface" IsReservedWord="true" />
   <TokenKind Name="EventKeyword" Text="event" IsReservedWord="true" />
   <TokenKind Name="ExtensionKeyword" Text="extension" IsReservedWord="false" />

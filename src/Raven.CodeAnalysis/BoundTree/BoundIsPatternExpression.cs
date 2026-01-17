@@ -200,6 +200,50 @@ internal sealed class BoundTuplePattern : BoundPattern
     }
 }
 
+internal sealed class BoundDeconstructPattern : BoundPattern
+{
+    public BoundDeconstructPattern(
+        ITypeSymbol inputType,
+        INamedTypeSymbol receiverType,
+        ITypeSymbol? narrowedType,
+        IMethodSymbol deconstructMethod,
+        ImmutableArray<BoundPattern> arguments,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(inputType, reason)
+    {
+        InputType = inputType;
+        ReceiverType = receiverType;
+        NarrowedType = narrowedType;
+        DeconstructMethod = deconstructMethod;
+        Arguments = arguments;
+    }
+
+    public ITypeSymbol InputType { get; }
+    public INamedTypeSymbol ReceiverType { get; }
+    public ITypeSymbol? NarrowedType { get; }
+    public IMethodSymbol DeconstructMethod { get; }
+    public ImmutableArray<BoundPattern> Arguments { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators()
+    {
+        foreach (var argument in Arguments)
+        {
+            foreach (var designator in argument.GetDesignators())
+                yield return designator;
+        }
+    }
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal sealed class BoundConstantPattern : BoundPattern
 {
     // Literal-backed constant pattern (fast path)
@@ -346,6 +390,7 @@ internal partial class BlockBinder
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
             MemberPatternSyntax c => BindCasePattern(c, inputType),
+            RecordPatternSyntax r => BindRecordPattern(r, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             RelationalPatternSyntax r => BindRelationalPattern(r, inputType),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
@@ -542,6 +587,13 @@ internal partial class BlockBinder
 
     private BoundPattern BindTuplePattern(TuplePatternSyntax syntax, ITypeSymbol? inputType)
     {
+        if (inputType is not null)
+        {
+            var deconstructMethod = FindDeconstructMethod(inputType, syntax.Elements.Count);
+            if (deconstructMethod is not null)
+                return BindDeconstructPattern(syntax.Elements, deconstructMethod, inputType, narrowedType: null);
+        }
+
         var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
 
         var elementTypes = inputType is null
@@ -587,6 +639,75 @@ internal partial class BlockBinder
         expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
         return BindPattern(syntax, expectedType);
+    }
+
+    private BoundPattern BindDeconstructPattern(
+        SeparatedSyntaxList<TuplePatternElementSyntax> elements,
+        IMethodSymbol deconstructMethod,
+        ITypeSymbol inputType,
+        ITypeSymbol? narrowedType)
+    {
+        var fallbackLocation = elements.Count > 0 ? elements[0].GetLocation() : Location.None;
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(deconstructMethod.Parameters.Length);
+        var elementCount = Math.Min(elements.Count, deconstructMethod.Parameters.Length);
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var elementSyntax = elements[i];
+            var expectedType = EnsureTypeAccessible(deconstructMethod.Parameters[i].Type, elementSyntax.GetLocation());
+            var boundElement = BindTuplePatternElement(elementSyntax.Pattern, expectedType);
+            boundElement = BindTuplePatternElementDesignation(elementSyntax, boundElement);
+            boundElements.Add(boundElement);
+        }
+
+        for (var i = elementCount; i < deconstructMethod.Parameters.Length; i++)
+        {
+            var parameterType = EnsureTypeAccessible(deconstructMethod.Parameters[i].Type, fallbackLocation);
+            boundElements.Add(new BoundDiscardPattern(parameterType, BoundExpressionReason.TypeMismatch));
+        }
+
+        for (var i = elementCount; i < elements.Count; i++)
+            _ = BindTuplePatternElement(elements[i].Pattern, null);
+
+        return new BoundDeconstructPattern(
+            inputType: inputType,
+            receiverType: deconstructMethod.ContainingType,
+            narrowedType: narrowedType,
+            deconstructMethod: deconstructMethod,
+            arguments: boundElements.ToImmutable());
+    }
+
+    private BoundPattern BindDeconstructPattern(
+        SeparatedSyntaxList<PatternSyntax> arguments,
+        IMethodSymbol deconstructMethod,
+        ITypeSymbol inputType,
+        ITypeSymbol? narrowedType)
+    {
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(deconstructMethod.Parameters.Length);
+        var elementCount = Math.Min(arguments.Count, deconstructMethod.Parameters.Length);
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var argumentSyntax = arguments[i];
+            var expectedType = EnsureTypeAccessible(deconstructMethod.Parameters[i].Type, argumentSyntax.GetLocation());
+            boundElements.Add(BindPattern(argumentSyntax, expectedType));
+        }
+
+        for (var i = elementCount; i < deconstructMethod.Parameters.Length; i++)
+        {
+            var parameterType = EnsureTypeAccessible(deconstructMethod.Parameters[i].Type, Location.None);
+            boundElements.Add(new BoundDiscardPattern(parameterType, BoundExpressionReason.TypeMismatch));
+        }
+
+        for (var i = elementCount; i < arguments.Count; i++)
+            _ = BindPattern(arguments[i]);
+
+        return new BoundDeconstructPattern(
+            inputType: inputType,
+            receiverType: deconstructMethod.ContainingType,
+            narrowedType: narrowedType,
+            deconstructMethod: deconstructMethod,
+            arguments: boundElements.ToImmutable());
     }
 
     private void ReportTypedPatternBindingsMissingKeyword(VariableDesignationSyntax designation)
@@ -912,6 +1033,96 @@ internal partial class BlockBinder
         var nameSyntax = SyntaxFactory.IdentifierName(syntax.Path.Identifier);
         var expression = BindTargetTypedMemberAccess(nameSyntax, targetType);
         return BindConstantPatternFromExpression(expression, nameSyntax, inputType ?? targetType);
+    }
+
+    private BoundPattern BindRecordPattern(RecordPatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var boundType = BindTypeSyntax(syntax.Type);
+        var recordType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
+
+        if (recordType.TypeKind == TypeKind.Error)
+        {
+            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: null,
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (recordType is not SourceNamedTypeSymbol { IsRecord: true } recordSymbol)
+        {
+            _diagnostics.ReportRecordPatternRequiresRecordType(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+
+            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: null,
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (recordType.TypeKind != TypeKind.Error &&
+            inputType.TypeKind != TypeKind.Error &&
+            !Compilation.ClassifyConversion(inputType, recordType).Exists)
+        {
+            _diagnostics.ReportRecordPatternTypeMismatch(
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+        }
+
+        var recordProperties = recordSymbol.RecordProperties;
+        var deconstructMethod = FindDeconstructMethod(recordType, recordProperties.Length);
+        if (deconstructMethod is null)
+        {
+            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: recordType,
+                narrowedType: recordType,
+                designator: null,
+                properties: props,
+                reason: BoundExpressionReason.NotFound);
+        }
+
+        var argumentList = syntax.ArgumentList;
+        var argumentCount = argumentList.Arguments.Count;
+
+        if (argumentCount != recordProperties.Length)
+        {
+            _diagnostics.ReportRecordPatternArgumentCountMismatch(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                recordProperties.Length,
+                argumentCount,
+                argumentList.GetLocation());
+        }
+
+        return BindDeconstructPattern(
+            syntax.ArgumentList.Arguments,
+            deconstructMethod,
+            inputType,
+            narrowedType: recordType);
+    }
+
+    private static IMethodSymbol? FindDeconstructMethod(ITypeSymbol inputType, int parameterCount)
+    {
+        return inputType.GetMembers("Deconstruct")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(method =>
+                method.MethodKind == MethodKind.Ordinary &&
+                !method.IsStatic &&
+                method.Parameters.Length == parameterCount &&
+                method.ReturnType.SpecialType == SpecialType.System_Unit &&
+                method.Parameters.All(parameter => parameter.RefKind == RefKind.Out));
     }
 
     private IMethodSymbol? FindTryGetMethod(
@@ -1321,6 +1532,21 @@ internal partial class BlockBinder
             syntax.PropertyPatternClause.Properties.Count);
 
         foreach (var sub in syntax.PropertyPatternClause.Properties)
+        {
+            builder.Add(new BoundPropertySubpattern(
+                Member: Compilation.ErrorSymbol,
+                Type: Compilation.ErrorTypeSymbol,
+                Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch)));
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private ImmutableArray<BoundPropertySubpattern> BindRecordPatternSubpatternsAsDiscards(RecordPatternSyntax syntax)
+    {
+        var builder = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(syntax.ArgumentList.Arguments.Count);
+
+        foreach (var argument in syntax.ArgumentList.Arguments)
         {
             builder.Add(new BoundPropertySubpattern(
                 Member: Compilation.ErrorSymbol,

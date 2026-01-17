@@ -112,6 +112,7 @@ internal class UnionDeclarationParser : SyntaxParser
                     SyntaxKind.VirtualKeyword or
                     SyntaxKind.AsyncKeyword or
                     SyntaxKind.OpenKeyword or
+                    SyntaxKind.RecordKeyword or
                     SyntaxKind.OverrideKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());

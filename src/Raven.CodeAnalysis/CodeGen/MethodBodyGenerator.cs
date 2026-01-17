@@ -285,6 +285,10 @@ internal class MethodBodyGenerator
             }
         }
 
+        var recordType = TryGetRecordTypeDefinition(MethodSymbol.ContainingType);
+        if (recordType is not null && TryEmitRecordMethod(recordType))
+            return;
+
         var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is null)
         {
@@ -834,9 +838,21 @@ internal class MethodBodyGenerator
         SourcePropertySymbol propertySymbol,
         SourceFieldSymbol backingField)
     {
-        var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var accessorKind = accessorDeclaration.Kind == SyntaxKind.GetAccessorDeclaration
+            ? MethodKind.PropertyGet
+            : MethodKind.PropertySet;
+        EmitAutoPropertyAccessor(accessorKind, propertySymbol, backingField);
+    }
 
-        if (accessorDeclaration.Kind == SyntaxKind.GetAccessorDeclaration)
+    private void EmitAutoPropertyAccessor(
+        MethodKind accessorKind,
+        SourcePropertySymbol propertySymbol,
+        SourceFieldSymbol backingField)
+    {
+        var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var isGet = accessorKind == MethodKind.PropertyGet;
+
+        if (isGet)
         {
             if (propertySymbol.IsStatic)
             {
@@ -897,6 +913,325 @@ internal class MethodBodyGenerator
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private bool TryEmitRecordMethod(SourceNamedTypeSymbol recordType)
+    {
+        if (MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet &&
+            MethodSymbol.ContainingSymbol is SourcePropertySymbol propertySymbol &&
+            propertySymbol.BackingField is SourceFieldSymbol backingField)
+        {
+            EmitAutoPropertyAccessor(MethodSymbol.MethodKind, propertySymbol, backingField);
+            return true;
+        }
+
+        if (!MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return false;
+
+        if (MethodSymbol.Name == nameof(object.Equals) &&
+            MethodSymbol.Parameters.Length == 1 &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean)
+        {
+            if (MethodSymbol.Parameters[0].Type.SpecialType == SpecialType.System_Object)
+            {
+                EmitRecordObjectEquals(recordType);
+                return true;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(MethodSymbol.Parameters[0].Type, recordType))
+            {
+                EmitRecordTypedEquals(recordType);
+                return true;
+            }
+        }
+
+        if (MethodSymbol.Name == nameof(object.GetHashCode) &&
+            MethodSymbol.Parameters.Length == 0 &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Int32)
+        {
+            EmitRecordGetHashCode(recordType);
+            return true;
+        }
+
+        if (MethodSymbol.Name == "Deconstruct" &&
+            MethodSymbol.MethodKind == MethodKind.Ordinary &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            EmitRecordDeconstruct(recordType);
+            return true;
+        }
+
+        if (MethodSymbol.MethodKind == MethodKind.UserDefinedOperator &&
+            MethodSymbol.Parameters.Length == 2 &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol.Parameters[0].Type, recordType) &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol.Parameters[1].Type, recordType))
+        {
+            if (string.Equals(MethodSymbol.Name, "op_Equality", StringComparison.Ordinal))
+            {
+                EmitRecordEqualityOperator(recordType);
+                return true;
+            }
+
+            if (string.Equals(MethodSymbol.Name, "op_Inequality", StringComparison.Ordinal))
+            {
+                EmitRecordInequalityOperator(recordType);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void EmitRecordObjectEquals(SourceNamedTypeSymbol recordType)
+    {
+        var recordClrType = MethodGenerator.ResolveClrType(recordType);
+        var otherLocal = ILGenerator.DeclareLocal(recordClrType);
+        var compareFieldsLabel = ILGenerator.DefineLabel();
+        var returnFalseLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Isinst, recordClrType);
+        ILGenerator.Emit(OpCodes.Stloc, otherLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, otherLocal);
+        ILGenerator.Emit(OpCodes.Brtrue_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(compareFieldsLabel);
+
+        var referenceEquals = typeof(object).GetMethod(nameof(object.ReferenceEquals), [typeof(object), typeof(object)])!;
+        var fieldComparisonLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldloc, otherLocal);
+        ILGenerator.Emit(OpCodes.Call, referenceEquals);
+        ILGenerator.Emit(OpCodes.Brfalse_S, fieldComparisonLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(fieldComparisonLabel);
+        EmitRecordFieldComparisons(
+            recordType,
+            loadLeft: () => ILGenerator.Emit(OpCodes.Ldarg_0),
+            loadRight: () => ILGenerator.Emit(OpCodes.Ldloc, otherLocal),
+            returnFalseLabel);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(returnFalseLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitRecordTypedEquals(SourceNamedTypeSymbol recordType)
+    {
+        var compareFieldsLabel = ILGenerator.DefineLabel();
+        var returnFalseLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Brtrue_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(compareFieldsLabel);
+
+        var referenceEquals = typeof(object).GetMethod(nameof(object.ReferenceEquals), [typeof(object), typeof(object)])!;
+        var fieldComparisonLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Call, referenceEquals);
+        ILGenerator.Emit(OpCodes.Brfalse_S, fieldComparisonLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(fieldComparisonLabel);
+        EmitRecordFieldComparisons(
+            recordType,
+            loadLeft: () => ILGenerator.Emit(OpCodes.Ldarg_0),
+            loadRight: () => ILGenerator.Emit(OpCodes.Ldarg_1),
+            returnFalseLabel);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(returnFalseLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitRecordEqualityOperator(SourceNamedTypeSymbol recordType)
+    {
+        var leftNotNullLabel = ILGenerator.DefineLabel();
+        var compareFieldsLabel = ILGenerator.DefineLabel();
+
+        var referenceEquals = typeof(object).GetMethod(nameof(object.ReferenceEquals), [typeof(object), typeof(object)])!;
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Call, referenceEquals);
+        ILGenerator.Emit(OpCodes.Brfalse_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Brtrue_S, leftNotNullLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(leftNotNullLabel);
+        var rightNotNullLabel = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Brtrue_S, rightNotNullLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(rightNotNullLabel);
+        var fieldComparisonFail = ILGenerator.DefineLabel();
+        EmitRecordFieldComparisons(
+            recordType,
+            loadLeft: () => ILGenerator.Emit(OpCodes.Ldarg_0),
+            loadRight: () => ILGenerator.Emit(OpCodes.Ldarg_1),
+            fieldComparisonFail);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(fieldComparisonFail);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitRecordInequalityOperator(SourceNamedTypeSymbol recordType)
+    {
+        var returnTrueLabel = ILGenerator.DefineLabel();
+        var compareFieldsLabel = ILGenerator.DefineLabel();
+
+        var referenceEquals = typeof(object).GetMethod(nameof(object.ReferenceEquals), [typeof(object), typeof(object)])!;
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Call, referenceEquals);
+        ILGenerator.Emit(OpCodes.Brfalse_S, compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(compareFieldsLabel);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Brfalse_S, returnTrueLabel);
+        ILGenerator.Emit(OpCodes.Ldarg_1);
+        ILGenerator.Emit(OpCodes.Brfalse_S, returnTrueLabel);
+
+        EmitRecordFieldComparisons(
+            recordType,
+            loadLeft: () => ILGenerator.Emit(OpCodes.Ldarg_0),
+            loadRight: () => ILGenerator.Emit(OpCodes.Ldarg_1),
+            returnTrueLabel);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ret);
+
+        ILGenerator.MarkLabel(returnTrueLabel);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitRecordGetHashCode(SourceNamedTypeSymbol recordType)
+    {
+        var recordProperties = recordType.RecordProperties;
+        var hashCodeType = typeof(HashCode);
+        var addMethod = hashCodeType.GetMethods()
+            .First(m => m.Name == nameof(HashCode.Add) && m.IsGenericMethodDefinition && m.GetParameters().Length == 1);
+        var toHashCodeMethod = hashCodeType.GetMethod(nameof(HashCode.ToHashCode), Type.EmptyTypes)!;
+
+        var hashLocal = ILGenerator.DeclareLocal(hashCodeType);
+        ILGenerator.Emit(OpCodes.Ldloca, hashLocal);
+        ILGenerator.Emit(OpCodes.Initobj, hashCodeType);
+
+        foreach (var property in recordProperties)
+        {
+            if (property.BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var propertyClrType = MethodGenerator.ResolveClrType(property.Type);
+
+            ILGenerator.Emit(OpCodes.Ldloca, hashLocal);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            ILGenerator.Emit(OpCodes.Call, addMethod.MakeGenericMethod(propertyClrType));
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloca, hashLocal);
+        ILGenerator.Emit(OpCodes.Call, toHashCodeMethod);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitRecordDeconstruct(SourceNamedTypeSymbol recordType)
+    {
+        var recordProperties = recordType.RecordProperties;
+        var parameterCount = Math.Min(recordProperties.Length, MethodSymbol.Parameters.Length);
+
+        for (var i = 0; i < parameterCount; i++)
+        {
+            if (recordProperties[i].BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            EmitStoreRecordDeconstructParameter(MethodSymbol.Parameters[i], recordProperties[i].Type, fieldInfo);
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitRecordFieldComparisons(
+        SourceNamedTypeSymbol recordType,
+        Action loadLeft,
+        Action loadRight,
+        ILLabel returnFalseLabel)
+    {
+        var recordProperties = recordType.RecordProperties;
+        foreach (var property in recordProperties)
+        {
+            if (property.BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var propertyClrType = MethodGenerator.ResolveClrType(property.Type);
+            var comparerTypeDefinition = typeof(EqualityComparer<>);
+            var comparerType = comparerTypeDefinition.MakeGenericType(propertyClrType);
+            var comparerGenericArgument = comparerTypeDefinition.GetGenericArguments()[0];
+            var defaultGetterDefinition = comparerTypeDefinition.GetProperty("Default")?.GetGetMethod();
+            var equalsDefinition = comparerTypeDefinition.GetMethod("Equals", [comparerGenericArgument, comparerGenericArgument]);
+            var defaultGetter = GetConstructedMethod(comparerType, defaultGetterDefinition);
+            var equalsMethod = GetConstructedMethod(comparerType, equalsDefinition);
+
+            if (defaultGetter is null || equalsMethod is null)
+                continue;
+
+            ILGenerator.Emit(OpCodes.Call, defaultGetter);
+            loadLeft();
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            loadRight();
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
+            ILGenerator.Emit(OpCodes.Brfalse_S, returnFalseLabel);
+        }
+    }
+
+    private static MethodInfo? GetConstructedMethod(Type constructedType, MethodInfo? methodDefinition)
+    {
+        if (methodDefinition is null)
+            return null;
+
+        if (constructedType.IsGenericType
+            && methodDefinition.DeclaringType is { IsGenericTypeDefinition: true }
+            && constructedType.GetGenericArguments().Any(argument => argument is TypeBuilder))
+            return TypeBuilder.GetMethod(constructedType, methodDefinition);
+
+        return constructedType.GetMethod(
+            methodDefinition.Name,
+            methodDefinition.GetParameters().Select(parameter => parameter.ParameterType).ToArray());
     }
 
     private void EmitUnionCasePropertyGetter(SourcePropertySymbol propertySymbol, SourceFieldSymbol backingField)
@@ -967,6 +1302,21 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
+    private static SourceNamedTypeSymbol? TryGetRecordTypeDefinition(INamedTypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null)
+            return null;
+
+        if (typeSymbol is SourceNamedTypeSymbol { IsRecord: true } source)
+            return source;
+
+        if (typeSymbol is ConstructedNamedTypeSymbol constructed &&
+            constructed.OriginalDefinition is SourceNamedTypeSymbol { IsRecord: true } sourceDefinition)
+            return sourceDefinition;
+
+        return null;
+    }
+
     private void EmitDiscriminatedUnionTryGetMethod(
         SourceDiscriminatedUnionSymbol unionSymbol,
         IDiscriminatedUnionCaseSymbol caseSymbol,
@@ -1008,6 +1358,44 @@ internal class MethodBodyGenerator
         if (parameterType.IsValueType)
         {
             var parameterClrType = ResolveUnionCaseClrType(parameterType);
+
+            if (!payloadType.IsValueType)
+                ILGenerator.Emit(OpCodes.Unbox_Any, parameterClrType);
+
+            ILGenerator.Emit(OpCodes.Stobj, parameterClrType);
+            return;
+        }
+
+        if (payloadType.IsValueType)
+        {
+            var payloadClrType = ResolveClrType(payloadType);
+            ILGenerator.Emit(OpCodes.Box, payloadClrType);
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(parameterType, payloadType))
+        {
+            var parameterClrType = ResolveClrType(parameterType);
+            ILGenerator.Emit(OpCodes.Castclass, parameterClrType);
+        }
+
+        ILGenerator.Emit(OpCodes.Stind_Ref);
+    }
+
+    private void EmitStoreRecordDeconstructParameter(
+        IParameterSymbol parameter,
+        ITypeSymbol payloadType,
+        FieldInfo payloadField)
+    {
+        var parameterPosition = GetParameterPosition(parameter);
+        ILGenerator.Emit(OpCodes.Ldarg, parameterPosition);
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+
+        var parameterType = parameter.Type;
+
+        if (parameterType.IsValueType)
+        {
+            var parameterClrType = ResolveClrType(parameterType);
 
             if (!payloadType.IsValueType)
                 ILGenerator.Emit(OpCodes.Unbox_Any, parameterClrType);

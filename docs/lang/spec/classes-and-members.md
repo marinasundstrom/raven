@@ -165,6 +165,22 @@ let person = Person("Ada", 42)
 let years = person.GetAge()
 ```
 
+### Record classes
+
+Record classes use the `record` modifier before `class` and provide value
+semantics. Primary constructor parameters are promoted to public, get-only
+auto-properties (use `var` to make a property mutable). The compiler
+synthesizes value-based `Equals`, `GetHashCode`, and `==`/`!=` operators.
+
+```raven
+record class Person(name: string, age: int);
+
+let a = Person("Ada", 42)
+let b = Person("Ada", 42)
+
+let same = a == b
+```
+
 ### Properties
 
 Property declarations expose a value through accessor methods rather than by

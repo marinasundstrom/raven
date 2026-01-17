@@ -127,6 +127,7 @@ internal class EnumDeclarationParser : SyntaxParser
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
                      SyntaxKind.VirtualKeyword or
+                     SyntaxKind.RecordKeyword or
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.OverrideKeyword)
             {
