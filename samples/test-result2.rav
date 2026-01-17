@@ -10,8 +10,8 @@ Console.WriteLine(unwrapped3)
 public class IntHelpers {
     public static ParseNumber(str: string) -> Result<int> {
         return try int.Parse(str) match {
-            int v => .Ok(v)
-            Exception exc => .Error(exc.Message)
+            .Ok(int v) => .Ok(v)
+            .Error(Exception exc) => .Error(exc.Message)
         }
     }
 }
