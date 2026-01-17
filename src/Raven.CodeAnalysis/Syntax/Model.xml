@@ -643,6 +643,10 @@
     <Slot Name="Path" Type="MemberPatternPath" />
     <Slot Name="ArgumentList" Type="MemberPatternArgumentList" IsNullable="true" />
   </Node>
+  <Node Name="RecordPattern" Inherits="Pattern">
+    <Slot Name="Type" Type="Type" />
+    <Slot Name="ArgumentList" Type="RecordPatternArgumentList" />
+  </Node>
   <Node Name="VariablePattern" Inherits="Pattern">
     <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Designation" Type="VariableDesignation" />
@@ -669,6 +673,11 @@
     <Slot Name="Identifier" Type="Token" />
   </Node>
   <Node Name="MemberPatternArgumentList" Inherits="Node">
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="Pattern" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
+  </Node>
+  <Node Name="RecordPatternArgumentList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
     <Slot Name="Arguments" Type="SeparatedList" ElementType="Pattern" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />

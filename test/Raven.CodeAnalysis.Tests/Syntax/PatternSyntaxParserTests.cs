@@ -125,6 +125,23 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void RecordPattern_WithArguments_Parses()
+    {
+        var (pattern, tree) = ParsePattern("Person(let name, let age)");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var recordPattern = Assert.IsType<RecordPatternSyntax>(pattern);
+        Assert.Equal("Person(let name, let age)", sourceText.ToString(recordPattern.Span));
+        Assert.Equal("Person", Assert.IsType<IdentifierNameSyntax>(recordPattern.Type).Identifier.ValueText);
+
+        var argumentList = recordPattern.ArgumentList;
+        Assert.Equal(2, argumentList.Arguments.Count);
+        Assert.All(argumentList.Arguments, argument => Assert.IsType<VariablePatternSyntax>(argument));
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void BinaryPattern_WithAndHasHigherPrecedenceThanOr()
     {
         var (pattern, tree) = ParsePattern("let left and let right or let fallback");

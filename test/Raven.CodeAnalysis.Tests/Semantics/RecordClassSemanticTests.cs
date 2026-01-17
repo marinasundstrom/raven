@@ -56,4 +56,31 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
 
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void RecordPattern_BindsPrimaryConstructorProperties()
+    {
+        var source = """
+            record class Person(Name: string, Age: int);
+
+            let value: object = new Person("Ada", 42);
+
+            let result = value match {
+                Person(let name, let age) => name
+                _ => ""
+            };
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+
+        var recordPattern = tree.GetRoot().DescendantNodes().OfType<RecordPatternSyntax>().Single();
+        var boundPattern = Assert.IsType<BoundPropertyPattern>(model.GetBoundNode(recordPattern));
+
+        Assert.Equal(2, boundPattern.Properties.Length);
+        Assert.Equal("Name", Assert.IsType<IPropertySymbol>(boundPattern.Properties[0].Member).Name);
+        Assert.Equal("Age", Assert.IsType<IPropertySymbol>(boundPattern.Properties[1].Member).Name);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

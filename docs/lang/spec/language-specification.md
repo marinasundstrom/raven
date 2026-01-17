@@ -1345,6 +1345,17 @@ Patterns compose from the following primitives.
     `var`).
   * Writing `var p` produces a mutable binding.
 
+#### Record patterns
+
+* `RecordType(pattern1, pattern2, …)` — **record pattern**. Matches when the
+  scrutinee can be treated as `RecordType` and each positional subpattern matches
+  the corresponding record property in primary-constructor order.
+
+  * Record patterns are only valid on `record` types.
+  * Each positional element is a pattern, so bindings still require `let`/`val`/`var`.
+  * The number of positional elements must match the record’s primary-constructor
+    parameters; mismatches are errors.
+
 #### Member patterns
 
 * `.Case` / `Type.Case` — **member pattern**. Matches a named member by name,

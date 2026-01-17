@@ -346,6 +346,7 @@ internal partial class BlockBinder
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
             MemberPatternSyntax c => BindCasePattern(c, inputType),
+            RecordPatternSyntax r => BindRecordPattern(r, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             RelationalPatternSyntax r => BindRelationalPattern(r, inputType),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
@@ -914,6 +915,104 @@ internal partial class BlockBinder
         return BindConstantPatternFromExpression(expression, nameSyntax, inputType ?? targetType);
     }
 
+    private BoundPattern BindRecordPattern(RecordPatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var boundType = BindTypeSyntax(syntax.Type);
+        var recordType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
+
+        if (recordType.TypeKind == TypeKind.Error)
+        {
+            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: null,
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (recordType is not SourceNamedTypeSymbol { IsRecord: true } recordSymbol)
+        {
+            _diagnostics.ReportRecordPatternRequiresRecordType(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+
+            var props = BindRecordPatternSubpatternsAsDiscards(syntax);
+            return new BoundPropertyPattern(
+                inputType: inputType,
+                receiverType: Compilation.ErrorTypeSymbol,
+                narrowedType: recordType,
+                designator: null,
+                properties: props,
+                reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        if (recordType.TypeKind != TypeKind.Error &&
+            inputType.TypeKind != TypeKind.Error &&
+            !Compilation.ClassifyConversion(inputType, recordType).Exists)
+        {
+            _diagnostics.ReportRecordPatternTypeMismatch(
+                inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.Type.GetLocation());
+        }
+
+        var recordProperties = recordSymbol.RecordProperties;
+        var argumentList = syntax.ArgumentList;
+        var argumentCount = argumentList.Arguments.Count;
+
+        if (argumentCount != recordProperties.Length)
+        {
+            _diagnostics.ReportRecordPatternArgumentCountMismatch(
+                recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                recordProperties.Length,
+                argumentCount,
+                argumentList.GetLocation());
+        }
+
+        var boundProps = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(recordProperties.Length);
+        var elementCount = Math.Min(recordProperties.Length, argumentCount);
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var argumentSyntax = argumentList.Arguments[i];
+            var property = recordProperties[i];
+            var memberType = EnsureTypeAccessible(property.Type, argumentSyntax.GetLocation());
+            var boundPattern = BindPattern(argumentSyntax, memberType);
+
+            boundProps.Add(new BoundPropertySubpattern(
+                Member: property,
+                Type: memberType,
+                Pattern: boundPattern));
+        }
+
+        for (var i = elementCount; i < recordProperties.Length; i++)
+        {
+            var property = recordProperties[i];
+            var memberType = EnsureTypeAccessible(property.Type, syntax.Type.GetLocation());
+
+            boundProps.Add(new BoundPropertySubpattern(
+                Member: property,
+                Type: memberType,
+                Pattern: new BoundDiscardPattern(memberType, BoundExpressionReason.TypeMismatch)));
+        }
+
+        for (var i = elementCount; i < argumentCount; i++)
+        {
+            _ = BindPattern(argumentList.Arguments[i]);
+        }
+
+        return new BoundPropertyPattern(
+            inputType: inputType,
+            receiverType: recordType,
+            narrowedType: recordType,
+            designator: null,
+            properties: boundProps.ToImmutable());
+    }
+
     private IMethodSymbol? FindTryGetMethod(
         string methodName,
         ITypeSymbol? lookupType,
@@ -1321,6 +1420,21 @@ internal partial class BlockBinder
             syntax.PropertyPatternClause.Properties.Count);
 
         foreach (var sub in syntax.PropertyPatternClause.Properties)
+        {
+            builder.Add(new BoundPropertySubpattern(
+                Member: Compilation.ErrorSymbol,
+                Type: Compilation.ErrorTypeSymbol,
+                Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch)));
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private ImmutableArray<BoundPropertySubpattern> BindRecordPatternSubpatternsAsDiscards(RecordPatternSyntax syntax)
+    {
+        var builder = ImmutableArray.CreateBuilder<BoundPropertySubpattern>(syntax.ArgumentList.Arguments.Count);
+
+        foreach (var argument in syntax.ArgumentList.Arguments)
         {
             builder.Add(new BoundPropertySubpattern(
                 Member: Compilation.ErrorSymbol,
