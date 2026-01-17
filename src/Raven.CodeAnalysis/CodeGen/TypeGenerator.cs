@@ -844,7 +844,7 @@ internal class TypeGenerator
             groupingTypeName,
             TypeAttributes.NestedPublic | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.SpecialName);
 
-        DefineExtensionGroupingTypeParameters(receiverType);
+        DefineExtensionGroupingTypeParameters();
 
         var extensionAttribute = CodeGen.CreateExtensionAttributeBuilder();
         if (extensionAttribute is not null)
@@ -853,17 +853,18 @@ internal class TypeGenerator
         DefineExtensionMarkerType(receiverType);
     }
 
-    private void DefineExtensionGroupingTypeParameters(ITypeSymbol receiverType)
+    private void DefineExtensionGroupingTypeParameters()
     {
         if (_extensionGroupingTypeBuilder is null)
             return;
 
-        if (receiverType is not INamedTypeSymbol namedReceiver || namedReceiver.TypeArguments.IsDefaultOrEmpty)
+        var extensionTypeParameters = GetExtensionTypeParameters();
+        if (extensionTypeParameters.IsDefaultOrEmpty)
             return;
 
-        var names = new string[namedReceiver.TypeArguments.Length];
+        var names = new string[extensionTypeParameters.Length];
         for (int i = 0; i < names.Length; i++)
-            names[i] = $"T{i}";
+            names[i] = extensionTypeParameters[i].Name;
 
         _extensionGroupingTypeParameters = _extensionGroupingTypeBuilder.DefineGenericParameters(names);
     }

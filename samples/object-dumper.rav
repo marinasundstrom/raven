@@ -14,7 +14,7 @@ obj.AppendLine("test")
 
 obj.Dump()
 
-extension Dumper for object {
+extension Dumper<T> for T {
     public Dump() -> () {
         val type = self.GetType()
         val obj = self

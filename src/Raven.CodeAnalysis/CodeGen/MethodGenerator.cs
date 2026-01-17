@@ -130,6 +130,16 @@ internal class MethodGenerator
             {
                 liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
             }
+            if (!liftedTypeParameters.IsDefaultOrEmpty &&
+                MethodSymbol.ContainingType is INamedTypeSymbol containingType &&
+                containingType.IsGenericType &&
+                containingType.TypeParameters.Length >= liftedTypeParameters.Length &&
+                containingType.TypeParameters.Take(liftedTypeParameters.Length)
+                    .Select(tp => tp.Name)
+                    .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
+            {
+                liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+            }
             if (!liftedTypeParameters.IsDefaultOrEmpty || !methodTypeParameters.IsDefaultOrEmpty)
             {
                 var allParameters = liftedTypeParameters.AddRange(methodTypeParameters);
