@@ -1198,9 +1198,13 @@ internal class MethodBodyGenerator
 
             var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
             var propertyClrType = MethodGenerator.ResolveClrType(property.Type);
-            var comparerType = typeof(EqualityComparer<>).MakeGenericType(propertyClrType);
-            var defaultGetter = comparerType.GetProperty("Default")?.GetGetMethod();
-            var equalsMethod = comparerType.GetMethod("Equals", [propertyClrType, propertyClrType]);
+            var comparerTypeDefinition = typeof(EqualityComparer<>);
+            var comparerType = comparerTypeDefinition.MakeGenericType(propertyClrType);
+            var comparerGenericArgument = comparerTypeDefinition.GetGenericArguments()[0];
+            var defaultGetterDefinition = comparerTypeDefinition.GetProperty("Default")?.GetGetMethod();
+            var equalsDefinition = comparerTypeDefinition.GetMethod("Equals", [comparerGenericArgument, comparerGenericArgument]);
+            var defaultGetter = GetConstructedMethod(comparerType, defaultGetterDefinition);
+            var equalsMethod = GetConstructedMethod(comparerType, equalsDefinition);
 
             if (defaultGetter is null || equalsMethod is null)
                 continue;
@@ -1213,6 +1217,21 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
             ILGenerator.Emit(OpCodes.Brfalse_S, returnFalseLabel);
         }
+    }
+
+    private static MethodInfo? GetConstructedMethod(Type constructedType, MethodInfo? methodDefinition)
+    {
+        if (methodDefinition is null)
+            return null;
+
+        if (constructedType.IsGenericType
+            && methodDefinition.DeclaringType is { IsGenericTypeDefinition: true }
+            && constructedType.GetGenericArguments().Any(argument => argument is TypeBuilder))
+            return TypeBuilder.GetMethod(constructedType, methodDefinition);
+
+        return constructedType.GetMethod(
+            methodDefinition.Name,
+            methodDefinition.GetParameters().Select(parameter => parameter.ParameterType).ToArray());
     }
 
     private void EmitUnionCasePropertyGetter(SourcePropertySymbol propertySymbol, SourceFieldSymbol backingField)
