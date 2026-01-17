@@ -11,7 +11,10 @@ Raven currently provides analyzers for two different contexts:
   serves as a reference for building analyzers that operate on Raven syntax and semantics.
   When the inferred type is `Unit` (the language's `void`), the analyzer suppresses the
   suggestion.
- - **TypeUnionAnalyzer** (C#) – enforces the semantics of `[TypeUnion]` attributes in C#
+- **MatchExhaustivenessAnalyzer** (Raven) – reports informational diagnostics when a
+  match expression is one case away from being exhaustive, or when a discard pattern could
+  be replaced by a specific missing case to make the match exhaustive.
+- **TypeUnionAnalyzer** (C#) – enforces the semantics of `[TypeUnion]` attributes in C#
   code. Members annotated with `TypeUnionAttribute` must use a CLR type that is assignable
   from all declared union members (e.g., `object`, `dynamic`, or a suitable base type), and
   any value assigned, returned, or matched against them must implicitly convert to at least

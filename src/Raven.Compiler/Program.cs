@@ -428,6 +428,7 @@ foreach (var r in additionalRefs)
 project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
