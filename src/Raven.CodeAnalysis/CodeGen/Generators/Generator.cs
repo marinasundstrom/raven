@@ -351,6 +351,14 @@ internal abstract class Generator
             return;
         }
 
+        if (conversion.IsReference && from.IsValueType && !toClrType.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Box, fromClrType);
+            if (!fromClrType.Equals(toClrType))
+                ILGenerator.Emit(OpCodes.Castclass, toClrType);
+            return;
+        }
+
         if (conversion.IsReference &&
             from is ITypeParameterSymbol typeParameter &&
             (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0 &&
