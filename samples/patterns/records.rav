@@ -1,0 +1,18 @@
+import System.*
+import System.Console.*
+
+func Main() {
+    val fooTrue  = new Foo(true,  (10, 20))
+    val fooFalse = new Foo(false, (1, 2))
+
+    test(fooTrue)
+    test(fooFalse)
+}
+
+func test(x: object?) {
+    if x is Foo(true, _) {
+        WriteLine("Foo with Value == true")
+    }
+}
+
+record class Foo(Value: bool, Data: (int, int))
