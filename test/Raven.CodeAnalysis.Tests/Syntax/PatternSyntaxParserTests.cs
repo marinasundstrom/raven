@@ -142,6 +142,23 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void RecordPattern_WithNestedPositionalPattern_Parses()
+    {
+        var (pattern, tree) = ParsePattern("Foo(true, (let a, let b))");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var recordPattern = Assert.IsType<RecordPatternSyntax>(pattern);
+        Assert.Equal("Foo(true, (let a, let b))", sourceText.ToString(recordPattern.Span));
+        Assert.Equal("Foo", Assert.IsType<IdentifierNameSyntax>(recordPattern.Type).Identifier.ValueText);
+
+        var argumentList = recordPattern.ArgumentList;
+        Assert.Equal(2, argumentList.Arguments.Count);
+        Assert.IsType<PositionalPatternSyntax>(argumentList.Arguments[1]);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void BinaryPattern_WithAndHasHigherPrecedenceThanOr()
     {
         var (pattern, tree) = ParsePattern("let left and let right or let fallback");
