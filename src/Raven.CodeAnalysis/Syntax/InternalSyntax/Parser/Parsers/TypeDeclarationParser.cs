@@ -65,7 +65,7 @@ internal class TypeDeclarationParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
         SyntaxToken closeBraceToken;
-        if (openBraceToken.IsMissing && typeKeyword.IsKind(SyntaxKind.ClassKeyword) && modifiers.Any(SyntaxKind.RecordKeyword))
+        if (openBraceToken.IsMissing && typeKeyword.IsKind(SyntaxKind.ClassKeyword) && modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword)))
         {
             closeBraceToken = MissingToken(SyntaxKind.CloseBraceToken);
         }
