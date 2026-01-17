@@ -3599,6 +3599,11 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(constructed);
         }
 
+        if (symbol is ITypeSymbol nonNamedType)
+        {
+            return new BoundTypeExpression(EnsureTypeAccessible(nonNamedType, location));
+        }
+
         var alternate = FindAccessibleNamedType(name, requestedArity);
         if (alternate is not null)
         {
