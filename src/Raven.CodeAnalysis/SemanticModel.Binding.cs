@@ -2438,7 +2438,7 @@ public partial class SemanticModel
 
         var equalsObject = objectType.GetMembers(nameof(object.Equals))
             .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => m.Parameters.Length == 1 && m.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+            .FirstOrDefault(m => m.Parameters.Length == 1 && m.Parameters[0].Type is NullableTypeSymbol { UnderlyingType: { SpecialType: SpecialType.System_Object } });
 
         var getHashCode = objectType.GetMembers(nameof(object.GetHashCode))
             .OfType<IMethodSymbol>()
