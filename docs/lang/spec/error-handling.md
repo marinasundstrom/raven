@@ -98,6 +98,9 @@ let value = try int.Parse(input) match {
 }
 ```
 
+When a case has a single payload, a bare case pattern like `.Ok` is sugar for
+`.Ok(())` and matches the unit payload.
+
 Because the exception is materialized as a value, the operand still executes its
 normal scope unwinding before control reaches the surrounding expression. A `try`
 expression cannot attach `catch` or `finally` clauses; those constructs are

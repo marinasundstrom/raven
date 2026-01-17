@@ -475,6 +475,9 @@ throws an exception, the runtime catches the `System.Exception` instance and
 wraps it in `.Error(...)` instead. When the operand’s value type is `unit`, the
 success case is still `.Ok(())`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1565-L1595】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3672-L3759】
 
+When matching, a bare case like `.Ok` is sugar for `.Ok(())` if the case carries
+a single payload. This makes unit-typed results concise to handle.
+
 `await` may appear inside a `try` expression when used in an async method or
 lambda. The awaited result still flows to the success case, and exceptions
 propagate to the `Result`'s error case without altering the `try` expression's

@@ -1007,8 +1007,9 @@ internal partial class BlockBinder
         var parameters = caseSymbol.ConstructorParameters;
         var argumentList = syntax.ArgumentList;
         var argumentCount = argumentList?.Arguments.Count ?? 0;
+        var implicitUnitArgument = argumentCount == 0 && parameters.Length == 1;
 
-        if (argumentCount != parameters.Length)
+        if (!implicitUnitArgument && argumentCount != parameters.Length)
         {
             _diagnostics.ReportCasePatternArgumentCountMismatch(
                 caseSymbol.Name,
@@ -1019,6 +1020,15 @@ internal partial class BlockBinder
 
         var boundArguments = ImmutableArray.CreateBuilder<BoundPattern>(Math.Max(parameters.Length, argumentCount));
         var elementCount = Math.Min(parameters.Length, argumentCount);
+        var matchedArguments = elementCount;
+
+        if (implicitUnitArgument)
+        {
+            var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+            boundArguments.Add(new BoundConstantPattern(new BoundUnitExpression(unitType)));
+            elementCount = 0;
+            matchedArguments = 1;
+        }
 
         for (var i = 0; i < elementCount; i++)
         {
@@ -1027,7 +1037,7 @@ internal partial class BlockBinder
             boundArguments.Add(boundArgument);
         }
 
-        for (var i = elementCount; i < parameters.Length; i++)
+        for (var i = matchedArguments; i < parameters.Length; i++)
         {
             boundArguments.Add(new BoundDiscardPattern(parameters[i].Type, BoundExpressionReason.TypeMismatch));
         }
