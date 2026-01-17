@@ -483,6 +483,93 @@ lambda. The awaited result still flows to the success case, and exceptions
 propagate to the `Result`'s error case without altering the `try` expression's
 shape. 【F:test/Raven.CodeAnalysis.Tests/Semantics/ExceptionHandlingTests.cs†L89-L123】
 
+#### Examples
+
+The `try` keyword produces a `Result<T, Exception>` value that can be consumed with `match` or `is` patterns.
+
+##### Matching success vs failure
+
+```raven
+import System.*
+import System.Console.*
+
+func ParseInt(text: string) -> string {
+    return try int.Parse(text) match {
+        .Ok(val value) => "Parsed: $value"
+        .Error(FormatException ex) => "Invalid format: ${ex.Message}"
+        .Error(_) => "Unknown error"
+    }
+}
+
+WriteLine(ParseInt("123"))
+WriteLine(ParseInt("foo"))
+```
+
+##### `try` expression returning `unit`
+
+When the operand produces no value, the success case is `.Ok(())`. A bare `.Ok`
+arm is sugar for `.Ok(())`.
+
+```raven
+import System.*
+import System.Console.*
+
+func SaveFile(path: string, text: string) -> string {
+    return try {
+        System.IO.File.WriteAllText(path, text)
+    } match {
+        .Ok => "Saved!"
+        .Error(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
+        .Error(IOException ex) => "I/O error: ${ex.Message}"
+        .Error(_) => "Unknown error"
+    }
+}
+
+WriteLine(SaveFile("out.txt", "Hello"))
+```
+
+##### Using `try` with `await`
+
+```raven
+import System.*
+import System.Console.*
+import System.Net.Http.*
+
+func Download(url: string) -> string {
+    let http = HttpClient()
+
+    return try await http.GetStringAsync(url) match {
+        .Ok(val text) => text
+        .Error(HttpRequestException ex) => "Network error: ${ex.Message}"
+        .Error(_) => "Unknown error"
+    }
+}
+```
+
+##### Handling Result values with `is` patterns
+
+```raven
+import System.*
+import System.Console.*
+
+func Describe(text: string) -> string {
+    let result = try int.Parse(text)
+
+    if result is .Ok(val value) {
+        return "Ok: $value"
+    }
+
+    if result is .Error(FormatException ex) {
+        return "Format invalid: ${ex.Message}"
+    }
+
+    return "Other error"
+}
+
+WriteLine(Describe("10"))
+WriteLine(Describe("abc"))
+```
+
 ### Cast expressions
 
 Explicit casts request a conversion to a specific type and use C# syntax.
