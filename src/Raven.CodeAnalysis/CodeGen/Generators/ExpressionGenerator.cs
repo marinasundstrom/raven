@@ -3680,6 +3680,10 @@ internal partial class ExpressionGenerator : Generator
             exceptionType = Compilation.GetSpecialType(SpecialType.System_Object);
 
         var expressionType = tryExpression.Expression.Type ?? Compilation.ErrorTypeSymbol;
+        var okConstructor = tryExpression.OkConstructor;
+        var errorConstructor = tryExpression.ErrorConstructor;
+        var okCaseType = okConstructor.ContainingType ?? Compilation.ErrorTypeSymbol;
+        var errorCaseType = errorConstructor.ContainingType ?? Compilation.ErrorTypeSymbol;
 
         var exitLabel = MethodBodyGenerator.GetOrCreateReturnLabel();
 
@@ -3696,20 +3700,57 @@ internal partial class ExpressionGenerator : Generator
             new ExpressionGenerator(tryScope, tryExpression.Expression).Emit();
         }
 
-        if (!SymbolEqualityComparer.Default.Equals(expressionType, resultType))
+        if (okConstructor.Parameters.Length > 0)
         {
-            var expressionConversion = Compilation.ClassifyConversion(expressionType, resultType);
-            if (expressionConversion.Exists && !expressionConversion.IsIdentity)
-                EmitConversion(expressionType, resultType, expressionConversion);
+            var okParameterType = okConstructor.Parameters[0].Type;
+            if (!SymbolEqualityComparer.Default.Equals(expressionType, okParameterType))
+            {
+                var okParameterConversion = Compilation.ClassifyConversion(expressionType, okParameterType);
+                if (okParameterConversion.Exists && !okParameterConversion.IsIdentity)
+                    EmitConversion(expressionType, okParameterType, okParameterConversion);
+            }
+        }
+        else if (expressionType.SpecialType is not SpecialType.System_Void)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+        }
+
+        ILGenerator.Emit(OpCodes.Newobj, GetMethodInfo(okConstructor));
+
+        if (!SymbolEqualityComparer.Default.Equals(okCaseType, resultType))
+        {
+            var okCaseConversion = Compilation.ClassifyConversion(okCaseType, resultType);
+            if (okCaseConversion.Exists && !okCaseConversion.IsIdentity)
+                EmitConversion(okCaseType, resultType, okCaseConversion);
         }
 
         ILGenerator.Emit(OpCodes.Stloc, resultLocal);
 
         ILGenerator.BeginCatchBlock(ResolveClrType(exceptionType));
 
-        var catchConversion = Compilation.ClassifyConversion(exceptionType, resultType);
-        if (catchConversion.Exists && !catchConversion.IsIdentity)
-            EmitConversion(exceptionType, resultType, catchConversion);
+        if (errorConstructor.Parameters.Length > 0)
+        {
+            var errorParameterType = errorConstructor.Parameters[0].Type;
+            if (!SymbolEqualityComparer.Default.Equals(exceptionType, errorParameterType))
+            {
+                var errorParameterConversion = Compilation.ClassifyConversion(exceptionType, errorParameterType);
+                if (errorParameterConversion.Exists && !errorParameterConversion.IsIdentity)
+                    EmitConversion(exceptionType, errorParameterType, errorParameterConversion);
+            }
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+        }
+
+        ILGenerator.Emit(OpCodes.Newobj, GetMethodInfo(errorConstructor));
+
+        if (!SymbolEqualityComparer.Default.Equals(errorCaseType, resultType))
+        {
+            var errorCaseConversion = Compilation.ClassifyConversion(errorCaseType, resultType);
+            if (errorCaseConversion.Exists && !errorCaseConversion.IsIdentity)
+                EmitConversion(errorCaseType, resultType, errorCaseConversion);
+        }
 
         ILGenerator.Emit(OpCodes.Stloc, resultLocal);
 

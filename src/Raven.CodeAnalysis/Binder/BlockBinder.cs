@@ -1573,8 +1573,26 @@ partial class BlockBinder : Binder
         var expression = BindExpression(tryExpression.Expression);
         var exceptionType = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
         var expressionType = expression.Type ?? Compilation.ErrorTypeSymbol;
-        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { expressionType, exceptionType });
-        return new BoundTryExpression(expression, exceptionType, resultType);
+        var resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as INamedTypeSymbol;
+        if (resultDefinition is null)
+            return ErrorExpression();
+
+        var resultType = resultDefinition.Construct(expressionType, exceptionType);
+        var union = resultType.TryGetDiscriminatedUnion();
+        if (union is null)
+            return ErrorExpression();
+
+        var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Ok");
+        var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "Error");
+        if (okCase is null || errorCase is null)
+            return ErrorExpression();
+
+        var okConstructor = okCase.Constructors.FirstOrDefault(ctor => ctor.Parameters.Length == okCase.ConstructorParameters.Length);
+        var errorConstructor = errorCase.Constructors.FirstOrDefault(ctor => ctor.Parameters.Length == errorCase.ConstructorParameters.Length);
+        if (okConstructor is null || errorConstructor is null)
+            return ErrorExpression();
+
+        return new BoundTryExpression(expression, exceptionType, resultType, okConstructor, errorConstructor);
     }
 
     private void EnsureMatchArmPatternsValid(

@@ -1566,8 +1566,23 @@ internal static class AsyncLowerer
                 var compilation = _stateMachine.Compilation;
                 var resultType = SubstituteStateMachineTypeParameters(node.Type ?? compilation.ErrorTypeSymbol);
                 var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+                var okConstructor = SubstituteStateMachineTypeParameters(node.OkConstructor);
+                var errorConstructor = SubstituteStateMachineTypeParameters(node.ErrorConstructor);
 
-                var convertedExpression = ApplyConversionIfNeeded(expression, resultType, compilation);
+                BoundExpression okCreation;
+                var tryStatements = new List<BoundStatement>();
+                if (okConstructor.Parameters.Length == 0)
+                {
+                    tryStatements.Add(new BoundExpressionStatement(expression));
+                    okCreation = new BoundObjectCreationExpression(okConstructor, ImmutableArray<BoundExpression>.Empty);
+                }
+                else
+                {
+                    var okArgument = ApplyConversionIfNeeded(expression, okConstructor.Parameters[0].Type, compilation);
+                    okCreation = new BoundObjectCreationExpression(okConstructor, ImmutableArray.Create(okArgument));
+                }
+
+                var convertedExpression = ApplyConversionIfNeeded(okCreation, resultType, compilation);
 
                 var resultLocal = new SourceLocalSymbol(
                     "$tryExprResult",
@@ -1583,10 +1598,8 @@ internal static class AsyncLowerer
                 var resultDeclaration = new BoundLocalDeclarationStatement(new[] { resultDeclarator });
 
                 var assignment = new BoundLocalAssignmentExpression(resultLocal, convertedExpression, unitType);
-                var tryBlock = new BoundBlockStatement(new BoundStatement[]
-                {
-                    new BoundExpressionStatement(assignment)
-                });
+                tryStatements.Add(new BoundExpressionStatement(assignment));
+                var tryBlock = new BoundBlockStatement(tryStatements);
 
                 if (guardPlaceholder is not null)
                     _blockMap[guardPlaceholder] = tryBlock;
@@ -1601,8 +1614,19 @@ internal static class AsyncLowerer
                     new[] { Location.None },
                     Array.Empty<SyntaxReference>());
 
+                BoundExpression errorCreation;
+                if (errorConstructor.Parameters.Length == 0)
+                {
+                    errorCreation = new BoundObjectCreationExpression(errorConstructor, ImmutableArray<BoundExpression>.Empty);
+                }
+                else
+                {
+                    var errorArgument = ApplyConversionIfNeeded(new BoundLocalAccess(exceptionLocal), errorConstructor.Parameters[0].Type, compilation);
+                    errorCreation = new BoundObjectCreationExpression(errorConstructor, ImmutableArray.Create(errorArgument));
+                }
+
                 var catchExpression = ApplyConversionIfNeeded(
-                    new BoundLocalAccess(exceptionLocal),
+                    errorCreation,
                     resultType,
                     compilation);
 
@@ -1632,7 +1656,7 @@ internal static class AsyncLowerer
             if (!ReferenceEquals(expression, node.Expression))
             {
                 var type = node.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
-                return new BoundTryExpression(expression, node.ExceptionType, type);
+                return new BoundTryExpression(expression, node.ExceptionType, type, node.OkConstructor, node.ErrorConstructor);
             }
 
             return node;
