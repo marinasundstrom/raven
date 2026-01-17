@@ -1224,7 +1224,9 @@ internal class MethodBodyGenerator
         if (methodDefinition is null)
             return null;
 
-        if (constructedType.IsGenericType && methodDefinition.DeclaringType is { IsGenericTypeDefinition: true })
+        if (constructedType.IsGenericType
+            && methodDefinition.DeclaringType is { IsGenericTypeDefinition: true }
+            && constructedType.GetGenericArguments().Any(argument => argument is TypeBuilder))
             return TypeBuilder.GetMethod(constructedType, methodDefinition);
 
         return constructedType.GetMethod(
