@@ -2483,12 +2483,8 @@ partial class BlockBinder : Binder
         switch (pattern)
         {
             case BoundConstantPattern constant:
-                if (constant.Expression is BoundFieldAccess fieldAccess &&
-                    fieldAccess.Field.IsConst &&
-                    SymbolEqualityComparer.Default.Equals(UnwrapAlias(fieldAccess.Field.Type), enumType))
-                {
-                    remaining.Remove(fieldAccess.Field);
-                }
+                if (TryGetEnumField(constant.Expression, enumType, out var field))
+                    remaining.Remove(field);
 
                 break;
             case BoundOrPattern orPattern:
@@ -2496,6 +2492,38 @@ partial class BlockBinder : Binder
                 RemoveCoveredEnumMembers(remaining, enumType, orPattern.Right);
                 break;
         }
+    }
+
+    private static bool TryGetEnumField(BoundExpression? expression, INamedTypeSymbol enumType, out IFieldSymbol field)
+    {
+        field = null!;
+
+        if (expression is null)
+            return false;
+
+        switch (expression)
+        {
+            case BoundFieldAccess fieldAccess:
+                return TryBindEnumField(fieldAccess.Field, enumType, out field);
+            case BoundMemberAccessExpression { Member: IFieldSymbol memberField }:
+                return TryBindEnumField(memberField, enumType, out field);
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryBindEnumField(IFieldSymbol candidate, INamedTypeSymbol enumType, out IFieldSymbol field)
+    {
+        field = null!;
+
+        if (!candidate.IsConst)
+            return false;
+
+        if (!SymbolEqualityComparer.Default.Equals(UnwrapAlias(candidate.Type), enumType))
+            return false;
+
+        field = candidate;
+        return true;
     }
 
     private void RemoveMembersAssignableToPattern(
