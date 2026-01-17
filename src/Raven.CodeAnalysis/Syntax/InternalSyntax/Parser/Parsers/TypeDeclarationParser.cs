@@ -64,28 +64,36 @@ internal class TypeDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
-        while (true)
+        SyntaxToken closeBraceToken;
+        if (openBraceToken.IsMissing && typeKeyword.IsKind(SyntaxKind.ClassKeyword) && modifiers.Any(SyntaxKind.RecordKeyword))
         {
-            var t = PeekToken();
-
-            if (t.IsKind(SyntaxKind.CloseBraceToken))
-                break;
-
-            var member = ParseMember();
-
-            memberList.Add(member);
-
-            SetTreatNewlinesAsTokens(false);
-
-            var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
-            {
-                ReadToken();
-                memberList.Add(commaToken);
-            }
+            closeBraceToken = MissingToken(SyntaxKind.CloseBraceToken);
         }
+        else
+        {
+            while (true)
+            {
+                var t = PeekToken();
 
-        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+                if (t.IsKind(SyntaxKind.CloseBraceToken))
+                    break;
+
+                var member = ParseMember();
+
+                memberList.Add(member);
+
+                SetTreatNewlinesAsTokens(false);
+
+                var commaToken = PeekToken();
+                if (commaToken.IsKind(SyntaxKind.CommaToken))
+                {
+                    ReadToken();
+                    memberList.Add(commaToken);
+                }
+            }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out closeBraceToken);
+        }
 
         var terminatorToken = ConsumeOptionalTypeTerminator();
 

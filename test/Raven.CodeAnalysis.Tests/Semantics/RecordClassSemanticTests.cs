@@ -114,4 +114,38 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
 
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void RecordClass_WithPrimaryConstructorAndNoBody_Binds()
+    {
+        var source = """
+            record class Person(Name: string, Age: int);
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.GetSemanticModel(tree);
+
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("Person"));
+
+        Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void RecordClass_WithPrimaryConstructorAndBody_Binds()
+    {
+        var source = """
+            record class Person(Name: string, Age: int) {}
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.GetSemanticModel(tree);
+
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("Person"));
+
+        Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

@@ -2438,11 +2438,14 @@ public partial class SemanticModel
 
         var equalsObject = objectType.GetMembers(nameof(object.Equals))
             .OfType<IMethodSymbol>()
-            .First(m => m.Parameters.Length == 1 && m.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+            .FirstOrDefault(m => m.Parameters.Length == 1 && m.Parameters[0].Type.SpecialType == SpecialType.System_Object);
 
         var getHashCode = objectType.GetMembers(nameof(object.GetHashCode))
             .OfType<IMethodSymbol>()
-            .First(m => m.Parameters.Length == 0);
+            .FirstOrDefault(m => m.Parameters.Length == 0);
+
+        if (equalsObject is null || getHashCode is null)
+            return;
 
         if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol))
         {
