@@ -9,8 +9,8 @@ import System.Collections.Generic.*
 val obj = new List<int>()
 obj.AddRange([2, 3])
 
-val obj = StringBuilder()
-obj.AppendLine("test")
+//val obj = StringBuilder()
+//obj.AppendLine("test")
 
 obj.Dump()
 
