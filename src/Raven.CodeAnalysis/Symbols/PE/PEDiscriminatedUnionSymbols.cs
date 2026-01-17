@@ -29,10 +29,20 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
             if (_cases is not null)
                 return _cases.Value;
 
-            _cases = GetMembers()
+            var cases = GetMembers()
                 .OfType<IDiscriminatedUnionCaseSymbol>()
                 .ToImmutableArray();
 
+            if (cases.IsDefaultOrEmpty && ContainingNamespace is not null)
+            {
+                cases = ContainingNamespace
+                    .GetAllMembersRecursive()
+                    .OfType<IDiscriminatedUnionCaseSymbol>()
+                    .Where(caseSymbol => SymbolEqualityComparer.Default.Equals(caseSymbol.Union, this))
+                    .ToImmutableArray();
+            }
+
+            _cases = cases;
             return _cases.Value;
         }
     }
