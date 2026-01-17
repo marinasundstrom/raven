@@ -10,8 +10,8 @@ func Main() {
 }
 
 func test(x: object?) {
-    if x is Foo(true, (val a, val b)) {
-        WriteLine("Foo with Value == true and $a and $b")
+    if x is Foo(true, (10, val a)) {
+        WriteLine("Foo with Value == true && $a")
     }
 }
 

@@ -3,14 +3,25 @@ namespace System
 import System.Console.*
 import System.Text.*
 import System.Linq.*
+import System.Collections.*
+import System.Collections.Generic.*
 
-val obj = new StringBuilder()
+val obj = new List<int>()
+obj.AddRange([2, 3])
+
+val obj = StringBuilder()
+obj.AppendLine("test")
 
 Dumper.Dump(obj)
 
 public class Dumper {
     public static Dump<T>(obj: T) {
         val type = typeof(T)
+        if obj is IEnumerable ex {
+            WriteLine("[${string.Join(", ", ex.OfType<object>())}]")
+        } else {
+            WriteLine("$obj")  
+        }
         for each propertyInfo in type
             .GetProperties()
             .Where(pi => !pi.GetMethod.IsStatic && pi.GetMethod.GetParameters().Length == 0) 
