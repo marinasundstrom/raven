@@ -70,7 +70,7 @@ class @int {}
 
 static @match(@return: int) -> int
 {
-    let @and = @return;
+    val @and = @return;
     return @and;
 }
 ```
@@ -84,10 +84,10 @@ Because `_` never produces a value, using it as an expression—for example
 in `_ + 2`—is rejected as an error.
 
 ```raven
-let $ffiResult = call()
-let value_1 = value0
-let 数据 = call()
-let сумма = total1 + total2
+val $ffiResult = call()
+val value_1 = value0
+val 数据 = call()
+val сумма = total1 + total2
 ```
 
 ### Comments
@@ -115,8 +115,8 @@ terminator), so encodings such as UTF-8 or UTF-16 must supply valid code units
 for the desired characters.
 
 ```raven
-let answer = 42  // the ultimate answer
-let greeting = "hello"  // 😀 emoji and other symbols are fine
+val answer = 42  // the ultimate answer
+val greeting = "hello"  // 😀 emoji and other symbols are fine
 
 /*
  Multi-line comments can document larger blocks of code.
@@ -186,20 +186,20 @@ Structured exception handling is covered in [Error handling](error-handling.md).
 
 ### Variable bindings
 
-`let` (or alternatively `val`) introduces an immutable binding, `var` introduces a mutable one, and `const`
+`val` introduces an immutable binding, `var` introduces a mutable one, and `const`
 produces an immutable binding whose value is baked in at compile time. A binding may
 declare its type explicitly or rely on the compiler to infer it from the initializer
 expression.
 
 ```raven
-let answer = 42         // inferred int
-val answer = 42         // alternative to 'let': inferred int
+val answer = 42         // inferred int
+let answer = 42         // alias for 'val': inferred int
 
 var name = "Alice"    // inferred string, mutable
 
 const greeting = "Hi"  // inferred string constant
 
-let count: long = 0     // explicit type
+val count: long = 0     // explicit type
 ```
 
 > **Note:** We should decide upon whether to prefer `val` over `let`.
@@ -214,14 +214,14 @@ statement forms are described in [Control flow](control-flow.md).
 
 Later declarations in the same scope may **shadow** earlier bindings. Each declaration
 introduces a new symbol; code that follows binds to the most recent declaration.
-Shadowing is permitted for both `let` and `var` bindings, but it produces the
+Shadowing is permitted for both `val` and `var` bindings, but it produces the
 warning diagnostic `RAV0168` to help catch unintentional redeclarations. Parameters of
 the enclosing function count as previous declarations for this purpose, so a local that
 reuses a parameter name both shadows it and triggers the same warning.
 
 ```raven
-let answer = 41
-let answer = answer + 1 // RAV0168 (warning)
+val answer = 41
+val answer = answer + 1 // RAV0168 (warning)
 ```
 
 ### File-scope code
@@ -246,7 +246,7 @@ func sayHello() {
 Many expressions rely on the type expected by their context, called the **target type**.
 For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type
 `Grades` to resolve the member. Numeric literals and `null` similarly adapt to their
-target types. Type inference for `let`, `var`, and `const` bindings uses this mechanism to
+target types. Type inference for `val`, `var`, and `const` bindings uses this mechanism to
 determine the variable's type from its initializer.
 
 ### Type inference
@@ -258,12 +258,12 @@ conditional branches or early `return` statements—the inferred result becomes 
 nearest common base; returning `Dog` and `Cat` infers `Dog | Cat`, not `Animal`.
 
 ```raven
-let pet = if flag { Dog() } else { Cat() }
+val pet = if flag { Dog() } else { Cat() }
 // pet has type: Dog | Cat
 ```
 
 Literal expressions infer the underlying primitive type when used to initialize
-`let` or `var` bindings. Literal types are subset types of their underlying
+`val` or `var` bindings. Literal types are subset types of their underlying
 primitive, so a literal like `1` can be used wherever an `int` is expected.
 When inference gathers multiple results—such as the branches of an `if`
 expression—it normalizes the union before exposing it. Literal members collapse
@@ -274,7 +274,7 @@ is required.
 
 ```raven
 var i = 0       // i : int
-let j = 0       // j : int
+val j = 0       // j : int
 var k: 1 = 1    // k : 1
 ```
 
@@ -286,17 +286,17 @@ branches remain precise:
 #### Collapsing branch unions
 
 ```raven
-let x: int = 3
-let value = if x > 2 { 42 } else { x }
+val x: int = 3
+val value = if x > 2 { 42 } else { x }
 // value : int          (literal 42 collapses into the `int` branch)
 
-let digits = if x > 2 { 1 } else { 2 }
+val digits = if x > 2 { 1 } else { 2 }
 // digits : 1 | 2       (distinct literal branches remain literal)
 
-let other: long = 0
-let ambiguous = if x > 2 { other } else { 42 }
+val other: long = 0
+val ambiguous = if x > 2 { other } else { 42 }
 // ambiguous : int | long
-// let target: int = ambiguous  // error: not every branch converts to int
+// val target: int = ambiguous  // error: not every branch converts to int
 ```
 
 Each branch contributes its inferred type to the union. Because the `else`
@@ -326,14 +326,14 @@ value fits in the target type. This mirrors C#’s constant conversion rules and
 avoids accidental narrowing for non-constant values.
 
 ```raven
-let a = 42        // int
-let b = 4_000_000_000 // long
+val a = 42        // int
+val b = 4_000_000_000 // long
 
-let x: byte = 12 // OK: constant int fits in byte
-let y: byte = 300 // error: constant out of range
+val x: byte = 12 // OK: constant int fits in byte
+val y: byte = 300 // error: constant out of range
 
-let z = 32b      // explicit byte literal
-let n = 10L      // explicit long literal
+val z = 32b      // explicit byte literal
+val n = 10L      // explicit long literal
 ```
 
 #### Floating-point literals
@@ -346,10 +346,10 @@ let n = 10L      // explicit long literal
   * `m` / `M` — `decimal`
 
 ```raven
-let d = 3.14     // double
-let f = 3.14f    // float
-let m = 9.99m    // decimal
-let e = 1e3      // double
+val d = 3.14     // double
+val f = 3.14f    // float
+val m = 9.99m    // decimal
+val e = 1e3      // double
 ```
 
 Decimal literals do not support exponent notation. Attempting to combine an
@@ -386,8 +386,8 @@ constructed, so the lambda observes the same declared type as any other use of
 the variable.
 
 ```raven
-let a = 42
-let makeAdder = () => a + 3
+val a = 42
+val makeAdder = () => a + 3
 
 makeAdder() // returns 45, makeAdder : System.Func<int>
 ```
@@ -423,14 +423,14 @@ Assigning or returning a union to an explicitly typed target succeeds only when
 checks each constituent individually.
 
 ```raven
-let maybe = if flag { 0 } else { 1.0 } // int | float
+val maybe = if flag { 0 } else { 1.0 } // int | float
 
-let n: int = maybe    // error: float not assignable to int
-let o: object = maybe // ok: both int and float convert to object
+val n: int = maybe    // error: float not assignable to int
+val o: object = maybe // ok: both int and float convert to object
 
-let pet = if flag { Dog() } else { Cat() } // Dog | Cat
-let a: Animal = pet   // ok: Dog and Cat derive from Animal
-let s: string = pet   // error: neither member converts to string
+val pet = if flag { Dog() } else { Cat() } // Dog | Cat
+val a: Animal = pet   // ok: Dog and Cat derive from Animal
+val s: string = pet   // error: neither member converts to string
 ```
 
 ### Await expressions
@@ -536,7 +536,7 @@ import System.Console.*
 import System.Net.Http.*
 
 func Download(url: string) -> string {
-    let http = HttpClient()
+    val http = HttpClient()
 
     return try await http.GetStringAsync(url) match {
         .Ok(val text) => text
@@ -553,7 +553,7 @@ import System.*
 import System.Console.*
 
 func Describe(text: string) -> string {
-    let result = try int.Parse(text)
+    val result = try int.Parse(text)
 
     if result is .Ok(val value) {
         return "Ok: $value"
@@ -575,9 +575,9 @@ WriteLine(Describe("abc"))
 Explicit casts request a conversion to a specific type and use C# syntax.
 
 ```raven
-let d = (double)1
-let i = (int)3.14  // numeric narrowing
-let s = obj as string
+val d = (double)1
+val i = (int)3.14  // numeric narrowing
+val s = obj as string
 ```
 
 `(T)expr` performs a runtime check and throws an `InvalidCastException` when the value cannot convert to `T`. Use this form for downcasts, numeric narrowing, or unboxing scenarios.
@@ -592,8 +592,8 @@ tuple, nullable, or union—and is not evaluated. The expression always has type
 diagnostic.
 
 ```raven
-let textType = typeof(string)
-let listType = typeof(System.Collections.Generic.List<int>)
+val textType = typeof(string)
+val listType = typeof(System.Collections.Generic.List<int>)
 ```
 
 `typeof` is useful when reflecting over metadata or when passing type objects to
@@ -609,14 +609,14 @@ target type is available, the compiler reports `RAV2011` because the literal
 cannot be inferred.
 
 ```raven
-let zero = default(int)
-let emptyText: string = default
+val zero = default(int)
+val emptyText: string = default
 ```
 
 ### String literals
 
 ```raven
-let hello = "Hello, "
+val hello = "Hello, "
 Console.WriteLine(hello + "World!")
 Console.WriteLine("Hello, " + 2)
 ```
@@ -648,10 +648,10 @@ Embed expressions directly into strings using `${...}` without requiring a prefi
 For simple identifiers, a shorthand `$identifier` form avoids the braces.
 
 ```raven
-let name = "Alice"
-let age = 30
-let greeting = "Hello $name!"
-let msg = "Name: ${name}, Age: ${age}"
+val name = "Alice"
+val age = 30
+val greeting = "Hello $name!"
+val msg = "Name: ${name}, Age: ${age}"
 Console.WriteLine(msg)
 ```
 
@@ -668,9 +668,9 @@ text such as Japanese kana or Arabic phrases stay intact around the embedded
 expressions.
 
 ```raven
-let name = "ليلى"
-let city = "دبي"
-let welcome = "\u200Fمرحبا ${name}! أهلا بك في ${city}"
+val name = "ليلى"
+val city = "دبي"
+val welcome = "\u200Fمرحبا ${name}! أهلا بك في ${city}"
 ```
 
 The `\u200F` right-to-left mark keeps the greeting flowing correctly even when
@@ -706,18 +706,18 @@ produces an empty instance of that type (an empty array or an initialized collec
 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3651】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1170-L1192】
 
 ```raven
-let numbers: int[] = [1, 2, 3]
-let combined = [0, ..numbers, 4]
+val numbers: int[] = [1, 2, 3]
+val combined = [0, ..numbers, 4]
 
-let names: List<string> = ["a", "b"]
-let inferred = [1, 2.0]  // inferred as object[]
+val names: List<string> = ["a", "b"]
+val inferred = [1, 2.0]  // inferred as object[]
 ```
 
 #### Element access
 
 ```raven
-let list = [1, 42, 3]
-let a = list[1]
+val list = [1, 42, 3]
+val a = list[1]
 ```
 
 ### Function invocation
@@ -752,9 +752,9 @@ func makePoint(x: int, y: int, label: string = "origin") -> string
     return $"{label}: ({x}, {y})";
 }
 
-let swapped = makePoint(y: 2, x: 1);
-let mixed = makePoint(3, label: "axis", y: 0);
-let invalid = makePoint(x: 1, 2);  // error: positional argument cannot follow `x:`
+val swapped = makePoint(y: 2, x: 1);
+val mixed = makePoint(3, label: "axis", y: 0);
+val invalid = makePoint(x: 1, 2);  // error: positional argument cannot follow `x:`
 ```
 
 The compiler binds each named argument to its declared parameter. The call to
@@ -788,7 +788,7 @@ public extension StringExt for string
 }
 
 import MyApp.StringExt.*
-let slug = " Hello World ".ToSlug()
+val slug = " Hello World ".ToSlug()
 ```
 
 ```raven
@@ -800,7 +800,7 @@ extension for string
 }
 
 // In the same compilation unit where it is visible:
-let empty = "   ".IsNullOrWhiteSpace()
+val empty = "   ".IsNullOrWhiteSpace()
 ```
 
 ```raven
@@ -828,10 +828,10 @@ extension ListIntExt for System.Collections.Generic.List<int>
 import System.Collections.Generic.*
 import MyApp.ListIntExt.*
 
-let items = List<int>()
+val items = List<int>()
 items.Add(1)
 
-let c = items.CountPlusOne      // invokes getter
+val c = items.CountPlusOne      // invokes getter
 items.CountPlusOne = 5          // invokes setter
 ```
 
@@ -846,8 +846,8 @@ public extension ListStatics for System.Collections.Generic.List<int>
 import System.Collections.Generic.*
 import MyApp.ListStatics.*
 
-let empty = List<int>.Empty()
-let cap = List<int>.DefaultCapacity
+val empty = List<int>.Empty()
+val cap = List<int>.DefaultCapacity
 ```
 
 > **Note:** Extensions are trait-like: they group behavior that is treated as part of the target type for member lookup and overload resolution, without introducing storage or inheritance. In the current version of Raven, extensions and traits are applied implicitly based on scope. The design is still evolving, and future versions may introduce explicitly applied traits.
@@ -856,7 +856,7 @@ Each member inside the body is implicitly an extension member for the receiver
 type. Members may be function declarations or computed properties. The compiler
 synthesizes a `self` parameter whose type matches the receiver and passes it as
 the first argument whenever the member is invoked. The `self` parameter behaves
-like a `let` binding: it cannot be reassigned but may be used to access members
+like a `val` binding: it cannot be reassigned but may be used to access members
 or forwarded to other calls. Extension members default to `public`
 accessibility and may be marked `internal` to restrict their visibility; other
 modifiers are rejected. As a result, extensions cannot declare `protected` or
@@ -954,15 +954,15 @@ associates left-to-right, so a chain such as `source |> First() |> Second()`
 evaluates `source`, passes it to `First`, then pipes the result into `Second`.
 
 ```raven
-let result = 5 |> Square() |> AddOne()
+val result = 5 |> Square() |> AddOne()
 
-let result = AddOne(Square(5))
+val result = AddOne(Square(5))
 ```
 
 When the pipeline targets an invocation, the syntax mirrors a regular call:
 
 ```raven
-let result = 5 |> MathHelpers.Increment(2)
+val result = 5 |> MathHelpers.Increment(2)
 
 public static class MathHelpers {
     public static Increment(x: int, amount: int) -> int {
@@ -976,9 +976,9 @@ The pipe operator accepts either an invocation or a property access with a sette
 If the pipeline targets a property, Raven assigns the left expression to that property through its setter before producing the property's type as the result of the pipe expression. Both instance and static properties are supported:
 
 ```raven
-let container = Container()
-let _ = 42 |> container.Value
-let _ = 42 |> Container.Count
+val container = Container()
+val _ = 42 |> container.Value
+val _ = 42 |> Container.Count
 
 public class Container {
     public Value: int { get; set; }
@@ -1003,7 +1003,7 @@ from that value without any additional annotations.【F:src/Raven.CodeAnalysis/B
 Prefixing an expression with `^` produces a `System.Index` value that counts
 from the end of a sequence. The operand must be implicitly convertible to
 `int`, and the result keeps its `Index` type even when not target-typed, so
-`let offset = ^2` is valid without annotations. When indexing arrays, from-end
+`val offset = ^2` is valid without annotations. When indexing arrays, from-end
 indices are computed using the array's length and are evaluated exactly once
 alongside the receiver.
 
@@ -1015,9 +1015,9 @@ either endpoint may be written as a **from-end** index by prefixing it with `^`.
 
 ```raven
 val r = 3..^5
-let head = ..3
-let tail = 3..
-let all  = ..
+val head = ..3
+val tail = 3..
+val all  = ..
 ```
 
 Forming a range evaluates each supplied boundary exactly once, left-to-right.
@@ -1038,7 +1038,7 @@ Compound assignments `&=` and `|=` are available and apply the corresponding bin
 Enum member accesses support **leading-dot** syntax when a target type is already known, including inside bitwise combinations and argument lists:
 
 ```raven
-let flags: BindingFlags = .NonPublic | .Static
+val flags: BindingFlags = .NonPublic | .Static
 
 func WithBinding(flags: BindingFlags) { /* ... */ }
 
@@ -1051,14 +1051,14 @@ Objects are created by **calling the type name** directly, just like any
 other method.
 
 ```raven
-let sb = StringBuilder()
+val sb = StringBuilder()
 sb.AppendLine("Foo")
-````
+```
 
 Generic types work the same way:
 
 ```raven
-let list = List<int>()
+val list = List<int>()
 list.Add(2)
 ```
 
@@ -1066,8 +1066,8 @@ Raven also supports the `new` keyword for **backwards compatibility** and
 for cases where you want to be explicit about creating an object:
 
 ```raven
-let sb = new StringBuilder()
-let list = new List<int>()
+val sb = new StringBuilder()
+val list = new List<int>()
 ```
 
 This way it’s clear that *constructor-as-call* is the default, and `new` is optional/explicit.  
@@ -1077,7 +1077,7 @@ This way it’s clear that *constructor-as-call* is the default, and `new` is op
 Tuples can be **named** or **positional**. Both projections are available.
 
 ```raven
-let tuple = (a: 42, b: 2)
+val tuple = (a: 42, b: 2)
 Console.WriteLine(tuple.a)      // named
 Console.WriteLine(tuple.Item1)  // positional
 ```
@@ -1089,7 +1089,7 @@ A block is an expression; its value is the value of its last expression
 
 ```raven
 {
-    let x = 10
+    val x = 10
     x + 1
 }
 ```
@@ -1102,7 +1102,7 @@ both branches produce values, the result participates in type inference as
 described in [Type inference](#type-inference).
 
 ```raven
-let res =
+val res =
     if cond {
         10
     } else {
@@ -1124,7 +1124,7 @@ Because loops are expressions, the overall value of a `while` expression is `()`
 ```raven
 var i = 0
 while i < list.Length {
-    let item = list[i]
+    val item = list[i]
     Console.WriteLine(item)
     i = i + 1
 }
@@ -1233,7 +1233,7 @@ statements are likewise disallowed in expression contexts. 【F:src/Raven.CodeAn
 ```raven
 func retryingWork() {
 start:
-    let ok = tryOnce()
+    val ok = tryOnce()
     if not ok {
         goto start
     }
@@ -1310,15 +1310,15 @@ Patterns compose from the following primitives.
   `Type`, then binds the converted value to `name` as an immutable local in the
   success scope.
 
-* `let name` / `val name` / `var name` — **variable pattern**. Always matches and
-  introduces a binding. `let`/`val` produce an immutable local; `var` produces a
+* `val name` / `var name` / `let name` — **variable pattern**. Always matches and
+  introduces a binding. `val`/`let` produce an immutable local; `var` produces a
   mutable one.
 
-  Parenthesized designations such as `let (first, second): (int, string)` bind
+  Parenthesized designations such as `val (first, second): (int, string)` bind
   each element positionally.
 
 * **Explicit binding keyword required.** In pattern position, introducing a new
-  binding always requires an explicit binding keyword (`let`, `val`, or `var`).
+  binding always requires an explicit binding keyword (`val`, or `var`).
   A bare identifier never introduces a binding; it is interpreted as a *value
   pattern* (constant) or, if applicable, as a type name.
 
@@ -1352,7 +1352,7 @@ Patterns compose from the following primitives.
   the pattern matches when the scrutinee equals the runtime value of that identifier.
 
   Value patterns are *not* bindings. To introduce a new binding, an explicit
-  binding keyword (`let`, `val`, or `var`) is required.
+  binding keyword (`val`, or `var`) is required.
 
 * `.Member` — **target-typed value pattern**. When the scrutinee type is known
   (for example, an enum type or a type with static fields), the leading-dot
@@ -1396,7 +1396,7 @@ Patterns compose from the following primitives.
     value patterns and must resolve to in-scope values.
 
   A positional element introduces a new binding **only** when an explicit binding
-  keyword (`let`, `val`, or `var`) is present.
+  keyword (`val`, or `var`) is present.
 
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.
@@ -1419,7 +1419,7 @@ Patterns compose from the following primitives.
 * `Type { … } designation` — **property pattern with designation**. Like
   `Type { … }`, but also introduces a designation for the matched receiver.
 
-  * The designation must include an explicit binding keyword (`let`, `val`, or
+  * The designation must include an explicit binding keyword (`val`, or
     `var`).
   * Writing `var p` produces a mutable binding.
   * The designation is introduced only if the entire property pattern succeeds.
@@ -1435,7 +1435,7 @@ Patterns compose from the following primitives.
 
 * `{ … } designation` — **inferred property pattern with designation**.
 
-  * The designation must include an explicit binding keyword (`let`, `val`, or
+  * The designation must include an explicit binding keyword (`val`, or
     `var`).
   * Writing `var p` produces a mutable binding.
 
@@ -1448,7 +1448,7 @@ Patterns compose from the following primitives.
   * Record patterns are only valid on `record` types.
   * Record patterns use the record’s `Deconstruct` method to obtain positional
     values.
-  * Each positional element is a pattern, so bindings still require `let`/`val`/`var`.
+  * Each positional element is a pattern, so bindings still require `val`/`var`.
   * The number of positional elements must match the record’s primary-constructor
     parameters; mismatches are errors.
 
@@ -1459,15 +1459,15 @@ Patterns compose from the following primitives.
 
   * The leading `.` resolves against the current scrutinee.
   * Member payloads may supply nested subpatterns matching the member’s
-    parameter list, e.g. `.Identifier(text)` or `Result<int>.Error(let message)`.
+    parameter list, e.g. `.Identifier(text)` or `Result<int>.Error(val message)`.
   * Parentheses are optional for parameterless members.
   * Payload arity must match the declared parameters.
   * Each nested subpattern is typed to the corresponding member parameter.
   * A payload element introduces a new binding **only** when it uses
-    `let`/`val`/`var`. A bare identifier is a value pattern that matches an
+    `val`/`var`. A bare identifier is a value pattern that matches an
     existing in-scope symbol.
 
-    * Example: `.Case(let a, b)` binds `a` and matches the second payload against
+    * Example: `.Case(val a, b)` binds `a` and matches the second payload against
       the runtime value of in-scope `b`.
   * Use `_` to explicitly discard a payload.
 
@@ -1511,7 +1511,7 @@ and nested types into scope:
 ```raven
 import System.Math.*
 
-let pi = PI
+val pi = PI
 ```
 
 Extension methods defined on imported types are also brought into scope. This
@@ -1522,10 +1522,10 @@ enables consuming .NET helpers such as `System.Linq.Enumerable.Where` or
 import System.Collections.Generic.*
 import System.Linq.*
 
-let odds = List<int>()
+val odds = List<int>()
 odds.Add(1)
 odds.Add(3)
-let filtered = odds.Where(value => value % 2 == 1)
+val filtered = odds.Where(value => value % 2 == 1)
 ```
 
 The compiler treats `Where` as an instance-style invocation even though it is
@@ -1554,9 +1554,9 @@ alias Flag = bool
 alias Text = string
 alias Five = 5
 
-let sb = SB()
+val sb = SB()
 PrintLine("Hi")
-let tmp = IO.Path.GetTempPath()
+val tmp = IO.Path.GetTempPath()
 ```
 
 Aliasing a method binds a specific overload. Multiple directives using the
@@ -1676,7 +1676,7 @@ that cannot be represented in the underlying type are compile-time errors.
 An explicit conversion exists from an enum type to its underlying type:
 
 ```raven
-let code: int = (int)ErrorCode.NotFound
+val code: int = (int)ErrorCode.NotFound
 ```
 
 The reverse conversion—from the underlying type to the enum type—requires an
@@ -1943,8 +1943,8 @@ the parameter list, return type, and body just like any other type annotation.
 ```raven
 func identity<T>(value: T) -> T { value }
 
-let number = identity(42)         // inferred T = int
-let text = identity<string>("hi")
+val number = identity(42)         // inferred T = int
+val text = identity<string>("hi")
 ```
 
 Call sites may omit explicit type arguments when inference can determine a
@@ -1985,8 +1985,8 @@ using the `:` syntax when needed.
 func outer() {
     func inner<T: struct>(value: T) -> T { value }
 
-    let y = inner(2)
-    let point = inner((x: 1, y: 2))
+    val y = inner(2)
+    val point = inner((x: 1, y: 2))
 }
 ```
 
@@ -2060,13 +2060,13 @@ Functions and methods are first-class values. Referencing a function or method
 name without invoking it produces a delegate that can be stored, passed around,
 or invoked later. The compiler picks an appropriate delegate type using the
 same target-typing rules that guide overload resolution. In a binding such as
-`let` or `var`, the initializer (or an explicit type annotation) supplies that
+`val` or `var`, the initializer (or an explicit type annotation) supplies that
 context so the delegate type—and corresponding overload—can be determined.
 When no delegate context is available, diagnostic `RAV2201` is reported and the
 method must either be invoked directly or annotated with a delegate type.
 
 ```raven
-let writeLine: System.Action<string> = Console.WriteLine
+val writeLine: System.Action<string> = Console.WriteLine
 writeLine("Hello from Raven!")
 ```
 
@@ -2080,8 +2080,8 @@ delegate type explicitly or use another context with a well-defined target
 type.
 
 ```raven
-let writeLine = Console.WriteLine             // error: overloaded method group
-let writeLine: System.Action<string> = Console.WriteLine // ok
+val writeLine = Console.WriteLine             // error: overloaded method group
+val writeLine: System.Action<string> = Console.WriteLine // ok
 ```
 
 Passing `Console.WriteLine` as an argument to a parameter of type
@@ -2107,7 +2107,7 @@ class Counter {
     Increment(delta: int) -> int { self.value + delta }
 
     Run() -> int {
-        let increment = self.Increment
+        val increment = self.Increment
         increment(7) // returns 10
     }
 }
@@ -2138,7 +2138,7 @@ class Accumulator {
     }
 
     static Execute(value: int) -> int {
-        let callback = Accumulator.TryAccumulate
+        val callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0
 
@@ -2156,8 +2156,8 @@ expressions: taking the address of a local or field produces an address
 handle that implicitly converts to the matching pointer type.
 
 ```raven
-let value = 42
-let pointer: *int = &value
+val value = 42
+val pointer: *int = &value
 ```
 
 ### Pass by reference
@@ -2183,9 +2183,9 @@ var numbers: int[] = [10, 20, 30]
 var slot = headSlot(numbers)
 slot = 42 // numbers[0] is now 42
 
-let value = 0
-let alias = &value      // alias : &int
-let raw: *int = &value  // raw : *int
+val value = 0
+val alias = &value      // alias : &int
+val raw: *int = &value  // raw : *int
 ```
 
 ### `ref`/`out` arguments
@@ -2221,16 +2221,18 @@ if !TryParse(arg, &total) {
 
 ## Local declarations
 
-### Value binding (`let`)
+### Value binding (`val`)
 
-A `let` binding is **immutable** (not reassignable). Types are inferred
+A `val` binding is **immutable** (not reassignable). Types are inferred
 unless annotated.
 
 ```raven
-let x = "Foo"
-let y: int = 2
-let a: int = 2, b: string = ""
+val x = "Foo"
+val y: int = 2
+val a: int = 2, b: string = ""
 ```
+
+Raven treats `let` as an alias for `val`.
 
 ### Variable binding (`var`)
 
@@ -2246,7 +2248,7 @@ y = 3
 
 ### Constant binding (`const`)
 
-A `const` binding is immutable like `let` but additionally requires a compile-time
+A `const` binding is immutable like `val` but additionally requires a compile-time
 constant initializer. The compiler embeds the resulting value directly into the
 generated IL so the symbol can be referenced from other assemblies without
 executing the initializer.
@@ -2258,7 +2260,7 @@ const banner = "Ready"      // inferred string constant
 
 Const bindings support the primitive constant forms recognized by .NET: numeric and
 character literals (including the appropriate suffixes), `true`/`false`, strings, and
-`null` for reference types. Type inference works the same way as `let`; the initializer
+`null` for reference types. Type inference works the same way as `val`; the initializer
 must still be a compile-time constant.
 
 Const applies to both local bindings and fields. Member declarations treat `const`
@@ -2266,21 +2268,21 @@ fields as implicitly `static`; the value is emitted as metadata so other assembl
 import it without running an initializer.
 
 Positional deconstruction lets you bind or assign multiple values at once. The outer
-`let`/`var` controls the binding’s mutability, while each element uses a
+`val`/`var` controls the binding’s mutability, while each element uses a
 designation (possibly nested) to capture or discard the corresponding value.
 Elements may include inline type annotations. Positional deconstruction works with
 tuples and with any type that exposes a compatible `Deconstruct` method (including
 as an extension method).
 
 ```raven
-let (first, second, _) = (1, 2, 3)
+val (first, second, _) = (1, 2, 3)
 var (head, tail: double, _) = numbers()
 (first, second, _) = next()
-(let lhs, var rhs: double, _) = evaluate()
+(val lhs, var rhs: double, _) = evaluate()
 ```
 
 Existing locals can participate in positional assignments alongside new
-bindings. Mixed `let`/`var` designations and inline type annotations are
+bindings. Mixed `val`/`var` designations and inline type annotations are
 supported in both declarations and assignments:
 
 ```raven
@@ -2288,14 +2290,14 @@ var first = 0
 var second = 0
 
 (first, second, _) = (1, 2, 3)
-let (third, fourth: double, _) = toTuple()
-var (let fifth, var sixth: double, _) = project()
+val (third, fourth: double, _) = toTuple()
+var (val fifth, var sixth: double, _) = project()
 ```
 
 Use `_` to discard unwanted elements. Nested positional patterns work the same way:
 
 ```raven
-var ((x, y), let magnitude, _) = samples()
+var ((x, y), val magnitude, _) = samples()
 ```
 
 The discard identifier also appears in ordinary assignment statements. Writing
@@ -2309,7 +2311,7 @@ exposes an `IsDiscard` helper when analyzers need to detect this pattern.
 ### Resource declarations (`using`)
 
 Prefixing a local declaration with `using` introduces a scoped disposable resource. The
-declaration follows the normal `let`/`var` syntax and must include an initializer. Both the
+declaration follows the normal `val`/`var` syntax and must include an initializer. Both the
 initializer's type and the declared type must be convertible to `System.IDisposable`; if
 either conversion fails, Raven reports the same assignment diagnostic used for other
 implicit conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
@@ -2321,10 +2323,10 @@ declarations participate as well: they are disposed after the file's top-level s
 finish executing. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L222-L282】【F:src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs†L54-L87】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L114-L148】
 
 ```raven
-using let stream = System.IO.File.OpenRead(path)
+using val stream = System.IO.File.OpenRead(path)
 using var reader = System.IO.StreamReader(stream)
 
-let text = reader.ReadToEnd()
+val text = reader.ReadToEnd()
 // reader.Dispose() and stream.Dispose() run automatically when the scope ends
 ```
 
@@ -2336,8 +2338,8 @@ Use type annotations where inference is insufficient (e.g., for
 parameters, some bindings, or return types):
 
 ```raven
-let a = 2
-let b: int = 2
+val a = 2
+val b: int = 2
 
 func add(a: int, b: int) -> int { a + b }
 ```
@@ -2348,14 +2350,14 @@ Tuple types use parentheses with comma-separated element types and map to
 `System.ValueTuple`:
 
 ```raven
-let pair: (int, string) = (42, "answer")
+val pair: (int, string) = (42, "answer")
 ```
 
 Elements may optionally be named with a `name: Type` pair. Names exist only for
 developer clarity and do not participate in type identity or assignment:
 
 ```raven
-let tuple2: (id: int, name: string) = (no: 42, identifier: "Bar")
+val tuple2: (id: int, name: string) = (no: 42, identifier: "Bar")
 ```
 
 When a tuple expression is assigned to an explicitly annotated tuple type, each
@@ -2370,15 +2372,15 @@ syntax mirrors a lambda signature: a comma-separated parameter list enclosed in
 parentheses followed by `->` and the return type.
 
 ```raven
-let applyTwice: (int -> int, int) -> int
-let thunk: () -> unit
-let comparer: (string, string) -> bool
+val applyTwice: (int -> int, int) -> int
+val thunk: () -> unit
+val comparer: (string, string) -> bool
 ```
 
 Single-parameter functions may omit the surrounding parentheses:
 
 ```raven
-let increment: int -> int
+val increment: int -> int
 ```
 
 The return portion may itself be any Raven type, including unions. For example
@@ -2399,8 +2401,8 @@ return represents an action with no meaningful result.
 Unions express multiple possible types (e.g., `int | string`). A union’s members are **normalized**: nested unions flatten, duplicates are removed, and order is irrelevant. For example, `int | (string | int)` simplifies to `int | string`.
 
 ```raven
-let a: int | string
-let b = if flag { 1 } else { "one" }  // b : int | string
+val a: int | string
+val b = if flag { 1 } else { "one" }  // b : int | string
 ```
 
 #### Literal types in unions
@@ -2408,9 +2410,9 @@ let b = if flag { 1 } else { "one" }  // b : int | string
 A **literal type** represents a single constant value of a primitive, string, bool, or enum type. Literal types may appear anywhere a type is expected and compose naturally with unions.
 
 ```raven
-let n: 1 | 2 | 3
-let s: "on" | "off" | "auto"
-let e: Grades.A | Grades.B
+val n: 1 | 2 | 3
+val s: "on" | "off" | "auto"
+val e: Grades.A | Grades.B
 ```
 
 **Normalization with literals**:
@@ -2432,14 +2434,14 @@ type rules.
 `null` may appear as a union member:
 
 ```raven
-let maybe = if flag { 1 } else { null }  // int | null
+val maybe = if flag { 1 } else { null }  // int | null
 ```
 
 If a union contains `null` and exactly one non-nullable type `T`, it implicitly converts to `T?` (both in inference and explicit annotations):
 
 ```raven
-let x: int? = maybe         // ok
-let y: string? | int        // error: explicit nullable types must not be unioned
+val x: int? = maybe         // ok
+val y: string? | int        // error: explicit nullable types must not be unioned
 ```
 
 To model absence explicitly, Raven recommends the **Option union** defined in
@@ -2450,7 +2452,7 @@ existing .NET APIs that expect nullable types.
 
 #### Assignability and conversions
 
-Let `U = T1 | … | Tn` be a source union.
+val `U = T1 | … | Tn` be a source union.
 
 * **Value → union**: An expression of type `S` may be assigned to `U` if `S` is assignable to **at least one** member `Ti`.
 * **Union → value**: `U` may be assigned to `S` only if **every** member `Ti` is assignable to `S`.
@@ -2458,18 +2460,18 @@ Let `U = T1 | … | Tn` be a source union.
 * **Variant interfaces**: When `Ti` or `S` is a generic interface or delegate, assignability follows the CLR's variance annotations. Covariant parameters permit `T<Derived>` to flow to `T<Base>`, and contravariant parameters accept `T<Base>` where `T<Derived>` is expected. Raven interface declarations expose the same behaviour with `out` and `in` modifiers on their type parameters, so source and metadata symbols participate in the same set of conversions.
 
 ```raven
-let a: "true" | 1 = 1      // ok
-let b: "true" | 1 = 2      // error: 2 not permitted by '"true" | 1'
-let c: "yes" | "no" = "yes"  // ok
+val a: "true" | 1 = 1      // ok
+val b: "true" | 1 = 2      // error: 2 not permitted by '"true" | 1'
+val c: "yes" | "no" = "yes"  // ok
 ```
 
 When a union value is assigned or returned to an explicit target type, the compiler checks each constituent individually:
 
 ```raven
-let u = if flag { 0 } else { 1.0 }  // int | float
+val u = if flag { 0 } else { 1.0 }  // int | float
 
-let i: int = u       // error: float not assignable to int
-let o: object = u    // ok: both convert to object
+val i: int = u       // error: float not assignable to int
+val o: object = u    // ok: both convert to object
 ```
 
 #### Type inference with control flow
@@ -2477,8 +2479,8 @@ let o: object = u    // ok: both convert to object
 Control-flow expressions that produce different types infer a union of those results. The union is normalized; literal branches collapse into their base if a non-literal of that base also flows.
 
 ```raven
-let x = if flag { 42 } else { 3 }        // x : 42 | 3
-let y = if flag { 42 } else { parseInt() } // y : int   (42 collapses into int)
+val x = if flag { 42 } else { 3 }        // x : 42 | 3
+val y = if flag { 42 } else { parseInt() } // y : int   (42 collapses into int)
 ```
 
 #### Pattern matching and flow-sensitive narrowing
@@ -2501,7 +2503,7 @@ A member access `u.M(...)` on `u : T1 | … | Tn` is permitted **only** when all
 Typing and lowering:
 
 ```raven
-let msg = u.ToString()   // treat receiver as the ancestor that declares ToString
+val msg = u.ToString()   // treat receiver as the ancestor that declares ToString
 // lower: ((Ancestor)u).ToString()
 ```
 
@@ -2514,8 +2516,8 @@ open class Animal { virtual Speak() -> string }
 class Dog : Animal { override Speak() -> "woof" }
 class Cat : Animal { override Speak() -> "meow" }
 
-let a: Dog | Cat
-let sound = a.Speak()    // ok via Animal.Speak
+val a: Dog | Cat
+val sound = a.Speak()    // ok via Animal.Speak
 ```
 
 ```raven
@@ -2523,8 +2525,8 @@ open class Base { virtual P: int { get; set; } }
 class D1 : Base { override P : int { get; set; } }
 class D2 : Base { override P : int { get; } }
 
-let u: D1 | D2 = D1()
-let x = u.P      // ok (getter common)
+val u: D1 | D2 = D1()
+val x = u.P      // ok (getter common)
 u.P = 3          // error (setter not common)
 ```
 
@@ -2533,8 +2535,8 @@ u.P = 3          // error (setter not common)
 Operations generally **widen** literals to their base types unless constant-folding applies:
 
 ```raven
-let k: 2 | 42 = 2
-let z = k + 1       // z : int
+val k: 2 | 42 = 2
+val z = k + 1       // z : int
 ```
 
 Enum literals retain the enum type identity; matching respects the enum, not just underlying integral values.
@@ -2566,8 +2568,8 @@ Appending `?` to a type denotes that it may also be `null`. This works for
 both reference and value types.
 
 ```raven
-let s: string? = null
-let i: int? = null
+val s: string? = null
+val i: int? = null
 ```
 
 Nullable types participate in the type system and overload resolution.
@@ -2583,8 +2585,8 @@ These operators work for both nullable reference types and nullable value types.
 ```raven
 var str = x?.ToString()
 
-let number: int? = 42
-let digits = number?.ToString() // "42"
+val number: int? = 42
+val digits = number?.ToString() // "42"
 ```
 
 Here `str` is `string?`, and the call to `ToString` only occurs when `x` is not
@@ -2597,11 +2599,11 @@ Use `?(...)` to invoke a nullable delegate or callable value, and `?[...]` to
 index into a nullable collection or array.
 
 ```raven
-let f: Func<int, int>? = null
-let result = f?(2)
+val f: Func<int, int>? = null
+val result = f?(2)
 
-let values: int[]? = null
-let first = values?[0]
+val values: int[]? = null
+val first = values?[0]
 ```
 
 Invoking or indexing a nullable value without a null-conditional operator
@@ -2613,17 +2615,17 @@ or `if value is not null`, or after guard statements like `if value == null { re
 member access and invocation on `value` are allowed without `?.` or `?`.
 
 ```raven
-let f: Func<int, int>? = null
+val f: Func<int, int>? = null
 
 if f != null {
-    let result = f(2)
+    val result = f(2)
 }
 
 if f == null {
     return
 }
 
-let result2 = f(2)
+val result2 = f(2)
 ```
 
 ### Enums
@@ -2649,7 +2651,7 @@ Importing the members of an enum brings them into scope:
 
 ```raven
 import Grades.*
-let best = A
+val best = A
 ```
 
 ### Discriminated unions
@@ -2671,8 +2673,8 @@ the union's type parameters, and can be referenced either via the type name or
 with the leading-dot shorthand:
 
 ```raven
-let token = Token.Identifier("foo")
-let other: Token = .Unknown
+val token = Token.Identifier("foo")
+val other: Token = .Unknown
 ```
 
 Each case becomes a nested struct (`Token.Identifier`, `Token.Number`, …) whose
@@ -2686,8 +2688,8 @@ For every case `Case`, the compiler synthesizes an implicit conversion
 automatically produces the union instance:
 
 ```raven
-let ok: Result<int> = .Ok(99)          // implicit Case -> Result<int> conversion
-let err = Result<int>.Error("boom")
+val ok: Result<int> = .Ok(99)          // implicit Case -> Result<int> conversion
+val err = Result<int>.Error("boom")
 Console.WriteLine(ok)
 ```
 
@@ -2733,7 +2735,7 @@ The current implementation leaves a few behaviours underspecified. The following
 items capture those gaps and outline the preferred direction for addressing them:
 
 - **`if` expressions without `else` in value contexts.** The compiler currently
-  allows `let x = if cond { 1 }` even though the false branch does not yield a
+  allows `val x = if cond { 1 }` even though the false branch does not yield a
   value, which in turn produces incomplete IL. Either require an `else` branch
   when the result is consumed or implicitly supply `()` for the missing branch.
   Both options should be accompanied by diagnostics that guide authors toward
