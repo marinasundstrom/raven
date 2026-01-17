@@ -520,6 +520,12 @@ internal class PatternSyntaxParser : SyntaxParser
         // Parse as expression (NOT a pattern). This enables: `x`, `x.y`, `SomeType.StaticField`, etc.
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
 
+        if (!IsValidConstantPatternExpression(expr))
+        {
+            checkpoint.Dispose();
+            return false;
+        }
+
         // Only accept if the next token can legally terminate a pattern at this precedence level.
         // This avoids capturing type declarations like `Foo bar`.
         if (!IsPatternTerminator(PeekToken()))
@@ -532,6 +538,16 @@ internal class PatternSyntaxParser : SyntaxParser
         // static field, etc. If it binds to a type, it can be interpreted as a type/declaration pattern.
         constantPattern = ConstantPattern(expr);
         return true;
+    }
+
+    private static bool IsValidConstantPatternExpression(ExpressionSyntax expression)
+    {
+        return expression switch
+        {
+            IdentifierNameSyntax => true,
+            MemberAccessExpressionSyntax => true,
+            _ => false
+        };
     }
 
     private bool IsPatternTerminator(SyntaxToken token)
