@@ -1,15 +1,14 @@
 import System.*
 import System.Console.*
 
-let x = try int.Parse("");
+val value = tryParse("foo")
 
-WriteLine(x)
+WriteLine(value)
 
-/*
 func tryParse(input: string) -> string {
     return try int.Parse(input) match {
         .Ok(val no) => "No is $no"
         .Error(FormatException ex) => "Format invalid: ${ex.Message}"
         .Error(_) => "unknown"
     }
-}*/
+}
