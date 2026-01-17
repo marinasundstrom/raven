@@ -1027,7 +1027,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (symbol is NullableTypeSymbol nullable)
         {
             var underlying = GetProjectedRuntimeType(nullable.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
-            return typeof(Nullable<>).MakeGenericType(underlying);
+            return nullable.UnderlyingType.IsValueType
+                ? typeof(Nullable<>).MakeGenericType(underlying)
+                : underlying;
         }
 
         if (symbol is LiteralTypeSymbol literal)
