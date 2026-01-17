@@ -351,7 +351,7 @@ internal abstract class Generator
             return;
         }
 
-        if (conversion.IsReference && from.IsValueType && !toClrType.IsValueType)
+        if (conversion.IsReference && fromClrType.IsValueType && !toClrType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Box, fromClrType);
             if (!fromClrType.Equals(toClrType))
