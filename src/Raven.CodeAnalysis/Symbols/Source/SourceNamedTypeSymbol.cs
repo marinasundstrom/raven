@@ -17,6 +17,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
     private ITypeSymbol? _extensionReceiverType;
+    private ImmutableArray<SourcePropertySymbol> _recordProperties = ImmutableArray<SourcePropertySymbol>.Empty;
 
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
@@ -97,6 +98,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsExtensionDeclaration { get; private set; }
     internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
+    internal bool IsRecord { get; private set; }
+    internal ImmutableArray<SourcePropertySymbol> RecordProperties => _recordProperties;
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
@@ -222,6 +225,18 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
         if (!hasPartialModifier)
             HasNonPartialDeclaration = true;
+    }
+
+    internal void RegisterRecordModifier(bool hasRecordModifier)
+    {
+        if (hasRecordModifier)
+            IsRecord = true;
+    }
+
+    internal void SetRecordProperties(ImmutableArray<SourcePropertySymbol> properties)
+    {
+        if (!properties.IsDefault)
+            _recordProperties = properties;
     }
 
     internal void MarkAsExtensionContainer()

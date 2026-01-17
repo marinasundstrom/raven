@@ -139,7 +139,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
                  nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
-                 nextToken.IsKind(SyntaxKind.OpenKeyword) ||
+                 nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) || nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken))
         {
@@ -250,6 +250,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                      SyntaxKind.VirtualKeyword or
                      SyntaxKind.AsyncKeyword or
                      SyntaxKind.OpenKeyword or
+                     SyntaxKind.RecordKeyword or
                      SyntaxKind.OverrideKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());
