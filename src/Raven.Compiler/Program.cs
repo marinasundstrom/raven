@@ -393,6 +393,17 @@ workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
 var project = workspace.CurrentSolution.GetProject(projectId)!;
 
+if (embedCoreTypes)
+{
+    var resultShimPath = Path.GetFullPath("../../../../../src/Raven.Core/Result.rav");
+    if (File.Exists(resultShimPath))
+    {
+        using var coreFile = File.OpenRead(resultShimPath);
+        var coreText = SourceText.From(coreFile);
+        project = project.AddDocument(Path.GetFileName(resultShimPath), coreText, resultShimPath).Project;
+    }
+}
+
 foreach (var filePath in sourceFiles)
 {
     using var file = File.OpenRead(filePath);
