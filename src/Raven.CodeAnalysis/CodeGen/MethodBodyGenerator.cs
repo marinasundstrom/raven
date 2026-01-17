@@ -285,12 +285,9 @@ internal class MethodBodyGenerator
             }
         }
 
-        if (MethodSymbol.ContainingType is SourceNamedTypeSymbol recordType &&
-            recordType.IsRecord &&
-            TryEmitRecordMethod(recordType))
-        {
+        var recordType = TryGetRecordTypeDefinition(MethodSymbol.ContainingType);
+        if (recordType is not null && TryEmitRecordMethod(recordType))
             return;
-        }
 
         var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is null)
@@ -1284,6 +1281,21 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Stfld, payloadField);
         ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private static SourceNamedTypeSymbol? TryGetRecordTypeDefinition(INamedTypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null)
+            return null;
+
+        if (typeSymbol is SourceNamedTypeSymbol { IsRecord: true } source)
+            return source;
+
+        if (typeSymbol is ConstructedNamedTypeSymbol constructed &&
+            constructed.OriginalDefinition is SourceNamedTypeSymbol { IsRecord: true } sourceDefinition)
+            return sourceDefinition;
+
+        return null;
     }
 
     private void EmitDiscriminatedUnionTryGetMethod(
