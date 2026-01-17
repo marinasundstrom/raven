@@ -515,9 +515,22 @@ internal partial class BlockBinder
             return new BoundConstantPattern(nullLiteralType);
         }
 
-        // Literal constant pattern fast path
+        // Literal constant pattern fast path (validate against the input type).
         if (expression.Type is LiteralTypeSymbol literalType)
+        {
+            var literalConversion = Compilation.ClassifyConversion(literalType, inputType);
+            if (!literalConversion.Exists)
+            {
+                _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                    literalType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    expressionSyntax.GetLocation());
+
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+            }
+
             return new BoundConstantPattern(literalType);
+        }
 
         // Runtime "value pattern" (identifier/member access/etc.)
         // Ensure the RHS can convert to the input type so codegen can compare meaningfully.
