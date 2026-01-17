@@ -582,7 +582,7 @@ internal class TypeMemberBinder : Binder
                 isVirtual = false;
                 isSealed = false;
             }
-            else if (candidate.IsSealed)
+            else if (candidate.IsFinal)
             {
                 _diagnostics.ReportCannotOverrideSealedMember(name, candidate.Name, identifierToken.GetLocation());
                 isOverride = false;
@@ -1539,7 +1539,7 @@ internal class TypeMemberBinder : Binder
                         _diagnostics.ReportOverrideMemberNotFound(propertyName, "property", identifierToken.GetLocation());
                         overrideValid = false;
                     }
-                    else if (candidate.GetMethod.IsSealed)
+                    else if (candidate.GetMethod.IsFinal)
                     {
                         _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
@@ -1557,7 +1557,7 @@ internal class TypeMemberBinder : Binder
                         _diagnostics.ReportOverrideMemberNotFound(propertyName, "property", identifierToken.GetLocation());
                         overrideValid = false;
                     }
-                    else if (candidate.SetMethod.IsSealed)
+                    else if (candidate.SetMethod.IsFinal)
                     {
                         _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
@@ -2027,7 +2027,7 @@ internal class TypeMemberBinder : Binder
                     _diagnostics.ReportOverrideMemberNotFound(eventName, "event", identifierToken.GetLocation());
                     overrideValid = false;
                 }
-                else if (candidate.AddMethod.IsSealed)
+                else if (candidate.AddMethod.IsFinal)
                 {
                     _diagnostics.ReportCannotOverrideSealedMember(eventName, candidate.Name, identifierToken.GetLocation());
                     overrideValid = false;
@@ -2044,7 +2044,7 @@ internal class TypeMemberBinder : Binder
                         _diagnostics.ReportOverrideMemberNotFound(eventName, "event", identifierToken.GetLocation());
                         overrideValid = false;
                     }
-                    else if (candidate.RemoveMethod.IsSealed)
+                    else if (candidate.RemoveMethod.IsFinal)
                     {
                         _diagnostics.ReportCannotOverrideSealedMember(eventName, candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
@@ -2568,7 +2568,7 @@ internal class TypeMemberBinder : Binder
                         _diagnostics.ReportOverrideMemberNotFound("Item", "indexer", identifierToken.GetLocation());
                         overrideValid = false;
                     }
-                    else if (candidate.GetMethod.IsSealed)
+                    else if (candidate.GetMethod.IsFinal)
                     {
                         _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
@@ -2586,7 +2586,7 @@ internal class TypeMemberBinder : Binder
                         _diagnostics.ReportOverrideMemberNotFound("Item", "indexer", identifierToken.GetLocation());
                         overrideValid = false;
                     }
-                    else if (candidate.SetMethod.IsSealed)
+                    else if (candidate.SetMethod.IsFinal)
                     {
                         _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;

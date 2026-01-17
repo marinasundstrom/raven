@@ -92,7 +92,7 @@ internal class MethodGenerator
                         attributes |= MethodAttributes.NewSlot;
                 }
 
-                if (MethodSymbol.IsOverride && MethodSymbol.IsSealed)
+                if (MethodSymbol.IsOverride && MethodSymbol.IsFinal)
                     attributes |= MethodAttributes.Final;
             }
         }

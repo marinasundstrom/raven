@@ -61,7 +61,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool IsGenericMethod => false;
     public bool IsOverride => false;
     public bool IsReadOnly => false;
-    public bool IsSealed => false;
+    public bool IsFinal => false;
     public bool IsVirtual => false;
     public bool IsIterator => false;
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;

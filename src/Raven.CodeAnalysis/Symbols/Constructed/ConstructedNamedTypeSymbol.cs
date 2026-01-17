@@ -862,7 +862,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsGenericMethod => _original.IsGenericMethod;
     public bool IsOverride => _original.IsOverride;
     public bool IsReadOnly => _original.IsReadOnly;
-    public bool IsSealed => _original.IsSealed;
+    public bool IsFinal => _original.IsFinal;
     public bool IsVirtual => _original.IsVirtual;
     public bool IsIterator => _original.IsIterator;
     public IteratorMethodKind IteratorKind => _original.IteratorKind;

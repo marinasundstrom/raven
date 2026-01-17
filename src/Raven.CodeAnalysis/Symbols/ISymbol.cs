@@ -277,7 +277,7 @@ public interface IMethodSymbol : ISymbol
     bool IsGenericMethod { get; }
     bool IsOverride { get; }
     bool IsReadOnly { get; }
-    bool IsSealed { get; }
+    bool IsFinal { get; }
     bool IsVirtual { get; }
     bool IsIterator { get; }
     IteratorMethodKind IteratorKind { get; }
@@ -553,6 +553,7 @@ public interface INamedTypeSymbol : ITypeSymbol
     ITypeSymbol? ConstructedFrom { get; }
     bool IsAbstract { get; }
     bool IsSealed { get; }
+    bool IsOpen => !IsSealed;
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
 

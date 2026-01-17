@@ -410,7 +410,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public bool IsReadOnly => false;
 
-        public bool IsSealed => false;
+        public bool IsFinal => false;
 
         public bool IsVirtual => false;
 

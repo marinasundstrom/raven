@@ -219,7 +219,7 @@ public static class SymbolExtensions
                 AppendBooleanProperty(builder, "IsAsync", methodSymbol.IsAsync);
                 AppendBooleanProperty(builder, "IsOverride", methodSymbol.IsOverride);
                 AppendBooleanProperty(builder, "IsVirtual", methodSymbol.IsVirtual);
-                AppendBooleanProperty(builder, "IsSealed", methodSymbol.IsSealed);
+                AppendBooleanProperty(builder, "IsSealed", methodSymbol.IsFinal);
                 AppendBooleanProperty(builder, "IsExtensionMethod", methodSymbol.IsExtensionMethod);
                 if (methodSymbol.ExplicitInterfaceImplementations.Length > 0)
                     AppendSequence(builder, "ExplicitInterfaceImplementations", methodSymbol.ExplicitInterfaceImplementations.Select(tp => tp.ToDisplayString(displayFormat)));

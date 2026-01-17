@@ -1235,7 +1235,7 @@ public static partial class SymbolExtensions
                         parts.Add("abstract");
 
                     // C#-style: final override
-                    if (method.IsSealed && method.IsOverride)
+                    if (method.IsFinal && method.IsOverride)
                         parts.Add("final");
 
                     if (method.IsVirtual)

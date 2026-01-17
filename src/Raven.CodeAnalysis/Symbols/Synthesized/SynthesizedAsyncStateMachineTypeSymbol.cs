@@ -47,7 +47,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         Compilation = compilation;
         AsyncMethod = asyncMethod ?? throw new ArgumentNullException(nameof(asyncMethod));
 
-        ( 
+        (
             _asyncToStateTypeParameterMap,
             _stateToAsyncTypeParameterMap,
             _typeParameterMappings) = InitializeTypeParameters(asyncMethod);
@@ -1119,7 +1119,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         public bool IsReadOnly => _original.IsReadOnly;
 
-        public bool IsSealed => _original.IsSealed;
+        public bool IsFinal => _original.IsFinal;
 
         public bool IsVirtual => _original.IsVirtual;
 

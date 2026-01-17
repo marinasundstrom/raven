@@ -129,7 +129,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsGenericMethod => _definition.IsGenericMethod;
     public bool IsOverride => _definition.IsOverride;
     public bool IsReadOnly => _definition.IsReadOnly;
-    public bool IsSealed => _definition.IsSealed;
+    public bool IsFinal => _definition.IsFinal;
     public bool IsVirtual => _definition.IsVirtual;
     public bool IsIterator => _definition.IsIterator;
     public IteratorMethodKind IteratorKind => _definition.IteratorKind;

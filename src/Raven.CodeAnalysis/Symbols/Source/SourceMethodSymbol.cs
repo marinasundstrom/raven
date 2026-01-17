@@ -143,7 +143,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsReadOnly { get; }
 
-    public bool IsSealed => _isSealed;
+    public bool IsFinal => _isSealed;
 
     public bool IsVirtual => _isVirtual;
 

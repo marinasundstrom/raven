@@ -279,7 +279,7 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 
     public bool IsReadOnly => _method.IsReadOnly;
 
-    public bool IsSealed => _method.IsSealed;
+    public bool IsFinal => _method.IsFinal;
 
     public bool IsVirtual => _method.IsVirtual;
 

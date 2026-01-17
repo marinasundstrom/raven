@@ -309,7 +309,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         (_methodInfo as MethodInfo)?.ReturnParameter?.GetRequiredCustomModifiers()
             .Contains(typeof(IsReadOnlyAttribute)) == true;
 
-    public bool IsSealed =>
+    public bool IsFinal =>
         (_methodInfo as MethodInfo)?.IsFinal == true &&
         (_methodInfo as MethodInfo)?.IsVirtual == true;
 
