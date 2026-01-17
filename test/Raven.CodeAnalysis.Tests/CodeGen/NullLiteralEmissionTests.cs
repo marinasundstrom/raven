@@ -115,4 +115,41 @@ class C {
         Assert.Contains(OpCodes.Initobj, opcodes);
         Assert.DoesNotContain(OpCodes.Ldnull, opcodes);
     }
+
+    [Fact]
+    public void NullableReference_LocalInitializedWithNull_DoesNotBox()
+    {
+        const string code = """
+class C {
+    Run() -> Action<int>? {
+        val f: Action<int>? = null
+        return f
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("C", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+
+        var value = method.Invoke(instance, Array.Empty<object?>());
+
+        Assert.Null(value);
+
+        var opcodes = ILReader.GetOpCodes(method);
+        Assert.Contains(OpCodes.Ldnull, opcodes);
+        Assert.DoesNotContain(OpCodes.Box, opcodes);
+    }
 }

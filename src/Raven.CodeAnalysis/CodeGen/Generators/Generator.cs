@@ -212,6 +212,9 @@ internal abstract class Generator
         var fromClrType = ResolveClrType(from);
         var toClrType = ResolveClrType(to);
 
+        if (from.TypeKind == TypeKind.Null && conversion.IsReference)
+            return;
+
         if (conversion.IsUserDefined && !conversion.IsLifted && conversion.MethodSymbol is IMethodSymbol userDefinedMethod)
         {
             var parameterType = userDefinedMethod.Parameters[0].Type;
