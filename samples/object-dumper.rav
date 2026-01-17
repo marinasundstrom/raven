@@ -12,11 +12,12 @@ obj.AddRange([2, 3])
 val obj = StringBuilder()
 obj.AppendLine("test")
 
-Dumper.Dump(obj)
+obj.Dump()
 
-public class Dumper {
-    public static Dump<T>(obj: T) {
-        val type = typeof(T)
+extension Dumper<T> for T {
+    public Dump() -> () {
+        val type = self.GetType()
+        val obj = self
         if obj is IEnumerable ex {
             WriteLine("[${string.Join(", ", ex.OfType<object>())}]")
         } else {
