@@ -491,8 +491,9 @@ internal class NameSyntaxParser : SyntaxParser
                 nameColon = NameColon(IdentifierName(name), colon);
             }
 
+            var startPosition = Position;
             var type = ParseTypeName();
-            if (type is null)
+            if (type is null || type.IsMissing || Position == startPosition)
                 break;
 
             elements.Add(TupleElement(nameColon, type));

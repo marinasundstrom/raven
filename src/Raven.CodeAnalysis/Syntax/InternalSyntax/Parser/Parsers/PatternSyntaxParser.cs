@@ -514,6 +514,9 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         constantPattern = null!;
 
+        if (LooksLikeTypePatternStart())
+            return false;
+
         // Speculative parse to avoid stealing input from other pattern forms.
         var checkpoint = CreateCheckpoint("constant-pattern");
 
@@ -538,6 +541,13 @@ internal class PatternSyntaxParser : SyntaxParser
         // static field, etc. If it binds to a type, it can be interpreted as a type/declaration pattern.
         constantPattern = ConstantPattern(expr);
         return true;
+    }
+
+    private bool LooksLikeTypePatternStart()
+    {
+        var next = PeekToken(1);
+        return next.IsKind(SyntaxKind.OpenParenToken) ||
+            next.IsKind(SyntaxKind.OpenBraceToken);
     }
 
     private static bool IsValidConstantPatternExpression(ExpressionSyntax expression)
