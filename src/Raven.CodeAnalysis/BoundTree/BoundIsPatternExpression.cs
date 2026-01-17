@@ -385,7 +385,7 @@ internal partial class BlockBinder
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
             ConstantPatternSyntax constant => BindConstantPattern(constant, inputType),
             VariablePatternSyntax variable => BindVariablePattern(variable, inputType),
-            DeclarationPatternSyntax d => BindDeclarationPattern(d),
+            DeclarationPatternSyntax d => BindDeclarationPattern(d, inputType),
             PositionalPatternSyntax t => BindPositionalPattern(t, inputType),
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
@@ -564,8 +564,10 @@ internal partial class BlockBinder
         return new BoundConstantPattern(expression);
     }
 
-    private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)
+    private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax, ITypeSymbol? inputType)
     {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
         var type = BindTypeSyntax(syntax.Type);
 
         BoundDesignator designator = syntax.Designation switch
@@ -584,6 +586,17 @@ internal partial class BlockBinder
         if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType } &&
             designator is BoundDiscardDesignator)
         {
+            var literalConversion = Compilation.ClassifyConversion(literalType, inputType);
+            if (!literalConversion.Exists)
+            {
+                _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                    literalType.Name,
+                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.Type.GetLocation());
+
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+            }
+
             return new BoundConstantPattern(literalType);
         }
 
