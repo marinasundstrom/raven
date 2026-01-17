@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Microsoft.CodeAnalysis;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -16,7 +17,7 @@ public class PatternAssignmentSemanticTests : DiagnosticTestBase
     public void LetTuplePatternAssignment_BindsLocals()
     {
         const string source = """
-let (first, second, _) = (1, 2, 3)
+val (first, second, _) = (1, 2, 3)
 first + second
 """;
 
@@ -137,7 +138,7 @@ first + second
     public void TuplePatternAssignment_ToImmutableLocal_ReportsDiagnostic()
     {
         const string source = """
-let first = 0
+val first = 0
 var second = 0
 (first, second) = (1, 2)
 """;
@@ -260,7 +261,7 @@ var (first: double, second, _) = (1, 2, 3)
     public void MixedTuplePatternAssignment_BindsNestedPatterns()
     {
         const string source = """
-(let first, var second: double, _) = (1, 2, 3)
+(val first, var second: double, _) = (1, 2, 3)
 second = 4.5
 """;
 
@@ -306,7 +307,7 @@ second = 4.5
     public void TuplePatternAssignment_NonTupleRight_ReportsDiagnostic()
     {
         const string source = """
-let (first, second, _) = 1
+val (first, second, _) = 1
 """;
 
         var verifier = CreateVerifier(
@@ -324,7 +325,7 @@ let (first, second, _) = 1
     public void TuplePatternAssignment_ArityMismatch_ReportsDiagnostic()
     {
         const string source = """
-let (first, second, third) = (1, 2)
+val (first, second, third) = (1, 2)
 """;
 
         var verifier = CreateVerifier(

@@ -33,18 +33,18 @@ let result = true match {
     public void MatchExpression_DiscardArmCanBeSpecific_ReportsDiagnostic()
     {
         const string code = """
+val value: State = .Idle
+
+val result = value match {
+    .Idle => 0
+    .Running => 1
+    _ => 2
+}
+
 enum State {
     Idle,
     Running,
     Done
-}
-
-let value: State = .Idle
-
-let result = value match {
-    .Idle => 0
-    .Running => 1
-    _ => 2
 }
 """;
 
