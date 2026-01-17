@@ -1960,7 +1960,7 @@ internal static class AsyncLowerer
                             : new BoundOrPattern(left, right);
                     }
 
-                case BoundTuplePattern t:
+                case BoundPositionalPattern t:
                     {
                         var elems = t.Elements;
                         var changed = false;
@@ -1973,7 +1973,7 @@ internal static class AsyncLowerer
                             changed |= !ReferenceEquals(e, elems[i]);
                         }
 
-                        return changed ? new BoundTuplePattern(t.Type!, b.ToImmutable(), t.Reason) : t;
+                        return changed ? new BoundPositionalPattern(t.Type!, b.ToImmutable(), t.Reason) : t;
                     }
 
                 case BoundConstantPattern c:

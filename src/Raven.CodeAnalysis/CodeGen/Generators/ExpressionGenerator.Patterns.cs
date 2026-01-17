@@ -200,7 +200,7 @@ internal partial class ExpressionGenerator
 
             // These need object semantics in your implementation (isinst, ITuple, member lookup pipeline, etc.)
             case BoundDeclarationPattern:
-            case BoundTuplePattern:
+            case BoundPositionalPattern:
             case BoundDeconstructPattern:
             case BoundPropertyPattern:
             case BoundCasePattern:
@@ -535,7 +535,7 @@ internal partial class ExpressionGenerator
             throw new NotSupportedException("Unsupported binary pattern kind");
         }
 
-        if (pattern is BoundTuplePattern tuplePattern)
+        if (pattern is BoundPositionalPattern tuplePattern)
         {
             EnsureObjectOnStack(ref inputType);
 
@@ -828,15 +828,17 @@ internal partial class ExpressionGenerator
         }
 
         var parameters = deconstructPattern.DeconstructMethod.Parameters;
-        var argumentLocals = new IILocal[parameters.Length];
+        var parameterOffset = deconstructPattern.DeconstructMethod.IsExtensionMethod ? 1 : 0;
+        var parameterCount = parameters.Length - parameterOffset;
+        var argumentLocals = new IILocal[parameterCount];
 
-        for (var i = 0; i < parameters.Length; i++)
+        for (var i = 0; i < parameterCount; i++)
         {
-            var parameterClrType = ResolveClrType(parameters[i].Type);
+            var parameterClrType = ResolveClrType(parameters[i + parameterOffset].Type);
             argumentLocals[i] = ILGenerator.DeclareLocal(parameterClrType);
         }
 
-        if (receiverType.IsValueType)
+        if (!deconstructPattern.DeconstructMethod.IsExtensionMethod && receiverType.IsValueType)
             ILGenerator.Emit(OpCodes.Ldloca, receiverLocal);
         else
             ILGenerator.Emit(OpCodes.Ldloc, receiverLocal);
@@ -844,13 +846,15 @@ internal partial class ExpressionGenerator
         for (var i = 0; i < argumentLocals.Length; i++)
             ILGenerator.Emit(OpCodes.Ldloca, argumentLocals[i]);
 
-        var callOpCode = receiverType.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
+        var callOpCode = deconstructPattern.DeconstructMethod.IsExtensionMethod
+            ? OpCodes.Call
+            : receiverType.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
         ILGenerator.Emit(callOpCode, GetMethodInfo(deconstructPattern.DeconstructMethod));
 
-        for (var i = 0; i < parameters.Length; i++)
+        for (var i = 0; i < parameterCount; i++)
         {
             ILGenerator.Emit(OpCodes.Ldloc, argumentLocals[i]);
-            EmitPattern(deconstructPattern.Arguments[i], parameters[i].Type, scope);
+            EmitPattern(deconstructPattern.Arguments[i], parameters[i + parameterOffset].Type, scope);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
         }
 

@@ -658,12 +658,12 @@
     <Slot Name="Type" Type="Type" />
     <Slot Name="Designation" Type="VariableDesignation" />
   </Node>
-  <Node Name="TuplePattern" Inherits="Pattern">
+  <Node Name="PositionalPattern" Inherits="Pattern">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
-    <Slot Name="Elements" Type="SeparatedList" ElementType="TuplePatternElement" />
+    <Slot Name="Elements" Type="SeparatedList" ElementType="PositionalPatternElement" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
-  <Node Name="TuplePatternElement" Inherits="Node">
+  <Node Name="PositionalPatternElement" Inherits="Node">
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>

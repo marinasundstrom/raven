@@ -1763,7 +1763,7 @@ partial class BlockBinder : Binder
 
                     return;
                 }
-            case BoundTuplePattern tuplePattern:
+            case BoundPositionalPattern tuplePattern:
                 {
                     var tuplePatternType = UnwrapAlias(tuplePattern.Type);
 
@@ -1780,7 +1780,7 @@ partial class BlockBinder : Binder
                         return;
                     }
 
-                    if (patternSyntax is TuplePatternSyntax tupleSyntax)
+                    if (patternSyntax is PositionalPatternSyntax tupleSyntax)
                     {
                         var elementTypes = GetTupleElementTypes(scrutineeType);
 
@@ -2119,7 +2119,7 @@ partial class BlockBinder : Binder
             case BoundOrPattern orPattern:
                 return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
                        IsCatchAllPattern(scrutineeType, orPattern.Right);
-            case BoundTuplePattern tuplePattern:
+            case BoundPositionalPattern tuplePattern:
                 {
                     var elementTypes = GetTupleElementTypes(scrutineeType);
 
@@ -2273,7 +2273,7 @@ partial class BlockBinder : Binder
 
                     return IsAssignable(declaredType, inputType, out _);
                 }
-            case BoundTuplePattern tuplePattern:
+            case BoundPositionalPattern tuplePattern:
                 {
                     var elementTypes = GetTupleElementTypes(inputType);
 
@@ -2403,7 +2403,7 @@ partial class BlockBinder : Binder
                 RemoveCoveredUnionMembers(remaining, orPattern.Left, literalCoverage);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
                 break;
-            case BoundTuplePattern tuplePattern:
+            case BoundPositionalPattern tuplePattern:
                 RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
                 break;
         }
@@ -5240,7 +5240,7 @@ partial class BlockBinder : Binder
         BoundPattern bound = patternSyntax switch
         {
             VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType),
-            TuplePatternSyntax tuplePattern => BindTuplePatternForAssignment(tuplePattern, valueType),
+            PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType),
             DiscardPatternSyntax => new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType),
             DeclarationPatternSyntax declaration => BindDeclarationPatternForAssignment(declaration, valueType, node),
             _ => Misc(node)
@@ -5331,10 +5331,17 @@ partial class BlockBinder : Binder
         return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
     }
 
-    private BoundPattern BindTuplePatternForAssignment(TuplePatternSyntax pattern, ITypeSymbol valueType)
+    private BoundPattern BindPositionalPatternForAssignment(PositionalPatternSyntax pattern, ITypeSymbol valueType)
     {
         var elements = pattern.Elements;
         var elementCount = elements.Count;
+
+        if (valueType.TypeKind != TypeKind.Error)
+        {
+            var deconstructMethod = FindDeconstructMethod(valueType, elementCount);
+            if (deconstructMethod is not null)
+                return BindDeconstructPatternForAssignment(elements, deconstructMethod, valueType);
+        }
 
         var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
         if (valueType.TypeKind != TypeKind.Error)
@@ -5344,7 +5351,7 @@ partial class BlockBinder : Binder
         {
             if (elementCount > 0 && valueType.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportTupleDeconstructionRequiresTupleType(
+                _diagnostics.ReportPositionalDeconstructionRequiresDeconstructableType(
                     GetPatternTypeDisplay(valueType),
                     pattern.GetLocation());
             }
@@ -5356,7 +5363,7 @@ partial class BlockBinder : Binder
         }
         else if (elementTypes.Length != elementCount)
         {
-            _diagnostics.ReportTupleDeconstructionElementCountMismatch(
+            _diagnostics.ReportPositionalDeconstructionElementCountMismatch(
                 elementCount,
                 elementTypes.Length,
                 pattern.GetLocation());
@@ -5393,7 +5400,7 @@ partial class BlockBinder : Binder
         }
 
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
-        return new BoundTuplePattern(tupleType, boundElements.ToImmutable());
+        return new BoundPositionalPattern(tupleType, boundElements.ToImmutable());
     }
 
     private BoundPattern BindVariableDesignationForAssignment(
@@ -5469,6 +5476,13 @@ partial class BlockBinder : Binder
         var variables = parenthesized.Variables;
         var elementCount = variables.Count;
 
+        if (valueType.TypeKind != TypeKind.Error)
+        {
+            var deconstructMethod = FindDeconstructMethod(valueType, elementCount);
+            if (deconstructMethod is not null)
+                return BindDeconstructPatternForAssignment(variables, deconstructMethod, valueType, isMutable);
+        }
+
         var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
         if (valueType.TypeKind != TypeKind.Error)
             elementTypes = GetTupleElementTypes(valueType);
@@ -5477,7 +5491,7 @@ partial class BlockBinder : Binder
         {
             if (elementCount > 0 && valueType.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportTupleDeconstructionRequiresTupleType(
+                _diagnostics.ReportPositionalDeconstructionRequiresDeconstructableType(
                     GetPatternTypeDisplay(valueType),
                     parenthesized.GetLocation());
             }
@@ -5489,7 +5503,7 @@ partial class BlockBinder : Binder
         }
         else if (elementTypes.Length != elementCount)
         {
-            _diagnostics.ReportTupleDeconstructionElementCountMismatch(
+            _diagnostics.ReportPositionalDeconstructionElementCountMismatch(
                 elementCount,
                 elementTypes.Length,
                 parenthesized.GetLocation());
@@ -5526,7 +5540,82 @@ partial class BlockBinder : Binder
         }
 
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
-        return new BoundTuplePattern(tupleType, boundElements.ToImmutable());
+        return new BoundPositionalPattern(tupleType, boundElements.ToImmutable());
+    }
+
+    private BoundPattern BindDeconstructPatternForAssignment(
+        SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
+        IMethodSymbol deconstructMethod,
+        ITypeSymbol valueType)
+    {
+        var fallbackLocation = elements.Count > 0 ? elements[0].GetLocation() : Location.None;
+        var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
+        var parameters = deconstructMethod.Parameters;
+        var parameterCount = parameters.Length - parameterOffset;
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(parameterCount);
+        var elementCount = Math.Min(elements.Count, parameterCount);
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var elementSyntax = elements[i];
+            var expectedType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, elementSyntax.GetLocation());
+            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, expectedType, elementSyntax.Pattern);
+            boundElements.Add(boundElement);
+        }
+
+        for (var i = elementCount; i < parameterCount; i++)
+        {
+            var parameterType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, fallbackLocation);
+            boundElements.Add(new BoundDiscardPattern(parameterType, BoundExpressionReason.TypeMismatch));
+        }
+
+        for (var i = elementCount; i < elements.Count; i++)
+            _ = BindPatternForAssignment(elements[i].Pattern, Compilation.ErrorTypeSymbol, elements[i].Pattern);
+
+        return new BoundDeconstructPattern(
+            inputType: valueType,
+            receiverType: GetDeconstructReceiverType(deconstructMethod),
+            narrowedType: null,
+            deconstructMethod: deconstructMethod,
+            arguments: boundElements.ToImmutable());
+    }
+
+    private BoundPattern BindDeconstructPatternForAssignment(
+        SeparatedSyntaxList<VariableDesignationSyntax> designations,
+        IMethodSymbol deconstructMethod,
+        ITypeSymbol valueType,
+        bool isMutable)
+    {
+        var fallbackLocation = designations.Count > 0 ? designations[0].GetLocation() : Location.None;
+        var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
+        var parameters = deconstructMethod.Parameters;
+        var parameterCount = parameters.Length - parameterOffset;
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(parameterCount);
+        var elementCount = Math.Min(designations.Count, parameterCount);
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var variable = designations[i];
+            var expectedType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, variable.GetLocation());
+            var boundElement = BindVariableDesignationForAssignment(variable, expectedType, isMutable);
+            boundElements.Add(boundElement);
+        }
+
+        for (var i = elementCount; i < parameterCount; i++)
+        {
+            var parameterType = EnsureTypeAccessible(parameters[i + parameterOffset].Type, fallbackLocation);
+            boundElements.Add(new BoundDiscardPattern(parameterType, BoundExpressionReason.TypeMismatch));
+        }
+
+        for (var i = elementCount; i < designations.Count; i++)
+            _ = BindVariableDesignationForAssignment(designations[i], Compilation.ErrorTypeSymbol, isMutable);
+
+        return new BoundDeconstructPattern(
+            inputType: valueType,
+            receiverType: GetDeconstructReceiverType(deconstructMethod),
+            narrowedType: null,
+            deconstructMethod: deconstructMethod,
+            arguments: boundElements.ToImmutable());
     }
 
     private ILocalSymbol DeclarePatternLocal(

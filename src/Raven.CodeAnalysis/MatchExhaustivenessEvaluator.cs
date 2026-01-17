@@ -89,7 +89,7 @@ internal sealed class MatchExhaustivenessEvaluator
             case BoundOrPattern orPattern:
                 return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
                        IsCatchAllPattern(scrutineeType, orPattern.Right);
-            case BoundTuplePattern tuplePattern:
+            case BoundPositionalPattern tuplePattern:
                 {
                     var elementTypes = GetTupleElementTypes(scrutineeType);
 
@@ -305,7 +305,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
                     return IsAssignable(declaredType, inputType);
                 }
-            case BoundTuplePattern tuplePattern:
+            case BoundPositionalPattern tuplePattern:
                 {
                     var elementTypes = GetTupleElementTypes(inputType);
 
@@ -351,9 +351,11 @@ internal sealed class MatchExhaustivenessEvaluator
                     }
 
                     var parameters = deconstructPattern.DeconstructMethod.Parameters;
-                    for (var i = 0; i < parameters.Length; i++)
+                    var parameterOffset = deconstructPattern.DeconstructMethod.IsExtensionMethod ? 1 : 0;
+                    var parameterCount = parameters.Length - parameterOffset;
+                    for (var i = 0; i < parameterCount; i++)
                     {
-                        if (!IsTotalPattern(parameters[i].Type, deconstructPattern.Arguments[i]))
+                        if (!IsTotalPattern(parameters[i + parameterOffset].Type, deconstructPattern.Arguments[i]))
                             return false;
                     }
 
@@ -450,7 +452,7 @@ internal sealed class MatchExhaustivenessEvaluator
                 RemoveCoveredUnionMembers(remaining, orPattern.Left, literalCoverage);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
                 break;
-            case BoundTuplePattern tuplePattern:
+            case BoundPositionalPattern tuplePattern:
                 RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
                 break;
         }

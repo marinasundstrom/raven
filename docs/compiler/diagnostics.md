@@ -124,7 +124,7 @@ let x: int // RAV0166
 ```
 
 ## RAV0167: Variable already defined
-Declared two variables with the same name as part of a single declaration (for example, within a tuple deconstruction).
+Declared two variables with the same name as part of a single declaration (for example, within a positional deconstruction).
 
 ```raven
 let (x, x) = getPair() // RAV0167

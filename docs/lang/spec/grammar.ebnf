@@ -317,7 +317,7 @@ PrimaryPattern           ::= ParenthesizedPattern
                            | ConstantPattern
                            | VariablePattern
                            | DeclarationPattern
-                           | TuplePattern
+                           | PositionalPattern
                            | DiscardPattern
                            | MemberPattern
                            | RecordPattern
@@ -344,13 +344,13 @@ VariablePattern          ::= BindingKeyword VariableDesignation ;
    when the identifier resolves to a value symbol in scope; otherwise it is treated as a type. *)
 DeclarationPattern       ::= Type [VariableDesignation] ;
 
-TuplePattern             ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;
-PatternElement           ::= [TuplePatternElementDesignation] Pattern ;
+PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;
+PatternElement           ::= [PositionalPatternElementDesignation] Pattern ;
 
-(* Tuple element designations introduce a new binding for the element.
+(* Positional element designations introduce a new binding for the element.
    To avoid ambiguity with value/constant patterns, the binding keyword is required.
    For example: (val a: bool, _) is permitted, but (a: bool, _) is an error. *)
-TuplePatternElementDesignation
+PositionalPatternElementDesignation
                          ::= BindingKeyword Identifier ':' ;
 
 DiscardPattern           ::= '_' | Type '_' ;
