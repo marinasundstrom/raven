@@ -1284,14 +1284,14 @@ internal sealed class ConstantPatternOperation : PatternOperation, IConstantPatt
     public object ConstantValue => _bound.ConstantValue;
 }
 
-internal sealed class TuplePatternOperation : PatternOperation, ITuplePatternOperation
+internal sealed class PositionalPatternOperation : PatternOperation, IPositionalPatternOperation
 {
-    internal TuplePatternOperation(
+    internal PositionalPatternOperation(
         SemanticModel semanticModel,
-        BoundTuplePattern bound,
+        BoundPositionalPattern bound,
         SyntaxNode syntax,
         bool isImplicit)
-        : base(semanticModel, OperationKind.TuplePattern, syntax, bound.Type, isImplicit)
+        : base(semanticModel, OperationKind.PositionalPattern, syntax, bound.Type, isImplicit)
     {
     }
 }

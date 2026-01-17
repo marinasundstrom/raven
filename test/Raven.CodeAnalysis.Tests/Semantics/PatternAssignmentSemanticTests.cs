@@ -14,7 +14,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class PatternAssignmentSemanticTests : DiagnosticTestBase
 {
     [Fact]
-    public void LetTuplePatternAssignment_BindsLocals()
+    public void LetPositionalPatternAssignment_BindsLocals()
     {
         const string source = """
 val (first, second, _) = (1, 2, 3)
@@ -37,7 +37,7 @@ first + second
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
         var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
-        var tuplePattern = Assert.IsType<BoundTuplePattern>(patternAssignment.Pattern);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
 
         Assert.Equal(3, tuplePattern.Elements.Length);
 
@@ -87,7 +87,7 @@ first + second
     }
 
     [Fact]
-    public void TuplePatternAssignment_WithExistingLocals_ReusesBindings()
+    public void PositionalPatternAssignment_WithExistingLocals_ReusesBindings()
     {
         const string source = """
 var first = 0
@@ -121,7 +121,7 @@ first + second
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
         var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
-        var tuplePattern = Assert.IsType<BoundTuplePattern>(patternAssignment.Pattern);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
 
         Assert.Equal(2, tuplePattern.Elements.Length);
 
@@ -135,7 +135,7 @@ first + second
     }
 
     [Fact]
-    public void TuplePatternAssignment_ToImmutableLocal_ReportsDiagnostic()
+    public void PositionalPatternAssignment_ToImmutableLocal_ReportsDiagnostic()
     {
         const string source = """
 val first = 0
@@ -154,7 +154,7 @@ var second = 0
     }
 
     [Fact]
-    public void TuplePatternAssignment_WithExistingLocals_TypeMismatch_ReportsDiagnostic()
+    public void PositionalPatternAssignment_WithExistingLocals_TypeMismatch_ReportsDiagnostic()
     {
         const string source = """
 var first = 0
@@ -177,7 +177,7 @@ var second = 0
     }
 
     [Fact]
-    public void TuplePatternAssignment_AfterMultilineInitializer_ParsesCorrectly()
+    public void PositionalPatternAssignment_AfterMultilineInitializer_ParsesCorrectly()
     {
         const string source = """
 var tuple =
@@ -207,13 +207,13 @@ first + second
         var tupleAssignment = assignmentStatements[1];
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(tupleAssignment));
         var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
-        var tuplePattern = Assert.IsType<BoundTuplePattern>(patternAssignment.Pattern);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
 
         Assert.Equal(2, tuplePattern.Elements.Length);
     }
 
     [Fact]
-    public void VarTuplePatternAssignment_WithTypedDesignation_UsesDeclaredTypes()
+    public void VarPositionalPatternAssignment_WithTypedDesignation_UsesDeclaredTypes()
     {
         const string source = """
 var (first: double, second, _) = (1, 2, 3)
@@ -235,7 +235,7 @@ var (first: double, second, _) = (1, 2, 3)
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
         var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
-        var tuplePattern = Assert.IsType<BoundTuplePattern>(patternAssignment.Pattern);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
 
         Assert.Equal(3, tuplePattern.Elements.Length);
 
@@ -258,7 +258,7 @@ var (first: double, second, _) = (1, 2, 3)
     }
 
     [Fact]
-    public void MixedTuplePatternAssignment_BindsNestedPatterns()
+    public void MixedPositionalPatternAssignment_BindsNestedPatterns()
     {
         const string source = """
 (val first, var second: double, _) = (1, 2, 3)
@@ -281,7 +281,7 @@ second = 4.5
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
         var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
-        var tuplePattern = Assert.IsType<BoundTuplePattern>(patternAssignment.Pattern);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
 
         Assert.Equal(3, tuplePattern.Elements.Length);
 
@@ -304,7 +304,7 @@ second = 4.5
     }
 
     [Fact]
-    public void TuplePatternAssignment_NonTupleRight_ReportsDiagnostic()
+    public void PositionalPatternAssignment_NonTupleRight_ReportsDiagnostic()
     {
         const string source = """
 val (first, second, _) = 1
@@ -313,7 +313,7 @@ val (first, second, _) = 1
         var verifier = CreateVerifier(
             source,
             [
-                new DiagnosticResult(CompilerDiagnostics.TupleDeconstructionRequiresTupleType.Id)
+                new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionRequiresDeconstructableType.Id)
                     .WithSpan(1, 5, 1, 23)
                     .WithArguments("int")
             ]);
@@ -322,7 +322,7 @@ val (first, second, _) = 1
     }
 
     [Fact]
-    public void TuplePatternAssignment_ArityMismatch_ReportsDiagnostic()
+    public void PositionalPatternAssignment_ArityMismatch_ReportsDiagnostic()
     {
         const string source = """
 val (first, second, third) = (1, 2)
@@ -331,11 +331,51 @@ val (first, second, third) = (1, 2)
         var verifier = CreateVerifier(
             source,
             [
-                new DiagnosticResult(CompilerDiagnostics.TupleDeconstructionElementCountMismatch.Id)
+                new DiagnosticResult(CompilerDiagnostics.PositionalDeconstructionElementCountMismatch.Id)
                     .WithSpan(1, 5, 1, 27)
                     .WithArguments(3, 2)
             ]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void PositionalPatternAssignment_UsesExtensionDeconstruct()
+    {
+        const string source = """
+class Widget {}
+
+extension WidgetExtensions for Widget {
+    Deconstruct(out var first: &int, out var second: &string) -> unit {
+        first = 1
+        second = "ok"
+    }
+}
+
+let widget = Widget()
+val (first, second) = widget
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Last();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var deconstructPattern = Assert.IsType<BoundDeconstructPattern>(patternAssignment.Pattern);
+
+        Assert.True(deconstructPattern.DeconstructMethod.IsExtensionMethod);
+        Assert.Equal("Deconstruct", deconstructPattern.DeconstructMethod.Name);
+        Assert.Equal(2, deconstructPattern.Arguments.Length);
     }
 }

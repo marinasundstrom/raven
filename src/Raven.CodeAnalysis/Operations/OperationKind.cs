@@ -296,9 +296,9 @@ public enum OperationKind
     ConstantPattern,
 
     /// <summary>
-    /// A tuple pattern.
+    /// A positional pattern.
     /// </summary>
-    TuplePattern,
+    PositionalPattern,
 
     /// <summary>
     /// A discard pattern.

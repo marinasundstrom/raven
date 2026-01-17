@@ -364,7 +364,7 @@ public interface IConstantPatternOperation : IPatternOperation
     object ConstantValue { get; }
 }
 
-public interface ITuplePatternOperation : IPatternOperation
+public interface IPositionalPatternOperation : IPatternOperation
 {
 }
 

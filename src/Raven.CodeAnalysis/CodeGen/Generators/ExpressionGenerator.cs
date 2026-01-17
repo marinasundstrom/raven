@@ -1776,8 +1776,12 @@ internal partial class ExpressionGenerator : Generator
 
         switch (pattern)
         {
-            case BoundTuplePattern tuplePattern:
-                EmitTuplePatternAssignment(tuplePattern, valueLocal, valueType);
+            case BoundPositionalPattern tuplePattern:
+                EmitPositionalPatternAssignment(tuplePattern, valueLocal, valueType);
+                break;
+
+            case BoundDeconstructPattern deconstructPattern:
+                EmitDeconstructPatternAssignment(deconstructPattern, valueLocal, valueType);
                 break;
 
             case BoundDeclarationPattern declarationPattern:
@@ -1792,7 +1796,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitTuplePatternAssignment(BoundTuplePattern tuplePattern, IILocal valueLocal, ITypeSymbol valueType)
+    private void EmitPositionalPatternAssignment(BoundPositionalPattern tuplePattern, IILocal valueLocal, ITypeSymbol valueType)
     {
         if (GetPatternValueType(valueType) is not ITupleTypeSymbol tupleType)
             return;
@@ -1825,6 +1829,54 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
 
             EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
+        }
+    }
+
+    private void EmitDeconstructPatternAssignment(BoundDeconstructPattern deconstructPattern, IILocal valueLocal, ITypeSymbol valueType)
+    {
+        var receiverType = deconstructPattern.ReceiverType;
+        var conversion = Compilation.ClassifyConversion(valueType, receiverType);
+        if (!conversion.Exists)
+            return;
+
+        var receiverClrType = ResolveClrType(receiverType);
+        var receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
+
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        EmitConversion(valueType, receiverType, conversion);
+        ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+
+        var parameters = deconstructPattern.DeconstructMethod.Parameters;
+        var parameterOffset = deconstructPattern.DeconstructMethod.IsExtensionMethod ? 1 : 0;
+        var parameterCount = parameters.Length - parameterOffset;
+        var argumentLocals = new IILocal[parameterCount];
+
+        for (var i = 0; i < parameterCount; i++)
+        {
+            var parameterClrType = ResolveClrType(parameters[i + parameterOffset].Type);
+            argumentLocals[i] = ILGenerator.DeclareLocal(parameterClrType);
+        }
+
+        if (!deconstructPattern.DeconstructMethod.IsExtensionMethod && receiverType.IsValueType)
+            ILGenerator.Emit(OpCodes.Ldloca, receiverLocal);
+        else
+            ILGenerator.Emit(OpCodes.Ldloc, receiverLocal);
+
+        for (var i = 0; i < argumentLocals.Length; i++)
+            ILGenerator.Emit(OpCodes.Ldloca, argumentLocals[i]);
+
+        var callOpCode = deconstructPattern.DeconstructMethod.IsExtensionMethod
+            ? OpCodes.Call
+            : receiverType.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
+        ILGenerator.Emit(callOpCode, GetMethodInfo(deconstructPattern.DeconstructMethod));
+
+        for (var i = 0; i < parameterCount; i++)
+        {
+            var elementPattern = deconstructPattern.Arguments[i];
+            if (elementPattern is BoundDiscardPattern)
+                continue;
+
+            EmitPatternAssignment(elementPattern, argumentLocals[i], parameters[i + parameterOffset].Type);
         }
     }
 

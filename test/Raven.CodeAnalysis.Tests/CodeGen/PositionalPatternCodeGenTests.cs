@@ -10,10 +10,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class TuplePatternCodeGenTests
+public class PositionalPatternCodeGenTests
 {
     [Fact]
-    public void MatchExpression_WithTuplePattern_EmitsSuccessfully()
+    public void MatchExpression_WithPositionalPattern_EmitsSuccessfully()
     {
         const string code = """
 import System.*
@@ -44,7 +44,7 @@ func Main() {
     }
 
     [Fact]
-    public void LetTuplePatternAssignment_EmitsSuccessfully()
+    public void LetPositionalPatternAssignment_EmitsSuccessfully()
     {
         const string code = """
 import System.*
@@ -69,7 +69,7 @@ func Main() {
     }
 
     [Fact]
-    public void TuplePatternAssignment_WithExistingLocals_EmitsSuccessfully()
+    public void PositionalPatternAssignment_WithExistingLocals_EmitsSuccessfully()
     {
         const string code = """
 import System.*
@@ -95,7 +95,7 @@ func Main() {
     }
 
     [Fact]
-    public void VarTuplePatternAssignment_EmitsSuccessfully()
+    public void VarPositionalPatternAssignment_EmitsSuccessfully()
     {
         const string code = """
 import System.*
@@ -119,7 +119,7 @@ func Main() {
     }
 
     [Fact]
-    public void MixedTuplePatternAssignment_EmitsSuccessfully()
+    public void MixedPositionalPatternAssignment_EmitsSuccessfully()
     {
         const string code = """
 import System.*

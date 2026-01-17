@@ -203,7 +203,7 @@ let result = value match {
     }
 
     [Fact]
-    public void MatchExpression_WithTuplePatternOnUnion_BindsElementDesignations()
+    public void MatchExpression_WithPositionalPatternOnUnion_BindsElementDesignations()
     {
         const string code = """
 let x: bool | (a: int, b: string) = false
@@ -230,7 +230,7 @@ let result = x match {
         var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
 
         var tupleArm = bound.Arms[1];
-        var tuplePattern = Assert.IsType<BoundTuplePattern>(tupleArm.Pattern);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(tupleArm.Pattern);
 
         Assert.Collection(tuplePattern.Elements,
             element =>
@@ -640,7 +640,7 @@ let result = input match {
     }
 
     [Fact]
-    public void MatchExpression_WithTuplePattern_BindsTupleElements()
+    public void MatchExpression_WithPositionalPattern_BindsTupleElements()
     {
         const string code = """
 let pair: object = (1, "two")
@@ -664,7 +664,7 @@ let result = pair match {
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
 
-        var tuplePattern = Assert.IsType<BoundTuplePattern>(boundMatch.Arms[0].Pattern);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(boundMatch.Arms[0].Pattern);
         Assert.Equal(2, tuplePattern.Elements.Length);
 
         var firstElement = Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[0]);
@@ -680,7 +680,7 @@ let result = pair match {
     }
 
     [Fact]
-    public void MatchExpression_WithTuplePatternLengthMismatch_ReportsDiagnostic()
+    public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsDiagnostic()
     {
         const string code = """
 let pair: (int, int) = (1, 2)

@@ -1,6 +1,8 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
@@ -118,7 +120,7 @@ let r = x match {
         Assert.Collection(
             match.Arms,
             first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
-            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
+            second => Assert.IsType<PositionalPatternSyntax>(second.Pattern));
     }
 
     [Fact]
@@ -138,7 +140,7 @@ let r = x match {
         Assert.Collection(
             match.Arms,
             first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
-            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
+            second => Assert.IsType<PositionalPatternSyntax>(second.Pattern));
     }
 
     [Fact]
@@ -157,7 +159,7 @@ let r = x match {
         Assert.Collection(
             match.Arms,
             first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
-            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
+            second => Assert.IsType<PositionalPatternSyntax>(second.Pattern));
     }
 
     [Fact]
@@ -177,7 +179,7 @@ let r = x match {
         Assert.Collection(
             match.Arms,
             first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
-            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
+            second => Assert.IsType<PositionalPatternSyntax>(second.Pattern));
     }
 
     private static (MatchArmSyntax Arm, SyntaxTree Tree) ParseFirstMatchArm(string patternText)

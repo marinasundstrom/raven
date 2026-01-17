@@ -69,7 +69,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            return ParseTuplePattern();
+            return ParsePositionalPattern();
         }
 
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
@@ -304,7 +304,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return VariablePattern(bindingKeyword, designation);
     }
 
-    private TuplePatternSyntax ParseTuplePattern()
+    private PositionalPatternSyntax ParsePositionalPattern()
     {
         var openParenToken = ReadToken();
 
@@ -312,18 +312,18 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            elementList.Add(ParseTuplePatternElement());
+            elementList.Add(ParsePositionalPatternElement());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
                 elementList.Add(commaToken);
-                elementList.Add(ParseTuplePatternElement());
+                elementList.Add(ParsePositionalPatternElement());
             }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return TuplePattern(openParenToken, List(elementList.ToArray()), closeParenToken);
+        return PositionalPattern(openParenToken, List(elementList.ToArray()), closeParenToken);
     }
 
     private MemberPatternSyntax ParseMemberPattern(TypeSyntax? qualifier, SyntaxToken dotToken)
@@ -447,7 +447,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return ParenthesizedVariableDesignation(openParenToken, List(elements.ToArray()), closeParenToken);
     }
 
-    private TuplePatternElementSyntax ParseTuplePatternElement()
+    private PositionalPatternElementSyntax ParsePositionalPatternElement()
     {
         NameColonSyntax? nameColon = null;
 
@@ -465,7 +465,7 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         var pattern = new PatternSyntaxParser(this).ParsePattern();
-        return TuplePatternElement(nameColon, pattern);
+        return PositionalPatternElement(nameColon, pattern);
     }
 
     private static bool IsRelationalPatternStart(SyntaxToken token)

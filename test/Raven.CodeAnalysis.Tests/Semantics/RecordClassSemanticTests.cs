@@ -90,7 +90,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void TuplePattern_UsesDeconstructWhenAvailable()
+    public void PositionalPattern_UsesDeconstructWhenAvailable()
     {
         var source = """
             record class Pair(Left: int, Right: int);
@@ -106,7 +106,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
 
-        var tuplePattern = tree.GetRoot().DescendantNodes().OfType<TuplePatternSyntax>().Single();
+        var tuplePattern = tree.GetRoot().DescendantNodes().OfType<PositionalPatternSyntax>().Single();
         var boundPattern = Assert.IsType<BoundDeconstructPattern>(model.GetBoundNode(tuplePattern));
 
         Assert.Equal(2, boundPattern.Arguments.Length);

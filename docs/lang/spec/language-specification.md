@@ -1240,7 +1240,7 @@ Patterns compose from the following primitives.
     `discountedProduct`.
   * `.Ok(val n)` binds the payload to a new immutable local `n`.
 
-  The same rule applies uniformly in tuple patterns and discriminated-union case
+  The same rule applies uniformly in positional patterns and discriminated-union case
   payloads.
 
 #### Discards
@@ -1287,16 +1287,18 @@ Patterns compose from the following primitives.
   Relational patterns are commonly used under `not`, `and`, and property patterns,
   e.g. `{ Age: not > 30 }`.
 
-#### Tuple patterns
+#### Positional patterns
 
-* `(element1, element2, …)` — **tuple pattern**. Matches when the scrutinee is a
-  tuple with the same arity and each element matches the corresponding subpattern.
+* `(element1, element2, …)` — **positional pattern**. Matches when the scrutinee
+  can be deconstructed positionally with the same arity (either as a tuple or via
+  a compatible `Deconstruct` method).
 
-  Tuple patterns destructure positionally. Each element is itself a pattern and
+  Positional patterns destructure by position. Each element is itself a pattern and
   may introduce bindings. For example:
 
-  * If the scrutinee type exposes a `Deconstruct` method with matching arity, the
-    tuple pattern uses that method to obtain positional values.
+  * If the scrutinee type exposes a `Deconstruct` method with matching arity
+    (including as an extension method), the positional pattern uses that method
+    to obtain positional values.
 
   * ✅ `(val a, val b)`
   * ✅ `(val a: int, val b: string)`
@@ -1304,7 +1306,7 @@ Patterns compose from the following primitives.
   * ❌ `(a, b)` — does **not** introduce bindings; both elements are treated as
     value patterns and must resolve to in-scope values.
 
-  A tuple element introduces a new binding **only** when an explicit binding
+  A positional element introduces a new binding **only** when an explicit binding
   keyword (`let`, `val`, or `var`) is present.
 
   An element may optionally include a name before the colon (`name: pattern`) to
@@ -2174,10 +2176,12 @@ Const applies to both local bindings and fields. Member declarations treat `cons
 fields as implicitly `static`; the value is emitted as metadata so other assemblies can
 import it without running an initializer.
 
-Tuple patterns let you bind or assign multiple values at once. The outer
-`let`/`var` controls the tuple's mutability, while each element uses a
+Positional deconstruction lets you bind or assign multiple values at once. The outer
+`let`/`var` controls the binding’s mutability, while each element uses a
 designation (possibly nested) to capture or discard the corresponding value.
-Elements may include inline type annotations.
+Elements may include inline type annotations. Positional deconstruction works with
+tuples and with any type that exposes a compatible `Deconstruct` method (including
+as an extension method).
 
 ```raven
 let (first, second, _) = (1, 2, 3)
@@ -2186,7 +2190,7 @@ var (head, tail: double, _) = numbers()
 (let lhs, var rhs: double, _) = evaluate()
 ```
 
-Existing locals can participate in tuple assignments alongside new
+Existing locals can participate in positional assignments alongside new
 bindings. Mixed `let`/`var` designations and inline type annotations are
 supported in both declarations and assignments:
 
@@ -2199,7 +2203,7 @@ let (third, fourth: double, _) = toTuple()
 var (let fifth, var sixth: double, _) = project()
 ```
 
-Use `_` to discard unwanted elements. Nested tuples work the same way:
+Use `_` to discard unwanted elements. Nested positional patterns work the same way:
 
 ```raven
 var ((x, y), let magnitude, _) = samples()
@@ -2209,7 +2213,7 @@ The discard identifier also appears in ordinary assignment statements. Writing
 `_ = Compute()` produces a discard assignment statement whose left-hand side is a
 dedicated discard expression. The assignment still evaluates the right-hand
 expression, but the result is ignored. Discard assignments follow the same rules
-as tuple assignment: they never declare a binding and may carry a type
+as positional assignment: they never declare a binding and may carry a type
 annotation when overload resolution needs guidance. `AssignmentStatementSyntax`
 exposes an `IsDiscard` helper when analyzers need to detect this pattern.
 
@@ -2632,7 +2636,7 @@ Lowest → highest (all left-associative unless noted):
 > * `(<expr>)` is a **parenthesized expression** unless a comma appears (including trailing), in which case it’s a **tuple**.
 > * `<` starts **type arguments** only in a **type context**; elsewhere it’s the less-than operator.
 > * The LHS of assignment must be either an **assignable expression** (identifier, member access, element access, etc.) or a
->   **pattern** such as a tuple deconstruction.
+>   **pattern** such as a positional deconstruction.
 
 ## Outstanding questions and suggested follow-ups
 

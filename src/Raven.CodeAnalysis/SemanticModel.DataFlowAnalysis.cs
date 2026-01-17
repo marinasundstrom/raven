@@ -169,7 +169,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
             case BoundDeclarationPattern declaration when declaration.Designator is BoundSingleVariableDesignator single:
                 Written.Add(single.Local);
                 break;
-            case BoundTuplePattern tuple:
+            case BoundPositionalPattern tuple:
                 foreach (var element in tuple.Elements)
                     CollectAssignedLocals(element);
                 break;
@@ -411,7 +411,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
             case BoundDeclarationPattern declaration when declaration.Designator is BoundSingleVariableDesignator single:
                 yield return single.Local;
                 yield break;
-            case BoundTuplePattern tuple:
+            case BoundPositionalPattern tuple:
                 foreach (var element in tuple.Elements)
                 {
                     foreach (var local in GetPatternLocals(element))

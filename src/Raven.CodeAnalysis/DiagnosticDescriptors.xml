@@ -49,13 +49,13 @@
     Title="The left-hand side of an assignment must be a variable, property or indexer"
     Message="The left-hand side of an assignment must be a variable, property or indexer"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0132" Identifier="TupleDeconstructionRequiresTupleType"
-    Title="Cannot deconstruct non-tuple type"
-    Message="Cannot deconstruct type '{typeName}' because it is not a tuple type"
+  <Descriptor Id="RAV0132" Identifier="PositionalDeconstructionRequiresDeconstructableType"
+    Title="Cannot deconstruct non-deconstructable type"
+    Message="Cannot deconstruct type '{typeName}' because it does not support positional deconstruction"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0133" Identifier="TupleDeconstructionElementCountMismatch"
-    Title="Deconstruction element count mismatch"
-    Message="Deconstruction pattern expects {expectedCount} element(s) but the right-hand side contains {actualCount}"
+  <Descriptor Id="RAV0133" Identifier="PositionalDeconstructionElementCountMismatch"
+    Title="Positional deconstruction element count mismatch"
+    Message="Positional deconstruction expects {expectedCount} element(s) but the target provides {actualCount}"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0134" Identifier="DiscardExpressionNotAllowed" Title="Discard is not a value"
     Message="The discard '_' cannot be used as a value" Category="compiler" Severity="Error"

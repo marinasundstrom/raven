@@ -1,13 +1,15 @@
 using System.Linq;
+
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
-public class TuplePatternSyntaxTests
+public class PositionalPatternSyntaxTests
 {
     [Fact]
-    public void MatchArm_WithTuplePattern_Parses()
+    public void MatchArm_WithPositionalPattern_Parses()
     {
         const string code = """
 let value: object = (1, "two")
@@ -21,7 +23,7 @@ let result = value match {
         var tree = SyntaxTree.ParseText(code);
         var match = tree.GetRoot().DescendantNodes().OfType<MatchArmSyntax>().First();
 
-        var tuplePattern = Assert.IsType<TuplePatternSyntax>(match.Pattern);
+        var tuplePattern = Assert.IsType<PositionalPatternSyntax>(match.Pattern);
         Assert.Equal(2, tuplePattern.Elements.Count);
 
         Assert.Collection(tuplePattern.Elements,
