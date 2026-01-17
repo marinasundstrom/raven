@@ -462,23 +462,22 @@ the `await` with the result of `GetResult()`.
 ### Try expressions
 
 `try expression` evaluates its operand and captures either the resulting value
-or an exception into a discriminated union. The operand must be any expression
-that is valid in the current context. The compiler assigns the `try` expression
-the union type formed by its operand type and `System.Exception`, enabling
-pattern matching on successful results versus failures. Nested `try`
-expressions are disallowed and produce `RAV1906`.
+or an exception into a `System.Result<T, System.Exception>`. The operand must be
+any expression that is valid in the current context. The compiler assigns the
+`try` expression the `Result` type whose `T` is the operand type (or `unit` when
+the operand produces no value), enabling pattern matching on successful results
+versus failures. Nested `try` expressions are disallowed and produce `RAV1906`.
 
 Execution enters a `try`/`catch` block that stores the operand’s value in a
 temporary. If evaluation completes without throwing, the temporary value is
-converted to the union’s result case and becomes the expression’s final value.
-If evaluation throws an exception, the runtime catches the `System.Exception`
-instance, converts it into the union’s exception case, and yields that value
-instead. The union conversions follow the same rules as other union expressions
-when targeting explicitly typed variables. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1007-L1022】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3118-L3156】
+wrapped in `.Ok(...)` and becomes the expression’s final value. If evaluation
+throws an exception, the runtime catches the `System.Exception` instance and
+wraps it in `.Error(...)` instead. When the operand’s value type is `unit`, the
+success case is still `.Ok(())`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1565-L1595】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3672-L3759】
 
 `await` may appear inside a `try` expression when used in an async method or
 lambda. The awaited result still flows to the success case, and exceptions
-propagate to the union's exception case without altering the `try` expression's
+propagate to the `Result`'s error case without altering the `try` expression's
 shape. 【F:test/Raven.CodeAnalysis.Tests/Semantics/ExceptionHandlingTests.cs†L89-L123】
 
 ### Cast expressions

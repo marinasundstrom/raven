@@ -316,8 +316,10 @@ internal sealed partial class BoundNodeFactory
     public BoundTryExpression CreateTryExpression(
         BoundExpression expression,
         ITypeSymbol exceptionType,
-        ITypeSymbol type)
-        => new(expression, exceptionType, type);
+        ITypeSymbol type,
+        IMethodSymbol okConstructor,
+        IMethodSymbol errorConstructor)
+        => new(expression, exceptionType, type, okConstructor, errorConstructor);
 
     public BoundTryStatement CreateTryStatement(
         BoundBlockStatement tryBlock,

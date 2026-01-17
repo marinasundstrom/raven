@@ -84,17 +84,17 @@ expression can appear, including as the scrutinee for `match` expressions or as
 part of larger expression trees. The operand may be a block expression, a method
 invocation, a conditional, and so on.
 
-The expression's type is the normalized union of the operand's value type and
-`System.Exception`. If the operand completes normally, its result is converted to
-the union and returned. If an exception escapes the operand, the expression
-instead yields the caught exception instance. This makes `try` expressions
-particularly useful with pattern matching:
+The expression's type is `System.Result<T, System.Exception>`, where `T` is the
+operand's value type (or `unit` if the operand produces no value). If the operand
+completes normally, its result is wrapped in `.Ok(...)` and returned. If an
+exception escapes the operand, the expression instead yields `.Error(exception)`.
+This makes `try` expressions particularly useful with pattern matching:
 
 ```raven
 let value = try int.Parse(input) match {
-    int no => $"No is {no}"
-    FormatException ex => $"Format invalid: {ex.Message}"
-    _ => "unknown"
+    .Ok(let no) => $"No is {no}"
+    .Error(FormatException ex) => $"Format invalid: {ex.Message}"
+    .Error(let ex) => $"Unexpected error: {ex.Message}"
 }
 ```
 
@@ -103,4 +103,4 @@ normal scope unwinding before control reaches the surrounding expression. A `try
 expression cannot attach `catch` or `finally` clauses; those constructs are
 reserved for the statement form. Additionally, `try` expressions cannot nest
 directly—`try try value` reports an error—both to avoid ambiguous typing and to
-encourage pattern matching over the union result.
+encourage pattern matching over the `Result` value.
