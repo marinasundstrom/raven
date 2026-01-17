@@ -1,7 +1,7 @@
 # Proposal: Discriminated unions
 
 > ✅ The syntax described here is implemented in the parser and semantic model
-> (including case pattern binding and exhaustiveness). Code generation lowers
+> (including member pattern binding and exhaustiveness). Code generation lowers
 > to implicit conversions and `TryGet*` helpers for the union cases.
 
 Discriminated unions are value types that represent a fixed set of alternative shapes. Each alternative is modeled as a distinct nested struct type whose constructor is declared inline with the union definition. The compiler emits `TryGet*` helpers for each case and pattern matching is expressed in terms of these helpers, ensuring exhaustiveness.
@@ -61,12 +61,12 @@ func describe(token: Token) -> string {
 }
 ```
 
-**Note:** The arms (for example, `.Identifier(text)`) use the `CasePattern`
+**Note:** The arms (for example, `.Identifier(text)`) use the `MemberPattern`
 syntax from _grammar.ebnf_: a leading `.` resolves the case against the current
 scrutinee, and an optional qualifier (such as `Token.Identifier`) forces lookup
 against a specific union type.
 
-Case patterns accept the same payload shape declared on the case. A
+Member patterns accept the same payload shape declared on the case. A
 parameterless case may be matched with either `.Unknown` or `.Unknown()`, while
 payload-bearing cases unpack each element positionally:
 
@@ -81,7 +81,7 @@ let description = token match {
 
 Adding an explicit qualifier bypasses the scrutinee's static type and is useful
 when the union flows in as an interface or object. The parser treats the
-qualifier as part of the case path; binding validates that the qualifier and
+qualifier as part of the member path; binding validates that the qualifier and
 case belong to the same union and enforces payload arity at the pattern site.
 
 ```csharp

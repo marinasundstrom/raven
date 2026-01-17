@@ -1,7 +1,7 @@
-# Proposal: Simplify case pattern
+# Proposal: Simplify member pattern
 
 ## Summary
 
-Remove the `.Foo` to `Foo`
+Remove the `.Foo` to `Foo` for member patterns.
 
 Consistency

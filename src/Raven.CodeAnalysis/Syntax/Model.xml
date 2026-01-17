@@ -639,9 +639,9 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
-  <Node Name="CasePattern" Inherits="Pattern">
-    <Slot Name="Path" Type="CasePatternPath" />
-    <Slot Name="ArgumentList" Type="CasePatternArgumentList" IsNullable="true" />
+  <Node Name="MemberPattern" Inherits="Pattern">
+    <Slot Name="Path" Type="MemberPatternPath" />
+    <Slot Name="ArgumentList" Type="MemberPatternArgumentList" IsNullable="true" />
   </Node>
   <Node Name="VariablePattern" Inherits="Pattern">
     <Slot Name="BindingKeyword" Type="Token" />
@@ -663,12 +663,12 @@
     <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>
-  <Node Name="CasePatternPath" Inherits="Node">
+  <Node Name="MemberPatternPath" Inherits="Node">
     <Slot Name="Qualifier" Type="Type" IsNullable="true" />
     <Slot Name="DotToken" Type="Token" DefaultToken="DotToken" />
     <Slot Name="Identifier" Type="Token" />
   </Node>
-  <Node Name="CasePatternArgumentList" Inherits="Node">
+  <Node Name="MemberPatternArgumentList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
     <Slot Name="Arguments" Type="SeparatedList" ElementType="Pattern" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />

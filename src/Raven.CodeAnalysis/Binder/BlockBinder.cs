@@ -1719,7 +1719,7 @@ partial class BlockBinder : Binder
                         return;
                     }
 
-                    if (patternSyntax is CasePatternSyntax caseSyntax && caseSyntax.ArgumentList is { } argumentList)
+                    if (patternSyntax is MemberPatternSyntax caseSyntax && caseSyntax.ArgumentList is { } argumentList)
                     {
                         var parameterTypes = casePattern.CaseSymbol.ConstructorParameters;
                         var elementCount = Math.Min(parameterTypes.Length, casePattern.Arguments.Length);

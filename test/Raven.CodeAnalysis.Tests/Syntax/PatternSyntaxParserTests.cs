@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
@@ -83,12 +85,12 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void CasePattern_WithShorthandPath_Parses()
+    public void MemberPattern_WithShorthandPath_Parses()
     {
         var (pattern, tree) = ParsePattern(".Identifier(let text)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var casePattern = Assert.IsType<CasePatternSyntax>(pattern);
+        var casePattern = Assert.IsType<MemberPatternSyntax>(pattern);
         Assert.Equal(".Identifier(let text)", sourceText.ToString(casePattern.Span));
         Assert.Null(casePattern.Path.Qualifier);
         Assert.Equal("Identifier", casePattern.Path.Identifier.ValueText);
@@ -104,12 +106,12 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void CasePattern_WithQualifierAndPayload_Parses()
+    public void MemberPattern_WithQualifierAndPayload_Parses()
     {
         var (pattern, tree) = ParsePattern("Token.Identifier(let text)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var casePattern = Assert.IsType<CasePatternSyntax>(pattern);
+        var casePattern = Assert.IsType<MemberPatternSyntax>(pattern);
         Assert.Equal("Token.Identifier(let text)", sourceText.ToString(casePattern.Span));
         Assert.Equal("Token", Assert.IsType<IdentifierNameSyntax>(casePattern.Path.Qualifier).Identifier.ValueText);
         Assert.Equal("Identifier", casePattern.Path.Identifier.ValueText);
