@@ -3715,7 +3715,8 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Pop);
         }
 
-        ILGenerator.Emit(OpCodes.Newobj, GetMethodInfo(okConstructor));
+        var okConstructorInfo = okConstructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        ILGenerator.Emit(OpCodes.Newobj, okConstructorInfo);
 
         if (!SymbolEqualityComparer.Default.Equals(okCaseType, resultType))
         {
@@ -3743,7 +3744,8 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Pop);
         }
 
-        ILGenerator.Emit(OpCodes.Newobj, GetMethodInfo(errorConstructor));
+        var errorConstructorInfo = errorConstructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        ILGenerator.Emit(OpCodes.Newobj, errorConstructorInfo);
 
         if (!SymbolEqualityComparer.Default.Equals(errorCaseType, resultType))
         {
