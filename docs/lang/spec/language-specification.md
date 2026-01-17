@@ -1345,17 +1345,17 @@ Patterns compose from the following primitives.
     `var`).
   * Writing `var p` produces a mutable binding.
 
-#### Discriminated union case patterns
+#### Member patterns
 
-* `.Case` / `Type.Case` — **case pattern**. Matches a discriminated union case by
-  name.
+* `.Case` / `Type.Case` — **member pattern**. Matches a named member by name,
+  including discriminated union cases, constants, or nested types.
 
   * The leading `.` resolves against the current scrutinee.
-  * Case payloads may supply nested subpatterns matching the case’s parameter
-    list, e.g. `.Identifier(text)` or `Result<int>.Error(let message)`.
-  * Parentheses are optional for parameterless cases.
+  * Member payloads may supply nested subpatterns matching the member’s
+    parameter list, e.g. `.Identifier(text)` or `Result<int>.Error(let message)`.
+  * Parentheses are optional for parameterless members.
   * Payload arity must match the declared parameters.
-  * Each nested subpattern is typed to the corresponding case parameter.
+  * Each nested subpattern is typed to the corresponding member parameter.
   * A payload element introduces a new binding **only** when it uses
     `let`/`val`/`var`. A bare identifier is a value pattern that matches an
     existing in-scope symbol.

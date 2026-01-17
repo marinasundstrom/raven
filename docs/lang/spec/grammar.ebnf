@@ -319,7 +319,7 @@ PrimaryPattern           ::= ParenthesizedPattern
                            | DeclarationPattern
                            | TuplePattern
                            | DiscardPattern
-                           | CasePattern
+                           | MemberPattern
                            | PropertyPattern ;
 
 ConstantPattern          ::= Literal | ConstantPatternOperand ;
@@ -354,8 +354,8 @@ TuplePatternElementDesignation
 
 DiscardPattern           ::= '_' | Type '_' ;
 
-CasePattern              ::= CasePath [ '(' PatternList? ')' ] ;
-CasePath                 ::= '.' Identifier
+MemberPattern            ::= MemberPath [ '(' PatternList? ')' ] ;
+MemberPath               ::= '.' Identifier
                            | Type '.' Identifier ;
 
 PatternList              ::= Pattern {',' Pattern} ;

@@ -345,7 +345,7 @@ internal partial class BlockBinder
             TuplePatternSyntax t => BindTuplePattern(t, inputType),
             UnaryPatternSyntax u => BindUnaryPattern(u, inputType),
             BinaryPatternSyntax b => BindBinaryPattern(b, inputType),
-            CasePatternSyntax c => BindCasePattern(c, inputType),
+            MemberPatternSyntax c => BindCasePattern(c, inputType),
             PropertyPatternSyntax p => BindPropertyPattern(p, inputType),
             RelationalPatternSyntax r => BindRelationalPattern(r, inputType),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
@@ -814,7 +814,7 @@ internal partial class BlockBinder
         };
     }
 
-    private BoundPattern BindCasePattern(CasePatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindCasePattern(MemberPatternSyntax syntax, ITypeSymbol? inputType)
     {
         var qualifierType = syntax.Path.Qualifier is null
             ? null
@@ -888,7 +888,7 @@ internal partial class BlockBinder
     }
 
     private BoundPattern BindCasePatternAsConstant(
-        CasePatternSyntax syntax,
+        MemberPatternSyntax syntax,
         ITypeSymbol? qualifierType,
         ITypeSymbol? inputType)
     {

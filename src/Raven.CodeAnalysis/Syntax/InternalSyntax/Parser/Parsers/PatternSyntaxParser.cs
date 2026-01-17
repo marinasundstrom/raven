@@ -64,7 +64,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.DotToken))
         {
-            return ParseCasePattern(qualifier: null, dotToken: ReadToken());
+            return ParseMemberPattern(qualifier: null, dotToken: ReadToken());
         }
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
@@ -145,7 +145,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
         {
-            return ParseCasePattern(type, dotToken);
+            return ParseMemberPattern(type, dotToken);
         }
 
         // Optionally consume a variable designation
@@ -320,7 +320,7 @@ internal class PatternSyntaxParser : SyntaxParser
         return TuplePattern(openParenToken, List(elementList.ToArray()), closeParenToken);
     }
 
-    private CasePatternSyntax ParseCasePattern(TypeSyntax? qualifier, SyntaxToken dotToken)
+    private MemberPatternSyntax ParseMemberPattern(TypeSyntax? qualifier, SyntaxToken dotToken)
     {
         var identifierToken = ReadToken();
         if (identifierToken.Kind != SyntaxKind.IdentifierToken)
@@ -329,13 +329,13 @@ internal class PatternSyntaxParser : SyntaxParser
             UpdateLastToken(identifierToken);
         }
 
-        var argumentList = ParseCasePatternArgumentList();
-        var path = CasePatternPath(qualifier, dotToken, identifierToken);
+        var argumentList = ParseMemberPatternArgumentList();
+        var path = MemberPatternPath(qualifier, dotToken, identifierToken);
 
-        return CasePattern(path, argumentList);
+        return MemberPattern(path, argumentList);
     }
 
-    private CasePatternArgumentListSyntax? ParseCasePatternArgumentList()
+    private MemberPatternArgumentListSyntax? ParseMemberPatternArgumentList()
     {
         if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
             return null;
@@ -357,7 +357,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return CasePatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
+        return MemberPatternArgumentList(openParenToken, List(arguments.ToArray()), closeParenToken);
     }
 
     private VariableDesignationSyntax ParseDesignation(bool allowBindingKeyword = true)
