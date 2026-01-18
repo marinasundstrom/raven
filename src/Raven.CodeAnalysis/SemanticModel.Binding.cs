@@ -1126,8 +1126,8 @@ public partial class SemanticModel
                     caseSymbol,
                     caseSymbol,
                     namespaceSymbol,
-                    [caseClause.GetLocation()],
-                    [caseClause.GetReference()],
+                    [],
+                    [],
                     isStatic: false,
                     methodKind: MethodKind.Ordinary,
                     declaredAccessibility: Accessibility.Public);
