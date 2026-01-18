@@ -18,11 +18,11 @@ func Main() {
             Print(character)
         }
 
-        if character is { Age: not > 34, Species: .Dog, Name: val name } {
+        if character is { Species: .Dog, Age: not > 34 } {
             Print(character)
         }
 
-        if character is Character(_, _, .Female, >= 35) {
+        if character is { Gender: .Female, Age: >= 35 } {
             Print(character)
         }
     }
