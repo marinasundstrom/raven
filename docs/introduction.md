@@ -398,7 +398,7 @@ import System.Net.Http.*
 import System.Threading.Tasks.*
 
 async func DownloadLength(url: string) -> Task<int> {
-    val http = HttpClient()
+    using val http = HttpClient()
     val text = await http.GetStringAsync(url)
     return text.Length
 }

@@ -14,8 +14,13 @@ func Main() {
     val fullCast = [rex, ..characters]
 
     for character in fullCast {
-        if character is Character("Jesse Mills", _, _, _) {
+        val name = "Jesse Mills"
+        if character is Character(name, _, _, _) {
             Print(character)
+        }
+
+        if character is { Species: .Dog, Name: let dogName } {
+            WriteLine("Dog: $dogName")
         }
 
         if character is { Species: .Dog, Age: not > 34 } {

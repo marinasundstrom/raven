@@ -24,7 +24,7 @@ func FindUserName(users: User[], id: int) -> Option<string> {
 
 /// Async/await + .NET interop.
 async func DownloadText(url: string) -> Task<Result<string, ApiError>> {
-    val http = HttpClient()
+    using val http = HttpClient()
 
     // Interop with .NET exception model, but return as data in Raven.
     return try await http.GetStringAsync(url) match {
