@@ -3494,6 +3494,43 @@ partial class BlockBinder : Binder
             return new BoundInvocationExpression(accessor, [converted], receiver);
         }
 
+        if (left is BoundConditionalAccessExpression conditionalAccess &&
+            conditionalAccess.WhenNotNull is BoundMemberAccessExpression { Member: IEventSymbol conditionalEventSymbol } eventAccess)
+        {
+            if (operatorTokenKind is not (SyntaxKind.PlusEqualsToken or SyntaxKind.MinusEqualsToken))
+            {
+                _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(conditionalEventSymbol.Name, leftSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+            }
+
+            var right = BindExpression(rightSyntax);
+
+            if (IsErrorExpression(right))
+                return AsErrorExpression(right);
+
+            var eventType = conditionalEventSymbol.Type;
+            var converted = ConvertValueForAssignment(right, eventType, rightSyntax);
+            if (converted is BoundErrorExpression)
+                return converted;
+
+            var accessor = operatorTokenKind == SyntaxKind.PlusEqualsToken
+                ? conditionalEventSymbol.AddMethod
+                : conditionalEventSymbol.RemoveMethod;
+
+            if (accessor is null)
+                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+            if (!EnsureMemberAccessible(accessor, leftSyntax.GetLocation(), GetSymbolKindForDiagnostic(accessor)))
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+            var invocation = new BoundInvocationExpression(accessor, [converted], eventAccess.Receiver);
+            var resultType = invocation.Type ?? Compilation.ErrorTypeSymbol;
+            if (!resultType.IsNullable)
+                resultType = new NullableTypeSymbol(resultType, null, null, null, []);
+
+            return new BoundConditionalAccessExpression(conditionalAccess.Receiver, invocation, resultType);
+        }
+
         if (left is BoundLocalAccess localAccess)
         {
             var localSymbol = localAccess.Local;

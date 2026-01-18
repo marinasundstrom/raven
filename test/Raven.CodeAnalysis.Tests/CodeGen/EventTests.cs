@@ -60,4 +60,55 @@ class Clicker {
         Assert.Equal(0, hitA);
         Assert.Equal(1, hitB);
     }
+
+    [Fact]
+    public void ConditionalAccess_EventAdd_WiresHandler()
+    {
+        var code = """
+interface Logger {
+    Log(message: string)
+}
+
+class ConsoleLogger : Logger {
+    public event Logged: System.Action<string>?
+
+    public Log(message: string) -> unit {
+        Logged?.Invoke(message)
+    }
+}
+
+class Program {
+    public static Run() -> int {
+        val logger: Logger = ConsoleLogger()
+        var hits = 0
+
+        (logger as ConsoleLogger)?.Logged += (msg: string) => {
+            hits += 1
+        }
+
+        logger.Log("hello")
+        return hits
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", throwOnError: true)!;
+        var runMethod = type.GetMethod("Run")!;
+        var resultValue = runMethod.Invoke(null, Array.Empty<object>())!;
+
+        Assert.Equal(1, resultValue);
+    }
 }
