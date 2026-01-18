@@ -620,8 +620,8 @@ internal partial class ExpressionGenerator
             var nullableClr = scrutineeClr;
             var underlyingType = inputType.GetNullableUnderlyingType();
 
-            var hasValueGetter = nullableClr.GetProperty("HasValue")!.GetGetMethod()!;
-            var getValueOrDefault = nullableClr.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+            var hasValueGetter = GetNullableHasValueGetter(nullableClr);
+            var getValueOrDefault = GetNullableGetValueOrDefault(nullableClr);
 
             var labelFalse = ILGenerator.DefineLabel();
             var labelDone = ILGenerator.DefineLabel();
@@ -1057,7 +1057,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Stloc, loc);
 
         ILGenerator.Emit(OpCodes.Ldloca_S, loc);
-        ILGenerator.Emit(OpCodes.Call, scrutineeClr.GetProperty("HasValue")!.GetGetMethod()!);
+        ILGenerator.Emit(OpCodes.Call, GetNullableHasValueGetter(scrutineeClr));
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Ceq);
     }
@@ -1109,8 +1109,8 @@ internal partial class ExpressionGenerator
         var loc = ILGenerator.DeclareLocal(nullableClr);
         ILGenerator.Emit(OpCodes.Stloc, loc);
 
-        var hasValue = nullableClr.GetProperty("HasValue")!.GetGetMethod()!;
-        var getValueOrDefault = nullableClr.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+        var hasValue = GetNullableHasValueGetter(nullableClr);
+        var getValueOrDefault = GetNullableGetValueOrDefault(nullableClr);
 
         var has = ILGenerator.DefineLabel();
         var done = ILGenerator.DefineLabel();

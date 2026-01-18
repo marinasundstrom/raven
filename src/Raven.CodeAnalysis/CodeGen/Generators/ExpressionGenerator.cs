@@ -56,6 +56,15 @@ internal partial class ExpressionGenerator : Generator
         EmitExpression(_expression);
     }
 
+    private void EmitNullableValueExpression(BoundNullableValueExpression expr)
+    {
+        // TODO: Emit address instead
+        EmitExpression(expr.Operand);
+        var nullableType = expr.Operand.Type;
+        var receiverClrType = ResolveClrType(nullableType);
+        ILGenerator.Emit(OpCodes.Call, GetNullableGetValueOrDefault(receiverClrType));
+    }
+
     private void EmitExpression(BoundExpression expression)
     {
         switch (expression)
@@ -207,6 +216,10 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundNullCoalesceExpression nullCoalesceExpression:
                 EmitNullCoalesceExpression(nullCoalesceExpression);
+                break;
+
+            case BoundNullableValueExpression emitNullableValueExpression:
+                EmitNullableValueExpression(emitNullableValueExpression);
                 break;
 
             case BoundErrorExpression errorExpression:
@@ -2290,12 +2303,12 @@ internal partial class ExpressionGenerator : Generator
         if (isNullableValue)
         {
             ILGenerator.Emit(OpCodes.Ldloca, local);
-            var hasValue = receiverClrType.GetProperty("HasValue")!.GetGetMethod()!;
+            var hasValue = GetNullableHasValueGetter(receiverClrType);
             ILGenerator.Emit(OpCodes.Call, hasValue);
             ILGenerator.Emit(OpCodes.Brfalse, whenNullLabel);
 
             ILGenerator.Emit(OpCodes.Ldloca, local);
-            var getValueOrDefault = receiverClrType.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+            var getValueOrDefault = GetNullableGetValueOrDefault(receiverClrType);
             ILGenerator.Emit(OpCodes.Call, getValueOrDefault);
         }
         else
@@ -3964,5 +3977,36 @@ internal partial class ExpressionGenerator : Generator
         EmitExpression(node.Right);
 
         ILGenerator.MarkLabel(endLabel);
+    }
+
+    private static MethodInfo GetNullableHasValueGetter(Type nullableClr)
+    {
+        var defGetter = typeof(Nullable<>).GetProperty("HasValue")!.GetGetMethod()!;
+
+        var isTypeBuilderInstantiation = string.Equals(
+            nullableClr.GetType().FullName,
+            "System.Reflection.Emit.TypeBuilderInstantiation",
+            StringComparison.Ordinal);
+
+        // TypeBuilderInstantiation can't do GetProperty; map from the generic definition.
+        if (isTypeBuilderInstantiation || nullableClr is TypeBuilder)
+            return TypeBuilder.GetMethod(nullableClr, defGetter);
+
+        return nullableClr.GetProperty("HasValue")!.GetGetMethod()!;
+    }
+
+    private static MethodInfo GetNullableGetValueOrDefault(Type nullableClr)
+    {
+        var defMethod = typeof(Nullable<>).GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+
+        var isTypeBuilderInstantiation = string.Equals(
+         nullableClr.GetType().FullName,
+         "System.Reflection.Emit.TypeBuilderInstantiation",
+         StringComparison.Ordinal);
+
+        if (isTypeBuilderInstantiation || nullableClr is TypeBuilder)
+            return TypeBuilder.GetMethod(nullableClr, defMethod);
+
+        return nullableClr.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
     }
 }

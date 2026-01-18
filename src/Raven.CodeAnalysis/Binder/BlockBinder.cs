@@ -3966,22 +3966,26 @@ partial class BlockBinder : Binder
 
                 return new BoundMemberAccessExpression(null, @event);
             case ILocalSymbol local:
-                return new BoundLocalAccess(local);
+                var b = new BoundLocalAccess(local);
+                return UnwrapNullableIfKnownNonNull(b, local);
             case IParameterSymbol param:
-                return new BoundParameterAccess(param);
+                var p = new BoundParameterAccess(param);
+                return UnwrapNullableIfKnownNonNull(p, param);
             case IFieldSymbol field:
                 {
                     if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
                         return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                    return new BoundFieldAccess(field);
+                    var f = new BoundFieldAccess(field);
+                    return UnwrapNullableIfKnownNonNull(f, field);
                 }
             case IPropertySymbol prop:
                 {
                     if (!EnsureMemberAccessible(prop, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(prop)))
                         return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                    return new BoundPropertyAccess(prop);
+                    var p2 = new BoundPropertyAccess(prop);
+                    return UnwrapNullableIfKnownNonNull(p2, prop);
                 }
             default:
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -5158,6 +5162,17 @@ partial class BlockBinder : Binder
             return;
 
         _diagnostics.ReportPossibleNullReferenceAccess(receiverSyntax.GetLocation());
+    }
+
+    private BoundExpression UnwrapNullableIfKnownNonNull(BoundExpression expr, ISymbol symbol)
+    {
+        if (!_nonNullSymbols.Contains(symbol))
+            return expr;
+
+        if (expr.Type is NullableTypeSymbol n && n.UnderlyingType.IsValueType)
+            return new BoundNullableValueExpression(expr, n.UnderlyingType);
+
+        return expr;
     }
 
     private void ClearNonNullSymbolsAtDepth(int depth)

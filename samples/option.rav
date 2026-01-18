@@ -4,37 +4,28 @@
 
 import System.Console.*
 
-val unwrapped = returnsNone(42).UnwrapOr(10)
-WriteLine(unwrapped)
+let x: int? = 2
 
-func returnsNone(value: int) -> Option<int> {
-    return .None
-}
+let opt: Option<int> = x
 
-union Option<T> {
+union Option<T: struct> {
     Some(value: T)
     None
 }
 
-extension OptionExtensions<T> for Option<T> {
-    UnwrapOrDefault() -> T {
-        if self is .Some(val value) {
+extension OptionExtensions2<T : struct> for Option<T> {
+
+    public static implicit operator(opt: Option<T>) -> T? {
+        if opt is .Some(val value) {
             return value
         }
-        return default(T)
+        return null
     }
 
-    UnwrapOrThrow() -> T {
-        if self is .Some(val value) {
-            return value
+    public static implicit operator(value: T?) -> Option<T> {
+        if value is not null {
+            return .Some(value)
         }
-        throw new System.InvalidOperationException("Option is None")
-    }
-
-    UnwrapOr(defaultValue: T) -> T {
-        if self is .Some(val value) {
-            return value
-        }
-        return defaultValue
+        return .None
     }
 }
