@@ -103,34 +103,16 @@ val values: List<int> = [1, 2, 3]
 > ❗ **Tip:** `[]` needs a target type (like `int[]` or `List<int>`) so Raven knows what to construct.
 
 ---
+
 ## Type system
 
 Raven’s type system is practical and safe-by-default, while still designed for smooth .NET interop.
 
-### Nullability
-
-Nullability is a unified feature in Raven’s type system and is **enabled by default**.
-
-- `T` is non-nullable
-- `T?` allows `null`
-
-Raven performs **control-flow analysis** and produces diagnostics when values may be `null`, helping you avoid null-reference bugs early.
-
-### Prefer `Option<T>` for optional values
-
-> ↪️ **Read more:** [Result and Option](#user-content-result-and-option)
-
-In Raven code, prefer `Option<T>` for optional values rather than relying on `T?`.
-
-Use nullable types mainly for **.NET interop**, where `null` is the standard representation of “no value”.
-
-Raven provides an implicit conversion from `Option<T>` to `T?` so optional values can be passed to APIs that expect `null`:
-
-```raven
-val name: Option<string> = .Some("Raven")
-
-val text: string? = name // implicit Option<T> -> T?
-```
+- **Built-in types** — `int`, `long`, `byte`, `double`, `char`, `bool`, `string`, and more.
+- **Arrays** — fixed-size contiguous collections.
+- **User-defined types** — classes, interfaces, records, enums, unions.
+- **Nullability** — unified and enabled by default, with control-flow analysis and diagnostics.
+> ❗ **Prefer `Result` and `Option`** — model failure and optional values explicitly in Raven code; use `T?` mainly for .NET interop.
 
 ---
 
