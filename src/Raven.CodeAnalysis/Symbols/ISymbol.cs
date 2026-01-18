@@ -440,7 +440,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsInterface => false;
 
-    bool IsTupleType => MetadataName.Contains("System.ValueTuple");
+    bool IsTupleType =>
+        !string.IsNullOrEmpty(MetadataName) &&
+        MetadataName.Contains("System.ValueTuple", StringComparison.Ordinal);
 
     bool IsTypeUnion => TypeKind == TypeKind.TypeUnion;
 
