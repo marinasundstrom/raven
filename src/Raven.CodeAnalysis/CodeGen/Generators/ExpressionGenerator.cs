@@ -63,17 +63,26 @@ internal partial class ExpressionGenerator : Generator
         var nullableType = expr.Operand.Type;
         var receiverClrType = ResolveClrType(nullableType);
 
-        // Evaluate once and take the address for the call.
-        EmitExpression(expr.Operand);
-        var tmp = ILGenerator.DeclareLocal(receiverClrType);
-        ILGenerator.Emit(OpCodes.Stloc, tmp);
-
-        ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+        // Load an address for the operand (or spill once if it isn't directly addressable).
+        EmitExpression(expr.Operand, emitAddress: true);
         ILGenerator.Emit(OpCodes.Call, GetNullableValueGetter(receiverClrType));
     }
 
-    private void EmitExpression(BoundExpression expression)
+    private void EmitExpression(BoundExpression expression, bool emitAddress = false)
     {
+        if (emitAddress)
+        {
+            if (TryEmitAddress(expression))
+                return;
+
+            // Fallback: evaluate the value once, spill to a temp, then load its managed address.
+            var tmpType = ResolveClrType(expression.Type);
+            var tmp = ILGenerator.DeclareLocal(tmpType);
+            EmitExpression(expression, emitAddress: false);
+            ILGenerator.Emit(OpCodes.Stloc, tmp);
+            ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+            return;
+        }
         switch (expression)
         {
             case BoundBinaryExpression binaryExpression:
@@ -235,6 +244,79 @@ internal partial class ExpressionGenerator : Generator
 
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
+        }
+    }
+
+    private bool TryEmitAddress(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundLocalAccess localAccess:
+                if (TryEmitCapturedVariableLoad(localAccess.Local))
+                    return false;
+
+                var localBuilder = GetLocal(localAccess.Local);
+                if (localBuilder is null)
+                    throw new InvalidOperationException($"Missing local builder for '{localAccess.Local.Name}'");
+
+                ILGenerator.Emit(OpCodes.Ldloca_S, localBuilder);
+                return true;
+
+            case BoundParameterAccess parameterAccess:
+                if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
+                    return false;
+
+                int position = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter).Position;
+                if (MethodSymbol.IsStatic)
+                    position -= 1;
+
+                ILGenerator.Emit(OpCodes.Ldarga_S, (short)position);
+                return true;
+
+            case BoundFieldAccess fieldAccess:
+                // Static fields are always directly addressable.
+                if (fieldAccess.Field.IsStatic)
+                {
+                    ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldAccess.Field));
+                    if (TryGetAsyncInvestigationFieldLabel(fieldAccess.Field, out var staticFieldLabel))
+                        EmitAsyncInvestigationAddressLogPreservingPointer(staticFieldLabel);
+                    return true;
+                }
+
+                // Instance field: need an addressable receiver for ldflda.
+                if (fieldAccess.Receiver is not null)
+                {
+                    // Prefer address for value-type receivers to avoid copies.
+                    if (!TryEmitValueTypeReceiverAddress(fieldAccess.Receiver, fieldAccess.Receiver.Type, fieldAccess.Field.ContainingType))
+                    {
+                        EmitExpression(fieldAccess.Receiver, emitAddress: fieldAccess.Field.ContainingType?.IsValueType == true);
+
+                        if (fieldAccess.Field.ContainingType?.IsValueType == true)
+                            EmitValueTypeAddressIfNeeded(fieldAccess.Receiver.Type, fieldAccess.Field.ContainingType);
+                    }
+                }
+                else
+                {
+                    if (MethodSymbol.IsStatic)
+                        throw new NotSupportedException($"Cannot take address of instance field '{fieldAccess.Field.Name}' in a static context.");
+
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                }
+
+                ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldAccess.Field));
+                if (TryGetAsyncInvestigationFieldLabel(fieldAccess.Field, out var fieldLabel))
+                    EmitAsyncInvestigationAddressLogPreservingPointer(fieldLabel);
+                return true;
+
+            case BoundArrayAccessExpression arrayAccess:
+                // Address of array element.
+                EmitArrayElementAddress(arrayAccess);
+                return true;
+
+            // If you later introduce ref-return properties/indexers, handle them here.
+
+            default:
+                return false;
         }
     }
 
