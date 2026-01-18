@@ -249,11 +249,23 @@ internal class MethodBodyGenerator
         if (MethodSymbol.Name == "Deconstruct" &&
             MethodSymbol.MethodKind == MethodKind.Ordinary &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit &&
-            MethodSymbol.ContainingType is SourceDiscriminatedUnionCaseTypeSymbol caseType &&
             MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
         {
-            EmitUnionCaseDeconstruct(caseType);
-            return;
+            // Union-case deconstruct can be requested on either the source case type
+            // or a constructed case type (e.g. generic instantiation). Normalize to the
+            // source definition so we can locate the backing fields reliably.
+            var caseType = MethodSymbol.ContainingType switch
+            {
+                SourceDiscriminatedUnionCaseTypeSymbol s => s,
+                ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionCaseTypeSymbol s } => s,
+                _ => null
+            };
+
+            if (caseType is not null)
+            {
+                EmitUnionCaseDeconstruct(caseType);
+                return;
+            }
         }
 
         if (MethodSymbol.MethodKind == MethodKind.Conversion &&
@@ -282,9 +294,9 @@ internal class MethodBodyGenerator
             MethodSymbol.Parameters.Length == 0 &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_String)
         {
-            if (MethodSymbol.ContainingType is SourceDiscriminatedUnionCaseTypeSymbol caseType)
+            if (MethodSymbol.ContainingType is SourceDiscriminatedUnionCaseTypeSymbol caseType2)
             {
-                EmitUnionCaseToString(caseType);
+                EmitUnionCaseToString(caseType2);
                 return;
             }
 
