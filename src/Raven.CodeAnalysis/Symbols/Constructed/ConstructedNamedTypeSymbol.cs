@@ -1030,7 +1030,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
                 }
 
                 var parameterTypes = Parameters
-                    .Select(parameter => parameter.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
+                    .Select(parameter => parameter.Type.GetClrType(codeGen))
                     .ToArray();
 
                 var resolved = constructedType.GetConstructor(
@@ -1101,7 +1101,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
             // Use metadata name and parameter types to resolve the method on the constructed type
             var parameterTypes = Parameters
-                .Select(x => x.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
+                .Select(x => x.Type.GetClrType(codeGen))
                 .ToArray();
             var method = constructedType.GetMethod(
                 baseMethod.Name,
@@ -1138,7 +1138,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
                 return definitionMethod;
 
             var parameterTypes = sourceMethod.Parameters
-                .Select(p => p.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
+                .Select(p => p.Type.GetClrType(codeGen))
                 .ToArray();
 
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
