@@ -69,7 +69,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Stloc, tmp);
 
         ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
-        ILGenerator.Emit(OpCodes.Call, GetNullableGetValueOrDefault(receiverClrType));
+        ILGenerator.Emit(OpCodes.Call, GetNullableValueGetter(receiverClrType));
     }
 
     private void EmitExpression(BoundExpression expression)
@@ -4015,5 +4015,24 @@ internal partial class ExpressionGenerator : Generator
             return TypeBuilder.GetMethod(nullableClr, defMethod);
 
         return nullableClr.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+    }
+
+    private static MethodInfo GetNullableValueGetter(Type nullableClr)
+    {
+        // Nullable<T>.Value is a property getter (get_Value), not GetValueOrDefault().
+        // We need to support TypeBuilderInstantiation for generic methods emitted via Reflection.Emit.
+
+        var defGetter = typeof(Nullable<>).GetProperty("Value")!.GetGetMethod()!;
+
+        var isTypeBuilderInstantiation = string.Equals(
+            nullableClr.GetType().FullName,
+            "System.Reflection.Emit.TypeBuilderInstantiation",
+            StringComparison.Ordinal);
+
+        // TypeBuilderInstantiation can't do GetProperty reliably; map from the generic definition.
+        if (isTypeBuilderInstantiation || nullableClr is TypeBuilder)
+            return TypeBuilder.GetMethod(nullableClr, defGetter);
+
+        return nullableClr.GetProperty("Value")!.GetGetMethod()!;
     }
 }
