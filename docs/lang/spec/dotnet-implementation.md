@@ -102,6 +102,40 @@ Raven emits shim types so that every union member has a concrete `Type`:
 * `Unit` represents the Raven `unit` value and is emitted into every assembly.
 * `Null` represents the `null` literal and is emitted only when a union includes `null`.
 
+## Discriminated union interop (C#)
+Discriminated unions compile into a nested-struct hierarchy that C# can consume
+directly. Each case becomes a public nested `struct` with a constructor that
+accepts the payload values, a set of get-only properties for those payloads,
+and a `Deconstruct(out ...)` method that mirrors the payload order. The outer
+union struct declares an implicit conversion from each case and a `TryGet{Case}`
+helper to safely extract a case instance.
+
+Producing a union from C# is typically done by constructing the case and letting
+the implicit conversion take over:
+
+```csharp
+// Raven
+// union Token { Identifier(text: string) Number(value: int) }
+
+Token token = new Token.Identifier("hello"); // implicit case -> union conversion
+Token other = new Token.Number(42);
+```
+
+Consuming a union from C# involves calling the `TryGet{Case}` helper and then
+using the case properties or deconstruction to extract payload values:
+
+```csharp
+if (token.TryGetIdentifier(out var identifier))
+{
+    var (text) = identifier; // Deconstruct(out string text)
+    Console.WriteLine(text);
+}
+```
+
+These members allow C# callers to work with Raven discriminated unions without
+needing reflection, while Raven still relies on the synthesized metadata
+attributes to preserve the union semantics for other tools.
+
 ## Generic variance
 
 The Raven compiler surfaces the CLR's variance metadata directly. When importing

@@ -2693,6 +2693,11 @@ val err = Result<int>.Error("boom")
 Console.WriteLine(ok)
 ```
 
+Each case struct also exposes its payload via `get`-only properties and a
+`Deconstruct(out ...)` method matching the payload order. These synthesized
+members make deconstruction and positional patterns available in Raven and
+improve interoperability with other .NET languages.
+
 Pattern matching exhaustively checks every case; see
 [Pattern matching](#pattern-matching) for examples of the leading-dot syntax
 inside `match` expressions.
