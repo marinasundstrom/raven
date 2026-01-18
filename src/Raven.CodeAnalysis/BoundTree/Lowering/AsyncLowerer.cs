@@ -2640,7 +2640,7 @@ internal static class AsyncLowerer
                     {
                         var labeledEntry = new BoundLabeledStatement(
                             dispatchInfo.EntryLabel,
-                            new BoundBlockStatement(Array.Empty<BoundStatement>()));
+                            CreateGuardEntryStatement());
                         statements.Insert(insertionIndex, labeledEntry);
                         insertionIndex++;
                     }
@@ -2669,7 +2669,7 @@ internal static class AsyncLowerer
                     {
                         var labeledEntry = new BoundLabeledStatement(
                             dispatchInfo.EntryLabel,
-                            new BoundBlockStatement(Array.Empty<BoundStatement>()));
+                            CreateGuardEntryStatement());
                         statements.Insert(insertionIndex, labeledEntry);
                         insertionIndex++;
                     }
@@ -2700,6 +2700,16 @@ internal static class AsyncLowerer
                     var gotoBlock = new BoundBlockStatement(new BoundStatement[] { gotoStatement });
                     yield return new BoundIfStatement(condition, gotoBlock);
                 }
+            }
+
+            private BoundStatement CreateGuardEntryStatement()
+            {
+                var intType = _stateMachine.Compilation.GetSpecialType(SpecialType.System_Int32);
+                var literal = new BoundLiteralExpression(
+                    BoundLiteralExpressionKind.NumericLiteral,
+                    0,
+                    intType);
+                return new BoundExpressionStatement(literal);
             }
         }
 
