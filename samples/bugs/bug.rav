@@ -1,0 +1,25 @@
+/*
+ * Demonstrates discriminated unions in Raven.
+ */
+
+import System.Console.*
+
+let x: int? = 2
+
+let opt: Option<int> = x
+
+union Option<T: struct> {
+    Some(value: T)
+    None
+}
+
+extension OptionExtensions2<T : struct> for Option<T> {
+
+    public static implicit operator(opt: Option<T>) -> T? {
+        if opt is .Some(val value) {
+            return value
+        }
+        return null
+    }
+
+}
