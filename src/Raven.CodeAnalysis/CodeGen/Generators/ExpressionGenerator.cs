@@ -2679,7 +2679,11 @@ internal partial class ExpressionGenerator : Generator
             }
             else if (requiresAddress)
             {
-                receiverAddressLoaded = true;
+                if (receiverType?.IsValueType == true)
+                {
+                    EmitValueTypeAddressIfNeeded(receiverType, target.ContainingType);
+                    receiverAddressLoaded = true;
+                }
             }
 
             var effectiveReceiverType = receiverType;
