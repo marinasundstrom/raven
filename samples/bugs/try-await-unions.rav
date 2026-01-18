@@ -1,0 +1,29 @@
+// BUG: Receive doesn't seem to be properly emitted (not at all emitted) for the state machine of DownloadText.
+// This bug might be due to the match in "try await" returning union cases. Because try-match-async.rav compiles and runs.
+// Perhaps the match expression is not properly lowered for the "try await".
+
+import System.*
+import System.Console.*
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+val url = "https://example.com"
+val downloaded = await DownloadText(url)
+
+/// Async/await + .NET interop.
+async func DownloadText(url: string) -> Task<Result<string, ApiError>> {
+    val http = HttpClient()
+
+    // Interop with .NET exception model, but return as data in Raven.
+    return try await http.GetStringAsync(url) match {
+        .Ok(val text) => .Ok(text)
+        .Error(Exception ex) => .Error(ApiError.Network(ex))
+    }
+}
+
+/// A user-defined union (explicit modeling).
+union ApiError {
+    NotFound(id: int)
+    Invalid(message: string)
+    Network(ex: Exception)
+}

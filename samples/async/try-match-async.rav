@@ -3,8 +3,7 @@ import System.Threading.Tasks.*
 
 async func Foo() -> Task<int> {
     await Task.Delay(200)
-    throw new Exception("boom")
-    return 0
+    return 42
 }
 
 val result = try await Foo() match {
