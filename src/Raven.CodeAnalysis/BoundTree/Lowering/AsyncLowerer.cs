@@ -1568,6 +1568,7 @@ internal static class AsyncLowerer
                 var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
                 var okConstructor = SubstituteStateMachineTypeParameters(node.OkConstructor);
                 var errorConstructor = SubstituteStateMachineTypeParameters(node.ErrorConstructor);
+                var expressionType = SubstituteStateMachineTypeParameters(expression.Type ?? compilation.ErrorTypeSymbol);
 
                 BoundExpression okCreation;
                 var tryStatements = new List<BoundStatement>();
@@ -1578,7 +1579,23 @@ internal static class AsyncLowerer
                 }
                 else
                 {
-                    var okArgument = ApplyConversionIfNeeded(expression, okConstructor.Parameters[0].Type, compilation);
+                    var valueLocal = new SourceLocalSymbol(
+                        "$tryExprValue",
+                        expressionType,
+                        isMutable: true,
+                        _stateMachine.MoveNextMethod,
+                        _stateMachine,
+                        _stateMachine.ContainingNamespace,
+                        new[] { Location.None },
+                        Array.Empty<SyntaxReference>());
+                    var valueDeclarator = new BoundVariableDeclarator(valueLocal, initializer: null);
+                    var valueDeclaration = new BoundLocalDeclarationStatement(new[] { valueDeclarator });
+                    tryStatements.Add(valueDeclaration);
+
+                    var valueAssignment = new BoundLocalAssignmentExpression(valueLocal, expression, unitType);
+                    tryStatements.Add(new BoundExpressionStatement(valueAssignment));
+
+                    var okArgument = ApplyConversionIfNeeded(new BoundLocalAccess(valueLocal), okConstructor.Parameters[0].Type, compilation);
                     okCreation = new BoundObjectCreationExpression(okConstructor, ImmutableArray.Create(okArgument));
                 }
 
