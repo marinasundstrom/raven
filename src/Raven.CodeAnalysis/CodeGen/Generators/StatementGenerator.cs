@@ -220,6 +220,12 @@ internal class StatementGenerator : Generator
     {
         var expression = expressionStatement.Expression;
 
+        if (expression.Type?.SpecialType == SpecialType.System_Void)
+        {
+            new ExpressionGenerator(this, expression).Emit();
+            return;
+        }
+
         // Expression is an invocation expression that returns unit. 
         if (expression is BoundInvocationExpression { Type.SpecialType: SpecialType.System_Unit } expr)
         {
