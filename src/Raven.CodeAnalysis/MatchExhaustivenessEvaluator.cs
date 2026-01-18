@@ -296,6 +296,9 @@ internal sealed class MatchExhaustivenessEvaluator
         {
             case BoundDiscardPattern:
                 return true;
+            case BoundConstantPattern constant:
+                return inputType.SpecialType == SpecialType.System_Unit &&
+                       constant.Expression is BoundUnitExpression;
             case BoundDeclarationPattern declaration:
                 {
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
@@ -309,7 +312,13 @@ internal sealed class MatchExhaustivenessEvaluator
                 {
                     var elementTypes = GetTupleElementTypes(inputType);
 
-                    if (elementTypes.Length == 0 || elementTypes.Length != tuplePattern.Elements.Length)
+                    if (elementTypes.Length == 0)
+                    {
+                        return inputType.SpecialType == SpecialType.System_Unit &&
+                               tuplePattern.Elements.Length == 0;
+                    }
+
+                    if (elementTypes.Length != tuplePattern.Elements.Length)
                         return false;
 
                     for (var i = 0; i < tuplePattern.Elements.Length; i++)
