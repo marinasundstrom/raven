@@ -205,6 +205,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitMethodGroupExpression(methodGroupExpression);
                 break;
 
+            case BoundNullCoalesceExpression nullCoalesceExpression:
+                EmitNullCoalesceExpression(nullCoalesceExpression);
+                break;
+
             case BoundErrorExpression errorExpression:
                 EmitErrorExpression(errorExpression);
                 break;
@@ -3897,5 +3901,68 @@ internal partial class ExpressionGenerator : Generator
 
             return hash;
         }
+    }
+
+    private void EmitNullCoalesceExpression(BoundNullCoalesceExpression node)
+    {
+        // Semantics: evaluate Left; if it's non-null (or HasValue for Nullable<T>), yield it; otherwise evaluate Right.
+        var leftType = node.Left.Type ?? node.Type;
+        var leftClrType = ResolveClrType(leftType);
+
+        // Nullable<T> value-type path
+        if (leftClrType.IsValueType && leftClrType.IsGenericType && leftClrType.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
+            // Evaluate once into a temp local
+            var leftLocal = ILGenerator.DeclareLocal(leftClrType);
+            EmitExpression(node.Left);
+            ILGenerator.Emit(OpCodes.Stloc, leftLocal);
+
+            var loadRight = ILGenerator.DefineLabel();
+            var end = ILGenerator.DefineLabel();
+
+            // if (!left.HasValue) goto loadRight;
+            ILGenerator.Emit(OpCodes.Ldloca, leftLocal);
+            var hasValueGetter = leftClrType.GetProperty(nameof(Nullable<int>.HasValue))?.GetMethod
+                ?? throw new InvalidOperationException("Missing Nullable<T>.HasValue getter.");
+            ILGenerator.Emit(OpCodes.Call, hasValueGetter);
+            ILGenerator.Emit(OpCodes.Brfalse, loadRight);
+
+            // left.Value
+            ILGenerator.Emit(OpCodes.Ldloca, leftLocal);
+            var valueGetter = leftClrType.GetProperty(nameof(Nullable<int>.Value))?.GetMethod
+                ?? throw new InvalidOperationException("Missing Nullable<T>.Value getter.");
+            ILGenerator.Emit(OpCodes.Call, valueGetter);
+
+            // If the selected value is a value type but the result is a reference type (e.g. object/union), box it.
+            if (leftClrType.GenericTypeArguments[0].IsValueType && !ResolveClrType(node.Type).IsValueType)
+            {
+                ILGenerator.Emit(OpCodes.Box, leftClrType.GenericTypeArguments[0]);
+            }
+
+            ILGenerator.Emit(OpCodes.Br, end);
+
+            // right
+            ILGenerator.MarkLabel(loadRight);
+            EmitExpression(node.Right);
+
+            ILGenerator.MarkLabel(end);
+            return;
+        }
+
+        // Reference-type path (including nullable references):
+        // stack: left
+        EmitExpression(node.Left);
+
+        var endLabel = ILGenerator.DefineLabel();
+
+        // Duplicate left; if it's non-null, keep it and jump to end
+        ILGenerator.Emit(OpCodes.Dup);
+        ILGenerator.Emit(OpCodes.Brtrue, endLabel);
+
+        // It was null: pop the null and evaluate right
+        ILGenerator.Emit(OpCodes.Pop);
+        EmitExpression(node.Right);
+
+        ILGenerator.MarkLabel(endLabel);
     }
 }

@@ -369,7 +369,7 @@ partial class BlockBinder
                         receiver,
                         memberBinding.Name,
                         preferMethods: false,
-                        allowEventAccess: false,
+                        allowEventAccess: true,
                         suppressNullWarning: true,
                         receiverTypeForLookup: lookupType,
                         forceExtensionReceiver: true);

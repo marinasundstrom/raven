@@ -650,6 +650,7 @@ partial class BlockBinder : Binder
             IdentifierNameSyntax identifier => BindIdentifierName(identifier),
             TypeSyntax type => BindTypeSyntax(type),
             BinaryExpressionSyntax binary => BindBinaryExpression(binary),
+            NullCoalesceExpressionSyntax coalesce => BindNullCoalesceExpression(coalesce),
             RangeExpressionSyntax rangeExpression => BindRangeExpression(rangeExpression),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
             ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
@@ -685,6 +686,37 @@ partial class BlockBinder : Binder
         //CacheBoundNode(syntax, boundNode);
 
         return boundNode;
+    }
+
+    private BoundExpression BindNullCoalesceExpression(NullCoalesceExpressionSyntax coalesce)
+    {
+        var left = BindExpression(coalesce.Left);
+        var right = BindExpression(coalesce.Right);
+
+        if (left is BoundErrorExpression)
+            return left;
+        if (right is BoundErrorExpression)
+            return right;
+
+        var leftType = left.Type ?? Compilation.ErrorTypeSymbol;
+        var rightType = right.Type ?? Compilation.ErrorTypeSymbol;
+
+        // If the left is nullable, the result is typically the non-nullable left type
+        // combined with the right type.
+        var leftNonNullable = leftType is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : leftType;
+
+        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { leftNonNullable, rightType });
+
+        // Ensure the RHS can be used as the result type.
+        right = PrepareRightForAssignment(right, resultType, coalesce.Right);
+        if (right is BoundErrorExpression)
+            return right;
+
+        // NOTE: We keep `left` as-is (possibly nullable). Codegen will implement the
+        // short-circuit null test and produce `resultType`.
+        return new BoundNullCoalesceExpression(left, right, resultType);
     }
 
     private BoundExpression BindSelfExpression(SelfExpressionSyntax selfExpression)
@@ -754,6 +786,7 @@ partial class BlockBinder : Binder
             SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
             SyntaxKind.AmpersandEqualsToken => SyntaxKind.AmpersandToken,
             SyntaxKind.BarEqualsToken => SyntaxKind.BarToken,
+            SyntaxKind.QuestionQuestionEqualsToken => SyntaxKind.QuestionQuestionToken,
             _ => null,
         };
     }

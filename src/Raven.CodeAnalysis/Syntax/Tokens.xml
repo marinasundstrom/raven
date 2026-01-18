@@ -118,6 +118,8 @@
   <TokenKind Name="UnderscoreToken" Text="_" />
   <TokenKind Name="ExclamationToken" Text="!" IsUnaryOperator="true" />
   <TokenKind Name="QuestionToken" Text="?" />
+  <TokenKind Name="QuestionQuestionToken" Text="??" />
+  <TokenKind Name="QuestionQuestionEqualsToken" Text="??=" />
   <TokenKind Name="DotToken" Text="." />
   <TokenKind Name="DotDotToken" Text=".." IsBinaryOperator="true" Precedence="4" />
   <TokenKind Name="CommaToken" Text="," />

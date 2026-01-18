@@ -269,7 +269,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/patterns/try-match{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/super-sample{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)

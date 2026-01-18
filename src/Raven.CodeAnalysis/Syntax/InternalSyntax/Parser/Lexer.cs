@@ -321,6 +321,16 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.ExclamationToken, chStr);
 
                     case '?':
+                        if (PeekChar(out ch2) && ch2 == '?')
+                        {
+                            ReadChar();
+                            if (PeekChar(out var ch3) && ch3 == '=')
+                            {
+                                ReadChar();
+                                return new Token(SyntaxKind.QuestionQuestionEqualsToken, "??=");
+                            }
+                            return new Token(SyntaxKind.QuestionQuestionToken, "??");
+                        }
                         return new Token(SyntaxKind.QuestionToken, chStr);
 
                     case '&':

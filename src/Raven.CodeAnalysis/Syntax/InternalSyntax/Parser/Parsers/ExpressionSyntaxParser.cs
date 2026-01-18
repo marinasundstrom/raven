@@ -34,12 +34,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     public ExpressionSyntax ParseExpression()
     {
-        return ParseOrExpression() ?? new ExpressionSyntax.Missing();
+        return ParseNullCoalesceExpression() ?? new ExpressionSyntax.Missing();
     }
 
     public ExpressionSyntax ParseExpressionOrNull()
     {
-        return ParseOrExpression();
+        return ParseNullCoalesceExpression();
     }
 
     public BlockSyntax ParseBlockSyntax()
@@ -74,6 +74,21 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
 
         return new SyntaxList(statements.ToArray());
+    }
+
+    private ExpressionSyntax ParseNullCoalesceExpression()
+    {
+        // `??` has lower precedence than `||` / `&&` and is right-associative.
+        ExpressionSyntax left = ParseOrExpression();
+
+        if (ConsumeToken(SyntaxKind.QuestionQuestionToken, out var operatorToken))
+        {
+            // Right-associative: a ?? b ?? c == a ?? (b ?? c)
+            var right = ParseNullCoalesceExpression();
+            return NullCoalesceExpression(left, operatorToken, right);
+        }
+
+        return left;
     }
 
     private ExpressionSyntax ParseOrExpression()

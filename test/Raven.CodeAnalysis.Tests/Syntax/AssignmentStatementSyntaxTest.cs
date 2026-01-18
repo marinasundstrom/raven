@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
@@ -21,6 +22,7 @@ public class AssignmentStatementSyntaxTest
     [InlineData("x /= 1", SyntaxKind.DivideAssignmentStatement, SyntaxKind.SlashEqualsToken)]
     [InlineData("x &= 1", SyntaxKind.BitwiseAndAssignmentStatement, SyntaxKind.AmpersandEqualsToken)]
     [InlineData("x |= 1", SyntaxKind.BitwiseOrAssignmentStatement, SyntaxKind.BarEqualsToken)]
+    [InlineData("x ??= 1", SyntaxKind.NullCoalesceAssignmentStatement, SyntaxKind.QuestionQuestionEqualsToken)]
     public void ParsesCompoundAssignmentStatements(string source, SyntaxKind expectedKind, SyntaxKind expectedOperator)
     {
         var tree = SyntaxTree.ParseText(source);

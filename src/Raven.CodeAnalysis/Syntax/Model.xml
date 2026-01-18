@@ -795,6 +795,11 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Right" Type="Expression" />
   </Node>
+  <Node Name="NullCoalesceExpression" Inherits="Expression">
+    <Slot Name="Left" Type="Expression" />
+    <Slot Name="OperatorToken" Type="Token" DefaultToken="QuestionQuestionToken" />
+    <Slot Name="Right" Type="Expression" />
+  </Node>
   <Node Name="RangeExpression" Inherits="Expression">
     <Slot Name="LeftExpression" Type="Expression" IsNullable="true" />
     <Slot Name="DotDotToken" Type="Token" DefaultToken="DotDotToken" />

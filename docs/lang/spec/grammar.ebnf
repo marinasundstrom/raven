@@ -297,7 +297,7 @@ AssignmentExpression     ::= Assignable AssignmentOperator AssignmentExpression
 
 DeconstructionAssignment ::= VariableDesignation AssignmentOperator AssignmentExpression ;
 
-AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' ;
+AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '??=' ;
 
 Assignable               ::= Identifier
                            | MemberAccessExpression

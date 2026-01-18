@@ -58,6 +58,7 @@
   <NodeKind Name="DivideAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="BitwiseAndAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="BitwiseOrAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="NullCoalesceAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="SimpleAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="DiscardAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="MidAssignmentStatement" Type="AssignmentStatement" />
@@ -72,6 +73,7 @@
   <NodeKind Name="LeftShiftAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="RightShiftAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="ConcatenateAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="NullCoalesceAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="SimpleMemberAccessExpression" Type="MemberAccessExpression" />
   <NodeKind Name="DiscardPattern" Type="DiscardPattern" />
   <NodeKind Name="NotPattern" Type="UnaryPattern" />
