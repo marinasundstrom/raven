@@ -1117,6 +1117,52 @@ public partial class SemanticModel
             constructor.SetParameters(parameters);
             caseSymbol.SetConstructorParameters(parameters);
 
+            if (parameters.Count > 0)
+            {
+                var deconstructMethod = new SourceMethodSymbol(
+                    "Deconstruct",
+                    unitType,
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    caseSymbol,
+                    caseSymbol,
+                    namespaceSymbol,
+                    [caseClause.GetLocation()],
+                    [caseClause.GetReference()],
+                    isStatic: false,
+                    methodKind: MethodKind.Ordinary,
+                    declaredAccessibility: Accessibility.Public);
+
+                var deconstructParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
+
+                foreach (var parameter in parameters)
+                {
+                    if (parameter.RefKind != RefKind.None)
+                        continue;
+
+                    var propertyName = GetUnionCasePropertyName(parameter.Name);
+                    if (caseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().FirstOrDefault() is not { } property)
+                        continue;
+
+                    var deconstructParameter = new SourceParameterSymbol(
+                        property.Name,
+                        property.Type,
+                        deconstructMethod,
+                        caseSymbol,
+                        namespaceSymbol,
+                        [caseClause.GetLocation()],
+                        [caseClause.GetReference()],
+                        refKind: RefKind.Out);
+
+                    deconstructParameters.Add(deconstructParameter);
+                }
+
+                if (deconstructParameters.Count > 0)
+                {
+                    deconstructMethod.SetParameters(deconstructParameters.ToImmutable());
+                    RegisterCaseMember(deconstructMethod);
+                }
+            }
+
             var caseToString = new SourceMethodSymbol(
                 "ToString",
                 stringType!,

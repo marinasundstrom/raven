@@ -246,6 +246,16 @@ internal class MethodBodyGenerator
             return;
         }
 
+        if (MethodSymbol.Name == "Deconstruct" &&
+            MethodSymbol.MethodKind == MethodKind.Ordinary &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit &&
+            MethodSymbol.ContainingType is SourceDiscriminatedUnionCaseTypeSymbol caseType &&
+            MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+        {
+            EmitUnionCaseDeconstruct(caseType);
+            return;
+        }
+
         if (MethodSymbol.MethodKind == MethodKind.Conversion &&
             MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
             MethodSymbol.Parameters.Length == 1 &&
@@ -1604,6 +1614,21 @@ internal class MethodBodyGenerator
 
         ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
         ILGenerator.Emit(OpCodes.Callvirt, builderToString);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitUnionCaseDeconstruct(SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
+    {
+        var parameterInfos = CollectUnionCaseParameters(caseSymbol);
+        var parameterCount = Math.Min(parameterInfos.Count, MethodSymbol.Parameters.Length);
+
+        for (var i = 0; i < parameterCount; i++)
+        {
+            var parameter = MethodSymbol.Parameters[i];
+            var info = parameterInfos[i];
+            EmitStoreRecordDeconstructParameter(parameter, info.Type, info.Field);
+        }
+
         ILGenerator.Emit(OpCodes.Ret);
     }
 
