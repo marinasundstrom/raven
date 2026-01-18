@@ -48,6 +48,7 @@ internal sealed partial class Lowerer
             var expression = (BoundExpression)VisitExpression(arm.Expression)!;
 
             expression = ApplyConversionIfNeeded(expression, resultType, compilation);
+            expression = (BoundExpression)VisitExpression(expression)!;
 
             BoundStatement armResult = new BoundBlockStatement([
                 new BoundAssignmentStatement(new BoundLocalAssignmentExpression(resultLocal, expression, unitType)),
