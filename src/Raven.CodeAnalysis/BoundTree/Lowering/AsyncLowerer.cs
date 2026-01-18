@@ -1618,9 +1618,6 @@ internal static class AsyncLowerer
                 tryStatements.Add(new BoundExpressionStatement(assignment));
                 var tryBlock = new BoundBlockStatement(tryStatements);
 
-                if (guardPlaceholder is not null)
-                    _blockMap[guardPlaceholder] = tryBlock;
-
                 var exceptionLocal = new SourceLocalSymbol(
                     "$tryExprException",
                     SubstituteStateMachineTypeParameters(node.ExceptionType),
@@ -1659,13 +1656,17 @@ internal static class AsyncLowerer
 
                 var catchClause = new BoundCatchClause(node.ExceptionType, exceptionLocal, catchBlock);
                 var tryStatement = new BoundTryStatement(tryBlock, ImmutableArray.Create(catchClause), finallyBlock: null);
+                var guardBlock = new BoundBlockStatement(new BoundStatement[] { tryStatement });
 
                 var blockStatements = new BoundStatement[]
                 {
                     resultDeclaration,
-                    tryStatement,
+                    guardBlock,
                     new BoundExpressionStatement(new BoundLocalAccess(resultLocal))
                 };
+
+                if (guardPlaceholder is not null)
+                    _blockMap[guardPlaceholder] = guardBlock;
 
                 return new BoundBlockExpression(blockStatements, unitType);
             }
