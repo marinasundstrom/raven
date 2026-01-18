@@ -84,6 +84,13 @@ public extension OptionExtensions1<T : class> for Option<T> {
         }
         return null
     }
+
+    public static implicit operator(value: T?) -> Option<T> {
+        if value is not null {
+            return .Some(value)
+        }
+        return .None
+    }
 }
 
 public extension OptionExtensions2<T : struct> for Option<T> {
@@ -94,4 +101,14 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         }
         return null
     }
+
+    /*
+    public static implicit operator(value: T?) -> Option<T> {
+        // TODO: Handle so that value type in "value" gets unwrapped
+        if value is not null {
+            return .Some(value)
+        }
+        return .None
+    }
+    */
 }
