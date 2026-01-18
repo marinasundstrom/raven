@@ -1,0 +1,16 @@
+import System.*
+
+test(2)
+test2("test")
+
+func test(x: int?) -> () {
+    if x is not null {
+        Console.WriteLine(x)
+    }
+}
+
+func test2(x: string?) -> () {
+    if x is not null {
+        Console.WriteLine(x)
+    }
+}

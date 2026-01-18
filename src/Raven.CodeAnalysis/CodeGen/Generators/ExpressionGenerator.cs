@@ -58,10 +58,17 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitNullableValueExpression(BoundNullableValueExpression expr)
     {
-        // TODO: Emit address instead
-        EmitExpression(expr.Operand);
+        // For Nullable<T> instance methods it's best to call on the address to avoid
+        // unnecessary copies and to work correctly for open generic Nullable<T>.
         var nullableType = expr.Operand.Type;
         var receiverClrType = ResolveClrType(nullableType);
+
+        // Evaluate once and take the address for the call.
+        EmitExpression(expr.Operand);
+        var tmp = ILGenerator.DeclareLocal(receiverClrType);
+        ILGenerator.Emit(OpCodes.Stloc, tmp);
+
+        ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
         ILGenerator.Emit(OpCodes.Call, GetNullableGetValueOrDefault(receiverClrType));
     }
 
