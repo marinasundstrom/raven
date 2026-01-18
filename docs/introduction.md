@@ -103,6 +103,35 @@ val values: List<int> = [1, 2, 3]
 > ❗ **Tip:** `[]` needs a target type (like `int[]` or `List<int>`) so Raven knows what to construct.
 
 ---
+## Type system
+
+Raven’s type system is designed to be practical, safe-by-default, and predictable.
+It supports modern .NET interop while encouraging explicit modeling of intent.
+
+### Nullability
+
+Nullability is a unified feature in Raven’s type system and is **enabled by default**.
+
+- `T` is non-nullable
+- `T?` represents “a `T` or `null`”
+
+Raven performs **control-flow analysis** and produces diagnostics when values may be `null`, helping you avoid null-reference bugs without requiring runtime checks everywhere.
+
+### Prefer `Option<T>` for optional values
+
+In Raven code, prefer `Option<T>` to represent optional values explicitly rather than relying on `T?`.
+
+Use nullable types mainly for **.NET interop**, where `null` is the standard representation of “no value”.
+
+Raven provides an implicit conversion from `Option<T>` to `T?` so optional values can be passed to APIs that expect nullable references:
+
+```raven
+val name: Option<string> = .Some("Raven")
+
+val text: string? = name // implicit Option<T> -> T?
+```
+
+---
 
 ## Functions
 
@@ -412,6 +441,19 @@ WriteLine(now)
 ```
 
 > ❗ **Tip:** `import Some.Type.*` can bring static members into scope (similar to C# `using static`).
+
+---
+## Object-oriented programming
+
+Raven supports object-oriented programming alongside its expression-oriented design:
+
+- classes
+- interfaces
+- methods
+- properties
+- events
+
+This makes it natural to build traditional .NET-style libraries and applications, while still benefiting from Raven’s union types and pattern matching.
 
 ---
 
