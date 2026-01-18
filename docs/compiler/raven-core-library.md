@@ -59,6 +59,9 @@ programs compatible with the .NET type system.
 unit value even though the underlying IL maps the type to `void`. Code that
 returns `unit` emits `Unit.Value` as needed to bridge the gap between the
 expression-oriented language semantics and .NET metadata.
+When `unit` appears in generic type arguments or parameter positions, the
+compiler preserves it as `System.Unit` so constructed signatures can resolve
+against emitted union cases and helper methods.
 
 ### Generated types
 
