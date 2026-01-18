@@ -1495,6 +1495,26 @@ internal static class AsyncLowerer
             if (IsEffectivelyVoidExpression(resultExpression))
                 resultExpression = null;
 
+            if (resultExpression is BoundMatchExpression matchExpression)
+            {
+                var resultType = matchExpression.Type ?? _stateMachine.Compilation.ErrorTypeSymbol;
+                var resultLocal = new SourceLocalSymbol(
+                    "$matchReturnResult",
+                    SubstituteStateMachineTypeParameters(resultType),
+                    isMutable: true,
+                    _stateMachine.MoveNextMethod,
+                    _stateMachine,
+                    _stateMachine.ContainingNamespace,
+                    new[] { Location.None },
+                    Array.Empty<SyntaxReference>());
+
+                statements.Add(new BoundLocalDeclarationStatement(new[]
+                {
+                    new BoundVariableDeclarator(resultLocal, matchExpression)
+                }));
+                resultExpression = new BoundLocalAccess(resultLocal);
+            }
+
             statements.Add(CreateStateAssignment(_stateMachine, -2));
 
             var setResult = CreateBuilderSetResultStatement(_stateMachine, _builderMembers, resultExpression);
