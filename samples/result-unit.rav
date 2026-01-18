@@ -3,6 +3,8 @@ import System.Console.*
 
 val result: Result<(), string> = .Ok(())
 
+WriteLine(result)
+
 val r = result match {
     .Ok => "Foo",
     .Error(val str) => "error"
