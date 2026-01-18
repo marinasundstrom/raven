@@ -105,25 +105,26 @@ val values: List<int> = [1, 2, 3]
 ---
 ## Type system
 
-Raven’s type system is designed to be practical, safe-by-default, and predictable.
-It supports modern .NET interop while encouraging explicit modeling of intent.
+Raven’s type system is practical and safe-by-default, while still designed for smooth .NET interop.
 
 ### Nullability
 
 Nullability is a unified feature in Raven’s type system and is **enabled by default**.
 
 - `T` is non-nullable
-- `T?` represents “a `T` or `null`”
+- `T?` allows `null`
 
-Raven performs **control-flow analysis** and produces diagnostics when values may be `null`, helping you avoid null-reference bugs without requiring runtime checks everywhere.
+Raven performs **control-flow analysis** and produces diagnostics when values may be `null`, helping you avoid null-reference bugs early.
 
 ### Prefer `Option<T>` for optional values
 
-In Raven code, prefer `Option<T>` to represent optional values explicitly rather than relying on `T?`.
+> ↪️ **Read more:** [Result and Option](#user-content-result-and-option)
+
+In Raven code, prefer `Option<T>` for optional values rather than relying on `T?`.
 
 Use nullable types mainly for **.NET interop**, where `null` is the standard representation of “no value”.
 
-Raven provides an implicit conversion from `Option<T>` to `T?` so optional values can be passed to APIs that expect nullable references:
+Raven provides an implicit conversion from `Option<T>` to `T?` so optional values can be passed to APIs that expect `null`:
 
 ```raven
 val name: Option<string> = .Some("Raven")
