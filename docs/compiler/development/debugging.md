@@ -38,6 +38,9 @@ Invoking this method that is available on every `SyntaxNode`:
 root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = true, Colorize = true });
 ````
 
+> **Tip:**
+This can also be printed by adding `-s` as an argument to the Raven.Compiler (ravc) command.
+
 Will give you this:
 
 ```
@@ -113,6 +116,57 @@ This method is available on every `SyntaxNode`:
 
 ```csharp
 var str = syntaxNode.ToFullString();
+```
+
+## Readable representation of Binder hierarchy
+
+To visualize the binder hierarchy.
+
+Simply invoke `PrintBinderTree` on the `SemanticModel`.
+
+```csharp
+semanticModel.PrintBinderTree();
+```
+
+> **Tip:**
+This is also printed by adding `-bt` as an argument to the Raven.Compiler (ravc) command.
+
+```
+GlobalBinder
+└── NamespaceBinder (<global>)
+    └── ImportBinder
+        └── TopLevelBinder (synthesized Main)
+            └── LocalScopeBinder
+                └── LocalScopeBinder
+```
+
+## Readable representation of Bound tree
+
+To visualize the bound tree.
+
+Simply invoke `PrintBoundTree` on the `SemanticModel`.
+
+```csharp
+semanticModel.PrintBoundTree();
+```
+
+> **Tip:**
+This is also printed by adding `-bt` as an argument to the Raven.Compiler (ravc) command.
+
+```
+BlockStatement [Syntax=CompilationUnit]
+├── LocalDeclarationStatement [Syntax=LocalDeclarationStatement, Symbol=val no: int, IsUsing=false]
+│   └── VariableDeclarator [Syntax=VariableDeclarator, Local=val no: int]
+│       └── LiteralExpression [Syntax=NumericLiteralExpression, Type=int, Value=2, Kind=NumericLiteral]
+└── IfStatement [Syntax=IfStatement]
+    ├── BinaryExpression [Type=bool]
+    │   ├── LocalAccess [Type=int, Symbol=val no: int, Local=val no: int]
+    │   └── LiteralExpression [Type=int, Value=42, Kind=NumericLiteral]
+    └── BlockStatement [Syntax=BlockStatement]
+        └── ExpressionStatement [Syntax=ExpressionStatement, Symbol=static Console.WriteLine(value: int) → ()]
+            └── InvocationExpression [Type=(), Symbol=static Console.WriteLine(value: int) → (), Method=static Console.WriteLine(value: int) → (), RequiresReceiverAddress=false]
+                ├── LocalAccess [Type=int, Symbol=val no: int, Local=val no: int]
+                └── TypeExpression [Type=Console, Symbol=Console, TypeSymbol=Console]
 ```
 
 ## Source generator
