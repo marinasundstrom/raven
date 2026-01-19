@@ -13,8 +13,8 @@ public static class BoundTreePrinter
 {
     private static readonly SymbolDisplayFormat BoundTreeDisplayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat
         .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
-        .WithLocalOptions(SymbolDisplayLocalOptions.IncludeBinding)
-        .WithParameterOptions(SymbolDisplayParameterOptions.IncludeBinding)
+        .WithLocalOptions(SymbolDisplayLocalOptions.IncludeBinding | SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeConstantValue)
+        .WithParameterOptions(SymbolDisplayParameterOptions.IncludeBinding | SymbolDisplayParameterOptions.IncludeType)
         .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
         .WithMemberOptions(SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers) // | SymbolDisplayMemberOptions.IncludeAccessibility)
         .WithParameterOptions(SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName);
