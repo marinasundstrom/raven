@@ -33,7 +33,10 @@ public static class BinderTreePrinter
             .ToList();
 
         foreach (var root in roots)
-            PrintRecursive(root, parentToChildren, binderNodes, "", isLast: true);
+        {
+            PrintRoot(root, parentToChildren, binderNodes);
+            PrintChildren(root, parentToChildren, binderNodes, "");
+        }
     }
 
     private static Dictionary<Binder, List<Binder>> BuildParentChildMap(IEnumerable<Binder> allBinders)
@@ -52,6 +55,28 @@ public static class BinderTreePrinter
         }
 
         return map;
+    }
+
+    private static void PrintRoot(
+        Binder binder,
+        Dictionary<Binder, List<Binder>> parentToChildren,
+        Dictionary<Binder, List<SyntaxNode>> binderNodes)
+    {
+        // Root prints without tree marker.
+        Console.WriteLine(DescribeBinder(binder, binderNodes, parentToChildren));
+    }
+
+    private static void PrintChildren(
+        Binder binder,
+        Dictionary<Binder, List<Binder>> parentToChildren,
+        Dictionary<Binder, List<SyntaxNode>> binderNodes,
+        string indent)
+    {
+        if (parentToChildren.TryGetValue(binder, out var children))
+        {
+            for (int i = 0; i < children.Count; i++)
+                PrintRecursive(children[i], parentToChildren, binderNodes, indent, i == children.Count - 1);
+        }
     }
 
     private static void PrintRecursive(

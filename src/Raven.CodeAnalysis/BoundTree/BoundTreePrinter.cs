@@ -60,7 +60,8 @@ public static class BoundTreePrinter
                 Console.WriteLine();
             printedAny = true;
 
-            PrintRecursive(root, nodeToSyntax, string.Empty, i == roots.Count - 1, visitedNodes, visitedSyntaxes);
+            PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes);
+            PrintChildren(root, nodeToSyntax, string.Empty, visitedNodes, visitedSyntaxes);
         }
     }
 
@@ -138,6 +139,42 @@ public static class BoundTreePrinter
             return comparison;
 
         return string.Compare(left.GetType().Name, right.GetType().Name, StringComparison.Ordinal);
+    }
+
+    private static void PrintRoot(
+        BoundNode node,
+        IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
+        HashSet<BoundNode> visitedNodes,
+        HashSet<SyntaxNode> visitedSyntaxes)
+    {
+        var alreadyVisitedNode = !visitedNodes.Add(node);
+
+        var description = Describe(node, nodeToSyntax);
+        if (alreadyVisitedNode)
+            description += " [cycle]";
+
+        // Root prints without tree marker.
+        Console.WriteLine(description);
+
+        if (alreadyVisitedNode)
+            return;
+
+        if (nodeToSyntax.TryGetValue(node, out var syntax))
+            visitedSyntaxes.Add(syntax);
+    }
+
+    private static void PrintChildren(
+        BoundNode node,
+        IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
+        string indent,
+        HashSet<BoundNode> visitedNodes,
+        HashSet<SyntaxNode> visitedSyntaxes)
+    {
+        var children = GetChildren(node).ToList();
+        for (var i = 0; i < children.Count; i++)
+        {
+            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, visitedNodes, visitedSyntaxes);
+        }
     }
 
     private static void PrintRecursive(
