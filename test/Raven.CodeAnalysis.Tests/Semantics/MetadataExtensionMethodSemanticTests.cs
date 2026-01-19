@@ -261,7 +261,7 @@ let anyPositive = numbers.Any((value: int) => value > 0)
             argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
 
         var convertedArgument = Assert.Single(boundInvocation.Arguments);
-        var cast = Assert.IsType<BoundCastExpression>(convertedArgument);
+        var cast = Assert.IsType<BoundConversionExpression>(convertedArgument);
         Assert.Equal(predicateType, cast.Type);
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
@@ -355,7 +355,7 @@ let projection = numbers.Select(value => value.ToString())
         Assert.Equal(2, delegateType.Arity);
 
         var convertedArgument = Assert.Single(boundInvocation.Arguments);
-        var cast = Assert.IsType<BoundCastExpression>(convertedArgument);
+        var cast = Assert.IsType<BoundConversionExpression>(convertedArgument);
         Assert.Equal(delegateType, cast.Type);
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;

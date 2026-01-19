@@ -759,7 +759,7 @@ internal static class AsyncLowerer
             case BoundLiteralExpression literal when literal.Value is null:
                 return true;
 
-            case BoundCastExpression cast when cast.Conversion.IsIdentity && IsEffectivelyVoidExpression(cast.Expression):
+            case BoundConversionExpression cast when cast.Conversion.IsIdentity && IsEffectivelyVoidExpression(cast.Expression):
                 return true;
 
             case BoundAsExpression asExpression when asExpression.Conversion.IsIdentity && IsEffectivelyVoidExpression(asExpression.Expression):
@@ -1764,13 +1764,13 @@ internal static class AsyncLowerer
                         return objectCreationExpression;
                     }
 
-                case BoundCastExpression castExpression:
+                case BoundConversionExpression conversionExpression:
                     {
-                        var operand = VisitExpression(castExpression.Expression) ?? castExpression.Expression;
-                        if (!ReferenceEquals(operand, castExpression.Expression))
-                            return new BoundCastExpression(operand, castExpression.Type, castExpression.Conversion);
+                        var operand = VisitExpression(conversionExpression.Expression) ?? conversionExpression.Expression;
+                        if (!ReferenceEquals(operand, conversionExpression.Expression))
+                            return new BoundConversionExpression(operand, conversionExpression.Type, conversionExpression.Conversion);
 
-                        return castExpression;
+                        return conversionExpression;
                     }
 
                 case BoundAsExpression asExpression:
@@ -2347,7 +2347,7 @@ internal static class AsyncLowerer
             if (!conversion.Exists || conversion.IsIdentity)
                 return expression;
 
-            return new BoundCastExpression(expression, targetType, conversion);
+            return new BoundConversionExpression(expression, targetType, conversion);
         }
 
         private static bool ContainsAwait(BoundExpression expression)
@@ -3116,7 +3116,7 @@ internal static class AsyncLowerer
             if (conversion.IsIdentity)
                 return expression;
 
-            return new BoundCastExpression(expression, targetType, conversion);
+            return new BoundConversionExpression(expression, targetType, conversion);
         }
 
         private BoundExpression CreateSequencedExpression(BoundExpression expression, BoundExpression result)
@@ -3156,7 +3156,7 @@ internal static class AsyncLowerer
             if (!conversion.Exists || conversion.IsIdentity)
                 return expression;
 
-            return new BoundCastExpression(expression, targetType, conversion);
+            return new BoundConversionExpression(expression, targetType, conversion);
         }
 
         private BoundExpression? CreateCompletedTaskAccess()
@@ -3414,7 +3414,7 @@ internal static class AsyncLowerer
         if (!SymbolEqualityComparer.Default.Equals(taskProperty.Type, method.ReturnType))
         {
             var conversion = new Conversion(isImplicit: true, isIdentity: true);
-            return new BoundCastExpression(taskAccess, method.ReturnType, conversion);
+            return new BoundConversionExpression(taskAccess, method.ReturnType, conversion);
         }
 
         return taskAccess;

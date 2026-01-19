@@ -234,7 +234,7 @@ internal static class IteratorLowerer
             conversion = new Conversion(isImplicit: true, isReference: isReference, isBoxing: isBoxing);
         }
 
-        return new BoundCastExpression(expression, targetType, conversion);
+        return new BoundConversionExpression(expression, targetType, conversion);
     }
 
     private static BoundBlockStatement RewriteIteratorMethodBody(
@@ -853,7 +853,7 @@ internal static class IteratorLowerer
             if (!conversion.Exists || conversion.IsIdentity)
                 return expression;
 
-            return new BoundCastExpression(expression, targetType, conversion);
+            return new BoundConversionExpression(expression, targetType, conversion);
         }
 
         private StateEntry AllocateState()

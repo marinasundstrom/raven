@@ -836,7 +836,7 @@ public static class BoxingExtensions {
         var arguments = invocation.Arguments.ToArray();
         Assert.Equal(invocation.Method.Parameters.Length, arguments.Length);
 
-        var boxedReceiver = Assert.IsType<BoundCastExpression>(arguments[0]);
+        var boxedReceiver = Assert.IsType<BoundConversionExpression>(arguments[0]);
         Assert.Equal(invocation.Method.Parameters[0].Type, boxedReceiver.Type);
 
         var local = Assert.IsType<BoundLocalAccess>(boxedReceiver.Expression);

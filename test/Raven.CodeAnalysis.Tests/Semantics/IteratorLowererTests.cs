@@ -167,7 +167,7 @@ class C {
         AssertFieldAssignment(stateAssignment.Expression, stateMachine.StateField, expectedValue: 0);
 
         var returnStatement = Assert.IsType<BoundReturnStatement>(statements[4]);
-        var cast = Assert.IsType<BoundCastExpression>(returnStatement.Expression);
+        var cast = Assert.IsType<BoundConversionExpression>(returnStatement.Expression);
         var returnLocal = Assert.IsType<BoundLocalAccess>(cast.Expression);
         Assert.Equal(local, returnLocal.Local);
     }
@@ -276,7 +276,7 @@ class C {
         Assert.Equal(4, statements.Length);
         Assert.IsType<BoundLocalDeclarationStatement>(statements[0]);
         var returnStatement = Assert.IsType<BoundReturnStatement>(statements[3]);
-        var cast = Assert.IsType<BoundCastExpression>(returnStatement.Expression);
+        var cast = Assert.IsType<BoundConversionExpression>(returnStatement.Expression);
         Assert.IsType<BoundLocalAccess>(cast.Expression);
     }
 
@@ -388,7 +388,7 @@ class C {
 
         var nonGenericBody = Assert.IsType<BoundBlockStatement>(stateMachine.NonGenericCurrentGetterBody);
         var nonGenericReturn = Assert.IsType<BoundReturnStatement>(Assert.Single(nonGenericBody.Statements));
-        var nonGenericCast = Assert.IsType<BoundCastExpression>(nonGenericReturn.Expression);
+        var nonGenericCast = Assert.IsType<BoundConversionExpression>(nonGenericReturn.Expression);
         Assert.Equal(stateMachine.NonGenericCurrentProperty.Type, nonGenericCast.Type);
         var nonGenericSource = Assert.IsType<BoundFieldAccess>(nonGenericCast.Expression);
         Assert.Equal(stateMachine.CurrentField, nonGenericSource.Field);
@@ -417,14 +417,14 @@ class C {
         var resetLiteral = Assert.IsType<BoundLiteralExpression>(resetFieldAssignment.Right);
         Assert.Equal(0, resetLiteral.Value);
         var genericReturn = Assert.IsType<BoundReturnStatement>(genericStatements[1]);
-        var genericCast = Assert.IsType<BoundCastExpression>(genericReturn.Expression);
+        var genericCast = Assert.IsType<BoundConversionExpression>(genericReturn.Expression);
         Assert.Equal(stateMachine.GenericGetEnumeratorMethod!.ReturnType, genericCast.Type);
         Assert.IsType<BoundSelfExpression>(genericCast.Expression);
 
         var nonGenericGetEnumeratorBody = Assert.IsType<BoundBlockStatement>(stateMachine.NonGenericGetEnumeratorBody);
         var nonGenericStatements = nonGenericGetEnumeratorBody.Statements.ToArray();
         var nonGenericReturnStmt = Assert.IsType<BoundReturnStatement>(Assert.Single(nonGenericStatements));
-        var nonGenericReturnExpr = Assert.IsType<BoundCastExpression>(nonGenericReturnStmt.Expression);
+        var nonGenericReturnExpr = Assert.IsType<BoundConversionExpression>(nonGenericReturnStmt.Expression);
         var invocation = Assert.IsType<BoundInvocationExpression>(nonGenericReturnExpr.Expression);
         Assert.Equal(stateMachine.GenericGetEnumeratorMethod, invocation.Method);
     }

@@ -156,7 +156,13 @@ public partial class SemanticModel
         if (boundExpr is null)
             return new TypeInfo(null, null);
 
-        return new TypeInfo(boundExpr.Type, boundExpr.GetConvertedType());
+        ITypeSymbol? naturalType = boundExpr is BoundConversionExpression cast
+            ? cast.Expression.Type
+            : boundExpr.Type;
+
+        ITypeSymbol? convertedType = boundExpr.Type;
+
+        return new TypeInfo(boundExpr.Type, convertedType);
     }
 
     /// <summary>

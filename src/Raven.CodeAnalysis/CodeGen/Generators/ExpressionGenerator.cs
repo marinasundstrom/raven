@@ -144,8 +144,8 @@ internal partial class ExpressionGenerator : Generator
                 EmitExpression(parenthesized.Expression);
                 break;
 
-            case BoundCastExpression castExpression:
-                EmitCastExpression(castExpression);
+            case BoundConversionExpression conversionExpression:
+                EmitConversionExpression(conversionExpression);
                 break;
 
             case BoundAsExpression asExpression:
@@ -819,10 +819,10 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldarg, position);
     }
 
-    private void EmitCastExpression(BoundCastExpression castExpression)
+    private void EmitConversionExpression(BoundConversionExpression conversionExpression)
     {
-        new ExpressionGenerator(this, castExpression.Expression).Emit();
-        EmitConversion(castExpression.Expression.Type!, castExpression.Type, castExpression.Conversion);
+        new ExpressionGenerator(this, conversionExpression.Expression).Emit();
+        EmitConversion(conversionExpression.Expression.Type!, conversionExpression.Type, conversionExpression.Conversion);
     }
 
     private void EmitAsExpression(BoundAsExpression asExpression)

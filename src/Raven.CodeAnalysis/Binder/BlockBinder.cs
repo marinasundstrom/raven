@@ -661,7 +661,7 @@ partial class BlockBinder : Binder
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
-            CastExpressionSyntax castExpression => BindCastExpression(castExpression),
+            CastExpressionSyntax castExpression => BindConversionExpression(castExpression),
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
             DefaultExpressionSyntax defaultExpression => BindDefaultExpression(defaultExpression),
             TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
@@ -1378,7 +1378,7 @@ partial class BlockBinder : Binder
         return new BoundParenthesizedExpression(expression);
     }
 
-    private BoundExpression BindCastExpression(CastExpressionSyntax castExpression)
+    private BoundExpression BindConversionExpression(CastExpressionSyntax castExpression)
     {
         var expression = BindExpression(castExpression.Expression);
         var targetType = ResolveType(castExpression.Type);
@@ -1396,7 +1396,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
         }
 
-        return new BoundCastExpression(expression, targetType, conversion);
+        return new BoundConversionExpression(expression, targetType, conversion);
     }
 
     private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
@@ -5987,7 +5987,7 @@ partial class BlockBinder : Binder
             return new BoundLiteralExpression(literalNull.Kind, literalNull.Value, literalNull.Type, targetType);
         }
 
-        return new BoundCastExpression(expression, targetType, conversion);
+        return new BoundConversionExpression(expression, targetType, conversion);
     }
 
     private static string GetMethodGroupDisplay(BoundMethodGroupExpression methodGroup)

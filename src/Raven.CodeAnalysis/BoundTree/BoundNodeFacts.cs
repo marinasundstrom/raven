@@ -37,7 +37,7 @@ internal static class BoundNodeFacts
                 case BoundParenthesizedExpression parenthesized:
                     expression = parenthesized.Expression;
                     continue;
-                case BoundCastExpression cast when cast.Conversion.IsIdentity:
+                case BoundConversionExpression cast when cast.Conversion.IsIdentity:
                     expression = cast.Expression;
                     continue;
                 case BoundAsExpression asExpression when asExpression.Conversion.IsIdentity:

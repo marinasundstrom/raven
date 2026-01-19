@@ -37,7 +37,7 @@ Sources of truth:
 | `Unary` | `BoundUnaryExpression` | `UnaryOperation` |
 | `Binary` | `BoundBinaryExpression` | `BinaryOperation` |
 | `Parenthesized` | `BoundParenthesizedExpression` | `ParenthesizedOperation` |
-| `Conversion` | `BoundCastExpression`, `BoundAsExpression` | `ConversionOperation` |
+| `Conversion` | `BoundConversionExpression`, `BoundAsExpression` | `ConversionOperation` |
 | `ConditionalAccess` | `BoundConditionalAccessExpression` | `ConditionalAccessOperation` |
 | `Conditional` | `BoundIfStatement`, `BoundIfExpression` | `ConditionalOperation` |
 | `TryExpression` | `BoundTryExpression` | `TryExpressionOperation` |

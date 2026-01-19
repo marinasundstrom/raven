@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
-    public override BoundNode? VisitCastExpression(BoundCastExpression node)
+    public override BoundNode? VisitConversionExpression(BoundConversionExpression node)
     {
         var rewrittenExpression = (BoundExpression?)Visit(node.Expression) ?? node.Expression;
 
@@ -17,10 +17,10 @@ internal sealed partial class Lowerer
         if (ReferenceEquals(rewrittenExpression, node.Expression))
             return node;
 
-        return new BoundCastExpression(rewrittenExpression, node.Type!, node.Conversion);
+        return new BoundConversionExpression(rewrittenExpression, node.Type!, node.Conversion);
     }
 
-    private BoundExpression LowerDiscriminatedUnionConversion(BoundCastExpression node, BoundExpression rewrittenExpression)
+    private BoundExpression LowerDiscriminatedUnionConversion(BoundConversionExpression node, BoundExpression rewrittenExpression)
     {
         var compilation = GetCompilation();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);

@@ -72,7 +72,7 @@ internal sealed partial class BoundNodeFactory
         BoundExpression right)
         => new(reference, elementType, right, Compilation.UnitTypeSymbol);
 
-    public BoundCastExpression CreateCastExpression(BoundExpression expression, ITypeSymbol type, Conversion conversion)
+    public BoundConversionExpression CreateConversionExpression(BoundExpression expression, ITypeSymbol type, Conversion conversion)
         => new(expression, type, conversion);
 
     public BoundCatchClause CreateCatchClause(ITypeSymbol exceptionType, ILocalSymbol? local, BoundBlockStatement block)

@@ -34,29 +34,29 @@ internal static class AttributeDataFactory
         switch (expression)
         {
             case BoundLiteralExpression literal:
-            {
-                var type = literal.GetConvertedType() ?? literal.Type;
+                {
+                    var type = literal.GetConvertedType() ?? literal.Type;
 
-                if (literal.Kind == BoundLiteralExpressionKind.NullLiteral)
-                    return TypedConstant.CreateNull(type);
+                    if (literal.Kind == BoundLiteralExpressionKind.NullLiteral)
+                        return TypedConstant.CreateNull(type);
 
-                return TypedConstant.CreatePrimitive(type, literal.Value);
-            }
+                    return TypedConstant.CreatePrimitive(type, literal.Value);
+                }
 
-            case BoundCastExpression cast:
-                return CreateTypedConstant(cast.Expression).WithType(cast.Type);
+            case BoundConversionExpression conversion:
+                return CreateTypedConstant(conversion.Expression).WithType(conversion.Type);
 
             case BoundTypeOfExpression typeOfExpression:
                 return TypedConstant.CreateType(typeOfExpression.SystemType, typeOfExpression.OperandType);
 
             case BoundCollectionExpression collection when collection.Type is IArrayTypeSymbol arrayType:
-            {
-                var elements = ImmutableArray.CreateBuilder<TypedConstant>();
-                foreach (var element in collection.Elements)
-                    elements.Add(CreateTypedConstant(element));
+                {
+                    var elements = ImmutableArray.CreateBuilder<TypedConstant>();
+                    foreach (var element in collection.Elements)
+                        elements.Add(CreateTypedConstant(element));
 
-                return TypedConstant.CreateArray(arrayType, elements.MoveToImmutable());
-            }
+                    return TypedConstant.CreateArray(arrayType, elements.MoveToImmutable());
+                }
 
             case BoundEmptyCollectionExpression emptyCollection:
                 return TypedConstant.CreateArray(emptyCollection.Type, ImmutableArray<TypedConstant>.Empty);

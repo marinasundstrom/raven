@@ -101,6 +101,6 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         if (!conversion.Exists || conversion.IsIdentity)
             return expression;
 
-        return new BoundCastExpression(expression, targetType, conversion);
+        return new BoundConversionExpression(expression, targetType, conversion);
     }
 }

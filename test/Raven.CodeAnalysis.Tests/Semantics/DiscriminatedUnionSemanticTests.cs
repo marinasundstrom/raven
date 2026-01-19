@@ -83,7 +83,7 @@ union Option {
         var creation = boundNode switch
         {
             BoundObjectCreationExpression objectCreation => objectCreation,
-            BoundCastExpression { Expression: BoundObjectCreationExpression innerCreation } => innerCreation,
+            BoundConversionExpression { Expression: BoundObjectCreationExpression innerCreation } => innerCreation,
             _ => throw new InvalidOperationException($"Unexpected bound node '{boundNode.GetType().Name}'.")
         };
         var constructor = creation.Constructor;
@@ -288,14 +288,14 @@ class Container {
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
         var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
         var returnStatement = boundBody.Statements.OfType<BoundReturnStatement>().Single();
-        var castExpression = Assert.IsType<BoundCastExpression>(returnStatement.Expression);
+        var castExpression = Assert.IsType<BoundConversionExpression>(returnStatement.Expression);
         Assert.True(castExpression.Conversion.IsDiscriminatedUnion);
         Assert.True(castExpression.Conversion.IsUserDefined);
         Assert.NotNull(castExpression.Conversion.MethodSymbol);
 
         var loweredBody = Lowerer.LowerBlock(methodSymbol, boundBody);
         var loweredReturn = loweredBody.Statements.OfType<BoundReturnStatement>().Single();
-        Assert.IsType<BoundCastExpression>(loweredReturn.Expression);
+        Assert.IsType<BoundConversionExpression>(loweredReturn.Expression);
     }
 
     [Fact]
