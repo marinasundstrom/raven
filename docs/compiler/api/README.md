@@ -66,143 +66,129 @@ root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = t
 For the following code:
 
 ```csharp
-let x : int = 2;
+import System.*
 
-if (x > 2) {
-    return (6 + 2) * 2;
-} else {
-    return foo.bar(2)
-        .GetId(1, z + 2, "Foo");
+sayHello("Bob")
+
+func sayHello(name: string?) -> () {
+    if name is not null {
+        Console.WriteLine("Hello, $name!")
+    }
 }
 ```
 
 The syntax tree will look like:
 
 ```
-CompilationUnit [0..120] (1,1) - (8,2)
-├── GlobalStatement [0..16] (1,1) - (1,17)
-│   └── Statement: LocalDeclaration [0..16] (1,1) - (1,17)
-│       ├── Declaration: VariableDeclaration [0..15] (1,1) - (1,16)
-│       │   ├── BindingKeyword: let LetKeyword [0..3] (1,1) - (1,4)
-│       │   │   └── ␣ WhitespaceTrivia [3..4] (1,4) - (1,5)
-│       │   └── VariableDeclarator [4..15] (1,5) - (1,16)
-│       │       ├── Identifier: x IdentifierToken [4..5] (1,5) - (1,6)
-│       │       │   └── ␣ WhitespaceTrivia [5..6] (1,6) - (1,7)
-│       │       ├── TypeAnnotation: TypeAnnotationClause [6..11] (1,7) - (1,12)
-│       │       │   ├── ColonToken: : ColonToken [6..7] (1,7) - (1,8)
-│       │       │   │   └── ␣ WhitespaceTrivia [7..8] (1,8) - (1,9)
-│       │       │   └── Type: PredefinedType [8..11] (1,9) - (1,12)
-│       │       │       └── Keyword: int IntKeyword [8..11] (1,9) - (1,12)
-│       │       │           └── ␣ WhitespaceTrivia [11..12] (1,12) - (1,13)
-│       │       └── Initializer: EqualsValueClause [12..15] (1,13) - (1,16)
-│       │           ├── EqualsToken: = EqualsToken [12..13] (1,13) - (1,14)
-│       │           │   └── ␣ WhitespaceTrivia [13..14] (1,14) - (1,15)
-│       │           └── Value: NumericLiteralExpression [14..15] (1,15) - (1,16)
-│       │               └── Token: 2 NumericLiteralToken [14..15] (1,15) - (1,16)
-│       └── TerminatorToken: ; SemicolonToken [15..16] (1,16) - (1,17)
-└── GlobalStatement [18..120] (3,1) - (8,2)
-    └── Statement: ExpressionStatement [18..120] (3,1) - (8,2)
-        ├── Expression: IfExpression [18..120] (3,1) - (8,2)
-        │   │   ┌── \n EndOfLineTrivia [16..17] (1,17) - (2,1)
-        │   │   ├── \n EndOfLineTrivia [17..18] (2,1) - (3,1)
-        │   ├── IfKeyword: if IfKeyword [18..20] (3,1) - (3,3)
-        │   │   └── ␣ WhitespaceTrivia [18..19] (3,1) - (3,2)
-        │   ├── Condition: ParenthesizedExpression [21..28] (3,4) - (3,11)
-        │   │   ├── OpenParenToken: ( OpenParenToken [21..22] (3,4) - (3,5)
-        │   │   ├── Expression: GreaterThanExpression [22..27] (3,5) - (3,10)
-        │   │   │   ├── LeftHandSide: IdentifierName [22..23] (3,5) - (3,6)
-        │   │   │   │   └── Identifier: x IdentifierToken [22..23] (3,5) - (3,6)
-        │   │   │   │       └── ␣ WhitespaceTrivia [23..24] (3,6) - (3,7)
-        │   │   │   ├── OperatorToken: > GreaterThanToken [24..25] (3,7) - (3,8)
-        │   │   │   │   └── ␣ WhitespaceTrivia [25..26] (3,8) - (3,9)
-        │   │   │   └── RightHandSide: NumericLiteralExpression [26..27] (3,9) - (3,10)
-        │   │   │       └── Token: 2 NumericLiteralToken [26..27] (3,9) - (3,10)
-        │   │   └── CloseParenToken: ) CloseParenToken [27..28] (3,10) - (3,11)
-        │   │       └── ␣ WhitespaceTrivia [28..29] (3,11) - (3,12)
-        │   ├── Expression: Block [29..56] (3,12) - (5,2)
-        │   │   ├── OpenBraceToken: { OpenBraceToken [29..30] (3,12) - (3,13)
-        │   │   ├── ReturnStatement [35..54] (4,5) - (4,24)
-        │   │   │   │   ┌── \n EndOfLineTrivia [30..31] (3,13) - (4,1)
-        │   │   │   │   ├── ␣␣␣␣ WhitespaceTrivia [31..35] (4,1) - (4,5)
-        │   │   │   ├── ReturnKeyword: return ReturnKeyword [35..41] (4,5) - (4,11)
-        │   │   │   │   └── ␣ WhitespaceTrivia [36..37] (4,6) - (4,7)
-        │   │   │   ├── Expression: MultiplyExpression [42..53] (4,12) - (4,23)
-        │   │   │   │   ├── LeftHandSide: ParenthesizedExpression [42..49] (4,12) - (4,19)
-        │   │   │   │   │   ├── OpenParenToken: ( OpenParenToken [42..43] (4,12) - (4,13)
-        │   │   │   │   │   ├── Expression: AddExpression [43..48] (4,13) - (4,18)
-        │   │   │   │   │   │   ├── LeftHandSide: NumericLiteralExpression [43..44] (4,13) - (4,14)
-        │   │   │   │   │   │   │   └── Token: 6 NumericLiteralToken [43..44] (4,13) - (4,14)
-        │   │   │   │   │   │   │       └── ␣ WhitespaceTrivia [44..45] (4,14) - (4,15)
-        │   │   │   │   │   │   ├── OperatorToken: + PlusToken [45..46] (4,15) - (4,16)
-        │   │   │   │   │   │   │   └── ␣ WhitespaceTrivia [46..47] (4,16) - (4,17)
-        │   │   │   │   │   │   └── RightHandSide: NumericLiteralExpression [47..48] (4,17) - (4,18)
-        │   │   │   │   │   │       └── Token: 2 NumericLiteralToken [47..48] (4,17) - (4,18)
-        │   │   │   │   │   └── CloseParenToken: ) CloseParenToken [48..49] (4,18) - (4,19)
-        │   │   │   │   │       └── ␣ WhitespaceTrivia [49..50] (4,19) - (4,20)
-        │   │   │   │   ├── OperatorToken: * StarToken [50..51] (4,20) - (4,21)
-        │   │   │   │   │   └── ␣ WhitespaceTrivia [51..52] (4,21) - (4,22)
-        │   │   │   │   └── RightHandSide: NumericLiteralExpression [52..53] (4,22) - (4,23)
-        │   │   │   │       └── Token: 2 NumericLiteralToken [52..53] (4,22) - (4,23)
-        │   │   │   └── TerminatorToken: ; SemicolonToken [53..54] (4,23) - (4,24)
-        │   │   │   ┌── \n EndOfLineTrivia [54..55] (4,24) - (5,1)
-        │   │   └── CloseBraceToken: } CloseBraceToken [55..56] (5,1) - (5,2)
-        │   │       └── ␣ WhitespaceTrivia [55..56] (5,1) - (5,2)
-        │   └── ElseClause: ElseClause [57..120] (5,3) - (8,2)
-        │       ├── ElseKeyword: else ElseKeyword [57..61] (5,3) - (5,7)
-        │       │   └── ␣ WhitespaceTrivia [61..62] (5,7) - (5,8)
-        │       └── Expression: Block [62..120] (5,8) - (8,2)
-        │           ├── OpenBraceToken: { OpenBraceToken [62..63] (5,8) - (5,9)
-        │           ├── ReturnStatement [68..118] (6,5) - (7,33)
-        │           │   │   ┌── \n EndOfLineTrivia [63..64] (5,9) - (6,1)
-        │           │   │   ├── ␣␣␣␣ WhitespaceTrivia [64..68] (6,1) - (6,5)
-        │           │   ├── ReturnKeyword: return ReturnKeyword [68..74] (6,5) - (6,11)
-        │           │   │   └── ␣ WhitespaceTrivia [69..70] (6,6) - (6,7)
-        │           │   ├── Expression: InvocationExpression [75..117] (6,12) - (7,32)
-        │           │   │   ├── Expression: SimpleMemberAccessExpression [75..100] (6,12) - (7,15)
-        │           │   │   │   ├── Expression: InvocationExpression [75..85] (6,12) - (6,22)
-        │           │   │   │   │   ├── Expression: SimpleMemberAccessExpression [75..82] (6,12) - (6,19)
-        │           │   │   │   │   │   ├── Expression: IdentifierName [75..78] (6,12) - (6,15)
-        │           │   │   │   │   │   │   └── Identifier: foo IdentifierToken [75..78] (6,12) - (6,15)
-        │           │   │   │   │   │   ├── OperatorToken: . DotToken [78..79] (6,15) - (6,16)
-        │           │   │   │   │   │   └── Name: IdentifierName [79..82] (6,16) - (6,19)
-        │           │   │   │   │   │       └── Identifier: bar IdentifierToken [79..82] (6,16) - (6,19)
-        │           │   │   │   │   └── ArgumentList: ArgumentList [82..85] (6,19) - (6,22)
-        │           │   │   │   │       ├── OpenParenToken: ( OpenParenToken [82..83] (6,19) - (6,20)
-        │           │   │   │   │       ├── Argument [83..84] (6,20) - (6,21)
-        │           │   │   │   │       │   └── Expression: NumericLiteralExpression [83..84] (6,20) - (6,21)
-        │           │   │   │   │       │       └── Token: 2 NumericLiteralToken [83..84] (6,20) - (6,21)
-        │           │   │   │   │       └── CloseParenToken: ) CloseParenToken [84..85] (6,21) - (6,22)
-        │           │   │   │   │   ┌── \n EndOfLineTrivia [85..86] (6,22) - (7,1)
-        │           │   │   │   │   ├── ␣␣␣␣␣␣␣␣ WhitespaceTrivia [86..94] (7,1) - (7,9)
-        │           │   │   │   ├── OperatorToken: . DotToken [94..95] (7,9) - (7,10)
-        │           │   │   │   └── Name: IdentifierName [95..100] (7,10) - (7,15)
-        │           │   │   │       └── Identifier: GetId IdentifierToken [95..100] (7,10) - (7,15)
-        │           │   │   └── ArgumentList: ArgumentList [100..117] (7,15) - (7,32)
-        │           │   │       ├── OpenParenToken: ( OpenParenToken [100..101] (7,15) - (7,16)
-        │           │   │       ├── Argument [101..102] (7,16) - (7,17)
-        │           │   │       │   └── Expression: NumericLiteralExpression [101..102] (7,16) - (7,17)
-        │           │   │       │       └── Token: 1 NumericLiteralToken [101..102] (7,16) - (7,17)
-        │           │   │       ├── , CommaToken [102..103] (7,17) - (7,18)
-        │           │   │       │   └── ␣ WhitespaceTrivia [103..104] (7,18) - (7,19)
-        │           │   │       ├── Argument [104..109] (7,19) - (7,24)
-        │           │   │       │   └── Expression: AddExpression [104..109] (7,19) - (7,24)
-        │           │   │       │       ├── LeftHandSide: IdentifierName [104..105] (7,19) - (7,20)
-        │           │   │       │       │   └── Identifier: z IdentifierToken [104..105] (7,19) - (7,20)
-        │           │   │       │       │       └── ␣ WhitespaceTrivia [105..106] (7,20) - (7,21)
-        │           │   │       │       ├── OperatorToken: + PlusToken [106..107] (7,21) - (7,22)
-        │           │   │       │       │   └── ␣ WhitespaceTrivia [107..108] (7,22) - (7,23)
-        │           │   │       │       └── RightHandSide: NumericLiteralExpression [108..109] (7,23) - (7,24)
-        │           │   │       │           └── Token: 2 NumericLiteralToken [108..109] (7,23) - (7,24)
-        │           │   │       ├── , CommaToken [109..110] (7,24) - (7,25)
-        │           │   │       │   └── ␣ WhitespaceTrivia [110..111] (7,25) - (7,26)
-        │           │   │       ├── Argument [111..116] (7,26) - (7,31)
-        │           │   │       │   └── Expression: StringLiteralExpression [111..116] (7,26) - (7,31)
-        │           │   │       │       └── Token: "Foo" StringLiteralToken [111..116] (7,26) - (7,31)
-        │           │   │       └── CloseParenToken: ) CloseParenToken [116..117] (7,31) - (7,32)
-        │           │   └── TerminatorToken: ; SemicolonToken [117..118] (7,32) - (7,33)
-        │           │   ┌── \n EndOfLineTrivia [118..119] (7,33) - (8,1)
-        │           └── CloseBraceToken: } CloseBraceToken [119..120] (8,1) - (8,2)
-        └── TerminatorToken:  EndOfFileToken [120..120] (8,2) - (8,2)
+CompilationUnit [0..147] (1,1) - (9,2)
+├── ImportDirective [0..16] (1,1) - (1,16)
+│   ├── ImportKeyword: import ImportKeyword [0..6] (1,1) - (1,7)
+│   │   └── ␣ WhitespaceTrivia [6..7] (1,7) - (1,8)
+│   ├── Name: QualifiedName [7..15] (1,8) - (1,16)
+│   │   ├── Left: IdentifierName [7..13] (1,8) - (1,14)
+│   │   │   └── Identifier: System IdentifierToken [7..13] (1,8) - (1,14)
+│   │   ├── DotToken: . DotToken [13..14] (1,14) - (1,15)
+│   │   └── Right: WildcardName [14..15] (1,15) - (1,16)
+│   │       └── StartToken: * StarToken [14..15] (1,15) - (1,16)
+│   └── TerminatorToken: \n NewLineToken [15..16] (1,16) - (2,1)
+├── GlobalStatement [17..33] (3,1) - (4,1)
+│   └── Statement: ExpressionStatement [17..33] (3,1) - (3,16)
+│       ├── Expression: InvocationExpression [17..32] (3,1) - (3,16)
+│       │   ├── Expression: IdentifierName [17..25] (3,1) - (3,9)
+│       │   │   │   ┌── \n EndOfLineTrivia [16..17] (2,1) - (3,1)
+│       │   │   └── Identifier: sayHello IdentifierToken [17..25] (3,1) - (3,9)
+│       │   └── ArgumentList: ArgumentList [25..32] (3,9) - (3,16)
+│       │       ├── OpenParenToken: ( OpenParenToken [25..26] (3,9) - (3,10)
+│       │       ├── Argument [26..31] (3,10) - (3,15)
+│       │       │   └── Expression: StringLiteralExpression [26..31] (3,10) - (3,15)
+│       │       │       └── Token: "Bob" StringLiteralToken [26..31] (3,10) - (3,15)
+│       │       └── CloseParenToken: ) CloseParenToken [31..32] (3,15) - (3,16)
+│       └── TerminatorToken: \n NewLineToken [32..33] (3,16) - (4,1)
+├── GlobalStatement [34..147] (5,1) - (9,2)
+│   └── Statement: FunctionStatement [34..147] (5,1) - (9,2)
+│       │   ┌── \n EndOfLineTrivia [33..34] (4,1) - (5,1)
+│       ├── FuncKeyword: func FuncKeyword [34..38] (5,1) - (5,5)
+│       │   └── ␣ WhitespaceTrivia [37..38] (5,4) - (5,5)
+│       ├── Identifier: sayHello IdentifierToken [39..47] (5,6) - (5,14)
+│       ├── ParameterList: ParameterList [47..62] (5,14) - (5,29)
+│       │   ├── OpenParenToken: ( OpenParenToken [47..48] (5,14) - (5,15)
+│       │   ├── Parameter [48..61] (5,15) - (5,28)
+│       │   │   ├── Identifier: name IdentifierToken [48..52] (5,15) - (5,19)
+│       │   │   └── TypeAnnotation: TypeAnnotationClause [52..61] (5,19) - (5,28)
+│       │   │       ├── ColonToken: : ColonToken [52..53] (5,19) - (5,20)
+│       │   │       │   └── ␣ WhitespaceTrivia [53..54] (5,20) - (5,21)
+│       │   │       └── Type: NullableType [54..61] (5,21) - (5,28)
+│       │   │           ├── ElementType: PredefinedType [54..60] (5,21) - (5,27)
+│       │   │           │   └── Keyword: string StringKeyword [54..60] (5,21) - (5,27)
+│       │   │           └── QuestionToken: ? QuestionToken [60..61] (5,27) - (5,28)
+│       │   └── CloseParenToken: ) CloseParenToken [61..62] (5,28) - (5,29)
+│       │       └── ␣ WhitespaceTrivia [62..63] (5,29) - (5,30)
+│       ├── ReturnType: ArrowTypeClause [63..68] (5,30) - (5,35)
+│       │   ├── ArrowToken: -> ArrowToken [63..65] (5,30) - (5,32)
+│       │   │   └── ␣ WhitespaceTrivia [65..66] (5,32) - (5,33)
+│       │   └── Type: UnitType [66..68] (5,33) - (5,35)
+│       │       ├── OpenParenToken: ( OpenParenToken [66..67] (5,33) - (5,34)
+│       │       └── CloseParenToken: ) CloseParenToken [67..68] (5,34) - (5,35)
+│       │           └── ␣ WhitespaceTrivia [68..69] (5,35) - (5,36)
+│       ├── Body: BlockStatement [69..147] (5,36) - (9,2)
+│       │   ├── OpenBraceToken: { OpenBraceToken [69..70] (5,36) - (5,37)
+│       │   ├── IfStatement [75..146] (6,5) - (8,6)
+│       │   │   │   ┌── \n EndOfLineTrivia [70..71] (5,37) - (6,1)
+│       │   │   │   ├── ␣␣␣␣ WhitespaceTrivia [71..75] (6,1) - (6,5)
+│       │   │   ├── IfKeyword: if IfKeyword [75..77] (6,5) - (6,7)
+│       │   │   │   └── ␣ WhitespaceTrivia [72..73] (6,2) - (6,3)
+│       │   │   ├── Condition: IsPatternExpression [78..95] (6,8) - (6,25)
+│       │   │   │   ├── Expression: IdentifierName [78..82] (6,8) - (6,12)
+│       │   │   │   │   └── Identifier: name IdentifierToken [78..82] (6,8) - (6,12)
+│       │   │   │   │       └── ␣ WhitespaceTrivia [82..83] (6,12) - (6,13)
+│       │   │   │   ├── IsKeyword: is IsKeyword [83..85] (6,13) - (6,15)
+│       │   │   │   │   └── ␣ WhitespaceTrivia [85..86] (6,15) - (6,16)
+│       │   │   │   └── Pattern: NotPattern [86..95] (6,16) - (6,25)
+│       │   │   │       ├── OperatorToken: not NotKeyword [86..89] (6,16) - (6,19)
+│       │   │   │       │   └── ␣ WhitespaceTrivia [89..90] (6,19) - (6,20)
+│       │   │   │       └── Pattern: DeclarationPattern [90..95] (6,20) - (6,25)
+│       │   │   │           ├── Type: NullType [90..94] (6,20) - (6,24)
+│       │   │   │           │   └── NullKeyword: null NullKeyword [90..94] (6,20) - (6,24)
+│       │   │   │           │       └── ␣ WhitespaceTrivia [94..95] (6,24) - (6,25)
+│       │   │   │           └── Designation: SingleVariableDesignation (Missing) [95..95] (6,25) - (6,25)
+│       │   │   │               ├── BindingKeyword:  None [95..95] (6,25) - (6,25)
+│       │   │   │               └── Identifier:  None (Missing) [95..95] (6,25) - (6,25)
+│       │   │   ├── ThenStatement: BlockStatement [95..145] (6,25) - (8,6)
+│       │   │   │   ├── OpenBraceToken: { OpenBraceToken [95..96] (6,25) - (6,26)
+│       │   │   │   ├── ExpressionStatement [105..140] (7,9) - (7,43)
+│       │   │   │   │   ├── Expression: InvocationExpression [105..139] (7,9) - (7,43)
+│       │   │   │   │   │   ├── Expression: SimpleMemberAccessExpression [105..122] (7,9) - (7,26)
+│       │   │   │   │   │   │   ├── Expression: IdentifierName [105..112] (7,9) - (7,16)
+│       │   │   │   │   │   │   │   │   ┌── \n EndOfLineTrivia [96..97] (6,26) - (7,1)
+│       │   │   │   │   │   │   │   │   ├── ␣␣␣␣␣␣␣␣ WhitespaceTrivia [97..105] (7,1) - (7,9)
+│       │   │   │   │   │   │   │   └── Identifier: Console IdentifierToken [105..112] (7,9) - (7,16)
+│       │   │   │   │   │   │   ├── OperatorToken: . DotToken [112..113] (7,16) - (7,17)
+│       │   │   │   │   │   │   └── Name: IdentifierName [113..122] (7,17) - (7,26)
+│       │   │   │   │   │   │       └── Identifier: WriteLine IdentifierToken [113..122] (7,17) - (7,26)
+│       │   │   │   │   │   └── ArgumentList: ArgumentList [122..139] (7,26) - (7,43)
+│       │   │   │   │   │       ├── OpenParenToken: ( OpenParenToken [122..123] (7,26) - (7,27)
+│       │   │   │   │   │       ├── Argument [123..138] (7,27) - (7,42)
+│       │   │   │   │   │       │   └── Expression: InterpolatedStringExpression [123..138] (7,27) - (7,42)
+│       │   │   │   │   │       │       ├── StringStartToken: " StringStartToken [123..124] (7,27) - (7,28)
+│       │   │   │   │   │       │       ├── InterpolatedStringText [124..131] (7,28) - (7,35)
+│       │   │   │   │   │       │       │   └── Token: Hello,  StringLiteralToken [124..131] (7,28) - (7,35)
+│       │   │   │   │   │       │       ├── Interpolation [131..136] (7,35) - (7,40)
+│       │   │   │   │   │       │       │   ├── DollarToken: $ DollarToken [131..132] (7,35) - (7,36)
+│       │   │   │   │   │       │       │   ├── OpenBraceToken:  OpenBraceToken (Missing) [132..132] (7,36) - (7,36)
+│       │   │   │   │   │       │       │   ├── Expression: IdentifierName [132..136] (7,36) - (7,40)
+│       │   │   │   │   │       │       │   │   └── Identifier: name IdentifierToken [132..136] (7,36) - (7,40)
+│       │   │   │   │   │       │       │   └── CloseBraceToken:  CloseBraceToken (Missing) [136..136] (7,40) - (7,40)
+│       │   │   │   │   │       │       ├── InterpolatedStringText [136..137] (7,40) - (7,41)
+│       │   │   │   │   │       │       │   └── Token: ! StringLiteralToken [136..137] (7,40) - (7,41)
+│       │   │   │   │   │       │       └── StringEndToken: " StringEndToken [137..138] (7,41) - (7,42)
+│       │   │   │   │   │       └── CloseParenToken: ) CloseParenToken [138..139] (7,42) - (7,43)
+│       │   │   │   │   └── TerminatorToken: \n NewLineToken [139..140] (7,43) - (8,1)
+│       │   │   │   │   ┌── ␣␣␣␣ WhitespaceTrivia [140..144] (8,1) - (8,5)
+│       │   │   │   └── CloseBraceToken: } CloseBraceToken [144..145] (8,5) - (8,6)
+│       │   │   └── TerminatorToken: \n NewLineToken [145..146] (8,6) - (9,1)
+│       │   └── CloseBraceToken: } CloseBraceToken [146..147] (9,1) - (9,2)
+│       └── TerminatorToken:  None [147..147] (9,2) - (9,2)
+└── EndOfFileToken:  EndOfFileToken [147..147] (9,2) - (9,2)
 ```
 
 ### Modifying a Syntax Tree
@@ -236,8 +222,8 @@ You can update a tree directly from modified source text. The compiler efficient
 ```csharp
 var sourceText = SourceText.From(
     """
-    if (foo)  {
-        return 0;
+    if foo {
+        return 0
     }
     """);
 
@@ -245,10 +231,10 @@ var syntaxTree = SyntaxTree.ParseText(sourceText);
 
 var changedSourceText = SourceText.From(
     """
-    if (foo)  {
-        return 0;
-    } else if (bar ) {
-        return 1;
+    if foo {
+        return 0
+    } else if bar {
+        return 1
     }
     """);
 
@@ -272,14 +258,11 @@ Retrieve symbol information using the `Compilation` and `SemanticModel` classes.
 For the code:
 
 ```csharp
-let x : int = 2;
+import System.*
 
-if (x > 2) {
-    return (6 + 2) * 2;
-} else {
-    return foo.bar(2)
-        .GetId(1, z + 2, "Foo");
-}
+let x: int = 2
+
+Console.WriteLine(x)
 ```
 
 Use the following example:
