@@ -14,10 +14,9 @@ public static class BoundTreePrinter
     private static readonly SymbolDisplayFormat BoundTreeDisplayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat
         .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
         .WithLocalOptions(SymbolDisplayLocalOptions.IncludeBinding | SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeConstantValue)
-        .WithParameterOptions(SymbolDisplayParameterOptions.IncludeBinding | SymbolDisplayParameterOptions.IncludeType)
+        .WithParameterOptions(/* SymbolDisplayParameterOptions.IncludeBinding | */ SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeModifiers | SymbolDisplayParameterOptions.IncludeName)
         .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
-        .WithMemberOptions(SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers) // | SymbolDisplayMemberOptions.IncludeAccessibility)
-        .WithParameterOptions(SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName);
+        .WithMemberOptions(SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers); // | SymbolDisplayMemberOptions.IncludeAccessibility)
 
     public static void PrintBoundTree(this SemanticModel model)
     {

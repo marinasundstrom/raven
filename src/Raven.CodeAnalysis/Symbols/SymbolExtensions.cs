@@ -1163,7 +1163,59 @@ public static partial class SymbolExtensions
 
     private static string GetFullType(ISymbol symbol, SymbolDisplayFormat format)
     {
-        var types = new List<string>();
+        // Special handling for nested named types: in Roslyn-style symbol models,
+        // a nested constructed type often carries all type arguments (including those
+        // for containing types) on the nested symbol, while ContainingType may still
+        // point at the original definition.
+        if (symbol is INamedTypeSymbol namedNested && namedNested.ContainingType is not null)
+        {
+            var types = new List<string>();
+
+            // Collect containing type chain (outermost -> innermost)
+            var chain = new List<INamedTypeSymbol>();
+            var current = namedNested.ContainingType;
+            while (current is not null)
+            {
+                if (current is INamedTypeSymbol ct)
+                    chain.Add(ct);
+
+                current = current.ContainingType;
+            }
+
+            chain.Reverse();
+
+            // Attempt to slice type arguments from the nested type’s TypeArguments.
+            // We assume the ordering is outermost-to-innermost, matching Roslyn.
+            var allArgs = namedNested.TypeArguments;
+            var argIndex = 0;
+
+            foreach (var ct in chain)
+            {
+                if (ct.Arity > 0 && !allArgs.IsDefaultOrEmpty && allArgs.Length >= argIndex + ct.Arity)
+                {
+                    var sb = new StringBuilder();
+                    sb.Append(EscapeIdentifierIfNeeded(ct.Name, format));
+                    sb.Append('<');
+                    sb.Append(string.Join(", ", allArgs.Skip(argIndex).Take(ct.Arity).Select(a => FormatType(a, format))));
+                    sb.Append('>');
+                    types.Add(sb.ToString());
+
+                    argIndex += ct.Arity;
+                }
+                else
+                {
+                    // Fallback: use the containing type symbol as-is.
+                    types.Add(FormatSimpleNamedType(ct, format));
+
+                    // If we couldn’t slice, don’t advance argIndex.
+                }
+            }
+
+            return string.Join(".", types);
+        }
+
+        // Default behavior for non-nested symbols.
+        var defaultTypes = new List<string>();
         var currentType = symbol.ContainingType;
 
         while (currentType is not null)
@@ -1171,18 +1223,18 @@ public static partial class SymbolExtensions
             if (currentType is INamedTypeSymbol named)
             {
                 // Include generic type parameters/arguments for each containing type
-                types.Insert(0, FormatSimpleNamedType(named, format));
+                defaultTypes.Insert(0, FormatSimpleNamedType(named, format));
             }
             else
             {
                 // Fallback: just the name
-                types.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
+                defaultTypes.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
             }
 
             currentType = currentType.ContainingType;
         }
 
-        return string.Join(".", types);
+        return string.Join(".", defaultTypes);
     }
 
     private static string GetMemberModifiers(ISymbol symbol)
