@@ -302,7 +302,7 @@ public static class BoundTreePrinter
                 var index = 0;
                 foreach (var item in enumerable)
                 {
-                    var itemName = $"[{index}]";
+                    var itemName = string.Empty; //$"[{index}]";
                     foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName))
                         grouped.Add(child);
                     index++;

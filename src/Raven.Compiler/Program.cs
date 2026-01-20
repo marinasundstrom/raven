@@ -590,7 +590,7 @@ if (allowConsoleOutput)
                 Console.WriteLine();
             }
 
-            semanticModel.PrintBoundTree(includeChildPropertyNames: false);
+            semanticModel.PrintBoundTree(includeChildPropertyNames: true);
             Console.WriteLine();
         }
     }
