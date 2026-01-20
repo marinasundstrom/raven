@@ -2,11 +2,20 @@ using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Binder = Raven.CodeAnalysis.Binder;
 
 public static class BinderTreePrinter
 {
+    public static bool Colorize { get; set; } = true;
+
+    private static string MaybeColorize(string text, AnsiColor color)
+        => Colorize ? ColorizeText(text, color) : text;
+
+    private static string ColorizeText(string text, AnsiColor color)
+        => $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
+
     public static void PrintBinderTree(this SemanticModel model)
     {
         var cache = GetBinderCache(model);
@@ -86,7 +95,8 @@ public static class BinderTreePrinter
         string indent,
         bool isLast)
     {
-        var marker = isLast ? "└── " : "├── ";
+        var markerRaw = isLast ? "└── " : "├── ";
+        var marker = MaybeColorize(markerRaw, AnsiColor.BrightBlack);
         Console.WriteLine($"{indent}{marker}{DescribeBinder(binder, binderNodes, parentToChildren)}");
 
         indent += isLast ? "    " : "│   ";
@@ -114,7 +124,7 @@ public static class BinderTreePrinter
                 {
                     var symbol = binder.BindDeclaredSymbol(node);
                     if (symbol is not null)
-                        return $" ({symbol.Name})";
+                        return $" ({MaybeColorize(symbol.Name, AnsiColor.Cyan)})";
                 }
             }
             else if (parentToChildren.TryGetValue(binder, out var children))
@@ -127,7 +137,7 @@ public static class BinderTreePrinter
                         {
                             var symbol = binder.BindDeclaredSymbol(node);
                             if (symbol is not null)
-                                return $" ({symbol.Name})";
+                                return $" ({MaybeColorize(symbol.Name, AnsiColor.Cyan)})";
                         }
                     }
                 }
@@ -136,20 +146,51 @@ public static class BinderTreePrinter
             return string.Empty;
         }
 
-        return binder switch
+        var kind = binder switch
         {
             GlobalBinder => "GlobalBinder",
-            NamespaceBinder ns => $"NamespaceBinder ({(ns.NamespaceSymbol.IsGlobalNamespace ? "<global>" : ns.NamespaceSymbol?.ToDisplayString())})",
+            NamespaceBinder => "NamespaceBinder",
             ImportBinder => "ImportBinder",
-            TopLevelBinder => "TopLevelBinder (synthesized Main)",
-            TypeDeclarationBinder td => $"TypeDeclarationBinder ({td.ContainingSymbol?.Name ?? "?"})",
-            MethodBinder m => $"MethodBinder ({m.GetMethodSymbol()?.Name ?? "?"})",
-            TypeMemberBinder => $"TypeMemberBinder{DescribeSymbol(binder, binderNodes, parentToChildren)}",
+            TopLevelBinder => "TopLevelBinder",
+            TypeDeclarationBinder => "TypeDeclarationBinder",
+            MethodBinder => "MethodBinder",
+            TypeMemberBinder => "TypeMemberBinder",
             MethodBodyBinder => "MethodBodyBinder",
             BlockBinder => "BlockBinder",
             LocalScopeBinder => "LocalScopeBinder",
-            FunctionBinder => $"FunctionBinder{DescribeSymbol(binder, binderNodes, parentToChildren)}",
+            FunctionBinder => "FunctionBinder",
             _ => binder.GetType().Name
+        };
+
+        // Kind in yellow so the tree reads like a legend.
+        var coloredKind = MaybeColorize(kind, AnsiColor.Yellow);
+
+        return binder switch
+        {
+            GlobalBinder => coloredKind,
+
+            NamespaceBinder ns =>
+                coloredKind + " (" + MaybeColorize(ns.NamespaceSymbol.IsGlobalNamespace ? "<global>" : ns.NamespaceSymbol?.ToDisplayString() ?? "?", AnsiColor.Magenta) + ")",
+
+            ImportBinder => coloredKind,
+
+            TopLevelBinder => coloredKind + " (" + MaybeColorize("synthesized Main", AnsiColor.BrightBlue) + ")",
+
+            TypeDeclarationBinder td =>
+                coloredKind + " (" + MaybeColorize(td.ContainingSymbol?.Name ?? "?", AnsiColor.Cyan) + ")",
+
+            MethodBinder m =>
+                coloredKind + " (" + MaybeColorize(m.GetMethodSymbol()?.Name ?? "?", AnsiColor.Cyan) + ")",
+
+            TypeMemberBinder => coloredKind + DescribeSymbol(binder, binderNodes, parentToChildren),
+
+            MethodBodyBinder => coloredKind,
+            BlockBinder => coloredKind,
+            LocalScopeBinder => coloredKind,
+
+            FunctionBinder => coloredKind + DescribeSymbol(binder, binderNodes, parentToChildren),
+
+            _ => MaybeColorize(binder.GetType().Name, AnsiColor.Yellow)
         };
     }
 
