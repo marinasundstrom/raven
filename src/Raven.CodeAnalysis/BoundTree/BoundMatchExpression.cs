@@ -21,7 +21,7 @@ internal sealed partial class BoundMatchExpression : BoundExpression
     public ImmutableArray<BoundMatchArm> Arms { get; }
 }
 
-internal sealed class BoundMatchArm
+internal sealed class BoundMatchArm : BoundNode
 {
     public BoundMatchArm(BoundPattern pattern, BoundExpression? guard, BoundExpression expression)
     {
@@ -35,5 +35,15 @@ internal sealed class BoundMatchArm
     public BoundExpression? Guard { get; }
 
     public BoundExpression Expression { get; }
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        throw new NotImplementedException();
+    }
 }
 
