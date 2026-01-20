@@ -37,19 +37,9 @@ interface IRequestHandler<TRequest, TReturn>
     Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
 }
 
-class SubmitOrder(orderItems: OrderItem[]) {
-    public OrderItems: OrderItem[] => orderItems
-}
+record class SubmitOrder(OrderItems: OrderItem[])
 
-class OrderItem(product: string, unitPrice: decimal, unit: string, quantity: int) {
-    public Product: string => product
-
-    public UnitPrice: decimal => unitPrice
-
-    public Unit: string => unit
-
-    public Quantity: int => quantity
-}
+record class OrderItem(Product: string, UnitPrice: decimal, Unit: string, Quantity: int)
 
 class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
 

@@ -1246,14 +1246,41 @@ internal class MethodBodyGenerator
         if (methodDefinition is null)
             return null;
 
-        if (constructedType.IsGenericType
-            && methodDefinition.DeclaringType is { IsGenericTypeDefinition: true }
-            && constructedType.GetGenericArguments().Any(argument => argument is TypeBuilder))
+        // TypeBuilderInstantiation throws NotSupportedException for many reflection APIs
+        // (including GetMethod/GetProperty/FindMembers). When we're dealing with a
+        // constructed generic type that includes TypeBuilder or TypeBuilderInstantiation
+        // arguments, always go through TypeBuilder.GetMethod.
+        static bool IsTypeBuilderInstantiation(Type t)
+            => string.Equals(
+                t.GetType().FullName,
+                "System.Reflection.Emit.TypeBuilderInstantiation",
+                StringComparison.Ordinal);
+
+        var declaring = methodDefinition.DeclaringType;
+
+        // If the constructed type itself is emitted/instantiated, always use the metadata
+        // definition mapping API.
+        if (constructedType is TypeBuilder || IsTypeBuilderInstantiation(constructedType))
             return TypeBuilder.GetMethod(constructedType, methodDefinition);
 
-        return constructedType.GetMethod(
-            methodDefinition.Name,
-            methodDefinition.GetParameters().Select(parameter => parameter.ParameterType).ToArray());
+        // For generic constructed types where any argument is emitted/instantiated, use
+        // TypeBuilder.GetMethod to avoid reflection paths that are not supported.
+        if (constructedType.IsGenericType && declaring is { IsGenericTypeDefinition: true })
+        {
+            var args = constructedType.GetGenericArguments();
+            if (args.Any(a => a is TypeBuilder || IsTypeBuilderInstantiation(a)))
+                return TypeBuilder.GetMethod(constructedType, methodDefinition);
+        }
+
+        // Regular runtime types: bind by name + parameter types.
+        var parameterTypes = methodDefinition
+            .GetParameters()
+            .Select(p => p.ParameterType)
+            .ToArray();
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+
+        return constructedType.GetMethod(methodDefinition.Name, flags, binder: null, types: parameterTypes, modifiers: null);
     }
 
     private void EmitUnionCasePropertyGetter(SourcePropertySymbol propertySymbol, SourceFieldSymbol backingField)
