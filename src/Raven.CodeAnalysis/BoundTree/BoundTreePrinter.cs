@@ -30,7 +30,7 @@ public static class BoundTreePrinter
     private static string ColorizeText(string text, AnsiColor color)
         => $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
 
-    public static void PrintBoundTree(this SemanticModel model, bool includeChildPropertyNames = false, bool groupChildCollections = false)
+    public static void PrintBoundTree(this SemanticModel model, bool includeChildPropertyNames = false, bool groupChildCollections = false, bool displayCollectionIndices = false)
     {
         if (model is null)
             throw new ArgumentNullException(nameof(model));
@@ -73,7 +73,7 @@ public static class BoundTreePrinter
             printedAny = true;
 
             PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes);
-            PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
+            PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
         }
     }
 
@@ -136,7 +136,7 @@ public static class BoundTreePrinter
 
         foreach (var node in unique)
         {
-            foreach (var childNode in EnumerateChildNodes(GetChildren(node, includeChildPropertyNames: false, groupChildCollections: false)))
+            foreach (var childNode in EnumerateChildNodes(GetChildren(node, includeChildPropertyNames: false, groupChildCollections: false, displayCollectionIndices: false)))
                 children.Add(childNode);
         }
 
@@ -210,13 +210,14 @@ public static class BoundTreePrinter
         string indent,
         bool includeChildPropertyNames,
         bool groupChildCollections,
+        bool displayCollectionIndices,
         HashSet<BoundNode> visitedNodes,
         HashSet<SyntaxNode> visitedSyntaxes)
     {
-        var children = GetChildren(node, includeChildPropertyNames, groupChildCollections).ToList();
+        var children = GetChildren(node, includeChildPropertyNames, groupChildCollections, displayCollectionIndices).ToList();
         for (var i = 0; i < children.Count; i++)
         {
-            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
+            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
         }
     }
 
@@ -227,6 +228,7 @@ public static class BoundTreePrinter
         bool isLast,
         bool includeChildPropertyNames,
         bool groupChildCollections,
+        bool displayCollectionIndices,
         HashSet<BoundNode> visitedNodes,
         HashSet<SyntaxNode> visitedSyntaxes)
     {
@@ -246,7 +248,7 @@ public static class BoundTreePrinter
             for (var i = 0; i < child.Children.Count; i++)
             {
                 var childIndent = indent + (isLast ? "    " : "│   ");
-                PrintRecursive(child.Children[i], nodeToSyntax, childIndent, i == child.Children.Count - 1, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
+                PrintRecursive(child.Children[i], nodeToSyntax, childIndent, i == child.Children.Count - 1, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
             }
 
             return;
@@ -256,8 +258,13 @@ public static class BoundTreePrinter
         var alreadyVisitedNode = !visitedNodes.Add(node);
 
         var description = Describe(node, nodeToSyntax);
-        if (includeChildPropertyNames && !string.IsNullOrEmpty(child.Name))
-            description = $"{MaybeColorize(child.Name, AnsiColor.BrightGreen)}: {description}";
+        var hasName = !string.IsNullOrEmpty(child.Name);
+        var isIndexName = hasName && child.Name!.StartsWith("[", StringComparison.Ordinal);
+        if ((includeChildPropertyNames && hasName) || (displayCollectionIndices && isIndexName))
+        {
+            var nameColor = includeChildPropertyNames ? AnsiColor.BrightGreen : AnsiColor.BrightBlack;
+            description = $"{MaybeColorize(child.Name!, nameColor)}: {description}";
+        }
         if (alreadyVisitedNode)
             description += " [cycle]";
 
@@ -270,15 +277,15 @@ public static class BoundTreePrinter
         if (nodeToSyntax.TryGetValue(node, out var syntax))
             visitedSyntaxes.Add(syntax);
 
-        var children = GetChildren(node, includeChildPropertyNames, groupChildCollections).ToList();
+        var children = GetChildren(node, includeChildPropertyNames, groupChildCollections, displayCollectionIndices).ToList();
         for (var i = 0; i < children.Count; i++)
         {
             var childIndent = indent + (isLast ? "    " : "│   ");
-            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
+            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
         }
     }
 
-    private static IEnumerable<ChildEntry> GetChildren(BoundNode node, bool includeChildPropertyNames, bool groupChildCollections)
+    private static IEnumerable<ChildEntry> GetChildren(BoundNode node, bool includeChildPropertyNames, bool groupChildCollections, bool displayCollectionIndices)
     {
         var visitedContainers = new HashSet<object>(ReferenceEqualityComparer.Instance);
 
@@ -304,8 +311,8 @@ public static class BoundTreePrinter
                 var index = 0;
                 foreach (var item in enumerable)
                 {
-                    var itemName = string.Empty; //$"[{index}]";
-                    foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName))
+                    var itemName = displayCollectionIndices ? $"[{index}]" : null;
+                    foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName, displayCollectionIndices))
                         grouped.Add(child);
                     index++;
                 }
@@ -316,12 +323,29 @@ public static class BoundTreePrinter
                 continue;
             }
 
-            foreach (var child in EnumerateBoundNodeChildren(value, visitedContainers, includeChildPropertyNames ? property.Name : null))
+            if (!groupChildCollections && displayCollectionIndices && value is IEnumerable enumerable2 && value is not string)
+            {
+                if (IsDefaultImmutableArray(value))
+                    continue;
+
+                var index = 0;
+                foreach (var item in enumerable2)
+                {
+                    var itemName = includeChildPropertyNames ? $"{property.Name}[{index}]" : $"[{index}]";
+                    foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName, displayCollectionIndices))
+                        yield return child;
+                    index++;
+                }
+
+                continue;
+            }
+
+            foreach (var child in EnumerateBoundNodeChildren(value, visitedContainers, includeChildPropertyNames ? property.Name : null, displayCollectionIndices))
                 yield return child;
         }
     }
 
-    private static IEnumerable<ChildEntry> EnumerateBoundNodeChildren(object? value, HashSet<object> visitedContainers, string? name)
+    private static IEnumerable<ChildEntry> EnumerateBoundNodeChildren(object? value, HashSet<object> visitedContainers, string? name, bool displayCollectionIndices)
     {
         if (value is null)
             yield break;
@@ -338,10 +362,19 @@ public static class BoundTreePrinter
                 yield break;
 
             // For nested enumerables, keep the same edge name and flow through.
+            var index = 0;
             foreach (var item in enumerable)
             {
-                foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, name))
+                var itemName = name;
+                if (displayCollectionIndices)
+                {
+                    itemName = name is null ? $"[{index}]" : $"{name}[{index}]";
+                }
+
+                foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName, displayCollectionIndices))
                     yield return child;
+
+                index++;
             }
 
             yield break;
@@ -373,7 +406,7 @@ public static class BoundTreePrinter
                 continue;
 
             // Preserve the original edge name when walking through wrapper objects.
-            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(value), visitedContainers, name))
+            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(value), visitedContainers, name, displayCollectionIndices))
                 yield return child;
         }
     }
