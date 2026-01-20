@@ -519,6 +519,7 @@ internal partial class BlockBinder
     {
         // null literal stays a literal-backed constant pattern
         if (expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral })
+        //            or BoundTypeExpression { Type: NullTypeSymbol }) // Works without
         {
             var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
             var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, Compilation);
@@ -1270,46 +1271,6 @@ internal partial class BlockBinder
     private BoundPattern BindCasePatternArgument(PatternSyntax syntax, ITypeSymbol parameterType)
     {
         return BindPattern(syntax, parameterType);
-    }
-
-    // NOTE: Currently unused.
-    // Raven now requires an explicit binding keyword (let/val/var) for bindings in pattern position.
-    // This means bare identifiers inside tuple/case argument patterns are treated as value patterns
-    // (i.e. they match against an in-scope value) rather than introducing new bindings.
-    private BoundPattern? TryBindImplicitPayloadDesignation(PatternSyntax syntax, ITypeSymbol parameterType)
-    {
-        if (parameterType.TypeKind == TypeKind.Error)
-            return null;
-
-        if (syntax is DeclarationPatternSyntax
-            {
-                Type: IdentifierNameSyntax identifierName,
-                Designation: SingleVariableDesignationSyntax
-                {
-                    Identifier: { Kind: SyntaxKind.None }
-                },
-            })
-        {
-            var name = identifierName.Identifier.ValueText;
-
-            if (string.IsNullOrEmpty(name) || name == "_")
-            {
-                var discardType = parameterType.TypeKind == TypeKind.Error
-                    ? Compilation.ErrorTypeSymbol
-                    : parameterType;
-
-                return new BoundDiscardPattern(discardType);
-            }
-
-            parameterType = EnsureTypeAccessible(parameterType, identifierName.GetLocation());
-
-            var local = DeclarePatternLocal(identifierName, name, isMutable: false, parameterType);
-            var designator = new BoundSingleVariableDesignator(local);
-
-            return new BoundDeclarationPattern(parameterType, designator);
-        }
-
-        return null;
     }
 
     private BoundPattern BindPropertyPattern(PropertyPatternSyntax syntax, ITypeSymbol? inputType)

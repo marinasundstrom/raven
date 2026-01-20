@@ -94,6 +94,13 @@ internal class PatternSyntaxParser : SyntaxParser
             return CreateMissingPattern();
         }
 
+        if (PeekToken().Kind == SyntaxKind.NullKeyword)
+        {
+            var type2 = new NameSyntaxParser(this).ParseTypeName();
+
+            return ConstantPattern(type2);
+        }
+
         if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
         {
             return ParseVariablePattern();

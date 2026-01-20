@@ -987,7 +987,8 @@ internal partial class ExpressionGenerator
     private void EmitConstantPattern(BoundConstantPattern constantPattern, ITypeSymbol inputType)
     {
         // Runtime "value pattern" (e.g. identifier/member access) – compare by object.Equals.
-        if (constantPattern.Expression is not null)
+        if (constantPattern.Expression is not null
+            && constantPattern.Expression is not BoundTypeExpression { Type: NullTypeSymbol })
         {
             EmitRuntimeValueConstantCompare(constantPattern.Expression, inputType);
             return;
@@ -995,15 +996,15 @@ internal partial class ExpressionGenerator
 
         // Literal-backed constant pattern (fast path)
         var literal = constantPattern.LiteralType;
-        if (literal is null)
+        /*if (literal is null)
         {
             // Defensive: binder should always provide either Expression or LiteralType.
             ILGenerator.Emit(OpCodes.Pop);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
             return;
-        }
+        }*/
 
-        var value = literal.ConstantValue;
+        var value = literal?.ConstantValue;
 
         var scrutineeType = inputType;
         var scrutineeClr = ResolveClrType(scrutineeType);
