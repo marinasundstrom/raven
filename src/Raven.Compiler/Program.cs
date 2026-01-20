@@ -517,7 +517,7 @@ if (debugDir is not null)
         {
             var original = Console.Out;
             Console.SetOut(sw);
-            semanticModel.PrintBoundTree();
+            semanticModel.PrintBoundTree(includeChildPropertyNames: true);
             Console.SetOut(original);
             File.WriteAllText(Path.Combine(debugDir, $"{name}.bound-tree.txt"), sw.ToString());
         }
@@ -590,7 +590,7 @@ if (allowConsoleOutput)
                 Console.WriteLine();
             }
 
-            semanticModel.PrintBoundTree();
+            semanticModel.PrintBoundTree(includeChildPropertyNames: false);
             Console.WriteLine();
         }
     }

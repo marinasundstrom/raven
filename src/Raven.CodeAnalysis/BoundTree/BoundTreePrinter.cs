@@ -4,6 +4,10 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
+using System;
+
+using Raven.CodeAnalysis.Text;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -17,6 +21,14 @@ public static class BoundTreePrinter
         .WithParameterOptions(/* SymbolDisplayParameterOptions.IncludeBinding | */ SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeModifiers | SymbolDisplayParameterOptions.IncludeName)
         .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
         .WithMemberOptions(SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers); // | SymbolDisplayMemberOptions.IncludeAccessibility)
+
+    public static bool Colorize { get; set; } = true;
+
+    private static string MaybeColorize(string text, AnsiColor color)
+        => Colorize ? ColorizeText(text, color) : text;
+
+    private static string ColorizeText(string text, AnsiColor color)
+        => $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
 
     public static void PrintBoundTree(this SemanticModel model, bool includeChildPropertyNames = false)
     {
@@ -65,7 +77,16 @@ public static class BoundTreePrinter
         }
     }
 
-    private readonly record struct ChildInfo(BoundNode Node, string? Name);
+    private readonly record struct ChildEntry(string? Name, BoundNode? Node, IReadOnlyList<ChildEntry>? Children)
+    {
+        public bool IsGroup => Node is null;
+
+        public static ChildEntry ForNode(BoundNode node, string? name)
+            => new(name, node, Children: null);
+
+        public static ChildEntry ForGroup(string name, IReadOnlyList<ChildEntry> children)
+            => new(name, Node: null, children);
+    }
 
     private static Dictionary<SyntaxNode, BoundNode> GetBoundNodeCache(SemanticModel model)
     {
@@ -115,8 +136,8 @@ public static class BoundTreePrinter
 
         foreach (var node in unique)
         {
-            foreach (var child in GetChildren(node, includeChildPropertyNames: false))
-                children.Add(child.Node);
+            foreach (var childNode in EnumerateChildNodes(GetChildren(node, includeChildPropertyNames: false)))
+                children.Add(childNode);
         }
 
         var roots = unique.Where(node => !children.Contains(node)).ToList();
@@ -165,6 +186,24 @@ public static class BoundTreePrinter
             visitedSyntaxes.Add(syntax);
     }
 
+    private static IEnumerable<BoundNode> EnumerateChildNodes(IEnumerable<ChildEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            if (!entry.IsGroup)
+            {
+                yield return entry.Node!;
+                continue;
+            }
+
+            if (entry.Children is null)
+                continue;
+
+            foreach (var child in EnumerateChildNodes(entry.Children))
+                yield return child;
+        }
+    }
+
     private static void PrintChildren(
         BoundNode node,
         IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
@@ -181,7 +220,7 @@ public static class BoundTreePrinter
     }
 
     private static void PrintRecursive(
-        ChildInfo child,
+        ChildEntry child,
         IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
         string indent,
         bool isLast,
@@ -189,13 +228,34 @@ public static class BoundTreePrinter
         HashSet<BoundNode> visitedNodes,
         HashSet<SyntaxNode> visitedSyntaxes)
     {
-        var marker = isLast ? "└── " : "├── ";
-        var node = child.Node;
+        var markerRaw = isLast ? "└── " : "├── ";
+        var marker = MaybeColorize(markerRaw, AnsiColor.BrightBlack);
+
+        // Group entry (for collection properties)
+        if (child.IsGroup)
+        {
+            var groupName = child.Name ?? "<group>";
+            var groupText = includeChildPropertyNames ? MaybeColorize(groupName, AnsiColor.BrightBlue) : groupName;
+            Console.WriteLine($"{indent}{marker}{groupText}");
+
+            if (child.Children is null || child.Children.Count == 0)
+                return;
+
+            for (var i = 0; i < child.Children.Count; i++)
+            {
+                var childIndent = indent + (isLast ? "    " : "│   ");
+                PrintRecursive(child.Children[i], nodeToSyntax, childIndent, i == child.Children.Count - 1, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
+            }
+
+            return;
+        }
+
+        var node = child.Node!;
         var alreadyVisitedNode = !visitedNodes.Add(node);
 
         var description = Describe(node, nodeToSyntax);
         if (includeChildPropertyNames && !string.IsNullOrEmpty(child.Name))
-            description = $"{child.Name}: {description}";
+            description = $"{MaybeColorize(child.Name, AnsiColor.BrightGreen)}: {description}";
         if (alreadyVisitedNode)
             description += " [cycle]";
 
@@ -216,7 +276,7 @@ public static class BoundTreePrinter
         }
     }
 
-    private static IEnumerable<ChildInfo> GetChildren(BoundNode node, bool includeChildPropertyNames)
+    private static IEnumerable<ChildEntry> GetChildren(BoundNode node, bool includeChildPropertyNames)
     {
         var visitedContainers = new HashSet<object>(ReferenceEqualityComparer.Instance);
 
@@ -228,19 +288,45 @@ public static class BoundTreePrinter
             if (ShouldSkipProperty(property.Name))
                 continue;
 
-            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(node), visitedContainers, includeChildPropertyNames ? property.Name : null))
+            var value = property.GetValue(node);
+            if (value is null)
+                continue;
+
+            // When requested, group enumerable children under a single property header.
+            if (includeChildPropertyNames && value is IEnumerable enumerable && value is not string)
+            {
+                if (IsDefaultImmutableArray(value))
+                    continue;
+
+                var grouped = new List<ChildEntry>();
+                var index = 0;
+                foreach (var item in enumerable)
+                {
+                    var itemName = $"[{index}]";
+                    foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName))
+                        grouped.Add(child);
+                    index++;
+                }
+
+                if (grouped.Count > 0)
+                    yield return ChildEntry.ForGroup(property.Name, grouped);
+
+                continue;
+            }
+
+            foreach (var child in EnumerateBoundNodeChildren(value, visitedContainers, includeChildPropertyNames ? property.Name : null))
                 yield return child;
         }
     }
 
-    private static IEnumerable<ChildInfo> EnumerateBoundNodeChildren(object? value, HashSet<object> visitedContainers, string? name)
+    private static IEnumerable<ChildEntry> EnumerateBoundNodeChildren(object? value, HashSet<object> visitedContainers, string? name)
     {
         if (value is null)
             yield break;
 
         if (value is BoundNode bound)
         {
-            yield return new ChildInfo(bound, name);
+            yield return ChildEntry.ForNode(bound, name);
             yield break;
         }
 
@@ -249,17 +335,11 @@ public static class BoundTreePrinter
             if (IsDefaultImmutableArray(value))
                 yield break;
 
-            var index = 0;
+            // For nested enumerables, keep the same edge name and flow through.
             foreach (var item in enumerable)
             {
-                var itemName = name;
-                if (!string.IsNullOrEmpty(name))
-                    itemName = $"{name}[{index}]";
-
-                foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName))
+                foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, name))
                     yield return child;
-
-                index++;
             }
 
             yield break;
@@ -311,23 +391,29 @@ public static class BoundTreePrinter
         if (name.StartsWith("Bound", StringComparison.Ordinal))
             name = name["Bound".Length..];
 
+        var coloredName = MaybeColorize(name, AnsiColor.Yellow);
+
         var details = new List<string>();
+
+        static string K(string key, string value, Func<string, string> k, Func<string, string> v)
+            => $"{k(key)}={v(value)}";
+
         if (nodeToSyntax.TryGetValue(node, out var syntax))
-            details.Add($"Syntax={syntax.Kind}");
+            details.Add(K("Syntax", syntax.Kind.ToString(), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
 
         switch (node)
         {
             case BoundExpression expression:
                 if (expression.Type is { } type)
-                    details.Add($"Type={FormatType(type)}");
+                    details.Add(K("Type", FormatType(type), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Magenta)));
                 if (expression.Symbol is { } exprSymbol)
-                    details.Add($"Symbol={FormatSymbol(exprSymbol)}");
+                    details.Add(K("Symbol", FormatSymbol(exprSymbol), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Cyan)));
                 if (expression.Reason != BoundExpressionReason.None)
-                    details.Add($"Reason={expression.Reason}");
+                    details.Add(K("Reason", expression.Reason.ToString(), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
                 break;
             case BoundStatement statement:
                 if (statement.Symbol is { } stmtSymbol)
-                    details.Add($"Symbol={FormatSymbol(stmtSymbol)}");
+                    details.Add(K("Symbol", FormatSymbol(stmtSymbol), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Cyan)));
                 break;
         }
 
@@ -372,17 +458,17 @@ public static class BoundTreePrinter
                     }
 
                     if (item is ISymbol symbolItem)
-                        items.Add(FormatSymbol(symbolItem));
+                        items.Add(MaybeColorize(FormatSymbol(symbolItem), AnsiColor.Cyan));
                     else if (item is ITypeSymbol typeItem)
-                        items.Add(FormatType(typeItem));
+                        items.Add(MaybeColorize(FormatType(typeItem), AnsiColor.Magenta));
                     else if (item is string stringItem)
-                        items.Add($"\"{stringItem}\"");
+                        items.Add(MaybeColorize("\"" + stringItem + "\"", AnsiColor.BrightRed));
                     else if (item is bool boolItem)
-                        items.Add(boolItem ? "true" : "false");
+                        items.Add(MaybeColorize(boolItem ? "true" : "false", AnsiColor.BrightBlue));
                     else if (item is Enum enumItem)
-                        items.Add(enumItem.ToString());
+                        items.Add(MaybeColorize(enumItem.ToString(), AnsiColor.BrightBlue));
                     else if (item.GetType().IsPrimitive)
-                        items.Add(item.ToString()!);
+                        items.Add(MaybeColorize(item.ToString()!, AnsiColor.Red));
                     else
                     {
                         containsBoundNodes = true;
@@ -391,7 +477,7 @@ public static class BoundTreePrinter
                 }
 
                 if (!containsBoundNodes && items.Count > 0)
-                    details.Add($"{property.Name}=[{string.Join(", ", items)}]");
+                    details.Add($"{MaybeColorize(property.Name, AnsiColor.BrightGreen)}=[{string.Join(", ", items)}]");
 
                 continue;
             }
@@ -402,47 +488,47 @@ public static class BoundTreePrinter
 
             if (value is ISymbol symbolValue)
             {
-                details.Add($"{property.Name}={FormatSymbol(symbolValue)}");
+                details.Add(K(property.Name, FormatSymbol(symbolValue), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Cyan)));
                 continue;
             }
 
             if (value is ITypeSymbol typeValue)
             {
-                details.Add($"{property.Name}={FormatType(typeValue)}");
+                details.Add(K(property.Name, FormatType(typeValue), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Magenta)));
                 continue;
             }
 
             if (value is string stringValue)
             {
-                details.Add($"{property.Name}=\"{stringValue}\"");
+                details.Add(K(property.Name, "\"" + stringValue + "\"", s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightRed)));
                 continue;
             }
 
             if (value is bool boolValue)
             {
-                details.Add($"{property.Name}={(boolValue ? "true" : "false")}");
+                details.Add(K(property.Name, boolValue ? "true" : "false", s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
                 continue;
             }
 
             if (value is Enum enumValue)
             {
-                details.Add($"{property.Name}={enumValue}");
+                details.Add(K(property.Name, enumValue.ToString(), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
                 continue;
             }
 
             if (propertyType.IsPrimitive)
             {
-                details.Add($"{property.Name}={value}");
+                details.Add(K(property.Name, value.ToString()!, s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Red)));
                 continue;
             }
 
             if (propertyType == typeof(object))
             {
-                details.Add($"{property.Name}={value}");
+                details.Add(K(property.Name, value.ToString()!, s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Black)));
             }
         }
 
-        return details.Count > 0 ? $"{name} [{string.Join(", ", details)}]" : name;
+        return details.Count > 0 ? $"{coloredName} [{string.Join(", ", details)}]" : coloredName;
     }
 
     private static bool ShouldSkipProperty(string propertyName)
