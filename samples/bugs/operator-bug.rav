@@ -13,13 +13,13 @@ union Option<T: struct> {
     None
 }
 
-extension OptionExtensions2<T : struct> for Option<T> {
+extension OptionExtensions2<T : struct> for T {
 
-    public static implicit operator(opt: Option<T>) -> T? {
-        if opt is .Some(val value) {
-            return value
+    public static implicit operator(value: T?) -> Option<T> {
+        if value is not null {
+            return .Some(value)
         }
-        return null
+        return .None
     }
 
 }
