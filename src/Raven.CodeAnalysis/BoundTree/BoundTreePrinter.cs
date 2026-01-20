@@ -30,7 +30,7 @@ public static class BoundTreePrinter
     private static string ColorizeText(string text, AnsiColor color)
         => $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
 
-    public static void PrintBoundTree(this SemanticModel model, bool includeChildPropertyNames = false)
+    public static void PrintBoundTree(this SemanticModel model, bool includeChildPropertyNames = false, bool groupChildCollections = false)
     {
         if (model is null)
             throw new ArgumentNullException(nameof(model));
@@ -73,7 +73,7 @@ public static class BoundTreePrinter
             printedAny = true;
 
             PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes);
-            PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
+            PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
         }
     }
 
@@ -136,7 +136,7 @@ public static class BoundTreePrinter
 
         foreach (var node in unique)
         {
-            foreach (var childNode in EnumerateChildNodes(GetChildren(node, includeChildPropertyNames: false)))
+            foreach (var childNode in EnumerateChildNodes(GetChildren(node, includeChildPropertyNames: false, groupChildCollections: false)))
                 children.Add(childNode);
         }
 
@@ -209,13 +209,14 @@ public static class BoundTreePrinter
         IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
         string indent,
         bool includeChildPropertyNames,
+        bool groupChildCollections,
         HashSet<BoundNode> visitedNodes,
         HashSet<SyntaxNode> visitedSyntaxes)
     {
-        var children = GetChildren(node, includeChildPropertyNames).ToList();
+        var children = GetChildren(node, includeChildPropertyNames, groupChildCollections).ToList();
         for (var i = 0; i < children.Count; i++)
         {
-            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
+            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
         }
     }
 
@@ -225,6 +226,7 @@ public static class BoundTreePrinter
         string indent,
         bool isLast,
         bool includeChildPropertyNames,
+        bool groupChildCollections,
         HashSet<BoundNode> visitedNodes,
         HashSet<SyntaxNode> visitedSyntaxes)
     {
@@ -244,7 +246,7 @@ public static class BoundTreePrinter
             for (var i = 0; i < child.Children.Count; i++)
             {
                 var childIndent = indent + (isLast ? "    " : "│   ");
-                PrintRecursive(child.Children[i], nodeToSyntax, childIndent, i == child.Children.Count - 1, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
+                PrintRecursive(child.Children[i], nodeToSyntax, childIndent, i == child.Children.Count - 1, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
             }
 
             return;
@@ -268,15 +270,15 @@ public static class BoundTreePrinter
         if (nodeToSyntax.TryGetValue(node, out var syntax))
             visitedSyntaxes.Add(syntax);
 
-        var children = GetChildren(node, includeChildPropertyNames).ToList();
+        var children = GetChildren(node, includeChildPropertyNames, groupChildCollections).ToList();
         for (var i = 0; i < children.Count; i++)
         {
             var childIndent = indent + (isLast ? "    " : "│   ");
-            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
+            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, visitedNodes, visitedSyntaxes);
         }
     }
 
-    private static IEnumerable<ChildEntry> GetChildren(BoundNode node, bool includeChildPropertyNames)
+    private static IEnumerable<ChildEntry> GetChildren(BoundNode node, bool includeChildPropertyNames, bool groupChildCollections)
     {
         var visitedContainers = new HashSet<object>(ReferenceEqualityComparer.Instance);
 
@@ -293,7 +295,7 @@ public static class BoundTreePrinter
                 continue;
 
             // When requested, group enumerable children under a single property header.
-            if (includeChildPropertyNames && value is IEnumerable enumerable && value is not string)
+            if (groupChildCollections && value is IEnumerable enumerable && value is not string)
             {
                 if (IsDefaultImmutableArray(value))
                     continue;
