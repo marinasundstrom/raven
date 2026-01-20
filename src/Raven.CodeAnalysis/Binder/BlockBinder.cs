@@ -3934,7 +3934,10 @@ partial class BlockBinder : Binder
                 return new BoundNamespaceExpression(ns);
 
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+            var n = ErrorExpression(reason: BoundExpressionReason.NotFound);
+            CacheBoundNode(syntax, n);
+            return n;
         }
 
         if (symbol is IMethodSymbol)
@@ -3988,7 +3991,11 @@ partial class BlockBinder : Binder
                     return UnwrapNullableIfKnownNonNull(p2, prop);
                 }
             default:
-                return ErrorExpression(reason: BoundExpressionReason.NotFound);
+                {
+                    var n = ErrorExpression(reason: BoundExpressionReason.NotFound);
+                    CacheBoundNode(syntax, n);
+                    return n;
+                }
         }
     }
 

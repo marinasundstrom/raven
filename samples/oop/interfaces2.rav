@@ -51,7 +51,7 @@ class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
         var total = .0m
         for item in request.OrderItems {
             var lineTotal = item.UnitPrice * item.Quantity
-            if item is { Product: discountedProduct, Quantity: > discountedQuantityThreshold } val p {
+            if item is { Product: val discountedProduct2, Quantity: > discountedQuantityThreshold } val p {
                 WriteLine("Applied 20% discount to: ${p.Product}")
                 lineTotal = lineTotal * 0.8m
             }

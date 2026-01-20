@@ -499,6 +499,16 @@ internal partial class BlockBinder
             ? BindMemberBindingExpression(memberBinding, inputType)
             : BindExpression(syntax.Expression);
 
+        if (expression is BoundErrorExpression)
+        {
+            // HACK
+            var syntax2 = SemanticModel.GetSyntax(expression);
+            if (syntax2 is IdentifierNameSyntax identifierName)
+            {
+                Diagnostics.ReportUndeclaredConstantPatternHint(identifierName.Identifier.ValueText, identifierName.GetLocation());
+            }
+        }
+
         return BindConstantPatternFromExpression(expression, syntax.Expression, inputType);
     }
 

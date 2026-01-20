@@ -684,6 +684,13 @@
     EnabledByDefault="true"
     Description=""
     HelpLinkUri="" />
+  <Descriptor Id="RAV1608" Identifier="UndeclaredConstantPatternHint"
+    Title="Bind a new value using 'val' or 'var'"
+    Message="If you meant to bind a new value in this pattern, use 'val {name}' (or 'var {name}')."
+    Category="compiler" Severity="Info"
+    EnabledByDefault="true"
+    Description="Hint shown when a bare identifier is used in a constant pattern position; use a binding keyword to introduce a new pattern variable."
+    HelpLinkUri="" />
   <Descriptor Id="RAV1050" Identifier="PublicExtensionRequiresIdentifier"
     Title="Public extension requires an identifier"
     Message="Public extension declarations must have an explicit identifier"

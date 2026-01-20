@@ -24,7 +24,7 @@ static class ConsoleEx
 
     public static void Failed(EmitResult result)
     {
-        AnsiConsole.MarkupLine($"Build [red]failed with {result.Diagnostics.Count()} error(s)[/]");
+        AnsiConsole.MarkupLine($"Build [red]failed with {result.Diagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Count()} error(s)[/]");
     }
 
     public static void Failed(int errorsCount)
