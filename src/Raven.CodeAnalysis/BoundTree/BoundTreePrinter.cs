@@ -18,7 +18,7 @@ public static class BoundTreePrinter
         .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypes)
         .WithMemberOptions(SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers); // | SymbolDisplayMemberOptions.IncludeAccessibility)
 
-    public static void PrintBoundTree(this SemanticModel model)
+    public static void PrintBoundTree(this SemanticModel model, bool includeChildPropertyNames = false)
     {
         if (model is null)
             throw new ArgumentNullException(nameof(model));
@@ -61,9 +61,11 @@ public static class BoundTreePrinter
             printedAny = true;
 
             PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes);
-            PrintChildren(root, nodeToSyntax, string.Empty, visitedNodes, visitedSyntaxes);
+            PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
         }
     }
+
+    private readonly record struct ChildInfo(BoundNode Node, string? Name);
 
     private static Dictionary<SyntaxNode, BoundNode> GetBoundNodeCache(SemanticModel model)
     {
@@ -113,8 +115,8 @@ public static class BoundTreePrinter
 
         foreach (var node in unique)
         {
-            foreach (var child in GetChildren(node))
-                children.Add(child);
+            foreach (var child in GetChildren(node, includeChildPropertyNames: false))
+                children.Add(child.Node);
         }
 
         var roots = unique.Where(node => !children.Contains(node)).ToList();
@@ -167,28 +169,33 @@ public static class BoundTreePrinter
         BoundNode node,
         IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
         string indent,
+        bool includeChildPropertyNames,
         HashSet<BoundNode> visitedNodes,
         HashSet<SyntaxNode> visitedSyntaxes)
     {
-        var children = GetChildren(node).ToList();
+        var children = GetChildren(node, includeChildPropertyNames).ToList();
         for (var i = 0; i < children.Count; i++)
         {
-            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, visitedNodes, visitedSyntaxes);
+            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
         }
     }
 
     private static void PrintRecursive(
-        BoundNode node,
+        ChildInfo child,
         IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
         string indent,
         bool isLast,
+        bool includeChildPropertyNames,
         HashSet<BoundNode> visitedNodes,
         HashSet<SyntaxNode> visitedSyntaxes)
     {
         var marker = isLast ? "└── " : "├── ";
+        var node = child.Node;
         var alreadyVisitedNode = !visitedNodes.Add(node);
 
         var description = Describe(node, nodeToSyntax);
+        if (includeChildPropertyNames && !string.IsNullOrEmpty(child.Name))
+            description = $"{child.Name}: {description}";
         if (alreadyVisitedNode)
             description += " [cycle]";
 
@@ -201,15 +208,15 @@ public static class BoundTreePrinter
         if (nodeToSyntax.TryGetValue(node, out var syntax))
             visitedSyntaxes.Add(syntax);
 
-        var children = GetChildren(node).ToList();
+        var children = GetChildren(node, includeChildPropertyNames).ToList();
         for (var i = 0; i < children.Count; i++)
         {
             var childIndent = indent + (isLast ? "    " : "│   ");
-            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, visitedNodes, visitedSyntaxes);
+            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, includeChildPropertyNames, visitedNodes, visitedSyntaxes);
         }
     }
 
-    private static IEnumerable<BoundNode> GetChildren(BoundNode node)
+    private static IEnumerable<ChildInfo> GetChildren(BoundNode node, bool includeChildPropertyNames)
     {
         var visitedContainers = new HashSet<object>(ReferenceEqualityComparer.Instance);
 
@@ -221,19 +228,19 @@ public static class BoundTreePrinter
             if (ShouldSkipProperty(property.Name))
                 continue;
 
-            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(node), visitedContainers))
+            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(node), visitedContainers, includeChildPropertyNames ? property.Name : null))
                 yield return child;
         }
     }
 
-    private static IEnumerable<BoundNode> EnumerateBoundNodeChildren(object? value, HashSet<object> visitedContainers)
+    private static IEnumerable<ChildInfo> EnumerateBoundNodeChildren(object? value, HashSet<object> visitedContainers, string? name)
     {
         if (value is null)
             yield break;
 
         if (value is BoundNode bound)
         {
-            yield return bound;
+            yield return new ChildInfo(bound, name);
             yield break;
         }
 
@@ -242,10 +249,17 @@ public static class BoundTreePrinter
             if (IsDefaultImmutableArray(value))
                 yield break;
 
+            var index = 0;
             foreach (var item in enumerable)
             {
-                foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers))
+                var itemName = name;
+                if (!string.IsNullOrEmpty(name))
+                    itemName = $"{name}[{index}]";
+
+                foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers, itemName))
                     yield return child;
+
+                index++;
             }
 
             yield break;
@@ -276,7 +290,8 @@ public static class BoundTreePrinter
             if (ShouldSkipProperty(property.Name))
                 continue;
 
-            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(value), visitedContainers))
+            // Preserve the original edge name when walking through wrapper objects.
+            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(value), visitedContainers, name))
                 yield return child;
         }
     }
