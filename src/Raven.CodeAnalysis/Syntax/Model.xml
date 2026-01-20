@@ -656,7 +656,7 @@
   </Node>
   <Node Name="DeclarationPattern" Inherits="Pattern">
     <Slot Name="Type" Type="Type" />
-    <Slot Name="Designation" Type="VariableDesignation" />
+    <Slot Name="Designation" Type="VariableDesignation" IsNullable="true" IsOptional="true" />
   </Node>
   <Node Name="PositionalPattern" Inherits="Pattern">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />

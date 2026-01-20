@@ -118,8 +118,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (type is LiteralTypeSyntax)
         {
-            return DeclarationPattern(type, SingleVariableDesignation(Token(SyntaxKind.None), MissingToken(SyntaxKind.None)));
-            //return ConstantPattern(type);
+            return ConstantPattern(type);
         }
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
@@ -146,7 +145,7 @@ internal class PatternSyntaxParser : SyntaxParser
                 return PropertyPattern(type, clause, designation2);
             }
 
-            return DeclarationPattern(type, SingleVariableDesignation(Token(SyntaxKind.None), MissingToken(SyntaxKind.None)));
+            return DeclarationPattern(type, null);
         }
 
         if (ConsumeToken(SyntaxKind.DotToken, out var dotToken))

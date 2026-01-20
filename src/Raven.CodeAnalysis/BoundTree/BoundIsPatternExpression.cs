@@ -590,9 +590,6 @@ internal partial class BlockBinder
             _ => new BoundDiscardDesignator(type.Type)
         };
 
-        if (designator is BoundDiscardDesignator)
-            CacheBoundNode(syntax.Designation, designator);
-
         if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType } &&
             designator is BoundDiscardDesignator)
         {
