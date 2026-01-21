@@ -1,8 +1,6 @@
 /*
 
-BUG: This seems to be because of the ordering of the declarations interface types can't be created or resolved:
-I think this is a matter of fixing the compiler passes.
-Also, make sure that similar issue is not occurring in other places.
+BUG: Seems to be related to the single quote ' (or other characters) being present.
 */
 
 import System.*
