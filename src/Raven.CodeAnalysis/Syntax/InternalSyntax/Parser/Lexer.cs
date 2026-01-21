@@ -228,11 +228,68 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.MinusToken, chStr);
 
                     case '/':
-                        if (PeekChar(out ch2) && ch2 == '=')
+                        // Comments are lexed as a single token (raw text) to avoid tokenizing inside them.
+                        // This prevents characters like '\'' and '"' from affecting trivia parsing.
+                        if (PeekChar(out ch2))
                         {
-                            ReadChar();
-                            return new Token(SyntaxKind.SlashEqualsToken, "/=");
+                            // Compound operator
+                            if (ch2 == '=')
+                            {
+                                ReadChar();
+                                return new Token(SyntaxKind.SlashEqualsToken, "/=");
+                            }
+
+                            // Single-line comment: //...
+                            if (ch2 == '/')
+                            {
+                                _stringBuilder.Append('/');
+                                ReadChar(); // consume second '/'
+                                _stringBuilder.Append('/');
+
+                                // If the comment begins with "///" classify it as a documentation comment.
+                                // IMPORTANT: this must be decided before scanning the rest of the line,
+                                // otherwise PeekChar will be sitting on the newline.
+                                var isDocComment = PeekChar(out var nextAfterSlashes) && nextAfterSlashes == '/';
+
+                                while (PeekChar(out var c))
+                                {
+                                    if (IsEndOfLine(c))
+                                        break; // do NOT consume newline
+
+                                    ReadChar();
+                                    _stringBuilder.Append(c);
+                                }
+
+                                var kind = isDocComment ? SyntaxKind.DocumentationCommentTrivia : SyntaxKind.SingleLineCommentTrivia;
+                                return new Token(kind, GetStringBuilderValue(), diagnostics: diagnostics);
+                            }
+
+                            // Multi-line comment: /* ... */
+                            if (ch2 == '*')
+                            {
+                                _stringBuilder.Append('/');
+                                ReadChar(); // consume '*'
+                                _stringBuilder.Append('*');
+
+                                while (PeekChar(out var c))
+                                {
+                                    ReadChar();
+                                    _stringBuilder.Append(c);
+
+                                    if (c == '*' && PeekChar(out var next) && next == '/')
+                                    {
+                                        ReadChar();
+                                        _stringBuilder.Append('/');
+                                        return new Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue(), diagnostics: diagnostics);
+                                    }
+                                }
+
+                                // Unterminated comment; return what we have. (Keep newline/EOF behavior consistent.)
+                                // If you have a dedicated diagnostic for this, you can add it here.
+                                return new Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue(), diagnostics: diagnostics);
+                            }
                         }
+
                         return new Token(SyntaxKind.SlashToken, chStr);
 
                     case '*':
@@ -891,6 +948,7 @@ internal class Lexer : ILexer
         return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length, diagnostics: diagnostics);
     }
 
+    // NOTE: Comment lexing uses IsEndOfLine to ensure single-line comments never consume newline tokens.
     private bool IsEndOfLine(char ch)
     {
         return ch == '\n'

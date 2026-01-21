@@ -1,9 +1,16 @@
 /*
 
-BUG: Seems to be related to the single quote ' (or other characters) being present.
+BUG: Seems to be related to the single quote ' (and perhaps other characters) being present.
 */
 
 import System.*
-import System.Console.*
+import System.Console.* //test
 
 WriteLine(20)
+
+/// test
+func foo() {}
+
+  /// foo
+    /// bar
+func foo2() {}

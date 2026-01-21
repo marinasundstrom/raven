@@ -113,7 +113,7 @@ internal static class DocumentationCommentValidator
 
     private static bool IsDocumentationTrivia(SyntaxKind kind)
     {
-        return kind is SyntaxKind.SingleLineDocumentationCommentTrivia or SyntaxKind.MultiLineDocumentationCommentTrivia;
+        return kind is SyntaxKind.DocumentationCommentTrivia;
     }
 
     private static Location? GetDocumentationLocation(SyntaxNode node, IReadOnlyList<SyntaxTrivia> trivia)

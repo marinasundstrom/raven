@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -285,8 +286,7 @@ internal class BaseParseContext : ParseContext
         {
             var trivia = leadingTrivia[i];
 
-            encounteredDocumentationTrivia |= trivia.Kind is SyntaxKind.MultiLineDocumentationCommentTrivia
-                or SyntaxKind.SingleLineDocumentationCommentTrivia;
+            encounteredDocumentationTrivia |= trivia.Kind == SyntaxKind.DocumentationCommentTrivia;
 
             if (encounteredDocumentationTrivia)
                 continue;
@@ -351,109 +351,52 @@ internal class BaseParseContext : ParseContext
 
             var token = _lexer.PeekToken(0);
 
-            if (token.Kind == SyntaxKind.SlashToken)
+            // Comments are now lexed as single tokens; convert them directly to trivia.
+            // DocumentationCommentTrivia represents one or more consecutive "///" lines.
+            if (token.Kind == SyntaxKind.DocumentationCommentTrivia)
             {
-                var token2 = _lexer.PeekToken(1);
-                var token3 = _lexer.PeekToken(2);
+                // Doc comments only attach as leading trivia.
+                if (isTrailingTrivia)
+                    break;
 
-                if (token2.Kind == SyntaxKind.SlashToken)
+                List<SyntaxTrivia>? newlineTrivia = TreatNewlinesAsTokens ? [] : null;
+                ReadDocumentationCommentBlockInto(_stringBuilder, newlineTrivia);
+
+                var docTrivia = new SyntaxTrivia(SyntaxKind.DocumentationCommentTrivia, _stringBuilder.ToString());
+                trivia.Add(docTrivia);
+
+                if (newlineTrivia is { Count: > 0 })
+                    trivia.AddRange(newlineTrivia);
+
+                continue;
+            }
+            else if (token.Kind == SyntaxKind.SingleLineCommentTrivia)
+            {
+                _lexer.ReadToken();
+                var commentTrivia = new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, token.Text);
+
+                if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                 {
-                    var isDocComment = token3.Kind == SyntaxKind.SlashToken;
-
-                    if (isDocComment && isTrailingTrivia == false)
-                    {
-                        List<SyntaxTrivia>? newlineTrivia = TreatNewlinesAsTokens ? [] : null;
-                        var isMultiLineDocComment = ReadSingleLineDocCommentBlockInto(_stringBuilder, newlineTrivia);
-
-                        var docTrivia = new SyntaxTrivia(
-                            isMultiLineDocComment
-                                ? SyntaxKind.MultiLineDocumentationCommentTrivia
-                                : SyntaxKind.SingleLineDocumentationCommentTrivia,
-                            _stringBuilder.ToString());
-
-                        trivia.Add(docTrivia);
-
-                        if (newlineTrivia is { Count: > 0 })
-                        {
-                            trivia.AddRange(newlineTrivia);
-                        }
-
-                        continue;
-                    }
-
-                    _stringBuilder.Append(token.Text);
-                    _stringBuilder.Append(token2.Text);
-                    _lexer.ReadTokens(isDocComment ? 3 : 2);
-
-                    if (isDocComment)
-                    {
-                        _stringBuilder.Append(token3.Text);
-                    }
-
-                    Token peeked = _lexer.PeekToken();
-                    while (!IsNewLine(peeked) && peeked.Kind != SyntaxKind.EndOfFileToken)
-                    {
-                        _lexer.ReadToken();
-                        _stringBuilder.Append(peeked.Text);
-                        peeked = _lexer.PeekToken();
-                    }
-                    var triviaKind = isDocComment
-                        ? SyntaxKind.SingleLineDocumentationCommentTrivia
-                        : SyntaxKind.SingleLineCommentTrivia;
-                    var commentTrivia = new SyntaxTrivia(triviaKind, _stringBuilder.ToString());
-
-                    if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
-                    {
-                        _pendingTrivia.Add(commentTrivia);
-                        break;
-                    }
-
-                    trivia.Add(commentTrivia);
-                    continue;
+                    _pendingTrivia.Add(commentTrivia);
+                    break;
                 }
-                else if (token2.Kind == SyntaxKind.StarToken)
+
+                trivia.Add(commentTrivia);
+                continue;
+            }
+            else if (token.Kind == SyntaxKind.MultiLineCommentTrivia)
+            {
+                _lexer.ReadToken();
+                var commentTrivia = new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, token.Text);
+
+                if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
                 {
-                    _stringBuilder.Append(token.Text);
-                    _stringBuilder.Append(token2.Text);
-
-                    _lexer.ReadAndDiscardTokens(2);
-
-                    while (true)
-                    {
-                        var current = _lexer.PeekToken(0);
-                        var next = _lexer.PeekToken(1);
-
-                        if (current.Kind == SyntaxKind.StarToken && next.Kind == SyntaxKind.SlashToken)
-                        {
-                            _lexer.ReadAndDiscardTokens(2);
-                            _stringBuilder.Append(current.Text);
-                            _stringBuilder.Append(next.Text);
-                            break;
-                        }
-
-                        if (current.Kind == SyntaxKind.EndOfFileToken)
-                        {
-                            // Unterminated block comment
-                            _lexer.ReadToken();
-                            _stringBuilder.Append(current.Text);
-                            break;
-                        }
-
-                        _lexer.ReadToken();
-                        _stringBuilder.Append(current.Text);
-                    }
-
-                    var commentTrivia = new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString());
-
-                    if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
-                    {
-                        _pendingTrivia.Add(commentTrivia);
-                        break;
-                    }
-
-                    trivia.Add(commentTrivia);
-                    continue;
+                    _pendingTrivia.Add(commentTrivia);
+                    break;
                 }
+
+                trivia.Add(commentTrivia);
+                continue;
             }
 
             switch (token.Kind)
@@ -565,30 +508,20 @@ internal class BaseParseContext : ParseContext
         return new SyntaxTriviaList(trivia.ToArray());
     }
 
-    private bool ReadSingleLineDocCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia)
+    private void ReadDocumentationCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia)
     {
-        var lineCount = 0;
-
         while (true)
         {
             ConsumeIndentationInto(sb);
 
-            var a = _lexer.PeekToken(0);
-            var b = _lexer.PeekToken(1);
-            var c = _lexer.PeekToken(2);
+            var comment = _lexer.PeekToken(0);
+            if (comment.Kind != SyntaxKind.DocumentationCommentTrivia)
+                return;
 
-            if (a.Kind != SyntaxKind.SlashToken ||
-                b.Kind != SyntaxKind.SlashToken ||
-                c.Kind != SyntaxKind.SlashToken)
-                return lineCount > 1;
+            _lexer.ReadToken();
+            sb.Append(comment.Text);
 
-            lineCount++;
-
-            _lexer.ReadTokens(3);
-            sb.Append(a.Text);
-            sb.Append(b.Text);
-            sb.Append(c.Text);
-
+            // The documentation comment token already contains the whole line up to (but not including) the newline.
             var t = _lexer.PeekToken();
             while (!IsNewLine(t) && t.Kind != SyntaxKind.EndOfFileToken)
             {
@@ -598,17 +531,14 @@ internal class BaseParseContext : ParseContext
             }
 
             if (t.Kind == SyntaxKind.EndOfFileToken)
-                return lineCount > 1;
+                return;
 
             var newline = ConsumeOneNewlineInto(sb);
-
             if (newlineTrivia is { } && newline is { } newlineValue)
-            {
                 newlineTrivia.Add(newlineValue);
-            }
 
             if (!NextLineStartsWithDocComment())
-                return lineCount > 1;
+                return;
         }
     }
 
@@ -639,12 +569,7 @@ internal class BaseParseContext : ParseContext
         }
 
         var a = _lexer.PeekToken(i + 0);
-        var b = _lexer.PeekToken(i + 1);
-        var c = _lexer.PeekToken(i + 2);
-
-        return a.Kind == SyntaxKind.SlashToken &&
-               b.Kind == SyntaxKind.SlashToken &&
-               c.Kind == SyntaxKind.SlashToken;
+        return a.Kind == SyntaxKind.DocumentationCommentTrivia;
     }
 
     private SyntaxTrivia? ConsumeOneNewlineInto(StringBuilder sb)

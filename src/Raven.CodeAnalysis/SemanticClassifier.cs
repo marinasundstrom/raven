@@ -63,8 +63,7 @@ public static class SemanticClassifier
             {
                 if (trivia.Kind == SyntaxKind.SingleLineCommentTrivia ||
                     trivia.Kind == SyntaxKind.MultiLineCommentTrivia ||
-                    trivia.Kind == SyntaxKind.SingleLineDocumentationCommentTrivia ||
-                    trivia.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia)
+                    trivia.Kind == SyntaxKind.DocumentationCommentTrivia)
                 {
                     triviaMap[trivia] = SemanticClassification.Comment;
                 }

@@ -144,8 +144,7 @@
   <TokenKind Name="EndOfLineTrivia" Text="\n" IsTrivia="true" />
   <TokenKind Name="SingleLineCommentTrivia" Text="//" IsTrivia="true" />
   <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
-  <TokenKind Name="SingleLineDocumentationCommentTrivia" Text="///" IsTrivia="true" />
-  <TokenKind Name="MultiLineDocumentationCommentTrivia" Text="/**" IsTrivia="true" />
+  <TokenKind Name="DocumentationCommentTrivia" Text="///" IsTrivia="true" />
 
   <TokenKind Name="Whitespace" Text=" " IsTrivia="true" />
   <TokenKind Name="TabToken" Value="\t" IsTrivia="true" />

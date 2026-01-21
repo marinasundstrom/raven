@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text;
 using System.Linq;
 
@@ -49,16 +48,17 @@ public sealed class DocumentationComment
             return false;
 
         var raw = trivia.Text;
-        var isMultiline = trivia.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia;
-        var content = Normalize(raw, isMultiline);
+        // Doc comments are represented by a single trivia kind; treat a block as multiline if it spans multiple lines.
+        var isMultiline = raw.AsSpan().IndexOfAny('\n', '\r') >= 0;
+        var content = Normalize(raw);
 
         comment = new DocumentationComment(format, raw, content, isMultiline);
         return true;
     }
 
-    private static bool IsDocumentationTrivia(SyntaxKind kind) => kind is SyntaxKind.SingleLineDocumentationCommentTrivia or SyntaxKind.MultiLineDocumentationCommentTrivia;
+    private static bool IsDocumentationTrivia(SyntaxKind kind) => kind is SyntaxKind.DocumentationCommentTrivia;
 
-    private static string Normalize(string rawText, bool isMultiline)
+    private static string Normalize(string rawText)
     {
         if (string.IsNullOrEmpty(rawText))
             return string.Empty;
@@ -70,10 +70,11 @@ public sealed class DocumentationComment
     {
         var lines = rawText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
-        // 1) Strip "///" but keep indentation for now (we need it to compute common indent)
+        // 1) Strip indentation before "///" (if any), then strip the "///" marker.
+        // We keep indentation *after* the marker for now (we need it to compute common indent).
         var stripped = new List<string>(lines.Length);
         foreach (var line in lines)
-            stripped.Add(RemovePrefix(line, "///"));
+            stripped.Add(RemoveDocLinePrefix(line, "///"));
 
         // 2) Remove common indentation (spaces/tabs) across non-blank lines
         stripped = TrimCommonIndentation(stripped, tabSize: 4);
@@ -176,6 +177,42 @@ public sealed class DocumentationComment
         return (i == 0) ? line : line.Substring(i);
     }
 
+    private static string RemoveDocLinePrefix(string line, string prefix)
+    {
+        if (string.IsNullOrEmpty(line))
+            return string.Empty;
+
+        // Remove any indentation before the documentation marker.
+        int i = 0;
+        while (i < line.Length)
+        {
+            char ch = line[i];
+            if (ch == ' ' || ch == '\t')
+            {
+                i++;
+                continue;
+            }
+
+            break;
+        }
+
+        // If the line is whitespace-only, keep it empty.
+        if (i >= line.Length)
+            return string.Empty;
+
+        // If we don't have the marker, just trim leading whitespace.
+        if (!line.AsSpan(i).StartsWith(prefix.AsSpan(), StringComparison.Ordinal))
+            return line.Substring(i);
+
+        i += prefix.Length;
+
+        // Allow one optional space after the marker.
+        if (i < line.Length && line[i] == ' ')
+            i++;
+
+        return (i >= line.Length) ? string.Empty : line.Substring(i);
+    }
+
     private static string RemovePrefix(string text, string prefix)
     {
         if (text.StartsWith(prefix, StringComparison.Ordinal))
@@ -184,6 +221,6 @@ public sealed class DocumentationComment
         if (text.StartsWith(prefix + " ", StringComparison.Ordinal))
             return text.Substring((prefix + " ").Length);
 
-        return text.TrimStart();
+        return text;
     }
 }
