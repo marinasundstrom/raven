@@ -242,6 +242,11 @@
     Message="Documentation comment is not well-formed Markdown: {message}"
     Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
     HelpLinkUri="" />
+  <Descriptor Id="RAV4003" Identifier="DocumentationCommentInconsistentIndentation"
+    Title="Documentation comment indentation is inconsistent"
+    Message="Documentation comment lines must have consistent indentation"
+    Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
+    HelpLinkUri="" />
   <Descriptor Id="RAV0600" Identifier="TypeAlreadyDefined" Title="Type already defined"
     Message="A type named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error"

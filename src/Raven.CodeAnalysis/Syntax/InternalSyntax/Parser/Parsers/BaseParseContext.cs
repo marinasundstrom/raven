@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 /// <summary>
 /// The entry point for parsers
 /// </summary>
-internal class BaseParseContext : ParseContext
+internal partial class BaseParseContext : ParseContext
 {
     internal SyntaxToken? _lastToken;
     private readonly ILexer _lexer;
@@ -360,9 +360,14 @@ internal class BaseParseContext : ParseContext
                     break;
 
                 List<SyntaxTrivia>? newlineTrivia = TreatNewlinesAsTokens ? [] : null;
-                ReadDocumentationCommentBlockInto(_stringBuilder, newlineTrivia);
+                List<DiagnosticInfo>? docDiagnostics = null;
 
-                var docTrivia = new SyntaxTrivia(SyntaxKind.DocumentationCommentTrivia, _stringBuilder.ToString());
+                ReadDocumentationCommentBlockInto(_stringBuilder, newlineTrivia, ref docDiagnostics);
+
+                var docTrivia = docDiagnostics is { Count: > 0 }
+                    ? new SyntaxTrivia(SyntaxKind.DocumentationCommentTrivia, _stringBuilder.ToString(), docDiagnostics.ToArray())
+                    : new SyntaxTrivia(SyntaxKind.DocumentationCommentTrivia, _stringBuilder.ToString());
+
                 trivia.Add(docTrivia);
 
                 if (newlineTrivia is { Count: > 0 })
@@ -508,11 +513,50 @@ internal class BaseParseContext : ParseContext
         return new SyntaxTriviaList(trivia.ToArray());
     }
 
-    private void ReadDocumentationCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia)
+    private void ReadDocumentationCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia, ref List<DiagnosticInfo>? docDiagnostics)
     {
+        string? baselineIndent = null;
         while (true)
         {
-            ConsumeIndentationInto(sb);
+            // Peek the indentation for this doc-comment line without consuming tokens yet.
+            int indentTokenCount = 0;
+            if (_stringBuilder.Length > 0) _stringBuilder.Clear();
+
+            while (true)
+            {
+                var tIndent = _lexer.PeekToken(indentTokenCount);
+                if (tIndent.Kind != SyntaxKind.Whitespace && tIndent.Kind != SyntaxKind.TabToken)
+                    break;
+
+                _stringBuilder.Append(tIndent.Text);
+                indentTokenCount++;
+            }
+
+            var indent = _stringBuilder.ToString();
+
+            if (baselineIndent is null)
+            {
+                baselineIndent = indent;
+            }
+            else if (baselineIndent != indent)
+            {
+                // Report inconsistency: doc-comment lines in a single block must share the same indentation.
+                docDiagnostics ??= new List<DiagnosticInfo>();
+                docDiagnostics.Add(DiagnosticInfo.Create(
+                    CompilerDiagnostics.DocumentationCommentInconsistentIndentation,
+                    new TextSpan()));
+
+                // Do NOT consume indentation tokens here; leave them for the next trivia read.
+                return;
+            }
+
+            // Consume indentation tokens now that we've validated they match the baseline.
+            for (int k = 0; k < indentTokenCount; k++)
+            {
+                var consumed = _lexer.PeekToken(0);
+                _lexer.ReadToken();
+                sb.Append(consumed.Text);
+            }
 
             var comment = _lexer.PeekToken(0);
             if (comment.Kind != SyntaxKind.DocumentationCommentTrivia)
