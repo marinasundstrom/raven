@@ -236,7 +236,7 @@ internal partial class BoundBinaryOperator
                     lifted.OperatorKind | BinaryOperatorKind.Lifted,
                     left,
                     right,
-                    new NullableTypeSymbol(lifted.ResultType, null, null, null, []));
+                    lifted.ResultType.MakeNullable());
                 return true;
             }
         }

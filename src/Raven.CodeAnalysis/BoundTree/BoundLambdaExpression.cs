@@ -256,7 +256,7 @@ internal partial class BoundLambdaExpression : BoundExpression
                             var substitutedUnderlying = SubstituteType(nullableType.UnderlyingType, substitutions, compilation);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedUnderlying, nullableType.UnderlyingType))
                             {
-                                return new NullableTypeSymbol(substitutedUnderlying, null, null, null, []);
+                                return substitutedUnderlying.MakeNullable();
                             }
 
                             return nullableType;

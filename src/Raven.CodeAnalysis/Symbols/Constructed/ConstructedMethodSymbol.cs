@@ -185,7 +185,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType);
 
             if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
-                return new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
+                return underlyingType.MakeNullable();
 
             return type;
         }

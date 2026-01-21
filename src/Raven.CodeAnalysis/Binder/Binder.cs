@@ -1127,7 +1127,7 @@ internal abstract class Binder
                 return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
             }
 
-            return ApplyRefKindHint(new NullableTypeSymbol(elementType, null, null, null, []), refKindHint);
+            return ApplyRefKindHint(elementType.MakeNullable(), refKindHint);
         }
 
         if (typeSyntax is UnionTypeSyntax ut)

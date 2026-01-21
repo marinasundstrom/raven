@@ -436,7 +436,7 @@ partial class BlockBinder
 
         var resultType = whenNotNull.Type;
         if (!resultType.IsNullable)
-            resultType = new NullableTypeSymbol(resultType, null, null, null, []);
+            resultType = resultType.MakeNullable();
 
         return new BoundConditionalAccessExpression(receiver, whenNotNull, resultType);
     }

@@ -203,7 +203,7 @@ internal static class TypeSymbolNormalization
             return false;
         }
 
-        result = new NullableTypeSymbol(other, null, null, null, []);
+        result = other.MakeNullable();
         return true;
     }
 

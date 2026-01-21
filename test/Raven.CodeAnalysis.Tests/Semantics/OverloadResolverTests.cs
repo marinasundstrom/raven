@@ -100,19 +100,9 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var compilation = CreateInitializedCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
 
-        var nullableArgumentType = new NullableTypeSymbol(
-            stringType,
-            compilation.Assembly,
-            null,
-            compilation.Assembly.GlobalNamespace,
-            Array.Empty<Location>());
+        var nullableArgumentType = stringType.MakeNullable();
 
-        var nullableParameterType = new NullableTypeSymbol(
-            stringType,
-            compilation.Assembly,
-            null,
-            compilation.Assembly.GlobalNamespace,
-            Array.Empty<Location>());
+        var nullableParameterType = stringType.MakeNullable();
 
         var nonNullable = CreateMethod(compilation, "NonNullable", stringType);
         var nullable = CreateMethod(compilation, "Nullable", nullableParameterType);

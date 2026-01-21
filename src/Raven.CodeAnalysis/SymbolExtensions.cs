@@ -230,7 +230,7 @@ public static partial class SymbolExtensions
             var underlyingType = SubstituteTypeParameters(nullableTypeSymbol.UnderlyingType, map);
 
             if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
-                return new NullableTypeSymbol(underlyingType, nullableTypeSymbol.ContainingSymbol, nullableTypeSymbol.ContainingType, nullableTypeSymbol.ContainingNamespace, [.. nullableTypeSymbol.Locations]);
+                return underlyingType.MakeNullable();
 
             return type;
         }

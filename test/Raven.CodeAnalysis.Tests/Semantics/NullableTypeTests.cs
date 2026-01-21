@@ -16,8 +16,8 @@ public class NullableTypeTests : CompilationTestBase
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
-        var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
+        var nullableInt = intType.MakeNullable();
+        var nullableString = stringType.MakeNullable();
         Assert.Equal(TypeKind.Nullable, nullableInt.TypeKind);
         Assert.Equal(TypeKind.Nullable, nullableString.TypeKind);
         Assert.Equal(SpecialType.System_Int32, ((NullableTypeSymbol)nullableInt).UnderlyingType.SpecialType);
@@ -106,7 +106,7 @@ public class NullableTypeTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var nullable = new NullableTypeSymbol(intType, null, null, null, []);
+        var nullable = intType.MakeNullable();
 
         var exception = Record.Exception(() => nullable.LookupType("DoesNotExist"));
         Assert.Null(exception);
@@ -292,8 +292,8 @@ class Foo {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
-        var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
+        var nullableInt = intType.MakeNullable();
+        var nullableString = stringType.MakeNullable();
 
         var intConv = compilation.ClassifyConversion(intType, nullableInt);
         Assert.True(intConv.IsImplicit);
@@ -324,7 +324,7 @@ class Foo {
     {
         var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
+        var nullableString = stringType.MakeNullable();
 
         var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, nullableString);
 
@@ -337,7 +337,7 @@ class Foo {
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
+        var nullableInt = intType.MakeNullable();
 
         var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, nullableInt);
 
@@ -462,7 +462,7 @@ class Foo {
         var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var union = new TypeUnionSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
-        var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
+        var nullableString = stringType.MakeNullable();
 
         var conv = compilation.ClassifyConversion(union, nullableString);
         Assert.True(conv.IsImplicit);

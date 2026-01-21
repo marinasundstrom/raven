@@ -1537,7 +1537,7 @@ partial class BlockBinder : Binder
                 expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
-            var errorType = new NullableTypeSymbol(targetType, null, null, null, []);
+            var errorType = targetType.MakeNullable();
             return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
         }
 
@@ -1548,11 +1548,11 @@ partial class BlockBinder : Binder
                 expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
-            var errorType = new NullableTypeSymbol(targetType, null, null, null, []);
+            var errorType = targetType.MakeNullable();
             return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
         }
 
-        var resultType = new NullableTypeSymbol(targetType, null, null, null, []);
+        var resultType = targetType.MakeNullable();
         return new BoundAsExpression(expression, resultType, conversion);
     }
 
@@ -3526,7 +3526,7 @@ partial class BlockBinder : Binder
             var invocation = new BoundInvocationExpression(accessor, [converted], eventAccess.Receiver);
             var resultType = invocation.Type ?? Compilation.ErrorTypeSymbol;
             if (!resultType.IsNullable)
-                resultType = new NullableTypeSymbol(resultType, null, null, null, []);
+                resultType = resultType.MakeNullable();
 
             return new BoundConditionalAccessExpression(conditionalAccess.Receiver, invocation, resultType);
         }

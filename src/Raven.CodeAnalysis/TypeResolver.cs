@@ -192,7 +192,7 @@ internal class TypeResolver(Compilation compilation)
             && type.GetGenericTypeDefinition().FullName.Contains("System.Nullable`1"))
         {
             var underlying = ResolveType(type.GetGenericArguments()[0]);
-            return new NullableTypeSymbol(underlying!, null, null, null, []);
+            return underlying!.MakeNullable();
         }
 
         // TODO: Return immediately if built in type
@@ -297,7 +297,7 @@ internal class TypeResolver(Compilation compilation)
             && !typeSymbol.IsValueType
             && typeSymbol is not ITypeParameterSymbol)
         {
-            typeSymbol = new NullableTypeSymbol(typeSymbol, null, null, null, []);
+            typeSymbol = typeSymbol.MakeNullable();
         }
 
         return typeSymbol;
