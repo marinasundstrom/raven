@@ -49,6 +49,7 @@ var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
 
 var printSyntaxTree = false;
+var printSyntaxTreeInternal = false;
 var syntaxTreeFormat = SyntaxTreeFormat.Flat;
 var printSyntax = false;
 var printRawSyntax = false;
@@ -92,6 +93,11 @@ for (int i = 0; i < args.Length; i++)
             printSyntaxTree = true;
             if (!TryParseSyntaxTreeFormat(args, ref i, out syntaxTreeFormat))
                 hasInvalidOption = true;
+            break;
+        case "-si":
+        case "--syntax-tree--internal":
+            printSyntaxTreeInternal = true;
+            hasInvalidOption = false;
             break;
         case "--display-tree":
             printSyntaxTree = true;
@@ -269,7 +275,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/testar2{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/bugs/multiline-comment-trivia-bug{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)
@@ -492,7 +498,11 @@ if (debugDir is not null)
             IncludeSpans = true,
             IncludeLocations = true,
             Colorize = true,
-            ExpandListsAsProperties = true
+            ExpandListsAsProperties = true,
+            IncludeDiagnostics = true,
+            IncludeAnnotations = true,
+            DiagnosticsAsChildren = true,
+            AnnotationsAsChildren = true
         }).StripAnsiCodes();
 
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax-tree.txt"), treeText);
@@ -549,8 +559,33 @@ if (allowConsoleOutput)
             IncludeSpans = true,
             IncludeLocations = includeLocations,
             Colorize = true,
-            ExpandListsAsProperties = syntaxTreeFormat == SyntaxTreeFormat.Flat
+            ExpandListsAsProperties = syntaxTreeFormat == SyntaxTreeFormat.Flat,
+            IncludeDiagnostics = true,
+            IncludeAnnotations = true,
+            DiagnosticsAsChildren = true,
+            AnnotationsAsChildren = true
         });
+    }
+    else if (printSyntaxTreeInternal)
+    {
+        var green = (GreenNode?)typeof(SyntaxNode)
+            .GetField("Green", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(root);
+
+        var greenPrinterOptions = new Raven.CodeAnalysis.Syntax.InternalSyntax.PrettyGreenTreePrinterOptions()
+        {
+            IncludeTrivia = true,
+            IncludeTriviaText = true,
+            FlattenSyntaxLists = true,
+            IncludeSlotIndices = true,
+            IncludeWidths = true,
+            IncludeDiagnostics = true,
+            IncludeAnnotations = true,
+            DiagnosticsAsChildren = true,
+            AnnotationsAsChildren = true
+        };
+
+        Console.WriteLine(Raven.CodeAnalysis.Syntax.InternalSyntax.PrettyGreenTreePrinter.PrintToString(green!, greenPrinterOptions));
     }
 
     if (printSyntax)

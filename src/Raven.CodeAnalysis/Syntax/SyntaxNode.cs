@@ -270,7 +270,7 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 
     public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
 
-    public IEnumerable<Diagnostic> GetDiagnostics()
+    public IEnumerable<Diagnostic> GetDiagnostics(bool traverse = true)
     {
         if (_diagnostics is not null)
             return _diagnostics;
@@ -282,20 +282,23 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
             (_diagnostics ??= new List<Diagnostic>()).Add(d);
         }
 
-        foreach (var child in ChildNodesAndTokens())
+        if (traverse)
         {
-            if (child.IsNode)
+            foreach (var child in ChildNodesAndTokens())
             {
-                foreach (var diagnostic in child.AsNode()!.GetDiagnostics())
+                if (child.IsNode)
                 {
-                    (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+                    foreach (var diagnostic in child.AsNode()!.GetDiagnostics())
+                    {
+                        (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+                    }
                 }
-            }
-            else if (child.IsToken)
-            {
-                foreach (var diagnostic in child.AsToken()!.GetDiagnostics())
+                else if (child.IsToken)
                 {
-                    (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+                    foreach (var diagnostic in child.AsToken()!.GetDiagnostics())
+                    {
+                        (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+                    }
                 }
             }
         }

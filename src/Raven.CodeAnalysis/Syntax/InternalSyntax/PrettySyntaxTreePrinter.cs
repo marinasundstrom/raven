@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 
 using Raven.CodeAnalysis.Text;
 
@@ -14,6 +15,10 @@ public class PrinterOptions
     public bool Colorize { get; set; } = true;
     public int MaxDepth { get; set; } = int.MaxValue;
     public bool ExpandListsAsProperties { get; set; } = false;
+    public bool IncludeDiagnostics { get; set; } = false;
+    public bool IncludeAnnotations { get; set; } = false;
+    public bool DiagnosticsAsChildren { get; set; } = false;
+    public bool AnnotationsAsChildren { get; set; } = false;
 }
 
 public static class PrettySyntaxTreePrinter
@@ -78,17 +83,54 @@ public static class PrettySyntaxTreePrinter
 
         var value = !printerOptions.IncludeTokens ? MaybeColorize(Value(node), AnsiColor.Yellow, printerOptions.Colorize) : string.Empty;
 
-        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, printerOptions.Colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(node.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(node.GetLocation())}" : string.Empty)}");
+        var diagnosticsStr = (printerOptions.IncludeDiagnostics && !printerOptions.DiagnosticsAsChildren) ? DiagnosticsToString(node.GetDiagnostics(false)) : string.Empty;
+        var annotationsStr = (printerOptions.IncludeAnnotations && !printerOptions.AnnotationsAsChildren) ? AnnotationsToString(node) : string.Empty;
+
+        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, printerOptions.Colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(node.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(node.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
         ChildSyntaxListItem[] children = node.ChildNodesAndTokens().ToArray();
         var printableChildren = GetPrintableChildren(children, printerOptions);
 
+        // Optional: print diagnostics/annotations as their own arms under the node.
+        var diagChildren = (printerOptions.IncludeDiagnostics && printerOptions.DiagnosticsAsChildren)
+            ? DiagnosticsAsChildLines(node.GetDiagnostics(false))
+            : Array.Empty<string>();
+
+        var annChildren = (printerOptions.IncludeAnnotations && printerOptions.AnnotationsAsChildren)
+            ? AnnotationsAsChildLines(node)
+            : Array.Empty<string>();
+
+        var extraChildren = diagChildren.Concat(annChildren).ToList();
+
+        if (extraChildren.Count > 0)
+        {
+            var total = extraChildren.Count + printableChildren.Count;
+
+            for (int i = 0; i < extraChildren.Count; i++)
+            {
+                var isExtraLast = (i == total - 1) && printableChildren.Count == 0;
+                // If there are real children, extra items are never the last overall unless there are none.
+                if (printableChildren.Count > 0)
+                    isExtraLast = false;
+
+                var childMarker = isExtraLast ? MarkerBottom : MarkerMiddle;
+                writer.WriteLine($"{newIndent}{childMarker}{extraChildren[i]}");
+            }
+
+            // If there are real children, ensure the last marker alignment remains correct by treating
+            // extra children as preceding siblings.
+        }
+
+        var extraCount = (printerOptions.IncludeDiagnostics && printerOptions.DiagnosticsAsChildren ? diagChildren.Length : 0)
+            + (printerOptions.IncludeAnnotations && printerOptions.AnnotationsAsChildren ? annChildren.Length : 0);
+
         for (int i = 0; i < printableChildren.Count; i++)
         {
             var printableChild = printableChildren[i];
             var isChildLast = i == printableChildren.Count - 1;
+            // Note: isChildLast is correct because extra children are printed before real children.
 
             if (printableChild.IsList)
             {
@@ -252,7 +294,9 @@ public static class PrettySyntaxTreePrinter
 
         var marker = isChildLast ? MarkerBottom : MarkerMiddle;
 
-        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+        var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(token) : string.Empty;
+
+        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}{annotationsStr}");
 
         if (printerOptions.IncludeTrivia)
         {
@@ -345,7 +389,8 @@ public static class PrettySyntaxTreePrinter
                 }
             }
 
-            writer.WriteLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
+            var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(trivia) : string.Empty;
+            writer.WriteLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(trivia.GetLocation())}" : string.Empty)}{annotationsStr}");
 
             if (trivia.HasStructure)
             {
@@ -365,7 +410,9 @@ public static class PrettySyntaxTreePrinter
         }
 
         var structure = trivia.GetStructure()!;
-        writer.WriteLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(structure.GetLocation())}" : string.Empty)}");
+        var diagnosticsStr = printerOptions.IncludeDiagnostics ? DiagnosticsToString(structure.GetDiagnostics()) : string.Empty;
+        var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(structure) : string.Empty;
+        writer.WriteLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(structure.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
 
         int i2 = 0;
         var structureChildren = structure.ChildNodesAndTokens();
@@ -378,7 +425,9 @@ public static class PrettySyntaxTreePrinter
 
             if (triviaChild.TryGetToken(out var token))
             {
-                writer.WriteLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                var diagnosticsStr2 = printerOptions.IncludeDiagnostics ? DiagnosticsToString(token.GetDiagnostics()) : string.Empty;
+                var annotationsStr2 = printerOptions.IncludeAnnotations ? AnnotationsToString(token) : string.Empty;
+                writer.WriteLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}{diagnosticsStr2}{annotationsStr2}");
             }
             i2++;
         }
@@ -411,6 +460,14 @@ public static class PrettySyntaxTreePrinter
         // ␠
     }
 
+    private static string DiagnosticsToString(IEnumerable<Diagnostic> diagnostics)
+    {
+        var list = diagnostics?.ToList();
+        if (list is null || list.Count == 0)
+            return string.Empty;
+
+        return " " + string.Join(", ", list.Select(d => $"[{d.Id}]"));
+    }
 
     private static string MaybeColorize(string text, AnsiColor color, bool colorize)
     {
@@ -420,5 +477,136 @@ public static class PrettySyntaxTreePrinter
     private static string Colorize(string text, AnsiColor color)
     {
         return $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
+    }
+
+    private static string AnnotationsToString(object syntax)
+    {
+        // Be defensive: annotation APIs may differ between node/token/trivia in the red tree.
+        // We try common shapes via reflection and fall back to empty.
+        try
+        {
+            var type = syntax.GetType();
+
+            // Common pattern: GetAnnotations() => IEnumerable<SyntaxAnnotation>
+            var m0 = type.GetMethod("GetAnnotations", Type.EmptyTypes);
+            if (m0 != null)
+            {
+                var result = m0.Invoke(syntax, null);
+                if (result is System.Collections.IEnumerable enumerable)
+                {
+                    var kinds = enumerable
+                        .Cast<object>()
+                        .Select(a => a?.GetType().GetProperty("Kind")?.GetValue(a) as string)
+                        .Where(k => !string.IsNullOrWhiteSpace(k))
+                        .Distinct()
+                        .ToList();
+
+                    if (kinds.Count > 0)
+                        return " " + string.Join(", ", kinds.Select(k => $"[@{k}]"));
+                }
+            }
+
+            // Alternative: HasAnnotations + GetAnnotations(string kind) isn't enumerable without knowing kinds.
+            // If the object exposes an internal field `_annotations`, use it.
+            var f = type.GetField("_annotations", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            if (f?.GetValue(syntax) is Array arr && arr.Length > 0)
+            {
+                var kinds = arr
+                    .Cast<object>()
+                    .Select(a => a?.GetType().GetProperty("Kind")?.GetValue(a) as string)
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Distinct()
+                    .ToList();
+
+                if (kinds.Count > 0)
+                    return " " + string.Join(", ", kinds.Select(k => $"[@{k}]"));
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return string.Empty;
+    }
+
+    private static string[] DiagnosticsAsChildLines(IEnumerable<Diagnostic> diagnostics)
+    {
+        var list = diagnostics?.ToList();
+        if (list is null || list.Count == 0)
+            return Array.Empty<string>();
+
+        return list
+            .Select(d => $"[{d.Id}]: {d.GetMessage()}")
+            .ToArray();
+    }
+
+    private static string[] AnnotationsAsChildLines(object syntax)
+    {
+        var pairs = GetAnnotationPairs(syntax);
+        if (pairs.Count == 0)
+            return Array.Empty<string>();
+
+        return pairs
+            .Select(p => p.data is null ? $"[@{p.kind}]" : $"[@{p.kind}] = {p.data}")
+            .ToArray();
+    }
+
+    private static List<(string kind, string? data)> GetAnnotationPairs(object syntax)
+    {
+        var result = new List<(string kind, string? data)>();
+
+        try
+        {
+            var type = syntax.GetType();
+
+            // Prefer GetAnnotations() => IEnumerable<SyntaxAnnotation>
+            var m0 = type.GetMethod("GetAnnotations", Type.EmptyTypes);
+            if (m0 != null)
+            {
+                var ann = m0.Invoke(syntax, null);
+                if (ann is System.Collections.IEnumerable enumerable)
+                {
+                    foreach (var a in enumerable)
+                    {
+                        if (a is null) continue;
+                        var at = a.GetType();
+                        var kind = at.GetProperty("Kind")?.GetValue(a) as string;
+                        if (string.IsNullOrWhiteSpace(kind)) continue;
+                        var data = at.GetProperty("Data")?.GetValue(a)?.ToString();
+                        result.Add((kind!, data));
+                    }
+                }
+
+                return result
+                    .Where(x => !string.IsNullOrWhiteSpace(x.kind))
+                    .Distinct()
+                    .ToList();
+            }
+
+            // Fallback: internal field `_annotations`
+            var f = type.GetField("_annotations", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            if (f?.GetValue(syntax) is Array arr && arr.Length > 0)
+            {
+                foreach (var a in arr)
+                {
+                    if (a is null) continue;
+                    var at = a.GetType();
+                    var kind = at.GetProperty("Kind")?.GetValue(a) as string;
+                    if (string.IsNullOrWhiteSpace(kind)) continue;
+                    var data = at.GetProperty("Data")?.GetValue(a)?.ToString();
+                    result.Add((kind!, data));
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return result
+            .Where(x => !string.IsNullOrWhiteSpace(x.kind))
+            .Distinct()
+            .ToList();
     }
 }
