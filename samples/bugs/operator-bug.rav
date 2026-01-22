@@ -13,7 +13,8 @@ union Option<T: struct> {
     None
 }
 
-extension OptionExtensions2<T : struct> for T {
+extension OptionExtensions3<T> for T
+    where T : struct {
 
     public static implicit operator(value: T?) -> Option<T> {
         if value is not null {

@@ -846,6 +846,27 @@
     <Slot Name="NewKeyword" Type="Token" DefaultToken="NewKeyword" />
     <Slot Name="Type" Type="Type" />
     <Slot Name="ArgumentList" Type="ArgumentList" />
+    <Slot Name="Initializer" Type="ObjectInitializerExpression" IsNullable="true" />
+  </Node>
+
+  <Node Name="ObjectInitializerExpression" Inherits="Expression">
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="Entries" Type="List" ElementType="ObjectInitializerEntry" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+  </Node>
+
+  <Node Name="ObjectInitializerEntry" Inherits="Node" IsAbstract="true" />
+
+  <Node Name="ObjectInitializerAssignmentEntry" Inherits="ObjectInitializerEntry">
+    <Slot Name="Name" Type="IdentifierName" />
+    <Slot Name="EqualsToken" Type="Token" DefaultToken="EqualsToken" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
+
+  <Node Name="ObjectInitializerExpressionEntry" Inherits="ObjectInitializerEntry">
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="ExplicitInterfaceSpecifier" Inherits="Node">
     <Slot Name="Name" Type="Type" />
@@ -895,6 +916,7 @@
   <Node Name="InvocationExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ArgumentList" Type="ArgumentList" />
+    <Slot Name="Initializer" Type="ObjectInitializerExpression" IsNullable="true" />
   </Node>
   <Node Name="ExpressionOrPattern" Inherits="Node" IsAbstract="true" />
   <Node Name="VariableDeclarator" Inherits="Node">

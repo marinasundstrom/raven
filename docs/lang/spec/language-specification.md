@@ -762,6 +762,40 @@ The compiler binds each named argument to its declared parameter. The call to
 first named argument, while the `invalid` call is rejected because it attempts
 to supply a positional argument (`2`) after specifying `x` by name.
 
+#### Object initializer trailers
+
+Any invocation expression may be followed by an **object initializer** block written with braces. The initializer is a postfix *trailer* and is evaluated immediately after the invocation target is constructed or returned.
+
+```raven
+val window = Window() {
+    Title = "Main"
+    Width = 800
+    Height = 600
+}
+```
+
+Initializer bodies consist of a sequence of **entries**. Entries may be mixed freely and appear in source order:
+
+* **Property entries** assign to a writable property or field using `Name = Expression`.
+* **Content entries** are standalone expressions, typically nested object constructions such as `Button { ... }`.
+
+```raven
+val window = Window {
+    Title = "Main"
+
+    Button { Text = "OK" }
+
+    Width = 800
+    Height = 600
+
+    Button { Text = "Cancel" }
+}
+```
+
+Property entries are applied to the newly created instance. Content entries are forwarded to the instance's designated content target (for example an `Add(...)` method or a `Children`-like collection), as described in the binding rules for object initializers.
+
+> **Note:** The grammar permits an initializer trailer after any invocation, but in statement headers such as `if`, `while`, and `for`, the `{` token begins the statement body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
+
 ### Extensions (Traits)
 
 Extensions provide helper members for an existing receiver type without
@@ -1071,6 +1105,16 @@ val list = new List<int>()
 ```
 
 This way it’s clear that *constructor-as-call* is the default, and `new` is optional/explicit.  
+
+When an object initializer trailer is present, the parameter list may be omitted for parameterless construction:
+
+```raven
+val window = Window {
+    Title = "Main"
+}
+```
+
+This form is equivalent to calling `Window()` and then applying the initializer entries in order.
 
 ### Tuple expressions and access
 
