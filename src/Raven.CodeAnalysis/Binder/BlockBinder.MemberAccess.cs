@@ -184,7 +184,19 @@ partial class BlockBinder
             if (!EnsureMemberAccessible(constructor, receiverSyntax.GetLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
-            return new BoundObjectCreationExpression(constructor, convertedArgs, receiver);
+
+            BoundObjectInitializer? initializer = null;
+
+            if (callSyntax is InvocationExpressionSyntax { Initializer: not null } o1)
+            {
+                initializer = BindObjectInitializer(typeSymbol, o1.Initializer);
+            }
+            else if (callSyntax is ObjectCreationExpressionSyntax { Initializer: not null } o2)
+            {
+                initializer = BindObjectInitializer(typeSymbol, o2.Initializer);
+            }
+
+            return new BoundObjectCreationExpression(constructor, convertedArgs, receiver, initializer);
         }
 
         if (resolution.IsAmbiguous)

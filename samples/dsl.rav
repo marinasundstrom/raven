@@ -1,6 +1,18 @@
-val foo = Window {
-    Title = "Hello World",
-    Button {
-        Label = "Click me"
-    }
+val window = Window {
+    Title = "Main"
+
+    Button { Text = "OK" }
+
+    Width = 800
+    Height = 600
+
+    Button { Text = "Cancel" }
+}
+
+class Window {
+    public Title: string { get; set; }
+}
+
+class Button {
+    public Text: string { get; set; }
 }

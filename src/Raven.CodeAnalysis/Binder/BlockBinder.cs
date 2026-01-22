@@ -7028,4 +7028,119 @@ partial class BlockBinder : Binder
 
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
     }
+
+    private BoundObjectInitializer BindObjectInitializer(
+     ITypeSymbol instanceType,
+     ObjectInitializerExpressionSyntax initializer)
+    {
+        // Bind initializer entries in source order and keep them as a bound node.
+        // Lowering into a block happens later.
+
+        var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
+
+        foreach (var entry in initializer.Entries)
+        {
+            switch (entry)
+            {
+                case ObjectInitializerAssignmentEntrySyntax assignment:
+                    {
+                        var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
+                        if (boundEntry is not null)
+                            entries.Add(boundEntry);
+                        break;
+                    }
+
+                case ObjectInitializerExpressionEntrySyntax exprEntry:
+                    {
+                        // Content entry: bind expression now; routing to Add/Children/etc happens in lowering.
+                        var expr = BindExpression(exprEntry.Expression, allowReturn: false);
+                        entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                        break;
+                    }
+            }
+        }
+
+        return new BoundObjectInitializer(entries.ToImmutable());
+    }
+
+    private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
+     ITypeSymbol receiverType,
+     ObjectInitializerAssignmentEntrySyntax assignment)
+    {
+        receiverType = UnwrapAlias(receiverType);
+
+        // Bind RHS first so diagnostics still flow even if member lookup fails.
+        var value = BindExpression(assignment.Expression, allowReturn: false);
+
+        if (receiverType.TypeKind == TypeKind.Error)
+            return null;
+
+        if (receiverType is not INamedTypeSymbol named)
+            return null;
+
+        var name = assignment.Name.Identifier.ValueText;
+        var members = named.GetMembers(name);
+
+        IPropertySymbol? property = null;
+        IFieldSymbol? field = null;
+
+        foreach (var member in members)
+        {
+            if (member is IPropertySymbol p)
+            {
+                property = p;
+                break;
+            }
+        }
+
+        if (property is null)
+        {
+            foreach (var member in members)
+            {
+                if (member is IFieldSymbol f)
+                {
+                    field = f;
+                    break;
+                }
+            }
+        }
+
+        if (property is null && field is null)
+        {
+            // Unknown member. RHS already bound for diagnostics.
+            return null;
+        }
+
+        if (property is not null)
+        {
+            if (!EnsureMemberAccessible(property, assignment.Name.GetLocation(), "property"))
+                return null;
+
+            if (property.SetMethod is null)
+                return null;
+
+            value = PrepareRightForAssignment(value, property.Type, assignment.Expression);
+            if (value is BoundErrorExpression)
+                return null;
+
+            return new BoundObjectInitializerAssignmentEntry(property, value);
+        }
+
+        if (field is not null)
+        {
+            if (!EnsureMemberAccessible(field, assignment.Name.GetLocation(), "field"))
+                return null;
+
+            if (field.IsConst || !field.IsMutable)
+                return null;
+
+            value = PrepareRightForAssignment(value, field.Type, assignment.Expression);
+            if (value is BoundErrorExpression)
+                return null;
+
+            return new BoundObjectInitializerAssignmentEntry(field, value);
+        }
+
+        return null;
+    }
 }

@@ -1795,8 +1795,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             while (true)
             {
-                while (IsNewLineLike(PeekToken()))
-                    ReadToken();
+                SetTreatNewlinesAsTokens(false);
+
+                var token = PeekToken();
 
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _) || PeekToken().IsKind(SyntaxKind.EndOfFileToken))
                     break;
@@ -1819,9 +1820,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 entries.Add(entry);
             }
 
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+
             ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
-            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+            SetTreatNewlinesAsTokens(false);
 
             return ObjectInitializerExpression(openBraceToken, List(entries.ToArray()), closeBraceToken);
         }
@@ -1849,9 +1852,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
+            SetTreatNewlinesAsTokens(true);
+
             SyntaxToken terminatorToken;
             if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
+            {
                 TryConsumeTerminator(out terminatorToken);
+            }
 
             return ObjectInitializerAssignmentEntry(name, equalsToken, expression, terminatorToken);
         }
