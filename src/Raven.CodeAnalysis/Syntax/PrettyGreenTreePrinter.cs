@@ -13,6 +13,9 @@ public sealed class PrettyGreenTreePrinterOptions
     public bool AnnotationsAsChildren { get; set; } = false;
     public bool IncludeSlotIndices { get; set; } = false;
 
+    // When true, uses ANSI escape codes to colorize output for easier visual scanning.
+    public bool Colorize { get; set; } = true;
+
     // When true, prints token leading/trailing trivia as children of the token.
     public bool IncludeTrivia { get; set; } = false;
 
@@ -75,7 +78,7 @@ public static class PrettyGreenTreePrinter
         // Optional: diagnostics/annotations as their own arms under the node.
         var extraLines = new List<string>();
         if (options.IncludeDiagnostics && options.DiagnosticsAsChildren)
-            extraLines.AddRange(DiagnosticsAsChildLines(node.GetDiagnostics()));
+            extraLines.AddRange(DiagnosticsAsChildLines(node.GetDiagnostics(), options.Colorize));
         if (options.IncludeAnnotations && options.AnnotationsAsChildren)
             extraLines.AddRange(AnnotationsAsChildLines(node));
 
@@ -103,8 +106,17 @@ public static class PrettyGreenTreePrinter
         // Trivia children for tokens (optional).
         if (options.IncludeTrivia && node is SyntaxToken tok)
         {
-            PrintTriviaList("LeadingTrivia", tok.LeadingTrivia, writer, options, nextIndent);
-            PrintTriviaList("TrailingTrivia", tok.TrailingTrivia, writer, options, nextIndent);
+            var hasLeading = tok.LeadingTrivia.SlotCount > 0;
+            var hasTrailing = tok.TrailingTrivia.SlotCount > 0;
+
+            // Trivia lists are printed before slot children.
+            // LeadingTrivia is last only if there is no TrailingTrivia and no slot children.
+            // TrailingTrivia is last only if there are no slot children.
+            if (hasLeading)
+                PrintTriviaList("LeadingTrivia", tok.LeadingTrivia, writer, options, nextIndent, isLast: !hasTrailing && slotChildren.Count == 0);
+
+            if (hasTrailing)
+                PrintTriviaList("TrailingTrivia", tok.TrailingTrivia, writer, options, nextIndent, isLast: slotChildren.Count == 0);
         }
 
         // Slot children.
@@ -155,24 +167,24 @@ public static class PrettyGreenTreePrinter
         return result;
     }
 
-    private static void PrintTriviaList(string name, SyntaxTriviaList triviaList, TextWriter writer, PrettyGreenTreePrinterOptions options, string indent)
+    private static void PrintTriviaList(string name, SyntaxTriviaList triviaList, TextWriter writer, PrettyGreenTreePrinterOptions options, string indent, bool isLast)
     {
         if (triviaList.SlotCount == 0)
             return;
 
         // Header line for the trivia list.
         writer.Write(indent);
-        writer.Write(Tee);
+        writer.Write(isLast ? Elbow : Tee);
         writer.WriteLine(name);
 
-        var nextIndent = indent + Pipe;
+        var nextIndent = indent + (isLast ? Indent : Pipe);
         for (int i = 0; i < triviaList.SlotCount; i++)
         {
             var trivia = triviaList[i];
-            var isLast = i == triviaList.SlotCount - 1;
+            var isLastItem = i == triviaList.SlotCount - 1;
 
             writer.Write(nextIndent);
-            writer.Write(isLast ? Elbow : Tee);
+            writer.Write(isLastItem ? Elbow : Tee);
             writer.Write(FormatTriviaLine(trivia, options));
             writer.WriteLine();
 
@@ -182,7 +194,7 @@ public static class PrettyGreenTreePrinter
                 var structure = trivia.GetStructuredTrivia();
                 if (structure is not null)
                 {
-                    var structIndent = nextIndent + (isLast ? Indent : Pipe);
+                    var structIndent = nextIndent + (isLastItem ? Indent : Pipe);
                     PrintNode(structure, writer, options, structIndent, isLast: true, isRoot: false, slotIndex: null);
                 }
             }
@@ -194,7 +206,7 @@ public static class PrettyGreenTreePrinter
         var prefix = slotIndex is not null ? $"[{slotIndex}] " : string.Empty;
 
         // For tokens, include value text like: IdentifierToken: System
-        var kind = node.Kind.ToString();
+        var kind = MaybeColorize(node.Kind.ToString(), AnsiColor.BrightGreen, options.Colorize);
         var valueText = node.GetValueText();
         var valuePart = string.Empty;
         if (!string.IsNullOrEmpty(valueText) && valueText != kind)
@@ -202,7 +214,7 @@ public static class PrettyGreenTreePrinter
 
         var missingPart = node.IsMissing ? " (Missing)" : string.Empty;
         var widthPart = options.IncludeWidths ? $" [W={node.Width}, FW={node.FullWidth}]" : string.Empty;
-        var diagPart = (options.IncludeDiagnostics && !options.DiagnosticsAsChildren) ? DiagnosticsToString(node.GetDiagnostics()) : string.Empty;
+        var diagPart = (options.IncludeDiagnostics && !options.DiagnosticsAsChildren) ? DiagnosticsToString(node.GetDiagnostics(), options.Colorize) : string.Empty;
         var annPart = (options.IncludeAnnotations && !options.AnnotationsAsChildren) ? AnnotationsToString(node) : string.Empty;
 
         return prefix + kind + valuePart + missingPart + widthPart + diagPart + annPart;
@@ -210,7 +222,7 @@ public static class PrettyGreenTreePrinter
 
     private static string FormatTriviaLine(SyntaxTrivia trivia, PrettyGreenTreePrinterOptions options)
     {
-        var kind = trivia.Kind.ToString();
+        var kind = MaybeColorize(trivia.Kind.ToString(), AnsiColor.BrightRed, options.Colorize);
         var textPart = string.Empty;
 
         if (options.IncludeTriviaText && !trivia.HasStructuredTrivia)
@@ -223,7 +235,7 @@ public static class PrettyGreenTreePrinter
             textPart = $": {text}";
         }
 
-        var diagPart = options.IncludeDiagnostics ? DiagnosticsToString(trivia.GetDiagnostics()) : string.Empty;
+        var diagPart = options.IncludeDiagnostics ? DiagnosticsToString(trivia.GetDiagnostics(), options.Colorize) : string.Empty;
         return kind + textPart + diagPart;
     }
 
@@ -251,7 +263,7 @@ public static class PrettyGreenTreePrinter
         return " " + string.Join(" ", kinds.Select(k => $"[@{k}]"));
     }
 
-    private static IEnumerable<string> DiagnosticsAsChildLines(IEnumerable<DiagnosticInfo> diagnostics)
+    private static IEnumerable<string> DiagnosticsAsChildLines(IEnumerable<DiagnosticInfo> diagnostics, bool colorize)
     {
         var list = diagnostics?.ToList();
         if (list is null || list.Count == 0)
@@ -259,7 +271,7 @@ public static class PrettyGreenTreePrinter
 
         return list.Select(d =>
         {
-            var id = d.Descriptor.Id;
+            var id = ColorizeDiagnosticId(d, colorize);
             var msg = GetDiagnosticMessage(d);
 
             string sev;
@@ -273,7 +285,7 @@ public static class PrettyGreenTreePrinter
             }
 
             var sevPart = string.IsNullOrWhiteSpace(sev) ? string.Empty : $" {sev}";
-            return string.IsNullOrWhiteSpace(msg) ? $"[{id}]{sevPart}" : $"[{id}]{sevPart}: {msg}";
+            return string.IsNullOrWhiteSpace(msg) ? $"{id}{sevPart}" : $"{id}{sevPart}: {msg}";
         });
     }
 
@@ -319,20 +331,68 @@ public static class PrettyGreenTreePrinter
         }
     }
 
-    private static string DiagnosticsToString(IEnumerable<DiagnosticInfo> diagnostics)
+    private static string DiagnosticsToString(IEnumerable<DiagnosticInfo> diagnostics, bool colorize)
     {
         if (diagnostics is null)
             return string.Empty;
 
-        var ids = diagnostics
-            .Select(d => d.Descriptor.Id)
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Distinct()
-            .ToList();
-
-        if (ids.Count == 0)
+        var list = diagnostics.ToList();
+        if (list.Count == 0)
             return string.Empty;
 
-        return " " + string.Join(" ", ids.Select(id => $"[{id}]"));
+        // Keep stable ordering by first occurrence, but remove duplicates by id.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var parts = new List<string>();
+        foreach (var d in list)
+        {
+            var id = d.Descriptor?.Id;
+            if (string.IsNullOrWhiteSpace(id))
+                continue;
+
+            if (!seen.Add(id))
+                continue;
+
+            parts.Add(ColorizeDiagnosticId(d, colorize));
+        }
+
+        if (parts.Count == 0)
+            return string.Empty;
+
+        return " " + string.Join(" ", parts);
     }
+
+    private static string ColorizeDiagnosticId(DiagnosticInfo diagnostic, bool colorize)
+    {
+        var id = diagnostic.Descriptor?.Id;
+        var text = string.IsNullOrWhiteSpace(id) ? "[?]" : $"[{id}]";
+
+        DiagnosticSeverity? sev = null;
+        try { sev = diagnostic.Descriptor?.DefaultSeverity; } catch { }
+
+        var color = sev switch
+        {
+            DiagnosticSeverity.Error => AnsiColor.BrightRed,
+            DiagnosticSeverity.Warning => AnsiColor.Yellow,
+            DiagnosticSeverity.Info => AnsiColor.Cyan,
+            _ => AnsiColor.BrightBlue,
+        };
+
+        return colorize ? Colorize(text, color) : text;
+    }
+
+    private enum AnsiColor
+    {
+        BrightRed = 91,
+        BrightGreen = 92,
+        Yellow = 33,
+        Cyan = 36,
+        BrightBlue = 94,
+        Reset = 0,
+    }
+
+    private static string MaybeColorize(string text, AnsiColor color, bool colorize)
+        => colorize ? Colorize(text, color) : text;
+
+    private static string Colorize(string text, AnsiColor color)
+        => $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
 }
