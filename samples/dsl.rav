@@ -28,7 +28,7 @@ class Window {
     public Content: Control { get; set; }
 }
 
-open class Control {}
+open abstract class Control {}
 
 interface IHasChildren {
     Children: IEnumerable<Control> { get; }
