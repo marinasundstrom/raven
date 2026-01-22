@@ -7098,7 +7098,7 @@ partial class BlockBinder : Binder
                             if (extra.Type is { } extraType)
                             {
                                 _diagnostics.ReportMultipleContentEntriesNotAllowed(
-                                    instanceType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                    instanceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                                     exprEntry.Expression.GetLocation());
                             }
 
@@ -7178,6 +7178,11 @@ partial class BlockBinder : Binder
         if (property is null && field is null)
         {
             // Unknown member. RHS already bound for diagnostics.
+            var memberName = assignment.Name.Identifier.ValueText;
+            _diagnostics.ReportMemberDoesNotContainDefinition(
+                receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                memberName,
+                assignment.Name.GetLocation());
             return null;
         }
 

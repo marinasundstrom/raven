@@ -465,7 +465,7 @@
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1505" Identifier="MultipleContentEntriesNotAllowed"
     Title="Multiple content entries not allowed"
-    Message="Type {typeName} has a settable 'Content' property; only one content entry is allowed in an initializer"
+    Message="Type '{typeName}' has a settable 'Content' property; only one content entry is allowed in an initializer"
     Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1525" Identifier="InvalidExpressionTerm" Title="Invalid expression term"
