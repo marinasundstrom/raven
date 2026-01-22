@@ -10,6 +10,7 @@ using Raven.CodeAnalysis.Text;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using System.Linq.Expressions;
 
 namespace Raven.CodeAnalysis;
 
@@ -30,7 +31,15 @@ public static class BoundTreePrinter
     private static string ColorizeText(string text, AnsiColor color)
         => $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
 
-    public static void PrintBoundTree(this SemanticModel model, bool includeChildPropertyNames = false, bool groupChildCollections = false, bool displayCollectionIndices = false)
+    public static void PrintBoundTree(
+        this SemanticModel model,
+        bool includeChildPropertyNames = false,
+        bool groupChildCollections = false,
+        bool displayCollectionIndices = false,
+        bool onlyBlockRoots = true,
+        bool includeBinderInfo = true,
+        bool includeBinderChainOnRoots = true,
+        bool showBinderOnlyOnChange = true)
     {
         if (model is null)
             throw new ArgumentNullException(nameof(model));
@@ -49,10 +58,28 @@ public static class BoundTreePrinter
         }
 
         var nodeToSyntax = BuildNodeToSyntaxMap(cache);
-        var roots = GetRootNodes(nodeToSyntax.Keys, nodeToSyntax);
+        var roots = GetSyntacticRootNodes(cache);
 
         var visitedNodes = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
         var visitedSyntaxes = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
+
+        // Binder id map and id generator
+        var binderIds = new Dictionary<Binder, int>(ReferenceEqualityComparer.Instance);
+        var nextBinderId = 0;
+
+        int getBinderId(Binder b)
+        {
+            if (binderIds.TryGetValue(b, out var existing))
+                return existing;
+
+            // Assign parents first so IDs increase down the chain.
+            if (b.ParentBinder is not null)
+                _ = getBinderId(b.ParentBinder);
+
+            var id = nextBinderId++;
+            binderIds.Add(b, id);
+            return id;
+        }
 
         var printedAny = false;
 
@@ -60,10 +87,21 @@ public static class BoundTreePrinter
         {
             var root = roots[i];
 
+            // Skip error-only roots (usually artifacts of speculative binding / lookup noise)
+            if (root is BoundErrorExpression)
+                continue;
+
+            if (root is BoundExpression expr && expr.Type is ErrorTypeSymbol)
+                continue;
+
+            // We are only concerned with blocks: top-level statement blocks.
+            if (onlyBlockRoots && (root is not BoundBlockStatement))
+                continue;
+
             // If this root corresponds to a syntax we've already printed somewhere
             // in another tree, skip it.
             if (nodeToSyntax.TryGetValue(root, out var syntax) &&
-                visitedSyntaxes.Contains(syntax))
+                visitedSyntaxes.Contains(syntax.Syntax))
             {
                 continue;
             }
@@ -72,8 +110,8 @@ public static class BoundTreePrinter
                 Console.WriteLine();
             printedAny = true;
 
-            PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes);
-            PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
+            PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes, binderIds, getBinderId, includeBinderInfo, includeBinderChainOnRoots);
+            PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes, binderIds, getBinderId, includeBinderInfo, showBinderOnlyOnChange, parentBinderId: null);
         }
     }
 
@@ -88,10 +126,17 @@ public static class BoundTreePrinter
             => new(name, Node: null, children);
     }
 
+    /*
     private static Dictionary<SyntaxNode, BoundNode> GetBoundNodeCache(SemanticModel model)
     {
         var field = typeof(SemanticModel).GetField("_boundNodeCache", BindingFlags.NonPublic | BindingFlags.Instance);
         return (Dictionary<SyntaxNode, BoundNode>)field!.GetValue(model)!;
+    }*/
+
+    private static Dictionary<SyntaxNode, (Binder, BoundNode)> GetBoundNodeCache(SemanticModel model)
+    {
+        var field = typeof(SemanticModel).GetField("_boundNodeCache2", BindingFlags.NonPublic | BindingFlags.Instance);
+        return (Dictionary<SyntaxNode, (Binder, BoundNode)>)field!.GetValue(model)!;
     }
 
     private static void ForceBind(SemanticModel model)
@@ -117,38 +162,93 @@ public static class BoundTreePrinter
         }
     }
 
-    private static Dictionary<BoundNode, SyntaxNode> BuildNodeToSyntaxMap(Dictionary<SyntaxNode, BoundNode> cache)
+    private static Dictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> BuildNodeToSyntaxMap(
+     Dictionary<SyntaxNode, (Binder Binder, BoundNode Node)> cache)
     {
-        var map = new Dictionary<BoundNode, SyntaxNode>(ReferenceEqualityComparer.Instance);
-        foreach (var (syntax, node) in cache)
+        var map = new Dictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)>(ReferenceEqualityComparer.Instance);
+
+        foreach (var kvp in cache)
         {
+            var syntax = kvp.Key;
+            var binder = kvp.Value.Binder;
+            var node = kvp.Value.Node;
+
             if (!map.ContainsKey(node))
-                map[node] = syntax;
+                map[node] = (syntax, binder);
         }
 
         return map;
     }
 
-    private static List<BoundNode> GetRootNodes(IEnumerable<BoundNode> nodes, IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax)
+    private static List<BoundNode> GetSyntacticRootNodes(Dictionary<SyntaxNode, (Binder Binder, BoundNode Node)> cache)
     {
-        var unique = new HashSet<BoundNode>(nodes, ReferenceEqualityComparer.Instance);
-        var children = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
+        // A syntactic root is a bound node whose syntax span is not strictly contained
+        // within another cached syntax span that was bound by the *same binder instance*.
+        // This keeps separate roots for different binder regions (e.g. top-level vs method body).
 
-        foreach (var node in unique)
+        var entries = cache.Select(kvp => (Syntax: kvp.Key, Binder: kvp.Value.Binder, Node: kvp.Value.Node)).ToList();
+
+        static bool ContainsStrict(TextSpan outer, TextSpan inner)
+            => outer.Start <= inner.Start && outer.End >= inner.End && (outer.Start != inner.Start || outer.End != inner.End);
+
+        var roots = new List<(SyntaxNode Syntax, Binder Binder, BoundNode Node)>();
+
+        foreach (var e in entries)
         {
-            foreach (var childNode in EnumerateChildNodes(GetChildren(node, includeChildPropertyNames: false, groupChildCollections: false, displayCollectionIndices: false)))
-                children.Add(childNode);
+            var isContainedBySameBinder = false;
+
+            foreach (var other in entries)
+            {
+                if (ReferenceEquals(other.Syntax, e.Syntax))
+                    continue;
+
+                if (!ReferenceEquals(other.Binder, e.Binder))
+                    continue;
+
+                if (ContainsStrict(other.Syntax.Span, e.Syntax.Span))
+                {
+                    isContainedBySameBinder = true;
+                    break;
+                }
+            }
+
+            if (!isContainedBySameBinder)
+                roots.Add(e);
         }
 
-        var roots = unique.Where(node => !children.Contains(node)).ToList();
-        roots.Sort((left, right) => CompareSyntax(nodeToSyntax, left, right));
-        return roots;
+        roots.Sort((a, b) =>
+        {
+            var cmp = a.Syntax.Span.Start.CompareTo(b.Syntax.Span.Start);
+            if (cmp != 0)
+                return cmp;
+
+            // If same start, prefer the larger span first.
+            cmp = b.Syntax.Span.Length.CompareTo(a.Syntax.Span.Length);
+            if (cmp != 0)
+                return cmp;
+
+            return string.Compare(a.Node.GetType().Name, b.Node.GetType().Name, StringComparison.Ordinal);
+        });
+
+        // Deduplicate in case multiple syntax nodes map to the same bound node.
+        var unique = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
+        var result = new List<BoundNode>();
+        foreach (var r in roots)
+        {
+            if (unique.Add(r.Node))
+                result.Add(r.Node);
+        }
+
+        return result;
     }
 
-    private static int CompareSyntax(IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax, BoundNode left, BoundNode right)
+    private static int CompareSyntax(
+     IReadOnlyDictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> nodeToSyntax,
+     BoundNode left,
+     BoundNode right)
     {
-        var hasLeft = nodeToSyntax.TryGetValue(left, out var leftSyntax);
-        var hasRight = nodeToSyntax.TryGetValue(right, out var rightSyntax);
+        var hasLeft = nodeToSyntax.TryGetValue(left, out var leftInfo);
+        var hasRight = nodeToSyntax.TryGetValue(right, out var rightInfo);
 
         if (!hasLeft && !hasRight)
             return string.Compare(left.GetType().Name, right.GetType().Name, StringComparison.Ordinal);
@@ -157,7 +257,7 @@ public static class BoundTreePrinter
         if (!hasRight)
             return 1;
 
-        var comparison = leftSyntax.Span.Start.CompareTo(rightSyntax.Span.Start);
+        var comparison = leftInfo.Syntax.Span.Start.CompareTo(rightInfo.Syntax.Span.Start);
         if (comparison != 0)
             return comparison;
 
@@ -166,24 +266,35 @@ public static class BoundTreePrinter
 
     private static void PrintRoot(
         BoundNode node,
-        IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
+        IReadOnlyDictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> nodeToSyntax,
         HashSet<BoundNode> visitedNodes,
-        HashSet<SyntaxNode> visitedSyntaxes)
+        HashSet<SyntaxNode> visitedSyntaxes,
+        Dictionary<Binder, int> binderIds,
+        Func<Binder, int> getBinderId,
+        bool includeBinderInfo,
+        bool includeBinderChainOnRoots)
     {
         var alreadyVisitedNode = !visitedNodes.Add(node);
 
-        var description = Describe(node, nodeToSyntax);
+        var description = Describe(node, nodeToSyntax, includeBinderInfo, getBinderId);
         if (alreadyVisitedNode)
             description += " [cycle]";
 
         // Root prints without tree marker.
         Console.WriteLine(description);
 
+        if (includeBinderInfo && includeBinderChainOnRoots && nodeToSyntax.TryGetValue(node, out var rootInfo))
+        {
+            var chain = FormatBinderChain(rootInfo.Binder, getBinderId);
+            if (!string.IsNullOrWhiteSpace(chain))
+                Console.WriteLine($"  {MaybeColorize("BinderChain", AnsiColor.BrightGreen)}: {MaybeColorize(chain, AnsiColor.BrightBlack)}");
+        }
+
         if (alreadyVisitedNode)
             return;
 
         if (nodeToSyntax.TryGetValue(node, out var syntax))
-            visitedSyntaxes.Add(syntax);
+            visitedSyntaxes.Add(syntax.Syntax);
     }
 
     private static IEnumerable<BoundNode> EnumerateChildNodes(IEnumerable<ChildEntry> entries)
@@ -206,31 +317,55 @@ public static class BoundTreePrinter
 
     private static void PrintChildren(
         BoundNode node,
-        IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
+        IReadOnlyDictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> nodeToSyntax,
         string indent,
         bool includeChildPropertyNames,
         bool groupChildCollections,
         bool displayCollectionIndices,
         HashSet<BoundNode> visitedNodes,
-        HashSet<SyntaxNode> visitedSyntaxes)
+        HashSet<SyntaxNode> visitedSyntaxes,
+        Dictionary<Binder, int> binderIds,
+        Func<Binder, int> getBinderId,
+        bool includeBinderInfo,
+        bool showBinderOnlyOnChange,
+        int? parentBinderId)
     {
         var children = GetChildren(node, includeChildPropertyNames, groupChildCollections, displayCollectionIndices).ToList();
         for (var i = 0; i < children.Count; i++)
         {
-            PrintRecursive(children[i], nodeToSyntax, indent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
+            PrintRecursive(
+                children[i],
+                nodeToSyntax,
+                indent,
+                i == children.Count - 1,
+                includeChildPropertyNames,
+                groupChildCollections,
+                displayCollectionIndices,
+                visitedNodes,
+                visitedSyntaxes,
+                binderIds,
+                getBinderId,
+                includeBinderInfo,
+                showBinderOnlyOnChange,
+                parentBinderId);
         }
     }
 
     private static void PrintRecursive(
         ChildEntry child,
-        IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax,
+        IReadOnlyDictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> nodeToSyntax,
         string indent,
         bool isLast,
         bool includeChildPropertyNames,
         bool groupChildCollections,
         bool displayCollectionIndices,
         HashSet<BoundNode> visitedNodes,
-        HashSet<SyntaxNode> visitedSyntaxes)
+        HashSet<SyntaxNode> visitedSyntaxes,
+        Dictionary<Binder, int> binderIds,
+        Func<Binder, int> getBinderId,
+        bool includeBinderInfo,
+        bool showBinderOnlyOnChange,
+        int? parentBinderId)
     {
         var markerRaw = isLast ? "└── " : "├── ";
         var marker = MaybeColorize(markerRaw, AnsiColor.BrightBlack);
@@ -248,7 +383,21 @@ public static class BoundTreePrinter
             for (var i = 0; i < child.Children.Count; i++)
             {
                 var childIndent = indent + (isLast ? "    " : "│   ");
-                PrintRecursive(child.Children[i], nodeToSyntax, childIndent, i == child.Children.Count - 1, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
+                PrintRecursive(
+                    child.Children[i],
+                    nodeToSyntax,
+                    childIndent,
+                    i == child.Children.Count - 1,
+                    includeChildPropertyNames,
+                    groupChildCollections,
+                    displayCollectionIndices,
+                    visitedNodes,
+                    visitedSyntaxes,
+                    binderIds,
+                    getBinderId,
+                    includeBinderInfo,
+                    showBinderOnlyOnChange,
+                    parentBinderId);
             }
 
             return;
@@ -257,7 +406,12 @@ public static class BoundTreePrinter
         var node = child.Node!;
         var alreadyVisitedNode = !visitedNodes.Add(node);
 
-        var description = Describe(node, nodeToSyntax);
+        int? currentBinderId = null;
+        if (includeBinderInfo && nodeToSyntax.TryGetValue(node, out var infoForBinder))
+            currentBinderId = getBinderId(infoForBinder.Binder);
+
+        var printBinder = includeBinderInfo && (!showBinderOnlyOnChange || parentBinderId is null || currentBinderId != parentBinderId);
+        var description = Describe(node, nodeToSyntax, includeBinderInfo: printBinder, getBinderId);
         var hasName = !string.IsNullOrEmpty(child.Name);
         var isIndexName = hasName && child.Name!.StartsWith("[", StringComparison.Ordinal);
         if ((includeChildPropertyNames && hasName) || (displayCollectionIndices && isIndexName))
@@ -275,13 +429,27 @@ public static class BoundTreePrinter
 
         // Mark this node's syntax as visited (if any)
         if (nodeToSyntax.TryGetValue(node, out var syntax))
-            visitedSyntaxes.Add(syntax);
+            visitedSyntaxes.Add(syntax.Syntax);
 
         var children = GetChildren(node, includeChildPropertyNames, groupChildCollections, displayCollectionIndices).ToList();
         for (var i = 0; i < children.Count; i++)
         {
             var childIndent = indent + (isLast ? "    " : "│   ");
-            PrintRecursive(children[i], nodeToSyntax, childIndent, i == children.Count - 1, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes);
+            PrintRecursive(
+                children[i],
+                nodeToSyntax,
+                childIndent,
+                i == children.Count - 1,
+                includeChildPropertyNames,
+                groupChildCollections,
+                displayCollectionIndices,
+                visitedNodes,
+                visitedSyntaxes,
+                binderIds,
+                getBinderId,
+                includeBinderInfo,
+                showBinderOnlyOnChange,
+                currentBinderId);
         }
     }
 
@@ -420,7 +588,11 @@ public static class BoundTreePrinter
         return (bool)(type.GetProperty("IsDefault")?.GetValue(value) ?? false);
     }
 
-    private static string Describe(BoundNode node, IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax)
+    private static string Describe(
+        BoundNode node,
+        IReadOnlyDictionary<BoundNode, (SyntaxNode Syntax, Binder Binder)> nodeToSyntax,
+        bool includeBinderInfo,
+        Func<Binder, int> getBinderId)
     {
         var name = node.GetType().Name;
         if (name.StartsWith("Bound", StringComparison.Ordinal))
@@ -433,8 +605,16 @@ public static class BoundTreePrinter
         static string K(string key, string value, Func<string, string> k, Func<string, string> v)
             => $"{k(key)}={v(value)}";
 
-        if (nodeToSyntax.TryGetValue(node, out var syntax))
-            details.Add(K("Syntax", syntax.Kind.ToString(), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
+        if (nodeToSyntax.TryGetValue(node, out var info))
+        {
+            details.Add(K("Syntax", info.Syntax.Kind.ToString(), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
+
+            if (includeBinderInfo)
+            {
+                var id = getBinderId(info.Binder);
+                details.Add(K("Binder", $"#{id} {FormatBinder(info.Binder)}", s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlack)));
+            }
+        }
 
         switch (node)
         {
@@ -564,6 +744,81 @@ public static class BoundTreePrinter
         }
 
         return details.Count > 0 ? $"{coloredName} [{string.Join(", ", details)}]" : coloredName;
+    }
+
+    private static string FormatBinder(Binder binder)
+    {
+        // Mirror BinderTreePrinter formatting, but don't apply ANSI here.
+        // The caller already applies coloring to the whole value.
+
+        var kind = binder switch
+        {
+            GlobalBinder => "GlobalBinder",
+            NamespaceBinder => "NamespaceBinder",
+            ImportBinder => "ImportBinder",
+            TopLevelBinder => "TopLevelBinder",
+            TypeDeclarationBinder => "TypeDeclarationBinder",
+            MethodBinder => "MethodBinder",
+            TypeMemberBinder => "TypeMemberBinder",
+            MethodBodyBinder => "MethodBodyBinder",
+            BlockBinder => "BlockBinder",
+            LocalScopeBinder => "LocalScopeBinder",
+            FunctionBinder => "FunctionBinder",
+            _ => binder.GetType().Name
+        };
+
+        return binder switch
+        {
+            GlobalBinder => kind,
+
+            NamespaceBinder ns =>
+                kind + " (" + (ns.NamespaceSymbol.IsGlobalNamespace
+                    ? "<global>"
+                    : ns.NamespaceSymbol?.ToDisplayString() ?? "?") + ")",
+
+            ImportBinder => kind,
+
+            TopLevelBinder => kind + " (synthesized Main)",
+
+            TypeDeclarationBinder td =>
+                kind + " (" + (td.ContainingSymbol?.Name ?? "?") + ")",
+
+            MethodBinder m =>
+                kind + " (" + (m.GetMethodSymbol()?.Name ?? "?") + ")",
+
+            // For binders where we don't have easy symbol/context access here,
+            // fall back to ToString() when it provides extra information.
+            _ => FormatBinderFallback(kind, binder)
+        };
+    }
+
+    private static string FormatBinderFallback(string kind, Binder binder)
+    {
+        var text = binder.ToString();
+
+        if (string.IsNullOrWhiteSpace(text))
+            return kind;
+
+        if (string.Equals(text, binder.GetType().Name, StringComparison.Ordinal) ||
+            string.Equals(text, binder.GetType().FullName, StringComparison.Ordinal) ||
+            string.Equals(text, kind, StringComparison.Ordinal))
+            return kind;
+
+        return kind + " (" + text + ")";
+    }
+
+    private static string FormatBinderChain(Binder binder, Func<Binder, int> getBinderId)
+    {
+        var parts = new List<string>();
+        for (var current = binder; current is not null; current = current.ParentBinder)
+        {
+            var id = getBinderId(current);
+            parts.Add($"#{id} {FormatBinder(current)}");
+        }
+
+        // We collected leaf->root; reverse to show root->leaf.
+        parts.Reverse();
+        return string.Join(" → ", parts);
     }
 
     private static bool ShouldSkipProperty(string propertyName)

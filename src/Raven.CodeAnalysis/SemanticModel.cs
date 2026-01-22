@@ -191,8 +191,19 @@ public partial class SemanticModel
     internal BoundNode GetBoundNode(SyntaxNode node)
     {
         var binder = GetBinder(node);
-        return binder.GetOrBind(node);
+        var boundNode = binder.GetOrBind(node);
+
+        if (IsDebuggingEnabled)
+        {
+            _boundNodeCache2.TryAdd(node, (binder, boundNode));
+        }
+
+        return boundNode;
     }
+
+    public bool IsDebuggingEnabled { get; set; } = true;
+
+    private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
 
     /// <summary>
     /// Get the bound expression for a specific expression syntax node.
