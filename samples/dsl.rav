@@ -25,6 +25,10 @@ if window.Content is StackPanel stackPanel {
 class Window {
     public Title: string { get; set; }
 
+    public Width: int { get; set; }
+
+    public Height: int { get; set; }
+
     public Content: Control { get; set; }
 }
 
