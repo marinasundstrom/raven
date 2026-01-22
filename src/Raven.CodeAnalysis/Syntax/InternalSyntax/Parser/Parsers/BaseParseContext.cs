@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -97,12 +98,18 @@ internal partial class BaseParseContext : ParseContext
 
     private void StageTrailingNewlinesForPendingTrivia(SyntaxToken lastToken)
     {
-        var trailing = lastToken.TrailingTrivia;
+        // When switching TreatNewlinesAsTokens from false -> true, the last token may already have
+        // consumed trailing newline trivia as part of its FullWidth. We need to "replay" the final
+        // newline (and any whitespace immediately preceding it) as tokens.
+        //
+        // IMPORTANT: Do not synthesize a lookahead token without rewinding the lexer, otherwise the
+        // parser position and lexer position will drift.
 
+        var trailing = lastToken.TrailingTrivia;
         if (trailing.Count == 0)
             return;
 
-        var triviaToStage = new List<SyntaxTrivia>();
+        int rewindWidth = 0;
 
         for (int i = trailing.Count - 1; i >= 0; i--)
         {
@@ -110,54 +117,28 @@ internal partial class BaseParseContext : ParseContext
 
             if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
             {
-                triviaToStage.Insert(0, trivia);
+                rewindWidth += trivia.Text.Length;
                 continue;
             }
 
             if (IsEndOfLineTrivia(trivia))
             {
-                triviaToStage.Insert(0, trivia);
+                rewindWidth += trivia.Text.Length;
 
-                for (int before = i - 1; before >= 0; before--)
+                if (rewindWidth > 0)
                 {
-                    var precedingTrivia = trailing[before];
+                    var newPos = Position - rewindWidth;
+                    if (newPos < 0)
+                        newPos = 0;
 
-                    if (precedingTrivia.Kind != SyntaxKind.WhitespaceTrivia)
-                        break;
-
-                    triviaToStage.Insert(0, precedingTrivia);
+                    RewindToPosition(newPos);
                 }
 
-                break;
+                return;
             }
 
             break;
         }
-
-        var newlineTrivia = triviaToStage.FirstOrDefault(IsEndOfLineTrivia);
-
-        if (newlineTrivia == default)
-            return;
-
-        var leadingTrivia = triviaToStage
-            .Where(t => t != newlineTrivia)
-            .ToArray();
-
-        var newlineToken = new SyntaxToken(
-            kind: SyntaxKind.NewLineToken,
-            text: newlineTrivia.Text,
-            value: null,
-            width: newlineTrivia.Text.Length,
-            leadingTrivia: leadingTrivia.Length > 0 ? new SyntaxTriviaList(leadingTrivia) : SyntaxTriviaList.Empty,
-            trailingTrivia: SyntaxTriviaList.Empty,
-            diagnostics: null);
-
-        _position -= newlineToken.FullWidth;
-
-        if (_position < 0)
-            _position = 0;
-
-        _lookaheadTokens.Insert(0, newlineToken);
     }
 
     /// <summary>
@@ -515,12 +496,20 @@ internal partial class BaseParseContext : ParseContext
 
     private void ReadDocumentationCommentBlockInto(StringBuilder sb, List<SyntaxTrivia>? newlineTrivia, ref List<DiagnosticInfo>? docDiagnostics)
     {
+        // NOTE: `sb` may be the shared `_stringBuilder` field (caller passes `_stringBuilder`).
+        // Do not use/clear `_stringBuilder` as a temporary buffer here.
+
+        var indentBuilder = new StringBuilder();
         string? baselineIndent = null;
+
+        var startPosition = Position;
+        var consumedWidth = 0; // chars consumed from the lexer within this doc-comment block
+
         while (true)
         {
-            // Peek the indentation for this doc-comment line without consuming tokens yet.
+            // Capture indentation tokens for THIS line (after a newline we are at column 1 again).
+            indentBuilder.Clear();
             int indentTokenCount = 0;
-            if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
             while (true)
             {
@@ -528,11 +517,11 @@ internal partial class BaseParseContext : ParseContext
                 if (tIndent.Kind != SyntaxKind.Whitespace && tIndent.Kind != SyntaxKind.TabToken)
                     break;
 
-                _stringBuilder.Append(tIndent.Text);
+                indentBuilder.Append(tIndent.Text);
                 indentTokenCount++;
             }
 
-            var indent = _stringBuilder.ToString();
+            var indent = indentBuilder.ToString();
 
             if (baselineIndent is null)
             {
@@ -540,47 +529,43 @@ internal partial class BaseParseContext : ParseContext
             }
             else if (baselineIndent != indent)
             {
-                // Report inconsistency: doc-comment lines in a single block must share the same indentation.
+                // Report inconsistency, but still keep consuming/merging the doc comment block.
                 docDiagnostics ??= new List<DiagnosticInfo>();
                 docDiagnostics.Add(DiagnosticInfo.Create(
                     CompilerDiagnostics.DocumentationCommentInconsistentIndentation,
-                    new TextSpan()));
-
-                // Do NOT consume indentation tokens here; leave them for the next trivia read.
-                return;
+                    new TextSpan(startPosition + consumedWidth + 1, indent.Length)));
             }
 
-            // Consume indentation tokens now that we've validated they match the baseline.
+            // Consume indentation tokens now.
             for (int k = 0; k < indentTokenCount; k++)
             {
                 var consumed = _lexer.PeekToken(0);
                 _lexer.ReadToken();
                 sb.Append(consumed.Text);
+                consumedWidth += consumed.Length;
             }
 
+            // Expect a documentation comment token.
             var comment = _lexer.PeekToken(0);
             if (comment.Kind != SyntaxKind.DocumentationCommentTrivia)
                 return;
 
             _lexer.ReadToken();
             sb.Append(comment.Text);
+            consumedWidth += comment.Length;
 
-            // The documentation comment token already contains the whole line up to (but not including) the newline.
-            var t = _lexer.PeekToken();
-            while (!IsNewLine(t) && t.Kind != SyntaxKind.EndOfFileToken)
-            {
-                _lexer.ReadToken();
-                sb.Append(t.Text);
-                t = _lexer.PeekToken();
-            }
-
+            // The lexer token already contains the whole line up to (but not including) the newline.
+            // Next token must be a newline sequence (or EOF).
+            var t = _lexer.PeekToken(0);
             if (t.Kind == SyntaxKind.EndOfFileToken)
                 return;
 
-            var newline = ConsumeOneNewlineInto(sb);
+            var newline = ConsumeOneNewlineInto(sb, out var newlineWidth);
+            consumedWidth += newlineWidth;
             if (newlineTrivia is { } && newline is { } newlineValue)
                 newlineTrivia.Add(newlineValue);
 
+            // If the next non-indentation token is another doc comment token, keep merging.
             if (!NextLineStartsWithDocComment())
                 return;
         }
@@ -616,14 +601,16 @@ internal partial class BaseParseContext : ParseContext
         return a.Kind == SyntaxKind.DocumentationCommentTrivia;
     }
 
-    private SyntaxTrivia? ConsumeOneNewlineInto(StringBuilder sb)
+    private SyntaxTrivia? ConsumeOneNewlineInto(StringBuilder sb, out int consumedWidth)
     {
+        consumedWidth = 0;
         var t = _lexer.PeekToken(0);
 
         if (t.Kind == SyntaxKind.CarriageReturnLineFeedToken)
         {
             _lexer.ReadToken();
             sb.Append(t.Text);
+            consumedWidth += t.Length;
 
             return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
         }
@@ -632,12 +619,14 @@ internal partial class BaseParseContext : ParseContext
         {
             _lexer.ReadToken();
             sb.Append(t.Text);
+            consumedWidth += t.Length;
 
             var lf = _lexer.PeekToken(0);
             if (lf.Kind == SyntaxKind.LineFeedToken)
             {
                 _lexer.ReadToken();
                 sb.Append(lf.Text);
+                consumedWidth += lf.Length;
 
                 return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text + lf.Text);
             }
@@ -649,6 +638,7 @@ internal partial class BaseParseContext : ParseContext
         {
             _lexer.ReadToken();
             sb.Append(t.Text);
+            consumedWidth += t.Length;
 
             return new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, t.Text);
         }

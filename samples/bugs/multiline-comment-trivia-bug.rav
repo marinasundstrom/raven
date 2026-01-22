@@ -11,6 +11,6 @@ WriteLine(20)
 /// test
 func foo() {}
 
-  /// foo
-    /// bar
+/// foo
+      /// bar
 func foo2() {}

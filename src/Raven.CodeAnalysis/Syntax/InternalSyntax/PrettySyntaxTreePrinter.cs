@@ -1,4 +1,5 @@
 using System.IO;
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis.Text;
@@ -83,7 +84,7 @@ public static class PrettySyntaxTreePrinter
 
         var value = !printerOptions.IncludeTokens ? MaybeColorize(Value(node), AnsiColor.Yellow, printerOptions.Colorize) : string.Empty;
 
-        var diagnosticsStr = (printerOptions.IncludeDiagnostics && !printerOptions.DiagnosticsAsChildren) ? DiagnosticsToString(node.GetDiagnostics(false)) : string.Empty;
+        var diagnosticsStr = (printerOptions.IncludeDiagnostics && !printerOptions.DiagnosticsAsChildren) ? DiagnosticsToString(node.GetDiagnostics(false), printerOptions.Colorize) : string.Empty;
         var annotationsStr = (printerOptions.IncludeAnnotations && !printerOptions.AnnotationsAsChildren) ? AnnotationsToString(node) : string.Empty;
 
         writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, printerOptions.Colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(node.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(node.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
@@ -294,9 +295,10 @@ public static class PrettySyntaxTreePrinter
 
         var marker = isChildLast ? MarkerBottom : MarkerMiddle;
 
+        var diagnosticsStr = (printerOptions.IncludeDiagnostics && !printerOptions.DiagnosticsAsChildren) ? DiagnosticsToString(token.GetDiagnostics(), printerOptions.Colorize) : string.Empty;
         var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(token) : string.Empty;
 
-        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}{annotationsStr}");
+        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
 
         if (printerOptions.IncludeTrivia)
         {
@@ -389,8 +391,9 @@ public static class PrettySyntaxTreePrinter
                 }
             }
 
+            var diagnosticsStr = printerOptions.IncludeDiagnostics ? DiagnosticsToString(GetDiagnostics(trivia), printerOptions.Colorize) : string.Empty;
             var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(trivia) : string.Empty;
-            writer.WriteLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(trivia.GetLocation())}" : string.Empty)}{annotationsStr}");
+            writer.WriteLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(trivia.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
 
             if (trivia.HasStructure)
             {
@@ -410,7 +413,7 @@ public static class PrettySyntaxTreePrinter
         }
 
         var structure = trivia.GetStructure()!;
-        var diagnosticsStr = printerOptions.IncludeDiagnostics ? DiagnosticsToString(structure.GetDiagnostics()) : string.Empty;
+        var diagnosticsStr = printerOptions.IncludeDiagnostics ? DiagnosticsToString(structure.GetDiagnostics(), printerOptions.Colorize) : string.Empty;
         var annotationsStr = printerOptions.IncludeAnnotations ? AnnotationsToString(structure) : string.Empty;
         writer.WriteLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(structure.GetLocation())}" : string.Empty)}{diagnosticsStr}{annotationsStr}");
 
@@ -425,7 +428,7 @@ public static class PrettySyntaxTreePrinter
 
             if (triviaChild.TryGetToken(out var token))
             {
-                var diagnosticsStr2 = printerOptions.IncludeDiagnostics ? DiagnosticsToString(token.GetDiagnostics()) : string.Empty;
+                var diagnosticsStr2 = printerOptions.IncludeDiagnostics ? DiagnosticsToString(token.GetDiagnostics(), printerOptions.Colorize) : string.Empty;
                 var annotationsStr2 = printerOptions.IncludeAnnotations ? AnnotationsToString(token) : string.Empty;
                 writer.WriteLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}{diagnosticsStr2}{annotationsStr2}");
             }
@@ -460,13 +463,65 @@ public static class PrettySyntaxTreePrinter
         // ␠
     }
 
-    private static string DiagnosticsToString(IEnumerable<Diagnostic> diagnostics)
+    private static IEnumerable<Diagnostic> GetDiagnostics(object syntax)
+    {
+        // Be defensive: different syntax types may expose diagnostics APIs differently.
+        try
+        {
+            var type = syntax.GetType();
+
+            // Common: GetDiagnostics() => IEnumerable<Diagnostic>
+            var m0 = type.GetMethod("GetDiagnostics", Type.EmptyTypes);
+            if (m0 != null)
+            {
+                var result = m0.Invoke(syntax, null);
+                if (result is IEnumerable<Diagnostic> diags)
+                    return diags;
+            }
+
+            // Alternative: GetDiagnostics(bool includeSuppressed)
+            var m1 = type.GetMethod("GetDiagnostics", new[] { typeof(bool) });
+            if (m1 != null)
+            {
+                var result = m1.Invoke(syntax, new object?[] { false });
+                if (result is IEnumerable<Diagnostic> diags)
+                    return diags;
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return Array.Empty<Diagnostic>();
+    }
+
+    private static string DiagnosticsToString(IEnumerable<Diagnostic> diagnostics, bool colorize)
     {
         var list = diagnostics?.ToList();
         if (list is null || list.Count == 0)
             return string.Empty;
 
-        return " " + string.Join(", ", list.Select(d => $"[{d.Id}]"));
+        return " " + string.Join(", ", list.Select(d => ColorizeDiagnosticId(d, colorize)));
+    }
+
+    private static string ColorizeDiagnosticId(Diagnostic diagnostic, bool colorize)
+    {
+        var text = $"[{diagnostic.Id}]";
+
+        // Severity-based coloring:
+        // - Error   => Red
+        // - Warning => Yellow
+        // - Info    => Cyan
+        var color = diagnostic.Severity switch
+        {
+            DiagnosticSeverity.Error => AnsiColor.BrightRed,
+            DiagnosticSeverity.Warning => AnsiColor.Yellow,
+            DiagnosticSeverity.Info => AnsiColor.Cyan,
+            _ => AnsiColor.BrightBlue,
+        };
+
+        return colorize ? Colorize(text, color) : text;
     }
 
     private static string MaybeColorize(string text, AnsiColor color, bool colorize)

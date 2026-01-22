@@ -1004,12 +1004,12 @@ internal class Lexer : ILexer
 
     private bool ReadWhile(char ch)
     {
-        var value = _textSource.Peek();
-        if (value == ch)
+        if (PeekChar(out var next) && next == ch)
         {
-            _textSource.Read();
+            ReadChar(); // advances _textSource and updates _currentPosition
             return true;
         }
+
         return false;
     }
 

@@ -162,6 +162,22 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
             (_diagnostics ??= new List<Diagnostic>()).Add(d);
         }
 
+        foreach (var trivia in LeadingTrivia)
+        {
+            foreach (var diagnostic in trivia.GetDiagnostics())
+            {
+                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+            }
+        }
+
+        foreach (var trivia in TrailingTrivia)
+        {
+            foreach (var diagnostic in trivia.GetDiagnostics())
+            {
+                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+            }
+        }
+
         return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
 

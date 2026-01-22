@@ -6,6 +6,8 @@ public struct SyntaxTrivia
     private readonly SyntaxToken? _token;
     private readonly int _position;
     private SyntaxNode? _structure;
+    private List<Diagnostic>? _diagnostics;
+    private bool? _containsDiagnostics;
 
     public SyntaxKind Kind => Green.Kind;
 
@@ -63,6 +65,30 @@ public struct SyntaxTrivia
             return GetStructure()!.ToString();
         }
         return Text;
+    }
+
+    public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
+
+    public IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        foreach (var diagnostic in Green.GetDiagnostics())
+        {
+            var location = Token?.SyntaxTree!.GetLocation(diagnostic.Span);
+            var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);
+            (_diagnostics ??= new List<Diagnostic>()).Add(d);
+        }
+
+        if (HasStructure)
+        {
+            var structure = GetStructure()!;
+
+            foreach (var diagnostic in structure.GetDiagnostics())
+            {
+                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+            }
+        }
+
+        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
 
     public void Accept(SyntaxVisitor visitor)
