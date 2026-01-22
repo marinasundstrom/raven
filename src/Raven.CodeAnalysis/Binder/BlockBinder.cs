@@ -7036,7 +7036,36 @@ partial class BlockBinder : Binder
         // Bind initializer entries in source order and keep them as a bound node.
         // Lowering into a block happens later.
 
+        instanceType = UnwrapAlias(instanceType);
+
+        // SwiftUI-style convention:
+        // If the instance type has a settable `Content` property, then exactly one content entry is allowed.
+        // That entry is lowered as `Content = <expr>`.
+        IPropertySymbol? contentProperty = null;
+        if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
+        {
+            foreach (var member in namedInstance.GetMembers("Content"))
+            {
+                if (member is not IPropertySymbol p)
+                    continue;
+
+                if (p.IsStatic)
+                    continue;
+
+                if (p.SetMethod is null)
+                    continue;
+
+                // Use the existing accessibility helper.
+                // NOTE: We don't have a great location yet; we will re-check with the actual entry location when used.
+                contentProperty = p;
+                break;
+            }
+        }
+
         var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
+
+        var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
+        var seenContentEntry = false;
 
         foreach (var entry in initializer.Entries)
         {
@@ -7052,9 +7081,50 @@ partial class BlockBinder : Binder
 
                 case ObjectInitializerExpressionEntrySyntax exprEntry:
                     {
-                        // Content entry: bind expression now; routing to Add/Children/etc happens in lowering.
-                        var expr = BindExpression(exprEntry.Expression, allowReturn: false);
-                        entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                        if (!hasContentConvention)
+                        {
+                            // No Content property: keep the existing behavior.
+                            var expr = BindExpression(exprEntry.Expression, allowReturn: false);
+                            entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                            break;
+                        }
+
+                        // With Content property: only one content entry is allowed.
+                        if (seenContentEntry)
+                        {
+                            // Still bind the expression so it gets typed and any nested diagnostics flow.
+                            var extra = BindExpression(exprEntry.Expression, allowReturn: false);
+
+                            if (extra.Type is { } extraType)
+                            {
+                                _diagnostics.ReportMultipleContentEntriesNotAllowed(
+                                    instanceType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                    exprEntry.Expression.GetLocation());
+                            }
+
+                            break;
+                        }
+
+                        // First content entry.
+                        seenContentEntry = true;
+
+                        // Ensure the Content property is accessible at the point of use.
+                        if (!EnsureMemberAccessible(contentProperty!, exprEntry.GetLocation(), "property"))
+                        {
+                            // Still bind expression for diagnostics.
+                            _ = BindExpression(exprEntry.Expression, allowReturn: false);
+                            break;
+                        }
+
+                        var value = BindExpression(exprEntry.Expression, allowReturn: false);
+                        value = PrepareRightForAssignment(value, contentProperty!.Type, exprEntry.Expression);
+
+                        // If conversion fails, diagnostics are already reported by PrepareRightForAssignment.
+                        if (value is BoundErrorExpression)
+                            break;
+
+                        // Rewrite as `Content = <value>`.
+                        entries.Add(new BoundObjectInitializerAssignmentEntry(contentProperty!, value));
                         break;
                     }
             }

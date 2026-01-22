@@ -6,7 +6,7 @@ val window = Window {
     Width = 800
     Height = 600
 
-    Content = StackPanel {
+    StackPanel {
         Button { Text = "Ok" }
         Button { Text = "Cancel" }
     }

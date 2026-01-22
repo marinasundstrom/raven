@@ -463,6 +463,11 @@
   <Descriptor Id="RAV1504" Identifier="CannotAssignFromTypeToType" Title="Cannot assign to type"
     Message="Cannot assign {fromType} to {toType}" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1505" Identifier="MultipleContentEntriesNotAllowed"
+    Title="Multiple content entries not allowed"
+    Message="Type {typeName} has a settable 'Content' property; only one content entry is allowed in an initializer"
+    Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1525" Identifier="InvalidExpressionTerm" Title="Invalid expression term"
     Message="Invalid expression term '{tokenText}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

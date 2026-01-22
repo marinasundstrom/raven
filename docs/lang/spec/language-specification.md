@@ -792,9 +792,19 @@ val window = Window {
 }
 ```
 
-Property entries are applied to the newly created instance. Content entries are forwarded to the instance's designated content target (for example an `Add(...)` method or a `Children`-like collection), as described in the binding rules for object initializers.
+Property entries are applied to the newly created instance in source order.
+
+Content entries use one of the following binding rules:
+
+* **Content property convention** — If the initialized type has an accessible, settable instance property named `Content`, Raven treats the first content entry as an assignment to that property (as if it were written `Content = <expr>`). When this convention applies, at most one content entry is permitted.
+* **Add method convention** — Otherwise, each content entry is forwarded to the initialized instance by binding it as an `Add(<expr>)` call during lowering. The `Add` method must be an accessible instance method that takes exactly one parameter whose type is compatible with the content entry expression.
+
+If more than one content entry is provided for a type that uses the Content property convention, the compiler reports `RAV1505`.
+
 
 > **Note:** The grammar permits an initializer trailer after any invocation, but in statement headers such as `if`, `while`, and `for`, the `{` token begins the statement body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
+
+> **Note:** The Content property convention is intended to support DSL-style UI composition (for example SwiftUI/Flutter-like syntax). Container types that accept multiple children should expose a collection-like API (for example `Add(TChild)` or a `Children` collection) instead of `Content`.
 
 ### Extensions (Traits)
 
