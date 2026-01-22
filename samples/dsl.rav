@@ -3,24 +3,40 @@ import System.Collections.Generic.*
 
 val window = Window {
     Title = "Main"
-
-    Button { Text = "OK" }
-
     Width = 800
     Height = 600
 
-    Button { Text = "Cancel" }
+    Content = StackPanel {
+        Button { Text = "Ok" }
+        Button { Text = "Cancel" }
+    }
 }
 
 WriteLine(window.Title)
 
-for control in window.Children {
-    if control is Button button {
-        WriteLine(button.Text)
+if window.Content is StackPanel stackPanel {
+    for control in stackPanel.Children {
+        if control is Button button {
+            WriteLine(button.Text)
+        }
     }
 }
 
 class Window {
+    public Title: string { get; set; }
+
+    public Content: Control { get; set; }
+}
+
+open class Control {}
+
+interface IHasChildren {
+    Children: IEnumerable<Control> { get; }
+
+    Add(control: Control) -> ();
+}
+
+class StackPanel : Control, IHasChildren {
     val children: List<Control> = []
 
     public Title: string { get; set; }
@@ -31,8 +47,6 @@ class Window {
         children.Add(control)
     }
 }
-
-open class Control {}
 
 class Button : Control {
     public Text: string { get; set; }
