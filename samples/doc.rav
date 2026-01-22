@@ -24,4 +24,6 @@ Foo()
 /// </returns>
 /// <seealso cref="Equals(object)"/>
 /// <seealso cref="System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(object)"/>
-func Foo() {}
+func Foo() {
+    //let x = 
+}

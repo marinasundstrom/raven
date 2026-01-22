@@ -21,6 +21,10 @@ public sealed class PrettyGreenTreePrinterOptions
 
     // When true, `List` nodes are not printed; their items are printed directly.
     public bool FlattenSyntaxLists { get; set; } = false;
+
+    // When true, hides slot children whose node has Width == 0 and FullWidth == 0.
+    // Slot indexing is preserved (original slot indices; flattened list items use "i.j").
+    public bool HideZeroWidthSlots { get; set; } = false;
 }
 
 public static class PrettyGreenTreePrinter
@@ -46,7 +50,7 @@ public static class PrettyGreenTreePrinter
         return sw.ToString();
     }
 
-    private static void PrintNode(GreenNode node, TextWriter writer, PrettyGreenTreePrinterOptions options, string indent, bool isLast, bool isRoot, int? slotIndex)
+    private static void PrintNode(GreenNode node, TextWriter writer, PrettyGreenTreePrinterOptions options, string indent, bool isLast, bool isRoot, string? slotIndex)
     {
         // Print current line.
         if (isRoot)
@@ -106,13 +110,17 @@ public static class PrettyGreenTreePrinter
         // Slot children.
         for (int i = 0; i < slotChildren.Count; i++)
         {
-            PrintNode(slotChildren[i], writer, options, nextIndent, isLast: i == slotChildren.Count - 1, isRoot: false, slotIndex: options.IncludeSlotIndices ? i : null);
+            var (slotIndexText, child) = slotChildren[i];
+            PrintNode(child, writer, options, nextIndent, isLast: i == slotChildren.Count - 1, isRoot: false, slotIndex: options.IncludeSlotIndices ? slotIndexText : null);
         }
     }
 
-    private static List<GreenNode> GetSlotChildren(GreenNode node, PrettyGreenTreePrinterOptions options)
+    private static List<(string SlotIndexText, GreenNode Node)> GetSlotChildren(GreenNode node, PrettyGreenTreePrinterOptions options)
     {
-        var result = new List<GreenNode>(capacity: Math.Max(0, node.SlotCount));
+        var result = new List<(string SlotIndexText, GreenNode Node)>(capacity: Math.Max(0, node.SlotCount));
+
+        bool ShouldHide(GreenNode n)
+            => options.HideZeroWidthSlots && n.Width == 0 && n.FullWidth == 0;
 
         for (int i = 0; i < node.SlotCount; i++)
         {
@@ -128,13 +136,20 @@ public static class PrettyGreenTreePrinter
                     var item = child.GetSlot(j);
                     if (item is null)
                         continue;
-                    result.Add(item);
+
+                    if (ShouldHide(item))
+                        continue;
+
+                    result.Add(($"{i}.{j}", item));
                 }
 
                 continue;
             }
 
-            result.Add(child);
+            if (ShouldHide(child))
+                continue;
+
+            result.Add(($"{i}", child));
         }
 
         return result;
@@ -174,9 +189,9 @@ public static class PrettyGreenTreePrinter
         }
     }
 
-    private static string FormatGreenLine(GreenNode node, PrettyGreenTreePrinterOptions options, int? slotIndex)
+    private static string FormatGreenLine(GreenNode node, PrettyGreenTreePrinterOptions options, string? slotIndex)
     {
-        var prefix = slotIndex is int idx ? $"[{idx}] " : string.Empty;
+        var prefix = slotIndex is not null ? $"[{slotIndex}] " : string.Empty;
 
         // For tokens, include value text like: IdentifierToken: System
         var kind = node.Kind.ToString();
@@ -203,7 +218,8 @@ public static class PrettyGreenTreePrinter
             var text = trivia.Text
                 .Replace("\r", "\\r", StringComparison.Ordinal)
                 .Replace("\n", "\\n", StringComparison.Ordinal)
-                .Replace("\t", "\\t", StringComparison.Ordinal);
+                .Replace("\t", "\\t", StringComparison.Ordinal)
+                .Replace(" ", "␣", StringComparison.Ordinal);
             textPart = $": {text}";
         }
 

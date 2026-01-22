@@ -576,9 +576,10 @@ if (allowConsoleOutput)
         {
             IncludeTrivia = true,
             IncludeTriviaText = true,
-            FlattenSyntaxLists = true,
+            FlattenSyntaxLists = false,
             IncludeSlotIndices = true,
             IncludeWidths = true,
+            HideZeroWidthSlots = false,
             IncludeDiagnostics = true,
             IncludeAnnotations = true,
             DiagnosticsAsChildren = true,

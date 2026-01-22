@@ -8,17 +8,64 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public class PrinterOptions
 {
+    /// <summary>
+    /// When true, prints token children (SyntaxToken) in the tree. When false, tokens are omitted.
+    /// </summary>
     public bool IncludeTokens { get; set; } = true;
+
+    /// <summary>
+    /// When true, prints leading/trailing trivia for tokens (whitespace, comments, newlines, etc.).
+    /// </summary>
     public bool IncludeTrivia { get; set; } = false;
+
+    /// <summary>
+    /// When true, appends each node/token/trivia span (TextSpan) to the printed line.
+    /// </summary>
     public bool IncludeSpans { get; set; } = false;
+
+    /// <summary>
+    /// When true, appends each node/token/trivia location (line/column range) to the printed line.
+    /// </summary>
     public bool IncludeLocations { get; set; } = false;
+
+    /// <summary>
+    /// When true, prints property names (e.g. "Condition:") for children when available.
+    /// </summary>
     public bool IncludeNames { get; set; } = false;
+
+    /// <summary>
+    /// When true, uses ANSI escape codes to colorize output for easier visual scanning.
+    /// </summary>
     public bool Colorize { get; set; } = true;
+
+    /// <summary>
+    /// Maximum recursion depth to print. Nodes deeper than this are not printed.
+    /// </summary>
     public int MaxDepth { get; set; } = int.MaxValue;
+
+    /// <summary>
+    /// When true, groups list items under a single property node (instead of printing each list item as a separate child).
+    /// </summary>
     public bool ExpandListsAsProperties { get; set; } = false;
+
+    /// <summary>
+    /// When true, prints diagnostics attached to nodes/tokens/trivia.
+    /// </summary>
     public bool IncludeDiagnostics { get; set; } = false;
+
+    /// <summary>
+    /// When true, prints annotations attached to nodes/tokens/trivia.
+    /// </summary>
     public bool IncludeAnnotations { get; set; } = false;
+
+    /// <summary>
+    /// When true, diagnostics are printed as separate child lines under the owning node (instead of inline on the same line).
+    /// </summary>
     public bool DiagnosticsAsChildren { get; set; } = false;
+
+    /// <summary>
+    /// When true, annotations are printed as separate child lines under the owning node (instead of inline on the same line).
+    /// </summary>
     public bool AnnotationsAsChildren { get; set; } = false;
 }
 
