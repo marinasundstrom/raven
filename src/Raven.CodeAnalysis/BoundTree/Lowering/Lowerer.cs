@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -102,5 +104,169 @@ internal sealed partial class Lowerer : BoundTreeRewriter
             return expression;
 
         return new BoundConversionExpression(expression, targetType, conversion);
+    }
+    public override BoundExpression? VisitObjectCreationExpression(BoundObjectCreationExpression node)
+    {
+        // First rewrite children.
+        node = (BoundObjectCreationExpression)base.VisitObjectCreationExpression(node)!;
+
+        // If there is no initializer, nothing special to do.
+        if (node.Initializer is null)
+            return node;
+
+        // Lowering turns:
+        //   new T(args) { entries }
+        // into:
+        //   {
+        //     var <init> = new T(args);
+        //     <apply entries>
+        //     <init>
+        //   }
+
+        // Ensure we don't recurse forever by clearing the initializer on the instance expression.
+        var instanceExpr = new BoundObjectCreationExpression(
+            node.Constructor,
+            node.Arguments,
+            node.Receiver,
+            initializer: null);
+
+        return LowerObjectInitializerExpression(instanceExpr, node.Initializer);
+    }
+
+    private BoundExpression LowerObjectInitializerExpression(BoundExpression instanceExpression, BoundObjectInitializer initializer)
+    {
+        var compilation = GetCompilation();
+
+        var instanceType = instanceExpression.Type ?? compilation.ErrorTypeSymbol;
+
+        // Evaluate the instance exactly once.
+        var temp = CreateTempLocal("init", instanceType, isMutable: true);
+        var tempAccess = new BoundLocalAccess(temp);
+
+        var statements = new List<BoundStatement>();
+
+        // var <temp> = <instanceExpression>;
+        statements.Add(new BoundLocalDeclarationStatement(
+            ImmutableArray.Create(new BoundVariableDeclarator(temp, instanceExpression))));
+
+        foreach (var entry in initializer.Entries)
+        {
+            switch (entry)
+            {
+                case BoundObjectInitializerAssignmentEntry assign:
+                    statements.Add(LowerObjectInitializerAssignment(tempAccess, assign, compilation));
+                    break;
+
+                case BoundObjectInitializerExpressionEntry exprEntry:
+                    statements.Add(LowerObjectInitializerContentEntry(tempAccess, exprEntry, compilation));
+                    break;
+            }
+        }
+
+        // The value of the initializer expression is the initialized instance.
+        statements.Add(new BoundExpressionStatement(tempAccess));
+
+        return compilation.BoundNodeFactory.CreateBlockExpression(statements);
+    }
+
+    private BoundStatement LowerObjectInitializerAssignment(
+        BoundExpression receiver,
+        BoundObjectInitializerAssignmentEntry entry,
+        Compilation compilation)
+    {
+        // First lower/visit the RHS so nested initializers are lowered too.
+        var loweredValue = (BoundExpression)VisitExpression(entry.Value)!;
+
+        var value = ApplyConversionIfNeeded(loweredValue, GetMemberType(entry.Member, compilation), compilation);
+
+        switch (entry.Member)
+        {
+            case IPropertySymbol property:
+                {
+                    var assignment = compilation.BoundNodeFactory.CreatePropertyAssignmentExpression(receiver, property, value);
+                    return new BoundExpressionStatement(assignment);
+                }
+            case IFieldSymbol field:
+                {
+                    var assignment = compilation.BoundNodeFactory.CreateFieldAssignmentExpression(receiver, field, value);
+                    return new BoundExpressionStatement(assignment);
+                }
+            default:
+                // Should not happen; binder only produces property/field assignments.
+                return new BoundExpressionStatement(value);
+        }
+    }
+
+    private BoundStatement LowerObjectInitializerContentEntry(
+        BoundExpression receiver,
+        BoundObjectInitializerExpressionEntry entry,
+        Compilation compilation)
+    {
+        // Default lowering for content entries:
+        // If the constructed object has an instance Add(T) method with a compatible parameter type,
+        // lower the entry to: receiver.Add(<expr>)
+        // Otherwise produce an error expression statement.
+
+        // First lower/visit the expression so nested object initializers are lowered too.
+        var loweredExpr = (BoundExpression)VisitExpression(entry.Expression)!;
+        var exprType = loweredExpr.Type ?? compilation.ErrorTypeSymbol;
+
+        var receiverType = receiver.Type ?? compilation.ErrorTypeSymbol;
+        if (receiverType.TypeKind == TypeKind.Error)
+            return new BoundExpressionStatement(loweredExpr);
+
+        if (receiverType is not INamedTypeSymbol named)
+            return new BoundExpressionStatement(CreateCannotAddError(exprType, receiverType, compilation));
+
+        var add = FindBestAddMethod(named, exprType, compilation);
+        if (add is null)
+            return new BoundExpressionStatement(CreateCannotAddError(exprType, receiverType, compilation));
+
+        var paramType = add.Parameters[0].Type;
+        var arg = ApplyConversionIfNeeded(loweredExpr, paramType, compilation);
+
+        // Emit receiver.Add(arg)
+        // NOTE: Uses the bound node factory to construct the call expression.
+        var call = compilation.BoundNodeFactory.CreateInvocationExpression(add, [arg], receiver);
+        return new BoundExpressionStatement(call);
+    }
+
+    private static IMethodSymbol? FindBestAddMethod(INamedTypeSymbol receiverType, ITypeSymbol itemType, Compilation compilation)
+    {
+        // Pick the first Add method with a single parameter that has an implicit (or identity) conversion from itemType.
+        foreach (var m in receiverType.GetMembers("Add").OfType<IMethodSymbol>())
+        {
+            if (m.Parameters.Length != 1)
+                continue;
+
+            if (m.IsStatic)
+                continue;
+
+            var paramType = m.Parameters[0].Type;
+            var conv = compilation.ClassifyConversion(itemType, paramType);
+            if (conv.Exists)
+                return m;
+        }
+
+        return null;
+    }
+
+    private static BoundExpression CreateCannotAddError(ITypeSymbol itemType, ITypeSymbol receiverType, Compilation compilation)
+    {
+        // Lowerer doesn't have direct access to a diagnostics bag here.
+        // Represent as an error expression so later phases can surface a meaningful diagnostic.
+        return new BoundErrorExpression(
+            type: compilation.ErrorTypeSymbol,
+            reason: BoundExpressionReason.TypeMismatch);
+    }
+
+    private static ITypeSymbol GetMemberType(ISymbol member, Compilation compilation)
+    {
+        return member switch
+        {
+            IPropertySymbol p => p.Type,
+            IFieldSymbol f => f.Type,
+            _ => compilation.ErrorTypeSymbol
+        };
     }
 }

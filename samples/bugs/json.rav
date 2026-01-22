@@ -1,0 +1,7 @@
+import System.Text.Json.*
+
+val person = Person("Alice", 42)
+
+WriteLine(JsonSerializer.Serialize(person, JsonSerializerOptions()))
+
+record class Person(Name: string, Age: int);

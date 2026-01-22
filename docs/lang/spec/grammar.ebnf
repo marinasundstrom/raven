@@ -262,6 +262,9 @@ FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList?
 ExpressionStatement      ::= Expression ;
 
 IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
+
+(* NOTE: In statement headers, the following '{' begins the statement body and is not parsed as an ObjectInitializer trailer.
+   This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression Statement ;
 ForStatement             ::= 'for' 'each'? ForIterationVariable? 'in' Expression Statement ;
 ForIterationVariable     ::= Identifier | '_' ;
@@ -422,7 +425,8 @@ PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
 PostfixTrailer           ::= ArgumentList
                            | MemberAccessTrailer
                            | ElementAccessTrailer
-                           | ConditionalAccessTrailer ;
+                           | ConditionalAccessTrailer
+                           | ObjectInitializer ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
 Argument                 ::= [Identifier ':'] Expression ;
@@ -431,6 +435,29 @@ MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
+(* ---------- Object initializers (SwiftUI/Flutter-style) ---------- *)
+
+(* ObjectInitializer is parsed as a postfix trailer, enabling:
+     - Window { ... }
+     - Window() { ... }
+     - items.Where(...) { ... }  (disallowed in statement headers by the parser; see note below)
+
+   Entries may freely mix property assignments and child/content expressions. *)
+
+ObjectInitializer         ::= '{' { ObjectInitializerEntry } '}' ;
+
+ObjectInitializerEntry    ::= ObjectInitializerAssignmentEntry
+                            | ObjectInitializerExpressionEntry ;
+
+ObjectInitializerAssignmentEntry
+                           ::= Identifier '=' Expression ObjectInitializerTerminator? ;
+
+ObjectInitializerExpressionEntry
+                           ::= Expression ObjectInitializerTerminator? ;
+
+(* Terminators are context-sensitive in Raven; commas are permitted but not required when a newline ends the entry. *)
+ObjectInitializerTerminator
+                           ::= ',' | NewLineToken | ';' ;
 MemberBindingExpression  ::= '.' Identifier ;
 
 (* ---------- Primaries ----------
@@ -463,7 +490,7 @@ InterpolatedStringContent ::= InterpolatedStringText | Interpolation ;
 InterpolatedStringText   ::= /* text segment without ${ or closing quote */ ;
 Interpolation            ::= '${' Expression '}' ;
 
-ObjectCreationExpression ::= 'new' Type '(' [Argument {',' Argument}] ')' ;
+ObjectCreationExpression ::= 'new' Type ArgumentList ObjectInitializer? ;
 
 TupleExpression          ::= '(' TupleElement {',' TupleElement} ')' ;
 TupleElement             ::= [Identifier ':'] Expression ;

@@ -736,6 +736,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             var token = PeekToken();
 
+            // In statement/condition contexts (if/while/for headers, if-expression condition),
+            // `{` begins the following block expression/body and must not be consumed as an
+            // object-initializer trailer.
+            if (_stopOnOpenBrace && token.IsKind(SyntaxKind.OpenBraceToken))
+                break;
+
             if (token.IsKind(SyntaxKind.OpenParenToken)) // Invocation
             {
                 // INFO: Break if next token is a newline.
@@ -751,8 +757,17 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 }
 
                 SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
+
                 var argumentList = ParseArgumentListSyntax();
-                expr = InvocationExpression(expr, argumentList);
+
+                // Object initializer may immediately follow an invocation: Foo(...) { ... }
+                // But in statement/header contexts (for/if/while conditions), `{` begins the body block,
+                // so we must not consume it as an initializer.
+                ObjectInitializerExpressionSyntax? initializer = null;
+                if (!_stopOnOpenBrace && PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+                    initializer = ParseObjectInitializerExpression();
+
+                expr = InvocationExpression(expr, argumentList, initializer);
             }
             else if (token.IsKind(SyntaxKind.DotToken)) // Member Access
             {
@@ -791,6 +806,25 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 var argumentList = ParseBracketedArgumentListSyntax();
 
                 expr = ElementAccessExpression(expr, argumentList, Diagnostics);
+            }
+            else if (token.IsKind(SyntaxKind.OpenBraceToken)) // Object initializer trailer (SwiftUI/Flutter-style)
+            {
+                // Treat `<expr> { ... }` as an invocation with a missing argument list plus an initializer.
+                // This enables: `Window { ... }` where `Window` is parsed as an IdentifierName.
+
+                var initializer = ParseObjectInitializerExpression();
+
+                if (expr is InvocationExpressionSyntax inv)
+                {
+                    // If it's already an invocation (e.g. Foo() { ... }), just attach initializer.
+                    expr = InvocationExpression(inv.Expression, inv.ArgumentList, initializer);
+                }
+                else
+                {
+                    // Synthesize a missing argument list: `expr(/*missing*/){...}`
+                    var missingArgs = CreateMissingArgumentList();
+                    expr = InvocationExpression(expr, missingArgs, initializer);
+                }
             }
             else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access
             {
@@ -1359,7 +1393,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var typeName = new NameSyntaxParser(this).ParseTypeName();
 
-        return ObjectCreationExpression(newKeyword, typeName, ParseArgumentListSyntax());
+        var args = ParseArgumentListSyntax();
+
+        ObjectInitializerExpressionSyntax? initializer = null;
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+            initializer = ParseObjectInitializerExpression();
+
+        return ObjectCreationExpression(newKeyword, typeName, args, initializer);
     }
 
     private ExpressionSyntax ParseDefaultExpression()
@@ -1523,7 +1563,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         var ifKeyword = ReadToken();
 
-        var condition = new ExpressionSyntaxParser(this).ParseExpression();
+        var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
 
         var afterCloseParen = GetEndOfLastToken();
 
@@ -1729,5 +1769,109 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         var parser = new LanguageParser(null, new Raven.CodeAnalysis.ParseOptions());
         return (ExpressionSyntax)parser.ParseSyntax(typeof(Raven.CodeAnalysis.Syntax.ExpressionSyntax), SourceText.From(text), 0)!;
+    }
+
+    private ArgumentListSyntax CreateMissingArgumentList()
+    {
+        // Used for `TypeName { ... }` where there are no parentheses.
+        // We synthesize an empty, missing argument list so the tree remains structurally consistent.
+        var openParen = MissingToken(SyntaxKind.OpenParenToken);
+        var closeParen = MissingToken(SyntaxKind.CloseParenToken);
+        return ArgumentList(openParen, List(Array.Empty<GreenNode>()), closeParen, Diagnostics);
+    }
+
+    private ObjectInitializerExpressionSyntax ParseObjectInitializerExpression()
+    {
+        // We assume current token is '{'
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
+
+        var previousTreatNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
+
+        EnterParens();
+        try
+        {
+            var entries = new List<ObjectInitializerEntrySyntax>();
+
+            while (true)
+            {
+                SetTreatNewlinesAsTokens(false);
+
+                var token = PeekToken();
+
+                if (IsNextToken(SyntaxKind.CloseBraceToken, out _) || PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                var entryStart = Position;
+                var entry = ParseObjectInitializerEntry();
+
+                if (Position == entryStart)
+                {
+                    // No progress: consume one token and continue (or break) to avoid infinite loop.
+                    var bad = PeekToken();
+                    AddDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.InvalidExpressionTerm,
+                        GetSpanOfPeekedToken(),
+                        bad.Text));
+                    ReadToken();
+                    continue;
+                }
+
+                entries.Add(entry);
+            }
+
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+
+            SetTreatNewlinesAsTokens(false);
+
+            return ObjectInitializerExpression(openBraceToken, List(entries.ToArray()), closeBraceToken);
+        }
+        finally
+        {
+            ExitParens();
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+        }
+    }
+
+    private ObjectInitializerEntrySyntax ParseObjectInitializerEntry()
+    {
+        // Entry kind is decided by lookahead: <identifier> '=' ...
+        if (CanTokenBeIdentifier(PeekToken()) && PeekToken(1).IsKind(SyntaxKind.EqualsToken))
+        {
+            var nameToken = ReadToken();
+            if (nameToken.Kind != SyntaxKind.IdentifierToken)
+            {
+                nameToken = ToIdentifierToken(nameToken);
+                UpdateLastToken(nameToken);
+            }
+
+            var name = IdentifierName(nameToken);
+            var equalsToken = ReadToken();
+
+            var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+            SetTreatNewlinesAsTokens(true);
+
+            SyntaxToken terminatorToken;
+            if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
+            {
+                TryConsumeTerminator(out terminatorToken);
+            }
+
+            return ObjectInitializerAssignmentEntry(name, equalsToken, expression, terminatorToken);
+        }
+        else
+        {
+            // Child/content entry: any expression, typically `Button { ... }`
+            var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+            SyntaxToken terminatorToken;
+            if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
+                TryConsumeTerminator(out terminatorToken);
+
+            return ObjectInitializerExpressionEntry(expression, terminatorToken);
+        }
     }
 }

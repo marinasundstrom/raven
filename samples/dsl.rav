@@ -1,0 +1,53 @@
+import System.Console.*
+import System.Collections.Generic.*
+
+val window = Window {
+    Title = "Main"
+    Width = 800
+    Height = 600
+
+    StackPanel {
+        Button { Text = "Ok" }
+        Button { Text = "Cancel" }
+    }
+}
+
+WriteLine(window.Title)
+
+if window.Content is StackPanel stackPanel {
+    for control in stackPanel.Children {
+        if control is Button button {
+            WriteLine(button.Text)
+        }
+    }
+}
+
+class Window {
+    public Title: string { get; set; }
+
+    public Content: Control { get; set; }
+}
+
+open abstract class Control {}
+
+interface IHasChildren {
+    Children: IEnumerable<Control> { get; }
+
+    Add(control: Control) -> ();
+}
+
+class StackPanel : Control, IHasChildren {
+    val children: List<Control> = []
+
+    public Title: string { get; set; }
+
+    public Children: IEnumerable<Control> => children
+
+    public Add(control: Control) -> () {
+        children.Add(control)
+    }
+}
+
+class Button : Control {
+    public Text: string { get; set; }
+}

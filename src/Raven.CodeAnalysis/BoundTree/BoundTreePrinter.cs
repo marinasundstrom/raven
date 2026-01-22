@@ -37,6 +37,7 @@ public static class BoundTreePrinter
         bool groupChildCollections = false,
         bool displayCollectionIndices = false,
         bool onlyBlockRoots = true,
+        bool includeErrorNodes = false,
         bool includeBinderInfo = true,
         bool includeBinderChainOnRoots = true,
         bool showBinderOnlyOnChange = true)
@@ -88,10 +89,10 @@ public static class BoundTreePrinter
             var root = roots[i];
 
             // Skip error-only roots (usually artifacts of speculative binding / lookup noise)
-            if (root is BoundErrorExpression)
+            if (!includeErrorNodes && root is BoundErrorExpression)
                 continue;
 
-            if (root is BoundExpression expr && expr.Type is ErrorTypeSymbol)
+            if (!includeErrorNodes && root is BoundExpression expr && expr.Type is ErrorTypeSymbol)
                 continue;
 
             // We are only concerned with blocks: top-level statement blocks.
