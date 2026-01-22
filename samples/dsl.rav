@@ -1,3 +1,6 @@
+import System.Console.*
+import System.Collections.Generic.*
+
 val window = Window {
     Title = "Main"
 
@@ -9,10 +12,28 @@ val window = Window {
     Button { Text = "Cancel" }
 }
 
-class Window {
-    public Title: string { get; set; }
+WriteLine(window.Title)
+
+for control in window.Children {
+    if control is Button button {
+        WriteLine(button.Text)
+    }
 }
 
-class Button {
+class Window {
+    val children: List<Control> = []
+
+    public Title: string { get; set; }
+
+    public Children: IEnumerable<Control> => children
+
+    public Add(control: Control) -> () {
+        children.Add(control)
+    }
+}
+
+open class Control {}
+
+class Button : Control {
     public Text: string { get; set; }
 }
