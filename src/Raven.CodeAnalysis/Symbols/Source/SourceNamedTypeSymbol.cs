@@ -149,9 +149,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ITypeSymbol EnumUnderlyingType { get; private set; }
 
-    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
+    public INamedTypeSymbol UnderlyingTupleType => null!;
 
-    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
+    public ImmutableArray<IFieldSymbol> TupleElements => [];
 
     public ImmutableArray<ISymbol> GetMembers()
     {

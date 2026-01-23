@@ -1120,7 +1120,41 @@ public partial class Compilation
         if (string.IsNullOrEmpty(metadataName))
             return null;
 
-        return ResolveRuntimeType(metadataName);
+        var resolved = ResolveRuntimeType(metadataName);
+        if (resolved is not null)
+            return resolved;
+
+        if (symbol.ContainingAssembly is PEAssemblySymbol peAssembly2)
+        {
+            if (!string.IsNullOrEmpty(peAssembly2.FullName))
+            {
+                var qualifiedName = $"{metadataName}, {peAssembly2.FullName}";
+                var qualifiedType = Type.GetType(qualifiedName, throwOnError: false);
+                if (qualifiedType is not null)
+                {
+                    RegisterRuntimeAssembly(qualifiedType.Assembly);
+                    return qualifiedType;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(peAssembly2.Name))
+            {
+                try
+                {
+                    var assembly = System.Reflection.Assembly.Load(new AssemblyName(peAssembly2.Name));
+                    RegisterRuntimeAssembly(assembly);
+                    var type = assembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
+                    if (type is not null)
+                        return type;
+                }
+                catch
+                {
+                    // Ignore load failures and fall through to null.
+                }
+            }
+        }
+
+        return null;
     }
 
     internal Type? ResolveRuntimeType(System.Reflection.TypeInfo metadataType)
