@@ -826,11 +826,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
                     expr = InvocationExpression(expr, missingArgs, initializer);
                 }
             }
-            else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access
+            else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access OR propagate (`<expr>?`)
             {
                 var operatorToken = ReadToken();
-                ExpressionSyntax whenNotNull;
                 var next = PeekToken();
+
+                // Conditional access only when followed by one of the conditional-access trailers.
+                // Otherwise, treat `?` as the Result-propagation postfix operator.
+                if (!next.IsKind(SyntaxKind.DotToken)
+                    && !next.IsKind(SyntaxKind.OpenParenToken)
+                    && !next.IsKind(SyntaxKind.OpenBracketToken))
+                {
+                    expr = PropagateExpression(expr, operatorToken);
+                    continue;
+                }
+
+                ExpressionSyntax whenNotNull;
                 if (next.IsKind(SyntaxKind.DotToken))
                 {
                     var dotToken = ReadToken();

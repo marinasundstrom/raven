@@ -458,6 +458,10 @@
     <Slot Name="TryKeyword" Type="Token" DefaultToken="TryKeyword" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="PropagateExpression" Inherits="Expression">
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="QuestionToken" Type="Token" DefaultToken="QuestionToken" />
+  </Node>
   <Node Name="BlockStatement" Inherits="Statement">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
     <Slot Name="Statements" Type="List" ElementType="Statement" />

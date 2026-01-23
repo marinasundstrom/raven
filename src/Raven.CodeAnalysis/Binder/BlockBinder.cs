@@ -671,6 +671,7 @@ partial class BlockBinder : Binder
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
+            PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
@@ -1626,6 +1627,212 @@ partial class BlockBinder : Binder
             return ErrorExpression();
 
         return new BoundTryExpression(expression, exceptionType, resultType, okConstructor, errorConstructor);
+    }
+
+    private BoundExpression BindPropagateExpression(PropagateExpressionSyntax propagateExpression)
+    {
+        // Bind the operand in a "pure" expression context: explicit `return` is not allowed here.
+        var operand = BindExpression(propagateExpression.Expression, allowReturn: false);
+
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        var operandType = UnwrapAlias(operand.Type ?? Compilation.ErrorTypeSymbol);
+        if (operandType is not INamedTypeSymbol operandNamed || !TryGetPropagationInfo(operandNamed, out var operandInfo))
+        {
+            _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
+                "?",
+                operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                propagateExpression.QuestionToken.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        // Determine the enclosing return type.
+        ITypeSymbol? enclosingReturnType = null;
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current.ContainingSymbol is IMethodSymbol method)
+            {
+                enclosingReturnType = method.ReturnType;
+                break;
+            }
+
+            if (current.ContainingSymbol is ILambdaSymbol lambda)
+            {
+                enclosingReturnType = lambda.ReturnType;
+                break;
+            }
+        }
+
+        enclosingReturnType = enclosingReturnType is not null ? UnwrapAlias(enclosingReturnType) : null;
+
+        if (enclosingReturnType is not INamedTypeSymbol enclosingNamed ||
+            !TryGetPropagationInfo(enclosingNamed, out var enclosingInfo) ||
+            enclosingInfo.Kind != operandInfo.Kind)
+        {
+            _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
+                "?",
+                operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                propagateExpression.QuestionToken.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var okType = operandInfo.OkPayloadType;
+        var errorType = operandInfo.ErrorPayloadType;
+
+        // If the Ok case exposes the payload via a `Value` property, record it.
+        IPropertySymbol? okValueProperty = null;
+        if (operandInfo.OkCaseType is INamedTypeSymbol okCaseNamed)
+        {
+            okValueProperty = okCaseNamed.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+        }
+
+        var enclosingErrorConstructor = enclosingInfo.ErrorCase.Constructors.FirstOrDefault(ctor =>
+            ctor.Parameters.Length == enclosingInfo.ErrorCase.ConstructorParameters.Length);
+        if (enclosingErrorConstructor is null)
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+
+        var errorConversion = default(Conversion);
+        if (operandInfo.ErrorPayloadType is not null && enclosingInfo.ErrorPayloadType is not null)
+        {
+            errorConversion = Compilation.ClassifyConversion(operandInfo.ErrorPayloadType, enclosingInfo.ErrorPayloadType);
+            if (!errorConversion.Exists)
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    operandInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    propagateExpression.QuestionToken.GetLocation());
+            }
+        }
+
+        // Best-effort lookup for `UnwrapError()`; this can be an extension method.
+        // We only record it if it resolves unambiguously; lowering can still fall back to other mechanisms.
+        IMethodSymbol? unwrapErrorMethod = null;
+
+        if (operandInfo.ErrorPayloadType is not null && operand.Type is { } operandType2 && operandType2.TypeKind != TypeKind.Error)
+        {
+            // We bind "operand.UnwrapError" as if it was a normal member access.
+            // This will include extension methods because operand is a valid extension receiver.
+            var receiverForLookup = operand;
+
+            var member = BindMemberAccessOnReceiver(
+                receiverForLookup,
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("UnwrapError")),
+                preferMethods: true,
+                allowEventAccess: false,
+                suppressNullWarning: true,
+                receiverTypeForLookup: operandType,
+                forceExtensionReceiver: true);
+
+            if (member is BoundMethodGroupExpression mg)
+            {
+                // Resolve overload for UnwrapError() (no args)
+                var resolution = OverloadResolver.ResolveOverload(
+                    mg.Methods,
+                    [],
+                    Compilation,
+                    receiver: receiverForLookup,
+                    canBindLambda: EnsureLambdaCompatible,
+                    callSyntax: propagateExpression);
+
+                if (resolution.Success)
+                    unwrapErrorMethod = resolution.Method;
+            }
+        }
+
+        // Lowering/codegen will branch, extract the error payload when available, convert if needed, and early-return.
+        return new BoundPropagateExpression(
+            operand,
+            okType,
+            errorType,
+            enclosingInfo.UnionType,
+            enclosingErrorConstructor,
+            okCaseName: operandInfo.OkCaseName,
+            errorCaseName: operandInfo.ErrorCaseName,
+            errorCaseHasPayload: operandInfo.ErrorCaseHasPayload,
+            okCaseType: operandInfo.OkCaseType,
+            okValueProperty: okValueProperty,
+            unwrapErrorMethod: unwrapErrorMethod,
+            errorConversion: errorConversion);
+    }
+
+    private enum PropagationKind
+    {
+        Result,
+        Option
+    }
+
+    private sealed record PropagationInfo(
+        PropagationKind Kind,
+        INamedTypeSymbol UnionType,
+        IDiscriminatedUnionSymbol Union,
+        IDiscriminatedUnionCaseSymbol OkCase,
+        IDiscriminatedUnionCaseSymbol ErrorCase,
+        ITypeSymbol OkPayloadType,
+        ITypeSymbol? ErrorPayloadType,
+        ITypeSymbol OkCaseType,
+        string OkCaseName,
+        string ErrorCaseName,
+        bool ErrorCaseHasPayload);
+
+    private static bool TryGetPropagationInfo(INamedTypeSymbol typeSymbol, out PropagationInfo info)
+    {
+        info = null!;
+        var union = typeSymbol.TryGetDiscriminatedUnion();
+        if (union is null)
+            return false;
+
+        if (typeSymbol.Name == "Result")
+        {
+            var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Ok");
+            var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "Error");
+            if (okCase is null || errorCase is null)
+                return false;
+
+            if (okCase.ConstructorParameters.Length != 1 || errorCase.ConstructorParameters.Length != 1)
+                return false;
+
+            info = new PropagationInfo(
+                PropagationKind.Result,
+                typeSymbol,
+                union,
+                okCase,
+                errorCase,
+                okCase.ConstructorParameters[0].Type,
+                errorCase.ConstructorParameters[0].Type,
+                okCase,
+                okCase.Name,
+                errorCase.Name,
+                ErrorCaseHasPayload: true);
+            return true;
+        }
+
+        if (typeSymbol.Name == "Option")
+        {
+            var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Some");
+            var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "None");
+            if (okCase is null || errorCase is null)
+                return false;
+
+            if (okCase.ConstructorParameters.Length != 1 || errorCase.ConstructorParameters.Length != 0)
+                return false;
+
+            info = new PropagationInfo(
+                PropagationKind.Option,
+                typeSymbol,
+                union,
+                okCase,
+                errorCase,
+                okCase.ConstructorParameters[0].Type,
+                ErrorPayloadType: null,
+                okCase,
+                okCase.Name,
+                errorCase.Name,
+                ErrorCaseHasPayload: false);
+            return true;
+        }
+
+        return false;
     }
 
     private void EnsureMatchArmPatternsValid(
