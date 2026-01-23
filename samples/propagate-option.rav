@@ -1,0 +1,22 @@
+import System.*
+import System.Console.*
+
+val x = test() match {
+    .Some(let y) => "Foo: $y"
+    .None => "None"
+}
+
+WriteLine(x)
+
+func test() -> Option<int> {
+    val r = test2(3)?
+    WriteLine(r)
+    return .Some(r + 1)
+}
+
+func test2(i: int) -> Option<int> {
+    if i != 3 {
+        return .None
+    }
+    return .Some(42)
+}

@@ -11,7 +11,7 @@ WriteLine(x)
 func test() -> Result<int, Exception> {
     val r = test2(4)?
     WriteLine(r)
-    return .Ok(r)
+    return .Ok(r + 1)
 }
 
 func test2(i: int) -> Result<int, Exception> {
