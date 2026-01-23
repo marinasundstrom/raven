@@ -338,10 +338,7 @@ partial class BlockBinder
         type = type.UnwrapLiteralType() ?? type;
 
         // Raven nullable wrapper
-        if (type is NullableTypeSymbol nullable)
-            return nullable.UnderlyingType;
-
-        return type;
+        return type.GetPlainType();
     }
 
     // ============================
@@ -1364,7 +1361,12 @@ partial class BlockBinder
                 return BindMethodGroup(new BoundTypeExpression(expectedType), methodCandidates, nameLocation);
             }
         }
-        else
+
+        var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
+            .Lookup(this)
+            .FirstOrDefault();
+
+        if (member is null)
         {
             var extensionCandidates = LookupExtensionStaticMethods(memberName, expectedType).ToImmutableArray();
 
@@ -1381,14 +1383,7 @@ partial class BlockBinder
                     return BindMethodGroup(new BoundTypeExpression(expectedType), extensionCandidates, nameLocation);
                 }
             }
-        }
 
-        var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
-            .Lookup(this)
-            .FirstOrDefault();
-
-        if (member is null)
-        {
             var extensionProperties = LookupExtensionStaticProperties(memberName, expectedType).ToImmutableArray();
 
             if (!extensionProperties.IsDefaultOrEmpty)

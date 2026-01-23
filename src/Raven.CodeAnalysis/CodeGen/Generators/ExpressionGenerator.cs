@@ -2958,7 +2958,7 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        var receiverType = receiver?.Type;
+        var receiverType = receiver?.Type?.UnwrapLiteralType() ?? receiver?.Type;
         var useConstrainedCall = !target.IsStatic &&
             receiverType is ITypeParameterSymbol typeParameterSymbol &&
             (typeParameterSymbol.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0;

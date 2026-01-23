@@ -162,7 +162,7 @@ public partial class SemanticModel
 
         ITypeSymbol? convertedType = boundExpr.Type;
 
-        return new TypeInfo(boundExpr.Type, convertedType);
+        return new TypeInfo(naturalType, convertedType);
     }
 
     /// <summary>
