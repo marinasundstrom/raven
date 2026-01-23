@@ -1299,7 +1299,7 @@ public partial class Compilation
             SpecialType.System_Collections_Generic_ICollection_T => "System.Collections.Generic.ICollection`1",
             SpecialType.System_Collections_IEnumerator => "System.Collections.IEnumerator",
             SpecialType.System_Collections_Generic_IEnumerator_T => "System.Collections.Generic.IEnumerator`1",
-            SpecialType.System_Nullable_T => "System.Nullable",
+            SpecialType.System_Nullable_T => "System.Nullable`1",
             SpecialType.System_DateTime => "System.DateTime",
             SpecialType.System_Runtime_CompilerServices_IsVolatile => "System.Runtime.CompilerServices.IsVolatile",
             SpecialType.System_IDisposable => "System.IDisposable",

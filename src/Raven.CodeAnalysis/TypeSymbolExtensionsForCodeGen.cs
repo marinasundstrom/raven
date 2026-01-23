@@ -31,6 +31,13 @@ public static class TypeSymbolExtensionsForCodeGen
         var compilation = codeGen.Compilation;
         var debugConstructedMethod = ConstructedMethodDebugging.IsEnabled();
 
+        if (typeSymbol.IsNullable)
+        {
+            var effectiveType = typeSymbol.EffectiveNullableType(compilation);
+            if (!ReferenceEquals(effectiveType, typeSymbol))
+                return GetClrTypeInternal(effectiveType, codeGen, treatUnitAsVoid, isTopLevel: false);
+        }
+
         if (typeSymbol is ConstructedNamedTypeSymbol constructedType)
         {
             if (constructedType.ConstructedFrom is not INamedTypeSymbol definition)

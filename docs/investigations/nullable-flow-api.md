@@ -112,9 +112,16 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 - [x] Add `Conversion.IsNullable` helper and consume it in conversion identity checks.
 - [x] Add `GetPlainType` helper for nullable unwrapping.
 - [x] Implement `EffectiveNullableType` helper for value-type nullable runtime representation.
+- [x] Derive `NullabilityInfo`/`NullableAnnotation` from type decoration (including unions with `null`).
 - [ ] Refactor `NullableTypeSymbol` into a pure decorator across all consumers.
 - [ ] Implement `GetTypeInfo` declared/flow/effective-nullable shape.
 - [ ] Add metadata context detection for external assemblies.
+
+## Implementation gaps to address
+- `EffectiveNullableType` and `GetPlainType` exist, but most consumers still branch on `NullableTypeSymbol` and `UnderlyingType`, which keeps value/reference nullability logic split instead of treating nullability as decoration.
+- Codegen and binder layers still reach into `UnderlyingType` for reference types instead of relying on `IsNullable` + plain/effective type helpers, so runtime type mapping is inconsistent.
+- `GetTypeInfo` currently reports only the bound type (declared/converted) and does not surface flow-state or effective-nullable types, so nullability-aware tooling cannot query consistent data.
+- Ensure all public/nullability surfaces consume the type-derived `NullabilityInfo` (instead of ad-hoc nullability inference).
 
 ## Delivery plan (phased)
 1. **Inventory & refactor helpers**: enumerate current uses of `MakeNullable`, `StripNullable`, and direct `NullableTypeSymbol` checks; replace with the decorator model and `ITypeSymbol.IsNullable`.
@@ -122,6 +129,13 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 3. **Type surfaces**: implement `EffectiveNullableType` and update `GetTypeInfo` to return declared/flow/effective values.
 4. **Flow + diagnostics**: update flow analysis and diagnostics to consume `IsNullable` and emit missing-metadata guidance.
 5. **Tests & validation**: add targeted tests for nullable flow checks, metadata defaults, and `MakeNullable`/`StripNullable` behavior.
+
+## `GetTypeInfo` test plan
+- **Declared vs. converted type**: verify `GetTypeInfo(expr).Type` vs. `ConvertedType` for explicit casts and implicit conversions (e.g., `int` to `int?`, `string` to `object`).
+- **Flow state updates**: ensure flow analysis upgrades nullable locals to non-null after `if (x != null)` and that `GetTypeInfo` returns the flow-decorated type inside the guarded block.
+- **Nullable value types**: confirm nullable value types surface as decorated `T` in symbol model while `EffectiveNullableType` returns `Nullable<T>` when requested.
+- **External metadata defaults**: load a metadata-only assembly with missing nullable context and assert `GetTypeInfo` reports nullable flow/effective types conservatively.
+- **Union nullability**: for `T | null`, ensure `GetTypeInfo` reports nullable annotation/flow consistent with the decoration model and does not treat union-null as a distinct type kind.
 
 ## Current state vs. proposed implementation checklist
 ### Likely existing (verify in code)

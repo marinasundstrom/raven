@@ -186,8 +186,6 @@ internal class TypeResolver(Compilation compilation)
         if (type.Name == "Null")
             return compilation.NullTypeSymbol;
 
-        var nullable = compilation.GetSpecialType(SpecialType.System_Nullable_T);
-
         if (type.IsGenericType
             && type.GetGenericTypeDefinition().FullName.Contains("System.Nullable`1"))
         {
@@ -294,7 +292,6 @@ internal class TypeResolver(Compilation compilation)
 
         if (nullInfo.ReadState == NullabilityState.Nullable
             && typeSymbol is not NullableTypeSymbol
-            && !typeSymbol.IsValueType
             && typeSymbol is not ITypeParameterSymbol)
         {
             typeSymbol = typeSymbol.MakeNullable();
