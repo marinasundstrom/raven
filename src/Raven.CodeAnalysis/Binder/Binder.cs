@@ -567,7 +567,10 @@ internal abstract class Binder
             return true;
 
         if (ContainsTypeParameters(parameterType))
-            return true;
+        {
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions);
+        }
 
         if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
             return true;
@@ -595,7 +598,10 @@ internal abstract class Binder
             return true;
 
         if (ContainsTypeParameters(extensionReceiverType))
-            return true;
+        {
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            return TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions);
+        }
 
         if (SymbolEqualityComparer.Default.Equals(extensionReceiverType, receiverType))
             return true;
@@ -1012,7 +1018,10 @@ internal abstract class Binder
             return true;
 
         if (ContainsTypeParameters(parameterType))
-            return true;
+        {
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions);
+        }
 
         if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
             return true;
