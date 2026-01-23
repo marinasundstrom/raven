@@ -6,9 +6,10 @@ It keeps everyday code **compact, explicit, and safe**, while still feeling fami
 Raven is built around a few simple ideas:
 
 - **Expressions first** — most constructs produce values.
-- **Composability** — functions and small building blocks are encouraged.
+- **Declarative composition** — build values (and even object graphs) directly in code.
 - **Pattern matching** — matching is a first-class way to test and extract structure.
 - **Explicit failure** — recoverable errors are modeled as data.
+- **Propagation** — unwrap `Result` and `Option` with `?` to short-circuit on failure.
 
 Raven encourages you to make mutability, flow, and error-handling explicit. The compiler helps keep code honest with built-in diagnostics and analyzers.
 
@@ -32,6 +33,41 @@ WriteLine("Hello, World!")
 > ℹ️ **Note:** In a file, any executable top-level statements must appear **before** type declarations.
 >
 > Top-level `func` declarations are treated as statements too, but they are **hoisted**, so you may call them before their textual declaration within the file-scope region.
+
+---
+## A quick taste
+
+Here’s a small sample that shows Raven’s everyday style: immutable bindings by default, expression-based control flow, and explicit error handling.
+
+```raven
+import System.Console.*
+
+func parseInt(text: string) -> Result<int, string> {
+    return try int.Parse(text) match {
+        .Ok(val value) => .Ok(value)
+        .Error(_) => .Error("Not a number: $text")
+    }
+}
+
+// NOTE: Main function is supported
+func Main() {
+    val inputs = ["10", "abc", "42"]
+
+    for text in inputs {
+        val result = parseInt(text)
+
+        val message = result match {
+            .Ok(val value) => "Parsed: $value"
+            .Error(val err) => "Error: $err"
+        }
+
+        WriteLine(message)
+    }
+}
+```
+
+This sample is intentionally small, but it highlights Raven’s focus on readable flow, data-oriented failure, and a lightweight syntax that still maps cleanly to .NET.
+
 
 ---
 
@@ -186,6 +222,37 @@ WriteLine(result) // 12
 
 ---
 
+## Extensions and traits
+
+Raven supports extension members (also called *traits*) that add methods and properties to existing types.
+They participate in member lookup like instance members when the extension container is in scope.
+
+```raven
+extension StringExt for string {
+    ToSlug() -> string => self.Trim().ToLowerInvariant().Replace(" ", "-")
+}
+
+import MyApp.StringExt.*
+
+val slug = "Hello World".ToSlug()
+```
+
+Extensions can also provide **static** members that are accessed through the receiver type:
+
+```raven
+extension ListStatics for System.Collections.Generic.List<int> {
+    public static Empty() -> System.Collections.Generic.List<int> => System.Collections.Generic.List<int>()
+}
+
+import MyApp.ListStatics.*
+
+val empty = System.Collections.Generic.List<int>.Empty()
+```
+
+> ℹ️ **Note:** Raven can also surface operator-style functionality through extensions. This enables DSL-like APIs and lightweight customization without modifying the original type.
+
+---
+
 ## Pattern matching
 
 Patterns let you test structure and extract data at the same time.
@@ -291,11 +358,12 @@ val message = Divide(10, 2) match {
 WriteLine(message)
 ```
 
-Result values can be unwrapped with the postfix propagation operator:
+Result values can be unwrapped with the postfix propagation operator `?`, which returns early on errors:
 
 ```raven
 func DivideChecked(a: int, b: int) -> Result<int, string> {
     val value = Divide(a, b)?
+    // other code can run here
     return .Ok(value)
 }
 ```
@@ -325,7 +393,7 @@ val label = FindFirstEven([1, 3, 4, 5]) match {
 WriteLine(label)
 ```
 
-Option values support the same propagation operator to return `.None` early:
+Option values support the same propagation operator `?` to return `.None` early:
 
 ```raven
 func FirstEvenPlusOne(values: int[]) -> Option<int> {
@@ -426,6 +494,47 @@ async func DownloadLength(url: string) -> Task<int> {
 
 ---
 
+## Declarative programming
+
+Raven supports a declarative style for building values and object graphs.
+
+### Object initializer trailers
+
+Any invocation expression can be followed by an **object initializer** block written with braces.
+
+```raven
+val window = Window {
+    Title = "Main"
+    Width = 800
+    Height = 600
+
+    Button { Text = "OK" }
+    Button { Text = "Cancel" }
+}
+```
+
+Raven’s object initializers are **enhanced compared to C#’s**: they support ordinary property assignment and collection-style initialization, but they’re also designed to enable **DSL-like APIs** (for example UI composition).
+This makes them a good fit for declarative, tree-shaped code similar to SwiftUI and other modern UI frameworks.
+
+Initializer entries are applied in source order.
+Property entries assign to writable members, while standalone content entries bind either to a `Content` property (single entry) or to `Add(...)` calls during lowering.
+
+### Pipelines and LINQ-style workflows
+
+Raven also supports a pipe operator (`|>`) for composing transformations.
+When combined with imported .NET extension methods (such as `System.Linq.Enumerable`), this makes it natural to write LINQ-style flows.
+
+```raven
+import System.Linq.*
+
+val result = values
+    |> Where(x => x % 2 == 0)
+    |> Select(x => x * 2)
+    |> ToArray()
+```
+
+---
+
 ## .NET interop
 
 Raven is designed to feel natural on top of the .NET ecosystem:
@@ -444,6 +553,7 @@ WriteLine(now)
 > ❗ **Tip:** `import Some.Type.*` can bring static members into scope (similar to C# `using static`).
 
 ---
+
 ## Object-oriented programming
 
 Raven supports object-oriented programming alongside its expression-oriented design:
@@ -464,4 +574,4 @@ This makes it natural to build traditional .NET-style libraries and applications
 - Browse runnable programs in `samples/`
 - See how Raven maps to .NET in `docs/lang/dotnet-implementation.md`
 
-> ⚠️ Raven is a living project. The syntax and semantics are evolving.
+> ⚠️ This is a living document that is subject to change.
