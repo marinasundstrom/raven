@@ -8,7 +8,7 @@ public static class NullableTypeSymbolExtensions
     {
         if (typeSymbol.IsNullable)
         {
-            throw new InvalidOperationException($"Type '{0}' is already a nullable type");
+            return typeSymbol;
         }
 
         return new NullableTypeSymbol(typeSymbol, null, null, null, []);
@@ -33,9 +33,14 @@ public static class NullableTypeSymbolExtensions
 
     public static ITypeSymbol GetPlainType(this ITypeSymbol typeSymbol)
     {
-        return typeSymbol is NullableTypeSymbol nullable
-            ? nullable.UnderlyingType
-            : typeSymbol;
+        var current = typeSymbol;
+
+        while (current is NullableTypeSymbol nullable)
+        {
+            current = nullable.UnderlyingType;
+        }
+
+        return current;
     }
 
     public static ITypeSymbol EffectiveNullableType(this ITypeSymbol typeSymbol, Compilation compilation)
@@ -43,13 +48,15 @@ public static class NullableTypeSymbolExtensions
         if (typeSymbol is not NullableTypeSymbol nullable)
             return typeSymbol;
 
-        if (!nullable.UnderlyingType.IsValueType)
-            return typeSymbol;
+        var plainUnderlying = nullable.UnderlyingType.GetPlainType();
+
+        if (!plainUnderlying.IsValueType)
+            return plainUnderlying;
 
         var nullableDefinition = compilation.GetSpecialType(SpecialType.System_Nullable_T);
         if (nullableDefinition.TypeKind == TypeKind.Error)
             return typeSymbol;
 
-        return nullableDefinition.Construct(nullable.UnderlyingType);
+        return nullableDefinition.Construct(plainUnderlying);
     }
 }

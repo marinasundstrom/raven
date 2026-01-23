@@ -385,7 +385,7 @@ internal class CodeGenerator
     {
         var needsNullable = false;
 
-        if (type is NullableTypeSymbol nt && !nt.UnderlyingType.IsValueType)
+        if (type.IsNullable && !type.IsValueType)
         {
             needsNullable = true;
         }
