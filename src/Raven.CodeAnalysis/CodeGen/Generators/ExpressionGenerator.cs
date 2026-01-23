@@ -772,8 +772,9 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Stloc, tmp);
 
         // Prefer lowering via `TryGetOk(out Result<T,E>.Ok okCase)` so we can later read `okCase.Value`.
-        // Fall back to `TryGetOk(out T value)` if we don't have OkCaseType.
+        // Fall back to `TryGet{Case}(out T value)` if we don't have OkCaseType.
         var okLabel = ILGenerator.DefineLabel();
+        var tryGetOkName = $"TryGet{expr.OkCaseName}";
 
         if (expr.OkCaseType is not null)
         {
@@ -781,14 +782,14 @@ internal partial class ExpressionGenerator : Generator
             var okCaseLocal = ILGenerator.DeclareLocal(okCaseClrType);
 
             var tryGetOkOkCase = operandClrType.GetMethod(
-                "TryGetOk",
+                tryGetOkName,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 binder: null,
                 types: new[] { okCaseClrType.MakeByRefType() },
                 modifiers: null);
 
             if (tryGetOkOkCase is null)
-                throw new InvalidOperationException($"Missing TryGetOk(out {okCaseClrType}) on '{operandClrType}'.");
+                throw new InvalidOperationException($"Missing {tryGetOkName}(out {okCaseClrType}) on '{operandClrType}'.");
 
             // if (tmp.TryGetOk(out okCaseLocal)) goto okLabel;
             // Call value-type instance method on the managed address to avoid copies
@@ -834,14 +835,14 @@ internal partial class ExpressionGenerator : Generator
             var okLocal = ILGenerator.DeclareLocal(okClrType);
 
             var tryGetOk = operandClrType.GetMethod(
-                "TryGetOk",
+                tryGetOkName,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 binder: null,
                 types: new[] { okClrType.MakeByRefType() },
                 modifiers: null);
 
             if (tryGetOk is null)
-                throw new InvalidOperationException($"Missing TryGetOk(out {okClrType}) on '{operandClrType}'.");
+                throw new InvalidOperationException($"Missing {tryGetOkName}(out {okClrType}) on '{operandClrType}'.");
 
             // Call value-type instance method on the managed address to avoid copies
             // and to keep decompilers from producing unsafe pointer casts.
@@ -861,6 +862,19 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitPropagateErrorReturn(BoundPropagateExpression expr, Type operandClrType, IILocal tmp)
     {
+        var enclosingResultClrType = ResolveClrType(expr.EnclosingResultType);
+        var enclosingErrorCtor = expr.EnclosingErrorConstructor;
+
+        if (enclosingErrorCtor.Parameters.Length == 0)
+        {
+            var errorCtorInfo = enclosingErrorCtor.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
+            ILGenerator.Emit(OpCodes.Newobj, errorCtorInfo);
+
+            EmitPropagateErrorCaseConversion(enclosingResultClrType, errorCtorInfo.DeclaringType);
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
         // Obtain error payload.
         if (expr.UnwrapErrorMethod is not null)
         {
@@ -901,12 +915,11 @@ internal partial class ExpressionGenerator : Generator
         }
 
         // Convert payload to the parameter type of the enclosing Error constructor if needed.
-        var enclosingErrorCtor = expr.EnclosingErrorConstructor;
         if (enclosingErrorCtor.Parameters.Length != 1)
             throw new InvalidOperationException("Expected enclosing Error constructor to have exactly one parameter.");
 
         var targetErrorType = enclosingErrorCtor.Parameters[0].Type;
-        var sourceErrorType = expr.ErrorType;
+        var sourceErrorType = expr.ErrorType ?? Compilation.ErrorTypeSymbol;
 
         var conversion = expr.ErrorConversion.Exists
             ? expr.ErrorConversion
@@ -927,29 +940,33 @@ internal partial class ExpressionGenerator : Generator
         var ctorInfo = enclosingErrorCtor.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
 
+        EmitPropagateErrorCaseConversion(enclosingResultClrType, ctorInfo.DeclaringType);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitPropagateErrorCaseConversion(Type enclosingResultClrType, Type? errorCaseClrType)
+    {
         // The enclosing error-case type may be a nested case struct (e.g. Result<T,E>.Error)
         // that is not IL-assignable to the enclosing result type. Convert via an implicit
         // operator if needed so the return stack type matches exactly.
-        var errorCaseClrType = ctorInfo.DeclaringType
-            ?? throw new InvalidOperationException("Error constructor missing declaring type.");
+        if (errorCaseClrType is null)
+            throw new InvalidOperationException("Error constructor missing declaring type.");
 
-        if (errorCaseClrType != operandClrType)
+        if (errorCaseClrType != enclosingResultClrType)
         {
             // Look for: static implicit operator Result<T,E>(ErrorCase)
-            var implicitFromError = operandClrType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+            var implicitFromError = enclosingResultClrType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
                 .FirstOrDefault(m =>
                     m.Name == "op_Implicit" &&
-                    m.ReturnType == operandClrType &&
+                    m.ReturnType == enclosingResultClrType &&
                     m.GetParameters().Length == 1 &&
                     m.GetParameters()[0].ParameterType == errorCaseClrType);
 
             if (implicitFromError is null)
-                throw new InvalidOperationException($"Missing implicit conversion from '{errorCaseClrType}' to '{operandClrType}'.");
+                throw new InvalidOperationException($"Missing implicit conversion from '{errorCaseClrType}' to '{enclosingResultClrType}'.");
 
             ILGenerator.Emit(OpCodes.Call, implicitFromError);
         }
-
-        ILGenerator.Emit(OpCodes.Ret);
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)

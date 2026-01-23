@@ -291,6 +291,15 @@ val message = Divide(10, 2) match {
 WriteLine(message)
 ```
 
+Result values can be unwrapped with the postfix propagation operator:
+
+```raven
+func DivideChecked(a: int, b: int) -> Result<int, string> {
+    val value = Divide(a, b)?
+    return .Ok(value)
+}
+```
+
 ### Option
 
 Use `Option<T>` to represent an optional value without using `null`.
@@ -314,6 +323,15 @@ val label = FindFirstEven([1, 3, 4, 5]) match {
 }
 
 WriteLine(label)
+```
+
+Option values support the same propagation operator to return `.None` early:
+
+```raven
+func FirstEvenPlusOne(values: int[]) -> Option<int> {
+    val value = FindFirstEven(values)?
+    return .Some(value + 1)
+}
 ```
 
 > ℹ️ **Note:** `match` over unions is exhaustive. If you miss a case, the compiler guides you with diagnostics.
