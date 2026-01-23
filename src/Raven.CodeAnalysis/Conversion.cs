@@ -2,6 +2,11 @@ namespace Raven.CodeAnalysis;
 
 public struct Conversion
 {
+    public static bool IsNullable(ITypeSymbol? typeSymbol)
+    {
+        return typeSymbol?.IsNullable == true;
+    }
+
     public bool Exists { get; }
 
     public bool IsImplicit { get; }

@@ -21,11 +21,35 @@ public static class NullableTypeSymbolExtensions
             return null;
         }
 
-        return (ITypeSymbol)typeSymbol.UnderlyingSymbol;
+        return typeSymbol is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : (ITypeSymbol)typeSymbol.UnderlyingSymbol;
     }
 
     public static ITypeSymbol UnwrapNullableOrThrow(this ITypeSymbol typeSymbol)
     {
         return typeSymbol.StripNullable() ?? throw new InvalidOperationException($"Type '{0}' is not a nullable type");
+    }
+
+    public static ITypeSymbol GetPlainType(this ITypeSymbol typeSymbol)
+    {
+        return typeSymbol is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : typeSymbol;
+    }
+
+    public static ITypeSymbol EffectiveNullableType(this ITypeSymbol typeSymbol, Compilation compilation)
+    {
+        if (typeSymbol is not NullableTypeSymbol nullable)
+            return typeSymbol;
+
+        if (!nullable.UnderlyingType.IsValueType)
+            return typeSymbol;
+
+        var nullableDefinition = compilation.GetSpecialType(SpecialType.System_Nullable_T);
+        if (nullableDefinition.TypeKind == TypeKind.Error)
+            return typeSymbol;
+
+        return nullableDefinition.Construct(nullable.UnderlyingType);
     }
 }
