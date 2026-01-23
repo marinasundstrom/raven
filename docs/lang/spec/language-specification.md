@@ -548,11 +548,14 @@ func Download(url: string) -> string {
 
 ##### Handling Result values with `is` patterns
 
-### Result propagation (`?`)
+### Result and Option propagation (`?`)
 
-The postfix `?` operator unwraps a `Result<T, E>` value by extracting its success payload (`T`) or short-circuiting the current function by returning the error case.
+The postfix `?` operator unwraps a `Result<T, E>` or `Option<T>` value by extracting its success payload (`T`) or short-circuiting the current function by returning the error/none case.
 
-`expr?` is only valid inside a function or lambda whose return type is a `Result<_, _>`. The operand expression must have type `Result<T, E>`. When the operand evaluates to `.Ok(value)`, the propagation expression yields `value`. When the operand evaluates to `.Error(error)`, the propagation expression performs an early return of `.Error(error)` from the enclosing function.
+`expr?` is only valid inside a function or lambda whose return type matches the propagated shape:
+
+* For `Result`: the operand expression must have type `Result<T, E>`, and the enclosing return type must be `Result<_, _>`. When the operand evaluates to `.Ok(value)`, the propagation expression yields `value`. When the operand evaluates to `.Error(error)`, the propagation expression performs an early return of `.Error(error)` from the enclosing function.
+* For `Option`: the operand expression must have type `Option<T>`, and the enclosing return type must be `Option<_>`. When the operand evaluates to `.Some(value)`, the propagation expression yields `value`. When the operand evaluates to `.None`, the propagation expression performs an early return of `.None` from the enclosing function.
 
 The `?` operator is **not** a general control-flow expression: it does not permit `return` statements inside `match` arms. Instead, propagation introduces an implicit control-flow split that is lowered as branching when emitting code.
 
@@ -579,6 +582,15 @@ func LoadAndParse(path: string) -> Result<int, Exception> {
     val text = ReadAllText(path)?
     val value = ParseInt(text)?
     return .Ok(value)
+}
+```
+
+##### Unwrapping Option values
+
+```raven
+func GetEven(values: int[]) -> Option<int> {
+    val value = FindFirstEven(values)?
+    return .Some(value)
 }
 ```
 

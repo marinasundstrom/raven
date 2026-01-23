@@ -5,9 +5,12 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     public BoundPropagateExpression(
         BoundExpression operand,
         ITypeSymbol okType,
-        ITypeSymbol errorType,
+        ITypeSymbol? errorType,
         INamedTypeSymbol enclosingResultType,
         IMethodSymbol enclosingErrorConstructor,
+        string okCaseName,
+        string errorCaseName,
+        bool errorCaseHasPayload,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : this(
             operand,
@@ -15,6 +18,9 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
             errorType,
             enclosingResultType,
             enclosingErrorConstructor,
+            okCaseName,
+            errorCaseName,
+            errorCaseHasPayload,
             okCaseType: null,
             okValueProperty: null,
             unwrapErrorMethod: null,
@@ -26,9 +32,12 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     public BoundPropagateExpression(
         BoundExpression operand,
         ITypeSymbol okType,
-        ITypeSymbol errorType,
+        ITypeSymbol? errorType,
         INamedTypeSymbol enclosingResultType,
         IMethodSymbol enclosingErrorConstructor,
+        string okCaseName,
+        string errorCaseName,
+        bool errorCaseHasPayload,
         ITypeSymbol? okCaseType,
         IPropertySymbol? okValueProperty,
         IMethodSymbol? unwrapErrorMethod,
@@ -41,6 +50,9 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
         ErrorType = errorType;
         EnclosingResultType = enclosingResultType;
         EnclosingErrorConstructor = enclosingErrorConstructor;
+        OkCaseName = okCaseName;
+        ErrorCaseName = errorCaseName;
+        ErrorCaseHasPayload = errorCaseHasPayload;
         OkCaseType = okCaseType;
         OkValueProperty = okValueProperty;
         UnwrapErrorMethod = unwrapErrorMethod;
@@ -59,9 +71,9 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     public ITypeSymbol OkType { get; }
 
     /// <summary>
-    /// The Error payload type (E) of the operand Result&lt;T,E&gt;.
+    /// The error payload type of the operand (for Result). Null when the short-circuit case has no payload (Option.None).
     /// </summary>
-    public ITypeSymbol ErrorType { get; }
+    public ITypeSymbol? ErrorType { get; }
 
     /// <summary>
     /// The enclosing Result return type (Result&lt;U,F&gt;) that this propagate expression targets.
@@ -73,6 +85,21 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     /// The constructor/method used to build the enclosing Error case for early return.
     /// </summary>
     public IMethodSymbol EnclosingErrorConstructor { get; }
+
+    /// <summary>
+    /// The case name that represents the success payload (e.g. Ok/Some).
+    /// </summary>
+    public string OkCaseName { get; }
+
+    /// <summary>
+    /// The case name that represents the short-circuit case (e.g. Error/None).
+    /// </summary>
+    public string ErrorCaseName { get; }
+
+    /// <summary>
+    /// True when the short-circuit case carries a payload (Error), false for empty cases (None).
+    /// </summary>
+    public bool ErrorCaseHasPayload { get; }
 
     /// <summary>
     /// The concrete Ok case type (e.g. Result&lt;T,E&gt;.Ok) if known.

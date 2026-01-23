@@ -1637,11 +1637,8 @@ partial class BlockBinder : Binder
         if (operand is BoundErrorExpression)
             return operand;
 
-        var operandType = operand.Type ?? Compilation.ErrorTypeSymbol;
-        operandType = UnwrapAlias(operandType);
-
-        // `?` requires a Result<T, E>
-        if (operandType is not INamedTypeSymbol named || named.Arity != 2 || named.Name != "Result")
+        var operandType = UnwrapAlias(operand.Type ?? Compilation.ErrorTypeSymbol);
+        if (operandType is not INamedTypeSymbol operandNamed || !TryGetPropagationInfo(operandNamed, out var operandInfo))
         {
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                 "?",
@@ -1650,37 +1647,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        var union = named.TryGetDiscriminatedUnion();
-        if (union is null)
-        {
-            _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
-                "?",
-                operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                propagateExpression.QuestionToken.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
-        }
-
-        var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Ok");
-        var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "Error");
-        if (okCase is null || errorCase is null)
-            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
-
-        // The overall expression type is the Ok payload type.
-        var okType = named.TypeArguments[0];
-        var errorType = named.TypeArguments[1];
-
-        var okCaseType = okCase;
-
-        // If the Ok case exposes the payload via a `Value` property, record it.
-        IPropertySymbol? okValueProperty = null;
-        if (okCaseType is INamedTypeSymbol okCaseNamed)
-        {
-            okValueProperty = okCaseNamed.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
-        }
-
-        // Ensure we are inside a Result-returning method/lambda.
-        // We currently require the enclosing return type to be Result<*, Exception> (or compatible)
-        // because lowering uses `.Error(<payload>)` on early return.
+        // Determine the enclosing return type.
         ITypeSymbol? enclosingReturnType = null;
         for (Binder? current = this; current is not null; current = current.ParentBinder)
         {
@@ -1699,7 +1666,9 @@ partial class BlockBinder : Binder
 
         enclosingReturnType = enclosingReturnType is not null ? UnwrapAlias(enclosingReturnType) : null;
 
-        if (enclosingReturnType is not INamedTypeSymbol enclosingNamed || enclosingNamed.Arity != 2 || enclosingNamed.Name != "Result")
+        if (enclosingReturnType is not INamedTypeSymbol enclosingNamed ||
+            !TryGetPropagationInfo(enclosingNamed, out var enclosingInfo) ||
+            enclosingInfo.Kind != operandInfo.Kind)
         {
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                 "?",
@@ -1708,39 +1677,39 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
-        var enclosingUnion = enclosingNamed.TryGetDiscriminatedUnion();
-        if (enclosingUnion is null)
-            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        var okType = operandInfo.OkPayloadType;
+        var errorType = operandInfo.ErrorPayloadType;
 
-        var enclosingErrorCase = enclosingUnion.Cases.FirstOrDefault(@case => @case.Name == "Error");
-        if (enclosingErrorCase is null)
-            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        // If the Ok case exposes the payload via a `Value` property, record it.
+        IPropertySymbol? okValueProperty = null;
+        if (operandInfo.OkCaseType is INamedTypeSymbol okCaseNamed)
+        {
+            okValueProperty = okCaseNamed.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+        }
 
-        var enclosingErrorConstructor = enclosingErrorCase.Constructors.FirstOrDefault(ctor =>
-            ctor.Parameters.Length == enclosingErrorCase.ConstructorParameters.Length);
+        var enclosingErrorConstructor = enclosingInfo.ErrorCase.Constructors.FirstOrDefault(ctor =>
+            ctor.Parameters.Length == enclosingInfo.ErrorCase.ConstructorParameters.Length);
         if (enclosingErrorConstructor is null)
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
 
-        // Determine the error type expected by the enclosing `.Error(...)` constructor.
-        // We'll validate that the operand error payload can convert to it.
-        var enclosingErrorParameterType = enclosingErrorConstructor.Parameters.Length > 0
-            ? enclosingErrorConstructor.Parameters[0].Type
-            : Compilation.ErrorTypeSymbol;
-
-        var errorConversion = Compilation.ClassifyConversion(errorType, enclosingErrorParameterType);
-        if (!errorConversion.Exists)
+        var errorConversion = default(Conversion);
+        if (operandInfo.ErrorPayloadType is not null && enclosingInfo.ErrorPayloadType is not null)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(
-                errorType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                enclosingErrorParameterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                propagateExpression.QuestionToken.GetLocation());
+            errorConversion = Compilation.ClassifyConversion(operandInfo.ErrorPayloadType, enclosingInfo.ErrorPayloadType);
+            if (!errorConversion.Exists)
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    operandInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    propagateExpression.QuestionToken.GetLocation());
+            }
         }
 
         // Best-effort lookup for `UnwrapError()`; this can be an extension method.
         // We only record it if it resolves unambiguously; lowering can still fall back to other mechanisms.
         IMethodSymbol? unwrapErrorMethod = null;
 
-        if (operand.Type is { } operandType2 && operandType2.TypeKind != TypeKind.Error)
+        if (operandInfo.ErrorPayloadType is not null && operand.Type is { } operandType2 && operandType2.TypeKind != TypeKind.Error)
         {
             // We bind "operand.UnwrapError" as if it was a normal member access.
             // This will include extension methods because operand is a valid extension receiver.
@@ -1771,18 +1740,99 @@ partial class BlockBinder : Binder
             }
         }
 
-        // Workaround: We treat the union payload of the Error case as the propagated error value.
-        // Lowering/codegen will branch, extract the error payload, convert if needed, and early-return.
+        // Lowering/codegen will branch, extract the error payload when available, convert if needed, and early-return.
         return new BoundPropagateExpression(
             operand,
             okType,
             errorType,
-            enclosingNamed,
+            enclosingInfo.UnionType,
             enclosingErrorConstructor,
-            okCaseType: okCaseType,
+            okCaseName: operandInfo.OkCaseName,
+            errorCaseName: operandInfo.ErrorCaseName,
+            errorCaseHasPayload: operandInfo.ErrorCaseHasPayload,
+            okCaseType: operandInfo.OkCaseType,
             okValueProperty: okValueProperty,
             unwrapErrorMethod: unwrapErrorMethod,
             errorConversion: errorConversion);
+    }
+
+    private enum PropagationKind
+    {
+        Result,
+        Option
+    }
+
+    private sealed record PropagationInfo(
+        PropagationKind Kind,
+        INamedTypeSymbol UnionType,
+        IDiscriminatedUnionSymbol Union,
+        IDiscriminatedUnionCaseSymbol OkCase,
+        IDiscriminatedUnionCaseSymbol ErrorCase,
+        ITypeSymbol OkPayloadType,
+        ITypeSymbol? ErrorPayloadType,
+        ITypeSymbol OkCaseType,
+        string OkCaseName,
+        string ErrorCaseName,
+        bool ErrorCaseHasPayload);
+
+    private static bool TryGetPropagationInfo(INamedTypeSymbol typeSymbol, out PropagationInfo info)
+    {
+        info = null!;
+        var union = typeSymbol.TryGetDiscriminatedUnion();
+        if (union is null)
+            return false;
+
+        if (typeSymbol.Name == "Result")
+        {
+            var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Ok");
+            var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "Error");
+            if (okCase is null || errorCase is null)
+                return false;
+
+            if (okCase.ConstructorParameters.Length != 1 || errorCase.ConstructorParameters.Length != 1)
+                return false;
+
+            info = new PropagationInfo(
+                PropagationKind.Result,
+                typeSymbol,
+                union,
+                okCase,
+                errorCase,
+                okCase.ConstructorParameters[0].Type,
+                errorCase.ConstructorParameters[0].Type,
+                okCase,
+                okCase.Name,
+                errorCase.Name,
+                ErrorCaseHasPayload: true);
+            return true;
+        }
+
+        if (typeSymbol.Name == "Option")
+        {
+            var okCase = union.Cases.FirstOrDefault(@case => @case.Name == "Some");
+            var errorCase = union.Cases.FirstOrDefault(@case => @case.Name == "None");
+            if (okCase is null || errorCase is null)
+                return false;
+
+            if (okCase.ConstructorParameters.Length != 1 || errorCase.ConstructorParameters.Length != 0)
+                return false;
+
+            info = new PropagationInfo(
+                PropagationKind.Option,
+                typeSymbol,
+                union,
+                okCase,
+                errorCase,
+                okCase.ConstructorParameters[0].Type,
+                ErrorPayloadType: null,
+                okCase,
+                okCase.Name,
+                errorCase.Name,
+                ErrorCaseHasPayload: false);
+            return true;
+        }
+
+        return false;
     }
 
     private void EnsureMatchArmPatternsValid(
