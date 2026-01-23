@@ -16,7 +16,7 @@ public class PropagationExpressionTests : DiagnosticTestBase
         var code = """
 func test() -> Option<int> {
     val r = test2()?
-    return r
+    return .Some(r)
 }
 
 func test2() -> Option<int> {
