@@ -4,6 +4,16 @@ namespace Raven.CodeAnalysis;
 
 public static class NullableTypeSymbolExtensions
 {
+    public static ITypeSymbol GetPlainType(this ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is NullableTypeSymbol { UnderlyingType: var underlying })
+        {
+            return underlying;
+        }
+
+        return typeSymbol;
+    }
+
     public static ITypeSymbol MakeNullable(this ITypeSymbol typeSymbol)
     {
         if (typeSymbol.IsNullable)

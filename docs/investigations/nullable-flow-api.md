@@ -115,6 +115,18 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 4. **Flow + diagnostics**: update flow analysis and diagnostics to consume `IsNullable` and emit missing-metadata guidance.
 5. **Tests & validation**: add targeted tests for nullable flow checks, metadata defaults, and `MakeNullable`/`StripNullable` behavior.
 
+## Progress
+- ✅ `SemanticModel.GetTypeInfo(ExpressionSyntax)` now surfaces the unconverted expression type as `TypeInfo.Type`, while leaving `ConvertedType` intact.
+- ✅ Added `Conversion.IsNullable` and a `GetPlainType` helper to centralize nullability and plain-type access.
+- ✅ Began routing conversion identity checks through `Conversion.IsNullable` to centralize nullability logic.
+- ✅ Updated async return helpers to unwrap nullable decorators via `GetPlainType`.
+- ✅ Applied `Conversion.IsNullable` in overload scoring to avoid direct nullable wrapper checks.
+- ✅ Conditional access lookup now unwraps nullable decorators via `GetPlainType`.
+- ✅ Null-coalescing binding now unwraps nullable decorators via `GetPlainType`.
+- ✅ Extension-receiver unification now relies on `Conversion.IsNullable` and `GetPlainType`.
+- ⏳ `GetTypeInfo` still needs declared/flow/effective-nullable handling per the unified nullability model.
+- ⏳ `EffectiveNullableType`, metadata defaults, and flow diagnostics updates remain outstanding.
+
 ## Current state vs. proposed implementation checklist
 ### Likely existing (verify in code)
 - `NullableTypeSymbol` exists as a wrapper.
@@ -123,7 +135,6 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 
 ### Needs to be implemented or changed
 - `GetTypeInfo` to return declared/flow/effective-nullable types.
-- `Conversion.IsNullable` helper to unify conversion-time nullability checks.
 - `EffectiveNullableType` to represent internal nullable shape for interop and flow.
 - Nullable metadata reader to detect `NullableContextAttribute`/`NullableAttribute`.
 - Update all consumers to prefer `ITypeSymbol.IsNullable` and `MakeNullable`/`StripNullable` instead of inspecting `Nullable<T>`.
