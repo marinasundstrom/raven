@@ -117,3 +117,56 @@ public extension ResultExtensions<T> for Result<T> {
         throw new InvalidOperationException("Result is not Error")
     }
 }
+
+/// Contains extensions for the Result<T, E> type
+public extension ResultExtensions2<T, E> for Result<T, E> {
+
+    /// Gets a value indicating whether the Result was Ok
+    public IsOk: bool {
+        get => self is .Ok(val message)
+    }
+
+    /// Gets a value indicating whether the Result was Error
+    public IsError: bool {
+        get => self is .Error(val message)
+    }
+
+    /// Unwrap the value if Ok, otherwise return the default value
+    public UnwrapOrDefault() -> T {
+        if self is .Ok(val value) {
+            return value
+        }
+
+        return default(T)
+    }
+
+    /// Unwrap the value if Ok, otherwise throw an exception
+    public UnwrapOrThrow() -> T {
+        var error: E = default
+        if self is .Ok(val value) {
+            return value
+        } else if self is .Error(val error2) {
+            error = error2
+        }
+
+        throw new InvalidOperationException(error.ToString())
+    }
+
+    /// Unwrap the value if Ok, otherwise return the specified value
+    public UnwrapOr(defaultValue: T) -> T {
+        if self is .Ok(val value) {
+            return value
+        }
+
+        return defaultValue
+    }
+
+    /// Unwrap the Error, or throw an exception
+    public UnwrapError() -> E {
+        if self is .Error(val message) {
+            return message
+        }
+
+        throw new InvalidOperationException("Result is not Error")
+    }
+}

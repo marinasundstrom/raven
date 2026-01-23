@@ -548,6 +548,50 @@ func Download(url: string) -> string {
 
 ##### Handling Result values with `is` patterns
 
+### Result propagation (`?`)
+
+The postfix `?` operator unwraps a `Result<T, E>` value by extracting its success payload (`T`) or short-circuiting the current function by returning the error case.
+
+`expr?` is only valid inside a function or lambda whose return type is a `Result<_, _>`. The operand expression must have type `Result<T, E>`. When the operand evaluates to `.Ok(value)`, the propagation expression yields `value`. When the operand evaluates to `.Error(error)`, the propagation expression performs an early return of `.Error(error)` from the enclosing function.
+
+The `?` operator is **not** a general control-flow expression: it does not permit `return` statements inside `match` arms. Instead, propagation introduces an implicit control-flow split that is lowered as branching when emitting code.
+
+Propagation is context-sensitive with conditional access. In postfix position:
+
+* `expr?.Member`, `expr?(...)`, and `expr?[...]` form conditional access and do not perform Result propagation.
+* `expr?` with no following trailer performs Result propagation.
+
+#### Examples
+
+##### Unwrapping a Result
+
+```raven
+func ReadValue() -> Result<int, Exception> {
+    val value = ParseInt("123")?
+    return .Ok(value)
+}
+```
+
+##### Propagating errors from chained calls
+
+```raven
+func LoadAndParse(path: string) -> Result<int, Exception> {
+    val text = ReadAllText(path)?
+    val value = ParseInt(text)?
+    return .Ok(value)
+}
+```
+
+##### Using propagation in larger expressions
+
+Propagation may appear inside larger expressions. The compiler evaluates the operand exactly once and introduces temporaries as needed.
+
+```raven
+func Describe(text: string) -> Result<string, Exception> {
+    return .Ok("Value: ${ParseInt(text)?}")
+}
+```
+
 ```raven
 import System.*
 import System.Console.*

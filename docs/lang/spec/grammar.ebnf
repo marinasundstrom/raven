@@ -425,7 +425,7 @@ PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
 PostfixTrailer           ::= ArgumentList
                            | MemberAccessTrailer
                            | ElementAccessTrailer
-                           | ConditionalAccessTrailer
+                           | QuestionTrailer
                            | ObjectInitializer ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
@@ -433,6 +433,12 @@ Argument                 ::= [Identifier ':'] Expression ;
 
 MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;
+
+(* `?` is context-sensitive in postfix position:
+   - If followed by `.`, `(`, or `[`, it forms conditional access: `?.`, `?(`, `?[`.
+   - Otherwise it is the Result-propagation postfix operator: `<expr>?`. *)
+QuestionTrailer          ::= '?' [ (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ] ;
+
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
 (* ---------- Object initializers (SwiftUI/Flutter-style) ---------- *)

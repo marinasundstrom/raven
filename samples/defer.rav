@@ -1,0 +1,22 @@
+import System.*
+import System.Console.*
+
+val x = test() match {
+    .Ok(let y) => "Foo: $y"
+    .Error(let exc) => "Error: ${exc.Message}"
+}
+
+WriteLine(x)
+
+func test() -> Result<int, Exception> {
+    val r = test2(4)?
+    WriteLine(r)
+    return .Ok(r)
+}
+
+func test2(i: int) -> Result<int, Exception> {
+    if i != 3 {
+        return .Error(Exception("Bang!"))
+    }
+    return .Ok(42)
+}
