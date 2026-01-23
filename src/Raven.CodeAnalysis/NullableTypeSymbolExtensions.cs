@@ -21,7 +21,9 @@ public static class NullableTypeSymbolExtensions
             return null;
         }
 
-        return (ITypeSymbol)typeSymbol.UnderlyingSymbol;
+        return typeSymbol is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : (ITypeSymbol)typeSymbol.UnderlyingSymbol;
     }
 
     public static ITypeSymbol UnwrapNullableOrThrow(this ITypeSymbol typeSymbol)
