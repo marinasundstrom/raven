@@ -1,5 +1,6 @@
 import System.Console.*
 import System.Collections.Generic.*
+import System.Text.Json.*
 
 val window = Window {
     Title = "Main"
@@ -13,6 +14,8 @@ val window = Window {
 }
 
 WriteLine(window.Title)
+
+WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions()))
 
 if window.Content is StackPanel stackPanel {
     for control in stackPanel.Children {
