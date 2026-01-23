@@ -108,6 +108,13 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
    - Flow checks on nullable references and `Nullable<T>` values.
    - `MakeNullable`/`StripNullable` behavior on reference types and `Nullable<T>`.
 
+## Delivery plan (phased)
+1. **Inventory & refactor helpers**: enumerate current uses of `MakeNullable`, `StripNullable`, and direct `NullableTypeSymbol` checks; replace with the decorator model and `ITypeSymbol.IsNullable`.
+2. **Metadata pipeline**: add nullable context discovery (assembly/module/member), plus caching, and plumb it into symbol construction.
+3. **Type surfaces**: implement `EffectiveNullableType` and update `GetTypeInfo` to return declared/flow/effective values.
+4. **Flow + diagnostics**: update flow analysis and diagnostics to consume `IsNullable` and emit missing-metadata guidance.
+5. **Tests & validation**: add targeted tests for nullable flow checks, metadata defaults, and `MakeNullable`/`StripNullable` behavior.
+
 ## Current state vs. proposed implementation checklist
 ### Likely existing (verify in code)
 - `NullableTypeSymbol` exists as a wrapper.
