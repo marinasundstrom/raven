@@ -9,6 +9,7 @@
 - Raven enforces null checks uniformly for nullable reference and value types; nullable locals must be proven non-null before member access.
 - Some dependencies lack `NullableContext` metadata; Raven needs a conservative default (nullable) when metadata is missing.
 - `NullableTypeSymbol` currently wraps types with special-case handling, which makes flow analysis harder to reason about and introduces duplication.
+- There are existing helpers like `MakeNullable`/`StripNullable` that influence how types are decorated or normalized today.
 
 ## Proposed API and model changes
 ### 1) Implement `GetTypeInfo`
@@ -70,6 +71,12 @@ Refactor flow analysis and diagnostics to use `ITypeSymbol.IsNullable` directly:
 - Eliminate type checks against `NullableTypeSymbol` where possible.
 - Ensure nullable-aware features (like match exhaustiveness or event null checks) depend on `IsNullable`.
 
+### 7) Align `MakeNullable`/`StripNullable` with the decorator model
+Ensure `MakeNullable` and `StripNullable` treat `NullableTypeSymbol` as a pure decorator and do not leak `Nullable<T>` to the public surface:
+- `MakeNullable` should return a type with `IsNullable = true` (using `NullableTypeSymbol` when needed), without exposing `Nullable<T>` externally.
+- `StripNullable` should remove the nullable decoration but keep the same base symbol identity (reference types) or underlying `T` for value types.
+- Both helpers should defer to `EffectiveNullableType` for internal pipelines that need to know the runtime representation.
+
 ## Diagnostics and flow analysis updates
 - Add a diagnostic that explains when nullable metadata is missing and the compiler assumed nullable.
 - Ensure flow state can upgrade types from nullable to non-null after a successful check (e.g., `if (x != null)`), but never downgrade missing-metadata types to non-null without an explicit check.
@@ -81,15 +88,38 @@ We need a reliable query path for external assemblies to determine whether nulla
 - When the context is unknown or missing, default to nullable (conservative).
 - Feed this into `EffectiveNullableType` and `GetTypeInfo` so external APIs without context flow as nullable.
 
+## Impact assessment on existing code
+The changes affect multiple layers of the compiler pipeline and public APIs:
+- **Symbol model**: `NullableTypeSymbol` becomes a strict decorator and consumers stop inspecting `Nullable<T>` directly. This impacts any code that currently branches on wrapper types.
+- **Binding & lowering**: `MakeNullable`/`StripNullable` should become the single entry points for decorating or removing nullability, with `GetPlainType` used when nullability must be ignored.
+- **Type info surface**: `GetTypeInfo` returns declared/flow/effective types, which may require updates in semantic model consumers and tests.
+- **Diagnostics & flow analysis**: use `ITypeSymbol.IsNullable` instead of concrete type checks, and introduce diagnostics for missing metadata assumptions.
+- **Interop/metadata**: external symbol readers need to understand nullable context attributes to avoid accidental non-null defaults.
+
 ## Migration plan
-1. Add `Conversion.IsNullable` and the plain-type helper.
-2. Refactor `NullableTypeSymbol` to be a decorator; introduce `EffectiveNullableType`.
-3. Implement `GetTypeInfo` using declared type, flow state, and effective-nullable handling.
-4. Update flow analysis and diagnostics to query `ITypeSymbol.IsNullable`.
-5. Add tests for:
+1. Catalog current nullability utilities (`MakeNullable`, `StripNullable`, existing `IsNullable` checks) and align them with the decorator model.
+2. Add `Conversion.IsNullable` and the plain-type helper.
+3. Refactor `NullableTypeSymbol` to be a decorator; introduce `EffectiveNullableType`.
+4. Implement `GetTypeInfo` using declared type, flow state, and effective-nullable handling.
+5. Update flow analysis and diagnostics to query `ITypeSymbol.IsNullable`.
+6. Add tests for:
    - `GetTypeInfo` in contexts with explicit nullable annotations.
    - `GetTypeInfo` with missing metadata (should be nullable).
    - Flow checks on nullable references and `Nullable<T>` values.
+   - `MakeNullable`/`StripNullable` behavior on reference types and `Nullable<T>`.
+
+## Current state vs. proposed implementation checklist
+### Likely existing (verify in code)
+- `NullableTypeSymbol` exists as a wrapper.
+- `MakeNullable`/`StripNullable` helpers exist and are used in binding/conversions.
+- Some `IsNullable`/type checks exist across binding/flow diagnostics.
+
+### Needs to be implemented or changed
+- `GetTypeInfo` to return declared/flow/effective-nullable types.
+- `Conversion.IsNullable` helper to unify conversion-time nullability checks.
+- `EffectiveNullableType` to represent internal nullable shape for interop and flow.
+- Nullable metadata reader to detect `NullableContextAttribute`/`NullableAttribute`.
+- Update all consumers to prefer `ITypeSymbol.IsNullable` and `MakeNullable`/`StripNullable` instead of inspecting `Nullable<T>`.
 
 ## Open questions
 - Should `EffectiveNullableType` be surfaced publicly, or only used internally by flow analysis and `GetTypeInfo`?
