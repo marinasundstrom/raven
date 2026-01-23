@@ -704,9 +704,7 @@ partial class BlockBinder : Binder
 
         // If the left is nullable, the result is typically the non-nullable left type
         // combined with the right type.
-        var leftNonNullable = leftType is NullableTypeSymbol nullable
-            ? nullable.UnderlyingType
-            : leftType;
+        var leftNonNullable = leftType.GetPlainType();
 
         var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { leftNonNullable, rightType });
 

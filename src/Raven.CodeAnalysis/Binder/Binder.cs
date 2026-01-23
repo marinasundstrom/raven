@@ -651,12 +651,14 @@ internal abstract class Binder
                 return false;
             }
 
-            if (argumentType is NullableTypeSymbol nullableArgument)
+            if (Conversion.IsNullable(argumentType))
             {
-                if (TryUnifyNamedType(paramNamed, nullableArgument.UnderlyingType as INamedTypeSymbol, substitutions))
+                var plainArgument = argumentType.GetPlainType();
+
+                if (TryUnifyNamedType(paramNamed, plainArgument as INamedTypeSymbol, substitutions))
                     return true;
 
-                foreach (var iface in nullableArgument.AllInterfaces)
+                foreach (var iface in plainArgument.AllInterfaces)
                 {
                     if (TryUnifyNamedType(paramNamed, iface, substitutions))
                         return true;
@@ -669,13 +671,15 @@ internal abstract class Binder
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
             return TryUnifyExtensionReceiver(paramArray.ElementType, argArray.ElementType, substitutions);
 
-        if (parameterType is NullableTypeSymbol paramNullable)
+        if (Conversion.IsNullable(parameterType))
         {
-            if (argumentType is NullableTypeSymbol argNullable)
-                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
+            var plainParameter = parameterType.GetPlainType();
+
+            if (Conversion.IsNullable(argumentType))
+                return TryUnifyExtensionReceiver(plainParameter, argumentType.GetPlainType(), substitutions);
 
             if (!argumentType.IsValueType)
-                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argumentType, substitutions);
+                return TryUnifyExtensionReceiver(plainParameter, argumentType, substitutions);
 
             return false;
         }

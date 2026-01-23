@@ -338,10 +338,7 @@ partial class BlockBinder
         type = type.UnwrapLiteralType() ?? type;
 
         // Raven nullable wrapper
-        if (type is NullableTypeSymbol nullable)
-            return nullable.UnderlyingType;
-
-        return type;
+        return type.GetPlainType();
     }
 
     // ============================

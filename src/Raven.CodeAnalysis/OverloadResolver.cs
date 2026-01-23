@@ -1109,7 +1109,7 @@ internal sealed class OverloadResolver
 
             var conversionScore = GetConversionScore(conversion);
 
-            if (parameter.Type is NullableTypeSymbol nullableParam && argType is not NullableTypeSymbol)
+            if (parameter.Type is NullableTypeSymbol nullableParam && !Conversion.IsNullable(argType))
             {
                 var liftedConversion = compilation.ClassifyConversion(argType, nullableParam.UnderlyingType);
                 if (liftedConversion.Exists)
@@ -1138,8 +1138,7 @@ internal sealed class OverloadResolver
             var lambdaAsyncResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, lambdaAsyncReturn)
                 ?? lambdaAsyncReturn;
 
-            if (delegateReturnType is NullableTypeSymbol nullable)
-                delegateReturnType = nullable.UnderlyingType;
+            delegateReturnType = delegateReturnType.GetPlainType();
 
             if (delegateReturnType.SpecialType == SpecialType.System_Void)
             {

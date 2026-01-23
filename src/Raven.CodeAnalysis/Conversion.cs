@@ -116,6 +116,11 @@ public struct Conversion
             methodSymbol: MethodSymbol);
     }
 
+    public static bool IsNullable(ITypeSymbol? typeSymbol)
+    {
+        return typeSymbol?.IsNullable ?? false;
+    }
+
     public static bool operator ==(Conversion left, Conversion right) => left.Equals(right);
     public static bool operator !=(Conversion left, Conversion right) => !left.Equals(right);
 }

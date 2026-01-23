@@ -183,8 +183,8 @@ public partial class Compilation
         }
 
         if (source.MetadataIdentityEquals(destination) &&
-            source is not NullableTypeSymbol &&
-            destination is not NullableTypeSymbol)
+            !Conversion.IsNullable(source) &&
+            !Conversion.IsNullable(destination))
         {
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
