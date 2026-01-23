@@ -44,9 +44,10 @@ Add a dedicated `Conversion.IsNullable` helper so conversions can query nullabil
 - Centralize behavior for value vs. reference types.
 
 ### 4) Simplify `NullableTypeSymbol` into a pure decorator
-Make `NullableTypeSymbol` behave as the wrapped type with `IsNullable` set to `true`:
+Make `NullableTypeSymbol` behave as the wrapped type with `IsNullable` set to `true`, without exposing `Nullable<T>` as part of the public surface:
 - Remove special cases in consumers; treat `ITypeSymbol.IsNullable` as authoritative.
-- Add `EffectiveNullableType` to represent the "nullable view" of the type.
+- Keep `Nullable<T>` as an internal implementation detail for value types.
+- Add `EffectiveNullableType` for the compiler/internal pipeline to discover the underlying representation when needed.
 - Replace use of `UnderlyingType` with a dedicated helper for "plain type" extraction.
 
 ### 5) Add a helper to obtain the "plain" type
@@ -72,6 +73,13 @@ Refactor flow analysis and diagnostics to use `ITypeSymbol.IsNullable` directly:
 ## Diagnostics and flow analysis updates
 - Add a diagnostic that explains when nullable metadata is missing and the compiler assumed nullable.
 - Ensure flow state can upgrade types from nullable to non-null after a successful check (e.g., `if (x != null)`), but never downgrade missing-metadata types to non-null without an explicit check.
+
+## External metadata detection (nullable context)
+We need a reliable query path for external assemblies to determine whether nullable annotations are enabled:
+- When reading metadata, detect `NullableContextAttribute`/`NullableAttribute` on assemblies, modules, or member scopes.
+- Cache a tri-state context (enabled/disabled/unknown) per assembly/module to avoid recomputation.
+- When the context is unknown or missing, default to nullable (conservative).
+- Feed this into `EffectiveNullableType` and `GetTypeInfo` so external APIs without context flow as nullable.
 
 ## Migration plan
 1. Add `Conversion.IsNullable` and the plain-type helper.
