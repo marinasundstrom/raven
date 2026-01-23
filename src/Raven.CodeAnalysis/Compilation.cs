@@ -1124,11 +1124,11 @@ public partial class Compilation
         if (resolved is not null)
             return resolved;
 
-        if (symbol.ContainingAssembly is PEAssemblySymbol peAssembly)
+        if (symbol.ContainingAssembly is PEAssemblySymbol peAssembly2)
         {
-            if (!string.IsNullOrEmpty(peAssembly.FullName))
+            if (!string.IsNullOrEmpty(peAssembly2.FullName))
             {
-                var qualifiedName = $"{metadataName}, {peAssembly.FullName}";
+                var qualifiedName = $"{metadataName}, {peAssembly2.FullName}";
                 var qualifiedType = Type.GetType(qualifiedName, throwOnError: false);
                 if (qualifiedType is not null)
                 {
@@ -1137,11 +1137,11 @@ public partial class Compilation
                 }
             }
 
-            if (!string.IsNullOrEmpty(peAssembly.Name))
+            if (!string.IsNullOrEmpty(peAssembly2.Name))
             {
                 try
                 {
-                    var assembly = Assembly.Load(new AssemblyName(peAssembly.Name));
+                    var assembly = System.Reflection.Assembly.Load(new AssemblyName(peAssembly2.Name));
                     RegisterRuntimeAssembly(assembly);
                     var type = assembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
                     if (type is not null)

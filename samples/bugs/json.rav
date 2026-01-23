@@ -1,3 +1,4 @@
+import System.Console.*
 import System.Text.Json.*
 
 val person = Person("Alice", 42)
