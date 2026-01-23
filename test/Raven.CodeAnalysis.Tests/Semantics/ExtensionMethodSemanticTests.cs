@@ -1398,6 +1398,31 @@ public static class NumberExtensions {
     }
 
     [Fact]
+    public void PipeOperator_WithExtensionMethodLambda_InfersParameterTypes()
+    {
+        const string source = """
+import System.*
+import System.Runtime.CompilerServices.*
+
+let values: int[] = [1, 2, 3]
+let filtered = values |> Filter(x => x > 1)
+
+public static class QueryExtensions {
+    [ExtensionAttribute]
+    public static Filter(values: int[], predicate: Func<int, bool>) -> int[] {
+        return values
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void PipeOperator_WithStaticMethod_PrependsArgument()
     {
         const string source = """

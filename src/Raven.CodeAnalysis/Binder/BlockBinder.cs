@@ -4322,14 +4322,16 @@ partial class BlockBinder : Binder
 
         if (syntax.Right is InvocationExpressionSyntax invocation)
         {
-            var boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var hasErrors);
-            if (hasErrors)
-                return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
-
             var target = BindPipelineTargetExpression(invocation.Expression);
 
             if (target is BoundErrorExpression error)
                 return error;
+
+            PreparePipelineLambdaTargets(target, invocation, left);
+
+            var boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var hasErrors);
+            if (hasErrors)
+                return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
             if (target is BoundMethodGroupExpression methodGroup)
                 return BindPipelineInvocationOnMethodGroup(methodGroup, invocation, syntax.Left, left, boundArguments);

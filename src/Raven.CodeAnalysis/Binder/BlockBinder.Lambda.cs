@@ -725,6 +725,104 @@ partial class BlockBinder
             _lambdaDelegateTargets[lambda] = builder.ToImmutable();
     }
 
+    private void PreparePipelineLambdaTargets(
+        BoundExpression target,
+        InvocationExpressionSyntax invocation,
+        BoundExpression pipelineValue)
+    {
+        var methods = GetPipelineLambdaMethodCandidates(target, pipelineValue);
+        if (methods.IsDefaultOrEmpty)
+            return;
+
+        var arguments = invocation.ArgumentList.Arguments;
+        for (int index = 0; index < arguments.Count; index++)
+        {
+            var argumentExpression = arguments[index].Expression;
+            if (argumentExpression is not LambdaExpressionSyntax)
+                continue;
+
+            var filtered = FilterMethodsForPipelineLambda(methods, index, argumentExpression);
+            RecordPipelineLambdaTargets(argumentExpression, filtered, index);
+        }
+    }
+
+    private ImmutableArray<IMethodSymbol> GetPipelineLambdaMethodCandidates(
+        BoundExpression target,
+        BoundExpression pipelineValue)
+    {
+        switch (target)
+        {
+            case BoundMethodGroupExpression methodGroup:
+                var methods = methodGroup.Methods;
+                if (!IsExtensionReceiver(pipelineValue))
+                {
+                    methods = methods
+                        .Where(static method => !method.IsExtensionMethod)
+                        .ToImmutableArray();
+                }
+
+                return methods;
+            case BoundMemberAccessExpression { Member: IMethodSymbol method }:
+                if (method.IsExtensionMethod && !IsExtensionReceiver(pipelineValue))
+                    return ImmutableArray<IMethodSymbol>.Empty;
+
+                return ImmutableArray.Create(method);
+        }
+
+        var targetType = target.Type?.UnwrapLiteralType() ?? target.Type;
+        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+        {
+            var invokeMethod = delegateType.GetDelegateInvokeMethod();
+            if (invokeMethod is not null)
+                return ImmutableArray.Create(invokeMethod);
+        }
+
+        return ImmutableArray<IMethodSymbol>.Empty;
+    }
+
+    private void RecordPipelineLambdaTargets(
+        ExpressionSyntax argumentExpression,
+        ImmutableArray<IMethodSymbol> methods,
+        int parameterIndex)
+    {
+        if (argumentExpression is not LambdaExpressionSyntax lambda)
+        {
+            if (argumentExpression is LambdaExpressionSyntax lambdaExpression)
+                _lambdaDelegateTargets.Remove(lambdaExpression);
+            return;
+        }
+
+        if (methods.IsDefaultOrEmpty)
+            return;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (_lambdaDelegateTargets.TryGetValue(lambda, out var existing) && !existing.IsDefaultOrEmpty)
+        {
+            foreach (var candidate in existing)
+            {
+                if (seen.Add(candidate))
+                    builder.Add(candidate);
+            }
+        }
+
+        foreach (var method in methods)
+        {
+            if (!TryGetPipelineLambdaParameter(method, parameterIndex, out var parameter))
+                continue;
+
+            if (parameter.Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            {
+                if (seen.Add(delegateType))
+                    builder.Add(delegateType);
+            }
+        }
+
+        if (builder.Count > 0)
+            _lambdaDelegateTargets[lambda] = builder.ToImmutable();
+    }
+
     private ITypeSymbol? TryInferLambdaParameterType(ImmutableArray<INamedTypeSymbol> candidateDelegates, int parameterIndex, out RefKind? inferredRefKind)
     {
         inferredRefKind = null;
@@ -766,6 +864,23 @@ partial class BlockBinder
         out IParameterSymbol? parameter)
     {
         var parameterIndex = GetLambdaParameterIndex(method, argumentIndex, extensionReceiverImplicit);
+
+        if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+        {
+            parameter = null;
+            return false;
+        }
+
+        parameter = method.Parameters[parameterIndex];
+        return true;
+    }
+
+    private static bool TryGetPipelineLambdaParameter(
+        IMethodSymbol method,
+        int argumentIndex,
+        out IParameterSymbol? parameter)
+    {
+        var parameterIndex = argumentIndex + 1;
 
         if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
         {
@@ -842,6 +957,48 @@ partial class BlockBinder
         foreach (var method in methods)
         {
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
+                continue;
+
+            var parameterType = parameter.Type;
+            if (parameterType is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            {
+                var invoke = delegateType.GetDelegateInvokeMethod();
+                if (invoke is null)
+                    continue;
+
+                if (invoke.Parameters.Length != parameterCount)
+                    continue;
+            }
+
+            builder.Add(method);
+        }
+
+        return builder.Count == methods.Length ? methods : builder.ToImmutable();
+    }
+
+    private ImmutableArray<IMethodSymbol> FilterMethodsForPipelineLambda(
+        ImmutableArray<IMethodSymbol> methods,
+        int parameterIndex,
+        ExpressionSyntax argumentExpression)
+    {
+        if (methods.IsDefaultOrEmpty)
+            return methods;
+
+        if (argumentExpression is not LambdaExpressionSyntax lambda)
+            return methods;
+
+        int parameterCount = lambda switch
+        {
+            SimpleLambdaExpressionSyntax => 1,
+            ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.Count,
+            _ => 0
+        };
+
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        foreach (var method in methods)
+        {
+            if (!TryGetPipelineLambdaParameter(method, parameterIndex, out var parameter))
                 continue;
 
             var parameterType = parameter.Type;
