@@ -1,0 +1,35 @@
+import System.*
+import System.Console.*
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+val res = await test()
+
+val str = res match {
+    .Ok(val str) => "Response is: $str"
+    .Error(val message) => "Error is: $message"
+}
+
+WriteLine(str)
+
+async func test() -> Task<Result<string, Exception>> {
+    //var x = try? await failingTask() // Works alone: Exception propagated. x should be ()
+    //_ = try? await failingTask(). / InvalidProgramException
+    //try? await failingTask() // Fails alone: Caught in an infinite loop, binder?
+    //val x = try? await failingTask2() // Works alone: Exception propagated. But binding of x?
+    //try? await failingTask2(). //  Fails alone: Caught in an infinite loop, binder?
+
+    return .Ok("Test")
+    //return .Ok(x)
+}
+
+async func failingTask() -> Task {
+    await Task.Delay(200)
+    throw new Exception("Boom!")
+}
+
+async func failingTask2() -> Task<Result<string, Exception>> {
+    await Task.Delay(200)
+    //throw new Exception("Boom!")
+    return .Ok("Foo")
+}
