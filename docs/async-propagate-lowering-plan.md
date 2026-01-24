@@ -110,3 +110,15 @@ Important follow-up fix discovered during validation:
   - remove the pre-async `PropagateLowerer.Rewrite` calls in `CodeGenerator`, letting the main lowering phase handle propagate after async rewriting
   - ensure propagate’s `TryGet{Case}` invocation respects extension receivers
   - harden extension-method emission to tolerate missing receiver arguments by falling back to `ExtensionReceiver`/`Receiver`
+
+Additional validation findings (sample100):
+
+- Even after ensuring propagate error returns call `SetResult`, `samples/sample100.rav` still produced `InvalidProgramException` at runtime.
+- Root cause identified during IL inspection:
+  - propagate lowering was synthesizing `out` locals with byref types (`Result<T, E>.Ok&`), which are not valid in async state machines.
+- Resolution implemented here:
+  - unwrap byref `out` parameter types to their element type when creating propagate temps
+  - add async-state-machine-aware return emission in `StatementGenerator` so propagate early-returns in `MoveNext` always set `_state = -2` and call the builder’s `SetResult`
+- Current status:
+  - async propagate without `using` (`samples/async-propagate-error-path.rav`) runs successfully
+  - `samples/sample100.rav` still throws `InvalidProgramException`, indicating remaining IL structure issues around `using` + propagate that need further investigation
