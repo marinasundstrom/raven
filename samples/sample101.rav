@@ -3,33 +3,63 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-val res = await test()
+// Fails
+//val res = await test()
+//WriteLine(res)
 
-val str = res match {
-    .Ok(val str) => "Response is: $str"
-    .Error(val message) => "Error is: $message"
-}
+// Fails
+//val res2 = await test2()
+//WriteLine(res2)
 
-WriteLine(str)
+//val res3 = await test3()
+//WriteLine(res3)
 
+val res4 = await test4()
+WriteLine(res4)
+
+//val res5 = await test5()
+//WriteLine(res5)
+
+/*
 async func test() -> Task<Result<string, Exception>> {
-    //var x = try? await failingTask() // Works alone: Exception propagated. x should be ()
-    //_ = try? await failingTask(). / InvalidProgramException
-    //try? await failingTask() // Fails alone: Caught in an infinite loop, binder?
-    //val x = try? await failingTask2() // Works alone: Exception propagated. But binding of x?
-    //try? await failingTask2(). //  Fails alone: Caught in an infinite loop, binder?
-
+    val x = try? await action()
+    // 'x' should be unit
     return .Ok("Test")
-    //return .Ok(x)
 }
 
-async func failingTask() -> Task {
+async func test2() -> Task<Result<string, Exception>> {
+    _ = try? await action() // unit discarded
+    return .Ok("Test")
+}
+
+async func test3() -> Task<Result<string, Exception>> {
+    try? await action() // unit
+    return .Ok("Test")
+}*/
+
+async func test4() -> Task<Result<string, Exception>> {
+    val x = try? await action2()
+    // 'x' should be string
+    return .Ok(x)
+}
+
+/*
+async func test5() -> Task<Result<string, Exception>> {
+    // Nothing to return (unit), but an exception might be propagated
+    try? await action2()
+    return .Ok("OK")
+}
+*/
+
+async func action() -> Task {
     await Task.Delay(200)
+    // Comment/Uncomment to test handling of exceptions
     throw new Exception("Boom!")
 }
 
-async func failingTask2() -> Task<Result<string, Exception>> {
+async func action2() -> Task<Result<string, Exception>> {
     await Task.Delay(200)
-    //throw new Exception("Boom!")
+    // Comment/Uncomment to test handling of exceptions
+    throw new Exception("Boom!")
     return .Ok("Foo")
 }
