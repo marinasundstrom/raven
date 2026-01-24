@@ -484,7 +484,7 @@ PrimaryExpression        ::= Literal
 
 DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
 
-TryExpression            ::= 'try' Expression ;
+TryExpression            ::= 'try' ['?'] Expression ;
 
 Block                    ::= '{' {Statement} '}' ;
 

@@ -1,0 +1,11 @@
+import System.*
+import System.Console.*
+
+val a = handle("foo");
+Console.WriteLine(a)
+
+func handle(text: string) -> Result<int, Exception> {
+    val x = try? int.Parse(text)
+    WriteLine(x)
+    return .Ok(x)
+}

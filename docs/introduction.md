@@ -437,6 +437,17 @@ A `try expr` evaluates `expr` and returns a `Result<T, Exception>`:
 - `.Ok(value)` when the expression succeeds
 - `.Error(exception)` when it throws
 
+When you want to propagate failures immediately, use `try?`. It combines `try` with the propagation operator and is equivalent to `(try expr)?`.
+
+```raven
+func ParseInt(text: string) -> Result<int, string> {
+    let value = try? int.Parse(text)
+    return .Ok(value)
+}
+```
+
+> ℹ️ **Note:** `try?` does not allow a trailing `match`. Use `try expr` if you need to pattern-match on the result.
+
 ### Capturing exceptions with `try`
 
 ```raven

@@ -1624,7 +1624,14 @@ partial class BlockBinder : Binder
         if (okConstructor is null || errorConstructor is null)
             return ErrorExpression();
 
-        return new BoundTryExpression(expression, exceptionType, resultType, okConstructor, errorConstructor);
+        var boundTry = new BoundTryExpression(expression, exceptionType, resultType, okConstructor, errorConstructor);
+
+        if (tryExpression.QuestionToken.Kind != SyntaxKind.None)
+        {
+            return BindPropagateExpressionCore(boundTry, tryExpression.QuestionToken, tryExpression);
+        }
+
+        return boundTry;
     }
 
     private BoundExpression BindPropagateExpression(PropagateExpressionSyntax propagateExpression)
@@ -1632,6 +1639,14 @@ partial class BlockBinder : Binder
         // Bind the operand in a "pure" expression context: explicit `return` is not allowed here.
         var operand = BindExpression(propagateExpression.Expression, allowReturn: false);
 
+        return BindPropagateExpressionCore(operand, propagateExpression.QuestionToken, propagateExpression);
+    }
+
+    private BoundExpression BindPropagateExpressionCore(
+        BoundExpression operand,
+        SyntaxToken questionToken,
+        SyntaxNode callSyntax)
+    {
         if (operand is BoundErrorExpression)
             return operand;
 
@@ -1641,7 +1656,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                 "?",
                 operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                propagateExpression.QuestionToken.GetLocation());
+                questionToken.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
@@ -1671,7 +1686,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                 "?",
                 operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                propagateExpression.QuestionToken.GetLocation());
+                questionToken.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
@@ -1699,7 +1714,7 @@ partial class BlockBinder : Binder
                 _diagnostics.ReportCannotConvertFromTypeToType(
                     operandInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    propagateExpression.QuestionToken.GetLocation());
+                    questionToken.GetLocation());
             }
         }
 
@@ -1731,7 +1746,7 @@ partial class BlockBinder : Binder
                     Compilation,
                     receiver: receiverForLookup,
                     canBindLambda: EnsureLambdaCompatible,
-                    callSyntax: propagateExpression);
+                    callSyntax: callSyntax);
 
                 if (resolution.Success)
                     unwrapErrorMethod = resolution.Method;

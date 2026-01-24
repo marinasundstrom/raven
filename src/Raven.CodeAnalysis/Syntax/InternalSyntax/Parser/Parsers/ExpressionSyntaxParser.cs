@@ -547,8 +547,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
     private TryExpressionSyntax ParseTryExpression()
     {
         var tryKeyword = ReadToken();
+        var questionToken = ConsumeToken(SyntaxKind.QuestionToken, out var consumedQuestionToken)
+            ? consumedQuestionToken
+            : Token(SyntaxKind.None);
         var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
-        return TryExpression(tryKeyword, expression);
+        return TryExpression(tryKeyword, questionToken, expression);
     }
 
     private bool TryParseLambdaExpression(out LambdaExpressionSyntax? lambda)
@@ -1484,15 +1487,24 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         while (PeekToken().IsKind(SyntaxKind.MatchKeyword))
         {
-            expression = ParseMatchExpressionSuffix(expression);
+            var disallowTryPropagationMatch = expression is TryExpressionSyntax tryExpression &&
+                                             tryExpression.QuestionToken.Kind != SyntaxKind.None;
+            expression = ParseMatchExpressionSuffix(expression, disallowTryPropagationMatch);
         }
 
         return expression;
     }
 
-    private MatchExpressionSyntax ParseMatchExpressionSuffix(ExpressionSyntax scrutinee)
+    private MatchExpressionSyntax ParseMatchExpressionSuffix(ExpressionSyntax scrutinee, bool disallowTryPropagationMatch)
     {
         var matchKeyword = ReadToken();
+
+        if (disallowTryPropagationMatch)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.TryPropagationCannotUseMatch,
+                GetSpanOfLastToken()));
+        }
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
