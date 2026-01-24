@@ -9,24 +9,41 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
-    public override BoundExpression? VisitExpression(BoundExpression? node)
+    private bool TryRewritePropagateLocalDeclaration(BoundLocalDeclarationStatement node, out List<BoundStatement> statements)
     {
-        if (node is null)
-            return null;
-
-        if (node is BoundPropagateExpression propagate)
-            return RewritePropagateToBlockExpression(propagate);
-
-        return base.VisitExpression(node);
-    }
-
-    public override BoundNode? VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
-    {
+        statements = new List<BoundStatement>();
         var changed = false;
         var declarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>();
 
         foreach (var declarator in node.Declarators)
         {
+            if (declarator.Initializer is BoundPropagateExpression propagate)
+            {
+                var lowering = RewritePropagateExpression(propagate);
+                if (lowering is null)
+                {
+                    var visitedInitializer = VisitExpression(propagate) ?? propagate;
+                    declarators.Add(ReferenceEquals(visitedInitializer, propagate)
+                        ? declarator
+                        : new BoundVariableDeclarator(declarator.Local, visitedInitializer));
+                    changed |= !ReferenceEquals(visitedInitializer, propagate);
+                    continue;
+                }
+
+                if (declarators.Count > 0)
+                {
+                    statements.Add(new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing));
+                    declarators.Clear();
+                }
+
+                statements.AddRange(lowering.Statements);
+                statements.Add(new BoundLocalDeclarationStatement(
+                    ImmutableArray.Create(new BoundVariableDeclarator(declarator.Local, lowering.SuccessExpression)),
+                    node.IsUsing));
+                changed = true;
+                continue;
+            }
+
             var initializer = VisitExpression(declarator.Initializer) ?? declarator.Initializer;
             if (!ReferenceEquals(initializer, declarator.Initializer))
                 changed = true;
@@ -37,18 +54,35 @@ internal sealed partial class Lowerer
         }
 
         if (!changed)
-            return node;
+            return false;
 
-        return new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing);
+        if (declarators.Count > 0)
+            statements.Add(new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing));
+
+        return true;
     }
 
-    public override BoundNode? VisitExpressionStatement(BoundExpressionStatement node)
+    private bool TryRewritePropagateExpressionStatement(BoundExpressionStatement node, out List<BoundStatement> statements)
     {
-        var expression = VisitExpression(node.Expression) ?? node.Expression;
-        if (ReferenceEquals(expression, node.Expression))
-            return node;
+        statements = new List<BoundStatement>();
 
-        return new BoundExpressionStatement(expression);
+        if (node.Expression is not BoundPropagateExpression propagate)
+        {
+            var expression = VisitExpression(node.Expression) ?? node.Expression;
+            if (ReferenceEquals(expression, node.Expression))
+                return false;
+
+            statements.Add(new BoundExpressionStatement(expression));
+            return true;
+        }
+
+        var lowering = RewritePropagateExpression(propagate);
+        if (lowering is null)
+            return false;
+
+        statements.AddRange(lowering.Statements);
+        statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
+        return true;
     }
 
     private PropagateLowering? RewritePropagateExpression(BoundPropagateExpression propagate)
@@ -107,16 +141,6 @@ internal sealed partial class Lowerer
             return null;
 
         return new PropagateLowering(statements, successExpression);
-    }
-
-    private BoundExpression RewritePropagateToBlockExpression(BoundPropagateExpression propagate)
-    {
-        var lowered = RewritePropagateExpression(propagate);
-        if (lowered is null)
-            return propagate;
-
-        lowered.Statements.Add(new BoundExpressionStatement(lowered.SuccessExpression));
-        return new BoundBlockExpression(lowered.Statements, GetCompilation().UnitTypeSymbol);
     }
 
     private BoundExpression? CreatePropagateErrorExpression(
