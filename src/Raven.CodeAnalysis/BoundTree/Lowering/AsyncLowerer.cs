@@ -1670,7 +1670,7 @@ internal static class AsyncLowerer
                     new BoundExpressionStatement(new BoundLocalAccess(resultLocal))
                 };
 
-                return new BoundBlockExpression(blockStatements, unitType);
+                return new BoundBlockExpression(blockStatements, resultType);
             }
 
             if (!ReferenceEquals(expression, node.Expression))
