@@ -13,7 +13,7 @@ Goal: fix propagation (`try?`) inside async methods so both success and error pa
 - [x] 7. Implement lowering rewrite in a lowering pass (not codegen).
 - [x] 8. Ensure `using` + disposal works with early-return on propagate failure.
 - [x] 9. Add regression tests (semantic + codegen/runtime).
-- [ ] 10. Validate with repro samples and targeted test runs.
+- [x] 10. Validate with repro samples and targeted test runs.
 
 ## Notes
 
@@ -80,7 +80,7 @@ What changed:
 - Propagate rewriting now happens at statement level during lowering so it runs *before* using-declaration rewrite introduces protected regions:
   - `Lowerer.VisitBlockStatement` expands propagate-bearing local declarations and expression statements inline before `RewriteUsingDeclarations`. (`src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Blocks.cs`)
   - `Lowerer.Propagate` now synthesizes temp locals, a `TryGet{Case}` invocation, and an explicit `BoundReturnStatement` on the failure path, then re-emits the original statement with the success value. (`src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Propagate.cs`)
-- The pre-async propagate pass mirrors the same statement-level rewrite so async rewriting sees structured returns rather than direct `ret`-like behavior. (`src/Raven.CodeAnalysis/BoundTree/Lowering/PropagateLowerer.cs`)
+- The main lowering pass now owns propagate expansion; the earlier pre-async propagate rewrite was removed from `CodeGenerator` after it proved unsafe across awaits in async state machines. (`src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs`)
 
 Why this addresses disposal:
 
@@ -90,3 +90,23 @@ Why this addresses disposal:
 Tests added:
 
 - `AsyncPropagate_UsingDeclaration_DisposesOnSuccessAndFailure` compiles a small program with `using let` and `try? await`, then asserts the disposable is disposed exactly once on both the `.Error` and `.Ok` paths. (`test/Raven.CodeAnalysis.Tests/CodeGen/AsyncPropagateCodeGenTests.cs`)
+
+## Step 10 validation notes
+
+Validation performed:
+
+- Rebuilt compiler dependencies and generators via `scripts/codex-build.sh` to ensure the lowering/codegen pipeline was consistent.
+- Built the compiler and core analysis projects directly:
+  - `dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj --property WarningLevel=0`
+  - `dotnet build src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0`
+- Exercised the repro samples through `ravc`:
+  - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async-propagate-error-path.rav`
+  - `dotnet run --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/async-propagate-using-success.rav`
+
+Important follow-up fix discovered during validation:
+
+- Running propagate lowering *before* async rewriting introduced synthesized `out` locals that could be hoisted across awaits, which broke emission in async state-machine methods.
+- Resolution:
+  - remove the pre-async `PropagateLowerer.Rewrite` calls in `CodeGenerator`, letting the main lowering phase handle propagate after async rewriting
+  - ensure propagate’s `TryGet{Case}` invocation respects extension receivers
+  - harden extension-method emission to tolerate missing receiver arguments by falling back to `ExtensionReceiver`/`Receiver`

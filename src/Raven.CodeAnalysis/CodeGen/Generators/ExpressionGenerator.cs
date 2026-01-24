@@ -3021,7 +3021,14 @@ internal partial class ExpressionGenerator : Generator
 
             // If the receiver isn't already loaded, emit it from args[0].
             if (!receiverAlreadyLoaded)
-                EmitArgument(args2[0], parameters[0]); // or EmitExpression(args[0]) depending on how you want conversions handled
+            {
+                var receiverArgument = args2.Length > 0
+                    ? args2[0]
+                    : invocationExpression.ExtensionReceiver ?? invocationExpression.Receiver
+                        ?? new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+
+                EmitArgument(receiverArgument, parameters[0]);
+            }
 
             for (int i = 1; i < args2.Length; i++)
                 EmitArgument(args2[i], parameters[i]);

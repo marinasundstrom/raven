@@ -115,11 +115,14 @@ internal sealed partial class Lowerer
 
         var operandAccess = new BoundLocalAccess(operandLocal);
         var okAccess = new BoundLocalAccess(okLocal);
+        var receiver = tryGetMethod.IsExtensionMethod ? null : operandAccess;
+        var extensionReceiver = tryGetMethod.IsExtensionMethod ? operandAccess : null;
 
         var tryGetInvocation = new BoundInvocationExpression(
             tryGetMethod,
             new BoundExpression[] { new BoundAddressOfExpression(okAccess) },
-            receiver: operandAccess,
+            receiver,
+            extensionReceiver,
             requiresReceiverAddress: operandType.IsValueType);
 
         var errorExpression = CreatePropagateErrorExpression(propagate, operandAccess, compilation);

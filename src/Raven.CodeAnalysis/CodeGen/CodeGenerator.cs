@@ -1275,7 +1275,6 @@ internal class CodeGenerator
                 continue;
 
             var lambdaBody = ConvertToBlockStatement(sourceLambda, boundLambda.Body);
-            lambdaBody = PropagateLowerer.Rewrite(sourceLambda, lambdaBody);
             if (!AsyncLowerer.ShouldRewrite(sourceLambda, lambdaBody))
                 continue;
 
@@ -1396,7 +1395,6 @@ internal class CodeGenerator
         if (boundBody is null)
             return;
 
-        boundBody = PropagateLowerer.Rewrite(methodSymbol, boundBody);
         RewriteAsyncLambdas(boundBody);
 
         if (!AsyncLowerer.ShouldRewrite(methodSymbol, boundBody))
@@ -1478,7 +1476,6 @@ internal class CodeGenerator
                 continue;
 
             var block = ConvertLambdaToBlockStatement(sourceLambda, lambda.Body);
-            block = PropagateLowerer.Rewrite(sourceLambda, block);
 
             if (!AsyncLowerer.ShouldRewrite(sourceLambda, block))
                 continue;
