@@ -39,8 +39,26 @@ internal static class PropagateLowerer
 
             foreach (var statement in node.Statements)
             {
+                if (statement is BoundLocalDeclarationStatement localDeclaration
+                    && TryRewriteLocalDeclaration(localDeclaration, out var rewrittenLocalStatements))
+                {
+                    changed = true;
+                    statements.AddRange(rewrittenLocalStatements);
+                    continue;
+                }
+
+                if (statement is BoundExpressionStatement expressionStatement
+                    && TryRewriteExpressionStatement(expressionStatement, out var rewrittenExpressionStatements))
+                {
+                    changed = true;
+                    statements.AddRange(rewrittenExpressionStatements);
+                    continue;
+                }
+
                 var visited = (BoundStatement)VisitStatement(statement);
-                changed |= !ReferenceEquals(visited, statement);
+                if (!ReferenceEquals(visited, statement))
+                    changed = true;
+
                 statements.Add(visited);
             }
 
@@ -50,33 +68,80 @@ internal static class PropagateLowerer
             return new BoundBlockStatement(statements, node.LocalsToDispose);
         }
 
-        public override BoundNode? VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
+        private bool TryRewriteLocalDeclaration(BoundLocalDeclarationStatement node, out List<BoundStatement> statements)
         {
+            statements = new List<BoundStatement>();
             var changed = false;
             var declarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>();
 
             foreach (var declarator in node.Declarators)
             {
+                if (declarator.Initializer is BoundPropagateExpression propagate)
+                {
+                    var lowering = LowerPropagate(propagate);
+                    if (lowering is null)
+                    {
+                        var visitedInitializer = VisitExpression(propagate) ?? propagate;
+                        declarators.Add(ReferenceEquals(visitedInitializer, propagate)
+                            ? declarator
+                            : new BoundVariableDeclarator(declarator.Local, visitedInitializer));
+                        changed |= !ReferenceEquals(visitedInitializer, propagate);
+                        continue;
+                    }
+
+                    if (declarators.Count > 0)
+                    {
+                        statements.Add(new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing));
+                        declarators.Clear();
+                    }
+
+                    statements.AddRange(lowering.Statements);
+                    statements.Add(new BoundLocalDeclarationStatement(
+                        ImmutableArray.Create(new BoundVariableDeclarator(declarator.Local, lowering.SuccessExpression)),
+                        node.IsUsing));
+                    changed = true;
+                    continue;
+                }
+
                 var initializer = VisitExpression(declarator.Initializer) ?? declarator.Initializer;
-                changed |= !ReferenceEquals(initializer, declarator.Initializer);
+                if (!ReferenceEquals(initializer, declarator.Initializer))
+                    changed = true;
+
                 declarators.Add(ReferenceEquals(initializer, declarator.Initializer)
                     ? declarator
                     : new BoundVariableDeclarator(declarator.Local, initializer));
             }
 
             if (!changed)
-                return node;
+                return false;
 
-            return new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing);
+            if (declarators.Count > 0)
+                statements.Add(new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing));
+
+            return true;
         }
 
-        public override BoundNode? VisitExpressionStatement(BoundExpressionStatement node)
+        private bool TryRewriteExpressionStatement(BoundExpressionStatement node, out List<BoundStatement> statements)
         {
-            var expression = VisitExpression(node.Expression) ?? node.Expression;
-            if (ReferenceEquals(expression, node.Expression))
-                return node;
+            statements = new List<BoundStatement>();
 
-            return new BoundExpressionStatement(expression);
+            if (node.Expression is not BoundPropagateExpression propagate)
+            {
+                var expression = VisitExpression(node.Expression) ?? node.Expression;
+                if (ReferenceEquals(expression, node.Expression))
+                    return false;
+
+                statements.Add(new BoundExpressionStatement(expression));
+                return true;
+            }
+
+            var lowering = LowerPropagate(propagate);
+            if (lowering is null)
+                return false;
+
+            statements.AddRange(lowering.Statements);
+            statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
+            return true;
         }
 
         public override BoundExpression? VisitExpression(BoundExpression? node)
