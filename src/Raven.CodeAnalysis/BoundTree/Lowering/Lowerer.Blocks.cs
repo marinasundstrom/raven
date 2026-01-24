@@ -30,6 +30,13 @@ internal sealed partial class Lowerer
                 continue;
             }
 
+            if (statement is BoundAssignmentStatement assignmentStatement
+                && TryRewritePropagateAssignmentStatement(assignmentStatement, out var rewrittenAssignmentStatements))
+            {
+                statements.AddRange(rewrittenAssignmentStatements);
+                continue;
+            }
+
             statements.Add((BoundStatement)VisitStatement(statement));
         }
 

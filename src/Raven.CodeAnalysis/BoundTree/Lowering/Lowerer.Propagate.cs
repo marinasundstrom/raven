@@ -81,9 +81,87 @@ internal sealed partial class Lowerer
             return false;
 
         statements.AddRange(lowering.Statements);
-        statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
         return true;
     }
+
+    private bool TryRewritePropagateAssignmentStatement(BoundAssignmentStatement node, out List<BoundStatement> statements)
+    {
+        statements = new List<BoundStatement>();
+
+        if (node.Expression.Right is not BoundPropagateExpression propagate)
+        {
+            var expression = VisitAssignmentExpression(node.Expression) as BoundAssignmentExpression ?? node.Expression;
+            if (ReferenceEquals(expression, node.Expression))
+                return false;
+
+            statements.Add(new BoundAssignmentStatement(expression));
+            return true;
+        }
+
+        var lowering = RewritePropagateExpression(propagate);
+        if (lowering is null)
+            return false;
+
+        statements.AddRange(lowering.Statements);
+
+        var rewrittenAssignment = UpdateAssignmentRight(node.Expression, lowering.SuccessExpression);
+        statements.Add(new BoundAssignmentStatement(rewrittenAssignment));
+        return true;
+    }
+
+    private BoundAssignmentExpression UpdateAssignmentRight(BoundAssignmentExpression assignment, BoundExpression right)
+    {
+        return assignment switch
+        {
+            BoundLocalAssignmentExpression localAssignment => new BoundLocalAssignmentExpression(
+                localAssignment.Local,
+                right,
+                localAssignment.UnitType),
+
+            BoundPropertyAssignmentExpression propertyAssignment => new BoundPropertyAssignmentExpression(
+                VisitExpression(propertyAssignment.Receiver) ?? propertyAssignment.Receiver,
+                propertyAssignment.Property,
+                right,
+                propertyAssignment.UnitType),
+
+            BoundFieldAssignmentExpression fieldAssignment => new BoundFieldAssignmentExpression(
+                VisitExpression(fieldAssignment.Receiver) ?? fieldAssignment.Receiver,
+                fieldAssignment.Field,
+                right,
+                fieldAssignment.UnitType,
+                fieldAssignment.RequiresReceiverAddress),
+
+            BoundArrayAssignmentExpression arrayAssignment => new BoundArrayAssignmentExpression(
+                (BoundArrayAccessExpression)(VisitExpression(arrayAssignment.Left) ?? arrayAssignment.Left),
+                right,
+                arrayAssignment.UnitType),
+
+            BoundParameterAssignmentExpression parameterAssignment => new BoundParameterAssignmentExpression(
+                parameterAssignment.Parameter,
+                right,
+                parameterAssignment.UnitType),
+
+            BoundIndexerAssignmentExpression indexerAssignment => new BoundIndexerAssignmentExpression(
+                (BoundIndexerAccessExpression)(VisitExpression(indexerAssignment.Left) ?? indexerAssignment.Left),
+                right,
+                indexerAssignment.UnitType),
+
+            BoundMemberAssignmentExpression memberAssignment => new BoundMemberAssignmentExpression(
+                memberAssignment.Member,
+                VisitExpression(memberAssignment.Receiver) ?? memberAssignment.Receiver,
+                right,
+                memberAssignment.UnitType),
+
+            BoundPatternAssignmentExpression patternAssignment => new BoundPatternAssignmentExpression(
+                patternAssignment.Type,
+                (BoundPattern)(VisitPattern(patternAssignment.Pattern) ?? patternAssignment.Pattern),
+                right,
+                patternAssignment.UnitType),
+
+            _ => assignment
+        };
+    }
+
 
     private PropagateLowering? RewritePropagateExpression(BoundPropagateExpression propagate)
     {

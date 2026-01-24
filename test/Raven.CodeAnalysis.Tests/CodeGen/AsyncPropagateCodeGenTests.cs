@@ -99,6 +99,58 @@ class C {
         Assert.Equal(1, (int)disposedCount.GetValue(null)!);
     }
 
+    [Fact]
+    public async Task AsyncPropagate_DiscardAssignment_PropagatesError()
+    {
+        var code = """
+import System.*
+import System.Threading.Tasks.*
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class C {
+    private static Fail() -> Result<int, string> {
+        return .Error("boom")
+    }
+
+    public async Run() -> Task<Result<int, string>> {
+        _ = try? await Task.FromResult(Fail())
+        return .Ok(42)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references =
+        [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var containerType = assembly.GetType("C", throwOnError: true)!;
+        var instance = Activator.CreateInstance(containerType)!;
+        var run = containerType.GetMethod("Run", BindingFlags.Public | BindingFlags.Instance)!;
+
+        var result = await InvokeTaskWithResultAsync(run, instance);
+        Assert.Contains("Error", result?.ToString(), StringComparison.Ordinal);
+    }
+
     private static async Task<object?> InvokeTaskWithResultAsync(MethodInfo method, object instance)
     {
         var task = (Task)method.Invoke(instance, null)!;

@@ -122,3 +122,49 @@ Additional validation findings (sample100):
 - Current status:
   - async propagate without `using` (`samples/async-propagate-error-path.rav`) runs successfully
   - `samples/sample100.rav` still throws `InvalidProgramException`, indicating remaining IL structure issues around `using` + propagate that need further investigation
+
+
+## Sample101 try? combinations (async propagate behavior)
+
+We evaluated the `try? await` combinations called out in `samples/sample101.rav` by running isolated variants under a timeout to avoid compiler hangs.
+
+Observed behaviors:
+
+1. `var x = try? await failingTask()` (where `failingTask` returns `Task`):
+   - Compiles and runs.
+   - When the task throws, propagation produces the enclosing `.Error(Exception)` as expected.
+   - The local `x` is effectively unit/`()`, which aligns with a `Task` operand having no payload.
+2. `_ = try? await failingTask()`:
+   - Now compiles and runs, and the error path propagates the enclosing `.Error(Exception)` instead of throwing `InvalidProgramException`.
+   - Root cause: `_ = try? ...` binds as an assignment statement, but propagate rewriting previously only handled local declarations and expression statements.
+   - Fix: add propagate rewriting for `BoundAssignmentStatement` when the RHS is a propagate expression.
+3. `try? await failingTask()` as a standalone expression statement:
+   - The compiler hangs during `dotnet run` even when IL emission is suppressed (`-d pretty`).
+   - This suggests an infinite loop or non-terminating rewrite/binding path for propagate expression statements.
+4. `val x = try? await failingTask2()` followed by `return .Ok(x)` (where `failingTask2` returns `Task<Result<string, Exception>>`):
+   - Binding fails with `RAV1501: No overload for constructor for type 'Ok' takes 1 arguments`.
+   - This points to the propagate success result being typed as unit (or otherwise losing the `string` payload) in this shape.
+5. `try? await failingTask2()` as a standalone expression statement:
+   - The compiler again hangs under timeout.
+
+Implications for propagation-in-try-expression work:
+
+- We must treat propagate-bearing expression statements (including discards) as first-class lowering targets, not just local declarations.
+- The discard form demonstrates that "compile succeeds" is not a sufficient validation signal; we need runtime coverage that exercises the error path in async state machines.
+- The `Task<Result<...>>` case indicates propagate typing/extraction may still be regressing to unit in some async contexts, which will directly affect `try`-expression propagation semantics.
+
+## Plan updates based on sample101
+
+Additional follow-up items to fold into the propagation plan:
+
+- Add targeted lowering tests for propagate in expression statements:
+  - bare expression statements (`try? await ...`)
+  - discard assignment statements (`_ = try? await ...`)
+- Add an async runtime regression test that:
+  - uses `_ = try? await failingTask()`
+  - asserts the enclosing task completes with `.Error(Exception)` rather than throwing `InvalidProgramException`
+- ✅ Added async runtime regression coverage for `_ = try? await ...` in `AsyncPropagate_DiscardAssignment_PropagatesError`.
+- Revisit propagate typing for `Task<Result<T, E>>` in async contexts:
+  - confirm the success-value extraction type is `T`
+  - ensure the rewritten success expression can flow into `.Ok(x)` without constructor resolution failures
+- Guard against hangs by instrumenting/inspecting the lowering pipeline for propagate expression statements before attempting `try`-expression propagation.
