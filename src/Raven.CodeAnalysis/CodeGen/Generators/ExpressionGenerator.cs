@@ -871,7 +871,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Newobj, errorCtorInfo);
 
             EmitPropagateErrorCaseConversion(enclosingResultClrType, errorCtorInfo.DeclaringType);
-            ILGenerator.Emit(OpCodes.Ret);
+            EmitPropagateReturn(enclosingResultClrType);
             return;
         }
 
@@ -941,7 +941,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
 
         EmitPropagateErrorCaseConversion(enclosingResultClrType, ctorInfo.DeclaringType);
-        ILGenerator.Emit(OpCodes.Ret);
+        EmitPropagateReturn(enclosingResultClrType);
     }
 
     private void EmitPropagateErrorCaseConversion(Type enclosingResultClrType, Type? errorCaseClrType)
@@ -967,6 +967,78 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Call, implicitFromError);
         }
+    }
+
+    private void EmitPropagateReturn(Type resultClrType)
+    {
+        if (IsAsyncStateMachineMoveNext(out var stateField, out var builderField, out var setResultMethod))
+        {
+            var resultLocal = ILGenerator.DeclareLocal(resultClrType);
+            ILGenerator.Emit(OpCodes.Stloc, resultLocal);
+
+            var stateFieldInfo = stateField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldc_I4, -2);
+            ILGenerator.Emit(OpCodes.Stfld, stateFieldInfo);
+
+            var builderFieldInfo = builderField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldflda, builderFieldInfo);
+            ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(setResultMethod));
+
+            ILGenerator.Emit(OpCodes.Br, MethodBodyGenerator.GetOrCreateReturnLabel());
+            return;
+        }
+
+        if (TryGetExceptionExitLabel(out var exitLabel))
+        {
+            if (MethodBodyGenerator.TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
+            {
+                ILGenerator.Emit(OpCodes.Stloc, returnValueLocal);
+            }
+            else
+            {
+                var spillLocal = ILGenerator.DeclareLocal(resultClrType);
+                ILGenerator.Emit(OpCodes.Stloc, spillLocal);
+            }
+
+            ILGenerator.Emit(OpCodes.Leave, exitLabel);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private bool IsAsyncStateMachineMoveNext(
+        out IFieldSymbol stateField,
+        out IFieldSymbol builderField,
+        out IMethodSymbol setResultMethod)
+    {
+        stateField = null!;
+        builderField = null!;
+        setResultMethod = null!;
+
+        if (MethodSymbol.Name != "MoveNext" ||
+            MethodSymbol.ContainingType is not INamedTypeSymbol containingType)
+        {
+            return false;
+        }
+
+        var state = containingType.GetMembers("_state").OfType<IFieldSymbol>().FirstOrDefault();
+        var builder = containingType.GetMembers("_builder").OfType<IFieldSymbol>().FirstOrDefault();
+        var setResult = builder?.Type
+            .GetMembers("SetResult")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Parameters.Length == 1);
+
+        if (state is null || builder is null || setResult is null)
+            return false;
+
+        stateField = state;
+        builderField = builder;
+        setResultMethod = setResult;
+        return true;
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
@@ -2949,7 +3021,14 @@ internal partial class ExpressionGenerator : Generator
 
             // If the receiver isn't already loaded, emit it from args[0].
             if (!receiverAlreadyLoaded)
-                EmitArgument(args2[0], parameters[0]); // or EmitExpression(args[0]) depending on how you want conversions handled
+            {
+                var receiverArgument = args2.Length > 0
+                    ? args2[0]
+                    : invocationExpression.ExtensionReceiver ?? invocationExpression.Receiver
+                        ?? new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+
+                EmitArgument(receiverArgument, parameters[0]);
+            }
 
             for (int i = 1; i < args2.Length; i++)
                 EmitArgument(args2[i], parameters[i]);

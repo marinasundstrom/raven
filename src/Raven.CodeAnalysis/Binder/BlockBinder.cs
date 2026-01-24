@@ -1662,22 +1662,31 @@ partial class BlockBinder : Binder
 
         // Determine the enclosing return type.
         ITypeSymbol? enclosingReturnType = null;
+        var enclosingIsAsync = false;
         for (Binder? current = this; current is not null; current = current.ParentBinder)
         {
             if (current.ContainingSymbol is IMethodSymbol method)
             {
                 enclosingReturnType = method.ReturnType;
+                enclosingIsAsync = method.IsAsync;
                 break;
             }
 
             if (current.ContainingSymbol is ILambdaSymbol lambda)
             {
                 enclosingReturnType = lambda.ReturnType;
+                enclosingIsAsync = lambda.IsAsync;
                 break;
             }
         }
 
         enclosingReturnType = enclosingReturnType is not null ? UnwrapAlias(enclosingReturnType) : null;
+
+        if (enclosingIsAsync && enclosingReturnType is not null)
+        {
+            enclosingReturnType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, enclosingReturnType)
+                ?? enclosingReturnType;
+        }
 
         if (enclosingReturnType is not INamedTypeSymbol enclosingNamed ||
             !TryGetPropagationInfo(enclosingNamed, out var enclosingInfo) ||

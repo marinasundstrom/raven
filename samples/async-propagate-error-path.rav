@@ -1,0 +1,23 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+val res = await test()
+
+val str = res match {
+    .Ok(val str) => "Response is: $str"
+    .Error(val message) => "Error is: $message"
+}
+
+WriteLine(str)
+
+async func test() -> Task<Result<string, Exception>> {
+    val r = try? await failingTask2()
+    return .Ok("foo")
+}
+
+async func failingTask2() -> Task<Result<string, Exception>> {
+    await Task.Delay(200)
+    throw new Exception("Boom!")
+    return .Ok("test")
+}

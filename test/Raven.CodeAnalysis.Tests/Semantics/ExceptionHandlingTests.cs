@@ -221,4 +221,35 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void TryExpression_WithAwaitAndQuestionMark_PropagatesInAsyncMethod()
+    {
+        var code = """
+import System.*
+import System.Threading.Tasks.*
+
+class C {
+    async Work() -> Task<Result<int, Exception>> {
+        let value = try? await Task.FromResult(1)
+        return .Ok(value)
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.Text == "value");
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
+
+        verifier.Verify();
+    }
 }

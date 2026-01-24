@@ -16,6 +16,20 @@ internal sealed partial class Lowerer
 
         foreach (var statement in node.Statements)
         {
+            if (statement is BoundLocalDeclarationStatement localDeclaration
+                && TryRewritePropagateLocalDeclaration(localDeclaration, out var rewrittenLocalStatements))
+            {
+                statements.AddRange(rewrittenLocalStatements);
+                continue;
+            }
+
+            if (statement is BoundExpressionStatement expressionStatement
+                && TryRewritePropagateExpressionStatement(expressionStatement, out var rewrittenExpressionStatements))
+            {
+                statements.AddRange(rewrittenExpressionStatements);
+                continue;
+            }
+
             statements.Add((BoundStatement)VisitStatement(statement));
         }
 
@@ -174,4 +188,3 @@ internal sealed partial class Lowerer
         }
     }
 }
-

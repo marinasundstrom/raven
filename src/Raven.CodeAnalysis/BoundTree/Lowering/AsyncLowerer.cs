@@ -1692,6 +1692,31 @@ internal static class AsyncLowerer
                 case BoundAwaitExpression awaitExpression:
                     return (BoundExpression?)VisitAwaitExpression(awaitExpression);
 
+                case BoundPropagateExpression propagateExpression:
+                    {
+                        var operand = VisitExpression(propagateExpression.Operand) ?? propagateExpression.Operand;
+
+                        if (!ReferenceEquals(operand, propagateExpression.Operand))
+                        {
+                            return new BoundPropagateExpression(
+                                operand,
+                                propagateExpression.OkType,
+                                propagateExpression.ErrorType,
+                                propagateExpression.EnclosingResultType,
+                                propagateExpression.EnclosingErrorConstructor,
+                                propagateExpression.OkCaseName,
+                                propagateExpression.ErrorCaseName,
+                                propagateExpression.ErrorCaseHasPayload,
+                                propagateExpression.OkCaseType,
+                                propagateExpression.OkValueProperty,
+                                propagateExpression.UnwrapErrorMethod,
+                                propagateExpression.ErrorConversion,
+                                propagateExpression.Reason);
+                        }
+
+                        return propagateExpression;
+                    }
+
                 case BoundBinaryExpression binaryExpression:
                     {
                         var left = VisitExpression(binaryExpression.Left) ?? binaryExpression.Left;
@@ -2370,6 +2395,12 @@ internal static class AsyncLowerer
             {
                 if (FoundAwait || node is null)
                     return;
+
+                if (node is BoundPropagateExpression propagateExpression)
+                {
+                    VisitExpression(propagateExpression.Operand);
+                    return;
+                }
 
                 base.VisitExpression(node);
             }
@@ -3234,6 +3265,12 @@ internal static class AsyncLowerer
         {
             if (FoundAwait)
                 return;
+
+            if (node is BoundPropagateExpression propagateExpression)
+            {
+                VisitExpression(propagateExpression.Operand);
+                return;
+            }
 
             base.VisitExpression(node);
         }
