@@ -468,6 +468,13 @@ any expression that is valid in the current context. The compiler assigns the
 the operand produces no value), enabling pattern matching on successful results
 versus failures. Nested `try` expressions are disallowed and produce `RAV1906`.
 
+`try? expression` combines `try` with the propagation operator and is sugar for
+`(try expression)?`. It evaluates the operand into a `Result<T, Exception>` and
+then propagates errors to the enclosing `Result`/`Option` return type, producing
+the success payload as the expression value. A trailing `match` is not permitted
+after `try?`; use `try expression` when matching is required. The compiler
+reports `RAV1908` if a `match` suffix follows a `try?` expression.
+
 Execution enters a `try`/`catch` block that stores the operand’s value in a
 temporary. If evaluation completes without throwing, the temporary value is
 wrapped in `.Ok(...)` and becomes the expression’s final value. If evaluation
@@ -503,6 +510,15 @@ func ParseInt(text: string) -> string {
 
 WriteLine(ParseInt("123"))
 WriteLine(ParseInt("foo"))
+```
+
+##### Propagating with `try?`
+
+```raven
+func ParseInt(text: string) -> Result<int, string> {
+    let value = try? int.Parse(text)
+    return .Ok(value)
+}
 ```
 
 ##### `try` expression returning `unit`
