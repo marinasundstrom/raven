@@ -56,6 +56,7 @@ var printRawSyntax = false;
 var prettyIncludeDiagnostics = true;
 var printBinders = false;
 var printBoundTree = false;
+var printBoundTreeErrors = true;
 var symbolDumpMode = SymbolDumpMode.None;
 var showHelp = false;
 var noEmit = false;
@@ -134,6 +135,10 @@ for (int i = 0; i < args.Length; i++)
         case "--bound-tree":
         case "--display-bound-tree":
             printBoundTree = true;
+            break;
+        case "-bte":
+            printBoundTree = true;
+            printBoundTreeErrors = true;
             break;
         case "--symbols":
         case "--dump-symbols":
@@ -275,7 +280,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/bugs/operator-bug{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/sample101{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)
@@ -626,7 +631,7 @@ if (allowConsoleOutput)
                 Console.WriteLine();
             }
 
-            semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true, displayCollectionIndices: false, includeErrorNodes: false);
+            semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true, displayCollectionIndices: false, onlyBlockRoots: !printBoundTreeErrors, includeErrorNodes: printBoundTreeErrors);
             Console.WriteLine();
         }
     }

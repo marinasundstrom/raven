@@ -608,7 +608,9 @@ public static class BoundTreePrinter
 
         if (nodeToSyntax.TryGetValue(node, out var info))
         {
-            details.Add(K("Syntax", info.Syntax.Kind.ToString(), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
+            var kindStr = info.Syntax.Kind.ToString();
+            kindStr = $"{kindStr} [{RenderSourceSpan(info)}]";
+            details.Add(K("Syntax", kindStr, s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.BrightBlue)));
 
             if (includeBinderInfo)
             {
@@ -745,6 +747,17 @@ public static class BoundTreePrinter
         }
 
         return details.Count > 0 ? $"{coloredName} [{string.Join(", ", details)}]" : coloredName;
+    }
+
+    private static string RenderSourceSpan((SyntaxNode Syntax, Binder Binder) info)
+    {
+        // Format like: (1, 2) - (1, 3)
+        // Note: Line/character positions are 0-based in Roslyn-style APIs; print as 1-based.
+        var span = info.Syntax.GetLocation().GetLineSpan();
+        var start = span.StartLinePosition;
+        var end = span.EndLinePosition;
+
+        return $"({start.Line + 1}, {start.Character + 1}) - ({end.Line + 1}, {end.Character + 1})";
     }
 
     private static string FormatBinder(Binder binder)
