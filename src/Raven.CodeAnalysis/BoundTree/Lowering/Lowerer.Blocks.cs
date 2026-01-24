@@ -174,4 +174,3 @@ internal sealed partial class Lowerer
         }
     }
 }
-
