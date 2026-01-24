@@ -97,7 +97,9 @@ internal sealed partial class Lowerer
         if (tryGetMethod is null)
             return null;
 
-        var okLocalType = tryGetMethod.Parameters[0].Type;
+        var okLocalType = tryGetMethod.Parameters[0].Type is ByRefTypeSymbol byRefType
+            ? byRefType.ElementType
+            : tryGetMethod.Parameters[0].Type;
         var okLocal = CreateTempLocal("propagateOk", okLocalType, isMutable: true);
         var operandLocal = CreateTempLocal("propagateOperand", operandType, isMutable: true);
 

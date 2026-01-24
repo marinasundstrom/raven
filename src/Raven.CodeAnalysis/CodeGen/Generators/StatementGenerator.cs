@@ -103,6 +103,12 @@ internal class StatementGenerator : Generator
 
     private void EmitReturnStatement(BoundReturnStatement returnStatement)
     {
+        if (TryGetAsyncMoveNextMembers(out var asyncMembers) && returnStatement.Expression is not null)
+        {
+            EmitAsyncMoveNextReturn(returnStatement, asyncMembers);
+            return;
+        }
+
         var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
         var returnType = MethodSymbol.ReturnType;
         var expression = returnStatement.Expression;
@@ -153,6 +159,71 @@ internal class StatementGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Ret);
         }
+    }
+
+    private void EmitAsyncMoveNextReturn(BoundReturnStatement returnStatement, SynthesizedAsyncStateMachineTypeSymbol.ConstructedMembers members)
+    {
+        var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
+        var expression = returnStatement.Expression!;
+        var expressionType = expression.Type;
+        IILocal? resultTemp = null;
+
+        new ExpressionGenerator(this, expression, preserveResult: true).Emit();
+
+        if (expressionType is not null)
+        {
+            var clrType = ResolveClrType(expressionType);
+            resultTemp = ILGenerator.DeclareLocal(clrType);
+            ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+        }
+
+        EmitDispose(localsToDispose);
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Ldc_I4, -2);
+        var stateFieldInfo = (FieldInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder((SourceFieldSymbol)members.StateField);
+        ILGenerator.Emit(OpCodes.Stfld, stateFieldInfo);
+
+        var setResultMethod = members.StateMachineBuilderMembers.SetResult;
+        if (setResultMethod is not null && resultTemp is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            var builderFieldInfo = (FieldInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder((SourceFieldSymbol)members.BuilderField);
+            ILGenerator.Emit(OpCodes.Ldflda, builderFieldInfo);
+            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+            ILGenerator.Emit(OpCodes.Call, setResultMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        }
+
+        if (TryGetExceptionExitLabel(out _))
+            ILGenerator.Emit(OpCodes.Leave, MethodBodyGenerator.GetOrCreateReturnLabel());
+        else
+            ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private bool TryGetAsyncMoveNextMembers(out SynthesizedAsyncStateMachineTypeSymbol.ConstructedMembers members)
+    {
+        members = default;
+
+        if (MethodSymbol is not IMethodSymbol method)
+            return false;
+
+        if (method.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(method, stateMachine.MoveNextMethod))
+                return false;
+
+            members = stateMachine.GetConstructedMembers(stateMachine.AsyncMethod);
+            return true;
+        }
+
+        if (method.ContainingType is ConstructedNamedTypeSymbol constructed
+            && constructed.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol constructedStateMachine)
+        {
+            members = constructedStateMachine.GetConstructedMembers(constructedStateMachine.AsyncMethod);
+            return SymbolEqualityComparer.Default.Equals(method.OriginalDefinition, members.MoveNext.OriginalDefinition);
+        }
+
+        return false;
     }
 
     private void EmitThrowStatement(BoundThrowStatement throwStatement)

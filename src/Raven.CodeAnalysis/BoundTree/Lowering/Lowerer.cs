@@ -105,6 +105,165 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
         return new BoundConversionExpression(expression, targetType, conversion);
     }
+
+    public override BoundNode? VisitReturnStatement(BoundReturnStatement node)
+    {
+        var visited = (BoundReturnStatement?)base.VisitReturnStatement(node);
+        if (visited is null)
+            return null;
+
+        if (_containingSymbol is not IMethodSymbol containingMethod
+            || visited.Expression is null
+            || !TryGetAsyncStateMachine(containingMethod, out var stateMachine, out var moveNextMethod)
+            || !SymbolEqualityComparer.Default.Equals(containingMethod, moveNextMethod))
+        {
+            return visited;
+        }
+
+        var compilation = GetCompilation();
+        var builderMembers = stateMachine.GetBuilderMembers(containingMethod);
+        var setResultStatement = CreateAsyncSetResultStatement(stateMachine, builderMembers, visited.Expression, compilation);
+        if (setResultStatement is null)
+            return visited;
+
+        var statements = new BoundStatement[]
+        {
+            CreateAsyncStateAssignment(stateMachine, -2, compilation),
+            setResultStatement,
+            new BoundReturnStatement(null)
+        };
+
+        return new BoundBlockStatement(statements);
+    }
+
+    private static bool TryGetAsyncStateMachine(
+        IMethodSymbol containingMethod,
+        out SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        out IMethodSymbol moveNextMethod)
+    {
+        stateMachine = null!;
+        moveNextMethod = null!;
+
+        if (containingMethod.ContainingType is SynthesizedAsyncStateMachineTypeSymbol direct)
+        {
+            stateMachine = direct;
+            moveNextMethod = direct.MoveNextMethod;
+            return true;
+        }
+
+        if (containingMethod.ContainingType is ConstructedNamedTypeSymbol constructed
+            && constructed.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol constructedStateMachine)
+        {
+            var constructedMembers = constructedStateMachine.GetConstructedMembers(containingMethod);
+            stateMachine = constructedStateMachine;
+            moveNextMethod = constructedMembers.MoveNext;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static BoundAssignmentStatement CreateAsyncStateAssignment(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        int state,
+        Compilation compilation)
+    {
+        var literal = new BoundLiteralExpression(
+            BoundLiteralExpressionKind.NumericLiteral,
+            state,
+            stateMachine.StateField.Type);
+
+        var assignment = new BoundFieldAssignmentExpression(
+            new BoundSelfExpression(stateMachine),
+            stateMachine.StateField,
+            literal,
+            compilation.UnitTypeSymbol,
+            requiresReceiverAddress: true);
+
+        return new BoundAssignmentStatement(assignment);
+    }
+
+    private static BoundStatement? CreateAsyncSetResultStatement(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
+        BoundExpression expression,
+        Compilation compilation)
+    {
+        var setResultMethod = builderMembers.SetResult;
+        if (setResultMethod is null)
+            return null;
+
+        BoundExpression? argument = expression;
+        if (setResultMethod.Parameters.Length == 1)
+        {
+            if (argument is BoundUnitExpression)
+                argument = null;
+
+            argument ??= CreateDefaultValueExpression(setResultMethod.Parameters[0].Type);
+            if (argument is null)
+                return null;
+
+            argument = ApplyConversionIfNeeded(argument, setResultMethod.Parameters[0].Type, compilation);
+        }
+        else if (setResultMethod.Parameters.Length != 0)
+        {
+            return null;
+        }
+        else if (argument is not BoundUnitExpression)
+        {
+            return null;
+        }
+
+        var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderMembers.BuilderField);
+        var invocation = setResultMethod.Parameters.Length == 1
+            ? new BoundInvocationExpression(setResultMethod, new[] { argument! }, receiver, requiresReceiverAddress: true)
+            : new BoundInvocationExpression(setResultMethod, Array.Empty<BoundExpression>(), receiver, requiresReceiverAddress: true);
+        return new BoundExpressionStatement(invocation);
+    }
+
+    private static BoundExpression? CreateDefaultValueExpression(ITypeSymbol type)
+    {
+        if (type.SpecialType == SpecialType.System_Void)
+            return null;
+
+        if (type.IsReferenceType)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, type);
+
+        if (type.SpecialType == SpecialType.System_Boolean)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.FalseLiteral, false, type);
+
+        if (type.SpecialType == SpecialType.System_Int32)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0, type);
+
+        if (type.SpecialType == SpecialType.System_Double)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0d, type);
+
+        if (type.SpecialType == SpecialType.System_Single)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0f, type);
+
+        if (type.SpecialType == SpecialType.System_Int64)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0L, type);
+
+        if (type.SpecialType == SpecialType.System_Decimal)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0m, type);
+
+        if (type.SpecialType == SpecialType.System_Int16)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, (short)0, type);
+
+        if (type.SpecialType == SpecialType.System_Byte)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, (byte)0, type);
+
+        if (type.SpecialType == SpecialType.System_UInt16)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, (ushort)0, type);
+
+        if (type.SpecialType == SpecialType.System_UInt32)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0u, type);
+
+        if (type.SpecialType == SpecialType.System_UInt64)
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, 0ul, type);
+
+        return null;
+    }
     public override BoundExpression? VisitObjectCreationExpression(BoundObjectCreationExpression node)
     {
         // First rewrite children.
