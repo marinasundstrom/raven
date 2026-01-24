@@ -10,9 +10,9 @@ Goal: fix propagation (`try?`) inside async methods so both success and error pa
 - [x] 4. Capture and inspect IL for the repros using `ilspycmd`.
 - [x] 5. Inspect current propagate binding + lowering + async rewriting pipeline.
 - [x] 6. Design lowering rewrite for propagate expressions in async contexts.
-- [ ] 7. Implement lowering rewrite in a lowering pass (not codegen).
-- [ ] 8. Ensure `using` + disposal works with early-return on propagate failure.
-- [ ] 9. Add regression tests (semantic + codegen/runtime).
+- [x] 7. Implement lowering rewrite in a lowering pass (not codegen).
+- [x] 8. Ensure `using` + disposal works with early-return on propagate failure.
+- [x] 9. Add regression tests (semantic + codegen/runtime).
 - [ ] 10. Validate with repro samples and targeted test runs.
 
 ## Notes
@@ -72,3 +72,21 @@ Implementation sketch:
    - conditional return on failure
    - the original statement rewritten to use the extracted success value
 3. Keep codegen changes minimal initially; once propagate is fully lowered, the direct `ret` path should no longer be reachable in async `MoveNext`.
+
+## Step 7–9 implementation notes
+
+What changed:
+
+- Propagate rewriting now happens at statement level during lowering so it runs *before* using-declaration rewrite introduces protected regions:
+  - `Lowerer.VisitBlockStatement` expands propagate-bearing local declarations and expression statements inline before `RewriteUsingDeclarations`. (`src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Blocks.cs`)
+  - `Lowerer.Propagate` now synthesizes temp locals, a `TryGet{Case}` invocation, and an explicit `BoundReturnStatement` on the failure path, then re-emits the original statement with the success value. (`src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Propagate.cs`)
+- The pre-async propagate pass mirrors the same statement-level rewrite so async rewriting sees structured returns rather than direct `ret`-like behavior. (`src/Raven.CodeAnalysis/BoundTree/Lowering/PropagateLowerer.cs`)
+
+Why this addresses disposal:
+
+- Because the failure path is now an ordinary `BoundReturnStatement`, it flows through existing scope-aware return emission and async rewriting, which already emit `leave` and run `finally` blocks when needed.
+- Placing the rewrite ahead of `RewriteUsingDeclarations` ensures that any early-return produced by propagate is located within the resulting `try` region, so disposal runs on both success and propagate failure.
+
+Tests added:
+
+- `AsyncPropagate_UsingDeclaration_DisposesOnSuccessAndFailure` compiles a small program with `using let` and `try? await`, then asserts the disposable is disposed exactly once on both the `.Error` and `.Ok` paths. (`test/Raven.CodeAnalysis.Tests/CodeGen/AsyncPropagateCodeGenTests.cs`)
