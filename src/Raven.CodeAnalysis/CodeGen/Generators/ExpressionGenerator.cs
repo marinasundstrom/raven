@@ -871,7 +871,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Newobj, errorCtorInfo);
 
             EmitPropagateErrorCaseConversion(enclosingResultClrType, errorCtorInfo.DeclaringType);
-            ILGenerator.Emit(OpCodes.Ret);
+            EmitPropagateReturn(enclosingResultClrType);
             return;
         }
 
@@ -941,7 +941,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
 
         EmitPropagateErrorCaseConversion(enclosingResultClrType, ctorInfo.DeclaringType);
-        ILGenerator.Emit(OpCodes.Ret);
+        EmitPropagateReturn(enclosingResultClrType);
     }
 
     private void EmitPropagateErrorCaseConversion(Type enclosingResultClrType, Type? errorCaseClrType)
@@ -967,6 +967,27 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Call, implicitFromError);
         }
+    }
+
+    private void EmitPropagateReturn(Type resultClrType)
+    {
+        if (TryGetExceptionExitLabel(out var exitLabel))
+        {
+            if (MethodBodyGenerator.TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
+            {
+                ILGenerator.Emit(OpCodes.Stloc, returnValueLocal);
+            }
+            else
+            {
+                var spillLocal = ILGenerator.DeclareLocal(resultClrType);
+                ILGenerator.Emit(OpCodes.Stloc, spillLocal);
+            }
+
+            ILGenerator.Emit(OpCodes.Leave, exitLabel);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
