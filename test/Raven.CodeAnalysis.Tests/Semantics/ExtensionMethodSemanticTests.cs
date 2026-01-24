@@ -1423,6 +1423,27 @@ public static class QueryExtensions {
     }
 
     [Fact]
+    public void PipeOperator_WithNamespaceImport_BindsExtensionMethods()
+    {
+        const string source = """
+import System.Linq.*
+
+val values = [2, 3, 1, 6]
+
+val result = values
+    |> Where(x => x % 2 == 0)
+    |> Select(x => x * 2)
+    |> ToArray()
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void PipeOperator_WithStaticMethod_PrependsArgument()
     {
         const string source = """

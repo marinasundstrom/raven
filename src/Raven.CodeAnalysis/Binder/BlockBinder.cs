@@ -3364,10 +3364,18 @@ partial class BlockBinder : Binder
                                 }
                                 else if (!accessible.IsDefaultOrEmpty)
                                 {
-                                    if (isPipelineInvocation
-                                            ? TryGetCommonPipelineParameterType(accessible, index) is ITypeSymbol common
-                                            : TryGetCommonParameterType(accessible, index, extensionReceiverImplicit: pipelineReceiverImplicit) is ITypeSymbol common)
-                                        return common;
+                                    if (isPipelineInvocation)
+                                    {
+                                        var common = TryGetCommonPipelineParameterType(accessible, index);
+                                        if (common is not null)
+                                            return common;
+                                    }
+                                    else
+                                    {
+                                        var common = TryGetCommonParameterType(accessible, index, extensionReceiverImplicit: pipelineReceiverImplicit);
+                                        if (common is not null)
+                                            return common;
+                                    }
                                 }
 
                                 if (targetMethod is null &&
@@ -4485,7 +4493,7 @@ partial class BlockBinder : Binder
 
         if (syntax.Right is InvocationExpressionSyntax invocation)
         {
-            var target = BindPipelineTargetExpression(invocation.Expression);
+            var target = BindPipelineTargetExpression(invocation.Expression, left);
 
             if (target is BoundErrorExpression error)
                 return error;
@@ -4521,6 +4529,16 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
+    private BoundExpression BindPipelineTargetExpression(ExpressionSyntax expression, BoundExpression pipelineValue)
+        => expression switch
+        {
+            MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
+            MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding),
+            GenericNameSyntax generic => BindPipelineGenericInvocationTarget(generic, pipelineValue),
+            IdentifierNameSyntax identifier => BindPipelineIdentifierTarget(identifier, pipelineValue),
+            _ => BindExpression(expression),
+        };
+
     private BoundExpression BindPipelineTargetExpression(ExpressionSyntax expression)
         => expression switch
         {
@@ -4530,6 +4548,86 @@ partial class BlockBinder : Binder
             IdentifierNameSyntax identifier => BindIdentifierName(identifier),
             _ => BindExpression(expression),
         };
+
+    private BoundExpression BindPipelineIdentifierTarget(IdentifierNameSyntax syntax, BoundExpression pipelineValue)
+    {
+        var name = syntax.Identifier.ValueText;
+        var methods = LookupSymbols(name)
+            .OfType<IMethodSymbol>()
+            .ToImmutableArray();
+
+        var receiverType = pipelineValue.Type?.UnwrapLiteralType() ?? pipelineValue.Type;
+        if (receiverType is not null)
+        {
+            var extensionMethods = LookupExtensionMethods(name, receiverType)
+                .ToImmutableArray();
+
+            if (!extensionMethods.IsDefaultOrEmpty)
+            {
+                methods = methods.IsDefaultOrEmpty
+                    ? extensionMethods
+                    : methods.AddRange(extensionMethods);
+            }
+        }
+
+        if (!methods.IsDefaultOrEmpty)
+        {
+            BoundExpression? receiver = null;
+            if (methods.Any(static method => !method.IsStatic))
+                receiver = BindImplicitMethodGroupReceiver(methods);
+
+            if (receiver is BoundErrorExpression error)
+                return error;
+
+            return BindMethodGroup(receiver, methods, syntax.Identifier.GetLocation());
+        }
+
+        return BindIdentifierName(syntax);
+    }
+
+    private BoundExpression BindPipelineGenericInvocationTarget(GenericNameSyntax generic, BoundExpression pipelineValue)
+    {
+        var boundTypeArguments = TryBindTypeArguments(generic);
+        if (boundTypeArguments is null)
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+        var methodName = generic.Identifier.ValueText;
+        var methodCandidates = LookupSymbols(methodName)
+            .OfType<IMethodSymbol>()
+            .ToImmutableArray();
+
+        var receiverType = pipelineValue.Type?.UnwrapLiteralType() ?? pipelineValue.Type;
+        if (receiverType is not null)
+        {
+            var extensionMethods = LookupExtensionMethods(methodName, receiverType)
+                .ToImmutableArray();
+
+            if (!extensionMethods.IsDefaultOrEmpty)
+            {
+                methodCandidates = methodCandidates.IsDefaultOrEmpty
+                    ? extensionMethods
+                    : methodCandidates.AddRange(extensionMethods);
+            }
+        }
+
+        if (!methodCandidates.IsDefaultOrEmpty)
+        {
+            var instantiated = InstantiateMethodCandidates(methodCandidates, boundTypeArguments.Value, generic, generic.GetLocation());
+            if (!instantiated.IsDefaultOrEmpty)
+            {
+                BoundExpression? receiver = null;
+                if (instantiated.Any(static method => !method.IsStatic))
+                    receiver = BindImplicitMethodGroupReceiver(instantiated);
+
+                if (receiver is BoundErrorExpression error)
+                    return error;
+
+                return CreateMethodGroup(receiver, instantiated);
+            }
+        }
+
+        return BindTypeSyntax(generic);
+    }
 
     private BoundExpression BindPipelinePropertyAssignment(
         BoundExpression target,
