@@ -670,8 +670,11 @@ partial class BlockBinder
         if (methods.IsDefaultOrEmpty)
             return ImmutableArray<INamedTypeSymbol>.Empty;
 
+        if (isPipelineInvocation && invocation.Parent is BinaryExpressionSyntax pipe)
+            receiverType = BindExpression(pipe.Left).Type;
+
         var delegates = isPipelineInvocation
-            ? ExtractPipelineLambdaDelegates(methods, parameterIndex)
+            ? ExtractPipelineLambdaDelegates(methods, parameterIndex, receiverType)
             : ExtractLambdaDelegates(methods, parameterIndex, extensionReceiverImplicit, receiverType);
         if (!delegates.IsDefaultOrEmpty)
             _lambdaDelegateTargets[syntax] = delegates;
@@ -682,7 +685,8 @@ partial class BlockBinder
 
     private ImmutableArray<INamedTypeSymbol> ExtractPipelineLambdaDelegates(
         ImmutableArray<IMethodSymbol> methods,
-        int parameterIndex)
+        int parameterIndex,
+        ITypeSymbol? pipelineValueType)
     {
         if (methods.IsDefaultOrEmpty)
             return ImmutableArray<INamedTypeSymbol>.Empty;
@@ -697,8 +701,8 @@ partial class BlockBinder
             var delegateType = GetLambdaDelegateType(
                 method,
                 parameter,
-                inferFromFirstParameter: false,
-                receiverType: null);
+                inferFromFirstParameter: pipelineValueType is not null,
+                pipelineValueType);
 
             if (delegateType is not null &&
                 !builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateType)))
@@ -1110,6 +1114,35 @@ partial class BlockBinder
         foreach (var candidate in candidates)
         {
             if (!TryGetLambdaParameter(candidate, index, extensionReceiverImplicit, out var parameter))
+                return null;
+
+            var candidateType = parameter.Type;
+
+            if (parameterType is null)
+            {
+                parameterType = candidateType;
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterType, candidateType))
+                return null;
+        }
+
+        return parameterType;
+    }
+
+    private ITypeSymbol? TryGetCommonPipelineParameterType(
+        ImmutableArray<IMethodSymbol> candidates,
+        int index)
+    {
+        if (candidates.IsDefaultOrEmpty)
+            return null;
+
+        ITypeSymbol? parameterType = null;
+
+        foreach (var candidate in candidates)
+        {
+            if (!TryGetPipelineLambdaParameter(candidate, index, out var parameter))
                 return null;
 
             var candidateType = parameter.Type;

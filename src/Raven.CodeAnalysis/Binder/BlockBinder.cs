@@ -3119,6 +3119,20 @@ partial class BlockBinder : Binder
                                 pipelineValueType = pipelineValue.Type;
                             }
 
+                            var isPipelineInvocation = pipelineValue is not null;
+                            var pipelineArgumentCount = argumentCount + 1;
+
+                            bool IsPipelineCompatible(IMethodSymbol method, BoundExpression? receiver)
+                            {
+                                if (!isPipelineInvocation)
+                                    return AreArgumentsCompatibleWithMethod(method, argumentCount, receiver);
+
+                                if (method.IsExtensionMethod && pipelineValue is not null && IsExtensionReceiver(pipelineValue))
+                                    return AreArgumentsCompatibleWithMethod(method, argumentCount, pipelineValue);
+
+                                return AreArgumentsCompatibleWithMethod(method, pipelineArgumentCount, receiver);
+                            }
+
                             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
                             {
                                 var boundMember = BindMemberAccessExpression(memberAccess, preferMethods: true);
@@ -3130,7 +3144,7 @@ partial class BlockBinder : Binder
                                     if (!methods.IsDefaultOrEmpty)
                                     {
                                         methods = methods
-                                            .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, methodGroup.Receiver))
+                                            .Where(m => IsPipelineCompatible(m, methodGroup.Receiver))
                                             .ToImmutableArray();
                                     }
 
@@ -3140,34 +3154,69 @@ partial class BlockBinder : Binder
                                         continue;
                                     }
 
-                                    methods = FilterMethodsForLambda(methods, index, argumentExpression, extensionReceiverImplicit);
-                                    RecordLambdaTargets(argumentExpression, methods, index, extensionReceiverImplicit, methodGroup.Receiver?.Type);
-                                    if (methods.Length == 1)
+                                    if (isPipelineInvocation)
                                     {
-                                        targetMethod = methods[0];
-                                        targetUsesImplicitExtension = extensionReceiverImplicit && targetMethod.IsExtensionMethod;
-                                        targetReceiverType = methodGroup.Receiver?.Type;
+                                        methods = FilterMethodsForPipelineLambda(methods, index, argumentExpression);
+                                        RecordPipelineLambdaTargets(argumentExpression, methods, index, pipelineValueType);
+                                        if (methods.Length == 1)
+                                        {
+                                            targetMethod = methods[0];
+                                            targetUsesImplicitExtension = targetMethod.IsExtensionMethod && pipelineValue is not null;
+                                            targetReceiverType = pipelineValueType;
+                                        }
+                                        else if (!methods.IsDefaultOrEmpty && TryGetCommonPipelineParameterType(methods, index) is ITypeSymbol common)
+                                        {
+                                            return common;
+                                        }
                                     }
-                                    else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index, extensionReceiverImplicit) is ITypeSymbol common)
-                                        return common;
+                                    else
+                                    {
+                                        methods = FilterMethodsForLambda(methods, index, argumentExpression, extensionReceiverImplicit);
+                                        RecordLambdaTargets(argumentExpression, methods, index, extensionReceiverImplicit, methodGroup.Receiver?.Type);
+                                        if (methods.Length == 1)
+                                        {
+                                            targetMethod = methods[0];
+                                            targetUsesImplicitExtension = extensionReceiverImplicit && targetMethod.IsExtensionMethod;
+                                            targetReceiverType = methodGroup.Receiver?.Type;
+                                        }
+                                        else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index, extensionReceiverImplicit) is ITypeSymbol common)
+                                            return common;
+                                    }
                                 }
                                 else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol m })
                                 {
                                     var extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
-                                    if (AreArgumentsCompatibleWithMethod(m, argumentCount, receiver))
+                                    if (IsPipelineCompatible(m, receiver))
                                     {
                                         targetMethod = m;
-                                        targetUsesImplicitExtension = extensionReceiverImplicit && m.IsExtensionMethod;
-                                        targetReceiverType = receiver?.Type;
-                                        RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit, receiver?.Type);
-                                        if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
+                                        targetUsesImplicitExtension = isPipelineInvocation ? m.IsExtensionMethod : extensionReceiverImplicit && m.IsExtensionMethod;
+                                        targetReceiverType = isPipelineInvocation ? pipelineValueType : receiver?.Type;
+
+                                        if (isPipelineInvocation)
                                         {
-                                            return GetLambdaDelegateType(
-                                                    m,
-                                                    parameter,
-                                                    inferFromFirstParameter: extensionReceiverImplicit && m.IsExtensionMethod,
-                                                    receiver?.Type)
-                                                ?? parameter.Type;
+                                            RecordPipelineLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, pipelineValueType);
+                                            if (TryGetPipelineLambdaParameter(m, index, out var parameter))
+                                            {
+                                                return GetLambdaDelegateType(
+                                                        m,
+                                                        parameter,
+                                                        inferFromFirstParameter: pipelineValueType is not null,
+                                                        pipelineValueType)
+                                                    ?? parameter.Type;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit, receiver?.Type);
+                                            if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
+                                            {
+                                                return GetLambdaDelegateType(
+                                                        m,
+                                                        parameter,
+                                                        inferFromFirstParameter: extensionReceiverImplicit && m.IsExtensionMethod,
+                                                        receiver?.Type)
+                                                    ?? parameter.Type;
+                                            }
                                         }
                                     }
                                 }
@@ -3183,7 +3232,7 @@ partial class BlockBinder : Binder
                                     if (!methods.IsDefaultOrEmpty)
                                     {
                                         methods = methods
-                                            .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, methodGroup.Receiver))
+                                            .Where(m => IsPipelineCompatible(m, methodGroup.Receiver))
                                             .ToImmutableArray();
                                     }
 
@@ -3193,34 +3242,69 @@ partial class BlockBinder : Binder
                                         continue;
                                     }
 
-                                    methods = FilterMethodsForLambda(methods, index, argumentExpression, extensionReceiverImplicit);
-                                    RecordLambdaTargets(argumentExpression, methods, index, extensionReceiverImplicit, methodGroup.Receiver?.Type);
-                                    if (methods.Length == 1)
+                                    if (isPipelineInvocation)
                                     {
-                                        targetMethod = methods[0];
-                                        targetUsesImplicitExtension = extensionReceiverImplicit && targetMethod.IsExtensionMethod;
-                                        targetReceiverType = methodGroup.Receiver?.Type;
+                                        methods = FilterMethodsForPipelineLambda(methods, index, argumentExpression);
+                                        RecordPipelineLambdaTargets(argumentExpression, methods, index, pipelineValueType);
+                                        if (methods.Length == 1)
+                                        {
+                                            targetMethod = methods[0];
+                                            targetUsesImplicitExtension = targetMethod.IsExtensionMethod && pipelineValue is not null;
+                                            targetReceiverType = pipelineValueType;
+                                        }
+                                        else if (!methods.IsDefaultOrEmpty && TryGetCommonPipelineParameterType(methods, index) is ITypeSymbol common)
+                                        {
+                                            return common;
+                                        }
                                     }
-                                    else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index, extensionReceiverImplicit) is ITypeSymbol common)
-                                        return common;
+                                    else
+                                    {
+                                        methods = FilterMethodsForLambda(methods, index, argumentExpression, extensionReceiverImplicit);
+                                        RecordLambdaTargets(argumentExpression, methods, index, extensionReceiverImplicit, methodGroup.Receiver?.Type);
+                                        if (methods.Length == 1)
+                                        {
+                                            targetMethod = methods[0];
+                                            targetUsesImplicitExtension = extensionReceiverImplicit && targetMethod.IsExtensionMethod;
+                                            targetReceiverType = methodGroup.Receiver?.Type;
+                                        }
+                                        else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index, extensionReceiverImplicit) is ITypeSymbol common)
+                                            return common;
+                                    }
                                 }
                                 else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol m })
                                 {
                                     var extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
-                                    if (AreArgumentsCompatibleWithMethod(m, argumentCount, receiver))
+                                    if (IsPipelineCompatible(m, receiver))
                                     {
                                         targetMethod = m;
-                                        targetUsesImplicitExtension = extensionReceiverImplicit && m.IsExtensionMethod;
-                                        targetReceiverType = receiver?.Type;
-                                        RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit, receiver?.Type);
-                                        if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
+                                        targetUsesImplicitExtension = isPipelineInvocation ? m.IsExtensionMethod : extensionReceiverImplicit && m.IsExtensionMethod;
+                                        targetReceiverType = isPipelineInvocation ? pipelineValueType : receiver?.Type;
+
+                                        if (isPipelineInvocation)
                                         {
-                                            return GetLambdaDelegateType(
-                                                    m,
-                                                    parameter,
-                                                    inferFromFirstParameter: extensionReceiverImplicit && m.IsExtensionMethod,
-                                                    receiver?.Type)
-                                                ?? parameter.Type;
+                                            RecordPipelineLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, pipelineValueType);
+                                            if (TryGetPipelineLambdaParameter(m, index, out var parameter))
+                                            {
+                                                return GetLambdaDelegateType(
+                                                        m,
+                                                        parameter,
+                                                        inferFromFirstParameter: pipelineValueType is not null,
+                                                        pipelineValueType)
+                                                    ?? parameter.Type;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit, receiver?.Type);
+                                            if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
+                                            {
+                                                return GetLambdaDelegateType(
+                                                        m,
+                                                        parameter,
+                                                        inferFromFirstParameter: extensionReceiverImplicit && m.IsExtensionMethod,
+                                                        receiver?.Type)
+                                                    ?? parameter.Type;
+                                            }
                                         }
                                     }
                                 }
@@ -3237,7 +3321,7 @@ partial class BlockBinder : Binder
                                 if (!accessible.IsDefaultOrEmpty)
                                 {
                                     accessible = accessible
-                                        .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, receiver: pipelineValue))
+                                        .Where(m => IsPipelineCompatible(m, receiver: null))
                                         .ToImmutableArray();
 
                                     if (accessible.IsDefaultOrEmpty)
@@ -3246,7 +3330,9 @@ partial class BlockBinder : Binder
                                         continue;
                                     }
 
-                                    accessible = FilterMethodsForLambda(accessible, index, argumentExpression, extensionReceiverImplicit: pipelineReceiverImplicit);
+                                    accessible = isPipelineInvocation
+                                        ? FilterMethodsForPipelineLambda(accessible, index, argumentExpression)
+                                        : FilterMethodsForLambda(accessible, index, argumentExpression, extensionReceiverImplicit: pipelineReceiverImplicit);
                                 }
 
                                 ITypeSymbol? firstArgumentType = null;
@@ -3255,13 +3341,20 @@ partial class BlockBinder : Binder
                                 else if (pipelineValueType is not null)
                                     firstArgumentType = pipelineValueType;
 
-                                RecordLambdaTargets(
-                                    argumentExpression,
-                                    accessible,
-                                    index,
-                                    extensionReceiverImplicit: pipelineReceiverImplicit,
-                                    receiverType: firstArgumentType,
-                                    inferFromFirstParameter: pipelineValueType is not null && index == 0);
+                                if (isPipelineInvocation)
+                                {
+                                    RecordPipelineLambdaTargets(argumentExpression, accessible, index, pipelineValueType);
+                                }
+                                else
+                                {
+                                    RecordLambdaTargets(
+                                        argumentExpression,
+                                        accessible,
+                                        index,
+                                        extensionReceiverImplicit: pipelineReceiverImplicit,
+                                        receiverType: firstArgumentType,
+                                        inferFromFirstParameter: pipelineValueType is not null && index == 0);
+                                }
 
                                 if (accessible.Length == 1)
                                 {
@@ -3271,7 +3364,9 @@ partial class BlockBinder : Binder
                                 }
                                 else if (!accessible.IsDefaultOrEmpty)
                                 {
-                                    if (TryGetCommonParameterType(accessible, index, extensionReceiverImplicit: pipelineReceiverImplicit) is ITypeSymbol common)
+                                    if (isPipelineInvocation
+                                            ? TryGetCommonPipelineParameterType(accessible, index) is ITypeSymbol common
+                                            : TryGetCommonParameterType(accessible, index, extensionReceiverImplicit: pipelineReceiverImplicit) is ITypeSymbol common)
                                         return common;
                                 }
 
@@ -3285,16 +3380,32 @@ partial class BlockBinder : Binder
 
                             if (targetMethod is not null && targetMethod.Parameters.Length > index)
                             {
-                                RecordLambdaTargets(argumentExpression, ImmutableArray.Create(targetMethod), index, targetUsesImplicitExtension, targetReceiverType);
-                                if (TryGetLambdaParameter(targetMethod, index, targetUsesImplicitExtension, out var parameter))
+                                if (isPipelineInvocation)
                                 {
-                                    var inferFromFirstParameter = targetReceiverType is not null && (targetUsesImplicitExtension || index > 0);
-                                    return GetLambdaDelegateType(
-                                            targetMethod,
-                                            parameter,
-                                            inferFromFirstParameter,
-                                            targetReceiverType)
-                                        ?? parameter.Type;
+                                    RecordPipelineLambdaTargets(argumentExpression, ImmutableArray.Create(targetMethod), index, pipelineValueType);
+                                    if (TryGetPipelineLambdaParameter(targetMethod, index, out var parameter))
+                                    {
+                                        return GetLambdaDelegateType(
+                                                targetMethod,
+                                                parameter,
+                                                inferFromFirstParameter: pipelineValueType is not null,
+                                                pipelineValueType)
+                                            ?? parameter.Type;
+                                    }
+                                }
+                                else
+                                {
+                                    RecordLambdaTargets(argumentExpression, ImmutableArray.Create(targetMethod), index, targetUsesImplicitExtension, targetReceiverType);
+                                    if (TryGetLambdaParameter(targetMethod, index, targetUsesImplicitExtension, out var parameter))
+                                    {
+                                        var inferFromFirstParameter = targetReceiverType is not null && (targetUsesImplicitExtension || index > 0);
+                                        return GetLambdaDelegateType(
+                                                targetMethod,
+                                                parameter,
+                                                inferFromFirstParameter,
+                                                targetReceiverType)
+                                            ?? parameter.Type;
+                                    }
                                 }
                             }
                         }
