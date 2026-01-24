@@ -971,6 +971,26 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitPropagateReturn(Type resultClrType)
     {
+        if (IsAsyncStateMachineMoveNext(out var stateField, out var builderField, out var setResultMethod))
+        {
+            var resultLocal = ILGenerator.DeclareLocal(resultClrType);
+            ILGenerator.Emit(OpCodes.Stloc, resultLocal);
+
+            var stateFieldInfo = stateField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldc_I4, -2);
+            ILGenerator.Emit(OpCodes.Stfld, stateFieldInfo);
+
+            var builderFieldInfo = builderField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldflda, builderFieldInfo);
+            ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(setResultMethod));
+
+            ILGenerator.Emit(OpCodes.Br, MethodBodyGenerator.GetOrCreateReturnLabel());
+            return;
+        }
+
         if (TryGetExceptionExitLabel(out var exitLabel))
         {
             if (MethodBodyGenerator.TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
@@ -988,6 +1008,37 @@ internal partial class ExpressionGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private bool IsAsyncStateMachineMoveNext(
+        out IFieldSymbol stateField,
+        out IFieldSymbol builderField,
+        out IMethodSymbol setResultMethod)
+    {
+        stateField = null!;
+        builderField = null!;
+        setResultMethod = null!;
+
+        if (MethodSymbol.Name != "MoveNext" ||
+            MethodSymbol.ContainingType is not INamedTypeSymbol containingType)
+        {
+            return false;
+        }
+
+        var state = containingType.GetMembers("_state").OfType<IFieldSymbol>().FirstOrDefault();
+        var builder = containingType.GetMembers("_builder").OfType<IFieldSymbol>().FirstOrDefault();
+        var setResult = builder?.Type
+            .GetMembers("SetResult")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Parameters.Length == 1);
+
+        if (state is null || builder is null || setResult is null)
+            return false;
+
+        stateField = state;
+        builderField = builder;
+        setResultMethod = setResult;
+        return true;
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
