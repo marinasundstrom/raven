@@ -81,6 +81,54 @@ let value = try int.Parse("foo")
     }
 
     [Fact]
+    public void TryExpression_WithQuestionMark_PropagatesResultPayload()
+    {
+        var code = """
+func ParseFlag(text: string) -> Result<bool, string> {
+    let flag = try? bool.Parse(text)
+    return .Ok(flag)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var local = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.Text == "flag");
+
+        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(local));
+        Assert.Equal(SpecialType.System_Boolean, localSymbol.Type.SpecialType);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void TryExpression_WithQuestionMark_DisallowsMatch()
+    {
+        var code = """
+func ParseFlag(text: string) -> Result<bool, string> {
+    let flag = try? bool.Parse(text) match {
+        true => true
+        false => false
+    }
+
+    return .Ok(flag)
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult("RAV1908").WithSpan(2, 38, 2, 42)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void TryExpression_WithAwait_IncludesExceptionInResultUnion()
     {
         var code = """

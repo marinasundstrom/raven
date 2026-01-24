@@ -503,6 +503,10 @@
     Title="Nested try expression"
     Message="Nested try expressions are not allowed"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1908" Identifier="TryPropagationCannotUseMatch"
+    Title="Match expression not allowed"
+    Message="Match expressions are not allowed after a try? expression"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
     Message="Non-invocable member '{memberName}' cannot be used like a method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
