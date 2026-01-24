@@ -411,7 +411,7 @@ internal sealed class OverloadResolver
         return builder.ToImmutable();
     }
 
-    private static bool TryInferFromTypes(
+    internal static bool TryInferFromTypes(
         Compilation compilation,
         ITypeSymbol parameterType,
         ITypeSymbol argumentType,
