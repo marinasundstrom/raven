@@ -8,8 +8,8 @@ Goal: fix propagation (`try?`) inside async methods so both success and error pa
 - [x] 2. Re-establish baseline results (tests + build script when needed).
 - [x] 3. Create minimal repro samples for both success and failure paths (with `using`).
 - [x] 4. Capture and inspect IL for the repros using `ilspycmd`.
-- [ ] 5. Inspect current propagate binding + lowering + async rewriting pipeline.
-- [ ] 6. Design lowering rewrite for propagate expressions in async contexts.
+- [x] 5. Inspect current propagate binding + lowering + async rewriting pipeline.
+- [x] 6. Design lowering rewrite for propagate expressions in async contexts.
 - [ ] 7. Implement lowering rewrite in a lowering pass (not codegen).
 - [ ] 8. Ensure `using` + disposal works with early-return on propagate failure.
 - [ ] 9. Add regression tests (semantic + codegen/runtime).
@@ -20,3 +20,55 @@ Goal: fix propagation (`try?`) inside async methods so both success and error pa
 - The current test baseline includes unrelated failures in `Raven.CodeAnalysis.Testing` and `Raven.Editor.Tests`, and build errors in `DocumentationCommentTriviaTests`.
 - We will still run the suite to honor repo instructions, but rely on targeted builds/tests + repro runs for validation.
 - On commit `5c1891f0`, the new repro samples bind-fail before IL emission due to `try? await` typing to `Result<..., Exception>` and the binder requiring propagation from a `Result<T, E>` where `T` matches the enclosing result payload. This blocks IL capture of the async propagate issue in this baseline state.
+
+## Step 5 findings: current pipeline gaps
+
+Key locations inspected:
+
+- Binder: `BlockBinder.BindPropagateExpressionCore` constructs `BoundPropagateExpression` with the enclosing union type and constructors, but does not unwrap async return types on this baseline commit. (`src/Raven.CodeAnalysis/Binder/BlockBinder.cs`)
+- Async lowering: `AsyncLowerer` has custom logic for `BoundTryExpression` that rewrites awaits inside try-expressions to block expressions, but it does not have any handling for `BoundPropagateExpression`. (`src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs`)
+- Codegen: `EmitPropagateErrorReturn` ends the propagate error path with `ret` unconditionally. This is invalid inside protected regions (e.g., async `MoveNext` try blocks and `using`/finally scopes). (`src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs`)
+- Return emission: `StatementGenerator.EmitReturnStatement` is already scope-aware (spills the return value local and emits `leave` when an exception-exit label exists), but propagate bypasses this by emitting `ret` directly. (`src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs`)
+
+Conclusion: the main correctness issue is that propagate currently short-circuits via direct IL `ret` instead of bound control flow that participates in async rewriting and scope unwinding.
+
+## Step 6 design: lowering-first propagate rewrite
+
+Design goals:
+
+1. Eliminate direct `ret` emission from propagate in async/protected scopes.
+2. Ensure early-return on propagate failure flows through the existing async completion pipeline (builder `SetResult`, `_state = -2`, and structured `leave`).
+3. Preserve `using`/finally disposal ordering.
+
+Proposed design:
+
+- Implement a lowering pass that rewrites `BoundPropagateExpression` into explicit bound control flow (temps + `if` + `BoundReturnStatement`) before async rewriting and codegen.
+- Target rewriting contexts that can contain propagate today:
+  - local declaration initializers
+  - expression statements (e.g., `_ = try? ...`)
+  - using declaration initializers
+- Rewrite shape (conceptual):
+  - spill operand once into a temp
+  - call `TryGetOk(out okCase)`
+  - if failure:
+    - extract error payload via `UnwrapError` when available (otherwise fallback properties)
+    - convert payload as needed
+    - construct the enclosing error case
+    - `return` the enclosing error value via a `BoundReturnStatement`
+  - if success:
+    - extract payload (`okCase.Value` or fallback)
+    - use the extracted value as the original expression result
+
+Why this approach:
+
+- The synthesized `BoundReturnStatement` will be seen by `AsyncLowerer` and existing return emission logic, which already handles protected scopes correctly via exception-exit labels.
+- This avoids fragile codegen-time special-casing of async `MoveNext`.
+
+Implementation sketch:
+
+1. Add a dedicated propagate rewriter in lowering (e.g., `Lowerer.Propagate.cs`).
+2. In that rewriter, detect and rewrite propagate usages inside statements, producing a `BoundBlockStatement` that contains:
+   - temp declarations
+   - conditional return on failure
+   - the original statement rewritten to use the extracted success value
+3. Keep codegen changes minimal initially; once propagate is fully lowered, the direct `ret` path should no longer be reachable in async `MoveNext`.
