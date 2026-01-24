@@ -3,50 +3,94 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-// Fails
-//val res = await test()
-//WriteLine(res)
+/* * 
+* Investigation doc: docs/async-propagate-lowering-plan.md
+* 
+* To compile:
+* dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- sample101.rav -o test.dll --run
+*
+* Options for debugging:
+* -d pretty : render highlighted syntax tree
+* -s : display syntax tree
+* -b t: display clean binder tree. -bte include error nodes
+* --no-emit : skip code gen
+* */
 
-// Fails
-//val res2 = await test2()
-//WriteLine(res2)
+// test
 
-//val res3 = await test3()
-//WriteLine(res3)
+val res = await test(throwExc: false)
+WriteLine(res)
 
-val res4 = await test4()
-WriteLine(res4)
+val res_2 = await test(throwExc: true)
+WriteLine(res_2)
 
-//val res5 = await test5()
-//WriteLine(res5)
 
-async func test() -> Task<Result<string, Exception>> {
-    val x = try? await action(throwExc: false)
-    // 'x' should be unit
-    return .Ok("Test")
-}
+// test2
 
-async func test2() -> Task<Result<string, Exception>> {
-    _ = try? await action(throwExc: false) // unit should be discarded
-    return .Ok("Test")
-}
+/* 
+// InvalidProgramException it thrown
 
-/*
-async func test3() -> Task<Result<string, Exception>> {
-    try? await action(throwExc: false) // result (unit) should be discarded as per expression statement rules
-    return .Ok("Test")
-}
+val res2 = await test2(throwExc: false)
+WriteLine(res2)
+
+val res2_2 = await test2(throwExc: true)
+WriteLine(res2_2)
+
 */
 
-async func test4() -> Task<Result<string, Exception>> {
-    val x = try? await action2(throwExc: false)
+
+// test3
+
+val res3 = await test3(throwExc: false)
+WriteLine(res3)
+
+val res3_2 = await test3(throwExc: true)
+WriteLine(res3_2)
+
+
+// test4
+
+val res4 = await test4(throwExc: false)
+WriteLine(res4)
+
+val res4_2 = await test4(throwExc: true)
+WriteLine(res4_2)
+
+
+// test5
+
+val res5 = await test5(throwExc: false)
+WriteLine(res5)
+
+val res5_2 = await test5(throwExc: true)
+WriteLine(res5_2)
+
+
+async func test(throwExc: bool) -> Task<Result<string, Exception>> {
+    val x = try? await action(throwExc)
+    // 'x' should be unit
+    return .Ok("test = OK")
+}
+
+async func test2(throwExc: bool) -> Task<Result<string, Exception>> {
+    _ = try? await action(throwExc) // unit should be discarded
+    return .Ok("test2 = OK")
+}
+
+async func test3(throwExc: bool) -> Task<Result<string, Exception>> {
+    try? await action(throwExc) // result (unit) should be discarded as per expression statement rules
+    return .Ok("test3 = OK")
+}
+
+async func test4(throwExc: bool) -> Task<Result<string, Exception>> {
+    val x = try? await action2(throwExc)
     // 'x' should be string, but is Result<string, Exception>
     return .Ok(x)
 }
 
-async func test5() -> Task<Result<string, Exception>> {
-    try? await action2(throwExc: false)  // result (string) should be discarded as per expression statement rules
-    return .Ok("OK")
+async func test5(throwExc: bool) -> Task<Result<string, Exception>> {
+    try? await action2(throwExc)  // result (string) should be discarded as per expression statement rules
+    return .Ok("test5 = OK")
 }
 
 async func action(throwExc: bool) -> Task {
