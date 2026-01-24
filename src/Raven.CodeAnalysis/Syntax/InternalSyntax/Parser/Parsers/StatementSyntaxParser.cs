@@ -63,6 +63,11 @@ internal class StatementSyntaxParser : SyntaxParser
                     break;
 
                 case SyntaxKind.TryKeyword:
+                    var next = PeekToken(1);
+                    if (next.IsKind(SyntaxKind.QuestionToken))
+                    {
+                        return ParseDeclarationOrExpressionStatementSyntax()!;
+                    }
                     statement = ParseTryStatementSyntax();
                     break;
 

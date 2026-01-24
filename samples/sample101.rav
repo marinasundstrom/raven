@@ -20,46 +20,48 @@ WriteLine(res4)
 //val res5 = await test5()
 //WriteLine(res5)
 
-/*
 async func test() -> Task<Result<string, Exception>> {
-    val x = try? await action()
+    val x = try? await action(throwExc: false)
     // 'x' should be unit
     return .Ok("Test")
 }
 
 async func test2() -> Task<Result<string, Exception>> {
-    _ = try? await action() // unit discarded
+    _ = try? await action(throwExc: false) // unit should be discarded
     return .Ok("Test")
-}
-
-async func test3() -> Task<Result<string, Exception>> {
-    try? await action() // unit
-    return .Ok("Test")
-}*/
-
-async func test4() -> Task<Result<string, Exception>> {
-    val x = try? await action2()
-    // 'x' should be string
-    return .Ok(x)
 }
 
 /*
-async func test5() -> Task<Result<string, Exception>> {
-    // Nothing to return (unit), but an exception might be propagated
-    try? await action2()
-    return .Ok("OK")
+async func test3() -> Task<Result<string, Exception>> {
+    try? await action(throwExc: false) // result (unit) should be discarded as per expression statement rules
+    return .Ok("Test")
 }
 */
 
-async func action() -> Task {
-    await Task.Delay(200)
-    // Comment/Uncomment to test handling of exceptions
-    throw new Exception("Boom!")
+async func test4() -> Task<Result<string, Exception>> {
+    val x = try? await action2(throwExc: false)
+    // 'x' should be string, but is Result<string, Exception>
+    return .Ok(x)
 }
 
-async func action2() -> Task<Result<string, Exception>> {
+async func test5() -> Task<Result<string, Exception>> {
+    try? await action2(throwExc: false)  // result (string) should be discarded as per expression statement rules
+    return .Ok("OK")
+}
+
+async func action(throwExc: bool) -> Task {
     await Task.Delay(200)
     // Comment/Uncomment to test handling of exceptions
-    throw new Exception("Boom!")
+    if throwExc {
+        throw new Exception("Boom!")
+    }
+}
+
+async func action2(throwExc: bool) -> Task<Result<string, Exception>> {
+    await Task.Delay(200)
+    // Comment/Uncomment to test handling of exceptions
+    if throwExc {
+        throw new Exception("Boom!")
+    }
     return .Ok("Foo")
 }
