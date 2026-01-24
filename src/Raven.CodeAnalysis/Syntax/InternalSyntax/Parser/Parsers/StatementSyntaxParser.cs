@@ -64,7 +64,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
                 case SyntaxKind.TryKeyword:
                     var next = PeekToken(1);
-                    if (next.IsKind(SyntaxKind.QuestionToken))
+                    if (!next.IsKind(SyntaxKind.OpenBraceToken))
                     {
                         return ParseDeclarationOrExpressionStatementSyntax()!;
                     }
