@@ -95,7 +95,6 @@ async func test5(throwExc: bool) -> Task<Result<string, Exception>> {
 
 async func action(throwExc: bool) -> Task {
     await Task.Delay(200)
-    // Comment/Uncomment to test handling of exceptions
     if throwExc {
         throw new Exception("Boom!")
     }
@@ -103,7 +102,6 @@ async func action(throwExc: bool) -> Task {
 
 async func action2(throwExc: bool) -> Task<Result<string, Exception>> {
     await Task.Delay(200)
-    // Comment/Uncomment to test handling of exceptions
     if throwExc {
         throw new Exception("Boom!")
     }
