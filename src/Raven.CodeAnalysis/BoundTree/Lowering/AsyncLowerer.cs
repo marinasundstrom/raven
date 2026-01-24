@@ -1693,7 +1693,29 @@ internal static class AsyncLowerer
                     return (BoundExpression?)VisitAwaitExpression(awaitExpression);
 
                 case BoundPropagateExpression propagateExpression:
-                    return LowerPropagateExpression(propagateExpression);
+                    {
+                        var operand = VisitExpression(propagateExpression.Operand) ?? propagateExpression.Operand;
+
+                        if (!ReferenceEquals(operand, propagateExpression.Operand))
+                        {
+                            return new BoundPropagateExpression(
+                                operand,
+                                propagateExpression.OkType,
+                                propagateExpression.ErrorType,
+                                propagateExpression.EnclosingResultType,
+                                propagateExpression.EnclosingErrorConstructor,
+                                propagateExpression.OkCaseName,
+                                propagateExpression.ErrorCaseName,
+                                propagateExpression.ErrorCaseHasPayload,
+                                propagateExpression.OkCaseType,
+                                propagateExpression.OkValueProperty,
+                                propagateExpression.UnwrapErrorMethod,
+                                propagateExpression.ErrorConversion,
+                                propagateExpression.Reason);
+                        }
+
+                        return propagateExpression;
+                    }
 
                 case BoundBinaryExpression binaryExpression:
                     {
@@ -1904,148 +1926,6 @@ internal static class AsyncLowerer
             }
 
             return base.VisitExpression(node);
-        }
-
-        private BoundExpression LowerPropagateExpression(BoundPropagateExpression node)
-        {
-            var compilation = _stateMachine.Compilation;
-            var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
-            var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
-
-            var operand = VisitExpression(node.Operand) ?? node.Operand;
-            var operandType = operand.Type ?? compilation.ErrorTypeSymbol;
-            var operandNamedType = operandType as INamedTypeSymbol;
-            if (operandNamedType is null || operandNamedType.TypeKind == TypeKind.Error)
-                return node;
-
-            var operandLocal = new SourceLocalSymbol(
-                "$propagateOperand",
-                SubstituteStateMachineTypeParameters(operandType),
-                isMutable: true,
-                _stateMachine.MoveNextMethod,
-                _stateMachine,
-                _stateMachine.ContainingNamespace,
-                new[] { Location.None },
-                Array.Empty<SyntaxReference>());
-
-            var operandDeclaration = new BoundLocalDeclarationStatement(
-                new[] { new BoundVariableDeclarator(operandLocal, operand) });
-
-            var operandAccess = new BoundLocalAccess(operandLocal);
-
-            var tryGetOkMethod = FindTryGetOkMethod(node, operandNamedType);
-            if (tryGetOkMethod is null)
-                return node;
-
-            var okLocal = new SourceLocalSymbol(
-                "$propagateOk",
-                SubstituteStateMachineTypeParameters(node.OkCaseType ?? node.OkType),
-                isMutable: true,
-                _stateMachine.MoveNextMethod,
-                _stateMachine,
-                _stateMachine.ContainingNamespace,
-                new[] { Location.None },
-                Array.Empty<SyntaxReference>());
-
-            var okDeclaration = new BoundLocalDeclarationStatement(
-                new[] { new BoundVariableDeclarator(okLocal, initializer: null) });
-
-            var tryGetOkCall = new BoundInvocationExpression(
-                tryGetOkMethod,
-                new BoundExpression[] { new BoundLocalAccess(okLocal) },
-                receiver: operandAccess);
-
-            if (!BoundUnaryOperator.TryLookup(compilation, SyntaxKind.ExclamationToken, boolType, out var notOperator))
-                return node;
-
-            var notTryGetOk = new BoundUnaryExpression(notOperator, tryGetOkCall);
-
-            var errorReturn = new BoundReturnStatement(LowerPropagateErrorReturn(node, operandAccess, compilation));
-            var errorCondition = new BoundIfStatement(notTryGetOk, errorReturn);
-
-            var okValueExpression = LowerPropagateOkValue(node, okLocal, compilation);
-            var statements = new BoundStatement[]
-            {
-                operandDeclaration,
-                okDeclaration,
-                errorCondition,
-                new BoundExpressionStatement(okValueExpression)
-            };
-
-            var blockExpression = new BoundBlockExpression(statements, unitType);
-            return (BoundExpression)VisitBlockExpression(blockExpression)!;
-        }
-
-        private static IMethodSymbol? FindTryGetOkMethod(BoundPropagateExpression node, INamedTypeSymbol operandType)
-        {
-            var tryGetOkName = $"TryGet{node.OkCaseName}";
-            var targetType = node.OkCaseType ?? node.OkType;
-
-            foreach (var candidate in operandType.GetMembers(tryGetOkName).OfType<IMethodSymbol>())
-            {
-                if (candidate.Parameters.Length != 1)
-                    continue;
-
-                if (candidate.Parameters[0].Type is not ByRefTypeSymbol byRef)
-                    continue;
-
-                if (SymbolEqualityComparer.Default.Equals(byRef.ElementType, targetType))
-                    return candidate;
-            }
-
-            return operandType.GetMembers(tryGetOkName).OfType<IMethodSymbol>().FirstOrDefault();
-        }
-
-        private BoundExpression LowerPropagateOkValue(BoundPropagateExpression node, ILocalSymbol okLocal, Compilation compilation)
-        {
-            var okAccess = new BoundLocalAccess(okLocal);
-
-            if (node.OkCaseType is not null && node.OkValueProperty is not null)
-                return new BoundMemberAccessExpression(okAccess, node.OkValueProperty);
-
-            return ApplyConversionIfNeeded(okAccess, node.OkType, compilation);
-        }
-
-        private BoundExpression LowerPropagateErrorReturn(
-            BoundPropagateExpression node,
-            BoundExpression operandAccess,
-            Compilation compilation)
-        {
-            BoundExpression errorPayload;
-
-            if (node.UnwrapErrorMethod is not null)
-            {
-                var method = node.UnwrapErrorMethod;
-                errorPayload = method.IsExtensionMethod
-                    ? new BoundInvocationExpression(method, Array.Empty<BoundExpression>(), extensionReceiver: operandAccess)
-                    : new BoundInvocationExpression(method, Array.Empty<BoundExpression>(), receiver: operandAccess);
-            }
-            else
-            {
-                var operandType = operandAccess.Type as INamedTypeSymbol;
-                var errorProperty = operandType?
-                    .GetMembers("ErrorValue")
-                    .OfType<IPropertySymbol>()
-                    .FirstOrDefault()
-                    ?? operandType?
-                        .GetMembers("Payload")
-                        .OfType<IPropertySymbol>()
-                        .FirstOrDefault();
-
-                errorPayload = errorProperty is not null
-                    ? new BoundMemberAccessExpression(operandAccess, errorProperty)
-                    : new BoundErrorExpression(compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-            }
-
-            if (node.ErrorType is not null && node.ErrorConversion.Exists && !node.ErrorConversion.IsIdentity)
-                errorPayload = new BoundConversionExpression(errorPayload, node.ErrorType, node.ErrorConversion);
-
-            var errorArguments = node.EnclosingErrorConstructor.Parameters.Length == 0
-                ? Array.Empty<BoundExpression>()
-                : new[] { ApplyConversionIfNeeded(errorPayload, node.EnclosingErrorConstructor.Parameters[0].Type, compilation) };
-
-            var errorCreation = new BoundObjectCreationExpression(node.EnclosingErrorConstructor, errorArguments);
-            return ApplyConversionIfNeeded(errorCreation, node.EnclosingResultType, compilation);
         }
 
         public override BoundNode? VisitLocalAccess(BoundLocalAccess node)

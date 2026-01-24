@@ -871,7 +871,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Newobj, errorCtorInfo);
 
             EmitPropagateErrorCaseConversion(enclosingResultClrType, errorCtorInfo.DeclaringType);
-            EmitPropagateReturn();
+            ILGenerator.Emit(OpCodes.Ret);
             return;
         }
 
@@ -941,49 +941,6 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
 
         EmitPropagateErrorCaseConversion(enclosingResultClrType, ctorInfo.DeclaringType);
-        EmitPropagateReturn();
-    }
-
-    private void EmitPropagateReturn()
-    {
-        if (TryGetExceptionExitLabel(out var label))
-        {
-            var builderField = MethodSymbol.ContainingType
-                .GetMembers("_builder")
-                .OfType<IFieldSymbol>()
-                .FirstOrDefault();
-
-            var setResultMethod = builderField?.Type
-                .GetMembers("SetResult")
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(m => m.Parameters.Length == 1);
-
-            var stateField = MethodSymbol.ContainingType
-                .GetMembers("_state")
-                .OfType<IFieldSymbol>()
-                .FirstOrDefault();
-
-            if (builderField is null || setResultMethod is null || stateField is null)
-                throw new InvalidOperationException("Async state machine builder is missing SetResult(T).");
-
-            var resultClrType = ResolveClrType(setResultMethod.Parameters[0].Type);
-            var resultLocal = ILGenerator.DeclareLocal(resultClrType);
-            ILGenerator.Emit(OpCodes.Stloc, resultLocal);
-
-            var stateFieldInfo = stateField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
-            ILGenerator.Emit(OpCodes.Ldarg_0);
-            ILGenerator.Emit(OpCodes.Ldc_I4, -2);
-            ILGenerator.Emit(OpCodes.Stfld, stateFieldInfo);
-
-            var builderFieldInfo = builderField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
-            ILGenerator.Emit(OpCodes.Ldarg_0);
-            ILGenerator.Emit(OpCodes.Ldflda, builderFieldInfo);
-            ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(setResultMethod));
-            ILGenerator.Emit(OpCodes.Leave, label);
-            return;
-        }
-
         ILGenerator.Emit(OpCodes.Ret);
     }
 
