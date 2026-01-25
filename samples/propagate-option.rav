@@ -9,7 +9,7 @@ val x = test() match {
 WriteLine(x)
 
 func test() -> Option<int> {
-    val r = test2(3)?
+    val r = test2(4)?
     WriteLine(r)
     return .Some(r + 1)
 }

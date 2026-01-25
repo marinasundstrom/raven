@@ -1,7 +1,7 @@
 import System.*
 import System.Console.*
 
-val a = handle("foo")
+val a = handle("42")
 Console.WriteLine(a)
 
 func handle(text: string) -> Result<int, Exception> {
