@@ -1605,6 +1605,41 @@ internal class TypeMemberBinder : Binder
             foreach (var accessor in propertyDecl.AccessorList.Accessors)
             {
                 bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
+
+                static Accessibility? GetExplicitAccessorAccessibility(SyntaxTokenList mods)
+                {
+                    var hasPublic = mods.Any(m => m.Kind == SyntaxKind.PublicKeyword);
+                    var hasPrivate = mods.Any(m => m.Kind == SyntaxKind.PrivateKeyword);
+                    var hasProtected = mods.Any(m => m.Kind == SyntaxKind.ProtectedKeyword);
+                    var hasInternal = mods.Any(m => m.Kind == SyntaxKind.InternalKeyword);
+
+                    // No explicit accessor accessibility.
+                    if (!hasPublic && !hasPrivate && !hasProtected && !hasInternal)
+                        return null;
+
+                    // Treat combinations similarly to C# where applicable.
+                    if (hasProtected && hasInternal)
+                        return Accessibility.ProtectedOrInternal;
+
+                    if (hasPublic)
+                        return Accessibility.Public;
+                    if (hasPrivate)
+                        return Accessibility.Private;
+                    if (hasProtected)
+                        return Accessibility.ProtectedAndProtected;
+                    if (hasInternal)
+                        return Accessibility.Internal;
+
+                    return null;
+                }
+
+                // Accessor accessibility defaults to the property's accessibility unless explicitly overridden.
+                // For explicit interface implementations we always force private.
+                var explicitAccessorAccessibility = GetExplicitAccessorAccessibility(accessor.Modifiers);
+                var accessorAccessibility = explicitInterfaceType is not null
+                    ? Accessibility.Private
+                    : explicitAccessorAccessibility ?? propertyAccessibility;
+
                 var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Unit);
                 var name = explicitAccessorPrefix + (isGet ? "get_" : "set_") + propertySymbol.Name;
 
@@ -1647,7 +1682,7 @@ internal class TypeMemberBinder : Binder
                     isOverride: accessorOverride,
                     isSealed: accessorSealed,
                     isAbstract: isAbstract,
-                    declaredAccessibility: propertyAccessibility);
+                    declaredAccessibility: accessorAccessibility);
 
                 if (isExtensionMember)
                     methodSymbol.MarkDeclaredInExtension();
@@ -1733,6 +1768,11 @@ internal class TypeMemberBinder : Binder
         else if (propertyDecl.ExpressionBody is not null)
         {
             var name = explicitAccessorPrefix + "get_" + propertySymbol.Name;
+
+            var accessorAccessibility = explicitInterfaceType is not null
+                ? Accessibility.Private
+                : propertyAccessibility;
+
             var accessorOverride = isOverride && overriddenGetter is not null;
             var accessorVirtual = accessorOverride || isVirtual;
             var accessorSealed = accessorOverride && isSealed;
@@ -1753,7 +1793,7 @@ internal class TypeMemberBinder : Binder
                 isOverride: accessorOverride,
                 isSealed: accessorSealed,
                 isAbstract: isAbstract,
-                declaredAccessibility: propertyAccessibility);
+                declaredAccessibility: accessorAccessibility);
 
             if (isExtensionMember)
                 methodSymbol.MarkDeclaredInExtension();

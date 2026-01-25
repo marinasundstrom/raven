@@ -1,3 +1,4 @@
+import System.*
 import System.Console.*
 import System.Collections.Generic.*
 import System.Text.Json.*
@@ -12,6 +13,8 @@ val window = Window {
         Button { Text = "Cancel" }
     }
 }
+
+val result = window.ShowDialog()
 
 WriteLine(window.Title)
 
@@ -33,6 +36,27 @@ class Window {
     public Height: int { get; set; }
 
     public Content: Control { get; set; }
+
+    public IsVisible: bool { get; private set; }
+
+    public Show() -> () {
+        IsVisible = true
+    }
+
+    public Close() -> () {
+        IsVisible = false
+    }
+
+    public ShowDialog() -> Result<DialogResult, Exception> {
+        return .Ok(DialogResult.Ok)
+    }
+}
+
+enum DialogResult { 
+    Ok, 
+    Cancel, 
+    Yes, 
+    No 
 }
 
 open abstract class Control {}

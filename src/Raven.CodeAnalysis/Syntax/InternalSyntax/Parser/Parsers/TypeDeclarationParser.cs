@@ -780,6 +780,10 @@ internal class TypeDeclarationParser : SyntaxParser
             while (true)
             {
                 if (ConsumeToken(SyntaxKind.AsyncKeyword, out modifier) ||
+                    ConsumeToken(SyntaxKind.PublicKeyword, out modifier) ||
+                    ConsumeToken(SyntaxKind.PrivateKeyword, out modifier) ||
+                    ConsumeToken(SyntaxKind.ProtectedKeyword, out modifier) ||
+                    ConsumeToken(SyntaxKind.InternalKeyword, out modifier) ||
                     ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
                     ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
                     ConsumeToken(SyntaxKind.InKeyword, out modifier))
