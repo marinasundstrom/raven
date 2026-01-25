@@ -2397,10 +2397,12 @@ partial class BlockBinder : Binder
         {
             case BoundDiscardPattern:
                 return true;
-            case BoundDeclarationPattern { Designator: BoundDiscardDesignator } declaration:
+            case BoundDeclarationPattern declaration:
                 {
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
+                    // A declaration pattern is catch-all regardless of whether it binds a name or discards.
+                    // (e.g. `string? x` should still cover all values of `string?`.)
                     if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
                         return true;
 
