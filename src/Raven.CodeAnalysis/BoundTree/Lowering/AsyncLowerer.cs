@@ -1515,6 +1515,13 @@ internal static class AsyncLowerer
                 resultExpression = new BoundLocalAccess(resultLocal);
             }
 
+            if (!_stateMachine.HoistedLocalsToDispose.IsDefaultOrEmpty)
+            {
+                statements.AddRange(CreateDisposeStatements(
+                    _stateMachine,
+                    EnumerateReverse(_stateMachine.HoistedLocalsToDispose)));
+            }
+
             statements.Add(CreateStateAssignment(_stateMachine, -2));
 
             var setResult = CreateBuilderSetResultStatement(_stateMachine, _builderMembers, resultExpression);
