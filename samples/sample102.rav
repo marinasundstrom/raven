@@ -8,7 +8,6 @@ WriteLine(res4_2)
 
 async func test4(throwExc: bool) -> Task<Result<int, Exception>> {
     val x = try? await action2(throwExc)
-    // 'x' should be string, but is Result<string, Exception>
     WriteLine(x)
     return .Ok(x + 2)
 }
