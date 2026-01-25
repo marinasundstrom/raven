@@ -42,11 +42,20 @@ internal partial class ExpressionGenerator
         var scrutineeClrType = ResolveClrType(scrutineeType);
 
         // Emit scrutinee value
-        EmitExpression(matchExpression.Expression);
+        var info = EmitExpression(matchExpression.Expression);
 
-        // Always keep a typed local for scrutinee (even if we later need boxed too)
-        var typedLocal = ILGenerator.DeclareLocal(scrutineeClrType);
-        ILGenerator.Emit(OpCodes.Stloc, typedLocal);
+        IILocal? typedLocal;
+
+        if (info.Local is not null)
+        {
+            typedLocal = info.Local;
+        }
+        else
+        {
+            // Always keep a typed local for scrutinee (even if we later need boxed too)
+            typedLocal = ILGenerator.DeclareLocal(scrutineeClrType);
+            ILGenerator.Emit(OpCodes.Stloc, typedLocal);
+        }
 
         // Value-type DU fast path is orthogonal
         var isValueTypeDU = IsDiscriminatedUnionValueType(scrutineeType);
@@ -211,7 +220,7 @@ internal partial class ExpressionGenerator
         }
     }
 
-    private void EmitPattern(BoundPattern pattern, ITypeSymbol inputType, Generator? scope = null)
+    private void EmitPattern(BoundPattern pattern, ITypeSymbol inputType, Generator? scope = null, IILocal? scrutineeLocal2 = null)
     {
         scope ??= this;
 
@@ -235,7 +244,7 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundRelationalPattern relational)
         {
-            EmitRelationalPattern(relational, inputType, scope);
+            EmitRelationalPattern(relational, inputType, scope, scrutineeLocal2);
             return;
         }
 
@@ -248,7 +257,7 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundConstantPattern constantPattern)
         {
-            EmitConstantPattern(constantPattern, inputType);
+            EmitConstantPattern(constantPattern, inputType, scrutineeLocal2);
             return;
         }
 
@@ -342,7 +351,7 @@ internal partial class ExpressionGenerator
                 var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
                 if (unionClrType.IsValueType && inputClr == unionClrType)
                 {
-                    var unionLocal2 = ILGenerator.DeclareLocal(unionClrType);
+                    var unionLocal2 = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
                     var caseLocal2 = ILGenerator.DeclareLocal(caseClrType);
 
                     var labelFail2 = ILGenerator.DefineLabel();
@@ -383,7 +392,7 @@ internal partial class ExpressionGenerator
                         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                         // IMPORTANT: do not pre-box; nested patterns decide.
-                        EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope);
+                        EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope, scrutineeLocal2);
                         ILGenerator.Emit(OpCodes.Brfalse, labelFail2);
                     }
 
@@ -401,7 +410,7 @@ internal partial class ExpressionGenerator
             // Boxed pipeline for case patterns uses Isinst => object input
             EnsureObjectOnStack(ref inputType);
 
-            var unionLocal = ILGenerator.DeclareLocal(unionClrType);
+            var unionLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
             var caseLocal = ILGenerator.DeclareLocal(caseClrType);
 
             var labelSuccess = ILGenerator.DefineLabel();
@@ -451,7 +460,7 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                 // IMPORTANT: do not pre-box; nested patterns decide.
-                EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope);
+                EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope, scrutineeLocal2);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
             }
 
@@ -471,7 +480,7 @@ internal partial class ExpressionGenerator
             var scrutineeLocal = SpillScrutineeToLocal(inputType);
 
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-            EmitPattern(unaryPattern.Pattern, inputType, scope);
+            EmitPattern(unaryPattern.Pattern, inputType, scope, scrutineeLocal2);
 
             if (unaryPattern.Kind == BoundUnaryPatternKind.Not)
             {
@@ -493,11 +502,11 @@ internal partial class ExpressionGenerator
             if (binaryPattern.Kind == BoundPatternKind.And)
             {
                 ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-                EmitPattern(binaryPattern.Left, inputType, scope);
+                EmitPattern(binaryPattern.Left, inputType, scope, scrutineeLocal2);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
                 ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-                EmitPattern(binaryPattern.Right, inputType, scope);
+                EmitPattern(binaryPattern.Right, inputType, scope, scrutineeLocal2);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -515,11 +524,11 @@ internal partial class ExpressionGenerator
                 var labelTrue = ILGenerator.DefineLabel();
 
                 ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-                EmitPattern(binaryPattern.Left, inputType, scope);
+                EmitPattern(binaryPattern.Left, inputType, scope, scrutineeLocal2);
                 ILGenerator.Emit(OpCodes.Brtrue, labelTrue);
 
                 ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-                EmitPattern(binaryPattern.Right, inputType, scope);
+                EmitPattern(binaryPattern.Right, inputType, scope, scrutineeLocal2);
                 ILGenerator.Emit(OpCodes.Brtrue, labelTrue);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -568,7 +577,7 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit(OpCodes.Ldc_I4, i);
                 ILGenerator.Emit(OpCodes.Callvirt, itemGetter); // object
 
-                EmitPattern(tuplePattern.Elements[i], Compilation.GetSpecialType(SpecialType.System_Object), scope);
+                EmitPattern(tuplePattern.Elements[i], Compilation.GetSpecialType(SpecialType.System_Object), scope, scrutineeLocal2);
                 ILGenerator.Emit(OpCodes.Brfalse, labelFail);
             }
 
@@ -597,7 +606,7 @@ internal partial class ExpressionGenerator
         throw new NotSupportedException($"Unsupported pattern");
     }
 
-    private void EmitRelationalPattern(BoundRelationalPattern pattern, ITypeSymbol inputType, Generator scope)
+    private void EmitRelationalPattern(BoundRelationalPattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
     {
         // Stack on entry: <scrutinee>  (typed if PatternInput.Typed worked correctly)
 
@@ -611,7 +620,7 @@ internal partial class ExpressionGenerator
 
         // Spill scrutinee so we can reuse it (and handle nullable without duplicating stack games)
         var scrutineeClr = ResolveClrType(inputType);
-        var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClr);
+        var scrutineeLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
         ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
 
         // Nullable<T> path
@@ -984,13 +993,13 @@ internal partial class ExpressionGenerator
     // Constant patterns (typed, avoid boxing)
     // ============================================
 
-    private void EmitConstantPattern(BoundConstantPattern constantPattern, ITypeSymbol inputType)
+    private void EmitConstantPattern(BoundConstantPattern constantPattern, ITypeSymbol inputType, IILocal? scrutineeLocal2)
     {
         // Runtime "value pattern" (e.g. identifier/member access) – compare by object.Equals.
         if (constantPattern.Expression is not null
             && constantPattern.Expression is not BoundTypeExpression { Type: NullTypeSymbol })
         {
-            EmitRuntimeValueConstantCompare(constantPattern.Expression, inputType);
+            EmitRuntimeValueConstantCompare(constantPattern.Expression, inputType, scrutineeLocal2);
             return;
         }
 
@@ -1012,7 +1021,7 @@ internal partial class ExpressionGenerator
         // NULL literal
         if (value is null)
         {
-            EmitNullConstantPattern(scrutineeType, scrutineeClr);
+            EmitNullConstantPattern(scrutineeType, scrutineeClr, scrutineeLocal2);
             return;
         }
 
@@ -1026,7 +1035,7 @@ internal partial class ExpressionGenerator
         // Non-nullable value types: fast typed compare, no boxing
         if (scrutineeType.IsValueType)
         {
-            var loc = ILGenerator.DeclareLocal(scrutineeClr);
+            var loc = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
             ILGenerator.Emit(OpCodes.Stloc, loc);
             ILGenerator.Emit(OpCodes.Ldloc, loc);
 
@@ -1039,7 +1048,7 @@ internal partial class ExpressionGenerator
         EmitReferenceConstantCompare(value, literal);
     }
 
-    private void EmitNullConstantPattern(ITypeSymbol scrutineeType, Type scrutineeClr)
+    private void EmitNullConstantPattern(ITypeSymbol scrutineeType, Type scrutineeClr, IILocal? scrutineeLocal2)
     {
         if (scrutineeType.IsValueType && !scrutineeType.IsNullable)
         {
@@ -1054,7 +1063,7 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        var loc = ILGenerator.DeclareLocal(scrutineeClr);
+        var loc = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
         ILGenerator.Emit(OpCodes.Stloc, loc);
 
         ILGenerator.Emit(OpCodes.Ldloca_S, loc);
@@ -1414,7 +1423,7 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
-            EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope);
+            EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope, null);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
         }
 
@@ -1541,13 +1550,13 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ldloc, tmp);
     }
 
-    private void EmitRuntimeValueConstantCompare(BoundExpression valueExpression, ITypeSymbol scrutineeType)
+    private void EmitRuntimeValueConstantCompare(BoundExpression valueExpression, ITypeSymbol scrutineeType, IILocal? scrutineeLocal2)
     {
         // Stack on entry: <scrutinee>
         // Spill the scrutinee, evaluate the value expression, box as needed, and call object.Equals(a,b).
 
         var scrutineeClr = ResolveClrType(scrutineeType);
-        var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClr);
+        var scrutineeLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
         ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
 
         // left: box(scrutinee)
