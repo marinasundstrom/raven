@@ -6,7 +6,7 @@ val input = ReadLine()
 val response = input match {
     "yes" | "y" => "Great!"
     "no" | "n" => "I'll wait for you!"
-    _ => "What did you say?"
+    string? x => "What did you say?"
 }
 
 WriteLine(response)

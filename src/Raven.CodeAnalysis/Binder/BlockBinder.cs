@@ -3426,23 +3426,6 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(Compilation.NullTypeSymbol);
         }
 
-        if (syntax is UnionTypeSyntax unionSyntax)
-        {
-            var types = new List<ITypeSymbol>();
-
-            foreach (var type in unionSyntax.Types)
-            {
-                if (BindTypeSyntax(type) is not BoundTypeExpression bt)
-                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
-
-                types.Add(bt.Type);
-            }
-
-            var unionType = new TypeUnionSymbol(types, null!, null, null, [], null);
-
-            return new BoundTypeExpression(unionType);
-        }
-
         if (syntax is LiteralTypeSyntax literalType)
         {
             var token = literalType.Token;
@@ -3480,6 +3463,11 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(litSymbol);
         }
 
+        if (syntax is IdentifierNameSyntax id)
+        {
+            return BindTypeName(id.Identifier.ValueText, id.GetLocation(), []);
+        }
+
         if (syntax is PredefinedTypeSyntax predefinedType)
         {
             var type = Compilation.ResolvePredefinedType(predefinedType);
@@ -3490,6 +3478,12 @@ partial class BlockBinder : Binder
         {
             var type = Compilation.GetSpecialType(SpecialType.System_Unit);
             return new BoundTypeExpression(type);
+        }
+
+        if (syntax is NullableTypeSyntax nullableTypeSyntax)
+        {
+            var type = BindTypeSyntax(nullableTypeSyntax.ElementType);
+            return new BoundTypeExpression(type.Type.MakeNullable());
         }
 
         if (syntax is PointerTypeSyntax pointerTypeSyntax)
@@ -3542,9 +3536,21 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(tupleType);
         }
 
-        if (syntax is IdentifierNameSyntax id)
+        if (syntax is UnionTypeSyntax unionSyntax)
         {
-            return BindTypeName(id.Identifier.ValueText, id.GetLocation(), []);
+            var types = new List<ITypeSymbol>();
+
+            foreach (var type in unionSyntax.Types)
+            {
+                if (BindTypeSyntax(type) is not BoundTypeExpression bt)
+                    return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
+                types.Add(bt.Type);
+            }
+
+            var unionType = new TypeUnionSymbol(types, null!, null, null, [], null);
+
+            return new BoundTypeExpression(unionType);
         }
 
         if (syntax is GenericNameSyntax generic)
