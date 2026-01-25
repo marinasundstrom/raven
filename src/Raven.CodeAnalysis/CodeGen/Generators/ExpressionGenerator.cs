@@ -18,6 +18,46 @@ internal partial class ExpressionGenerator : Generator
 {
     private static readonly DelegateConstructorCacheKeyComparer s_delegateConstructorComparer = new();
 
+    private enum EmitValueKind
+    {
+        None,
+        Value,
+        Address
+    }
+
+    private readonly struct EmitInfo
+    {
+        public EmitValueKind Kind { get; }
+        public ISymbol? Symbol { get; }
+        public IILocal? Local { get; }
+        public bool WasCaptured { get; }
+        public bool WasSpilledToLocal { get; }
+
+        public bool HasValueOnStack => Kind != EmitValueKind.None;
+        public bool IsAddress => Kind == EmitValueKind.Address;
+
+        private EmitInfo(EmitValueKind kind, ISymbol? symbol, IILocal? local, bool wasCaptured, bool wasSpilledToLocal)
+        {
+            Kind = kind;
+            Symbol = symbol;
+            Local = local;
+            WasCaptured = wasCaptured;
+            WasSpilledToLocal = wasSpilledToLocal;
+        }
+
+        public static EmitInfo None => new(EmitValueKind.None, symbol: null, local: null, wasCaptured: false, wasSpilledToLocal: false);
+
+        public static EmitInfo ForValue(ISymbol? symbol = null, IILocal? local = null, bool wasCaptured = false)
+            => new(EmitValueKind.Value, symbol, local, wasCaptured, wasSpilledToLocal: false);
+
+        public static EmitInfo ForAddress(
+            ISymbol? symbol = null,
+            IILocal? local = null,
+            bool wasCaptured = false,
+            bool wasSpilledToLocal = false)
+            => new(EmitValueKind.Address, symbol, local, wasCaptured, wasSpilledToLocal);
+    }
+
     private readonly BoundExpression _expression;
     private readonly bool _preserveResult;
     private readonly Dictionary<DelegateConstructorCacheKey, ConstructorInfo> _delegateConstructorCache = new(s_delegateConstructorComparer);
@@ -68,12 +108,13 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Call, GetNullableValueGetter(receiverClrType));
     }
 
-    private void EmitExpression(BoundExpression expression, bool emitAddress = false)
+    private EmitInfo EmitExpression(BoundExpression expression, bool emitAddress = false)
     {
         if (emitAddress)
         {
-            if (TryEmitAddress(expression))
-                return;
+            var addressInfo = TryEmitAddress(expression);
+            if (addressInfo.Kind != EmitValueKind.None)
+                return addressInfo;
 
             // Fallback: evaluate the value once, spill to a temp, then load its managed address.
             var tmpType = ResolveClrType(expression.Type);
@@ -81,8 +122,11 @@ internal partial class ExpressionGenerator : Generator
             EmitExpression(expression, emitAddress: false);
             ILGenerator.Emit(OpCodes.Stloc, tmp);
             ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
-            return;
+            return EmitInfo.ForAddress(local: tmp, wasSpilledToLocal: true);
         }
+
+        var info = EmitInfo.ForValue();
+
         switch (expression)
         {
             case BoundPropagateExpression propagateExpression:
@@ -110,11 +154,11 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundParameterAccess parameterAccess:
-                EmitParameterAccess(parameterAccess);
+                info = EmitParameterAccess(parameterAccess);
                 break;
 
             case BoundLocalAccess localAccess:
-                EmitLocalAccess(localAccess);
+                info = EmitLocalAccess(localAccess);
                 break;
 
             case BoundPropertyAccess propertyAccess:
@@ -122,7 +166,7 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundFieldAccess fieldAccess:
-                EmitFieldAccess(fieldAccess);
+                info = EmitFieldAccess(fieldAccess);
                 break;
 
             case BoundMemberAccessExpression memberAccessExpression:
@@ -146,7 +190,7 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundParenthesizedExpression parenthesized:
-                EmitExpression(parenthesized.Expression);
+                info = EmitExpression(parenthesized.Expression);
                 break;
 
             case BoundConversionExpression conversionExpression:
@@ -249,33 +293,35 @@ internal partial class ExpressionGenerator : Generator
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
+
+        return info;
     }
 
-    private bool TryEmitAddress(BoundExpression expression)
+    private EmitInfo TryEmitAddress(BoundExpression expression)
     {
         switch (expression)
         {
             case BoundLocalAccess localAccess:
                 if (TryEmitCapturedVariableLoad(localAccess.Local))
-                    return false;
+                    return EmitInfo.None;
 
                 var localBuilder = GetLocal(localAccess.Local);
                 if (localBuilder is null)
                     throw new InvalidOperationException($"Missing local builder for '{localAccess.Local.Name}'");
 
                 ILGenerator.Emit(OpCodes.Ldloca_S, localBuilder);
-                return true;
+                return EmitInfo.ForAddress(localAccess.Local, localBuilder);
 
             case BoundParameterAccess parameterAccess:
                 if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
-                    return false;
+                    return EmitInfo.None;
 
                 int position = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter).Position;
                 if (MethodSymbol.IsStatic)
                     position -= 1;
 
                 ILGenerator.Emit(OpCodes.Ldarga_S, (short)position);
-                return true;
+                return EmitInfo.ForAddress(parameterAccess.Parameter);
 
             case BoundFieldAccess fieldAccess:
                 // Static fields are always directly addressable.
@@ -284,7 +330,7 @@ internal partial class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldAccess.Field));
                     if (TryGetAsyncInvestigationFieldLabel(fieldAccess.Field, out var staticFieldLabel))
                         EmitAsyncInvestigationAddressLogPreservingPointer(staticFieldLabel);
-                    return true;
+                    return EmitInfo.ForAddress(fieldAccess.Field);
                 }
 
                 // Instance field: need an addressable receiver for ldflda.
@@ -310,17 +356,17 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldAccess.Field));
                 if (TryGetAsyncInvestigationFieldLabel(fieldAccess.Field, out var fieldLabel))
                     EmitAsyncInvestigationAddressLogPreservingPointer(fieldLabel);
-                return true;
+                return EmitInfo.ForAddress(fieldAccess.Field);
 
             case BoundArrayAccessExpression arrayAccess:
                 // Address of array element.
                 EmitArrayElementAddress(arrayAccess);
-                return true;
+                return EmitInfo.ForAddress();
 
             // If you later introduce ref-return properties/indexers, handle them here.
 
             default:
-                return false;
+                return EmitInfo.None;
         }
     }
 
@@ -1077,28 +1123,30 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createMethod).MakeGenericMethod(elements.Select(x => ResolveClrType(x.Type)).ToArray()));
     }
-    private void EmitLocalAccess(BoundLocalAccess localAccess)
+    private EmitInfo EmitLocalAccess(BoundLocalAccess localAccess)
     {
         if (TryEmitCapturedVariableLoad(localAccess.Local))
-            return;
+            return EmitInfo.ForValue(localAccess.Local, wasCaptured: true);
 
         var localBuilder = GetLocal(localAccess.Local);
         if (localBuilder is null)
             throw new InvalidOperationException($"Missing local builder for '{localAccess.Local.Name}'");
 
         ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+        return EmitInfo.ForValue(localAccess.Local, localBuilder);
     }
 
-    private void EmitParameterAccess(BoundParameterAccess parameterAccess)
+    private EmitInfo EmitParameterAccess(BoundParameterAccess parameterAccess)
     {
         if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
-            return;
+            return EmitInfo.ForValue(parameterAccess.Parameter, wasCaptured: true);
 
         int position = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter).Position;
         if (MethodSymbol.IsStatic)
             position -= 1;
 
         ILGenerator.Emit(OpCodes.Ldarg, position);
+        return EmitInfo.ForValue(parameterAccess.Parameter);
     }
 
     private void EmitConversionExpression(BoundConversionExpression conversionExpression)
@@ -3529,7 +3577,7 @@ internal partial class ExpressionGenerator : Generator
 
     private IILocal? _asyncInvestigationPointerLocal;
 
-    private void EmitFieldAccess(BoundFieldAccess fieldAccess)
+    private EmitInfo EmitFieldAccess(BoundFieldAccess fieldAccess)
     {
         var fieldSymbol = fieldAccess.Field;
 
@@ -3542,7 +3590,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Ldarg_0);
             ILGenerator.Emit(OpCodes.Ldfld, GetField(asyncClosureField));
             ILGenerator.Emit(OpCodes.Ldfld, GetField(fieldSymbol));
-            return;
+            return EmitInfo.ForValue(fieldSymbol);
         }
         if (fieldSymbol.IsConst)
         {
@@ -3632,7 +3680,7 @@ internal partial class ExpressionGenerator : Generator
                         $"Literal value type not supported: {constant?.GetType()}"
                     );
             }
-            return;
+            return EmitInfo.ForValue(fieldSymbol);
         }
 
         if (fieldSymbol.IsStatic)
@@ -3644,7 +3692,7 @@ internal partial class ExpressionGenerator : Generator
             }
 
             ILGenerator.Emit(OpCodes.Ldsfld, GetField(fieldSymbol));
-            return;
+            return EmitInfo.ForValue(fieldSymbol);
         }
 
         var containingType = fieldSymbol.ContainingType;
@@ -3710,6 +3758,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Ldfld, GetField(fieldSymbol));
+        return EmitInfo.ForValue(fieldSymbol);
     }
 
     private void EmitPropertyAccess(BoundPropertyAccess propertyAccess)
