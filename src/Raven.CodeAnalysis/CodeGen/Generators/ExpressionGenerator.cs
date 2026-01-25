@@ -128,6 +128,7 @@ internal partial class ExpressionGenerator : Generator
             case BoundMemberAccessExpression memberAccessExpression:
                 EmitMemberAccessExpression(memberAccessExpression);
                 break;
+
             case BoundConditionalAccessExpression conditionalAccess:
                 EmitConditionalAccessExpression(conditionalAccess);
                 break;

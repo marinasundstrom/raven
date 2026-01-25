@@ -1,6 +1,8 @@
 import System.Console.*
 
 Write("Are you ready? (yes or no): ")
+
+/*
 val input = ReadLine()
 
 val response = input match {
@@ -9,4 +11,4 @@ val response = input match {
     string? x => "What did you say?"
 }
 
-WriteLine(response)
+WriteLine(response)*/

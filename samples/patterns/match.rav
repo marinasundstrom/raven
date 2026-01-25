@@ -9,7 +9,7 @@ val result = value match {
     int x => "foo"
     //string str => str
     //object obj => "obj"
-    _ => "None"
+    //_ => "None"
 }
 
 WriteLine(result.GetType().Name)
