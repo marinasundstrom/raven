@@ -116,26 +116,24 @@ internal partial class ExpressionGenerator
             var nextArmLabel = ILGenerator.DefineLabel();
             var scope = new Scope(this);
 
-            // --- Pattern test ---
+            // --- Pattern test (branching form: jump to next arm if pattern fails) ---
             if (isValueTypeDU)
             {
                 // DU unboxed fast path first (supports not/and/or around case patterns)
-                if (!TryEmitPatternTest_UnboxedValueTypeDU(arm.Pattern, scope, typedLocal, scrutineeClrType))
+                if (!TryEmitPatternBranchFalse_UnboxedValueTypeDU(arm.Pattern, scope, typedLocal, scrutineeClrType, nextArmLabel))
                 {
                     // Fall back to regular pipeline (typed/object depending on requirement)
                     var req = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
                     LoadScrutineeForArm(req, out var inputTypeForEmit);
-                    EmitPattern(arm.Pattern, inputTypeForEmit, scope);
+                    EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel);
                 }
             }
             else
             {
                 var req = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
                 LoadScrutineeForArm(req, out var inputTypeForEmit);
-                EmitPattern(arm.Pattern, inputTypeForEmit, scope);
+                EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel);
             }
-
-            ILGenerator.Emit(OpCodes.Brfalse, nextArmLabel);
 
             // --- Guard ---
             if (arm.Guard is not null)
@@ -224,15 +222,6 @@ internal partial class ExpressionGenerator
     {
         scope ??= this;
 
-        // Some patterns require an object reference on stack to work (isinst/ITuple/property pipeline, etc.)
-        void EnsureObjectOnStack(ref ITypeSymbol curType)
-        {
-            if (RequiresValueTypeHandling(curType) && curType.TypeKind != TypeKind.Error)
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(curType));
-
-            curType = Compilation.GetSpecialType(SpecialType.System_Object);
-        }
-
         // Spill the scrutinee into a local of its current IL stack type (avoids forcing object boxing)
         IILocal SpillScrutineeToLocal(ITypeSymbol curType)
         {
@@ -240,6 +229,15 @@ internal partial class ExpressionGenerator
             var loc = ILGenerator.DeclareLocal(clr);
             ILGenerator.Emit(OpCodes.Stloc, loc);
             return loc;
+        }
+
+        // Some patterns require an object reference on stack to work (isinst/ITuple/property pipeline, etc.)
+        void EnsureObjectOnStack(ref ITypeSymbol curType)
+        {
+            if (RequiresValueTypeHandling(curType) && curType.TypeKind != TypeKind.Error)
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(curType));
+
+            curType = Compilation.GetSpecialType(SpecialType.System_Object);
         }
 
         if (pattern is BoundRelationalPattern relational)
@@ -392,8 +390,7 @@ internal partial class ExpressionGenerator
                         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                         // IMPORTANT: do not pre-box; nested patterns decide.
-                        EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope, scrutineeLocal2);
-                        ILGenerator.Emit(OpCodes.Brfalse, labelFail2);
+                        EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail2, scrutineeLocal2);
                     }
 
                     ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -460,8 +457,7 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                 // IMPORTANT: do not pre-box; nested patterns decide.
-                EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope, scrutineeLocal2);
-                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, scrutineeLocal2);
             }
 
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -604,6 +600,48 @@ internal partial class ExpressionGenerator
         }
 
         throw new NotSupportedException($"Unsupported pattern");
+    }
+
+    private void EmitPatternTestBranchFalse(
+        BoundPattern pattern,
+        ITypeSymbol inputType,
+        Generator scope,
+        ILLabel labelFail,
+        IILocal? scrutineeLocal2 = null)
+    {
+        // `_` is always true: consume the value and move on
+        if (pattern is BoundDiscardPattern)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            return;
+        }
+
+        // `T x` where T exactly matches the input type is always true: just bind x
+        if (pattern is BoundDeclarationPattern dp)
+        {
+            var declared = dp.Type;
+
+            if (inputType.TypeKind != TypeKind.Error && declared.TypeKind != TypeKind.Error)
+            {
+                var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
+                var declaredClr = Generator.InstantiateType(ResolveClrType(declared));
+
+                if (inputClr == declaredClr)
+                {
+                    var local = EmitDesignation(dp.Designator, scope);
+                    if (local is not null)
+                        ILGenerator.Emit(OpCodes.Stloc, local);
+                    else
+                        ILGenerator.Emit(OpCodes.Pop);
+
+                    return;
+                }
+            }
+        }
+
+        // Otherwise, do the normal bool test + fail branch
+        EmitPattern(pattern, inputType, scope, scrutineeLocal2);
+        ILGenerator.Emit(OpCodes.Brfalse, labelFail);
     }
 
     private void EmitRelationalPattern(BoundRelationalPattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
@@ -1423,8 +1461,8 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
-            EmitPattern(casePattern.Arguments[i], propertySymbol.Type, scope, null);
-            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            // Use helper to avoid unnecessary branching for trivially-true patterns.
+            EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);
         }
 
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -1629,5 +1667,325 @@ internal partial class ExpressionGenerator
             default:
                 throw new NotSupportedException();
         }
+    }
+
+    private bool TryEmitPatternBranchFalse_UnboxedValueTypeDU(
+        BoundPattern pattern,
+        Generator scope,
+        IILocal unionLocal,
+        Type unionClrType,
+        ILLabel labelFail)
+    {
+        if (pattern is BoundCasePattern cp)
+        {
+            EmitCasePatternUnboxed_BranchFalse(cp, scope, unionLocal, unionClrType, labelFail);
+            return true;
+        }
+
+        // Treat redundant declaration/type pattern over DU as always-true and just bind.
+        if (pattern is BoundDeclarationPattern dp)
+        {
+            var dpClr = ResolveClrType(dp.Type);
+            dpClr = Generator.InstantiateType(dpClr);
+
+            if (dpClr != unionClrType)
+                return false;
+
+            var boundLocal = EmitDesignation(dp.Designator, scope);
+            if (boundLocal is not null)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
+                ILGenerator.Emit(OpCodes.Stloc, boundLocal);
+            }
+
+            return true;
+        }
+
+        if (pattern is BoundUnaryPattern up && up.Kind == BoundUnaryPatternKind.Not)
+        {
+            // NOT succeeds when inner fails.
+            var labelInnerFailed = ILGenerator.DefineLabel();
+
+            if (!TryEmitPatternBranchFalse_UnboxedValueTypeDU(up.Pattern, scope, unionLocal, unionClrType, labelInnerFailed))
+                return false;
+
+            // Inner succeeded => NOT fails.
+            ILGenerator.Emit(OpCodes.Br, labelFail);
+
+            // Inner failed => NOT succeeds.
+            ILGenerator.MarkLabel(labelInnerFailed);
+            return true;
+        }
+
+        if (pattern is BoundBinaryPattern bp)
+        {
+            if (bp.Kind == BoundPatternKind.And)
+            {
+                if (!IsUnboxedDUCompatible(bp.Left) || !IsUnboxedDUCompatible(bp.Right))
+                    return false;
+
+                TryEmitPatternBranchFalse_UnboxedValueTypeDU(bp.Left, scope, unionLocal, unionClrType, labelFail);
+                TryEmitPatternBranchFalse_UnboxedValueTypeDU(bp.Right, scope, unionLocal, unionClrType, labelFail);
+                return true;
+            }
+
+            if (bp.Kind == BoundPatternKind.Or)
+            {
+                if (!IsUnboxedDUCompatible(bp.Left) || !IsUnboxedDUCompatible(bp.Right))
+                    return false;
+
+                var labelTryRight = ILGenerator.DefineLabel();
+                var labelSuccess = ILGenerator.DefineLabel();
+
+                // If left fails, try right.
+                TryEmitPatternBranchFalse_UnboxedValueTypeDU(bp.Left, scope, unionLocal, unionClrType, labelTryRight);
+
+                // Left succeeded => success.
+                ILGenerator.Emit(OpCodes.Br, labelSuccess);
+
+                ILGenerator.MarkLabel(labelTryRight);
+                TryEmitPatternBranchFalse_UnboxedValueTypeDU(bp.Right, scope, unionLocal, unionClrType, labelFail);
+
+                ILGenerator.MarkLabel(labelSuccess);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void EmitCasePatternUnboxed_BranchFalse(
+        BoundCasePattern casePattern,
+        Generator scope,
+        IILocal unionLocal,
+        Type unionClrType,
+        ILLabel labelFail)
+    {
+        var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+        var caseLocal = ILGenerator.DeclareLocal(caseClrType);
+
+        ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+        ILGenerator.Emit(OpCodes.Initobj, caseClrType);
+
+        ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+        ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+        var parameterCount = Math.Min(
+            casePattern.CaseSymbol.ConstructorParameters.Length,
+            casePattern.Arguments.Length);
+
+        for (var i = 0; i < parameterCount; i++)
+        {
+            var parameter = casePattern.CaseSymbol.ConstructorParameters[i];
+            var propertyName = GetCasePropertyName(parameter.Name);
+
+            var propertySymbol = casePattern.CaseSymbol
+                .GetMembers(propertyName)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault();
+
+            if (propertySymbol?.GetMethod is null)
+            {
+                ILGenerator.Emit(OpCodes.Br, labelFail);
+                break;
+            }
+
+            ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
+
+            EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);
+        }
+    }
+
+    // Preferred match-arm pattern emission: branch to labelFail when pattern does NOT match.
+    // On success, fall through. Does NOT materialize a boolean result.
+    private void EmitPatternBranchFalse(
+        BoundPattern pattern,
+        ITypeSymbol inputType,
+        Generator? scope,
+        ILLabel labelFail,
+        IILocal? scrutineeLocal2 = null)
+    {
+        scope ??= this;
+
+        // Some patterns require object semantics. Keep the same boxing rule as EmitPattern.
+        void EnsureObjectOnStack(ref ITypeSymbol curType)
+        {
+            if (RequiresValueTypeHandling(curType) && curType.TypeKind != TypeKind.Error)
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(curType));
+
+            curType = Compilation.GetSpecialType(SpecialType.System_Object);
+        }
+
+        // `_` always matches: just consume scrutinee.
+        if (pattern is BoundDiscardPattern)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            return;
+        }
+
+        // Constant and relational patterns already produce a boolean efficiently.
+        // We keep their existing implementation but immediately branch on false.
+        if (pattern is BoundConstantPattern cp)
+        {
+            EmitConstantPattern(cp, inputType, scrutineeLocal2);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            return;
+        }
+
+        if (pattern is BoundRelationalPattern rp)
+        {
+            EmitRelationalPattern(rp, inputType, scope, scrutineeLocal2);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            return;
+        }
+
+        // Declaration/capture pattern: if the scrutinee is already exactly the declared type,
+        // it cannot fail. Perform binding and fall through.
+        if (pattern is BoundDeclarationPattern dp)
+        {
+            var declared = dp.Type;
+
+            if (inputType.TypeKind != TypeKind.Error && declared.TypeKind != TypeKind.Error)
+            {
+                var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
+                var declaredClr = Generator.InstantiateType(ResolveClrType(declared));
+
+                if (inputClr == declaredClr)
+                {
+                    var local = EmitDesignation(dp.Designator, scope);
+                    if (local is not null)
+                        ILGenerator.Emit(OpCodes.Stloc, local);
+                    else
+                        ILGenerator.Emit(OpCodes.Pop);
+
+                    return;
+                }
+            }
+
+            // General case: fall back to existing bool-producing implementation.
+            EmitPattern(dp, inputType, scope, scrutineeLocal2);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            return;
+        }
+
+        // Case patterns: implement branching form for both unboxed DU value-type fast path and boxed pipeline.
+        if (pattern is BoundCasePattern casePattern)
+        {
+            var unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
+            var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
+
+            // Unboxed DU value-type fast path (scrutinee is already DU value type)
+            if (inputType.TypeKind != TypeKind.Error)
+            {
+                var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
+                if (unionClrType.IsValueType && inputClr == unionClrType)
+                {
+                    var unionLocal2 = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
+                    var caseLocal2 = ILGenerator.DeclareLocal(caseClrType);
+
+                    // stack: <union>
+                    ILGenerator.Emit(OpCodes.Stloc, unionLocal2);
+
+                    ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
+                    ILGenerator.Emit(OpCodes.Initobj, caseClrType);
+
+                    ILGenerator.Emit(OpCodes.Ldloca, unionLocal2);
+                    ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
+                    ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+                    ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+                    var parameterCount2 = Math.Min(
+                        casePattern.CaseSymbol.ConstructorParameters.Length,
+                        casePattern.Arguments.Length);
+
+                    for (var i = 0; i < parameterCount2; i++)
+                    {
+                        var parameter = casePattern.CaseSymbol.ConstructorParameters[i];
+                        var propertyName = GetCasePropertyName(parameter.Name);
+
+                        var propertySymbol = casePattern.CaseSymbol
+                            .GetMembers(propertyName)
+                            .OfType<IPropertySymbol>()
+                            .FirstOrDefault();
+
+                        if (propertySymbol?.GetMethod is null)
+                        {
+                            ILGenerator.Emit(OpCodes.Br, labelFail);
+                            break;
+                        }
+
+                        ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
+                        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
+
+                        // Branching nested pattern test.
+                        EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, scrutineeLocal2);
+                    }
+
+                    return;
+                }
+            }
+
+            // Boxed pipeline: needs object semantics for the union type-test.
+            EnsureObjectOnStack(ref inputType);
+
+            var unionLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
+            var caseLocal = ILGenerator.DeclareLocal(caseClrType);
+
+            // isinst unionClrType
+            var labelHasUnion = ILGenerator.DefineLabel();
+            ILGenerator.Emit(OpCodes.Isinst, unionClrType);
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Brtrue, labelHasUnion);
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Br, labelFail);
+
+            ILGenerator.MarkLabel(labelHasUnion);
+            ILGenerator.Emit(OpCodes.Unbox_Any, unionClrType);
+            ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+
+            ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+            ILGenerator.Emit(OpCodes.Initobj, caseClrType);
+
+            ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
+            ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(casePattern.TryGetMethod));
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+            var parameterCount = Math.Min(
+                casePattern.CaseSymbol.ConstructorParameters.Length,
+                casePattern.Arguments.Length);
+
+            for (var i = 0; i < parameterCount; i++)
+            {
+                var parameter = casePattern.CaseSymbol.ConstructorParameters[i];
+                var propertyName = GetCasePropertyName(parameter.Name);
+
+                var propertySymbol = casePattern.CaseSymbol
+                    .GetMembers(propertyName)
+                    .OfType<IPropertySymbol>()
+                    .FirstOrDefault();
+
+                if (propertySymbol?.GetMethod is null)
+                {
+                    ILGenerator.Emit(OpCodes.Br, labelFail);
+                    break;
+                }
+
+                ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
+
+                EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, scrutineeLocal2);
+            }
+
+            return;
+        }
+
+        // Unary/binary/tuple/property/deconstruct: fall back to bool form for now.
+        // (You can migrate these later for fully structured decompile.)
+        EmitPattern(pattern, inputType, scope, scrutineeLocal2);
+        ILGenerator.Emit(OpCodes.Brfalse, labelFail);
     }
 }
