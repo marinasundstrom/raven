@@ -294,6 +294,9 @@ internal static class PropagateLowerer
                 return new BoundErrorExpression(_compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
 
             var caseAccess = ApplyConversionIfNeeded(okAccess, okCaseType);
+            if (!SymbolEqualityComparer.Default.Equals(caseAccess.Type?.GetPlainType(), okCaseType.GetPlainType()))
+                return new BoundErrorExpression(_compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+
             var valueAccess = new BoundMemberAccessExpression(caseAccess, valueProperty);
             return ApplyConversionIfNeeded(valueAccess, propagate.OkType);
         }

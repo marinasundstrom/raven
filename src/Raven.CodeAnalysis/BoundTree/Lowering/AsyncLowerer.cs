@@ -1589,20 +1589,35 @@ internal static class AsyncLowerer
                 var okConstructor = SubstituteStateMachineTypeParameters(node.OkConstructor);
                 var errorConstructor = SubstituteStateMachineTypeParameters(node.ErrorConstructor);
 
-                BoundExpression okCreation;
                 var tryStatements = new List<BoundStatement>();
-                if (okConstructor.Parameters.Length == 0)
+
+                // If the try-expression already produces the enclosing Result type (common for `try? await ...` where
+                // the awaited expression returns Result<TOk, TErr>), do NOT wrap it in an Ok-case. Just pass it through.
+                // We still need the try/catch here to convert *thrown* exceptions (from await) into the Error-case.
+                var expressionType = expression.Type ?? compilation.ErrorTypeSymbol;
+
+                BoundExpression convertedExpression;
+
+                if (SymbolEqualityComparer.Default.Equals(expressionType, resultType))
                 {
-                    tryStatements.Add(new BoundExpressionStatement(expression));
-                    okCreation = new BoundObjectCreationExpression(okConstructor, ImmutableArray<BoundExpression>.Empty);
+                    convertedExpression = ApplyConversionIfNeeded(expression, resultType, compilation);
                 }
                 else
                 {
-                    var okArgument = ApplyConversionIfNeeded(expression, okConstructor.Parameters[0].Type, compilation);
-                    okCreation = new BoundObjectCreationExpression(okConstructor, ImmutableArray.Create(okArgument));
-                }
+                    BoundExpression okCreation;
+                    if (okConstructor.Parameters.Length == 0)
+                    {
+                        tryStatements.Add(new BoundExpressionStatement(expression));
+                        okCreation = new BoundObjectCreationExpression(okConstructor, ImmutableArray<BoundExpression>.Empty);
+                    }
+                    else
+                    {
+                        var okArgument = ApplyConversionIfNeeded(expression, okConstructor.Parameters[0].Type, compilation);
+                        okCreation = new BoundObjectCreationExpression(okConstructor, ImmutableArray.Create(okArgument));
+                    }
 
-                var convertedExpression = ApplyConversionIfNeeded(okCreation, resultType, compilation);
+                    convertedExpression = ApplyConversionIfNeeded(okCreation, resultType, compilation);
+                }
 
                 var resultLocal = new SourceLocalSymbol(
                     "$tryExprResult",

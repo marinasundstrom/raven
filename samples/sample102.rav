@@ -1,0 +1,22 @@
+import System.*
+import System.Console.*
+import System.Net.Http.*
+import System.Threading.Tasks.*
+
+val res4_2 = await test4(throwExc: false)
+WriteLine(res4_2)
+
+async func test4(throwExc: bool) -> Task<Result<int, Exception>> {
+    val x = try? await action2(throwExc)
+    // 'x' should be string, but is Result<string, Exception>
+    WriteLine(x)
+    return .Ok(x + 2)
+}
+
+async func action2(throwExc: bool) -> Task<Result<int, Exception>> {
+    await Task.Delay(200)
+    if throwExc {
+        throw new Exception("Boom!")
+    }
+    return .Ok(40)
+}
