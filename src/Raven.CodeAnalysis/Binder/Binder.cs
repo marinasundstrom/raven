@@ -1526,7 +1526,7 @@ internal abstract class Binder
 
     protected void CacheBoundNode(SyntaxNode node, BoundNode bound)
     {
-        SemanticModel?.CacheBoundNode(node, bound);
+        SemanticModel?.CacheBoundNode(node, bound, this);
     }
 
     protected void RemoveCachedBoundNode(SyntaxNode node)

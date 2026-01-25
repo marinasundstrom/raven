@@ -14,8 +14,12 @@ public partial class SemanticModel
     private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
+    private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
+
     private readonly Dictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
     private IImmutableList<Diagnostic>? _diagnostics;
+
+    public bool IsDebuggingEnabled { get; set; } = true;
 
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
     {
@@ -192,18 +196,8 @@ public partial class SemanticModel
     {
         var binder = GetBinder(node);
         var boundNode = binder.GetOrBind(node);
-
-        if (IsDebuggingEnabled)
-        {
-            _boundNodeCache2.TryAdd(node, (binder, boundNode));
-        }
-
         return boundNode;
     }
-
-    public bool IsDebuggingEnabled { get; set; } = true;
-
-    private readonly Dictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 = new Dictionary<SyntaxNode, (Binder, BoundNode)>();
 
     /// <summary>
     /// Get the bound expression for a specific expression syntax node.

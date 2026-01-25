@@ -1782,7 +1782,7 @@ public partial class SemanticModel
                 foreach (var diagnostic in exprBinder.Diagnostics.AsEnumerable())
                     enumBinder.Diagnostics.Report(diagnostic);
 
-                CacheBoundNode(equalsValue.Value, bound);
+                CacheBoundNode(equalsValue.Value, bound, exprBinder);
 
                 if (TryGetEnumMemberConstantValue(bound, out var constant) &&
                     TryConvertEnumMemberValue(underlyingType, constant, out memberValue))
@@ -2792,10 +2792,14 @@ public partial class SemanticModel
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
         => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
 
-    internal void CacheBoundNode(SyntaxNode node, BoundNode bound)
+    internal void CacheBoundNode(SyntaxNode node, BoundNode bound, Binder? binder = null)
     {
         _boundNodeCache[node] = bound;
         _syntaxCache[bound] = node;
+        if (IsDebuggingEnabled && binder is not null)
+        {
+            _boundNodeCache2.TryAdd(node, (binder, bound));
+        }
     }
 
     internal void RemoveCachedBoundNode(SyntaxNode node)
@@ -2804,6 +2808,11 @@ public partial class SemanticModel
             _syntaxCache.Remove(bound);
 
         _boundNodeCache.Remove(node);
+
+        if (IsDebuggingEnabled)
+        {
+            _boundNodeCache2.Remove(node);
+        }
     }
 
     internal SyntaxNode? GetSyntax(BoundNode node)

@@ -7287,7 +7287,7 @@ partial class BlockBinder : Binder
                 }
             }
 
-            SemanticModel.CacheBoundNode(function.ExpressionBody, boundBlock);
+            SemanticModel.CacheBoundNode(function.ExpressionBody, boundBlock, this);
         }
 
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
