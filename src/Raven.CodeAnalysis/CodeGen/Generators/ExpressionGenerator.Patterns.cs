@@ -1017,7 +1017,7 @@ internal partial class ExpressionGenerator
         }
 
         // Nullable<T> value types
-        if (scrutineeType.IsNullable)
+        if (scrutineeType.IsNullable && scrutineeType.GetNullableUnderlyingType()!.IsValueType)
         {
             EmitNullableValueConstantCompare(scrutineeType, value, literal);
             return;
