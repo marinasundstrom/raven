@@ -103,9 +103,9 @@ internal class StatementGenerator : Generator
 
     private void EmitReturnStatement(BoundReturnStatement returnStatement)
     {
-        if (TryGetAsyncMoveNextMembers(out var asyncMembers) && returnStatement.Expression is not null)
+        if (TryGetAsyncMoveNextMembers(out var asyncMembers, out var stateMachine) && returnStatement.Expression is not null)
         {
-            EmitAsyncMoveNextReturn(returnStatement, asyncMembers);
+            EmitAsyncMoveNextReturn(returnStatement, asyncMembers, stateMachine);
             return;
         }
 
@@ -161,7 +161,10 @@ internal class StatementGenerator : Generator
         }
     }
 
-    private void EmitAsyncMoveNextReturn(BoundReturnStatement returnStatement, SynthesizedAsyncStateMachineTypeSymbol.ConstructedMembers members)
+    private void EmitAsyncMoveNextReturn(
+        BoundReturnStatement returnStatement,
+        SynthesizedAsyncStateMachineTypeSymbol.ConstructedMembers members,
+        SynthesizedAsyncStateMachineTypeSymbol stateMachineDefinition)
     {
         var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
         var expression = returnStatement.Expression!;
@@ -178,6 +181,7 @@ internal class StatementGenerator : Generator
         }
 
         EmitDispose(localsToDispose);
+        EmitDisposeHoistedLocals(stateMachineDefinition);
 
         ILGenerator.Emit(OpCodes.Ldarg_0);
         ILGenerator.Emit(OpCodes.Ldc_I4, -2);
@@ -200,19 +204,74 @@ internal class StatementGenerator : Generator
             ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private bool TryGetAsyncMoveNextMembers(out SynthesizedAsyncStateMachineTypeSymbol.ConstructedMembers members)
+    private void EmitDisposeHoistedLocals(SynthesizedAsyncStateMachineTypeSymbol stateMachineDefinition)
+    {
+        var locals = stateMachineDefinition.HoistedLocalsToDispose;
+        if (locals.IsDefaultOrEmpty)
+            return;
+
+        var disposableType = Compilation.GetSpecialType(SpecialType.System_IDisposable);
+        if (disposableType.TypeKind == TypeKind.Error)
+            return;
+
+        var disposableClr = ResolveClrType(disposableType);
+        var disposeMethod = disposableClr.GetMethod(nameof(IDisposable.Dispose), Type.EmptyTypes);
+        if (disposeMethod is null)
+            return;
+
+        for (var i = locals.Length - 1; i >= 0; i--)
+        {
+            var field = locals[i];
+            if (field.Type is null || field.Type.TypeKind == TypeKind.Error)
+                continue;
+
+            var fieldInfo = (FieldInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(field);
+
+            if (field.Type.IsReferenceType || field.Type.TypeKind == TypeKind.Null)
+            {
+                var skipLabel = ILGenerator.DefineLabel();
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+                ILGenerator.Emit(OpCodes.Brfalse, skipLabel);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+                ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
+                ILGenerator.MarkLabel(skipLabel);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldnull);
+                ILGenerator.Emit(OpCodes.Stfld, fieldInfo);
+            }
+            else
+            {
+                var fieldType = ResolveClrType(field.Type);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldflda, fieldInfo);
+                ILGenerator.Emit(OpCodes.Constrained, fieldType);
+                ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldflda, fieldInfo);
+                ILGenerator.Emit(OpCodes.Initobj, fieldType);
+            }
+        }
+    }
+
+    private bool TryGetAsyncMoveNextMembers(
+        out SynthesizedAsyncStateMachineTypeSymbol.ConstructedMembers members,
+        out SynthesizedAsyncStateMachineTypeSymbol stateMachineDefinition)
     {
         members = default;
+        stateMachineDefinition = null!;
 
         if (MethodSymbol is not IMethodSymbol method)
             return false;
 
-        if (method.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+        if (method.ContainingType is SynthesizedAsyncStateMachineTypeSymbol directStateMachine)
         {
-            if (!SymbolEqualityComparer.Default.Equals(method, stateMachine.MoveNextMethod))
+            if (!SymbolEqualityComparer.Default.Equals(method, directStateMachine.MoveNextMethod))
                 return false;
 
-            members = stateMachine.GetConstructedMembers(stateMachine.AsyncMethod);
+            members = directStateMachine.GetConstructedMembers(directStateMachine.AsyncMethod);
+            stateMachineDefinition = directStateMachine;
             return true;
         }
 
@@ -220,6 +279,7 @@ internal class StatementGenerator : Generator
             && constructed.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol constructedStateMachine)
         {
             members = constructedStateMachine.GetConstructedMembers(constructedStateMachine.AsyncMethod);
+            stateMachineDefinition = constructedStateMachine;
             return SymbolEqualityComparer.Default.Equals(method.OriginalDefinition, members.MoveNext.OriginalDefinition);
         }
 
