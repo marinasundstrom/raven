@@ -595,7 +595,7 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundPropertyPattern propertyPattern)
         {
-            EmitPropertyPattern(propertyPattern, inputType, scope);
+            EmitPropertyPattern(propertyPattern, inputType, scope, scrutineeLocal2);
             return;
         }
 
@@ -829,20 +829,49 @@ internal partial class ExpressionGenerator
 
     private void EmitDeconstructPattern(BoundDeconstructPattern deconstructPattern, ITypeSymbol inputType, Generator scope)
     {
-        if (RequiresValueTypeHandling(inputType) && inputType.TypeKind != TypeKind.Error)
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
-
-        var objLocal = ILGenerator.DeclareLocal(typeof(object));
-        ILGenerator.Emit(OpCodes.Stloc, objLocal);
+        // Deconstruct patterns need reference semantics for null-checking and optional narrowed type checks.
+        // If the scrutinee is already a reference type, don't force it into an `object` local.
+        // Only box when necessary (value types / unconstrained type parameters).
 
         var labelFail = ILGenerator.DefineLabel();
         var labelDone = ILGenerator.DefineLabel();
 
-        ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+        IILocal? objLocal = null;
+        IILocal inputLocal;
+
+        var requiresBoxing = RequiresValueTypeHandling(inputType) && inputType.TypeKind != TypeKind.Error;
+
+        if (requiresBoxing)
+        {
+            // Box value-type scrutinee into object local.
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
+            objLocal = ILGenerator.DeclareLocal(typeof(object));
+            ILGenerator.Emit(OpCodes.Stloc, objLocal);
+            inputLocal = objLocal;
+        }
+        else
+        {
+            // Keep the scrutinee in its native reference type.
+            var inputClr = ResolveClrType(inputType);
+            inputLocal = ILGenerator.DeclareLocal(inputClr);
+            ILGenerator.Emit(OpCodes.Stloc, inputLocal);
+        }
+
+        // Null fails for deconstruct patterns
+        ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
+        // Optional narrowed type-test
         if (deconstructPattern.NarrowedType is not null)
         {
+            if (!requiresBoxing)
+            {
+                // Create object view lazily for isinst.
+                objLocal = ILGenerator.DeclareLocal(typeof(object));
+                ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                ILGenerator.Emit(OpCodes.Stloc, objLocal);
+            }
+
             var narrowedClrType = ResolveClrType(deconstructPattern.NarrowedType);
             ILGenerator.Emit(OpCodes.Ldloc, objLocal);
             ILGenerator.Emit(OpCodes.Isinst, narrowedClrType);
@@ -853,14 +882,40 @@ internal partial class ExpressionGenerator
         var receiverClrType = ResolveClrType(receiverType);
         IILocal receiverLocal;
 
+        // We need a receiver local typed as the deconstruct receiver type.
+        // Prefer reusing the typed input local when possible.
         if (receiverClrType == typeof(object))
         {
-            receiverLocal = ILGenerator.DeclareLocal(typeof(object));
-            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
-            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+            objLocal ??= ILGenerator.DeclareLocal(typeof(object));
+
+            if (requiresBoxing)
+            {
+                // inputLocal already is object.
+                receiverLocal = objLocal;
+                if (!ReferenceEquals(objLocal, inputLocal))
+                {
+                    ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                    ILGenerator.Emit(OpCodes.Stloc, objLocal);
+                }
+            }
+            else
+            {
+                // Store reference-typed input into object view.
+                ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                ILGenerator.Emit(OpCodes.Stloc, objLocal);
+                receiverLocal = objLocal;
+            }
         }
         else if (receiverType.IsValueType)
         {
+            // Need object view for Unbox_Any.
+            objLocal ??= ILGenerator.DeclareLocal(typeof(object));
+            if (!requiresBoxing)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                ILGenerator.Emit(OpCodes.Stloc, objLocal);
+            }
+
             receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
             ILGenerator.Emit(OpCodes.Ldloc, objLocal);
             ILGenerator.Emit(OpCodes.Unbox_Any, receiverClrType);
@@ -868,10 +923,27 @@ internal partial class ExpressionGenerator
         }
         else
         {
-            receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
-            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
-            ILGenerator.Emit(OpCodes.Castclass, receiverClrType);
-            ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+            // Reference receiver
+            var inputClrType = ResolveClrType(inputType);
+
+            if (!requiresBoxing && inputClrType == receiverClrType)
+            {
+                receiverLocal = inputLocal;
+            }
+            else
+            {
+                objLocal ??= ILGenerator.DeclareLocal(typeof(object));
+                if (!requiresBoxing)
+                {
+                    ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                    ILGenerator.Emit(OpCodes.Stloc, objLocal);
+                }
+
+                receiverLocal = ILGenerator.DeclareLocal(receiverClrType);
+                ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+                ILGenerator.Emit(OpCodes.Castclass, receiverClrType);
+                ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+            }
         }
 
         var parameters = deconstructPattern.DeconstructMethod.Parameters;
@@ -901,8 +973,12 @@ internal partial class ExpressionGenerator
         for (var i = 0; i < parameterCount; i++)
         {
             ILGenerator.Emit(OpCodes.Ldloc, argumentLocals[i]);
-            EmitPattern(deconstructPattern.Arguments[i], parameters[i + parameterOffset].Type, scope);
-            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+            EmitPatternTestBranchFalse(
+                deconstructPattern.Arguments[i],
+                parameters[i + parameterOffset].Type,
+                scope,
+                labelFail,
+                scrutineeLocal2: null);
         }
 
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -914,27 +990,54 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(labelDone);
     }
 
-    private void EmitPropertyPattern(BoundPropertyPattern propertyPattern, ITypeSymbol inputType, Generator scope)
+    private void EmitPropertyPattern(BoundPropertyPattern propertyPattern, ITypeSymbol inputType, Generator scope, IILocal? local)
     {
-        // Property patterns are object-pipeline in this implementation.
-        if (RequiresValueTypeHandling(inputType) && inputType.TypeKind != TypeKind.Error)
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
-
-        var objLocal = ILGenerator.DeclareLocal(typeof(object));
-        ILGenerator.Emit(OpCodes.Stloc, objLocal);
+        // Property patterns need reference semantics for null-checking and optional narrowed type checks.
+        // If the scrutinee is already a reference type, don't force it into an `object` local.
+        // Only box when necessary (value types / unconstrained type parameters).
 
         var labelFail = ILGenerator.DefineLabel();
         var labelDone = ILGenerator.DefineLabel();
 
+        IILocal? objLocal = null;
+        IILocal inputLocal;
+
+        var requiresBoxing = RequiresValueTypeHandling(inputType) && inputType.TypeKind != TypeKind.Error;
+
+        if (requiresBoxing)
+        {
+            // Box value-type scrutinee into object local.
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
+            objLocal = local ?? ILGenerator.DeclareLocal(typeof(object));
+            ILGenerator.Emit(OpCodes.Stloc, objLocal);
+            inputLocal = objLocal;
+        }
+        else
+        {
+            // Keep the scrutinee in its native reference type.
+            var inputClr = ResolveClrType(inputType);
+            inputLocal = local ?? ILGenerator.DeclareLocal(inputClr);
+            ILGenerator.Emit(OpCodes.Stloc, inputLocal);
+        }
+
         // Null fails for property patterns
-        ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
         // Optional narrowed type-test
         if (propertyPattern.NarrowedType is not null)
         {
+            if (!requiresBoxing)
+            {
+                // Also keep an object-typed view when we need Isinst against a narrowed type.
+                objLocal = local ?? ILGenerator.DeclareLocal(typeof(object));
+                ILGenerator.Emit(OpCodes.Ldloc, inputLocal);
+                ILGenerator.Emit(OpCodes.Stloc, objLocal);
+            }
+
             var narrowedClrType = ResolveClrType(propertyPattern.NarrowedType);
 
+            // Use isinst on the object-typed view; this avoids any generic/reference quirks.
             ILGenerator.Emit(OpCodes.Ldloc, objLocal);
             ILGenerator.Emit(OpCodes.Isinst, narrowedClrType);
             ILGenerator.Emit(OpCodes.Brfalse, labelFail);
@@ -955,19 +1058,29 @@ internal partial class ExpressionGenerator
         var lookupType = propertyPattern.ReceiverType;
         var lookupClrType = ResolveClrType(lookupType);
 
+        // Build a typed receiver local for member access (cast only when needed).
         IILocal typedLocal;
+
         if (lookupClrType == typeof(object))
         {
-            typedLocal = ILGenerator.DeclareLocal(typeof(object));
-            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
-            ILGenerator.Emit(OpCodes.Stloc, typedLocal);
+            typedLocal = objLocal;
         }
         else
         {
-            typedLocal = ILGenerator.DeclareLocal(lookupClrType);
-            ILGenerator.Emit(OpCodes.Ldloc, objLocal);
-            ILGenerator.Emit(OpCodes.Castclass, lookupClrType);
-            ILGenerator.Emit(OpCodes.Stloc, typedLocal);
+            // If we already have the exact reference type, avoid an extra cast local.
+            var inputClrType = ResolveClrType(inputType);
+
+            if (!requiresBoxing && inputClrType == lookupClrType)
+            {
+                typedLocal = inputLocal;
+            }
+            else
+            {
+                typedLocal = ILGenerator.DeclareLocal(lookupClrType);
+                ILGenerator.Emit(OpCodes.Ldloc, objLocal);
+                ILGenerator.Emit(OpCodes.Castclass, lookupClrType);
+                ILGenerator.Emit(OpCodes.Stloc, typedLocal);
+            }
         }
 
         // If the property pattern has a top-level designation (e.g. `Type { ... } name`),
@@ -1083,7 +1196,7 @@ internal partial class ExpressionGenerator
         }
 
         // Reference types
-        EmitReferenceConstantCompare(value, literal);
+        EmitReferenceConstantCompare(value, literal, scrutineeLocal2);
     }
 
     private void EmitNullConstantPattern(ITypeSymbol scrutineeType, Type scrutineeClr, IILocal? scrutineeLocal2)
@@ -1110,9 +1223,9 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ceq);
     }
 
-    private void EmitReferenceConstantCompare(object value, LiteralTypeSymbol literal)
+    private void EmitReferenceConstantCompare(object value, LiteralTypeSymbol literal, IILocal? local)
     {
-        var obj = ILGenerator.DeclareLocal(typeof(object));
+        var obj = local ?? ILGenerator.DeclareLocal(typeof(object));
         ILGenerator.Emit(OpCodes.Stloc, obj);
 
         var notNull = ILGenerator.DefineLabel();
@@ -1294,7 +1407,7 @@ internal partial class ExpressionGenerator
     {
         if (pattern is BoundCasePattern cp)
         {
-            EmitCasePatternUnboxed(cp, scope, unionLocal, unionClrType);
+            EmitCasePatternUnboxed(cp, scope, unionLocal, unionClrType, unionLocal);
             return true;
         }
 
@@ -1422,10 +1535,11 @@ internal partial class ExpressionGenerator
         BoundCasePattern casePattern,
         Generator scope,
         IILocal unionLocal,
-        Type unionClrType)
+        Type unionClrType,
+        IILocal? local)
     {
         var caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
-        var caseLocal = ILGenerator.DeclareLocal(caseClrType);
+        var caseLocal = local ?? ILGenerator.DeclareLocal(caseClrType);
 
         var labelFail = ILGenerator.DefineLabel();
         var labelDone = ILGenerator.DefineLabel();
