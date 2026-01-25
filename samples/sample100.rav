@@ -4,8 +4,8 @@ Write("Are you ready? (yes or no): ")
 val input = ReadLine()
 
 val response = input match {
-    "yes" => "Great!"
-    "no" => "I'll wait for you!"
+    "yes" | "y" => "Great!"
+    "no" | "n" => "I'll wait for you!"
     _ => "What did you say?"
 }
 

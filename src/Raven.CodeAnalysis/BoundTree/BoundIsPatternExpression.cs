@@ -591,6 +591,34 @@ internal partial class BlockBinder
             _ => new BoundDiscardDesignator(type.Type)
         };
 
+        // If the parser produced a declaration pattern whose "type" is actually a union of literal types
+        // (e.g. "yes" | "y"), treat it as an OR-pattern of constant patterns.
+        //
+        // This happens because `|` is overloaded in Raven for both type unions and pattern OR.
+        // In pattern position, a union of *only* literal types should behave as a disjunction.
+        if (designator is BoundDiscardDesignator && type.Type is not null && type.Type.IsTypeUnion)
+        {
+            // Best effort: only rewrite when *all* union constituents are literal types.
+            var unionTypes = ((TypeUnionSymbol)type.Type).Types;
+            if (unionTypes.Count() > 0 && unionTypes.All(t => t is LiteralTypeSymbol))
+            {
+                BoundPattern? combined = null;
+
+                foreach (var t in unionTypes)
+                {
+                    var literal = (LiteralTypeSymbol)t;
+                    var constant = new BoundConstantPattern(literal);
+
+                    combined = combined is null
+                        ? constant
+                        : new BoundOrPattern(combined, constant);
+                }
+
+                // `combined` cannot be null here because unionTypes.Length > 0.
+                return combined!;
+            }
+        }
+
         if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType } &&
             designator is BoundDiscardDesignator)
         {
