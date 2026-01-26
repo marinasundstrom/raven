@@ -14,7 +14,17 @@ val window = Window {
     }
 }
 
-val result = window.ShowDialog()
+func openDialog(window: Window) -> Result<string, Exception> {
+    val result = window.ShowDialog()?
+
+    // Do something else with 'result' here
+
+    return .Ok(result.ToString())
+}
+
+val result = openDialog(window)
+
+WriteLine(result)
 
 WriteLine(window.Title)
 
