@@ -3034,6 +3034,16 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
+    /// <summary>
+    /// Emit a value required for call: always preserve result (for receivers and normal arguments).
+    /// </summary>
+    private void EmitRequiredValue(BoundExpression expr)
+    {
+        // Receivers and value arguments are required to be present on the stack to perform calls.
+        // They must be emitted regardless of this generator's _preserveResult.
+        new ExpressionGenerator(this, expr, preserveResult: true).Emit2();
+    }
+
     private void EmitUnitValue()
     {
         var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
@@ -3104,7 +3114,7 @@ internal partial class ExpressionGenerator : Generator
                     }
                     else
                     {
-                        EmitExpression(receiver);
+                        EmitRequiredValue(receiver);
                     }
                 }
             }
@@ -3191,7 +3201,7 @@ internal partial class ExpressionGenerator : Generator
                     continue;
                 }
 
-                EmitExpression(argument);
+                EmitRequiredValue(argument);
 
                 var argumentType = argument?.Type;
                 var paramType = paramSymbol.Type;
@@ -3258,8 +3268,8 @@ internal partial class ExpressionGenerator : Generator
     }
 
     private void EmitArgument(
-    BoundExpression argument,
-    IParameterSymbol paramSymbol)
+        BoundExpression argument,
+        IParameterSymbol paramSymbol)
     {
         // ref / out / in
         if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
@@ -3301,7 +3311,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         // Normal value argument
-        EmitExpression(argument);
+        EmitRequiredValue(argument);
 
         var argumentType = argument.Type;
         var paramType = paramSymbol.Type;
