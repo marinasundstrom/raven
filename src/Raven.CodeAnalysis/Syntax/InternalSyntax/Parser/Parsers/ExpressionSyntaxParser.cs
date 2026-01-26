@@ -349,7 +349,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken) &&
             ContainsAssignmentBeforeMatchingCloseParen())
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -357,7 +357,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         if (!PeekToken().IsKind(SyntaxKind.EqualsToken))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -575,7 +575,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 return true;
             }
 
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -633,7 +633,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         if (returnType is null && !IsNextToken(SyntaxKind.FatArrowToken))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -681,7 +681,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         if (!CanTokenBeIdentifier(PeekToken()))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -697,7 +697,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         if (returnType is null && !IsNextToken(SyntaxKind.FatArrowToken))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -1059,6 +1059,21 @@ internal class ExpressionSyntaxParser : SyntaxParser
             var colon = ReadToken(); // colon
             nameColon = NameColon(IdentifierName(name), colon);
         }
+        else if (PeekToken(1).IsKind(SyntaxKind.EqualsToken)
+           && CanTokenBeIdentifier(PeekToken()))
+        {
+            // HACK: Re-using NameColon syntax for NameEquals
+
+            var name = ReadToken(); // identifier or keyword
+            if (name.Kind != SyntaxKind.IdentifierToken)
+            {
+                name = ToIdentifierToken(name);
+                UpdateLastToken(name);
+            }
+            nameSpan = GetSpanOfLastToken();
+            var equals = ReadToken(); // colon
+            nameColon = NameColon(IdentifierName(name), equals);
+        }
 
         var expr = ParseExpression();
         return Argument(nameColon, expr);
@@ -1324,7 +1339,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 return CastExpression(openParenToken, typeName, closeParen, expression);
             }
         }
-        checkpoint.Dispose();
+        checkpoint.Rewind();
 
         var expressions = new List<GreenNode>();
 

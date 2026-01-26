@@ -127,7 +127,7 @@ internal class NameSyntaxParser : SyntaxParser
             var parameterType = new NameSyntaxParser(this).ParseTypeName();
             if (parameterType is null)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
                 return null;
             }
 
@@ -146,7 +146,7 @@ internal class NameSyntaxParser : SyntaxParser
 
         if (!ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return null;
         }
 
@@ -175,7 +175,7 @@ internal class NameSyntaxParser : SyntaxParser
             signToken.TrailingTrivia.Count > 0 ||
             numericToken.LeadingTrivia.Count > 0)
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return null;
         }
 
@@ -297,7 +297,7 @@ internal class NameSyntaxParser : SyntaxParser
 
             if (rankSpecifier.CloseBracketToken.IsMissing)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
                 break;
             }
 

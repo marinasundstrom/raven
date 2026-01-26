@@ -1,7 +1,15 @@
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal abstract class ParseContext
 {
+    private static readonly Lazy<bool> _isInDebugMode =
+        new(() => DebuggerFlags.IsParseSequenceEnabled);
+
+    public static bool IsInDebugMode => _isInDebugMode.Value;
+
     private List<DiagnosticInfo>? _diagnostics;
 
 
@@ -46,14 +54,19 @@ internal abstract class ParseContext
 
     public virtual TextSpan GetFullSpanOfLastToken() => Parent?.GetFullSpanOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual ParserCheckpoint CreateCheckpoint(string debugName = "")
+    public virtual ParserCheckpoint CreateCheckpoint(string debugName = "",
+        [CallerMemberName] string? callerMemberName = null,
+        [CallerFilePath] string? callerFilePath = null,
+        [CallerLineNumber] int? callerLineNumber = null)
     {
-        return Parent!.CreateCheckpoint(debugName);
+        var checkpoint = Parent!.CreateCheckpoint(debugName, callerMemberName, callerFilePath, callerLineNumber);
+        return checkpoint;
     }
 
     public virtual void RewindToPosition(int position)
     {
         Parent?.RewindToPosition(position);
+        Console.WriteLine($"Rewinded to {position}");
     }
 
     public virtual bool TreatNewlinesAsTokens => Parent?.TreatNewlinesAsTokens ?? throw new InvalidOperationException("No base or parent set");

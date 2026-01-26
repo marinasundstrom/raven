@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal struct ParserCheckpoint : IDisposable
@@ -22,8 +24,16 @@ internal struct ParserCheckpoint : IDisposable
 
     public string DebugName => _debugName;
 
-    public readonly void Rewind()
+    public readonly void Rewind(
+        [CallerMemberName] string? callerMemberName = null,
+        [CallerFilePath] string? callerFilePath = null,
+        [CallerLineNumber] int? callerLineNumber = null)
     {
+        if (ParseContext.IsInDebugMode)
+        {
+            callerFilePath = Path.GetRelativePath(Environment.CurrentDirectory, callerFilePath ?? Environment.CurrentDirectory);
+            Console.WriteLine($"Rewind to checkpoint{(string.IsNullOrEmpty(DebugName) ? string.Empty : $" \"{DebugName}\"")} (position {_position}), at {callerMemberName}, in {callerFilePath}, at line {callerLineNumber} ");
+        }
         _context.RewindToPosition(_position);
         _context._lastToken = _lastToken;
         _context._blockDepth = _blockDepth;

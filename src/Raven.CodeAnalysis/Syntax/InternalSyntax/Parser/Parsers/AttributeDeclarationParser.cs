@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 using static SyntaxFactory;
+
 using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
 
 internal static class AttributeDeclarationParser

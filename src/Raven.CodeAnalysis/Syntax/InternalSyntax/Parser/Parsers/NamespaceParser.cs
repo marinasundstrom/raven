@@ -151,7 +151,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (tokenAfterModifiers.IsKind(SyntaxKind.NamespaceKeyword))
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
@@ -164,7 +164,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.EnumKeyword)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
@@ -175,7 +175,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.UnionKeyword)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var unionDeclaration = new UnionDeclarationParser(this).Parse();
 
@@ -195,7 +195,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword or SyntaxKind.StructKeyword)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var typeDeclaration = new TypeDeclarationParser(this).Parse();
 

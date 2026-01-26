@@ -265,38 +265,38 @@ internal class TypeDeclarationParser : SyntaxParser
 
             if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword)
             {
-                memberDeclarationCheckpoint.Dispose();
+                memberDeclarationCheckpoint.Rewind();
                 return new TypeDeclarationParser(this).Parse();
             }
 
             if (typeKeywordKind == SyntaxKind.EnumKeyword)
             {
-                memberDeclarationCheckpoint.Dispose();
+                memberDeclarationCheckpoint.Rewind();
                 return new EnumDeclarationParser(this).Parse();
             }
 
             if (typeKeywordKind == SyntaxKind.UnionKeyword)
             {
-                memberDeclarationCheckpoint.Dispose();
+                memberDeclarationCheckpoint.Rewind();
                 return new UnionDeclarationParser(this).Parse();
             }
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
         {
-            memberDeclarationCheckpoint.Dispose();
+            memberDeclarationCheckpoint.Rewind();
             return new TypeDeclarationParser(this).Parse();
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.EnumKeyword))
         {
-            memberDeclarationCheckpoint.Dispose();
+            memberDeclarationCheckpoint.Rewind();
             return new EnumDeclarationParser(this).Parse();
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.UnionKeyword))
         {
-            memberDeclarationCheckpoint.Dispose();
+            memberDeclarationCheckpoint.Rewind();
             return new UnionDeclarationParser(this).Parse();
         }
 
@@ -339,7 +339,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 or SyntaxKind.CarriageReturnLineFeedToken
                 or SyntaxKind.NewLineToken;
 
-            checkpoint.Dispose();
+            checkpoint.Rewind();
 
             if (looksLikeField)
             {
@@ -361,16 +361,16 @@ internal class TypeDeclarationParser : SyntaxParser
             var typeParameterCheckpoint = CreateCheckpoint();
             _ = ParseTypeParameterList();
             var tokenAfterTypeParameters = PeekToken();
-            typeParameterCheckpoint.Dispose();
+            typeParameterCheckpoint.Rewind();
 
             if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
             {
-                nameCheckpoint.Dispose();
+                nameCheckpoint.Rewind();
                 return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers);
             }
         }
 
-        nameCheckpoint.Dispose();
+        nameCheckpoint.Rewind();
 
         if (tokenAfterName.IsKind(SyntaxKind.OpenParenToken))
         {
@@ -544,7 +544,7 @@ internal class TypeDeclarationParser : SyntaxParser
             var typeParameterCheckpoint = CreateCheckpoint();
             _ = ParseTypeParameterList();
             var tokenAfterTypeParameters = PeekToken();
-            typeParameterCheckpoint.Dispose();
+            typeParameterCheckpoint.Rewind();
 
             if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
             {
@@ -637,7 +637,7 @@ internal class TypeDeclarationParser : SyntaxParser
             }
         }
 
-        checkpoint.Dispose();
+        checkpoint.Rewind();
 
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))

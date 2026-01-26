@@ -217,7 +217,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!IsValidPropertyPatternClause(parsedClause))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -531,7 +531,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         if (!IsValidConstantPatternExpression(expr))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 
@@ -539,7 +539,7 @@ internal class PatternSyntaxParser : SyntaxParser
         // This avoids capturing type declarations like `Foo bar`.
         if (!IsPatternTerminator(PeekToken()))
         {
-            checkpoint.Dispose();
+            checkpoint.Rewind();
             return false;
         }
 

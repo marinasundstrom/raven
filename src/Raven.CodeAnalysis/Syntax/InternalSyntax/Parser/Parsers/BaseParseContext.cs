@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -86,6 +87,11 @@ internal partial class BaseParseContext : ParseContext
         if (_treatNewlinesAsTokens == value)
             return;
 
+        if (IsInDebugMode)
+        {
+            Console.WriteLine($"Set treat newlines as tokens: {value}");
+        }
+
         _treatNewlinesAsTokens = value;
 
         RewindToPosition(Position);
@@ -144,8 +150,16 @@ internal partial class BaseParseContext : ParseContext
     /// <summary>
     /// Create a checkpoint that enables rewinding the token stream
     /// </summary>
-    public override ParserCheckpoint CreateCheckpoint(string debugName = "")
+    public override ParserCheckpoint CreateCheckpoint(string debugName = "",
+        [CallerMemberName] string? callerMemberName = null,
+        [CallerFilePath] string? callerFilePath = null,
+        [CallerLineNumber] int? callerLineNumber = null)
     {
+        if (IsInDebugMode)
+        {
+            callerFilePath = Path.GetRelativePath(Environment.CurrentDirectory, callerFilePath ?? Environment.CurrentDirectory);
+            Console.WriteLine($"Created checkpoint{(string.IsNullOrEmpty(debugName) ? string.Empty : $" \"{debugName}\"")} (position {_position}), at member {callerMemberName}, in {callerFilePath}, at line {callerLineNumber} ");
+        }
         return new ParserCheckpoint(this, debugName);
     }
 
@@ -198,12 +212,29 @@ internal partial class BaseParseContext : ParseContext
             _lastToken = ReadTokenCore();
         }
 
+        var actualPosition = Position;
+
         // Update the position
         _position += _lastToken.FullWidth;
 
         TrackBlockDepth(_lastToken);
 
+        if (IsInDebugMode)
+        {
+            DebugPrintToken("Read token", _lastToken, actualPosition);
+        }
+
         return _lastToken;
+    }
+
+    private static void DebugPrintToken(string action, SyntaxToken token, int position)
+    {
+        var text = token.Text;
+        if (text?.Contains('\n') ?? false)
+        {
+            text = text.Replace("\n", "\\n");
+        }
+        Console.WriteLine($"{action}: {token.Kind} {text} (position: {position}, width: {token.Width}, full width: {token.FullWidth})");
     }
 
     public override SyntaxToken PeekToken(int index = 0)
@@ -214,7 +245,21 @@ internal partial class BaseParseContext : ParseContext
             _lookaheadTokens.Add(ReadTokenCore());
         }
 
-        return _lookaheadTokens[index];
+        var token = _lookaheadTokens[index];
+
+        if (IsInDebugMode && false)
+        {
+            int pos = _position;
+
+            foreach (var t in _lookaheadTokens.TakeWhile(x => x != token))
+            {
+                pos += token.FullWidth;
+            }
+
+            DebugPrintToken("Peeked token", token, pos);
+        }
+
+        return token;
     }
 
     private SyntaxToken ReadTokenCore()

@@ -58,6 +58,7 @@ var printBinders = false;
 var printBoundTree = false;
 var printBoundTreeErrors = true;
 var symbolDumpMode = SymbolDumpMode.None;
+var printParseSequence = false;
 var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
@@ -139,6 +140,10 @@ for (int i = 0; i < args.Length; i++)
         case "-bte":
             printBoundTree = true;
             printBoundTreeErrors = true;
+            break;
+        case "-ps":
+        case "--parse-sequence":
+            printParseSequence = true;
             break;
         case "--symbols":
         case "--dump-symbols":
@@ -277,6 +282,11 @@ if (showHelp || hasInvalidOption)
 
     PrintHelp();
     return;
+}
+
+if (printParseSequence)
+{
+    DebuggerFlags.IsParseSequenceEnabled = true;
 }
 
 if (sourceFiles.Count == 0)
@@ -788,12 +798,14 @@ static void PrintHelp()
     Console.WriteLine("  -o <path>          Output assembly path");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
+    Console.WriteLine("  -ps                Print the parsing sequence");
     Console.WriteLine("  -d [plain|pretty[:no-diagnostics]] Dump syntax (single file only)");
     Console.WriteLine("                     'plain' writes the source text, 'pretty' writes highlighted syntax.");
     Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
     Console.WriteLine("  -bt                Print binder and bound tree (single file only)");
+    Console.WriteLine("  -bte               Print binder and bound tree with error nodes (single file only)");
     Console.WriteLine("  --symbols [list|hierarchy]");
     Console.WriteLine("                     Inspect symbols produced from source.");
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");

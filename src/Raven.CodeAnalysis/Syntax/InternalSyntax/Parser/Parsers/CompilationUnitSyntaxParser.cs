@@ -67,7 +67,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             return true;
         }
 
-        checkpoint.Dispose();
+        checkpoint.Rewind();
         return false;
     }
 
@@ -156,7 +156,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             if (tokenAfterModifiers.IsKind(SyntaxKind.NamespaceKeyword))
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
@@ -169,7 +169,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.EnumKeyword)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
@@ -180,7 +180,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.UnionKeyword)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var unionDeclaration = new UnionDeclarationParser(this).Parse();
 
@@ -200,7 +200,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword or SyntaxKind.StructKeyword)
             {
-                checkpoint.Dispose();
+                checkpoint.Rewind();
 
                 var typeDeclaration = new TypeDeclarationParser(this).Parse();
 
