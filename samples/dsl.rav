@@ -28,7 +28,7 @@ WriteLine(result)
 
 WriteLine(window.Title)
 
-WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions()))
+WriteLine(JsonSerializer.Serialize(window))
 
 if window.Content is StackPanel stackPanel {
     for control in stackPanel.Children {
