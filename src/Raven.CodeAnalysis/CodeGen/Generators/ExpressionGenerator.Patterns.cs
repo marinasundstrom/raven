@@ -44,17 +44,20 @@ internal partial class ExpressionGenerator
         // Emit scrutinee value
         var info = EmitExpression(matchExpression.Expression);
 
-        IILocal? typedLocal;
+        IILocal scrutineeLocal;
 
-        if (info.Local is not null)
+        // If the scrutinee came directly from an existing local load, reuse that local
+        // and clear the already-emitted value from the stack to avoid stack imbalance.
+        if (info.Local is not null && !info.WasCaptured && !info.WasSpilledToLocal)
         {
-            typedLocal = info.Local;
+            ILGenerator.Emit(OpCodes.Pop);
+            scrutineeLocal = info.Local;
         }
         else
         {
-            // Always keep a typed local for scrutinee (even if we later need boxed too)
-            typedLocal = ILGenerator.DeclareLocal(scrutineeClrType);
-            ILGenerator.Emit(OpCodes.Stloc, typedLocal);
+            // Otherwise, materialize a typed local for scrutinee (even if we later need boxed too).
+            scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClrType);
+            ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
         }
 
         // Value-type DU fast path is orthogonal
@@ -74,36 +77,36 @@ internal partial class ExpressionGenerator
         var anyArmNeedsObject = matchExpression.Arms.Any(ArmNeedsObject);
 
         // Lazy boxed scrutinee cache (only created/filled if needed)
-        IILocal? boxedLocal = anyArmNeedsObject ? ILGenerator.DeclareLocal(typeof(object)) : null;
+        IILocal? boxedScrutineeLocal = anyArmNeedsObject ? ILGenerator.DeclareLocal(typeof(object)) : null;
 
-        void LoadScrutineeForArm(PatternInput req, out ITypeSymbol inputTypeForEmit)
+        void LoadScrutineeForArmInput(PatternInput inputRequirement, out ITypeSymbol inputTypeForEmit)
         {
-            if (req == PatternInput.Typed)
+            if (inputRequirement == PatternInput.Typed)
             {
-                ILGenerator.Emit(OpCodes.Ldloc, typedLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
                 inputTypeForEmit = scrutineeType;
                 return;
             }
 
             // Object required
-            if (boxedLocal is null)
-                boxedLocal = ILGenerator.DeclareLocal(typeof(object));
+            if (boxedScrutineeLocal is null)
+                boxedScrutineeLocal = ILGenerator.DeclareLocal(typeof(object));
 
-            // Initialize boxedLocal if it hasn't been initialized yet (null)
+            // Initialize boxedScrutineeLocal if it hasn't been initialized yet (null)
             var boxedReady = ILGenerator.DefineLabel();
 
-            ILGenerator.Emit(OpCodes.Ldloc, boxedLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, boxedScrutineeLocal);
             ILGenerator.Emit(OpCodes.Brtrue, boxedReady);
 
-            ILGenerator.Emit(OpCodes.Ldloc, typedLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             if (scrutineeClrType.IsValueType)
                 ILGenerator.Emit(OpCodes.Box, scrutineeClrType);
 
-            ILGenerator.Emit(OpCodes.Stloc, boxedLocal);
+            ILGenerator.Emit(OpCodes.Stloc, boxedScrutineeLocal);
 
             ILGenerator.MarkLabel(boxedReady);
 
-            ILGenerator.Emit(OpCodes.Ldloc, boxedLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, boxedScrutineeLocal);
             inputTypeForEmit = Compilation.GetSpecialType(SpecialType.System_Object);
         }
 
@@ -120,19 +123,19 @@ internal partial class ExpressionGenerator
             if (isValueTypeDU)
             {
                 // DU unboxed fast path first (supports not/and/or around case patterns)
-                if (!TryEmitPatternBranchFalse_UnboxedValueTypeDU(arm.Pattern, scope, typedLocal, scrutineeClrType, nextArmLabel))
+                if (!TryEmitPatternBranchFalse_UnboxedValueTypeDU(arm.Pattern, scope, scrutineeLocal, scrutineeClrType, nextArmLabel))
                 {
                     // Fall back to regular pipeline (typed/object depending on requirement)
-                    var req = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
-                    LoadScrutineeForArm(req, out var inputTypeForEmit);
-                    EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel);
+                    var inputRequirement = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
+                    LoadScrutineeForArmInput(inputRequirement, out var inputTypeForEmit);
+                    EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel, scrutineeLocal2: scrutineeLocal);
                 }
             }
             else
             {
-                var req = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
-                LoadScrutineeForArm(req, out var inputTypeForEmit);
-                EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel);
+                var inputRequirement = ArmNeedsObject(arm) ? PatternInput.Object : PatternInput.Typed;
+                LoadScrutineeForArmInput(inputRequirement, out var inputTypeForEmit);
+                EmitPatternBranchFalse(arm.Pattern, inputTypeForEmit, scope, nextArmLabel, scrutineeLocal2: scrutineeLocal);
             }
 
             // --- Guard ---

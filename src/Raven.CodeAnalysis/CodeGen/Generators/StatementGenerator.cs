@@ -101,6 +101,22 @@ internal class StatementGenerator : Generator
         ILGenerator.MarkLabel(endLabel);
     }
 
+    private IILocal SpillValueToLocalIfNeeded(Type clrType, EmitInfo info)
+    {
+        // If the expression already came directly from an existing local (and we didn't spill),
+        // reuse that local instead of introducing an intermediate temp.
+        if (info.Local is not null && !info.WasCaptured && !info.WasSpilledToLocal)
+        {
+            // Clear the emitted value from the stack; we will reload from the local as needed.
+            ILGenerator.Emit(OpCodes.Pop);
+            return info.Local;
+        }
+
+        var tmp = ILGenerator.DeclareLocal(clrType);
+        ILGenerator.Emit(OpCodes.Stloc, tmp);
+        return tmp;
+    }
+
     private void EmitReturnStatement(BoundReturnStatement returnStatement)
     {
         if (TryGetAsyncMoveNextMembers(out var asyncMembers) && returnStatement.Expression is not null)
@@ -121,13 +137,12 @@ internal class StatementGenerator : Generator
         if (expression is not null)
         {
             var preserveResult = !isVoidLikeReturn;
-            new ExpressionGenerator(this, expression, preserveResult).Emit();
+            var info = new ExpressionGenerator(this, expression, preserveResult).Emit2();
 
             if (preserveResult && localsToDispose.Length > 0 && expressionType is not null)
             {
                 var clrType = ResolveClrType(expressionType);
-                resultTemp = ILGenerator.DeclareLocal(clrType);
-                ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+                resultTemp = SpillValueToLocalIfNeeded(clrType, info);
             }
         }
 
@@ -167,14 +182,12 @@ internal class StatementGenerator : Generator
         var expression = returnStatement.Expression!;
         var expressionType = expression.Type;
         IILocal? resultTemp = null;
-
-        new ExpressionGenerator(this, expression, preserveResult: true).Emit();
+        var info = new ExpressionGenerator(this, expression, preserveResult: true).Emit2();
 
         if (expressionType is not null)
         {
             var clrType = ResolveClrType(expressionType);
-            resultTemp = ILGenerator.DeclareLocal(clrType);
-            ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+            resultTemp = SpillValueToLocalIfNeeded(clrType, info);
         }
 
         EmitDispose(localsToDispose);
@@ -235,13 +248,12 @@ internal class StatementGenerator : Generator
         IILocal? resultTemp = null;
         var hasValueOnStack = true;
 
-        new ExpressionGenerator(this, expression).Emit();
+        var info = new ExpressionGenerator(this, expression).Emit2();
 
         if (localsToDispose.Length > 0 && expressionType is { TypeKind: not TypeKind.Error })
         {
             var clrType = ResolveClrType(expressionType);
-            resultTemp = ILGenerator.DeclareLocal(clrType);
-            ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+            resultTemp = SpillValueToLocalIfNeeded(clrType, info);
             hasValueOnStack = false;
         }
         else if (localsToDispose.Length > 0)

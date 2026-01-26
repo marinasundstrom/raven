@@ -18,46 +18,6 @@ internal partial class ExpressionGenerator : Generator
 {
     private static readonly DelegateConstructorCacheKeyComparer s_delegateConstructorComparer = new();
 
-    private enum EmitValueKind
-    {
-        None,
-        Value,
-        Address
-    }
-
-    private readonly struct EmitInfo
-    {
-        public EmitValueKind Kind { get; }
-        public ISymbol? Symbol { get; }
-        public IILocal? Local { get; }
-        public bool WasCaptured { get; }
-        public bool WasSpilledToLocal { get; }
-
-        public bool HasValueOnStack => Kind != EmitValueKind.None;
-        public bool IsAddress => Kind == EmitValueKind.Address;
-
-        private EmitInfo(EmitValueKind kind, ISymbol? symbol, IILocal? local, bool wasCaptured, bool wasSpilledToLocal)
-        {
-            Kind = kind;
-            Symbol = symbol;
-            Local = local;
-            WasCaptured = wasCaptured;
-            WasSpilledToLocal = wasSpilledToLocal;
-        }
-
-        public static EmitInfo None => new(EmitValueKind.None, symbol: null, local: null, wasCaptured: false, wasSpilledToLocal: false);
-
-        public static EmitInfo ForValue(ISymbol? symbol = null, IILocal? local = null, bool wasCaptured = false)
-            => new(EmitValueKind.Value, symbol, local, wasCaptured, wasSpilledToLocal: false);
-
-        public static EmitInfo ForAddress(
-            ISymbol? symbol = null,
-            IILocal? local = null,
-            bool wasCaptured = false,
-            bool wasSpilledToLocal = false)
-            => new(EmitValueKind.Address, symbol, local, wasCaptured, wasSpilledToLocal);
-    }
-
     private readonly BoundExpression _expression;
     private readonly bool _preserveResult;
     private readonly Dictionary<DelegateConstructorCacheKey, ConstructorInfo> _delegateConstructorCache = new(s_delegateConstructorComparer);
@@ -87,13 +47,18 @@ internal partial class ExpressionGenerator : Generator
 
     public override void Emit()
     {
+        Emit2();
+    }
+
+    public EmitInfo Emit2()
+    {
         if (!_preserveResult && _expression is BoundAssignmentExpression assignmentExpression)
         {
             EmitAssignmentExpression(assignmentExpression, preserveResult: false);
-            return;
+            return EmitInfo.None;
         }
 
-        EmitExpression(_expression);
+        return EmitExpression(_expression);
     }
 
     private void EmitNullableValueExpression(BoundNullableValueExpression expr)
@@ -814,9 +779,8 @@ internal partial class ExpressionGenerator : Generator
     {
         // Evaluate the operand exactly once.
         var operandClrType = ResolveClrType(expr.Operand.Type);
-        var tmp = ILGenerator.DeclareLocal(operandClrType);
-        EmitExpression(expr.Operand);
-        ILGenerator.Emit(OpCodes.Stloc, tmp);
+        var operandInfo = EmitExpression(expr.Operand);
+        var tmp = SpillValueToLocalIfNeeded(operandClrType, operandInfo, keepValueOnStack: false);
 
         // Prefer lowering via `TryGetOk(out Result<T,E>.Ok okCase)` so we can later read `okCase.Value`.
         // Fall back to `TryGet{Case}(out T value)` if we don't have OkCaseType.
@@ -905,6 +869,38 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.MarkLabel(okLabel);
             ILGenerator.Emit(OpCodes.Ldloc, okLocal);
         }
+    }
+
+    private IILocal SpillValueToLocalIfNeeded(Type clrType, EmitInfo info, bool keepValueOnStack)
+    {
+        // If the expression already came directly from an existing local (and we didn't spill),
+        // reuse that local instead of introducing an intermediate temp.
+        if (info.Local is not null && !info.WasCaptured && !info.WasSpilledToLocal)
+        {
+            if (!keepValueOnStack)
+            {
+                // Caller wants the stack cleared; we will reload from the local as needed.
+                ILGenerator.Emit(OpCodes.Pop);
+            }
+
+            return info.Local;
+        }
+
+        var tmp = ILGenerator.DeclareLocal(clrType);
+
+        if (keepValueOnStack)
+        {
+            // Preserve a copy on the stack for immediate use, but also cache for later.
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Stloc, tmp);
+        }
+        else
+        {
+            // Consume the value and store it for later use.
+            ILGenerator.Emit(OpCodes.Stloc, tmp);
+        }
+
+        return tmp;
     }
 
     private void EmitPropagateErrorReturn(BoundPropagateExpression expr, Type operandClrType, IILocal tmp)
@@ -1606,10 +1602,8 @@ internal partial class ExpressionGenerator : Generator
         IILocal? arrayLocal = null;
         if (requiresLength)
         {
-            EmitExpression(boundArrayAccessExpression.Receiver);
-            arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
-            ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            var receiverInfo = EmitExpression(boundArrayAccessExpression.Receiver);
+            arrayLocal = SpillValueToLocalIfNeeded(ResolveClrType(arrayType), receiverInfo, keepValueOnStack: true);
         }
         else
         {
@@ -1632,10 +1626,8 @@ internal partial class ExpressionGenerator : Generator
         IILocal? arrayLocal = null;
         if (requiresLength)
         {
-            EmitExpression(arrayAccess.Receiver);
-            arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
-            ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            var receiverInfo = EmitExpression(arrayAccess.Receiver);
+            arrayLocal = SpillValueToLocalIfNeeded(ResolveClrType(arrayType), receiverInfo, keepValueOnStack: true);
         }
         else
         {
