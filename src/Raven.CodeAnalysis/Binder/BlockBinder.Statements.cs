@@ -12,7 +12,11 @@ partial class BlockBinder
 {
     private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
     {
-        var expr = BindExpression(expressionStmt.Expression, allowReturn: true);
+        var expr = expressionStmt.Parent is BlockStatementSyntax block &&
+            IsImplicitReturnTarget(block, expressionStmt) &&
+            _containingSymbol is IMethodSymbol method
+            ? BindExpressionWithTargetType(expressionStmt.Expression, GetReturnTargetType(method))
+            : BindExpression(expressionStmt.Expression, allowReturn: true);
 
         if (expr is BoundMethodGroupExpression methodGroup && methodGroup.GetConvertedType() is null)
         {
@@ -681,7 +685,12 @@ partial class BlockBinder
         BoundExpression? expr = null;
 
         if (returnStatement.Expression is not null)
-            expr = BindExpression(returnStatement.Expression);
+        {
+            var targetType = _containingSymbol is IMethodSymbol targetMethod
+                ? GetReturnTargetType(targetMethod)
+                : null;
+            expr = BindExpressionWithTargetType(returnStatement.Expression, targetType);
+        }
 
         if (_containingSymbol is IMethodSymbol method)
         {

@@ -535,11 +535,6 @@ partial class BlockBinder
 
         if (leftSyntax is ElementAccessExpressionSyntax elementAccess)
         {
-            var right = BindExpression(rightSyntax);
-
-            if (IsErrorExpression(right))
-                return AsErrorExpression(right);
-
             var receiver = BindExpression(elementAccess.Expression);
             var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
@@ -562,10 +557,15 @@ partial class BlockBinder
 
             if (receiver.Type is IArrayTypeSymbol arrayType)
             {
+                var arrayRightExpression = BindExpressionWithTargetType(rightSyntax, arrayType.ElementType);
+
+                if (IsErrorExpression(arrayRightExpression))
+                    return AsErrorExpression(arrayRightExpression);
+
                 if (arrayType.ElementType.TypeKind != TypeKind.Error &&
-                    ShouldAttemptConversion(right))
+                    ShouldAttemptConversion(arrayRightExpression))
                 {
-                    right = BindLambdaToDelegateIfNeeded(right, arrayType.ElementType);
+                    var right = BindLambdaToDelegateIfNeeded(arrayRightExpression, arrayType.ElementType);
                     if (!IsAssignable(arrayType.ElementType, right.Type, out var conversion))
                     {
                         _diagnostics.ReportCannotAssignFromTypeToType(
@@ -576,11 +576,12 @@ partial class BlockBinder
                     }
 
                     right = ApplyConversion(right, arrayType.ElementType, conversion, rightSyntax);
+                    arrayRightExpression = right;
                 }
 
                 return BoundFactory.CreateArrayAssignmentExpression(
                     new BoundArrayAccessExpression(receiver, args, arrayType.ElementType),
-                    right);
+                    arrayRightExpression);
             }
 
             var indexer = ResolveIndexer(receiver.Type!, args.Length);
@@ -591,11 +592,16 @@ partial class BlockBinder
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
             }
 
+            var indexerRightExpression = BindExpressionWithTargetType(rightSyntax, indexer.Type);
+
+            if (IsErrorExpression(indexerRightExpression))
+                return AsErrorExpression(indexerRightExpression);
+
             var access = new BoundIndexerAccessExpression(receiver, args, indexer);
             if (indexer.Type.TypeKind != TypeKind.Error &&
-                ShouldAttemptConversion(right))
+                ShouldAttemptConversion(indexerRightExpression))
             {
-                right = BindLambdaToDelegateIfNeeded(right, indexer.Type);
+                var right = BindLambdaToDelegateIfNeeded(indexerRightExpression, indexer.Type);
                 if (!IsAssignable(indexer.Type, right.Type, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
@@ -606,9 +612,10 @@ partial class BlockBinder
                 }
 
                 right = ApplyConversion(right, indexer.Type, conversion, rightSyntax);
+                indexerRightExpression = right;
             }
 
-            return BoundFactory.CreateIndexerAssignmentExpression(access, right);
+            return BoundFactory.CreateIndexerAssignmentExpression(access, indexerRightExpression);
         }
 
         // Fall back to normal variable/property assignment
@@ -628,7 +635,10 @@ partial class BlockBinder
             var localSymbol = localAccess.Local;
             var localType = localSymbol.Type;
 
-            var right2 = BindExpression(rightSyntax);
+            var rightTargetType = localType is ByRefTypeSymbol byRefLocal
+                ? byRefLocal.ElementType
+                : localType;
+            var right2 = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
@@ -682,7 +692,11 @@ partial class BlockBinder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            var right2 = BindExpression(rightSyntax);
+            var rightTargetType = parameterType is ByRefTypeSymbol byRefParameter &&
+                parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
+                ? byRefParameter.ElementType
+                : parameterType;
+            var right2 = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
@@ -725,7 +739,7 @@ partial class BlockBinder
 
             var receiver = GetReceiver(left);
 
-            var right2 = BindExpression(rightSyntax);
+            var right2 = BindExpressionWithTargetType(rightSyntax, fieldSymbol.Type);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
@@ -771,7 +785,7 @@ partial class BlockBinder
                 }
             }
 
-            var right2 = BindExpression(rightSyntax);
+            var right2 = BindExpressionWithTargetType(rightSyntax, propertySymbol.Type);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
