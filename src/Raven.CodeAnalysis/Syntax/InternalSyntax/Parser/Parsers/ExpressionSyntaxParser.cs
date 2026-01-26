@@ -560,6 +560,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var token = PeekToken();
 
+        // Lambda fast-path: if there's no `=>` ahead before newline/terminator, don't even try.
+        // This avoids the checkpoint/rewind churn shown in the trace.
+        if (!LooksLikeLambdaAhead(startOffset: 0))
+            return false;
+
         if (token.Kind == SyntaxKind.AsyncKeyword)
         {
             var checkpoint = CreateCheckpoint("async-lambda");
@@ -625,6 +630,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
         if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
             return false;
 
+        // Fast-path: only speculate if we can see a `=>` ahead before newline/terminator.
+        if (!LooksLikeLambdaAhead(startOffset: 0))
+            return false;
+
         var checkpoint = CreateCheckpoint("parenthesized-lambda");
 
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
@@ -654,6 +663,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
     private bool TryParseSimpleLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
     {
         lambda = null;
+
+        // Fast-path: don't speculate unless we can see a `=>` before newline/terminator.
+        if (!LooksLikeLambdaAhead(startOffset: 0))
+            return false;
 
         var checkpoint = CreateCheckpoint("simple-lambda");
 
@@ -747,19 +760,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             if (token.IsKind(SyntaxKind.OpenParenToken)) // Invocation
             {
-                // INFO: Break if next token is a newline.
+                // Break if the '(' token has a leading newline.
                 // This prevents: <expr> [newline] '('
-
-                var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
-                SetTreatNewlinesAsTokens(true);
-                var token2 = PeekToken();
-                if (token2.IsKind(SyntaxKind.NewLineToken))
-                {
-                    SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
+                if (HasLeadingNewLine(token))
                     return expr;
-                }
-
-                SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
 
                 var argumentList = ParseArgumentListSyntax();
 
@@ -793,19 +797,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.OpenBracketToken)) // Element access
             {
-                // INFO: Break if next token is a newline.
-                // This prevents: <expr> [newline] '('
-
-                var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
-                SetTreatNewlinesAsTokens(true);
-                var token2 = PeekToken();
-                if (token2.IsKind(SyntaxKind.NewLineToken))
-                {
-                    SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
+                // Break if the '[' token has a leading newline.
+                // This prevents: <expr> [newline] '['
+                if (HasLeadingNewLine(token))
                     return expr;
-                }
-
-                SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
                 var argumentList = ParseBracketedArgumentListSyntax();
 
                 expr = ElementAccessExpression(expr, argumentList, Diagnostics);
@@ -1161,9 +1156,29 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken, Diagnostics);
     }
 
+    private static bool IsNewLineLike(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.NewLineToken
+            or SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken
+            or SyntaxKind.EndOfLineTrivia;
+    }
+
     private static bool IsNewLineLike(SyntaxToken token)
     {
-        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
+        return IsNewLineLike(token.Kind);
+    }
+
+    private static bool HasLeadingNewLine(SyntaxToken token)
+    {
+        foreach (var trivia in token.LeadingTrivia)
+        {
+            if (IsNewLineLike(trivia.Kind))
+                return true;
+        }
+
+        return false;
     }
 
     private TupleExpressionSyntax ParseTupleExpressionSyntax()
@@ -1911,5 +1926,69 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             return ObjectInitializerExpressionEntry(expression, terminatorToken);
         }
+    }
+
+    private bool LooksLikeLambdaAhead(int startOffset)
+    {
+        // Fast-path to avoid speculative parsing (checkpoint/rewind) when there's clearly no lambda.
+        // We only attempt to parse a lambda if we can see a `=>` before a line break or a hard terminator.
+        // This is intentionally conservative: false means "don't try lambda parsing".
+
+        const int MaxLookahead = 64; // keep bounded; lambdas should surface quickly
+
+        var depth = 0; // track (), [], {} nesting so we don't stop on commas inside them
+
+        for (int i = startOffset; i < startOffset + MaxLookahead; i++)
+        {
+            var t = PeekToken(i);
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                return false;
+
+            // Stop at line breaks.
+            // When newlines are treated as tokens, we see them directly.
+            // When newlines are treated as trivia, the *next* token carries the newline in its leading trivia.
+            if (IsNewLineLike(t))
+                return false;
+
+            if (i > startOffset && HasLeadingNewLine(t))
+                return false;
+
+            // If we're not nested, these tokens end the current expression/statement region.
+            // Note: we intentionally do NOT treat `)` as a terminator here, because parenthesized lambdas
+            // have the shape `( ... ) => ...` and we still want to see the `=>` after the `)`.
+            if (depth == 0)
+            {
+                if (t.IsKind(SyntaxKind.SemicolonToken)
+                    || t.IsKind(SyntaxKind.CommaToken)
+                    || t.IsKind(SyntaxKind.CloseBracketToken)
+                    || t.IsKind(SyntaxKind.CloseBraceToken))
+                {
+                    return false;
+                }
+            }
+
+            if (t.IsKind(SyntaxKind.FatArrowToken))
+                return true;
+
+            if (t.IsKind(SyntaxKind.OpenParenToken)
+                || t.IsKind(SyntaxKind.OpenBracketToken)
+                || t.IsKind(SyntaxKind.OpenBraceToken))
+            {
+                depth++;
+                continue;
+            }
+
+            if (t.IsKind(SyntaxKind.CloseParenToken)
+                || t.IsKind(SyntaxKind.CloseBracketToken)
+                || t.IsKind(SyntaxKind.CloseBraceToken))
+            {
+                if (depth > 0)
+                    depth--;
+                continue;
+            }
+        }
+
+        return false;
     }
 }

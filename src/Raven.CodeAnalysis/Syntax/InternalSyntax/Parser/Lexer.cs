@@ -28,11 +28,21 @@ internal class Lexer : ILexer
         _currentPosition = position;
         _tokenStartPosition = position;
         _textSource.ResetPosition(position);
+
+        if (LexerFlags.PrintDebug)
+        {
+            Console.WriteLine($"Lexer reset ot position {position}");
+        }
     }
 
     public void CreateCheckpoint()
     {
-        _textSource.PushPosition();
+        var position = _textSource.PushPosition();
+
+        if (LexerFlags.PrintDebug)
+        {
+            Console.WriteLine($"Lexer pushed checkpoint for position {position}");
+        }
     }
 
     public void RewindToCheckpoint()
@@ -41,11 +51,21 @@ internal class Lexer : ILexer
         _lookaheadTokens.Clear();
         _currentPosition = position;
         _tokenStartPosition = position;
+
+        if (LexerFlags.PrintDebug)
+        {
+            Console.WriteLine($"Lexer rewind to position {position}");
+        }
     }
 
     public void ClearCheckpoint()
     {
-        _textSource.PopPosition();
+        var position = _textSource.PopPosition();
+
+        if (LexerFlags.PrintDebug)
+        {
+            Console.WriteLine($"Lexer cleared checkpoint at position {position}");
+        }
     }
 
     /// <summary>
@@ -77,6 +97,11 @@ internal class Lexer : ILexer
         {
             // Fallback to reading a new token
             token = ReadTokenCore();
+        }
+
+        if (LexerFlags.PrintDebug)
+        {
+            Console.WriteLine($"Lexer read token: {token.Kind} {token.Text}{(token.Value is not null ? $" ({token.Value})" : "")}, at position {_tokenStartPosition} (Width: {token.Length})");
         }
 
         return token;
