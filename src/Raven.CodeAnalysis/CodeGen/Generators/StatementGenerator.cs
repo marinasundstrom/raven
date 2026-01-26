@@ -303,17 +303,15 @@ internal class StatementGenerator : Generator
     {
         var expression = expressionStatement.Expression;
 
-        // Expression is an invocation expression that returns unit. 
-        if (expression is BoundInvocationExpression { Type.SpecialType: SpecialType.System_Unit } expr)
+        // We are discarding the value of the expression. Never materialize Unit.Value in this case.
+        // (ExpressionGenerator will still emit side-effects.)
+        if (expression.Type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
         {
-            // Emit method call without emitting unit value.
-            new ExpressionGenerator(this, expression).EmitInvocationExpressionBase(expr);
-
-            // No pop instruction required.
+            new ExpressionGenerator(this, expression, preserveResult: false).Emit2();
             return;
         }
 
-        new ExpressionGenerator(this, expression).Emit();
+        new ExpressionGenerator(this, expression).Emit2();
 
         // Pop the result
         ILGenerator.Emit(OpCodes.Pop);
@@ -752,7 +750,10 @@ internal class StatementGenerator : Generator
 
         if (declarator.Initializer is not null)
         {
-            new ExpressionGenerator(this, declarator.Initializer).Emit();
+            var initType = declarator.Initializer.Type;
+            var discardValue = localBuilder is null && initType?.SpecialType is (SpecialType.System_Void or SpecialType.System_Unit);
+
+            new ExpressionGenerator(this, declarator.Initializer, preserveResult: !discardValue).Emit2();
 
             var expressionType = declarator.Initializer.Type;
 

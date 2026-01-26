@@ -1,2 +1,4 @@
+System.Console.WriteLine("Test")
 _ = System.Console.WriteLine("Test")
 val _ = System.Console.WriteLine("Test")
+val result = System.Console.WriteLine("Test")
