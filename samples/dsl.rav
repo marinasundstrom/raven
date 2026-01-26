@@ -8,17 +8,23 @@ val window = Window {
     Width = 800
     Height = 600
 
-    StackPanel {
-        Button { Text = "Ok" }
-        Button { Text = "Cancel" }
+    StackPanel(orientation: .Vertical) {
+        Button(text: "Ok") { 
+            HorizontalAlignment = .Fill
+        }
+        Button(text: "Cancel") { 
+            HorizontalAlignment = .Fill 
+        }
     }
 }
 
 func openDialog(window: Window) -> Result<string, Exception> {
     val result = window.ShowDialog()?
-
-    // Do something else with 'result' here
-
+    if result is .Cancel {
+        // Bang
+        WriteLine("Bang")
+        return .Error(InvalidOperationException("BANG!"))
+    }
     return .Ok(result.ToString())
 }
 
@@ -28,7 +34,9 @@ WriteLine(result)
 
 WriteLine(window.Title)
 
-WriteLine(JsonSerializer.Serialize(window))
+WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions() {
+    WriteIndented = true
+}))
 
 if window.Content is StackPanel stackPanel {
     for control in stackPanel.Children {
@@ -58,7 +66,7 @@ class Window {
     }
 
     public ShowDialog() -> Result<DialogResult, Exception> {
-        return .Ok(DialogResult.Ok)
+        return .Ok(DialogResult.Cancel)
     }
 }
 
@@ -80,7 +88,14 @@ interface IHasChildren {
 class StackPanel : Control, IHasChildren {
     val children: List<Control> = []
 
-    public Title: string { get; set; }
+    public init() {
+    }
+
+    public init(orientation: Orientation) {
+        Orientation = orientation
+    }
+
+    public Orientation: Orientation { get; set; } = .Vertical
 
     public Children: IEnumerable<Control> => children
 
@@ -89,6 +104,20 @@ class StackPanel : Control, IHasChildren {
     }
 }
 
-class Button : Control {
-    public Text: string { get; set; }
+class Button(text: string) : Control {
+    public Text: string { get; set; } = text
+
+    public HorizontalAlignment: HorizontalAlignment { get; set; } 
+}
+
+enum Orientation {
+    Horizontal,
+    Vertical
+}
+
+enum HorizontalAlignment {
+    Left,
+    Center,
+    Right,
+    Fill
 }

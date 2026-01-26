@@ -3096,8 +3096,30 @@ partial class BlockBinder : Binder
             switch (current)
             {
                 case VariableDeclaratorSyntax vds:
-                    if (vds.TypeAnnotation != null)
+                    if (vds.TypeAnnotation is not null)
                         return ResolveType(vds.TypeAnnotation.Type);
+                    break;
+
+                case ObjectInitializerAssignmentEntrySyntax assign when assign.Expression is ExpressionSyntax expr:
+                    var p = assign.Parent?.Parent;
+                    if (p is InvocationExpressionSyntax invoc)
+                    {
+                        var bound = BindExpression(invoc.Expression);
+                        var member = bound.Type.GetMembers(assign.Name.Identifier.ValueText).First();
+                        if (member is IPropertySymbol prop)
+                        {
+                            return prop.Type;
+                        }
+                    }
+                    else if (p is ObjectCreationExpressionSyntax objectCreationExpression)
+                    {
+                        var bound = BindExpression(objectCreationExpression.Type);
+                        var member = bound.Type.GetMembers(assign.Name.Identifier.ValueText).First();
+                        if (member is IPropertySymbol prop)
+                        {
+                            return prop.Type;
+                        }
+                    }
                     break;
 
                 case AssignmentExpressionSyntax assign when assign.Right == node && assign.Left is ExpressionSyntax leftExpr:
@@ -7403,8 +7425,17 @@ partial class BlockBinder : Binder
     {
         receiverType = UnwrapAlias(receiverType);
 
-        // Bind RHS first so diagnostics still flow even if member lookup fails.
-        var value = BindExpression(assignment.Expression, allowReturn: false);
+        BoundExpression? value = null;
+
+        if (assignment.Expression is MemberBindingExpressionSyntax memberBinding)
+        {
+            value = BindMemberBindingExpression(memberBinding, allowEventAccess: false);
+        }
+        else
+        {
+            // Bind RHS first so diagnostics still flow even if member lookup fails.
+            value = BindExpression(assignment.Expression, allowReturn: false);
+        }
 
         if (receiverType.TypeKind == TypeKind.Error)
             return null;
