@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 internal abstract class ParseContext
 {
     private static readonly Lazy<bool> _isInDebugMode =
-        new(() => DebuggerFlags.IsParseSequenceEnabled);
+        new(() => SyntaxParserFlags.PrintParseSequence);
 
     public static bool IsInDebugMode => _isInDebugMode.Value;
 

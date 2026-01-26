@@ -286,7 +286,7 @@ if (showHelp || hasInvalidOption)
 
 if (printParseSequence)
 {
-    DebuggerFlags.IsParseSequenceEnabled = true;
+    SyntaxParserFlags.PrintParseSequence = true;
 }
 
 if (sourceFiles.Count == 0)
