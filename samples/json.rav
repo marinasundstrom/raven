@@ -3,7 +3,7 @@ import System.Text.Json.*
 
 val person = Person("Alice", 42)
 
-WriteLine(JsonSerializer.Serialize(person, JsonSerializerOptions() {
+WriteLine(JsonSerializer.Serialize(person, JsonSerializerOptions {
     WriteIndented = true
 }))
 

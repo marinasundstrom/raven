@@ -8,7 +8,7 @@ val window = Window {
     Width = 800
     Height = 600
 
-    StackPanel(orientation: .Vertical) {
+    StackPanel {
         Button(text: "Ok") { 
             HorizontalAlignment = .Fill
         }
@@ -34,7 +34,7 @@ WriteLine(result)
 
 WriteLine(window.Title)
 
-WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions() {
+WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions {
     WriteIndented = true
 }))
 
