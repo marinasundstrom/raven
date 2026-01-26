@@ -3,20 +3,29 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-val res4_2 = await test4(throwExc: false)
-WriteLine(res4_2)
+val res1 = await test("42", throwExc: false)
+WriteLine(res1)
 
-async func test4(throwExc: bool) -> Task<Result<int, Exception>> {
-    val str = try? await action2(throwExc)
+val res2 = await test("42", throwExc: true)
+WriteLine(res2)
+
+val res3 = await test("foo", throwExc: false)
+WriteLine(res3)
+
+val res4 = await test("foo", throwExc: true)
+WriteLine(res4)
+
+async func test(text: string, throwExc: bool) -> Task<Result<int, Exception>> {
+    val str = try? await action(text, throwExc)
     val x = try? int.Parse(str)
     WriteLine(x)
     return .Ok(x + 2)
 }
 
-async func action2(throwExc: bool) -> Task<Result<string, Exception>> {
+async func action(text: string, throwExc: bool) -> Task<Result<string, Exception>> {
     await Task.Delay(200)
     if throwExc {
         throw new Exception("Boom!")
     }
-    return .Ok("foo")
+    return .Ok(text)
 }
