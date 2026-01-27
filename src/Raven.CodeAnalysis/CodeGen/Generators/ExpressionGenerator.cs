@@ -796,15 +796,24 @@ internal partial class ExpressionGenerator : Generator
             var okCaseClrType = ResolveClrType(expr.OkCaseType);
             var okCaseLocal = ILGenerator.DeclareLocal(okCaseClrType);
 
-            var tryGetOkOkCase = operandClrType.GetMethod(
-                tryGetOkName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { okCaseClrType.MakeByRefType() },
-                modifiers: null);
+            // --- Begin semantic-symbol-based method lookup for TryGetOk(out OkCaseType) ---
+            if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
+                throw new InvalidOperationException("Propagate operand must be a named type.");
+            var tryGetOkSymbol = operandTypeSymbol
+                .GetMembers(tryGetOkName)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m =>
+                    !m.IsStatic &&
+                    m.Parameters.Length == 1 &&
+                    m.Parameters[0].RefKind == RefKind.Out &&
+                    expr.OkCaseType is not null &&
+                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type.GetElementType(), expr.OkCaseType));
 
-            if (tryGetOkOkCase is null)
-                throw new InvalidOperationException($"Missing {tryGetOkName}(out {okCaseClrType}) on '{operandClrType}'.");
+            if (tryGetOkSymbol is null)
+                throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkCaseType}) on '{expr.Operand.Type}'.");
+
+            var tryGetOkOkCase = GetMethodInfo(tryGetOkSymbol);
+            // --- End semantic-symbol-based method lookup ---
 
             // if (tmp.TryGetOk(out okCaseLocal)) goto okLabel;
             // Call value-type instance method on the managed address to avoid copies
@@ -849,15 +858,23 @@ internal partial class ExpressionGenerator : Generator
             var okClrType = ResolveClrType(expr.OkType);
             var okLocal = ILGenerator.DeclareLocal(okClrType);
 
-            var tryGetOk = operandClrType.GetMethod(
-                tryGetOkName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { okClrType.MakeByRefType() },
-                modifiers: null);
+            // --- Begin semantic-symbol-based method lookup for TryGetOk(out OkType) ---
+            if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
+                throw new InvalidOperationException("Propagate operand must be a named type.");
+            var tryGetOkSymbol = operandTypeSymbol
+                .GetMembers(tryGetOkName)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m =>
+                    !m.IsStatic &&
+                    m.Parameters.Length == 1 &&
+                    m.Parameters[0].RefKind == RefKind.Out &&
+                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, expr.OkType));
 
-            if (tryGetOk is null)
-                throw new InvalidOperationException($"Missing {tryGetOkName}(out {okClrType}) on '{operandClrType}'.");
+            if (tryGetOkSymbol is null)
+                throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkType}) on '{expr.Operand.Type}'.");
+
+            var tryGetOk = GetMethodInfo(tryGetOkSymbol);
+            // --- End semantic-symbol-based method lookup ---
 
             // Call value-type instance method on the managed address to avoid copies
             // and to keep decompilers from producing unsafe pointer casts.
@@ -917,7 +934,8 @@ internal partial class ExpressionGenerator : Generator
             var errorCtorInfo = enclosingErrorCtor.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
             ILGenerator.Emit(OpCodes.Newobj, errorCtorInfo);
 
-            EmitPropagateErrorCaseConversion(enclosingResultClrType, errorCtorInfo.DeclaringType);
+            // Updated: Use symbol-based EmitPropagateErrorCaseConversion
+            EmitPropagateErrorCaseConversion(expr.EnclosingResultType, enclosingErrorCtor.ContainingType);
             EmitPropagateReturn(enclosingResultClrType);
             return;
         }
@@ -987,33 +1005,31 @@ internal partial class ExpressionGenerator : Generator
         var ctorInfo = enclosingErrorCtor.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
 
-        EmitPropagateErrorCaseConversion(enclosingResultClrType, ctorInfo.DeclaringType);
+        // Updated: Use symbol-based EmitPropagateErrorCaseConversion
+        EmitPropagateErrorCaseConversion(expr.EnclosingResultType, enclosingErrorCtor.ContainingType);
         EmitPropagateReturn(enclosingResultClrType);
     }
 
-    private void EmitPropagateErrorCaseConversion(Type enclosingResultClrType, Type? errorCaseClrType)
+    private void EmitPropagateErrorCaseConversion(ITypeSymbol enclosingResultType, ITypeSymbol errorCaseType)
     {
         // The enclosing error-case type may be a nested case struct (e.g. Result<T,E>.Error)
         // that is not IL-assignable to the enclosing result type. Convert via an implicit
-        // operator if needed so the return stack type matches exactly.
-        if (errorCaseClrType is null)
-            throw new InvalidOperationException("Error constructor missing declaring type.");
+        // operator (user-defined conversion) so the return stack type matches exactly.
+        if (SymbolEqualityComparer.Default.Equals(enclosingResultType, errorCaseType))
+            return;
 
-        if (errorCaseClrType != enclosingResultClrType)
+        var conversion = Compilation.ClassifyConversion(errorCaseType, enclosingResultType);
+
+        if (!conversion.Exists || !conversion.IsImplicit || !conversion.IsUserDefined || conversion.MethodSymbol is null)
         {
-            // Look for: static implicit operator Result<T,E>(ErrorCase)
-            var implicitFromError = enclosingResultClrType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
-                .FirstOrDefault(m =>
-                    m.Name == "op_Implicit" &&
-                    m.ReturnType == enclosingResultClrType &&
-                    m.GetParameters().Length == 1 &&
-                    m.GetParameters()[0].ParameterType == errorCaseClrType);
-
-            if (implicitFromError is null)
-                throw new InvalidOperationException($"Missing implicit conversion from '{errorCaseClrType}' to '{enclosingResultClrType}'.");
-
-            ILGenerator.Emit(OpCodes.Call, implicitFromError);
+            // We intentionally do not fall back to reflection-based enumeration here because
+            // `TypeBuilderInstantiation.GetMethods(...)` is not supported for open constructed
+            // types produced during async state machine emission.
+            throw new InvalidOperationException($"Missing implicit conversion from '{errorCaseType}' to '{enclosingResultType}'.");
         }
+
+        // Emit the implicit conversion operator call.
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(conversion.MethodSymbol));
     }
 
     private void EmitPropagateReturn(Type resultClrType)
@@ -1034,7 +1050,14 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(setResultMethod));
 
-            ILGenerator.Emit(OpCodes.Br, MethodBodyGenerator.GetOrCreateReturnLabel());
+            // IMPORTANT: if we are inside an exception-protected region (async MoveNext is typically wrapped
+            // in a try/catch), we must use `leave` to branch to the epilogue label. Using `br` here produces
+            // invalid IL and can trigger InvalidProgramException.
+            var returnLabel = MethodBodyGenerator.GetOrCreateReturnLabel();
+            if (TryGetExceptionExitLabel(out _))
+                ILGenerator.Emit(OpCodes.Leave, returnLabel);
+            else
+                ILGenerator.Emit(OpCodes.Br, returnLabel);
             return;
         }
 

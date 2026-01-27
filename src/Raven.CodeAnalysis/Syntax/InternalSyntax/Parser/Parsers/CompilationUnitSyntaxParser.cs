@@ -23,6 +23,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     public CompilationUnitSyntax Parse()
     {
+        _stopwatch.Start();
+
         SetTreatNewlinesAsTokens(false);
 
         List<GreenNode> compilationAttributeLists = [];
@@ -48,7 +50,11 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         var attributeLists = List(compilationAttributeLists);
 
-        return CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken, Diagnostics);
+        var cu = CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken, Diagnostics);
+
+        _stopwatch.Stop();
+
+        return cu;
     }
 
     private bool TryParseCompilationAttributeList(out AttributeListSyntax attributeList)

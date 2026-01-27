@@ -1,0 +1,34 @@
+import System.*
+import System.Threading.Tasks.*
+
+Console.WriteLine(await GetItem())
+
+func GetUser() -> Result<User, Err> {
+    // sample implementation
+    //return .Error(Err.MissingUser)
+    return .Ok(User { Name = "Marina", Item = Item("Candy") })
+}
+
+async func GetItem() -> Task<Result<string, Err>> {
+    val maybeItem: Option<User> = .Some(User { Name = "Marina", Item = Item("Candy") })
+
+    await Task.Delay(200);
+
+    return maybeItem match {
+        .Some(let item) => .Ok(item.Name)
+        .None  => .Error(Err.MissingName)
+    }
+}
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+class User {
+    public Name: string? { get; set; }
+
+    public Item: Option<Item> { get; set; }
+}
+
+record class Item(Name: string)

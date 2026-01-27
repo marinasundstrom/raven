@@ -89,7 +89,7 @@ internal partial class BaseParseContext : ParseContext
 
         if (IsInDebugMode)
         {
-            Console.WriteLine($"Set treat newlines as tokens: {value}");
+            Console.WriteLine($"{PrintLeadingDebug()}Set treat newlines as tokens: {value}");
         }
 
         _treatNewlinesAsTokens = value;
@@ -158,7 +158,7 @@ internal partial class BaseParseContext : ParseContext
         if (IsInDebugMode)
         {
             callerFilePath = Path.GetRelativePath(Environment.CurrentDirectory, callerFilePath ?? Environment.CurrentDirectory);
-            Console.WriteLine($"Created checkpoint{(string.IsNullOrEmpty(debugName) ? string.Empty : $" \"{debugName}\"")} (position {_position}), at member {callerMemberName}, in {callerFilePath}, at line {callerLineNumber} ");
+            Console.WriteLine($"{PrintLeadingDebug()}Created checkpoint{(string.IsNullOrEmpty(debugName) ? string.Empty : $" \"{debugName}\"")} (position {_position}), at member {callerMemberName}, in {callerFilePath}, at line {callerLineNumber} ");
         }
         return new ParserCheckpoint(this, debugName);
     }
@@ -234,7 +234,7 @@ internal partial class BaseParseContext : ParseContext
         {
             text = text.Replace("\n", "\\n");
         }
-        Console.WriteLine($"{action}: {token.Kind} {text} (position: {position}, width: {token.Width}, full width: {token.FullWidth})");
+        Console.WriteLine($"{PrintLeadingDebug()}{action}: {token.Kind} {text} (position: {position}, width: {token.Width}, full width: {token.FullWidth})");
     }
 
     public override SyntaxToken PeekToken(int index = 0)

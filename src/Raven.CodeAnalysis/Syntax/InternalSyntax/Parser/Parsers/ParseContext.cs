@@ -5,6 +5,17 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal abstract class ParseContext
 {
+    protected static Stopwatch _stopwatch = new Stopwatch();
+
+    protected static string PrintLeadingDebug()
+    {
+        if (SyntaxParserFlags.PrintTimestamp)
+        {
+            return $"[{_stopwatch.ElapsedMilliseconds} ms] ";
+        }
+        return string.Empty;
+    }
+
     private static readonly Lazy<bool> _isInDebugMode =
         new(() => SyntaxParserFlags.PrintParseSequence);
 
@@ -66,7 +77,7 @@ internal abstract class ParseContext
     public virtual void RewindToPosition(int position)
     {
         Parent?.RewindToPosition(position);
-        Console.WriteLine($"Rewinded to {position}");
+        Console.WriteLine($"{PrintLeadingDebug()}Rewinded to {position}");
     }
 
     public virtual bool TreatNewlinesAsTokens => Parent?.TreatNewlinesAsTokens ?? throw new InvalidOperationException("No base or parent set");

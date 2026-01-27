@@ -1008,6 +1008,161 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(method);
         }
 
+        private ITypeSymbol? SubstituteType(ITypeSymbol? type)
+        {
+            if (type is null)
+                return null;
+
+            // Builder members must remain on the original builder type; everything else is substituted.
+            if (IsBuilderType(type))
+                return type;
+
+            return _stateMachine.SubstituteStateMachineTypeParameters(type);
+        }
+
+        private IMethodSymbol? SubstituteMethod(IMethodSymbol? method)
+        {
+            if (method is null)
+                return null;
+
+            // Builder members must remain on the original builder type; everything else is substituted.
+            if (IsBuilderMethod(method))
+                return method;
+
+            return _stateMachine.SubstituteStateMachineTypeParameters(method);
+        }
+
+        private IPropertySymbol? SubstituteProperty(IPropertySymbol? property)
+        {
+            if (property is null)
+                return null;
+
+            // Properties on the builder type must not be substituted.
+            if (property.ContainingType is not null && IsBuilderType(property.ContainingType))
+                return property;
+
+            // Property substitution is handled by substituting its containing type.
+            // (Member substitution will occur when lowering/codegen resolves CLR members.)
+            return property;
+        }
+
+        public override BoundNode? VisitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression node)
+        {
+            if (node is null)
+                return null;
+
+            // Rewrite child expressions first.
+            var receiver = (BoundExpression?)VisitExpression(node.Receiver) ?? node.Receiver;
+            var whenPresent = (BoundExpression?)VisitExpression(node.WhenPresent) ?? node.WhenPresent;
+
+            // Substitute the type/method symbols carried on the node so codegen doesn't
+            // try to reflect over TypeBuilderInstantiation (which throws / can produce invalid IL).
+            var payloadType = SubstituteType(node.PayloadType) ?? node.PayloadType;
+            var resultType = SubstituteType(node.ResultType) ?? node.ResultType;
+            var carrierType = SubstituteType(node.CarrierType) ?? node.CarrierType;
+
+            var resultOkCaseType = SubstituteType(node.ResultOkCaseType) ?? node.ResultOkCaseType;
+            var resultErrorCaseType = SubstituteType(node.ResultErrorCaseType) ?? node.ResultErrorCaseType;
+
+            var tryGetOk = SubstituteMethod(node.ResultTryGetOkMethod) ?? node.ResultTryGetOkMethod;
+            var tryGetError = SubstituteMethod(node.ResultTryGetErrorMethod) ?? node.ResultTryGetErrorMethod;
+
+            var okValueGetter = SubstituteMethod(node.ResultOkValueGetter) ?? node.ResultOkValueGetter;
+            var errorDataGetter = SubstituteMethod(node.ResultErrorDataGetter) ?? node.ResultErrorDataGetter;
+
+            var okCtor = SubstituteMethod(node.ResultOkCtor) ?? node.ResultOkCtor;
+            var errorCtor = SubstituteMethod(node.ResultErrorCtor) ?? node.ResultErrorCtor;
+
+            var implicitFromOk = SubstituteMethod(node.ResultImplicitFromOk) ?? node.ResultImplicitFromOk;
+            var implicitFromError = SubstituteMethod(node.ResultImplicitFromError) ?? node.ResultImplicitFromError;
+
+            // If nothing changed, keep the existing node.
+            if (ReferenceEquals(receiver, node.Receiver) &&
+                ReferenceEquals(whenPresent, node.WhenPresent) &&
+                SymbolEqualityComparer.Default.Equals(payloadType, node.PayloadType) &&
+                SymbolEqualityComparer.Default.Equals(resultType, node.ResultType) &&
+                SymbolEqualityComparer.Default.Equals(carrierType, node.CarrierType) &&
+                SymbolEqualityComparer.Default.Equals(resultOkCaseType, node.ResultOkCaseType) &&
+                SymbolEqualityComparer.Default.Equals(resultErrorCaseType, node.ResultErrorCaseType) &&
+                SymbolEqualityComparer.Default.Equals(tryGetOk, node.ResultTryGetOkMethod) &&
+                SymbolEqualityComparer.Default.Equals(tryGetError, node.ResultTryGetErrorMethod) &&
+                SymbolEqualityComparer.Default.Equals(okValueGetter, node.ResultOkValueGetter) &&
+                SymbolEqualityComparer.Default.Equals(errorDataGetter, node.ResultErrorDataGetter) &&
+                SymbolEqualityComparer.Default.Equals(okCtor, node.ResultOkCtor) &&
+                SymbolEqualityComparer.Default.Equals(errorCtor, node.ResultErrorCtor) &&
+                SymbolEqualityComparer.Default.Equals(implicitFromOk, node.ResultImplicitFromOk) &&
+                SymbolEqualityComparer.Default.Equals(implicitFromError, node.ResultImplicitFromError))
+            {
+                return node;
+            }
+
+            // IMPORTANT: PayloadLocal is preserved as-is; it's a temp local used by the expression lowering.
+            // Recreate the node with substituted types/symbols so later codegen doesn't see open generic defs.
+            return new BoundCarrierConditionalAccessExpression(
+             receiver: receiver,
+                whenPresent: whenPresent,
+                payloadType: payloadType,
+                resultType: resultType,
+                payloadLocal: node.PayloadLocal,
+                carrierType: (INamedTypeSymbol?)carrierType,
+                resultOkCaseType: (INamedTypeSymbol?)resultOkCaseType,
+                resultErrorCaseType: (INamedTypeSymbol?)resultErrorCaseType,
+                resultTryGetOkMethod: tryGetOk,
+                resultTryGetErrorMethod: tryGetError,
+                resultOkValueGetter: okValueGetter,
+                resultErrorDataGetter: errorDataGetter,
+                resultOkCtor: okCtor,
+                resultErrorCtor: errorCtor,
+                resultImplicitFromOk: implicitFromOk,
+                resultImplicitFromError: implicitFromError,
+                carrierKind: node.CarrierKind);
+        }
+
+        public override BoundNode? VisitPropagateExpression(BoundPropagateExpression node)
+        {
+            if (node is null)
+                return null;
+
+            var operand = (BoundExpression?)VisitExpression(node.Operand) ?? node.Operand;
+
+            var okType = SubstituteType(node.OkType) ?? node.OkType;
+            var errorType = SubstituteType(node.ErrorType) ?? node.ErrorType;
+            var enclosingResultType = SubstituteType(node.EnclosingResultType) ?? node.EnclosingResultType;
+
+            var okCaseType = SubstituteType(node.OkCaseType) ?? node.OkCaseType;
+
+            var enclosingErrorCtor = SubstituteMethod(node.EnclosingErrorConstructor) ?? node.EnclosingErrorConstructor;
+            var unwrapError = SubstituteMethod(node.UnwrapErrorMethod) ?? node.UnwrapErrorMethod;
+
+            var okValueProperty = SubstituteProperty(node.OkValueProperty) ?? node.OkValueProperty;
+
+            if (ReferenceEquals(operand, node.Operand) &&
+                SymbolEqualityComparer.Default.Equals(okType, node.OkType) &&
+                SymbolEqualityComparer.Default.Equals(errorType, node.ErrorType) &&
+                SymbolEqualityComparer.Default.Equals(enclosingResultType, node.EnclosingResultType) &&
+                SymbolEqualityComparer.Default.Equals(okCaseType, node.OkCaseType) &&
+                SymbolEqualityComparer.Default.Equals(enclosingErrorCtor, node.EnclosingErrorConstructor) &&
+                SymbolEqualityComparer.Default.Equals(unwrapError, node.UnwrapErrorMethod) &&
+                SymbolEqualityComparer.Default.Equals(okValueProperty, node.OkValueProperty))
+            {
+                return node;
+            }
+
+            return new BoundPropagateExpression(
+                operand: operand,
+                okType: okType,
+                errorType: errorType,
+                enclosingResultType: (INamedTypeSymbol)enclosingResultType,
+                enclosingErrorConstructor: enclosingErrorCtor,
+                unwrapErrorMethod: unwrapError,
+                okCaseName: node.OkCaseName,
+                errorCaseName: node.ErrorCaseName,
+                errorCaseHasPayload: node.ErrorCaseHasPayload,
+                okCaseType: okCaseType,
+                okValueProperty: okValueProperty,
+                errorConversion: node.ErrorConversion);
+        }
+
         public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)
         {
             if (node is null)
@@ -1707,29 +1862,24 @@ internal static class AsyncLowerer
                 case BoundAwaitExpression awaitExpression:
                     return (BoundExpression?)VisitAwaitExpression(awaitExpression);
 
+                case BoundCarrierConditionalAccessExpression carrierConditionalAccessExpression:
+                    {
+                        // Let the base rewriter visit/rewrite children, then ensure all carried
+                        // symbols/types are substituted for the constructed async state machine.
+                        var visited = (BoundExpression?)base.VisitCarrierConditionalAccessExpression(carrierConditionalAccessExpression)
+                                      ?? carrierConditionalAccessExpression;
+
+                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, visited);
+                    }
+
                 case BoundPropagateExpression propagateExpression:
                     {
-                        var operand = VisitExpression(propagateExpression.Operand) ?? propagateExpression.Operand;
+                        // Let the base rewriter visit/rewrite the operand first, then substitute
+                        // carried symbols/types so codegen never sees open/definition symbols.
+                        var visited = (BoundExpression?)base.VisitPropagateExpression(propagateExpression)
+                                      ?? propagateExpression;
 
-                        if (!ReferenceEquals(operand, propagateExpression.Operand))
-                        {
-                            return new BoundPropagateExpression(
-                                operand,
-                                propagateExpression.OkType,
-                                propagateExpression.ErrorType,
-                                propagateExpression.EnclosingResultType,
-                                propagateExpression.EnclosingErrorConstructor,
-                                propagateExpression.OkCaseName,
-                                propagateExpression.ErrorCaseName,
-                                propagateExpression.ErrorCaseHasPayload,
-                                propagateExpression.OkCaseType,
-                                propagateExpression.OkValueProperty,
-                                propagateExpression.UnwrapErrorMethod,
-                                propagateExpression.ErrorConversion,
-                                propagateExpression.Reason);
-                        }
-
-                        return propagateExpression;
+                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, visited);
                     }
 
                 case BoundBinaryExpression binaryExpression:
@@ -1738,18 +1888,24 @@ internal static class AsyncLowerer
                         var right = VisitExpression(binaryExpression.Right) ?? binaryExpression.Right;
 
                         if (!ReferenceEquals(left, binaryExpression.Left) || !ReferenceEquals(right, binaryExpression.Right))
-                            return new BoundBinaryExpression(left, binaryExpression.Operator, right);
+                        {
+                            var rewritten = new BoundBinaryExpression(left, binaryExpression.Operator, right);
+                            return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, rewritten);
+                        }
 
-                        return binaryExpression;
+                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, binaryExpression);
                     }
 
                 case BoundUnaryExpression unaryExpression:
                     {
                         var operand = VisitExpression(unaryExpression.Operand) ?? unaryExpression.Operand;
                         if (!ReferenceEquals(operand, unaryExpression.Operand))
-                            return new BoundUnaryExpression(unaryExpression.Operator, operand);
+                        {
+                            var rewritten = new BoundUnaryExpression(unaryExpression.Operator, operand);
+                            return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, rewritten);
+                        }
 
-                        return unaryExpression;
+                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, unaryExpression);
                     }
 
                 case BoundInvocationExpression invocationExpression:
@@ -1773,14 +1929,18 @@ internal static class AsyncLowerer
                         }
 
                         if (changed)
-                            return new BoundInvocationExpression(
+                        {
+                            var rewritten = new BoundInvocationExpression(
                                 invocationExpression.Method,
                                 rewrittenArguments,
                                 receiver,
                                 extensionReceiver,
                                 invocationExpression.RequiresReceiverAddress);
 
-                        return invocationExpression;
+                            return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, rewritten);
+                        }
+
+                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, invocationExpression);
                     }
 
                 case BoundObjectCreationExpression objectCreationExpression:
