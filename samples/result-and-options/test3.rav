@@ -8,9 +8,9 @@ func GetUser() -> Result<User, Err> {
 }
 
 func GetItem() -> Result<string, Err> {
-    val optItem = GetUser()?.Item?
+    val maybeItem = GetUser()?.Item?
 
-    return optItem match {
+    return maybeItem match {
         .Some(let item) => .Ok(item.Name)
         .None  => .Error(Err.MissingName)
     }

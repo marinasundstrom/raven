@@ -708,9 +708,9 @@ func GetItem() -> Result<string, Err> {
     // GetUser() : Result<User, Err>
     // ?.Item    : Result<Option<Item>, Err>
     // trailing ? unwraps the Result and propagates Error, leaving Option<Item>
-    val optItem = GetUser()?.Item?
+    val maybeItem = GetUser()?.Item?
 
-    return optItem match {
+    return maybeItem match {
         .Some(let item) => .Ok(item.Name)
         .None           => .Error(Err.MissingName)
     }
