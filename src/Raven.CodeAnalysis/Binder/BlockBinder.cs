@@ -703,7 +703,8 @@ partial class BlockBinder : Binder
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
 
-        //CacheBoundNode(syntax, boundNode);
+        // NOTE: Might want to revert
+        CacheBoundNode(syntax, boundNode);
 
         return boundNode;
     }
