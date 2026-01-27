@@ -4,6 +4,7 @@ Console.WriteLine(GetItem())
 
 func GetUser() -> Result<User, Err> {
     // sample implementation
+    //return .Error(Err.MissingUser)
     return .Ok(User { Name = "Marina", Item = Item("Candy") })
 }
 
