@@ -12,7 +12,11 @@ partial class BlockBinder
 {
     private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
     {
-        var expr = BindExpression(expressionStmt.Expression, allowReturn: true);
+        var expr = expressionStmt.Parent is BlockStatementSyntax block &&
+            IsImplicitReturnTarget(block, expressionStmt) &&
+            _containingSymbol is IMethodSymbol method
+            ? BindExpressionWithTargetType(expressionStmt.Expression, GetReturnTargetType(method))
+            : BindExpression(expressionStmt.Expression, allowReturn: true);
 
         if (expr is BoundMethodGroupExpression methodGroup && methodGroup.GetConvertedType() is null)
         {
@@ -681,7 +685,22 @@ partial class BlockBinder
         BoundExpression? expr = null;
 
         if (returnStatement.Expression is not null)
-            expr = BindExpression(returnStatement.Expression);
+        {
+            ITypeSymbol? targetType = null;
+
+            if (_containingSymbol is IMethodSymbol targetMethod)
+            {
+                targetType = GetReturnTargetType(targetMethod);
+            }
+            else if (_containingSymbol is ILambdaSymbol targetLambda)
+            {
+                // Lambdas also support target-typed returns (e.g. `return .None`).
+                // Use the effective return type (async unwrapped if needed).
+                targetType = GetReturnTargetType(targetLambda);
+            }
+
+            expr = BindExpressionWithTargetType(returnStatement.Expression, targetType, allowReturn: false);
+        }
 
         if (_containingSymbol is IMethodSymbol method)
         {
@@ -1069,5 +1088,26 @@ partial class BlockBinder
             _containingSymbol?.ContainingNamespace,
             [location],
             [reference]);
+    }
+
+    // Helper for lambda return type target-typing (mirrors method rules).
+    private static ITypeSymbol GetReturnTargetType(ILambdaSymbol lambda)
+    {
+        // Mirror method-return target type rules.
+        var returnType = lambda.ReturnType;
+
+        if (returnType is ErrorTypeSymbol)
+            return returnType;
+
+        if (lambda.IsAsync &&
+            returnType is INamedTypeSymbol namedReturn &&
+            namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            namedReturn.TypeArguments.Length == 1 &&
+            namedReturn.TypeArguments[0] is { } resultType)
+        {
+            return resultType;
+        }
+
+        return returnType;
     }
 }

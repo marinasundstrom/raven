@@ -89,14 +89,11 @@ public static class BoundTreePrinter
             var root = roots[i];
 
             // Skip error-only roots (usually artifacts of speculative binding / lookup noise)
-            if (!includeErrorNodes && root is BoundErrorExpression)
+            if (!includeErrorNodes && IsErrorRoot(root))
                 continue;
 
-            if (!includeErrorNodes && root is BoundExpression expr && expr.Type is ErrorTypeSymbol)
-                continue;
-
-            // We are only concerned with blocks: top-level statement blocks.
-            if (onlyBlockRoots && (root is not BoundBlockStatement))
+            // We are only concerned with blocks: compilation-unit blocks and method-body blocks.
+            if (onlyBlockRoots && !IsBlockRoot(root))
                 continue;
 
             // If this root corresponds to a syntax we've already printed somewhere
@@ -114,6 +111,23 @@ public static class BoundTreePrinter
             PrintRoot(root, nodeToSyntax, visitedNodes, visitedSyntaxes, binderIds, getBinderId, includeBinderInfo, includeBinderChainOnRoots);
             PrintChildren(root, nodeToSyntax, string.Empty, includeChildPropertyNames, groupChildCollections, displayCollectionIndices, visitedNodes, visitedSyntaxes, binderIds, getBinderId, includeBinderInfo, showBinderOnlyOnChange, parentBinderId: null);
         }
+    }
+
+    private static bool IsBlockRoot(BoundNode node)
+    {
+        // Covers BoundBlockStatement and any future BoundBlock* node kinds.
+        return node.GetType().Name.StartsWith("BoundBlock", StringComparison.Ordinal);
+    }
+
+    private static bool IsErrorRoot(BoundNode node)
+    {
+        if (node is BoundErrorExpression)
+            return true;
+
+        if (node is BoundExpression expr && expr.Type is { } t && t.TypeKind == TypeKind.Error)
+            return true;
+
+        return false;
     }
 
     private readonly record struct ChildEntry(string? Name, BoundNode? Node, IReadOnlyList<ChildEntry>? Children)
