@@ -368,6 +368,48 @@ func DivideChecked(a: int, b: int) -> Result<int, string> {
 }
 ```
 
+### Propagation and carrier-aware conditional access
+
+Raven provides two related operators that make working with `Result` and `Option` concise and explicit:
+
+* **Propagation (`?`)** — unwraps a carrier value and returns early on failure.
+* **Carrier-aware conditional access (`?.`)** — maps over the *successful* payload while preserving the carrier.
+
+#### Propagation (`?`)
+
+The postfix `?` operator unwraps a `Result<T, E>` or `Option<T>`:
+
+* For `Result<T, E>`, `.Ok(value)` yields `value`; `.Error(err)` returns early with `.Error(err)`.
+* For `Option<T>`, `.Some(value)` yields `value`; `.None` returns early with `.None`.
+
+```raven
+func DivideChecked(a: int, b: int) -> Result<int, string> {
+    val value = Divide(a, b)?
+    return .Ok(value)
+}
+```
+
+Propagation is only valid inside functions or lambdas whose return type matches the propagated shape.
+
+#### Carrier-aware conditional access (`?.`)
+
+When applied to `Result` or `Option`, `?.` does **not** behave like nullable conditional access.
+Instead, it *maps over the carrier*:
+
+* `Result<T, E>?.Member` evaluates `Member` on the `Ok` payload and preserves the original `Error`.
+* `Option<T>?.Member` evaluates `Member` on the `Some` payload and preserves `None`.
+
+```raven
+// GetUser() : Result<User, Err>
+val nameLength =
+    GetUser()?.Name?.Length?
+```
+
+Only the member-access form (`?.Member`) is supported for carriers.
+Conditional invocation (`?(...)`) and element access (`?[...]`) do **not** apply to `Result` or `Option`.
+
+> ℹ️ **Tip:** You can freely combine `?.` to transform a carrier and a trailing `?` to unwrap it at the end of an expression.
+
 ### Option
 
 Use `Option<T>` to represent an optional value without using `null`.
@@ -471,9 +513,7 @@ WriteLine(ParseInt("foo"))
 import System.*
 
 func SaveFile(path: string, text: string) -> string {
-    return try {
-        System.IO.File.WriteAllText(path, text)
-    } match {
+    return try System.IO.File.WriteAllText(path, text) match {
         .Ok => "Saved!"
         .Error(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
         .Error(IOException ex) => "I/O error: ${ex.Message}"
@@ -543,6 +583,8 @@ val result = values
     |> Select(x => x * 2)
     |> ToArray()
 ```
+
+> ❗ **Tip:** You can still use the ordinary extension-method syntax: `values.Where(...)`.
 
 ---
 

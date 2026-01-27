@@ -531,9 +531,7 @@ import System.*
 import System.Console.*
 
 func SaveFile(path: string, text: string) -> string {
-    return try {
-        System.IO.File.WriteAllText(path, text)
-    } match {
+    return try System.IO.File.WriteAllText(path, text) match {
         .Ok => "Saved!"
         .Error(UnauthorizedAccessException ex) => "Access denied: ${ex.Message}"
         .Error(IOException ex) => "I/O error: ${ex.Message}"
