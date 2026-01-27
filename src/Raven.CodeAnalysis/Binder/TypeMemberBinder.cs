@@ -227,7 +227,12 @@ internal class TypeMemberBinder : Binder
             if (decl.Initializer is not null)
             {
                 var exprBinder = new BlockBinder(_containingType, this);
+
+                var targetType = exprBinder.PushTargetType(fieldType);
+
                 initializer = exprBinder.BindExpression(decl.Initializer.Value);
+
+                targetType.Dispose();
 
                 foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
                     _diagnostics.Report(diag);
@@ -1491,6 +1496,21 @@ internal class TypeMemberBinder : Binder
         if (isExtensionMember)
             propertySymbol.MarkDeclaredInExtension(receiverType);
 
+        // Bind property initializer (if any) with the property's declared type as target type.
+        BoundExpression? initializer = null;
+        if (propertyDecl.Initializer is not null)
+        {
+            var exprBinder = new BlockBinder(_containingType, this);
+            var targetType = exprBinder.PushTargetType(propertyType);
+
+            initializer = exprBinder.BindExpression(propertyDecl.Initializer.Value);
+
+            targetType.Dispose();
+
+            foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
+                _diagnostics.Report(diag);
+        }
+
         if (!isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface &&
             propertyDecl.AccessorList is { } accessorList &&
@@ -1508,6 +1528,7 @@ internal class TypeMemberBinder : Binder
                 CurrentNamespace!.AsSourceNamespace(),
                 [propertyDecl.GetLocation()],
                 [propertyDecl.GetReference()],
+                initializer: initializer,
                 declaredAccessibility: Accessibility.Private);
 
             propertySymbol.SetBackingField(backingField);

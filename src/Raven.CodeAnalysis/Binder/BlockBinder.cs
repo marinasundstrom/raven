@@ -643,7 +643,7 @@ partial class BlockBinder : Binder
         }
     }
 
-    private TargetTypeScope PushTargetType(ITypeSymbol? targetType)
+    public TargetTypeScope PushTargetType(ITypeSymbol? targetType)
     {
         _targetTypeStack.Push(targetType);
         return new TargetTypeScope(this);
@@ -3108,6 +3108,33 @@ partial class BlockBinder : Binder
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)
     {
+        // Target type from `return <expr>`.
+        if (node.Parent is ReturnStatementSyntax)
+        {
+            // Walk up to nearest containing method symbol.
+            var container = ContainingSymbol;
+            while (container is { } && container is not IMethodSymbol)
+                container = container.ContainingSymbol;
+
+            if (container is IMethodSymbol m)
+                return m.ReturnType;
+        }
+
+        // Target type from binary equality/inequality: `x == .Member` / `.Member == x`.
+        if (node.Parent is BinaryExpressionSyntax binary &&
+            (binary.OperatorToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsExpression))
+        {
+            var other = ReferenceEquals(binary.Left, node) ? binary.Right : binary.Left;
+
+            // Avoid recursion if the other side is also target-typed.
+            if (other is not MemberBindingExpressionSyntax)
+            {
+                var otherBound = BindExpression(other);
+                if (otherBound.Type is { } otherType && otherType.TypeKind != TypeKind.Error)
+                    return otherType;
+            }
+        }
+
         return _targetTypeStack.Count > 0
             ? _targetTypeStack.Peek()
             : null;
@@ -4777,31 +4804,9 @@ partial class BlockBinder : Binder
             }
             else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
             {
-                var argExprs = new List<BoundArgument>();
-                bool argErrors = false;
-                foreach (var arg in syntax.ArgumentList.Arguments)
-                {
-                    var boundArg = BindExpression(arg.Expression);
-                    if (HasExpressionErrors(boundArg))
-                        argErrors = true;
-                    var name = arg.NameColon?.Name.Identifier.ValueText;
-                    if (string.IsNullOrEmpty(name))
-                        name = null;
-                    argExprs.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
-                }
-
-                if (argErrors)
-                {
-                    var constructors = namedType.Constructors.Where(static ctor => !ctor.IsStatic).ToImmutableArray();
-                    var symbol = constructors.IsDefaultOrEmpty ? (ISymbol)namedType : constructors[0];
-                    return ErrorExpression(
-                        namedType,
-                        symbol,
-                        BoundExpressionReason.ArgumentBindingFailed,
-                        AsSymbolCandidates(constructors));
-                }
-
-                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax, syntax.Expression);
+                // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
+                // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
+                return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
             }
             else
             {
@@ -4856,31 +4861,9 @@ partial class BlockBinder : Binder
             }
             else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
             {
-                var argExprs = new List<BoundArgument>();
-                bool argErrors = false;
-                foreach (var arg in syntax.ArgumentList.Arguments)
-                {
-                    var boundArg = BindExpression(arg.Expression);
-                    if (HasExpressionErrors(boundArg))
-                        argErrors = true;
-                    var name = arg.NameColon?.Name.Identifier.ValueText;
-                    if (string.IsNullOrEmpty(name))
-                        name = null;
-                    argExprs.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
-                }
-
-                if (argErrors)
-                {
-                    var constructors = namedType.Constructors.Where(static ctor => !ctor.IsStatic).ToImmutableArray();
-                    var symbol = constructors.IsDefaultOrEmpty ? (ISymbol)namedType : constructors[0];
-                    return ErrorExpression(
-                        namedType,
-                        symbol,
-                        BoundExpressionReason.ArgumentBindingFailed,
-                        AsSymbolCandidates(constructors));
-                }
-
-                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax, syntax.Expression);
+                // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
+                // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
+                return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
             }
             else
             {
@@ -4940,36 +4923,31 @@ partial class BlockBinder : Binder
                 }
             }
 
-            var genericBoundArguments = new BoundArgument[syntax.ArgumentList.Arguments.Count];
-            bool genericHasErrors = false;
-            int genericIndex = 0;
-            foreach (var arg in syntax.ArgumentList.Arguments)
-            {
-                var boundArg = BindExpression(arg.Expression);
-                if (HasExpressionErrors(boundArg))
-                    genericHasErrors = true;
-                var name = arg.NameColon?.Name.Identifier.ValueText;
-                if (string.IsNullOrEmpty(name))
-                    name = null;
-                genericBoundArguments[genericIndex++] = new BoundArgument(boundArg, RefKind.None, name, arg);
-            }
-
-            if (genericHasErrors)
-                return ErrorExpression(reason: BoundExpressionReason.NotFound);
-
             var typeExpr = BindTypeSyntax(generic);
             if (typeExpr is BoundTypeExpression type && type.Type is INamedTypeSymbol namedType)
-                return BindConstructorInvocation(namedType, genericBoundArguments, syntax, syntax.Expression);
+            {
+                // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
+                // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
+                return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
+            }
 
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
         else
         {
             receiver = BindExpression(syntax.Expression);
+
             if (IsErrorExpression(receiver))
                 return receiver is BoundErrorExpression boundError
                     ? boundError
                     : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+
+            // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
+            // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
+            if (receiver is BoundTypeExpression typeExpr && typeExpr.Type is INamedTypeSymbol namedType)
+            {
+                return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
+            }
 
             methodName = "Invoke";
         }
@@ -4988,11 +4966,10 @@ partial class BlockBinder : Binder
         if (!suppressNullWarning)
             ReportPossibleNullReferenceAccess(receiver, receiverSyntax);
 
-        var boundArguments = BindInvocationArguments(argumentList.Arguments, out var hasErrors);
+        // Bind invocation arguments AFTER we have a candidate set, so we can provide
+        // best-effort target types for target-typed member bindings like `.Human`, `.Male`, `.Ok(...)`, etc.
 
-        if (hasErrors)
-            return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
-
+        // Delegate invocation: receiver.Invoke(...)
         if (receiver is not null)
         {
             var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
@@ -5003,6 +4980,13 @@ partial class BlockBinder : Binder
             {
                 if (!EnsureMemberAccessible(invokeMethod, receiverSyntax.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+                var invokeForArgBinding = ImmutableArray.Create(invokeMethod);
+                invokeForArgBinding = FilterInvocationCandidatesForArgumentBinding(invokeForArgBinding, argumentList.Arguments);
+
+                var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(invokeForArgBinding, argumentList.Arguments, out var hasErrors);
+                if (hasErrors)
+                    return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
                 if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver, boundArguments))
                 {
@@ -5016,6 +5000,7 @@ partial class BlockBinder : Binder
             }
         }
 
+        // Namespace receiver: Namespace.TypeName(...)
         if (receiver is BoundNamespaceExpression nsReceiver)
         {
             var typeInNs = nsReceiver.Namespace
@@ -5029,23 +5014,41 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            return BindConstructorInvocation(typeInNs, boundArguments, callSyntax, receiverSyntax, receiver);
+            // Rebind arguments against ctor parameter types so target-typed member bindings can resolve.
+            if (callSyntax is InvocationExpressionSyntax inv)
+                return BindConstructorInvocation(typeInNs, inv, receiverSyntax, receiver);
+
+            // Fallback: should not normally happen, but preserve behavior.
+            var fallbackArgs = BindInvocationArguments(argumentList.Arguments, out var fallbackHasErrors);
+            if (fallbackHasErrors)
+                return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
+            return BindConstructorInvocation(typeInNs, fallbackArgs, callSyntax, receiverSyntax, receiver);
         }
 
+        // Static call on type receiver: TypeName.Method(...)
         if (receiver is BoundTypeExpression typeReceiver)
         {
-            var candidateMethods = new SymbolQuery(methodName, typeReceiver.Type, IsStatic: true)
+            var candidates = new SymbolQuery(methodName, typeReceiver.Type, IsStatic: true)
                 .LookupMethods(this)
                 .ToImmutableArray();
 
-            if (!candidateMethods.IsDefaultOrEmpty)
+            if (!candidates.IsDefaultOrEmpty)
             {
-                var accessibleMethods = GetAccessibleMethods(candidateMethods, receiverSyntax.GetLocation());
+                var accessibleCandidates = GetAccessibleMethods(candidates, receiverSyntax.GetLocation());
 
-                if (accessibleMethods.IsDefaultOrEmpty)
+                // Bind args against accessible candidates if possible; otherwise bind against the full
+                // candidate set so we still get target typing and diagnostics.
+                var candidatesForArgBinding = !accessibleCandidates.IsDefaultOrEmpty ? accessibleCandidates : candidates;
+                candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+
+                var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
+                if (hasErrors)
+                    return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
+
+                if (accessibleCandidates.IsDefaultOrEmpty)
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+                var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
@@ -5067,7 +5070,15 @@ partial class BlockBinder : Binder
                     .FirstOrDefault();
 
                 if (nestedType is not null)
-                    return BindConstructorInvocation(nestedType, boundArguments, callSyntax, receiverSyntax, receiver);
+                {
+                    if (callSyntax is InvocationExpressionSyntax inv)
+                        return BindConstructorInvocation(nestedType, inv, receiverSyntax, receiver);
+
+                    var fallbackArgs = BindInvocationArguments(argumentList.Arguments, out var fallbackHasErrors);
+                    if (fallbackHasErrors)
+                        return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
+                    return BindConstructorInvocation(nestedType, fallbackArgs, callSyntax, receiverSyntax, receiver);
+                }
 
                 ReportSuppressedLambdaDiagnostics(boundArguments);
                 _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
@@ -5080,14 +5091,22 @@ partial class BlockBinder : Binder
                 .FirstOrDefault();
 
             if (nested is not null)
-                return BindConstructorInvocation(nested, boundArguments, callSyntax, receiverSyntax, receiver);
+            {
+                if (callSyntax is InvocationExpressionSyntax inv)
+                    return BindConstructorInvocation(nested, inv, receiverSyntax, receiver);
+
+                var fallbackArgs = BindInvocationArguments(argumentList.Arguments, out var fallbackHasErrors);
+                if (fallbackHasErrors)
+                    return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
+                return BindConstructorInvocation(nested, fallbackArgs, callSyntax, receiverSyntax, receiver);
+            }
 
             _diagnostics.ReportMemberDoesNotContainDefinition(typeReceiver.Type.Name, methodName, receiverSyntax.GetLocation());
-
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        if (receiver != null)
+        // Instance receiver call: receiver.Method(...)
+        if (receiver is not null)
         {
             var candidates = new SymbolQuery(methodName, receiver.Type, IsStatic: false)
                 .LookupMethods(this)
@@ -5104,6 +5123,12 @@ partial class BlockBinder : Binder
             }
 
             var accessibleCandidates = GetAccessibleMethods(candidates, receiverSyntax.GetLocation());
+            var candidatesForArgBinding = !accessibleCandidates.IsDefaultOrEmpty ? accessibleCandidates : candidates;
+            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+
+            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
+            if (hasErrors)
+                return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
             if (accessibleCandidates.IsDefaultOrEmpty)
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
@@ -5128,11 +5153,20 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        var methodCandidates = new SymbolQuery(methodName).LookupMethods(this).ToImmutableArray();
+        // Global function call: MethodName(...)
+        var methodCandidates = new SymbolQuery(methodName)
+            .LookupMethods(this)
+            .ToImmutableArray();
 
         if (!methodCandidates.IsDefaultOrEmpty)
         {
             var accessibleMethods = GetAccessibleMethods(methodCandidates, receiverSyntax.GetLocation());
+            var candidatesForArgBinding = !accessibleMethods.IsDefaultOrEmpty ? accessibleMethods : methodCandidates;
+            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+
+            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
+            if (hasErrors)
+                return InvocationError(null, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
             if (accessibleMethods.IsDefaultOrEmpty)
                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
@@ -5153,18 +5187,30 @@ partial class BlockBinder : Binder
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
-            var typeFallback = LookupType(methodName) as INamedTypeSymbol;
-            if (typeFallback is not null)
-                return BindConstructorInvocation(typeFallback, boundArguments, callSyntax, receiverSyntax);
+            if (LookupType(methodName) is INamedTypeSymbol typeFallback)
+            {
+                // Rebind arguments against ctor parameter types so target-typed member bindings can resolve.
+                if (callSyntax is InvocationExpressionSyntax inv)
+                    return BindConstructorInvocation(typeFallback, inv, receiverSyntax: receiverSyntax, receiver: null);
+
+                return BindConstructorInvocation(typeFallback, boundArguments, callSyntax, receiverSyntax, receiver: null);
+            }
 
             ReportSuppressedLambdaDiagnostics(boundArguments);
             _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        var typeSymbol = LookupType(methodName) as INamedTypeSymbol;
-        if (typeSymbol is not null)
-            return BindConstructorInvocation(typeSymbol, boundArguments, callSyntax, receiverSyntax);
+        if (LookupType(methodName) is INamedTypeSymbol typeSymbol)
+        {
+            if (callSyntax is InvocationExpressionSyntax inv)
+                return BindConstructorInvocation(typeSymbol, inv, receiverSyntax: receiverSyntax, receiver: null);
+
+            var fallbackArgs = BindInvocationArguments(argumentList.Arguments, out var fallbackHasErrors);
+            if (fallbackHasErrors)
+                return InvocationError(null, methodName, BoundExpressionReason.ArgumentBindingFailed);
+            return BindConstructorInvocation(typeSymbol, fallbackArgs, callSyntax, receiverSyntax, receiver: null);
+        }
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, receiverSyntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -6436,7 +6482,7 @@ partial class BlockBinder : Binder
         return receiver is not null and not BoundTypeExpression and not BoundNamespaceExpression;
     }
 
-    private readonly struct TargetTypeScope : IDisposable
+    public readonly struct TargetTypeScope : IDisposable
     {
         private readonly BlockBinder _binder;
 
