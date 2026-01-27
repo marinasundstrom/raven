@@ -142,6 +142,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitConditionalAccessExpression(conditionalAccess);
                 break;
 
+            case BoundCarrierConditionalAccessExpression carrier:
+                EmitCarrierConditionalAccessExpression(carrier);
+                break;
+
             case BoundInvocationExpression invocationExpression:
                 EmitInvocationExpression(invocationExpression);
                 break;
@@ -1121,6 +1125,14 @@ internal partial class ExpressionGenerator : Generator
     }
     private EmitInfo EmitLocalAccess(BoundLocalAccess localAccess)
     {
+        if (_carrierPayloadSymbol is not null &&
+            _carrierPayloadLocal is not null &&
+            SymbolEqualityComparer.Default.Equals(localAccess.Local, _carrierPayloadSymbol))
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, _carrierPayloadLocal);
+            return EmitInfo.ForValue(local: _carrierPayloadLocal);
+        }
+
         if (TryEmitCapturedVariableLoad(localAccess.Local))
             return EmitInfo.ForValue(localAccess.Local, wasCaptured: true);
 

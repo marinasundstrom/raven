@@ -1,0 +1,17 @@
+import System.*
+
+Console.WriteLine(f())
+
+func f() -> Result<int, Err> {
+    val len: int? = null 
+
+    return len match {
+        null       => .Error(.MissingName)
+        val value  => .Ok(value ?? 0)
+    }
+}
+
+union Err {
+    MissingUser
+    MissingName
+}

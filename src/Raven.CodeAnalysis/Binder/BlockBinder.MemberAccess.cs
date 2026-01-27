@@ -519,12 +519,68 @@ partial class BlockBinder
     // Conditional access helpers
     // ============================
 
+    private static bool TryGetOptionType(ITypeSymbol? type, out INamedTypeSymbol option, out ITypeSymbol payload)
+    {
+        option = null!;
+        payload = null!;
+
+        if (type is null)
+            return false;
+
+        type = type.UnwrapLiteralType() ?? type;
+
+        if (type is INamedTypeSymbol named &&
+            named.Arity == 1 &&
+            string.Equals(named.Name, "Option", StringComparison.Ordinal))
+        {
+            option = named;
+            payload = named.TypeArguments[0];
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetResultType(ITypeSymbol? type, out INamedTypeSymbol result, out ITypeSymbol payload, out ITypeSymbol error)
+    {
+        result = null!;
+        payload = null!;
+        error = null!;
+
+        if (type is null)
+            return false;
+
+        type = type.UnwrapLiteralType() ?? type;
+
+        if (type is INamedTypeSymbol named &&
+            named.Arity == 2 &&
+            string.Equals(named.Name, "Result", StringComparison.Ordinal))
+        {
+            result = named;
+            payload = named.TypeArguments[0];
+            error = named.TypeArguments[1];
+            return true;
+        }
+
+        return false;
+    }
+
     private ITypeSymbol? GetConditionalAccessLookupType(ITypeSymbol? type)
     {
         if (type is null)
             return null;
 
         type = type.UnwrapLiteralType() ?? type;
+
+        // Carrier-aware lookup:
+        // - Nullable wrapper: look up on underlying T
+        // - Option<T>: look up on payload T
+        // - Result<T,E>: look up on payload T
+        if (TryGetOptionType(type, out _, out var optPayload))
+            return optPayload.GetPlainType();
+
+        if (TryGetResultType(type, out _, out var resPayload, out _))
+            return resPayload.GetPlainType();
 
         // Raven nullable wrapper
         return type.GetPlainType();
@@ -537,10 +593,256 @@ partial class BlockBinder
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
     {
         var receiver = BindExpressionAllowingEvent(syntax.Expression);
+        if (receiver is BoundErrorExpression) return receiver;
 
-        if (receiver is BoundErrorExpression)
-            return receiver;
+        // classify carrier
+        var receiverType = UnwrapAlias(receiver.Type ?? Compilation.ErrorTypeSymbol);
 
+        if (TryGetOptionType(receiverType, out var opt, out var optPayload))
+            return BindCarrierConditionalAccess(syntax, receiver, BoundCarrierKind.Option, opt, optPayload, errorType: null);
+
+        if (TryGetResultType(receiverType, out var res, out var resPayload, out var resError))
+            return BindCarrierConditionalAccess(syntax, receiver, BoundCarrierKind.Result, res, resPayload, errorType: resError);
+
+        // fallback: your existing nullable conditional access path
+        return BindNullableConditionalAccessExpression(syntax, receiver);
+    }
+
+    private BoundExpression BindCarrierConditionalAccess(
+    ConditionalAccessExpressionSyntax syntax,
+    BoundExpression carrierReceiver,
+    BoundCarrierKind kind,
+    INamedTypeSymbol carrierGeneric,
+    ITypeSymbol payloadType,
+    ITypeSymbol? errorType)
+    {
+        // Synthesize a payload local that exists only for this node’s WhenPresent binding
+        var payloadLocal = CreateTempLocal("payload", payloadType, syntax);
+        var payloadReceiver = new BoundLocalAccess(payloadLocal);
+
+        // Bind WhenPresent using payloadReceiver *as the receiver*.
+        // (This is different from your current approach, which binds against `receiver`
+        // but uses receiverTypeForLookup to *pretend* it’s payload.)
+        BoundExpression whenPresent = syntax.WhenNotNull switch
+        {
+            MemberBindingExpressionSyntax memberBinding =>
+                BindMemberAccessOnReceiver(
+                    payloadReceiver,
+                    memberBinding.Name,
+                    preferMethods: false,
+                    allowEventAccess: true,
+                    suppressNullWarning: true,
+                    receiverTypeForLookup: payloadType,
+                    forceExtensionReceiver: true),
+
+            InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax mb } inv =>
+                BindInvocationOnMethodGroup(
+                    (BoundMethodGroupExpression)BindMemberAccessOnReceiver(
+                        payloadReceiver, mb.Name,
+                        preferMethods: true,
+                        allowEventAccess: false,
+                        suppressNullWarning: true,
+                        receiverTypeForLookup: payloadType,
+                        forceExtensionReceiver: true),
+                    inv),
+
+            ElementBindingExpressionSyntax eb =>
+                BindElementAccessExpression(payloadReceiver, eb.ArgumentList, eb, suppressNullWarning: true),
+
+            InvocationExpressionSyntax { Expression: ReceiverBindingExpressionSyntax } inv =>
+                BindInvocationExpressionCore(payloadReceiver, "Invoke", inv.ArgumentList, syntax.Expression, inv, suppressNullWarning: true),
+
+            _ => ErrorExpression(reason: BoundExpressionReason.NotFound)
+        };
+
+        whenPresent = IsErrorExpression(whenPresent) ? AsErrorExpression(whenPresent) : whenPresent;
+
+        var accessType = whenPresent.Type ?? Compilation.ErrorTypeSymbol;
+        var u = (accessType.UnwrapLiteralType() ?? accessType).GetPlainType();
+
+        ITypeSymbol resultType =
+            kind == BoundCarrierKind.Option ? carrierGeneric.Construct(u) :
+            kind == BoundCarrierKind.Result ? carrierGeneric.Construct(u, errorType!) :
+            throw new InvalidOperationException();
+
+        // Resolve carrier APIs as symbols so codegen doesn't have to guess via reflection.
+        INamedTypeSymbol? carrierTypeSymbol = resultType as INamedTypeSymbol;
+
+        INamedTypeSymbol? resOk = null;
+        INamedTypeSymbol? resErr = null;
+        IMethodSymbol? resTryOk = null;
+        IMethodSymbol? resTryErr = null;
+        IMethodSymbol? resOkValue = null;
+        IMethodSymbol? resErrData = null;
+        IMethodSymbol? resOkCtor = null;
+        IMethodSymbol? resErrCtor = null;
+        IMethodSymbol? resImplOk = null;
+        IMethodSymbol? resImplErr = null;
+
+        // Receiver Result<TPayload, E> API
+        INamedTypeSymbol? recvOk = null;
+        INamedTypeSymbol? recvErr = null;
+        IMethodSymbol? recvOkValue = null;
+        IMethodSymbol? recvErrData = null;
+
+        INamedTypeSymbol? optSome = null;
+        INamedTypeSymbol? optNone = null;
+        IMethodSymbol? optTrySome = null;
+        IMethodSymbol? optSomeValue = null;
+        IMethodSymbol? optSomeCtor = null;
+        IMethodSymbol? optNoneCtor = null;
+        IMethodSymbol? optImplSome = null;
+        IMethodSymbol? optImplNone = null;
+
+        if (carrierTypeSymbol is not null)
+        {
+            if (kind == BoundCarrierKind.Result)
+            {
+                // Receiver is Result<T,E>
+                var receiverNamed = (INamedTypeSymbol)carrierReceiver.Type!;
+                resTryOk = FindSingleOutBoolMethod(receiverNamed, "TryGetOk");
+                resTryErr = FindSingleOutBoolMethod(receiverNamed, "TryGetError");
+
+                // Receiver Result<TPayload, E> cases
+                recvOk = FindNestedCase(receiverNamed, "Ok");
+                recvErr = FindNestedCase(receiverNamed, "Error");
+                recvOkValue = recvOk is not null ? FindPropertyGetter(recvOk, "Value") : null;
+                recvErrData = recvErr is not null
+                    ? (FindPropertyGetter(recvErr, "Data") ?? FindPropertyGetter(recvErr, "Value"))
+                    : null;
+
+                // Result<U,E> cases (carrier)
+                resOk = FindNestedCase(carrierTypeSymbol, "Ok");
+                resErr = FindNestedCase(carrierTypeSymbol, "Error");
+
+                if (resOk is not null)
+                {
+                    resOkValue = FindPropertyGetter(resOk, "Value");
+                    resOkCtor = FindSingleArgCtor(resOk);
+                    resImplOk = FindImplicitConversion(carrierTypeSymbol, resOk);
+                }
+
+                if (resErr is not null)
+                {
+                    resErrData = FindPropertyGetter(resErr, "Data") ?? FindPropertyGetter(resErr, "Value");
+                    resErrCtor = FindSingleArgCtor(resErr) ?? FindParameterlessCtor(resErr);
+                    resImplErr = FindImplicitConversion(carrierTypeSymbol, resErr);
+                }
+            }
+            else if (kind == BoundCarrierKind.Option)
+            {
+                var receiverNamed = (INamedTypeSymbol)carrierReceiver.Type!;
+                optTrySome = FindSingleOutBoolMethod(receiverNamed, "TryGetSome")
+                    ?? FindSingleOutBoolMethod(receiverNamed, "TryGetValue")
+                    ?? FindSingleOutBoolMethod(receiverNamed, "TryGet");
+
+                optSome = FindNestedCase(carrierTypeSymbol, "Some");
+                optNone = FindNestedCase(carrierTypeSymbol, "None");
+
+                if (optSome is not null)
+                {
+                    optSomeValue = FindPropertyGetter(optSome, "Value") ?? FindPropertyGetter(optSome, "Item") ?? FindPropertyGetter(optSome, "Payload");
+                    optSomeCtor = FindSingleArgCtor(optSome);
+                    optImplSome = FindImplicitConversion(carrierTypeSymbol, optSome);
+                }
+
+                if (optNone is not null)
+                {
+                    optNoneCtor = FindParameterlessCtor(optNone);
+                    optImplNone = FindImplicitConversion(carrierTypeSymbol, optNone);
+                }
+            }
+        }
+
+        return new BoundCarrierConditionalAccessExpression(
+            carrierReceiver,
+            kind,
+            payloadType,
+            payloadLocal,
+            whenPresent,
+            resultType,
+            carrierType: carrierTypeSymbol,
+
+            receiverResultOkCaseType: recvOk,
+            receiverResultErrorCaseType: recvErr,
+            receiverResultOkValueGetter: recvOkValue,
+            receiverResultErrorDataGetter: recvErrData,
+
+            resultOkCaseType: resOk,
+            resultErrorCaseType: resErr,
+            resultTryGetOkMethod: resTryOk,
+            resultTryGetErrorMethod: resTryErr,
+            resultOkValueGetter: resOkValue,
+            resultErrorDataGetter: resErrData,
+            resultOkCtor: resOkCtor,
+            resultErrorCtor: resErrCtor,
+            resultImplicitFromOk: resImplOk,
+            resultImplicitFromError: resImplErr,
+
+            optionSomeCaseType: optSome,
+            optionNoneCaseType: optNone,
+            optionTryGetSomeMethod: optTrySome,
+            optionSomeValueGetter: optSomeValue,
+            optionSomeCtor: optSomeCtor,
+            optionNoneCtorOrFactory: optNoneCtor,
+            optionImplicitFromSome: optImplSome,
+            optionImplicitFromNone: optImplNone);
+    }
+
+    private static INamedTypeSymbol? FindNestedCase(INamedTypeSymbol carrier, string name)
+    {
+        // Try exact name first, then prefix (e.g. Ok`2)
+        var exact = carrier.GetTypeMembers(name).FirstOrDefault();
+        if (exact is not null)
+            return exact;
+
+        return carrier.GetTypeMembers()
+            .FirstOrDefault(t => t.Name.StartsWith(name, StringComparison.Ordinal));
+    }
+
+    private static IMethodSymbol? FindSingleOutBoolMethod(INamedTypeSymbol receiverType, string name)
+    {
+        return receiverType.GetMembers(name)
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m =>
+                m.Parameters.Length == 1 &&
+                m.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                m.Parameters[0].RefKind == RefKind.Out);
+    }
+
+    private static IMethodSymbol? FindPropertyGetter(INamedTypeSymbol type, string propertyName)
+    {
+        return type.GetMembers(propertyName)
+            .OfType<IPropertySymbol>()
+            .Select(p => p.GetMethod)
+            .FirstOrDefault(m => m is not null);
+    }
+
+    private static IMethodSymbol? FindSingleArgCtor(INamedTypeSymbol type)
+    {
+        return type.Constructors.FirstOrDefault(c => c.Parameters.Length == 1);
+    }
+
+    private static IMethodSymbol? FindParameterlessCtor(INamedTypeSymbol type)
+    {
+        return type.Constructors.FirstOrDefault(c => c.Parameters.Length == 0);
+    }
+
+    private static IMethodSymbol? FindImplicitConversion(INamedTypeSymbol carrier, INamedTypeSymbol from)
+    {
+        return carrier.GetMembers("op_Implicit")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m =>
+                m.IsStatic &&
+                SymbolEqualityComparer.Default.Equals(m.ReturnType, carrier) &&
+                m.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, from));
+    }
+
+    private BoundExpression BindNullableConditionalAccessExpression(
+        ConditionalAccessExpressionSyntax syntax,
+        BoundExpression receiver)
+    {
         if (receiver is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
         {
             receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);

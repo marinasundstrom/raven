@@ -517,9 +517,11 @@ internal partial class BlockBinder
         ExpressionSyntax expressionSyntax,
         ITypeSymbol inputType)
     {
-        // null literal stays a literal-backed constant pattern
-        if (expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral })
-        //            or BoundTypeExpression { Type: NullTypeSymbol }) // Works without
+        // null literal stays a literal-backed constant pattern.
+        // NOTE: `null` may be represented either as a null literal expression OR as a `NullType` type-expression
+        // depending on how the parser produced the syntax (e.g. `null => ...` in a match arm).
+        if (expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
+            or BoundTypeExpression { Type: NullTypeSymbol })
         {
             var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
             var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, Compilation);

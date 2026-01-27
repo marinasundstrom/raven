@@ -1,0 +1,30 @@
+import System.*
+
+Console.WriteLine(GetItem())
+
+func GetUser() -> Result<User, Err> {
+    // sample implementation
+    return .Ok(User { Name = "Marina", Item = Item("Candy") })
+}
+
+func GetItem() -> Result<string, Err> {
+    val optItem = GetUser()?.Item?
+
+    return optItem match {
+        .Some(let item) => .Ok(item.Name)
+        .None  => .Error(Err.MissingName)
+    }
+}
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+class User {
+    public Name: string? { get; set; }
+
+    public Item: Option<Item> { get; set; }
+}
+
+record class Item(Name: string)

@@ -422,10 +422,12 @@ LambdaParameterClause    ::= '(' ParameterList? ')' | Parameter ;
 CastExpression           ::= '(' Type ')' UnaryExpression ;
 
 PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
+
 PostfixTrailer           ::= ArgumentList
                            | MemberAccessTrailer
                            | ElementAccessTrailer
-                           | QuestionTrailer
+                           | PropagateTrailer
+                           | ConditionalAccessTrailer
                            | ObjectInitializer ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
@@ -437,8 +439,7 @@ ElementAccessTrailer     ::= '[' Expression ']' ;
 (* `?` is context-sensitive in postfix position:
    - If followed by `.`, `(`, or `[`, it forms conditional access: `?.`, `?(`, `?[`.
    - Otherwise it is the Result-propagation postfix operator: `<expr>?`. *)
-QuestionTrailer          ::= '?' [ (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ] ;
-
+PropagateTrailer          ::= '?' ;
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
 (* ---------- Object initializers (SwiftUI/Flutter-style) ---------- *)

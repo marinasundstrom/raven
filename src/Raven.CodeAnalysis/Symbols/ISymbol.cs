@@ -225,7 +225,9 @@ public interface INamespaceOrTypeSymbol : ISymbol
     bool IsNamespace { get; }
     bool IsType { get; }
     ImmutableArray<ISymbol> GetMembers();
+    ImmutableArray<INamedTypeSymbol> GetTypeMembers() => [.. GetMembers().OfType<INamedTypeSymbol>()];
     ImmutableArray<ISymbol> GetMembers(string name);
+    ImmutableArray<INamedTypeSymbol> GetTypeMembers(string name) => [.. GetMembers(name).OfType<INamedTypeSymbol>()];
 
     ITypeSymbol? LookupType(string name);
 

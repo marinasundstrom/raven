@@ -642,6 +642,92 @@ WriteLine(Describe("10"))
 WriteLine(Describe("abc"))
 ```
 
+## Carrier conditional access for `Result` and `Option`
+
+Raven supports *carrier-aware* conditional member access using `?.` for `Result<T, E>` and `Option<T>`.
+
+This is distinct from ordinary conditional access:
+
+* For nullable/reference conditional access, `?.`, `?[...]`, and `?(...)` behave as conditional access on the underlying value (when supported).
+* For **carrier types** (`Result` / `Option`), **only** the member form `?.Member` is supported.
+
+  * `?[...]` and `?(...)` **do not** apply to `Result` or `Option` and are not lifted.
+
+### `Result<T, E>?.Member`
+
+If the receiver has type `Result<T, E>`, then `receiver?.Member` is evaluated as:
+
+* If `receiver` is `Ok(payload)`: evaluate `payload.Member` and wrap the result back into `Result<…, E>`.
+* If `receiver` is `Error(error)`: do **not** evaluate `Member`; the result is `Error(error)`.
+
+In other words, `?.` maps over `Ok` while preserving the original error type `E`.
+
+### `Option<T>?.Member`
+
+If the receiver has type `Option<T>`, then `receiver?.Member` is evaluated as:
+
+* If `receiver` is `Some(payload)`: evaluate `payload.Member` and wrap the result back into `Option<…>`.
+* If `receiver` is `None`: do **not** evaluate `Member`; the result is `None`.
+
+In other words, `?.` maps over `Some` while preserving `None`.
+
+### Interaction with the propagation operator `?`
+
+The postfix propagation operator `?` unwraps a carrier value and propagates the “empty/error” case to the nearest enclosing carrier-returning context.
+
+This allows chaining carrier-aware `?.` and then unwrapping at the end:
+
+```raven
+func f() -> Result<int, Err> {
+    // GetUser() : Result<User, Err>
+    // ?.Name   : Result<string, Err>
+    // ?.Length : Result<int, Err>
+    // trailing ? unwraps Result<int, Err> -> int and propagates Error
+    val len = GetUser()?.Name?.Length?
+
+    return .Ok(len + 1)
+}
+
+func GetUser() -> Result<User, Err> {
+    return .Error(Err.MissingUser)
+}
+
+record class User(Name: string)
+
+union Err {
+    MissingUser
+    MissingName
+}
+
+```
+
+Example where the payload itself is an `Option`:
+
+```raven
+func GetItem() -> Result<string, Err> {
+    // GetUser() : Result<User, Err>
+    // ?.Item    : Result<Option<Item>, Err>
+    // trailing ? unwraps the Result and propagates Error, leaving Option<Item>
+    val optItem = GetUser()?.Item?
+
+    return optItem match {
+        .Some(let item) => .Ok(item.Name)
+        .None           => .Error(Err.MissingName)
+    }
+}
+
+record class Item(Name: string)
+```
+
+### Not supported for carriers
+
+For `Result` and `Option`, the following conditional forms are not lifted and are therefore not supported:
+
+* `receiver?[index]`
+* `receiver?(args)`
+
+If you need indexing or invocation, unwrap first (with `?`, `UnwrapOrDefault`, or pattern matching), then apply indexing/invocation on the unwrapped value.
+
 ### Cast expressions
 
 Explicit casts request a conversion to a specific type and use C# syntax.

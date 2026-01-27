@@ -1588,6 +1588,9 @@ partial class BlockBinder : Binder
 
             var pattern = BindPattern(arm.Pattern, scrutinee.Type);
 
+            // ✅ Make locals introduced by the pattern visible to `when` + arm expression
+            RegisterPatternDesignatorLocals(pattern, depth);
+
             BoundExpression? guard = null;
             if (arm.WhenClause is { } whenClause)
                 guard = BindExpression(whenClause.Condition);
@@ -1612,6 +1615,19 @@ partial class BlockBinder : Binder
             arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
 
         return new BoundMatchExpression(scrutinee, arms, resultType);
+
+        // Local helper: take locals carried by the bound pattern and register them in this arm scope.
+        void RegisterPatternDesignatorLocals(BoundPattern boundPattern, int depth)
+        {
+            foreach (var designator in boundPattern.GetDesignators())
+            {
+                if (designator is BoundSingleVariableDesignator single)
+                {
+                    var local = single.Local;
+                    _locals[local.Name] = (local, depth);
+                }
+            }
+        }
     }
 
     private BoundExpression BindTryExpression(TryExpressionSyntax tryExpression)
@@ -2291,6 +2307,48 @@ partial class BlockBinder : Binder
 
         if (scrutineeType is not ITypeUnionSymbol union)
         {
+            // Special-case: nullable scrutinee can be exhaustive without an explicit `_` arm
+            // when it has a guaranteed `null` arm and a guaranteed declaration arm that
+            // matches the underlying non-null type.
+            if (scrutineeType.IsNullable)
+            {
+                var underlying = scrutineeType.GetPlainType();
+
+                var hasNullArm = false;
+                var hasUnderlyingArm = false;
+
+                for (var i = 0; i < arms.Length; i++)
+                {
+                    var arm = arms[i];
+
+                    // Keep exhaustiveness reasoning consistent with the rest of this method:
+                    // only arms whose guard guarantees match participate.
+                    var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+                    if (!guardGuaranteesMatch)
+                        continue;
+
+                    if (IsNullConstantPattern(arm.Pattern))
+                    {
+                        hasNullArm = true;
+                        continue;
+                    }
+
+                    if (arm.Pattern is BoundDeclarationPattern decl)
+                    {
+                        var declared = UnwrapAlias(decl.DeclaredType);
+
+                        if (declared.TypeKind != TypeKind.Error && underlying.TypeKind != TypeKind.Error &&
+                            SymbolEqualityComparer.Default.Equals(declared, underlying))
+                        {
+                            hasUnderlyingArm = true;
+                        }
+                    }
+
+                    if (hasNullArm && hasUnderlyingArm)
+                        return;
+                }
+            }
+
             if (catchAllIndex >= 0)
                 return;
 
@@ -2378,6 +2436,19 @@ partial class BlockBinder : Binder
             _diagnostics.ReportMatchExpressionNotExhaustive(
                 missing,
                 matchExpression.GetLocation());
+        }
+
+        static bool IsNullConstantPattern(BoundPattern pattern)
+        {
+            // Preferred/normalized form: literal-backed null constant pattern
+            if (pattern is BoundConstantPattern { Expression: null, ConstantValue: null })
+                return true;
+
+            // Defensive: treat expression-backed `NullType` as null too
+            if (pattern is BoundConstantPattern { Expression: BoundTypeExpression { Type: NullTypeSymbol } })
+                return true;
+
+            return false;
         }
     }
 
