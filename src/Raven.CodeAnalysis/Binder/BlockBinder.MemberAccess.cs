@@ -1954,7 +1954,37 @@ partial class BlockBinder
         if (member is ITypeSymbol typeMember)
         {
             if (BindDiscriminatedUnionCaseType(typeMember) is { } unionCase)
+            {
+                // Unit-case sugar: `.Case` => `.Case(())` for single-Unit payload cases,
+                // but ONLY when `.Case` is used as a standalone expression.
+                var isInvocationCallee =
+                    simpleName.Parent is MemberBindingExpressionSyntax mb &&
+                    mb.Parent is InvocationExpressionSyntax inv &&
+                    ReferenceEquals(inv.Expression, mb);
+
+                if (!isInvocationCallee &&
+                    unionCase is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
+                    caseType.TryGetDiscriminatedUnionCase() is not null)
+                {
+                    var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
+                        ctor.Parameters.Length == 1 &&
+                        IsUnitType(ctor.Parameters[0].Type));
+
+                    if (unitArgCtor is not null)
+                    {
+                        if (!EnsureMemberAccessible(unitArgCtor, nameLocation, "constructor"))
+                            return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+                        var unitType = unitArgCtor.Parameters[0].Type;
+                        var unitValue = new BoundUnitExpression(unitType);
+                        return new BoundObjectCreationExpression(
+                            unitArgCtor,
+                            ImmutableArray.Create<BoundExpression>(unitValue));
+                    }
+                }
+
                 return unionCase;
+            }
 
             return new BoundTypeExpression(typeMember);
         }
@@ -2044,5 +2074,21 @@ partial class BlockBinder
         }
 
         return new BoundTypeExpression(typeMember);
+    }
+    private static bool IsUnitType(ITypeSymbol type)
+    {
+        type = type.UnwrapLiteralType() ?? type;
+
+        if (type is INamedTypeSymbol named)
+        {
+            if (!string.Equals(named.Name, "Unit", StringComparison.Ordinal))
+                return false;
+
+            // In Raven.Core this is typically `System.Unit`.
+            var ns = named.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            return ns is not null && ns.EndsWith("System", StringComparison.Ordinal);
+        }
+
+        return false;
     }
 }

@@ -28,5 +28,5 @@ func ProcessNumbers(inputs: string[]) -> Result<(), string> {
         WriteLine(message)
     }
 
-    return .Ok(())
+    return .Ok
 }

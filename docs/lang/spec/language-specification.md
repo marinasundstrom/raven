@@ -243,11 +243,23 @@ func sayHello() {
 
 ### Target typing
 
+
 Many expressions rely on the type expected by their context, called the **target type**.
-For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type
-`Grades` to resolve the member. Numeric literals and `null` similarly adapt to their
-target types. Type inference for `val`, `var`, and `const` bindings uses this mechanism to
-determine the variable's type from its initializer.
+For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type `Grades` to resolve the member.
+
+#### Discriminated union case sugar for `unit`
+
+When a discriminated union case carries exactly one payload of type `unit`, Raven permits the case to be written *without* an argument list in expression position. In such contexts, a bare case name is sugar for supplying the sole `unit` value `()`.
+
+```raven
+func Save() -> Result<(), Error> {
+    return .Ok       // sugar for `.Ok(())`
+}
+```
+
+This rule applies uniformly to **all** discriminated unions, not only `Result` or `Option`. The case must declare exactly one constructor parameter whose type is `unit`; cases with additional parameters or non-`unit` payloads still require an explicit argument list.
+
+This mirrors the existing pattern-matching rule where a bare case such as `.Ok` matches `.Ok(())` when the payload is `unit`, ensuring consistency between expression construction and pattern matching.
 
 ### Type inference
 
