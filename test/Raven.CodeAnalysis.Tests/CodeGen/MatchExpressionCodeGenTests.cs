@@ -148,7 +148,7 @@ union Result<T> {
 }
 
 class Formatter {
-    public Format(result: Result<int>) -> string {
+    public Format(result: Result<int, string>) -> string {
         return result match {
             .Ok(value) => "ok ${value}"
             .Error(message) => "error ${message}"
@@ -218,11 +218,11 @@ System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describ
         const string code = """
 import System.*
 
-let ok: Result<int> = .Ok(99)
-let err = Result<int>.Error("boom")
+let ok: Result<int, string> = .Ok(99)
+let err = Result<int, string>.Error("boom")
 
 System.Console.WriteLine(format(ok))
-System.Console.WriteLine(format((Result<int>)err))
+System.Console.WriteLine(format((Result<int, string>)err))
 
 func format<T>(result: Result<T>) -> string {
     return result match {

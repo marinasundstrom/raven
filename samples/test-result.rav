@@ -21,7 +21,7 @@ try {
     Console.WriteLine("\'parseNumber\' threw: ${e.Message}")
 }
 
-func parseNumber(str: string) -> Result<int> {
+func parseNumber(str: string) -> Result<int, string> {
     return try int.Parse(str) match {
         .Ok(int v) => .Ok(v)
         .Error(Exception exc) => .Error(exc.Message)

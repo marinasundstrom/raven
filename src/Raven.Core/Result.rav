@@ -2,27 +2,6 @@ namespace System
 
 import System.*
 
-/// Represents either a result with a value, or an error. See also: [Result&lt;T, E&gt;](xref:T:System.Result`2).
-///
-/// ## Usage
-/// Use `Result` like so:
-///
-/// ```raven
-/// func Test(v: int) -> Result<int> {
-///     if v > 3 {
-///         return .Ok(42)
-///     }
-///     return .Error("Wrong number")
-/// }
-/// ```
-public union Result<T> {
-    /// Represents a result value
-    Ok(value: T)
-
-    /// Represents an error
-    Error(message: string)
-}
-
 /// Represents either a result with a value, or an error. See also: [Result&lt;T&gt;](xref:T:System.Result`1).
 ///
 /// ## Usage
@@ -65,61 +44,8 @@ public union Result<T, E> {
     Error(data: E)
 }
 
-/// Contains extensions for the Result<T> type
-public extension ResultExtensions<T> for Result<T> {
-
-    /// Gets a value indicating whether the Result was Ok
-    public IsOk: bool {
-        get => self is .Ok(val message)
-    }
-
-    /// Gets a value indicating whether the Result was Error
-    public IsError: bool {
-        get => self is .Error(val message)
-    }
-
-    /// Unwrap the value if Ok, otherwise return the default value
-    public UnwrapOrDefault() -> T {
-        if self is .Ok(val value) {
-            return value
-        }
-
-        return default(T)
-    }
-
-    /// Unwrap the value if Ok, otherwise throw an exception
-    public UnwrapOrThrow() -> T {
-        var error: string = ""
-        if self is .Ok(val value) {
-            return value
-        } else if self is .Error(val error2) {
-            error = error2
-        }
-
-        throw new InvalidOperationException(error)
-    }
-
-    /// Unwrap the value if Ok, otherwise return the specified value
-    public UnwrapOr(defaultValue: T) -> T {
-        if self is .Ok(val value) {
-            return value
-        }
-
-        return defaultValue
-    }
-
-    /// Unwrap the Error, or throw an exception
-    public UnwrapError() -> string {
-        if self is .Error(val message) {
-            return message
-        }
-
-        throw new InvalidOperationException("Result is not Error")
-    }
-}
-
 /// Contains extensions for the Result<T, E> type
-public extension ResultExtensions2<T, E> for Result<T, E> {
+public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Gets a value indicating whether the Result was Ok
     public IsOk: bool {

@@ -1669,7 +1669,7 @@ Patterns compose from the following primitives.
 
   * The leading `.` resolves against the current scrutinee.
   * Member payloads may supply nested subpatterns matching the member’s
-    parameter list, e.g. `.Identifier(text)` or `Result<int>.Error(val message)`.
+    parameter list, e.g. `.Identifier(text)` or `Result<int, string>.Error(val message)`.
   * Parentheses are optional for parameterless members.
   * Payload arity must match the declared parameters.
   * Each nested subpattern is typed to the corresponding member parameter.
@@ -2898,8 +2898,8 @@ For every case `Case`, the compiler synthesizes an implicit conversion
 automatically produces the union instance:
 
 ```raven
-val ok: Result<int> = .Ok(99)          // implicit Case -> Result<int> conversion
-val err = Result<int>.Error("boom")
+val ok: Result<int, string> = .Ok(99)          // implicit Case -> Result<int, string> conversion
+val err = Result<int, string>.Error("boom")
 Console.WriteLine(ok)
 ```
 

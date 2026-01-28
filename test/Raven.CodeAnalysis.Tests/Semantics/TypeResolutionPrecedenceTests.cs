@@ -6,6 +6,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -42,7 +43,7 @@ namespace System {
 import System.*
 
 class IntHelpers {
-    ParseNumber(value: int) -> Result<int> {
+    ParseNumber(value: int) -> Result<int, string> {
         return .Ok(value)
     }
 }
@@ -108,7 +109,7 @@ namespace System {
 import System.*
 
 class IntHelpers {
-    ParseNumber(value: int) -> Result<int> {
+    ParseNumber(value: int) -> Result<int, string> {
         return .Ok(value)
     }
 }

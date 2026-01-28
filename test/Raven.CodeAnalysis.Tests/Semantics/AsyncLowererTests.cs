@@ -283,7 +283,7 @@ let str = res match {
 
 WriteLine(str)
 
-async func fetch(url: string) -> Task<Result<string>> {
+async func fetch(url: string) -> Task<Result<string, string>> {
     using let client = HttpClient()
 
     try {

@@ -1,10 +1,12 @@
 using System;
 using System.IO;
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -59,7 +61,7 @@ let value = instance.secret;
     {
         const string source = """
 public class Container {
-    public static ParseNumber(str: string) -> Result<int> {
+    public static ParseNumber(str: string) -> Result<int, string> {
         return .Ok(0);
     }
 }
@@ -72,7 +74,7 @@ union Result<T> {
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0501").WithSpan(2, 47, 2, 58).WithArguments("return", "Result<int>", "method", "Container.ParseNumber")],
+            [new DiagnosticResult("RAV0501").WithSpan(2, 47, 2, 58).WithArguments("return", "Result<int, string>", "method", "Container.ParseNumber")],
             disabledDiagnostics: ["RAV1014"]);
 
         verifier.Verify();
@@ -110,7 +112,7 @@ internal class Hidden {}
 
         var metadataReference = CreateMetadataReference(librarySource);
 
-const string source = """
+        const string source = """
 import Lib.*
 
 let value: Hidden = default(Hidden)

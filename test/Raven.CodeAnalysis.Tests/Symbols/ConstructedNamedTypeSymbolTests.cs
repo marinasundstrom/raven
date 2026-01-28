@@ -406,7 +406,7 @@ class Program
 {
     public static Main() -> unit
     {
-        let result: Result<int> = .Ok(42)
+        let result: Result<int, string> = .Ok(42)
         Console.WriteLine(result)
     }
 }
@@ -450,7 +450,7 @@ class Program
             Assert.True(okCase.IsValueType);
 
             var mainIl = GetMethodIl(consumerImage, "Program", "Main");
-            Assert.True(ContainsOpCode(mainIl, ILOpCode.Box), "Expected Main to box Result<int> before calling Console.WriteLine(object).");
+            Assert.True(ContainsOpCode(mainIl, ILOpCode.Box), "Expected Main to box Result<int, string> before calling Console.WriteLine(object).");
         }
         finally
         {

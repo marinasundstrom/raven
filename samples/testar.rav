@@ -1,7 +1,7 @@
 
 import System.*
 
-val test: Result<int> = .Ok(42)
+val test: Result<int, string> = .Ok(42)
 
 val x = test match {
     .Ok(42) => "Answer is 42"

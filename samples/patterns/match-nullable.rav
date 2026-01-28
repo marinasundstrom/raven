@@ -1,0 +1,10 @@
+import System.Console.*
+
+val value: int? = null
+
+val result = value match {
+    null => "null"
+    int x => "test"
+    int? x => "foo"
+}
+WriteLine(result)

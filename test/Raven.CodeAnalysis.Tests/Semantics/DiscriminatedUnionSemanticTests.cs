@@ -98,7 +98,7 @@ union Option {
         const string source = """
 import System.Threading.Tasks.*
 
-async func fetch() -> Task<Result<string>> {
+async func fetch() -> Task<Result<string, string>> {
     return .Ok(value: "done")
 }
 
@@ -302,7 +302,7 @@ class Container {
     public void CasePattern_BindsPayloadType()
     {
         const string source = """
-func format(result: Result<int>) -> string {
+func format(result: Result<int, string>) -> string {
     return result match {
         .Ok(let payload) => payload.ToString()
         .Error(let message) => message
@@ -335,7 +335,7 @@ union Result<T> {
     public void CasePattern_ImplicitPayloadDesignations_BindLocals()
     {
         const string source = """
-func format(result: Result<int>) -> string {
+func format(result: Result<int, string>) -> string {
     return result match {
         .Ok(payload) => payload.ToString()
         .Error(message) => message
@@ -368,7 +368,7 @@ union Result<T> {
     public void CasePattern_ImplicitPayloadDesignations_InMatch_BindLocals()
     {
         const string source = """
-func describe(result: Result<int>) -> string {
+func describe(result: Result<int, string>) -> string {
     return result match {
         .Ok(payload) => payload.ToString()
         .Error(message) => message
@@ -444,7 +444,7 @@ union Test {
     public void CasePattern_MissingArm_ReportsExhaustivenessDiagnostic()
     {
         const string source = """
-func describe(result: Result<int>) -> string {
+func describe(result: Result<int, string>) -> string {
     return result match {
         .Ok(payload) => payload.ToString()
     }
@@ -480,7 +480,7 @@ union Result<T> {
     public void CasePattern_WithGuard_RemainsInExhaustivenessCheck()
     {
         const string source = """
-func format(result: Result<int>) -> string {
+func format(result: Result<int, string>) -> string {
     return result match {
         .Ok(let payload) => "ok ${payload}" when payload > 1
         .Error(let message) => "error ${message}"
@@ -529,7 +529,7 @@ union Shape {
     public void CasePattern_ReportsArgumentCountMismatch()
     {
         const string source = """
-func format(result: Result<int>) -> string {
+func format(result: Result<int, string>) -> string {
     return result match {
         .Ok() => "ok"
         _ => "none"

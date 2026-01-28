@@ -90,7 +90,7 @@ union Result<T> {
     Error(message: string)
 }
 
-func format(result: Result<int>) -> string {
+func format(result: Result<int, string>) -> string {
     return result match {
         .Ok(let payload) => "ok ${payload}"
         .Error(let message) => "error ${message}"
@@ -102,7 +102,7 @@ Case payload identifiers may omit `let`/`var`; a bare name such as `.Ok(payload)
 binds an immutable local typed to the corresponding payload parameter.
 
 Guards participate only when they are known to succeed. In a `match` over
-`Result<int>`, `.Ok(payload) when payload > 1` does not satisfy exhaustiveness
+`Result<int, string>`, `.Ok(payload) when payload > 1` does not satisfy exhaustiveness
 because the guard can reject values; add another `Ok` arm or `_` to cover the
 remaining inputs. Case patterns desugar to calls to the generated `TryGet*`
 helpers, so nested payload patterns see the same properties exposed by the

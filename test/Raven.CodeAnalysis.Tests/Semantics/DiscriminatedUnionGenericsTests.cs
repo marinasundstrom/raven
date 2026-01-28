@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
@@ -16,14 +17,14 @@ public class DiscriminatedUnionGenericsTests
     private const string GenericUnionSample = """
 import System.*
 
-let ok : Result<int> = .Ok(99)
-let err = Result<int>.Error("boom")
+let ok : Result<int, string> = .Ok(99)
+let err = Result<int, string>.Error("boom")
 
 Console.WriteLine(format(ok))
 Console.WriteLine(format(err))
 
 
-func format(result: Result<int>) -> string {
+func format(result: Result<int, string>) -> string {
     return result match {
         .Ok(value) => "ok ${value}"
         .Error(message) => "error '${message}'"

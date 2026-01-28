@@ -422,8 +422,8 @@ union Result<T> {
 }
 
 class Container {
-    public Create() -> Result<int>.Error {
-        return Result<int>.Error(message: "boom")
+    public Create() -> Result<int, string>.Error {
+        return Result<int, string>.Error(message: "boom")
     }
 }
 """;
@@ -473,7 +473,7 @@ union Result<T> {
 }
 
 class Container {
-    public static CreateOk() -> Result<int> {
+    public static CreateOk() -> Result<int, string> {
         return .Ok(99)
     }
 }
@@ -573,7 +573,7 @@ union Result<T> {
 }
 
 class Container {
-    public static Create() -> Result<int> {
+    public static Create() -> Result<int, string> {
         return .Ok(5)
     }
 }
@@ -610,7 +610,7 @@ class Container {
         var toString = closedUnionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
         var text = (string)toString.Invoke(unionValue, Array.Empty<object?>())!;
 
-        Assert.Equal("Result<int>.Ok(ue=5)", text);
+        Assert.Equal("Result<int, string>.Ok(ue=5)", text);
     }
 
     [Fact]
@@ -651,7 +651,7 @@ union Result<T> {
         var toString = caseType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
 
         var text = (string)toString.Invoke(caseInstance, Array.Empty<object?>())!;
-        Assert.Equal("Result<int>.Ok(ue=99)", text);
+        Assert.Equal("Result<int, string>.Ok(ue=99)", text);
     }
 
     [Fact]
@@ -813,8 +813,8 @@ extension ResultExtensions<T> for Result<T> {
 }
 
 class Container {
-    public CreateError() -> Result<int> {
-        return Result<int>.Error(message: "oops")
+    public CreateError() -> Result<int, string> {
+        return Result<int, string>.Error(message: "oops")
     }
 
     public Check() -> bool {
@@ -984,7 +984,7 @@ extension ResultExtensions<T> for Result<T> {
 }
 
 class Container {
-    private Parse(text: string) -> Result<int> {
+    private Parse(text: string) -> Result<int, string> {
         return try int.Parse(text) match {
             int value => .Ok(value)
             Exception exc => .Error(exc.Message)

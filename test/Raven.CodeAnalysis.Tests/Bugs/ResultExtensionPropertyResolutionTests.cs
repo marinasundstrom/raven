@@ -11,7 +11,7 @@ public class ResultExtensionPropertyResolutionTests : DiagnosticTestBase
             """
             import System.*
 
-            val res: Result<int> = .Error("Bang")
+            val res: Result<int, string> = .Error("Bang")
 
             Console.WriteLine("Is error: ${res.IsError}")
             """;

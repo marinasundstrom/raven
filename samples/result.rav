@@ -4,7 +4,7 @@
 
 import System.*
 
-val test: Result<int> = .Ok(42)
+val test: Result<int, string> = .Ok(42)
 
 Console.WriteLine(test)
 

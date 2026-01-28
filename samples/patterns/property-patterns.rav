@@ -6,8 +6,8 @@ func Main() {
     val fooFalse = new Foo(false, (1, 2))
 
     // If your union case creation is `.Ok(…)` / `.Error(…)`:
-    val ok : Result<int>  = .Ok(42)
-    val err : Result<int> = .Error("boom")
+    val ok : Result<int, string>  = .Ok(42)
+    val err : Result<int, string> = .Error("boom")
 
     test(fooTrue, ok)
     test(fooFalse, ok)
@@ -18,7 +18,7 @@ func Main() {
     }
 }
 
-func test(x: object?, r: Result<int>) {
+func test(x: object?, r: Result<int, string>) {
     if x is Foo { Value: true } {
         WriteLine("Foo with Value == true")
     }

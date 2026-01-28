@@ -4,20 +4,15 @@
 
 import System.*
 
-val ok : Result<int> = .Ok(99)
-val err = Result<int>.Error("boom")
+val ok : Result<int, string> = .Ok(99)
+val err = Result<int, string>.Error("boom")
 
 Console.WriteLine(format(ok))
-Console.WriteLine(format((Result<int>)err))
+Console.WriteLine(format((Result<int, string>)err))
 
-func format<T>(result: Result<T>) -> string {
+func format<T>(result: Result<T, string>) -> string {
     return result match {
         .Ok(val value) => "ok $value"
         .Error(val message) => "error '$message'"
     }
-}
-
-union Result<T> {
-    Ok(value: T)
-    Error(message: string)
 }

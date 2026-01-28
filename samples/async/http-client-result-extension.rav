@@ -14,7 +14,7 @@ val str = res match {
 WriteLine(str)
 
 extension HttpClientExtensions for HttpClient {
-    public async FetchAsync(url: string) -> Task<Result<string>> {
+    public async FetchAsync(url: string) -> Task<Result<string, string>> {
         try {
             using val response = await self.GetAsync(url)
             response.EnsureSuccessStatusCode()
