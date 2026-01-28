@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 
 func Main() -> () {
-    val inputs = ["10", "abc", "42"]
+    val inputs = ["10", "3", "abc", "42"]
     val r = ProcessNumbers(inputs) match {
         .Ok => ()
         .Error(val message) => WriteLine(message)
