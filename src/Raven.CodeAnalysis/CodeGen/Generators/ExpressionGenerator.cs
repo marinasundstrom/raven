@@ -86,7 +86,12 @@ internal partial class ExpressionGenerator : Generator
 
     private EmitInfo EmitExpression(BoundExpression expression, bool emitAddress = false)
     {
-        if (emitAddress)
+        return EmitExpression(expression, emitAddress ? EmitContext.Address : EmitContext.Value);
+    }
+
+    private EmitInfo EmitExpression(BoundExpression expression, EmitContext context)
+    {
+        if (context.ResultKind == EmitResultKind.Address)
         {
             var addressInfo = TryEmitAddress(expression);
             if (addressInfo.Kind != EmitValueKind.None)
@@ -134,15 +139,15 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundLocalAccess localAccess:
-                info = EmitLocalAccess(localAccess);
+                info = EmitLocalAccess(localAccess, context);
                 break;
 
             case BoundPropertyAccess propertyAccess:
-                EmitPropertyAccess(propertyAccess);
+                EmitPropertyAccess(propertyAccess, context);
                 break;
 
             case BoundFieldAccess fieldAccess:
-                info = EmitFieldAccess(fieldAccess);
+                info = EmitFieldAccess(fieldAccess, context);
                 break;
 
             case BoundMemberAccessExpression memberAccessExpression:
@@ -150,11 +155,11 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundConditionalAccessExpression conditionalAccess:
-                EmitConditionalAccessExpression(conditionalAccess);
+                EmitConditionalAccessExpression(conditionalAccess, context);
                 break;
 
             case BoundCarrierConditionalAccessExpression carrier:
-                EmitCarrierConditionalAccessExpression(carrier);
+                EmitCarrierConditionalAccessExpression(carrier, context);
                 break;
 
             case BoundInvocationExpression invocationExpression:
@@ -201,7 +206,7 @@ internal partial class ExpressionGenerator : Generator
                 EmitObjectCreationExpression(objectCreationExpression);
                 break;
             case BoundMatchExpression matchExpression:
-                EmitMatchExpression(matchExpression);
+                EmitMatchExpression(matchExpression, context);
                 break;
 
             case BoundCollectionExpression collectionExpression:
@@ -225,11 +230,11 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundIsPatternExpression isPatternExpression:
-                EmitIsPatternExpression(isPatternExpression);
+                EmitIsPatternExpression(isPatternExpression, context);
                 break;
 
             case BoundSelfExpression selfExpression:
-                EmitSelfExpression(selfExpression);
+                EmitSelfExpression(selfExpression, context);
                 break;
 
             case BoundTypeOfExpression typeOfExpression:
@@ -389,7 +394,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private void EmitSelfExpression(BoundSelfExpression selfExpression)
+    private void EmitSelfExpression(BoundSelfExpression selfExpression, EmitContext context)
     {
         if (TryEmitCapturedVariableLoad(selfExpression.Symbol ?? selfExpression.Type))
             return;
@@ -1177,7 +1182,7 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createMethod).MakeGenericMethod(elements.Select(x => ResolveClrType(x.Type)).ToArray()));
     }
-    private EmitInfo EmitLocalAccess(BoundLocalAccess localAccess)
+    private EmitInfo EmitLocalAccess(BoundLocalAccess localAccess, EmitContext context)
     {
         if (_carrierPayloadSymbol is not null &&
             _carrierPayloadLocal is not null &&
@@ -2763,7 +2768,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional)
+    private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional, EmitContext context)
     {
         var receiverType = conditional.Receiver.Type;
         var isNullableValue = receiverType.IsNullable && receiverType.IsValueType;
@@ -3645,7 +3650,7 @@ internal partial class ExpressionGenerator : Generator
 
     private IILocal? _asyncInvestigationPointerLocal;
 
-    private EmitInfo EmitFieldAccess(BoundFieldAccess fieldAccess)
+    private EmitInfo EmitFieldAccess(BoundFieldAccess fieldAccess, EmitContext context)
     {
         var fieldSymbol = fieldAccess.Field;
 
@@ -3829,7 +3834,7 @@ internal partial class ExpressionGenerator : Generator
         return EmitInfo.ForValue(fieldSymbol);
     }
 
-    private void EmitPropertyAccess(BoundPropertyAccess propertyAccess)
+    private void EmitPropertyAccess(BoundPropertyAccess propertyAccess, EmitContext context)
     {
         var propertySymbol = propertyAccess.Property;
 

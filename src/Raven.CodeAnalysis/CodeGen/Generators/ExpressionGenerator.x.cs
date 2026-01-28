@@ -14,7 +14,7 @@ internal partial class ExpressionGenerator
     private ILocalSymbol? _carrierPayloadSymbol;
     private IILocal? _carrierPayloadLocal;
 
-    private void EmitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression expr)
+    private void EmitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression expr, EmitContext context)
     {
         var receiverClrType = Generator.InstantiateType(ResolveClrType(expr.Receiver.Type));
 

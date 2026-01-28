@@ -15,7 +15,7 @@ internal partial class ExpressionGenerator
     // Entry points
     // ============================================
 
-    private void EmitIsPatternExpression(BoundIsPatternExpression e)
+    private void EmitIsPatternExpression(BoundIsPatternExpression e, EmitContext context)
     {
         EmitExpression(e.Expression);
 
@@ -29,7 +29,7 @@ internal partial class ExpressionGenerator
         EmitPattern(e.Pattern, inputType, scope: null);
     }
 
-    private void EmitMatchExpression(BoundMatchExpression matchExpression)
+    private void EmitMatchExpression(BoundMatchExpression matchExpression, EmitContext context)
     {
         // Determine scrutinee type (fall back to object on error)
         var scrutineeType =
@@ -1683,7 +1683,7 @@ internal partial class ExpressionGenerator
         EmitLiteralInTargetType(value, targetType, literal);
     }
 
-    private void EmitDefaultValue(ITypeSymbol type)
+    private void EmitDefaultValue(ITypeSymbol type, EmitContext context)
     {
         if (type.TypeKind == TypeKind.Error)
         {
