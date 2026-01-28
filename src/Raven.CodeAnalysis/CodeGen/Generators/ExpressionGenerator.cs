@@ -20,6 +20,7 @@ internal partial class ExpressionGenerator : Generator
 
     private readonly BoundExpression _expression;
     private bool _preserveResult;
+    private readonly EmitContext _rootContext;
     private readonly Dictionary<DelegateConstructorCacheKey, ConstructorInfo> _delegateConstructorCache = new(s_delegateConstructorComparer);
     private Type[]? _delegateConstructorSignature;
 
@@ -39,10 +40,20 @@ internal partial class ExpressionGenerator : Generator
         .GetMethod(nameof(string.Format), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
         ?? throw new InvalidOperationException("Failed to resolve string.Format(string, object).");
 
-    public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true) : base(parent)
+    public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true)
+        : this(parent, expression, preserveResult ? EmitContext.Value : EmitContext.None)
     {
         _expression = expression;
         _preserveResult = preserveResult;
+    }
+
+
+    // New preferred ctor
+    public ExpressionGenerator(Generator parent, BoundExpression expression, EmitContext context) : base(parent)
+    {
+        _expression = expression;
+        _rootContext = context;
+        _preserveResult = context.ResultKind == EmitResultKind.Value;
     }
 
     public override void Emit()

@@ -307,11 +307,11 @@ internal class StatementGenerator : Generator
         // (ExpressionGenerator will still emit side-effects.)
         if (expression.Type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
         {
-            new ExpressionGenerator(this, expression, preserveResult: false).Emit2();
+            new ExpressionGenerator(this, expression, EmitContext.None).Emit2();
             return;
         }
 
-        new ExpressionGenerator(this, expression).Emit2();
+        new ExpressionGenerator(this, expression, EmitContext.Value).Emit2();
 
         // Pop the result
         ILGenerator.Emit(OpCodes.Pop);
