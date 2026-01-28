@@ -1118,6 +1118,22 @@ internal static class AsyncLowerer
                 carrierKind: node.CarrierKind);
         }
 
+        public override BoundNode? VisitRequiredResultExpression(BoundRequiredResultExpression node)
+        {
+            if (node is null)
+                return null;
+
+            var operand = (BoundExpression?)VisitExpression(node.Operand) ?? node.Operand;
+
+            if (ReferenceEquals(operand, node.Operand))
+            {
+                return node;
+            }
+
+            return new BoundRequiredResultExpression(
+                operand: operand);
+        }
+
         public override BoundNode? VisitPropagateExpression(BoundPropagateExpression node)
         {
             if (node is null)

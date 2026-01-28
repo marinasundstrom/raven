@@ -18,4 +18,6 @@ abstract class BoundExpression : BoundNode
     public virtual ITypeSymbol? GetConvertedType() => Type; // post-conversion
 
     public virtual ITypeSymbol? GetNaturalType() => Type;   // pre-context
+
+    public BoundRequiredResultExpression RequireValue() => new BoundRequiredResultExpression(this);
 }

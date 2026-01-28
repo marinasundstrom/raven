@@ -19,7 +19,7 @@ internal partial class ExpressionGenerator : Generator
     private static readonly DelegateConstructorCacheKeyComparer s_delegateConstructorComparer = new();
 
     private readonly BoundExpression _expression;
-    private readonly bool _preserveResult;
+    private bool _preserveResult;
     private readonly Dictionary<DelegateConstructorCacheKey, ConstructorInfo> _delegateConstructorCache = new(s_delegateConstructorComparer);
     private Type[]? _delegateConstructorSignature;
 
@@ -251,8 +251,12 @@ internal partial class ExpressionGenerator : Generator
                 EmitNullCoalesceExpression(nullCoalesceExpression);
                 break;
 
-            case BoundNullableValueExpression emitNullableValueExpression:
-                EmitNullableValueExpression(emitNullableValueExpression);
+            case BoundNullableValueExpression nullableValueExpression:
+                EmitNullableValueExpression(nullableValueExpression);
+                break;
+
+            case BoundRequiredResultExpression requiredResultExpression:
+                EmitRequiredResultExpression(requiredResultExpression);
                 break;
 
             case BoundErrorExpression errorExpression:
@@ -264,6 +268,22 @@ internal partial class ExpressionGenerator : Generator
         }
 
         return info;
+    }
+
+    private void EmitRequiredResultExpression(BoundRequiredResultExpression e)
+    {
+        // RequiredResult means: this expression must materialize a value,
+        // regardless of the surrounding discard context.
+        var saved = _preserveResult;
+        _preserveResult = true;
+        try
+        {
+            EmitExpression(e.Operand);
+        }
+        finally
+        {
+            _preserveResult = saved;
+        }
     }
 
     private EmitInfo TryEmitAddress(BoundExpression expression)

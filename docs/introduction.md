@@ -40,6 +40,7 @@ WriteLine("Hello, World!")
 Here’s a small sample that shows Raven’s everyday style: immutable bindings by default, expression-based control flow, and explicit error handling.
 
 ```raven
+import System.*
 import System.Console.*
 
 func parseInt(text: string) -> Result<int, string> {
@@ -54,10 +55,11 @@ func Main() {
     val inputs = ["10", "abc", "42"]
 
     for text in inputs {
-        val result = parseInt(text)
+        val no = parseInt(text)!
 
-        val message = result match {
-            .Ok(val value) => "Parsed: $value"
+        val no = result match {
+            10 => "10!"
+            (val value) => "Parsed: $value"
             .Error(val err) => "Error: $err"
         }
 

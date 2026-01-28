@@ -1595,7 +1595,7 @@ partial class BlockBinder : Binder
             if (arm.WhenClause is { } whenClause)
                 guard = BindExpression(whenClause.Condition);
 
-            var expression = BindExpression(arm.Expression, allowReturn: _allowReturnsInExpression);
+            var expression = BindExpression(arm.Expression, allowReturn: _allowReturnsInExpression).RequireValue();
 
             foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
                 _locals.Remove(name);

@@ -290,7 +290,7 @@ if (printParseSequence)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/result-and-options/test3{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/result-and-options/test5{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)
