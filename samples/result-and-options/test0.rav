@@ -19,5 +19,5 @@ union Err {
 }
 
 class User {
-    public Name: string? { get; set; }
+    public Name: string { get; set; }
 }
