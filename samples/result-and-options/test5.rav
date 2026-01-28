@@ -1,10 +1,18 @@
 import System.*
 import System.Console.*
 
+func Main() -> () {
+    val inputs = ["10", "abc", "42"]
+    val r = ProcessNumbers(inputs) match {
+        .Ok => ()
+        .Error(val message) => WriteLine(message)
+    }
+}
+
 func parseInt(text: string) -> Result<int, string> {
     return try int.Parse(text) match {
         .Ok(val value) => .Ok(value)
-        .Error(_) => .Error("Not a number: $text")
+        .Error(_) => .Error("\"$text\" is not a number")
     }
 }
 
@@ -16,16 +24,9 @@ func ProcessNumbers(inputs: string[]) -> Result<(), string> {
             10 => "10!"
             val value => "Parsed: $value"
         }
+
+        WriteLine(message)
     }
 
     return .Ok(())
-}
-
-// NOTE: Main function is supported
-func Main() -> () {
-    val inputs = ["10", "abc", "42"]
-    _ = ProcessNumbers(inputs) match {
-        .Ok(val value) => ()
-        .Error(_) => WriteLine("Not a number")
-    }
 }

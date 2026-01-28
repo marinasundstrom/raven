@@ -43,27 +43,33 @@ Here’s a small sample that shows Raven’s everyday style: immutable bindings 
 import System.*
 import System.Console.*
 
-func parseInt(text: string) -> Result<int, string> {
-    return try int.Parse(text) match {
-        .Ok(val value) => .Ok(value)
-        .Error(_) => .Error("Not a number: $text")
+func Main() -> () {
+    val inputs = ["10", "abc", "42"]
+    val r = ProcessNumbers(inputs) match {
+        .Ok => ()
+        .Error(val message) => WriteLine(message)
     }
 }
 
-// NOTE: Main function is supported
-func Main() {
-    val inputs = ["10", "abc", "42"]
-
+func ProcessNumbers(inputs: string[]) -> Result<(), string> {
     for text in inputs {
-        val no = parseInt(text)!
+        val no = parseInt(text)?
 
-        val no = result match {
+        val message = no match {
             10 => "10!"
-            (val value) => "Parsed: $value"
-            .Error(val err) => "Error: $err"
+            val value => "Parsed: $value"
         }
 
         WriteLine(message)
+    }
+
+    return .Ok(())
+}
+
+func parseInt(text: string) -> Result<int, string> {
+    return try int.Parse(text) match {
+        .Ok(val value) => .Ok(value)
+        .Error(_) => .Error("\"$text\" is not a number")
     }
 }
 ```
