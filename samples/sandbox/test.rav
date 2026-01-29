@@ -5,54 +5,81 @@ import System.Text.Json.*
 import System.IO.*
 import System.Threading.Tasks.*
 
-val result = await GetPerson("Derek")
-val person: Person? = result match {
-    .Ok(val p) => p
-    .Error(_) => null
-}
+async func Main() -> Task {
+    val result = await GetPerson("Derek")
 
-Console.WriteLine("Person is: ${person?.Name}")
+    ProcessResult(result)
 
-if person is not null {
-    val e = ListProducts(person) match {
-        .Ok => ()
-        .Error(val message) => Console.WriteLine(message)
+    // Map result to value or null
+    // Yes, we can still use null
+    val person: Person? = result match {
+        .Ok(val p) => p
+        .Error(_) => null
+    }
+
+    Console.WriteLine("Person is: ${person?.Name}")
+
+    // If we don't check the compiler will be angry
+    if person is not null {
+
+        // Function for displaying product
+        val displayFunction = (product: Product) => Console.WriteLine("* ${product.Name}")
+
+        val e = DisplayProducts(person, displayFunction) match {
+            .Ok => ()
+            .Error(CustomError error) => Console.WriteLine(error.Message)
+        }
     }
 }
 
-func ListProducts(person: Person) -> Result<(), string> {
+func ProcessResult(result: Result<Person, CustomError>) -> Result<(), CustomError> {
+
+    // We can do conditional access on carrier using ?. operator.
+
+    val resultName = result?.Name // val resultName: Result<string, CustomError>
+
+    // And we can choose to unwrap, and propagate errors in the chain
+
+    WriteLine(result?.Name?)
+    WriteLine(resultName?)
+
+    return .Ok
+}
+
+func DisplayProducts(person: Person, action: Product -> ()) -> Result<(), CustomError> {
     val products = person.Products
 
     if products.Count == 0 {
-        return .Error("No products")
+        return .Error(CustomError("No products"))
     }
 
-     for product in products {
-        WriteLine(product.Name)
+    for product in products {
+        action(product)
     }   
 
     return .Ok
 }
 
-async func GetPerson(name: string) -> Task<Result<Person, string>> {
-    val persons = await GetPersons()
-    val ps = persons?
-    for person in ps {
+async func GetPerson(name: string) -> Task<Result<Person, CustomError>> {
+    val results = await GetPersons()
+    val persons = results?
+    for person in persons {
         if person is { Name: name } {
             return .Ok(person)
         }
     }
-    return .Error("Not found")
+    return .Error(CustomError("Not found"))
 }
 
-async func GetPersons() -> Task<Result<Person[], string>> {
+async func GetPersons() -> Task<Result<Person[], CustomError>> {
     val personResult = await GetPersonsCore()
     return personResult match {
         .Ok(val persons) => .Ok(persons)
-        .Error(val exception) => .Error(exception.Message)
+        .Error(val exception) => .Error(CustomError(exception.Message))
     }
 }
 
+// Demonstrates exception handling with 'try'
 async func GetPersonsCore() -> Task<Result<Person[], Exception>> {
     val textResult = try await File.ReadAllTextAsync("sandbox/sample.json")
     val results = try JsonSerializer.Deserialize<Person[]>(textResult?)
@@ -65,6 +92,10 @@ class Person {
     public Products: List<Product> { get; set; }
 }
 
+/// # Test
+/// This is a documentation comment with markdown
 class Product {
     public Name: string { get; set; }
 }
+
+record class CustomError(Message: string)
