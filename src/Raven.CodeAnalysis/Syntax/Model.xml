@@ -757,6 +757,17 @@
   <Node Name="UnionCaseClause" Inherits="Node">
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
+    <Slot Name="FieldClause" Type="UnionCaseFieldClause" IsNullable="true" />
+  </Node>
+  <Node Name="UnionCaseFieldClause" Inherits="Node">
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="Fields" Type="SeparatedList" ElementType="UnionCaseField" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+  </Node>
+  <Node Name="UnionCaseField" Inherits="Node">
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" />
+    <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
   </Node>
   <Node Name="IndexerDeclaration" Inherits="BasePropertyDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
