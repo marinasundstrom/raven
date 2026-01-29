@@ -1900,7 +1900,7 @@ partial class BlockBinder : Binder
 
         INamedTypeSymbol? resultType = null;
 
-        if (((INamedTypeSymbol)expressionType).ConstructedFrom?.Equals(resultDefinition, SymbolEqualityComparer.Default) ?? false)
+        if (expressionType is INamedTypeSymbol nt && (nt.ConstructedFrom?.Equals(resultDefinition, SymbolEqualityComparer.Default) ?? false))
         {
             resultType = (INamedTypeSymbol?)expressionType;
         }

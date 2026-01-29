@@ -21,7 +21,7 @@ if person is not null {
 }
 
 func ListProducts(person: Person) -> Result<(), string> {
-    let products = person.Products
+    val products = person.Products
 
     if products.Count == 0 {
         return .Error("No products")
@@ -35,20 +35,33 @@ func ListProducts(person: Person) -> Result<(), string> {
 }
 
 async func GetPerson(name: string) -> Task<Result<Person, string>> {
-    val text = await File.ReadAllTextAsync("sandbox/sample.json")
-    val persons = JsonSerializer.Deserialize<Person[]>(text)
-
-    for person in persons {
+    val persons = await GetPersons()
+    val ps = persons?
+    for person in ps {
         if person is { Name: name } {
             return .Ok(person)
         }
     }
-
     return .Error("Not found")
+}
+
+async func GetPersons() -> Task<Result<Person[], string>> {
+    val personResult = await GetPersonsCore()
+    return personResult match {
+        .Ok(val persons) => .Ok(persons)
+        .Error(val exception) => .Error(exception.Message)
+    }
+}
+
+async func GetPersonsCore() -> Task<Result<Person[], Exception>> {
+    val textResult = try await File.ReadAllTextAsync("sandbox/sample.json")
+    val results = try JsonSerializer.Deserialize<Person[]>(textResult?)
+    return .Ok(results?)
 }
 
 class Person {
     public Name: string { get; set; }
+
     public Products: List<Product> { get; set; }
 }
 
