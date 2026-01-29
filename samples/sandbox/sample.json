@@ -1,0 +1,26 @@
+[
+    {
+        "Name": "Nick",
+        "Products": [
+            {
+                "Name": "Dometrain"
+            }
+        ]
+    },
+    {
+        "Name": "Amichai",
+        "Products": [
+            {
+                "Name": "Brilliant"
+            }
+        ]
+    },
+    {
+        "Name": "Derek",
+        "Products": [
+            {
+                "Name": "CodeOpinion"
+            }
+        ]
+    }
+]

@@ -450,6 +450,7 @@ project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTy
 project = project.AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;

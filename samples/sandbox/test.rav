@@ -1,0 +1,57 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+import System.Text.Json.*
+import System.IO.*
+import System.Threading.Tasks.*
+
+val result = await GetPerson("Derek")
+val person: Person? = result match {
+    .Ok(val p) => p
+    .Error(_) => null
+}
+
+Console.WriteLine("Person is: ${person?.Name}")
+
+if person is not null {
+    val e = ListProducts(person) match {
+        .Ok => ()
+        .Error(val message) => Console.WriteLine(message)
+    }
+}
+
+func ListProducts(person: Person) -> Result<(), string> {
+    let products = person.Products
+
+    if products.Count == 0 {
+        return .Error("No products")
+    }
+
+     for product in products {
+        WriteLine(product.Name)
+    }   
+
+    return .Ok
+}
+
+async func GetPerson(name: string) -> Task<Result<Person, string>> {
+    val text = await File.ReadAllTextAsync("sandbox/sample.json")
+    val persons = JsonSerializer.Deserialize<Person[]>(text)
+
+    for person in persons {
+        if person is { Name: name } {
+            return .Ok(person)
+        }
+    }
+
+    return .Error("Not found")
+}
+
+class Person {
+    public Name: string { get; set; }
+    public Products: List<Product> { get; set; }
+}
+
+class Product {
+    public Name: string { get; set; }
+}
