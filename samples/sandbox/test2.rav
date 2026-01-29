@@ -1,0 +1,28 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+import System.Text.Json.*
+import System.IO.*
+import System.Threading.Tasks.*
+
+val builder = WebAppBuilder()
+builder.MapPost("/", (arg: string) -> HttpResults<()> => {
+    return .Created
+})
+
+union HttpResults<T> {
+    Ok
+    Created
+    BadRequest()
+}
+
+
+class WebAppBuilder {
+    public MapPost(path: string, d: Delegate) -> () {
+        val invoke = d.Method
+        WriteLine("${invoke.Name} -> ${invoke.ReturnType}")
+        for param in invoke.GetParameters() {
+            WriteLine("${param.Name}: ${param.ParameterType}")     
+        }
+    }
+}

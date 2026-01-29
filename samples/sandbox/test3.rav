@@ -1,0 +1,25 @@
+import System.*
+import System.Console.*
+import System.Reflection.*
+
+val d: Delegate = (arg: string) -> HttpResults<()> => {
+    return .Created
+}
+
+Test((arg: string) -> HttpResults<()> => {
+    return .Created
+})
+
+func Test(d: Delegate) {
+    val invoke = d.Method
+    WriteLine("${invoke.Name} -> ${invoke.ReturnType}")
+    for param in invoke.GetParameters() {
+       WriteLine("${param.Name}: ${param.ParameterType}")     
+    }
+}
+
+union HttpResults<T> {
+    Ok
+    Created
+    BadRequest
+}

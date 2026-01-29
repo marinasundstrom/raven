@@ -6516,38 +6516,36 @@ partial class BlockBinder : Binder
                 _ => null
             };
 
-            if (parameter.Type is INamedTypeSymbol delegateType && expression is BoundLambdaExpression lambdaArgument)
-            {
-                var rebound = ReplayLambda(lambdaArgument, delegateType);
-                if (rebound is null)
-                {
-                    lambdaArgument.Unbound?.ReportSuppressedDiagnostics(_diagnostics);
-
-                    if (expression.Type is { } expressionType && !expressionType.ContainsErrorType() &&
-                        parameter.Type.TypeKind != TypeKind.Error)
-                    {
-                        var location = syntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
-                        if (location is not null)
-                        {
-                            _diagnostics.ReportCannotConvertFromTypeToType(
-                                expressionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                location);
-                        }
-                    }
-
-                    converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
-                    continue;
-                }
-
-                expression = rebound;
-            }
-
+            // --- BEGIN NEW BLOCK ---
             if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
                 converted[i] = expression;
                 continue;
             }
+
+            // Shape lambdas to a concrete delegate type when possible.
+            // This mirrors local-initializer behavior and enables passing lambdas to `System.Delegate` parameters.
+            if (expression is BoundLambdaExpression lambda)
+            {
+                // First: if the parameter itself is a concrete delegate type, replay the lambda against it.
+                expression = BindLambdaToDelegateIfNeeded(expression, parameter.Type);
+
+                // Second: if the parameter is `System.Delegate` / `System.MulticastDelegate`,
+                // keep the lambda's inferred delegate type and rely on implicit reference conversion.
+                if (IsSystemDelegateLike(parameter.Type) && expression is BoundLambdaExpression stillLambda)
+                {
+                    var inferred = stillLambda.DelegateType as INamedTypeSymbol;
+                    if (inferred is not null && inferred.TypeKind == TypeKind.Delegate)
+                    {
+                        var rebound = ReplayLambda(stillLambda, inferred);
+                        if (rebound is not null)
+                        {
+                            expression = rebound;
+                        }
+                    }
+                }
+            }
+            // --- END NEW BLOCK ---
 
             if (!ShouldAttemptConversion(expression) ||
                 parameter.Type.TypeKind == TypeKind.Error ||
@@ -6572,11 +6570,27 @@ partial class BlockBinder : Binder
                 converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
                 continue;
             }
-
             converted[i] = ApplyConversion(expression, parameter.Type, conversion, syntaxNode);
         }
 
         return converted;
+    }
+    private static bool IsSystemDelegateLike(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        var def = named.OriginalDefinition ?? named;
+
+        if (def.ContainingNamespace is null)
+            return false;
+
+        // Match System.Delegate / System.MulticastDelegate
+        if (!string.Equals(def.ContainingNamespace.ToDisplayString(), "System", StringComparison.Ordinal))
+            return false;
+
+        return string.Equals(def.MetadataName, "Delegate", StringComparison.Ordinal) ||
+               string.Equals(def.MetadataName, "MulticastDelegate", StringComparison.Ordinal);
     }
 
     protected BoundExpression CreateOptionalArgument(IParameterSymbol parameter)
