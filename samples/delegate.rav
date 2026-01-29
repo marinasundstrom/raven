@@ -1,0 +1,11 @@
+import System.Console.*
+
+WriteLine("test")
+
+val d: Test = (a, b) => a + b
+
+class Foo {
+    public delegate Test(a: int, b: int) -> int
+}
+
+delegate Test(a: int, b: int) -> int

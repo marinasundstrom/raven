@@ -592,6 +592,17 @@
     <Slot Name="ElseKeyword" Type="Token" DefaultToken="ElseKeyword" />
     <Slot Name="Statement" Type="Statement" />
   </Node>
+  <Node Name="DelegateDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="DelegateKeyword" Type="Token" DefaultToken="DelegateKeyword" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="ParameterList" Type="ParameterList" />
+    <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
   <Node Name="FieldDeclaration" Inherits="MemberDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />

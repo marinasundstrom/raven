@@ -2,6 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Collections;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Threading;
+using System.Runtime.CompilerServices;
+using System.Collections.ObjectModel;
 
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Documentation;
@@ -530,6 +536,8 @@ public partial class SemanticModel
         var enumSymbols = new Dictionary<EnumDeclarationSyntax, SourceNamedTypeSymbol>();
         var unionSymbols = new Dictionary<UnionDeclarationSyntax, SourceDiscriminatedUnionSymbol>();
 
+        var delegateSymbols = new Dictionary<DelegateDeclarationSyntax, SourceNamedTypeSymbol>();
+
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
 
         foreach (var member in containerNode.ChildNodes())
@@ -615,6 +623,112 @@ public partial class SemanticModel
                             InitializeTypeParameters(classSymbol, classDecl.TypeParameterList, classDecl.ConstraintClauses);
 
                         classSymbols[classDecl] = classSymbol;
+                        break;
+                    }
+
+                case DelegateDeclarationSyntax delegateDecl:
+                    {
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            delegateDecl.Identifier,
+                            delegateDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
+
+                        Location[] locations = [delegateDecl.SyntaxTree!.GetLocation(delegateDecl.EffectiveSpan)];
+                        SyntaxReference[] references = [delegateDecl.GetReference()];
+
+                        var baseType = Compilation.GetSpecialType(SpecialType.System_MulticastDelegate);
+
+                        var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            delegateDecl.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+
+                        var delegateSymbol = new SourceNamedTypeSymbol(
+                            delegateDecl.Identifier.ValueText,
+                            baseType!,
+                            TypeKind.Delegate,
+                            parentNamespace.AsSourceNamespace(),
+                            null,
+                            parentNamespace.AsSourceNamespace(),
+                            new[] { delegateDecl.GetLocation() },
+                            new[] { delegateDecl.GetReference() },
+                            isSealed: true,
+                            isAbstract: true,
+                            isStatic: false,
+                            declaredAccessibility: delegateAccessibility);
+
+                        InitializeTypeParameters(delegateSymbol, delegateDecl.TypeParameterList, delegateDecl.ConstraintClauses);
+
+                        // .ctor(object, IntPtr)
+                        var ctorParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(2);
+                        ctorParameters.Add(new SourceParameterSymbol(
+                            "object",
+                            Compilation.GetSpecialType(SpecialType.System_Object),
+                            delegateSymbol,
+                            delegateSymbol,
+                            delegateSymbol.ContainingNamespace,
+                            locations,
+                            references,
+                            RefKind.None));
+                        ctorParameters.Add(new SourceParameterSymbol(
+                            "method",
+                            Compilation.GetSpecialType(SpecialType.System_IntPtr),
+                            delegateSymbol,
+                            delegateSymbol,
+                            delegateSymbol.ContainingNamespace,
+                            locations,
+                            references,
+                            RefKind.None));
+
+                        _ = new SourceMethodSymbol(
+                            ".ctor",
+                            Compilation.GetSpecialType(SpecialType.System_Unit),
+                            ctorParameters.MoveToImmutable(),
+                            delegateSymbol,
+                            delegateSymbol,
+                            delegateSymbol.ContainingNamespace,
+                            locations,
+                            references,
+                            isStatic: false,
+                            methodKind: MethodKind.Constructor,
+                            declaredAccessibility: Accessibility.Public);
+
+                        // Invoke
+                        var returnType = delegateDecl.ReturnType is null
+                            ? Compilation.GetSpecialType(SpecialType.System_Unit)
+                            : parentBinder.ResolveType(delegateDecl.ReturnType.Type);
+
+                        var invokeParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDecl.ParameterList.Parameters.Count);
+                        int ordinal = 0;
+                        foreach (var p in delegateDecl.ParameterList.Parameters)
+                        {
+                            var pType = parentBinder.ResolveType(p.TypeAnnotation.Type);
+                            var pName = p.Identifier.ValueText;
+
+                            invokeParameters.Add(new SourceParameterSymbol(
+                                pName,
+                                pType,
+                                delegateSymbol,
+                                delegateSymbol,
+                                delegateSymbol.ContainingNamespace,
+                                locations,
+                                references,
+                                RefKind.None));
+                        }
+
+                        _ = new SourceMethodSymbol(
+                            "Invoke",
+                            returnType,
+                            invokeParameters.MoveToImmutable(),
+                            delegateSymbol,
+                            delegateSymbol,
+                            delegateSymbol.ContainingNamespace,
+                            locations,
+                            references,
+                            isStatic: false,
+                            declaredAccessibility: Accessibility.Public);
+
+                        delegateSymbols[delegateDecl] = delegateSymbol;
                         break;
                     }
 
@@ -896,6 +1010,102 @@ public partial class SemanticModel
                         _binderCache[extensionDecl] = extensionBinder;
 
                         extensionBinders.Add((extensionDecl, extensionBinder));
+                        break;
+                    }
+
+                case DelegateDeclarationSyntax delegateDecl:
+                    {
+                        var delegateSymbol = delegateSymbols[delegateDecl];
+
+                        // Binder for attributes/type parameter constraints
+                        var delegateBinder = new DelegateDeclarationBinder(parentBinder, delegateSymbol, delegateDecl);
+                        delegateBinder.EnsureTypeParameterConstraintTypesResolved(delegateSymbol.TypeParameters);
+                        _binderCache[delegateDecl] = delegateBinder;
+
+                        // Synthesize standard delegate members: .ctor(object, IntPtr) and Invoke
+                        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+                        var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);
+
+                        void RegisterMember(SourceNamedTypeSymbol owner, ISymbol member)
+                        {
+                            if (!owner.GetMembers().Any(m => SymbolEqualityComparer.Default.Equals(m, member)))
+                                owner.AddMember(member);
+                        }
+
+                        // .ctor(object, IntPtr)
+                        var ctor = new SourceMethodSymbol(
+                            ".ctor",
+                            unitType!,
+                            ImmutableArray<SourceParameterSymbol>.Empty,
+                            delegateSymbol,
+                            delegateSymbol,
+                            parentNamespace.AsSourceNamespace(),
+                            new[] { delegateDecl.GetLocation() },
+                            Array.Empty<SyntaxReference>(),
+                            isStatic: false,
+                            methodKind: MethodKind.Constructor,
+                            declaredAccessibility: Accessibility.Public);
+
+                        var ctorParams = ImmutableArray.Create(
+                            new SourceParameterSymbol(
+                                "object",
+                                objectType!,
+                                ctor,
+                                delegateSymbol,
+                                parentNamespace.AsSourceNamespace(),
+                                new[] { delegateDecl.GetLocation() },
+                                Array.Empty<SyntaxReference>(),
+                                RefKind.None),
+                            new SourceParameterSymbol(
+                                "method",
+                                intPtrType!,
+                                ctor,
+                                delegateSymbol,
+                                parentNamespace.AsSourceNamespace(),
+                                new[] { delegateDecl.GetLocation() },
+                                Array.Empty<SyntaxReference>(),
+                                RefKind.None));
+
+                        ctor.SetParameters(ctorParams);
+                        RegisterMember(delegateSymbol, ctor);
+
+                        // Invoke
+                        var returnType = delegateDecl.ReturnType is null
+                            ? unitType!
+                            : delegateBinder.ResolveType(delegateDecl.ReturnType.Type);
+
+                        var invoke = new SourceMethodSymbol(
+                            "Invoke",
+                            returnType,
+                            ImmutableArray<SourceParameterSymbol>.Empty,
+                            delegateSymbol,
+                            delegateSymbol,
+                            parentNamespace.AsSourceNamespace(),
+                            new[] { delegateDecl.GetLocation() },
+                            Array.Empty<SyntaxReference>(),
+                            isStatic: false,
+                            methodKind: MethodKind.Ordinary,
+                            declaredAccessibility: Accessibility.Public);
+
+                        var invokeParams = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDecl.ParameterList.Parameters.Count);
+                        var ordinal = 0;
+                        foreach (var p in delegateDecl.ParameterList.Parameters)
+                        {
+                            var pType = delegateBinder.ResolveType(p.TypeAnnotation.Type);
+                            invokeParams.Add(new SourceParameterSymbol(
+                                p.Identifier.ValueText,
+                                pType,
+                                invoke,
+                                delegateSymbol,
+                                parentNamespace.AsSourceNamespace(),
+                                new[] { p.GetLocation() },
+                                new[] { p.GetReference() },
+                                RefKind.None));
+                        }
+
+                        invoke.SetParameters(invokeParams.ToImmutable());
+                        RegisterMember(delegateSymbol, invoke);
+
                         break;
                     }
 
@@ -1602,6 +1812,12 @@ public partial class SemanticModel
                     var namedCtorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var namedCtorBinder = namedCtorMemberBinder.BindNamedConstructorDeclaration(ctorDecl);
                     _binderCache[ctorDecl] = namedCtorBinder;
+                    break;
+
+                case DelegateDeclarationSyntax del:
+                    var delMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var delBinder = delMemberBinder.BindDelegateDeclaration(del);
+                    _binderCache[del] = delBinder;
                     break;
 
                 case ClassDeclarationSyntax nestedClass:

@@ -144,6 +144,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         }
         else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
+                 nextToken.IsKind(SyntaxKind.DelegateKeyword) ||
                  nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) || nextToken.IsKind(SyntaxKind.TraitKeyword) ||
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
@@ -191,6 +192,17 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 var unionDeclaration = new UnionDeclarationParser(this).Parse();
 
                 memberDeclarations.Add(unionDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            if (typeKeywordKind == SyntaxKind.DelegateKeyword)
+            {
+                checkpoint.Rewind();
+
+                var delegateDeclaration = new TypeDeclarationParser(this).ParseDelegateDeclaration(attributeLists, modifiers);
+
+                memberDeclarations.Add(delegateDeclaration);
                 order = MemberOrder.Members;
                 return;
             }

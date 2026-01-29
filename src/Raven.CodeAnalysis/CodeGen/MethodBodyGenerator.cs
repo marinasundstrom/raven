@@ -567,6 +567,13 @@ internal class MethodBodyGenerator
                     ILGenerator.Emit(OpCodes.Ret);
                 }
                 break;
+
+            case DelegateDeclarationSyntax:
+                {
+                    ILGenerator.Emit(OpCodes.Ret);
+                }
+                break;
+
             case EventDeclarationSyntax:
                 {
                     if (MethodSymbol.ContainingSymbol is SourceEventSymbol eventSymbol &&
@@ -591,6 +598,7 @@ internal class MethodBodyGenerator
 
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
+
             case UnionCaseClauseSyntax:
                 EmitUnionCaseConstructor();
                 break;
