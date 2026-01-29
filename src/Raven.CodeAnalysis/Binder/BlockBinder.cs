@@ -684,6 +684,7 @@ partial class BlockBinder : Binder
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
             DefaultExpressionSyntax defaultExpression => BindDefaultExpression(defaultExpression),
             TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
+            NameOfExpressionSyntax nameOfExpression => BindNameOfExpression(nameOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
@@ -1428,6 +1429,258 @@ partial class BlockBinder : Binder
         var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
 
         return new BoundTypeOfExpression(operandType, systemType);
+    }
+
+    private BoundExpression BindNameOfExpression(NameOfExpressionSyntax nameOfExpression)
+    {
+        // `nameof` is a compile-time-only operation. We still bind the operand so normal
+        // name lookup, overload resolution and diagnostics apply, but the operand is not
+        // evaluated at runtime.
+
+        var operand = nameOfExpression.Operand;
+
+        ISymbol? symbol = ResolveNameOfSymbol(nameOfExpression.Operand);
+
+        if (symbol is null)
+        {
+            // Report the most helpful missing name. For qualified/member-access chains we
+            // report the left-most identifier so users see "Foo" rather than "Foo.Bar.Baz".
+            var leftMost = GetLeftMostNameNode(operand);
+
+            var nameText = leftMost switch
+            {
+                IdentifierNameSyntax id => id.Identifier.ValueText,
+                GenericNameSyntax gen => gen.Identifier.ValueText,
+                _ => leftMost.ToString()
+            };
+
+            var location = leftMost.GetLocation() ?? nameOfExpression.GetLocation();
+
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(nameText, location);
+
+            return ErrorExpression(null, symbol, reason: BoundExpressionReason.NotFound);
+        }
+
+        static SyntaxNode GetLeftMostNameNode(ExpressionSyntax operand)
+        {
+            // Handles:
+            //  - nameof(x)
+            //  - nameof(List<int>)
+            //  - nameof(Console.WriteLine)
+            //  - nameof(System.Console.WriteLine)
+            //  - nameof(Foo.Console.WriteLine)
+
+            SyntaxNode current = operand;
+
+            // Walk down expression member access: A.B.C => A
+            while (current is MemberAccessExpressionSyntax ma)
+                current = ma.Expression;
+
+            // Walk down qualified names: A.B.C => A
+            while (current is QualifiedNameSyntax qn)
+                current = qn.Left;
+
+            // Some names may still be wrapped (e.g. parenthesized) though `nameof` operand is restricted.
+            while (current is ParenthesizedExpressionSyntax paren)
+                current = paren.Expression;
+
+            return current;
+        }
+
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        return new BoundNameOfExpression(symbol, stringType);
+    }
+
+    private ISymbol? ResolveNameOfSymbol(ExpressionSyntax operand)
+    {
+        using var nonReportingScope = Diagnostics.CreateNonReportingScope();
+
+        // `nameof` is special: we want to resolve *members* (method groups, fields, properties, events)
+        // even when the parser produced a name node (QualifiedName) rather than a member-access node.
+        // Prefer expression resolution first, then fall back to type resolution.
+
+        // 1) If the operand is a qualified name, convert it to a member-access expression chain.
+        //    This makes `nameof(System.Console.WriteLine)` resolve to `WriteLine`, not `Console`.
+        if (operand is QualifiedNameSyntax qn)
+        {
+            var converted = ConvertQualifiedNameToMemberAccess(qn);
+            if (converted is not null)
+            {
+                var sym = ResolveExpression(converted);
+                if (sym is not null)
+                    return sym;
+            }
+        }
+
+        // 2) Try expression binding (locals, parameters, and member access).
+        {
+            var sym = ResolveExpression(operand);
+            if (sym is not null)
+                return sym;
+        }
+
+        // 3) Fall back to type resolution for pure type operands like `List<int>`.
+        if (operand is TypeSyntax typeSyntax)
+        {
+            var resolved = ResolveType(typeSyntax);
+            return resolved.TypeKind == TypeKind.Error ? null : resolved;
+        }
+
+        return null;
+    }
+
+    private static ExpressionSyntax? ConvertQualifiedNameToMemberAccess(QualifiedNameSyntax qn)
+    {
+        // Convert A.B.C (QualifiedName chain) into ((A).B).C (member access chain).
+        ExpressionSyntax? leftExpr = qn.Left switch
+        {
+            QualifiedNameSyntax nested => ConvertQualifiedNameToMemberAccess(nested),
+            ExpressionSyntax e => e,
+            _ => null
+        };
+
+        if (leftExpr is null)
+            return null;
+
+        // Right is usually IdentifierNameSyntax / GenericNameSyntax (SimpleNameSyntax).
+        if (qn.Right is not SimpleNameSyntax right)
+            return null;
+
+        return SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            leftExpr,
+            qn.DotToken,
+            right);
+    }
+
+    private ISymbol? ResolveExpression(ExpressionSyntax exprSyntax)
+    {
+        // Bind the expression purely for symbol lookup and diagnostics.
+        var bound = BindExpression(exprSyntax, allowReturn: false);
+
+        // Method-group binding doesn't always populate SymbolInfo.Symbol (it can be ambiguous).
+        // For `nameof(Console.WriteLine)` we still want the member name even if overloaded.
+        if (bound is BoundMethodGroupExpression mg0)
+            return mg0.SelectedMethod ?? mg0.Methods.FirstOrDefault();
+
+        var info = bound.GetSymbolInfo();
+        if (info.Symbol is not null)
+            return info.Symbol;
+
+        // Dotted chain: `nameof(Console.WriteLine)` or `nameof(Collections.Generic.List)`
+        // Walk the member-access chain and try prefixes as `System.<prefix>` type names.
+        if (exprSyntax is MemberAccessExpressionSyntax or QualifiedNameSyntax)
+        {
+            var parts = CollectDottedNameParts(exprSyntax);
+            if (parts.Length >= 2)
+            {
+                // `parts` includes both the left-most identifier and the final member name.
+                // Try prefixes excluding the final member, longest-first.
+                for (int prefixLen = parts.Length - 1; prefixLen >= 1; prefixLen--)
+                {
+                    var typeName = "System." + string.Join(".", parts.Take(prefixLen));
+                    var systemType = Compilation.GetTypeByMetadataName(typeName);
+                    if (systemType is null || systemType.TypeKind == TypeKind.Error)
+                        continue;
+
+                    // Re-bind the remaining segments as member accesses on that type.
+                    BoundExpression current = new BoundTypeExpression(systemType);
+
+                    for (int i = prefixLen; i < parts.Length; i++)
+                    {
+                        var seg = parts[i];
+                        var nameSyntax = SyntaxFactory.IdentifierName(seg);
+
+                        var member = BindMemberAccessOnReceiver(
+                            current,
+                            nameSyntax,
+                            // Prefer methods on the final segment so `Console.WriteLine` binds as a method group.
+                            preferMethods: i == parts.Length - 1,
+                            allowEventAccess: true,
+                            suppressNullWarning: true,
+                            receiverTypeForLookup: current.Type,
+                            forceExtensionReceiver: true);
+
+                        if (member is BoundMethodGroupExpression mg)
+                            return mg.SelectedMethod ?? mg.Methods.FirstOrDefault();
+
+                        var memberInfo = member.GetSymbolInfo();
+                        if (memberInfo.Symbol is not null)
+                        {
+                            if (i == parts.Length - 1)
+                                return memberInfo.Symbol;
+
+                            // Continue chaining using a value-producing bound expression.
+                            current = member;
+                            continue;
+                        }
+
+                        // If we can't bind a segment, abandon this prefix.
+                        current = null!;
+                        break;
+                    }
+
+                    // If we successfully walked the chain, the loop would have returned.
+                }
+            }
+        }
+
+        return null;
+
+        static SyntaxToken[] CollectDottedNameParts(ExpressionSyntax expr)
+        {
+            // Collect names from either an expression member-access chain `A.B.C`
+            // or a qualified-name chain `A.B.C`.
+
+            var names = new List<SyntaxToken>();
+
+            void AddQualified(NameSyntax name)
+            {
+                switch (name)
+                {
+                    case QualifiedNameSyntax q:
+                        AddQualified(q.Left);
+                        AddQualified(q.Right);
+                        break;
+                    case IdentifierNameSyntax id:
+                        names.Add(id.Identifier);
+                        break;
+                    case GenericNameSyntax gen:
+                        names.Add(gen.Identifier);
+                        break;
+                    default:
+                        //names.Add(name.ToString());
+                        break;
+                }
+            }
+
+            void AddExpression(ExpressionSyntax e)
+            {
+                switch (e)
+                {
+                    case MemberAccessExpressionSyntax ma:
+                        AddExpression(ma.Expression);
+                        // ma.Name is a SimpleNameSyntax
+                        names.Add(ma.Name.Identifier);
+                        break;
+                    case IdentifierNameSyntax id:
+                        names.Add(id.Identifier);
+                        break;
+                    case GenericNameSyntax gen:
+                        names.Add(gen.Identifier);
+                        break;
+                    case QualifiedNameSyntax q:
+                        AddQualified(q);
+                        break;
+                    default:
+                        //names.Add(e.ToString());
+                        break;
+                }
+            }
+
+            AddExpression(expr);
+            return names.ToArray();
+        }
     }
 
     private BoundExpression ConvertMethodGroupToDelegate(BoundMethodGroupExpression methodGroup, ITypeSymbol targetType, SyntaxNode? syntax)

@@ -112,7 +112,7 @@ public class SyntaxTree
         var sourceText = GetText();
 
         if (sourceText is null)
-            throw new Exception();
+            return Location.None;
 
         var (line, col) = sourceText.GetLineAndColumn(span);
 

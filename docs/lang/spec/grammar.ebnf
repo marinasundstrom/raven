@@ -473,6 +473,8 @@ MemberBindingExpression  ::= '.' Identifier ;
 
 PrimaryExpression        ::= Literal
                            | DefaultExpression
+                           | TypeOfExpression
+                           | NameOfExpression
                            | Identifier
                            | MemberBindingExpression
                            | ObjectCreationExpression
@@ -484,6 +486,16 @@ PrimaryExpression        ::= Literal
                            | InterpolatedStringExpression ;
 
 DefaultExpression        ::= 'default' | 'default' '(' Type ')' ;
+
+TypeOfExpression         ::= 'typeof' '(' Type ')' ;
+NameOfExpression         ::= 'nameof' '(' NameOfOperand ')' ;
+
+(* `nameof` is a compile-time-only expression that produces the unqualified name of the referenced symbol.
+   The operand is syntactic and is validated by the binder. *)
+NameOfOperand            ::= Identifier
+                           | MemberAccessExpression
+                           | MemberBindingExpression
+                           | QualifiedName ;
 
 TryExpression            ::= 'try' ['?'] Expression ;
 

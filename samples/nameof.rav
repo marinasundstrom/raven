@@ -1,0 +1,22 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+val x = 2
+WriteLine(nameof(x))
+
+WriteLine(nameof(List<int>))
+
+WriteLine(nameof(Console))
+
+WriteLine(nameof(Console.WriteLine))
+
+WriteLine(nameof(System.Console.WriteLine))
+
+//WriteLine(nameof(Foo.Console.WriteLine))
+
+WriteLine(nameof(Test.Test2))
+
+class Test {
+    public static val Test2 = ""
+}

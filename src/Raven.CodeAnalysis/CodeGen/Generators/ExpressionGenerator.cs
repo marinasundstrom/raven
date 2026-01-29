@@ -241,6 +241,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitTypeOfExpression(typeOfExpression);
                 break;
 
+            case BoundNameOfExpression nameOfExpression:
+                EmitNameOfExpression(nameOfExpression);
+                break;
+
             case BoundTypeExpression typeExpression:
                 if (!TryEmitDiscriminatedUnionCaseCreation(typeExpression.Type))
                     break;
@@ -408,6 +412,11 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
         ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
+    }
+
+    private void EmitNameOfExpression(BoundNameOfExpression nameOfExpression)
+    {
+        ILGenerator.Emit(OpCodes.Ldstr, nameOfExpression.ToString());
     }
 
     private void EmitDelegateCreationExpression(BoundDelegateCreationExpression delegateCreation)

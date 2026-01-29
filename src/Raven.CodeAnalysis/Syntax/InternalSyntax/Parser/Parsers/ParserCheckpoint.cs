@@ -43,6 +43,7 @@ internal struct ParserCheckpoint : IDisposable
 
     public void Dispose()
     {
+        // TODO: Dispose shouldn't rewind, but dispose the checkpoint
         Rewind();
     }
 }

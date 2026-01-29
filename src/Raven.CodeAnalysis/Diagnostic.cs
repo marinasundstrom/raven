@@ -24,7 +24,7 @@ public class Diagnostic : IEquatable<Diagnostic>
         bool isSuppressed = false)
     {
         Descriptor = descriptor;
-        Location = location;
+        Location = location ?? throw new ArgumentNullException(nameof(location));
         _messageArgs = messageArgs;
         Severity = severity ?? descriptor.DefaultSeverity;
         IsSuppressed = isSuppressed;

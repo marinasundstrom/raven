@@ -767,7 +767,13 @@ public static class BoundTreePrinter
     {
         // Format like: (1, 2) - (1, 3)
         // Note: Line/character positions are 0-based in Roslyn-style APIs; print as 1-based.
-        var span = info.Syntax.GetLocation().GetLineSpan();
+        var location = info.Syntax?.GetLocation();
+
+        if (location is null || (!location.IsInSource && !location.IsInMetadata))
+            return "(<Detached node>)";
+
+        var span = location.GetLineSpan();
+
         var start = span.StartLinePosition;
         var end = span.EndLinePosition;
 

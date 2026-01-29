@@ -120,7 +120,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         if (SyntaxTree is null)
         {
-            return default(Location)!;
+            return Location.None;
         }
         return SyntaxTree!.GetLocation(Span);
     }

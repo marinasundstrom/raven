@@ -32,7 +32,7 @@ public struct SyntaxTrivia
         var syntaxTree = Token?.SyntaxTree;
         if (syntaxTree is null)
         {
-            return default(Location)!;
+            return Location.None;
         }
         return syntaxTree.GetLocation(Span);
     }

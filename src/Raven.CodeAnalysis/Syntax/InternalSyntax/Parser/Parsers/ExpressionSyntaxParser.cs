@@ -1303,6 +1303,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseTypeOfExpression();
                 break;
 
+            case SyntaxKind.NameOfKeyword:
+                expr = ParseNameOfExpression();
+                break;
+
             case SyntaxKind.OpenBracketToken:
                 expr = ParseCollectionExpression();
                 break;
@@ -1476,6 +1480,76 @@ internal class ExpressionSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         return TypeOfExpression(typeOfKeyword, openParenToken, type, closeParenToken);
+    }
+
+    private ExpressionSyntax ParseNameOfExpression()
+    {
+        var nameOfKeyword = ReadToken();
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
+
+        // `nameof` accepts a restricted operand syntax. We prefer parsing a type name first
+        // so `nameof(List<int>)` doesn't get mis-parsed as a comparison expression.
+        ExpressionSyntax operand;
+
+        var checkpoint = CreateCheckpoint("nameof-operand");
+        var type = new NameSyntaxParser(this).ParseTypeName();
+
+        if (!type.IsMissing && PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            operand = type;
+        }
+        else
+        {
+            checkpoint.Rewind();
+            operand = ParseNameOfOperandExpression();
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return NameOfExpression(nameOfKeyword, openParenToken, operand, closeParenToken);
+    }
+
+    private ExpressionSyntax ParseNameOfOperandExpression()
+    {
+        // Allowed syntactic forms (validated further by the binder):
+        //   Identifier
+        //   MemberAccessExpression (a.b)
+        //   MemberBindingExpression (.b)
+        //   QualifiedName (parsed as member access in expression context)
+        //
+        // We intentionally do not treat invocations, element access, literals, etc. as valid operands.
+
+        var start = Position;
+
+        ExpressionSyntax expr;
+
+        var token = PeekToken();
+        if (token.IsKind(SyntaxKind.DotToken))
+        {
+            // `.WriteLine`
+            var dot = ReadToken();
+            var name = new NameSyntaxParser(this).ParseSimpleName();
+            expr = MemberBindingExpression(dot, name);
+        }
+        else
+        {
+            // Parse a normal expression, but we'll validate it below.
+            expr = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        }
+
+        // If the parsed expression is not a name-like expression, report a diagnostic.
+        if (expr is not IdentifierNameSyntax
+            && expr is not MemberAccessExpressionSyntax
+            && expr is not MemberBindingExpressionSyntax)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.IdentifierExpected,
+                    GetActualTextSpan(start, expr)));
+        }
+
+        return expr;
     }
 
     private ExpressionSyntax ParsePredefinedTypeSyntax()

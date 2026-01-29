@@ -767,6 +767,38 @@ val listType = typeof(System.Collections.Generic.List<int>)
 `typeof` is useful when reflecting over metadata or when passing type objects to
 APIs such as `Activator.CreateInstance`.
 
+### `nameof` expressions
+
+The `nameof` operator produces the **unqualified source name** of a symbol as a `string` at compile time. The operand is **not evaluated**; instead, the compiler validates the operand syntactically and semantically and substitutes the referenced symbol’s name.
+
+The operand may refer to:
+
+* a local variable or parameter
+* a field or property
+* a method, function, or event
+* a type or type member
+* a qualified or member-accessed symbol
+
+The result of a `nameof` expression is always of type `string` and is a compile-time constant.
+
+```raven
+val x = 42
+val name = nameof(x)          // "x"
+
+val text = nameof(System.Console.WriteLine)
+```
+
+When applied to a member access, only the **final identifier** is returned:
+
+```raven
+nameof(System.Collections.Generic.List<int>)   // "List"
+nameof(Console.WriteLine)                      // "WriteLine"
+```
+
+Using `nameof` with an invalid operand (such as a literal, invocation, or arbitrary expression) produces a binding diagnostic. Because `nameof` is evaluated at compile time, it cannot observe runtime state and has no side effects.
+
+`nameof` is commonly used for diagnostics, argument validation, logging, and reflection-friendly APIs where symbol names must remain stable under refactoring.
+
 ### Default expressions
 
 `default` produces the zero-initialized value for a type. Use the explicit form
