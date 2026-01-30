@@ -1039,11 +1039,7 @@ Assignments in a with initializer must target writable instance fields or proper
 With expressions are the preferred way to update record values, producing a new record instance while preserving the original:
 
 ```raven
-record Point
-{
-    public X: int { get; init; }
-    public Y: int { get; init; }
-}
+record Point(X: int, Y: int)
 
 val origin = Point { X = 0, Y = 0 }
 val moved = origin with { X = 10 }
