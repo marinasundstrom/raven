@@ -984,6 +984,14 @@ internal class MethodBodyGenerator
             return true;
         }
 
+        if (MethodSymbol.Name == nameof(object.ToString) &&
+            MethodSymbol.Parameters.Length == 0 &&
+            MethodSymbol.ReturnType.SpecialType == SpecialType.System_String)
+        {
+            EmitRecordToString(recordType);
+            return true;
+        }
+
         if (MethodSymbol.Name == "Deconstruct" &&
             MethodSymbol.MethodKind == MethodKind.Ordinary &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
@@ -1224,6 +1232,128 @@ internal class MethodBodyGenerator
 
         ILGenerator.Emit(OpCodes.Ldloca, hashLocal);
         ILGenerator.Emit(OpCodes.Call, toHashCodeMethod);
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitRecordToString(SourceNamedTypeSymbol recordType)
+    {
+        var recordProperties = recordType.RecordProperties;
+        var builderType = typeof(StringBuilder);
+        var builderCtor = builderType.GetConstructor(Type.EmptyTypes)!;
+        var appendString = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) })!;
+        var appendChar = builderType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(char) })!;
+        var builderToString = builderType.GetMethod(nameof(StringBuilder.ToString), Type.EmptyTypes)!;
+        var stringIndexOf = typeof(string).GetMethod(nameof(string.IndexOf), new[] { typeof(char) })!;
+        var stringSubstring = typeof(string).GetMethod(nameof(string.Substring), new[] { typeof(int), typeof(int) })!;
+        var stringReplace = typeof(string).GetMethod(nameof(string.Replace), new[] { typeof(string), typeof(string) })!;
+        var objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
+        var typeType = typeof(Type);
+        var typeFromHandle = typeType.GetMethod(nameof(Type.GetTypeFromHandle), new[] { typeof(RuntimeTypeHandle) })!;
+        var typeNameGetter = typeType.GetProperty(nameof(Type.Name))!.GetMethod!;
+        var typeGenericArgumentsGetter = typeType.GetProperty(nameof(Type.GenericTypeArguments))!.GetMethod!;
+
+        var builderLocal = ILGenerator.DeclareLocal(builderType);
+        builderLocal.SetLocalSymInfo("builder");
+        var typeLocal = ILGenerator.DeclareLocal(typeType);
+        typeLocal.SetLocalSymInfo("recordType");
+        var nameLocal = ILGenerator.DeclareLocal(typeof(string));
+        nameLocal.SetLocalSymInfo("name");
+        var tickIndexLocal = ILGenerator.DeclareLocal(typeof(int));
+        tickIndexLocal.SetLocalSymInfo("tickIndex");
+        var argsLocal = ILGenerator.DeclareLocal(typeof(Type[]));
+        argsLocal.SetLocalSymInfo("typeArgs");
+        var argsLengthLocal = ILGenerator.DeclareLocal(typeof(int));
+        argsLengthLocal.SetLocalSymInfo("typeArgLength");
+        var argIndexLocal = ILGenerator.DeclareLocal(typeof(int));
+        argIndexLocal.SetLocalSymInfo("typeArgIndex");
+        var argTypeLocal = ILGenerator.DeclareLocal(typeType);
+        argTypeLocal.SetLocalSymInfo("typeArg");
+        var argNameLocal = ILGenerator.DeclareLocal(typeof(string));
+        argNameLocal.SetLocalSymInfo("typeArgName");
+        var firstPropertyLocal = ILGenerator.DeclareLocal(typeof(bool));
+        firstPropertyLocal.SetLocalSymInfo("firstProperty");
+
+        ILGenerator.Emit(OpCodes.Newobj, builderCtor);
+        ILGenerator.Emit(OpCodes.Stloc, builderLocal);
+
+        var recordClrType = Generator.InstantiateType(ResolveClrType(recordType));
+        EmitUnionFriendlyName(
+            recordClrType,
+            builderLocal,
+            typeLocal,
+            nameLocal,
+            tickIndexLocal,
+            argsLocal,
+            argsLengthLocal,
+            argIndexLocal,
+            argTypeLocal,
+            argNameLocal,
+            appendString,
+            appendChar,
+            typeFromHandle,
+            typeNameGetter,
+            typeGenericArgumentsGetter,
+            stringIndexOf,
+            stringSubstring);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, " { ");
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Stloc, firstPropertyLocal);
+
+        foreach (var property in recordProperties)
+        {
+            if (property.BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+            var skipCommaLabel = ILGenerator.DefineLabel();
+            ILGenerator.Emit(OpCodes.Ldloc, firstPropertyLocal);
+            ILGenerator.Emit(OpCodes.Brtrue_S, skipCommaLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldstr, ", ");
+            ILGenerator.Emit(OpCodes.Callvirt, appendString);
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.MarkLabel(skipCommaLabel);
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Stloc, firstPropertyLocal);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldstr, property.Name);
+            ILGenerator.Emit(OpCodes.Callvirt, appendString);
+            ILGenerator.Emit(OpCodes.Pop);
+
+            ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+            ILGenerator.Emit(OpCodes.Ldstr, " = ");
+            ILGenerator.Emit(OpCodes.Callvirt, appendString);
+            ILGenerator.Emit(OpCodes.Pop);
+
+            EmitAppendFormattedValue(
+                builderLocal,
+                () =>
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+                },
+                property.Type,
+                appendString,
+                appendChar,
+                stringReplace,
+                objectToString);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Ldstr, " }");
+        ILGenerator.Emit(OpCodes.Callvirt, appendString);
+        ILGenerator.Emit(OpCodes.Pop);
+
+        ILGenerator.Emit(OpCodes.Ldloc, builderLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, builderToString);
         ILGenerator.Emit(OpCodes.Ret);
     }
 
