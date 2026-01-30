@@ -1,0 +1,14 @@
+
+import System.Console.*
+
+val foo = Foo {
+    A = 42
+}
+
+WriteLine(foo.A)
+
+//foo.A = 2
+
+class Foo {
+    public A: int { get; init; }
+}

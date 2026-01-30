@@ -71,11 +71,11 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         AssociatedSymbol = associatedSymbol;
     }
 
-    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
+    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodBaseInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
     : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
         _typeResolver = typeResolver;
-        _methodInfo = methodInfo;
+        _methodInfo = methodBaseInfo;
         _typeResolver.RegisterMethodSymbol(_methodInfo, this);
 
         var name = _methodInfo.Name;
@@ -102,6 +102,13 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         }
         else if (name.StartsWith("set_"))
         {
+            if (methodBaseInfo is MethodInfo methodInfo)
+            {
+                if (methodInfo.ReturnParameter.GetRequiredCustomModifiers().Any(x => x.Name == typeof(IsExternalInit).Name))
+                {
+                    MethodKind = MethodKind.InitOnly;
+                }
+            }
             MethodKind = MethodKind.PropertySet;
         }
         else if (name.StartsWith("add_"))

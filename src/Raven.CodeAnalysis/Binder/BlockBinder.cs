@@ -26,6 +26,12 @@ partial class BlockBinder : Binder
     private int _loopDepth;
     private int _expressionContextDepth;
     private int _tempCounter;
+    private int _objectInitializerDepth;
+
+    private bool IsInObjectInitializer => _objectInitializerDepth > 0;
+
+    private static bool IsInitOnly(IPropertySymbol property)
+        => property.SetMethod?.MethodKind == MethodKind.InitOnly;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -7517,104 +7523,112 @@ partial class BlockBinder : Binder
      ITypeSymbol instanceType,
      ObjectInitializerExpressionSyntax initializer)
     {
-        // Bind initializer entries in source order and keep them as a bound node.
-        // Lowering into a block happens later.
-
-        instanceType = UnwrapAlias(instanceType);
-
-        // SwiftUI-style convention:
-        // If the instance type has a settable `Content` property, then exactly one content entry is allowed.
-        // That entry is lowered as `Content = <expr>`.
-        IPropertySymbol? contentProperty = null;
-        if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
+        _objectInitializerDepth++;
+        try
         {
-            foreach (var member in namedInstance.GetMembers("Content"))
+            // Bind initializer entries in source order and keep them as a bound node.
+            // Lowering into a block happens later.
+
+            instanceType = UnwrapAlias(instanceType);
+
+            // SwiftUI-style convention:
+            // If the instance type has a settable `Content` property, then exactly one content entry is allowed.
+            // That entry is lowered as `Content = <expr>`.
+            IPropertySymbol? contentProperty = null;
+            if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
             {
-                if (member is not IPropertySymbol p)
-                    continue;
+                foreach (var member in namedInstance.GetMembers("Content"))
+                {
+                    if (member is not IPropertySymbol p)
+                        continue;
 
-                if (p.IsStatic)
-                    continue;
+                    if (p.IsStatic)
+                        continue;
 
-                if (p.SetMethod is null)
-                    continue;
+                    if (p.SetMethod is null)
+                        continue;
 
-                // Use the existing accessibility helper.
-                // NOTE: We don't have a great location yet; we will re-check with the actual entry location when used.
-                contentProperty = p;
-                break;
+                    // Use the existing accessibility helper.
+                    // NOTE: We don't have a great location yet; we will re-check with the actual entry location when used.
+                    contentProperty = p;
+                    break;
+                }
             }
-        }
 
-        var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
+            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
 
-        var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
-        var seenContentEntry = false;
+            var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
+            var seenContentEntry = false;
 
-        foreach (var entry in initializer.Entries)
-        {
-            switch (entry)
+            foreach (var entry in initializer.Entries)
             {
-                case ObjectInitializerAssignmentEntrySyntax assignment:
-                    {
-                        var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
-                        if (boundEntry is not null)
-                            entries.Add(boundEntry);
-                        break;
-                    }
-
-                case ObjectInitializerExpressionEntrySyntax exprEntry:
-                    {
-                        if (!hasContentConvention)
+                switch (entry)
+                {
+                    case ObjectInitializerAssignmentEntrySyntax assignment:
                         {
-                            // No Content property: keep the existing behavior.
-                            var expr = BindExpression(exprEntry.Expression, allowReturn: false);
-                            entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                            var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
+                            if (boundEntry is not null)
+                                entries.Add(boundEntry);
                             break;
                         }
 
-                        // With Content property: only one content entry is allowed.
-                        if (seenContentEntry)
+                    case ObjectInitializerExpressionEntrySyntax exprEntry:
                         {
-                            // Still bind the expression so it gets typed and any nested diagnostics flow.
-                            var extra = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-
-                            if (extra.Type is { } extraType)
+                            if (!hasContentConvention)
                             {
-                                _diagnostics.ReportMultipleContentEntriesNotAllowed(
-                                    instanceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                    exprEntry.Expression.GetLocation());
+                                // No Content property: keep the existing behavior.
+                                var expr = BindExpression(exprEntry.Expression, allowReturn: false);
+                                entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                                break;
                             }
 
+                            // With Content property: only one content entry is allowed.
+                            if (seenContentEntry)
+                            {
+                                // Still bind the expression so it gets typed and any nested diagnostics flow.
+                                var extra = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+
+                                if (extra.Type is { } extraType)
+                                {
+                                    _diagnostics.ReportMultipleContentEntriesNotAllowed(
+                                        instanceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                        exprEntry.Expression.GetLocation());
+                                }
+
+                                break;
+                            }
+
+                            // First content entry.
+                            seenContentEntry = true;
+
+                            // Ensure the Content property is accessible at the point of use.
+                            if (!EnsureMemberAccessible(contentProperty!, exprEntry.GetLocation(), "property"))
+                            {
+                                // Still bind expression for diagnostics.
+                                _ = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+                                break;
+                            }
+
+                            var value = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+                            value = PrepareRightForAssignment(value, contentProperty!.Type, exprEntry.Expression);
+
+                            // If conversion fails, diagnostics are already reported by PrepareRightForAssignment.
+                            if (value is BoundErrorExpression)
+                                break;
+
+                            // Rewrite as `Content = <value>`.
+                            entries.Add(new BoundObjectInitializerAssignmentEntry(contentProperty!, value));
                             break;
                         }
-
-                        // First content entry.
-                        seenContentEntry = true;
-
-                        // Ensure the Content property is accessible at the point of use.
-                        if (!EnsureMemberAccessible(contentProperty!, exprEntry.GetLocation(), "property"))
-                        {
-                            // Still bind expression for diagnostics.
-                            _ = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-                            break;
-                        }
-
-                        var value = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-                        value = PrepareRightForAssignment(value, contentProperty!.Type, exprEntry.Expression);
-
-                        // If conversion fails, diagnostics are already reported by PrepareRightForAssignment.
-                        if (value is BoundErrorExpression)
-                            break;
-
-                        // Rewrite as `Content = <value>`.
-                        entries.Add(new BoundObjectInitializerAssignmentEntry(contentProperty!, value));
-                        break;
-                    }
+                }
             }
-        }
 
-        return new BoundObjectInitializer(entries.ToImmutable());
+            return new BoundObjectInitializer(entries.ToImmutable());
+        }
+        finally
+        {
+            _objectInitializerDepth--;
+        }
     }
 
     private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
@@ -7679,8 +7693,21 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(property, assignment.Name.GetLocation(), "property"))
                 return null;
 
-            if (property.SetMethod is null)
+            var setMethod = property.SetMethod;
+
+            if (setMethod is null)
+            {
+                // report no setter (existing behavior)
                 return null;
+            }
+            else if (setMethod.MethodKind == MethodKind.InitOnly)
+            {
+                // OK here (object initializer context)
+            }
+            else
+            {
+                // OK (normal setter)
+            }
 
             var value = BindExpressionWithTargetType(assignment.Expression, property.Type, allowReturn: false);
             value = PrepareRightForAssignment(value, property.Type, assignment.Expression);

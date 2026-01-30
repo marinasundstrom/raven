@@ -1536,7 +1536,9 @@ internal class TypeMemberBinder : Binder
 
         var hasExpressionBody = propertyDecl.ExpressionBody is not null;
         var hasGetter = propertyDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? hasExpressionBody;
-        var hasSetter = propertyDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.SetAccessorDeclaration) ?? false;
+        var hasSetter = propertyDecl.AccessorList?.Accessors.Any(a =>
+            a.Kind == SyntaxKind.SetAccessorDeclaration ||
+            a.Kind == SyntaxKind.InitAccessorDeclaration) ?? false;
 
         IMethodSymbol? overriddenGetter = null;
         IMethodSymbol? overriddenSetter = null;
@@ -1626,6 +1628,12 @@ internal class TypeMemberBinder : Binder
             foreach (var accessor in propertyDecl.AccessorList.Accessors)
             {
                 bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
+                bool isSet = accessor.Kind == SyntaxKind.SetAccessorDeclaration;
+                bool isInit = accessor.Kind == SyntaxKind.InitAccessorDeclaration;
+
+                // Ignore non-get/non-set/non-init accessors.
+                if (!isGet && !isSet && !isInit)
+                    continue;
 
                 static Accessibility? GetExplicitAccessorAccessibility(SyntaxTokenList mods)
                 {
@@ -1697,7 +1705,7 @@ internal class TypeMemberBinder : Binder
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
                     isStatic: isStatic || isExtensionContainer,
-                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
+                    methodKind: isGet ? MethodKind.PropertyGet : (isInit ? MethodKind.InitOnly : MethodKind.PropertySet),
                     isAsync: isAsync,
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
