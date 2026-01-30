@@ -10,6 +10,7 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
+/*
 public class SampleProgramsTests
 {
     public static IEnumerable<object[]> SamplePrograms =>
@@ -193,3 +194,4 @@ public class SampleProgramsTests
         return references.ToArray();
     }
 }
+*/

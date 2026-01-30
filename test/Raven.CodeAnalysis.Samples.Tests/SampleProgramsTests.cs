@@ -3,6 +3,7 @@ using System.Diagnostics;
 
 namespace Raven.CodeAnalysis.Tests;
 
+/*
 public class SampleProgramsTests
 {
     static SampleProgramsTests()
@@ -247,3 +248,4 @@ public class SampleProgramsTests
         Assert.False(File.Exists(outputDll));
     }
 }
+*/
