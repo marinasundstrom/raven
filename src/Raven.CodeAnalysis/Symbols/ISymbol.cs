@@ -460,6 +460,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
             if (this is IDiscriminatedUnionSymbol)
                 return true;
 
+            if (this is SourceSymbol { IsComputingAttributes: true })
+                return false;
+
             return GetAttributes().Any(static attribute =>
                 attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
                 "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
@@ -472,6 +475,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
         {
             if (this is IDiscriminatedUnionCaseSymbol)
                 return true;
+
+            if (this is SourceSymbol { IsComputingAttributes: true })
+                return false;
 
             return GetAttributes().Any(static attribute =>
                 attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==

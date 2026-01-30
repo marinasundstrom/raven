@@ -49,9 +49,6 @@ internal abstract class SourceSymbol : Symbol
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
-        if (_isComputingAttributes)
-            return ImmutableArray<AttributeData>.Empty;
-
         if (_lazyCustomAttributes.IsDefault)
         {
             _isComputingAttributes = true;
@@ -67,6 +64,8 @@ internal abstract class SourceSymbol : Symbol
 
         return _lazyCustomAttributes;
     }
+
+    internal bool IsComputingAttributes => _isComputingAttributes;
 
     private ImmutableArray<AttributeData> ComputeAttributes()
     {
