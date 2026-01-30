@@ -123,85 +123,12 @@ internal sealed class AttributeBinder : BlockBinder
                 return withSuffix;
         }
 
-        var withoutSuffix = TryLookupAttributeType(attributeName, appendAttributeSuffix: false);
-        if (withoutSuffix is not null)
-            return withoutSuffix;
-
-        return TryLookupFrameworkAttributeType(attributeName, hasAttributeSuffix);
-    }
-
-    private INamedTypeSymbol? TryLookupFrameworkAttributeType(TypeSyntax attributeName, bool hasAttributeSuffix)
-    {
-        if (attributeName is not IdentifierNameSyntax identifier)
-            return null;
-
-        var baseName = identifier.Identifier.ValueText;
-        var candidateName = AppendAttributeSuffixIfNeeded(baseName, !hasAttributeSuffix);
-
-        return Compilation.GetTypeByMetadataName($"System.{candidateName}") as INamedTypeSymbol;
+        return TryLookupAttributeType(attributeName, appendAttributeSuffix: false);
     }
 
     private INamedTypeSymbol? TryLookupAttributeType(TypeSyntax attributeName, bool appendAttributeSuffix)
     {
-        switch (attributeName)
-        {
-            case IdentifierNameSyntax identifier:
-                {
-                    var candidateName = AppendAttributeSuffixIfNeeded(identifier.Identifier.ValueText, appendAttributeSuffix);
-                    return FindAccessibleNamedType(candidateName, 0);
-                }
-
-            case GenericNameSyntax generic:
-                {
-                    var candidateName = AppendAttributeSuffixIfNeeded(generic.Identifier.ValueText, appendAttributeSuffix);
-                    return FindAccessibleNamedType(candidateName, ComputeGenericArity(generic));
-                }
-
-            case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
-                {
-                    var container = TryLookupNamespaceOrType(qualified.Left);
-                    if (container is null)
-                        return null;
-
-                    var candidateName = AppendAttributeSuffixIfNeeded(rightIdentifier.Identifier.ValueText, appendAttributeSuffix);
-                    return container.LookupType(candidateName) as INamedTypeSymbol;
-                }
-
-            case QualifiedNameSyntax qualified when qualified.Right is GenericNameSyntax rightGeneric:
-                {
-                    var container = TryLookupNamespaceOrType(qualified.Left);
-                    if (container is null)
-                        return null;
-
-                    var candidateName = AppendAttributeSuffixIfNeeded(rightGeneric.Identifier.ValueText, appendAttributeSuffix);
-                    return TryLookupNestedNamedType(container, candidateName, ComputeGenericArity(rightGeneric));
-                }
-
-            case AliasQualifiedNameSyntax aliasQualified:
-                {
-                    var container = TryLookupAliasTarget(aliasQualified.Alias);
-                    if (container is null)
-                        return null;
-
-                    switch (aliasQualified.Name)
-                    {
-                        case IdentifierNameSyntax identifierName:
-                            {
-                                var candidateName = AppendAttributeSuffixIfNeeded(identifierName.Identifier.ValueText, appendAttributeSuffix);
-                                return container.LookupType(candidateName) as INamedTypeSymbol;
-                            }
-                        case GenericNameSyntax genericName:
-                            {
-                                var candidateName = AppendAttributeSuffixIfNeeded(genericName.Identifier.ValueText, appendAttributeSuffix);
-                                return TryLookupNestedNamedType(container, candidateName, ComputeGenericArity(genericName));
-                            }
-                    }
-
-                    break;
-                }
-        }
-
-        return null;
+        return (INamedTypeSymbol?)(ParentBinder?.ResolveType(attributeName));
     }
 
     private INamespaceOrTypeSymbol? TryLookupNamespaceOrType(TypeSyntax syntax)

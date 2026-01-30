@@ -4359,6 +4359,9 @@ partial class BlockBinder : Binder
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax, bool allowEventAccess = false)
     {
         var name = syntax.Identifier.ValueText;
+
+        name = NormalizeIdentifier(syntax, name);
+
         var symbol = LookupSymbol(name);
 
         if (symbol is null)
@@ -4435,6 +4438,20 @@ partial class BlockBinder : Binder
                     return n;
                 }
         }
+    }
+
+    private string NormalizeIdentifier(IdentifierNameSyntax syntax, string name)
+    {
+        if (this is AttributeBinder
+            && syntax.FirstAncestorOrSelf<ParameterListSyntax>() is null)
+        {
+            if (!name.EndsWith("Attribute"))
+            {
+                name = $"{name}Attribute";
+            }
+        }
+
+        return name;
     }
 
     private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods)
