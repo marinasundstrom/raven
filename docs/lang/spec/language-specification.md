@@ -974,6 +974,21 @@ val window = Window() {
 }
 ```
 
+Init-only accessors are treated as initializer-only members, so they may be assigned in object initializers:
+
+```raven
+class Settings
+{
+    init Theme: string
+    init FontSize: int
+}
+
+val settings = Settings {
+    Theme = "Dark"
+    FontSize = 14
+}
+```
+
 Initializer bodies consist of a sequence of **entries**. Entries may be mixed freely and appear in source order:
 
 * **Property entries** assign to a writable property or field using `Name = Expression`.
@@ -1019,7 +1034,20 @@ val updated = point with {
 
 The receiver expression is evaluated exactly once. Each assignment expression is evaluated left-to-right in source order. If a member is listed more than once, the compiler reports `RAV0241`.
 
-Assignments in a with initializer must target writable instance fields or properties. `init` accessors are permitted because with initializers are treated as initializer contexts.
+Assignments in a with initializer must target writable instance fields or properties. `init` accessors are permitted because with initializers are treated as initializer contexts (matching object initializer semantics).
+
+With expressions are the preferred way to update record values, producing a new record instance while preserving the original:
+
+```raven
+record Point
+{
+    init X: int
+    init Y: int
+}
+
+val origin = Point { X = 0, Y = 0 }
+val moved = origin with { X = 10 }
+```
 
 When binding a with expression, the compiler selects the first applicable strategy in the following order:
 
