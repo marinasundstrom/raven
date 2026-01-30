@@ -2675,12 +2675,13 @@ public partial class SemanticModel
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
         var location = classDecl.GetLocation();
         var references = Array.Empty<SyntaxReference>();
 
-        if (objectType is null || boolType is null || intType is null || unitType is null)
+        if (objectType is null || boolType is null || intType is null || unitType is null || stringType is null)
             return;
 
         var equalsObject = objectType.GetMembers(nameof(object.Equals))
@@ -2693,6 +2694,8 @@ public partial class SemanticModel
 
         if (equalsObject is null || getHashCode is null)
             return;
+
+        var objectToString = GetObjectToStringMethod();
 
         if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol))
         {
@@ -2766,6 +2769,25 @@ public partial class SemanticModel
                 declaredAccessibility: Accessibility.Public);
 
             hashMethod.SetOverriddenMethod(getHashCode);
+        }
+
+        if (!HasMethod(recordSymbol, "ToString", MethodKind.Ordinary))
+        {
+            var toStringMethod = new SourceMethodSymbol(
+                "ToString",
+                stringType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Ordinary,
+                isOverride: true,
+                declaredAccessibility: Accessibility.Public);
+
+            toStringMethod.SetOverriddenMethod(objectToString);
         }
 
         if (!HasMethod(recordSymbol, "op_Equality", MethodKind.UserDefinedOperator, recordSymbol, recordSymbol))
