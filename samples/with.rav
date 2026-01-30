@@ -1,8 +1,11 @@
 import System.Console.*
 
 val bob = Person("Bob", null, "Smith", 1978)
-
 WriteLine(bob)
+
+val bob2 = Person("Bob", null, "Smith", 1978)
+
+WriteLine(bob2 == bob)
 
 val newBob = bob with {
     MiddleName = "Leslie"
@@ -11,6 +14,7 @@ val newBob = bob with {
 WriteLine(newBob)
 
 val renamed = newBob with {
+    MiddleName = "Flash",
     LastName = "Jones"
 }
 

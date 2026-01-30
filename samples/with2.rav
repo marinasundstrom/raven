@@ -1,0 +1,81 @@
+import System.Console.*
+
+val bob = Person { 
+    Name = "Bob", 
+    MiddleName = null, 
+    LastName = "Smith", 
+    YearOfBirth = 1978 
+}
+
+WriteLine(bob)
+
+val newBob = bob with {
+    MiddleName = "Leslie"
+}
+
+WriteLine(newBob)
+
+val renamed = newBob with {
+    MiddleName = "Flash"
+    LastName = "Jones"
+}
+
+WriteLine(renamed)
+
+public class Person {
+    public Name: string { get; init; } 
+    public MiddleName: string? { get; init; }
+    public LastName: string { get; init; }
+    public YearOfBirth: int { get; init; }
+
+    public override ToString() -> string {
+        return "$Name $MiddleName $LastName ($YearOfBirth)"
+    }
+
+    public WithName(name: string) -> Person {
+        return Set( 
+            name,
+            MiddleName,
+            LastName,
+            YearOfBirth 
+        )
+    }
+
+    public WithMiddleName(middleName: string?) -> Person {
+        return Set(
+            Name,
+            middleName,
+            LastName,
+            YearOfBirth
+        )
+    }
+
+    public WithLastName(lastName: string) -> Person {
+        return Set( 
+            Name,
+            MiddleName,
+            lastName,
+            YearOfBirth 
+        )
+    }
+
+    private Set(name: string, middleName: string, lastName: string, yearOfBirth: int) -> Person {
+        return Person { 
+            Name = name,
+            MiddleName = middleName,
+            LastName = lastName,
+            YearOfBirth = yearOfBirth 
+        }
+    }
+
+    /*
+     private With(name: string, middleName?: string, lastName: string, yearOfBirth: int) -> Person {
+        return Person { 
+            Name = name,
+            MiddleName = middleName,
+            LastName = lastName,
+            YearOfBirth = yearOfBirth 
+        }
+    }
+    */
+}

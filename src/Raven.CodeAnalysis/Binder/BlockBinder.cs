@@ -7693,7 +7693,15 @@ partial class BlockBinder : Binder
         if (accessible.IsDefaultOrEmpty)
             return false;
 
-        var assignmentMap = assignments.ToDictionary(a => a.Member.Name, StringComparer.Ordinal);
+        // Map assignments by *parameter-style* name (camelCase), because convention methods typically
+        // use parameter names like `middleName` while members are `MiddleName`.
+        // This prevents false negatives when comparing assignment keys to method parameter names.
+        var assignmentMap = new Dictionary<string, BoundWithAssignment>(StringComparer.Ordinal);
+        foreach (var a in assignments)
+        {
+            var key = NormalizeWithConventionKey(a.Member.Name);
+            assignmentMap[key] = a;
+        }
         var applicable = new List<(IMethodSymbol Method, ImmutableArray<ISymbol> ParameterMembers)>();
 
         foreach (var method in accessible)
@@ -7707,7 +7715,8 @@ partial class BlockBinder : Binder
 
             foreach (var parameter in method.Parameters)
             {
-                if (!TryGetReadableMember(receiverType, parameter.Name, syntax.WithKeyword.GetLocation(), out var member))
+                var name = NormalizeWithConventionMemberName(parameter.Name);
+                if (!TryGetReadableMember(receiverType, name, syntax.WithKeyword.GetLocation(), out var member))
                 {
                     valid = false;
                     break;
@@ -7730,6 +7739,7 @@ partial class BlockBinder : Binder
             if (!valid)
                 continue;
 
+            // Reject assignments that don't correspond to any parameter name.
             if (assignmentMap.Keys.Any(name => !parameterNames.Contains(name)))
                 continue;
 
@@ -7769,6 +7779,24 @@ partial class BlockBinder : Binder
             type: selected.Method.ReturnType);
 
         return true;
+    }
+
+    private static string NormalizeWithConventionKey(string memberName)
+    {
+        if (string.IsNullOrEmpty(memberName))
+            return memberName;
+
+        // `MiddleName` -> `middleName`
+        return char.ToLowerInvariant(memberName[0]) + memberName[1..];
+    }
+
+    private static string NormalizeWithConventionMemberName(string parameterName)
+    {
+        if (string.IsNullOrEmpty(parameterName))
+            return parameterName;
+
+        // `middleName` -> `MiddleName`
+        return char.ToUpperInvariant(parameterName[0]) + parameterName[1..];
     }
 
     private bool TryBindWithMemberMethods(
