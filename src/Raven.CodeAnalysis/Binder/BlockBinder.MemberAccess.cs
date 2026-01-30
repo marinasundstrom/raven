@@ -1267,7 +1267,7 @@ partial class BlockBinder
 
             var receiver = GetReceiver(left);
 
-            if (IsInitOnly(propertySymbol) && !IsInObjectInitializer)
+            if (IsInitOnly(propertySymbol) && !IsInInitOnlyAssignmentContext)
             {
                 // IMPORTANT: reuse your *existing* “property has no setter / not writable” diagnostic path
                 // (same one you use when SetMethod is null), so you don’t need a new diagnostic.

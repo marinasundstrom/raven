@@ -127,6 +127,14 @@
     Title="Event cannot be invoked"
     Message="The event '{name}' cannot be invoked because it does not declare a backing field"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0240" Identifier="TypeDoesNotSupportWithExpression"
+    Title="Type does not support with-expressions"
+    Message="The type '{typeName}' does not support 'with' expressions"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0241" Identifier="WithExpressionMemberAssignedMultipleTimes"
+    Title="With-expression assigns a member multiple times"
+    Message="The member '{memberName}' is assigned more than once in the with-expression"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2700" Identifier="AwaitExpressionRequiresAsyncContext"
     Title="Await requires async context"
     Message="The 'await' operator can only be used within an async method or function"

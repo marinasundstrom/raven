@@ -2668,6 +2668,32 @@ public partial class SemanticModel
 
             deconstructMethod.SetParameters(parameters.ToImmutable());
         }
+
+        if (!HasCopyConstructor(recordSymbol))
+        {
+            var copyConstructor = new SourceMethodSymbol(
+                ".ctor",
+                unitType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Constructor,
+                declaredAccessibility: Accessibility.Internal);
+
+            var otherParameter = new SourceParameterSymbol(
+                "other",
+                recordSymbol,
+                copyConstructor,
+                recordSymbol,
+                namespaceSymbol,
+                [location],
+                references);
+            copyConstructor.SetParameters(ImmutableArray.Create(otherParameter));
+        }
     }
 
     private static bool HasMethod(
@@ -2718,6 +2744,23 @@ public partial class SemanticModel
                 continue;
 
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasCopyConstructor(SourceNamedTypeSymbol typeSymbol)
+    {
+        foreach (var constructor in typeSymbol.InstanceConstructors)
+        {
+            if (constructor.IsStatic)
+                continue;
+
+            if (constructor.Parameters.Length != 1)
+                continue;
+
+            if (SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, typeSymbol))
+                return true;
         }
 
         return false;
