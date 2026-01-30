@@ -824,6 +824,15 @@ internal class ExpressionSyntaxParser : SyntaxParser
                     expr = InvocationExpression(expr, missingArgs, initializer);
                 }
             }
+            else if (token.IsKind(SyntaxKind.WithKeyword)) // With-expression trailer: `<expr> with { ... }`
+            {
+                // Break if the `with` token has a leading newline.
+                // This prevents: <expr> [newline] with { ... }
+                if (HasLeadingNewLine(token))
+                    return expr;
+
+                expr = ParseWithExpression(expr);
+            }
             else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access OR propagate (`<expr>?`)
             {
                 var operatorToken = ReadToken();
@@ -1905,6 +1914,118 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var openParen = MissingToken(SyntaxKind.OpenParenToken);
         var closeParen = MissingToken(SyntaxKind.CloseParenToken);
         return ArgumentList(openParen, List(Array.Empty<GreenNode>()), closeParen, Diagnostics);
+    }
+
+    private WithExpressionSyntax ParseWithExpression(ExpressionSyntax expression)
+    {
+        // We assume current token is `with`
+        var withKeyword = ReadToken();
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
+
+        var previousTreatNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
+
+        EnterParens();
+        try
+        {
+            var assignments = new List<WithAssignmentSyntax>();
+
+            while (true)
+            {
+                SetTreatNewlinesAsTokens(false);
+
+                if (IsNextToken(SyntaxKind.CloseBraceToken, out _) || PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                var entryStart = Position;
+                var assignment = ParseWithAssignment();
+
+                if (Position == entryStart)
+                {
+                    // No progress: consume one token to avoid infinite loop.
+                    var bad = PeekToken();
+                    AddDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.InvalidExpressionTerm,
+                        GetSpanOfPeekedToken(),
+                        bad.Text));
+                    ReadToken();
+                    continue;
+                }
+
+                assignments.Add(assignment);
+            }
+
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+
+            SetTreatNewlinesAsTokens(false);
+
+            return WithExpression(expression, withKeyword, openBraceToken, List(assignments.ToArray()), closeBraceToken);
+        }
+        finally
+        {
+            ExitParens();
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+        }
+    }
+
+    private WithAssignmentSyntax ParseWithAssignment()
+    {
+        // Entry kind is decided by lookahead: <identifier> '=' ...
+        if (!CanTokenBeIdentifier(PeekToken()))
+        {
+            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var missingIdentifier);
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.IdentifierExpected,
+                    GetEndOfLastToken()));
+
+            var missingName = IdentifierName(missingIdentifier);
+
+            ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var missingEquals);
+
+            var missingExpr = new ExpressionSyntax.Missing();
+
+            // Optional terminator
+            SyntaxToken terminatorToken2 = Token(SyntaxKind.None);
+            if (ConsumeToken(SyntaxKind.CommaToken, out var comma))
+                terminatorToken2 = comma;
+            else if (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                TryConsumeTerminator(out terminatorToken2);
+
+            return WithAssignment(missingName, missingEquals, missingExpr, terminatorToken2);
+        }
+
+        var nameToken = ReadToken();
+        if (nameToken.Kind != SyntaxKind.IdentifierToken)
+        {
+            nameToken = ToIdentifierToken(nameToken);
+            UpdateLastToken(nameToken);
+        }
+
+        var name = IdentifierName(nameToken);
+
+        ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var equalsToken);
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        // Terminator is optional: comma, newline/semicolon, or nothing before `}`
+        SyntaxToken terminatorToken = Token(SyntaxKind.None);
+
+        if (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+        {
+            terminatorToken = commaToken;
+        }
+        else if (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        {
+            TryConsumeTerminator(out terminatorToken);
+        }
+
+        return WithAssignment(name, equalsToken, expression, terminatorToken);
     }
 
     private ObjectInitializerExpressionSyntax ParseObjectInitializerExpression()
