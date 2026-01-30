@@ -12,6 +12,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal abstract class SourceSymbol : Symbol
 {
     private ImmutableArray<AttributeData> _lazyCustomAttributes;
+    private bool _isComputingAttributes;
     private DocumentationComment? _lazyDocumentationComment;
 
     internal ImmutableArray<DocumentationComment> DocumentationComments { get; private set; }
@@ -48,8 +49,21 @@ internal abstract class SourceSymbol : Symbol
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
+        if (_isComputingAttributes)
+            return ImmutableArray<AttributeData>.Empty;
+
         if (_lazyCustomAttributes.IsDefault)
-            _lazyCustomAttributes = ComputeAttributes();
+        {
+            _isComputingAttributes = true;
+            try
+            {
+                _lazyCustomAttributes = ComputeAttributes();
+            }
+            finally
+            {
+                _isComputingAttributes = false;
+            }
+        }
 
         return _lazyCustomAttributes;
     }
