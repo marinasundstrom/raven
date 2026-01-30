@@ -1006,6 +1006,31 @@ If more than one content entry is provided for a type that uses the Content prop
 
 > **Note:** The Content property convention is intended to support DSL-style UI composition (for example SwiftUI/Flutter-like syntax). Container types that accept multiple children should expose a collection-like API (for example `Add(TChild)` or a `Children` collection) instead of `Content`.
 
+#### With expressions
+
+A **with expression** creates a copy of a value and applies a list of member assignments without mutating the original instance. The syntax is:
+
+```raven
+val updated = point with {
+    X = 10
+    Y = 20
+}
+```
+
+The receiver expression is evaluated exactly once. Each assignment expression is evaluated left-to-right in source order. If a member is listed more than once, the compiler reports `RAV0241`.
+
+Assignments in a with initializer must target writable instance fields or properties. `init` accessors are permitted because with initializers are treated as initializer contexts.
+
+When binding a with expression, the compiler selects the first applicable strategy in the following order:
+
+1. **Record clone** — Record types use their copy constructor (synthesized if needed) to create a clone, then apply assignments as initializer-style member assignments.
+2. **`Update(...)` convention** — An instance method named `Update` whose parameter names correspond to readable members on the receiver. Each parameter receives either the provided assignment value (if present) or the receiver's current member value.
+3. **`With(...)` convention** — Same as `Update`, but with an instance method named `With`.
+4. **`WithX(...)` chaining** — For each assignment `X = expr`, invoke a single-parameter method named `WithX`. Methods are invoked in source order, and each invocation receives the assignment's value expression.
+5. **Clone/copy fallback** — Use a parameterless `Clone()` method or a copy constructor (one parameter of the receiver type) to create a copy, then apply assignments as initializer-style member assignments.
+
+If none of these conventions apply, the compiler reports `RAV0240` to indicate the type does not support `with` expressions.
+
 ### Extensions (Traits)
 
 Extensions provide helper members for an existing receiver type without

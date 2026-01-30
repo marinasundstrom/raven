@@ -428,7 +428,8 @@ PostfixTrailer           ::= ArgumentList
                            | ElementAccessTrailer
                            | PropagateTrailer
                            | ConditionalAccessTrailer
-                           | ObjectInitializer ;
+                           | ObjectInitializer
+                           | WithExpression ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
 Argument                 ::= [Identifier ':'] Expression ;
@@ -465,6 +466,14 @@ ObjectInitializerExpressionEntry
 (* Terminators are context-sensitive in Raven; commas are permitted but not required when a newline ends the entry. *)
 ObjectInitializerTerminator
                            ::= ',' | NewLineToken | ';' ;
+
+(* ---------- With expressions ---------- *)
+
+WithExpression           ::= 'with' '{' { WithAssignment } '}' ;
+
+WithAssignment           ::= Identifier '=' Expression WithAssignmentTerminator? ;
+
+WithAssignmentTerminator ::= ',' | NewLineToken | ';' ;
 MemberBindingExpression  ::= '.' Identifier ;
 
 (* ---------- Primaries ----------
