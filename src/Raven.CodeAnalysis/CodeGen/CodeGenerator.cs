@@ -1693,9 +1693,19 @@ internal class CodeGenerator
 
     private void CreateTypes()
     {
-        foreach (var typeGenerator in _typeGenerators.Values)
+        while (true)
         {
-            typeGenerator.CreateType();
+            var pending = _typeGenerators.Values
+                .Where(static generator => generator.TypeBuilder is not null && generator.Type is null)
+                .ToList();
+
+            if (pending.Count == 0)
+                break;
+
+            foreach (var typeGenerator in pending)
+            {
+                typeGenerator.CreateType();
+            }
         }
     }
 
