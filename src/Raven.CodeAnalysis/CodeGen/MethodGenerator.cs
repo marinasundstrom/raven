@@ -9,6 +9,8 @@ using System.Text;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
+using static Raven.CodeAnalysis.CodeGen.DebugUtils;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal class MethodGenerator
@@ -464,6 +466,13 @@ internal class MethodGenerator
         var types = (type as ITypeUnionSymbol).Types
             .Select(x => x is LiteralTypeSymbol lit ? lit.ConstantValue : (object)ResolveClrType(x))
             .ToArray();
+
+        foreach (var value in types)
+        {
+            if (value is TypeBuilder builder && !builder.IsCreated())
+                PrintDebug($"TypeUnionAttribute references uncreated type: {builder.FullName ?? builder.Name}");
+        }
+
         var constructor = TypeGenerator.CodeGen.TypeUnionAttributeType!.
             GetConstructor(new[] { typeof(object[]) });
         CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(constructor!, [types]);
@@ -546,7 +555,14 @@ internal class MethodGenerator
             var rewritten = AsyncLowerer.Rewrite(sourceLambda, block, selfType: closureSelfType);
             if (rewritten.StateMachine is not null)
             {
-                if (!TypeGenerator.CodeGen.TryGetRuntimeTypeForSymbol(rewritten.StateMachine, out _))
+                if (TypeGenerator.CodeGen.TryGetRuntimeTypeForSymbol(rewritten.StateMachine, out var runtimeType))
+                {
+                    if (runtimeType is TypeBuilder builder)
+                    {
+                        PrintDebug($"Async lambda state machine builder: {builder.FullName ?? builder.Name} (IsCreated={builder.IsCreated()})");
+                    }
+                }
+                else
                 {
                     var stateMachineGenerator = TypeGenerator.CodeGen.GetOrCreateTypeGenerator(rewritten.StateMachine);
                     stateMachineGenerator.DefineTypeBuilder();

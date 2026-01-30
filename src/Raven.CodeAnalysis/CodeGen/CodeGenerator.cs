@@ -721,6 +721,20 @@ internal class CodeGenerator
             CreateTypes();
             PrintDebug("All types created.");
 
+            var deferredTypes = _typeGenerators.Values
+                .Where(generator => generator.TypeBuilder is { } builder && !builder.IsCreated())
+                .ToArray();
+
+            if (deferredTypes.Length > 0)
+            {
+                PrintDebug($"Found {deferredTypes.Length} type builders not created after CreateTypes.");
+                foreach (var generator in deferredTypes)
+                {
+                    PrintDebug($"Creating deferred type: {generator.TypeSymbol.ToDisplayString()}");
+                    generator.CreateType();
+                }
+            }
+
             var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
                 ? _compilation.GetEntryPoint()
                 : null;
