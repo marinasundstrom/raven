@@ -685,6 +685,7 @@ internal class CodeGenerator
     {
         try
         {
+            PrintDebug("Starting code generation emission.");
             var assemblyName = new AssemblyName(_compilation.AssemblyName)
             {
                 Version = new Version(1, 0, 0, 0)
@@ -694,6 +695,7 @@ internal class CodeGenerator
             ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
             DetermineShimTypeRequirements();
+            PrintDebug("Determined shim type requirements.");
 
             if (!_compilation.Options.EmbedCoreTypes)
                 TryBindRuntimeCoreTypes();
@@ -708,12 +710,16 @@ internal class CodeGenerator
                 CreateUnitStruct();
 
             DefineTypeBuilders();
+            PrintDebug("Type builders defined.");
 
             DefineMemberBuilders();
+            PrintDebug("Member builders defined.");
 
             EmitMemberILBodies();
+            PrintDebug("Member IL bodies emitted.");
 
             CreateTypes();
+            PrintDebug("All types created.");
 
             var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
                 ? _compilation.GetEntryPoint()
@@ -745,8 +751,11 @@ internal class CodeGenerator
             }
 
             EntryPoint = entryPointGenerator?.MethodBase;
+            if (EntryPoint is not null)
+                PrintDebug($"Selected entry point: {EntryPoint.Name}");
 
             MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
+            PrintDebug("Generated assembly metadata.");
             MethodDefinitionHandle entryPointHandle = EntryPoint is not null
                 ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
                 : default;
@@ -1617,7 +1626,10 @@ internal class CodeGenerator
         }
 
         if (generator.TypeBuilder is null)
+        {
+            PrintDebug($"Defining type builder for {typeSymbol.ToDisplayString()}");
             generator.DefineTypeBuilder();
+        }
 
         visiting.Remove(typeSymbol);
         visited.Add(typeSymbol);
@@ -1688,11 +1700,13 @@ internal class CodeGenerator
 
     private void DefineMemberBuilders()
     {
+        PrintDebug("Defining member builders for all types.");
         foreach (var typeGenerator in _typeGenerators.Values)
         {
             typeGenerator.DefineMemberBuilders();
         }
 
+        PrintDebug("Completing interface implementations for all types.");
         foreach (var typeGenerator in _typeGenerators.Values)
         {
             typeGenerator.CompleteInterfaceImplementations();
@@ -1701,6 +1715,7 @@ internal class CodeGenerator
 
     private void CreateTypes()
     {
+        PrintDebug("Creating runtime types.");
         foreach (var typeGenerator in _typeGenerators.Values)
         {
             typeGenerator.CreateType();
@@ -1709,6 +1724,7 @@ internal class CodeGenerator
 
     private void EmitMemberILBodies()
     {
+        PrintDebug("Emitting IL bodies for members.");
         foreach (var typeGenerator in _typeGenerators.Values.ToArray())
         {
             typeGenerator.EmitMemberILBodies();
