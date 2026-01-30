@@ -1,8 +1,8 @@
 import System.Console.*
 
-WriteLine("test")
-
 val d: Test = (a, b) => a + b
+
+WriteLine(d(2, 3))
 
 class Foo {
     public delegate Test(a: int, b: int) -> int
