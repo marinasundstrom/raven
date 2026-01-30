@@ -136,6 +136,12 @@ internal sealed class AttributeBinder : BlockBinder
                     return FindAccessibleNamedType(candidateName, 0);
                 }
 
+            case GenericNameSyntax generic:
+                {
+                    var candidateName = AppendAttributeSuffixIfNeeded(generic.Identifier.ValueText, appendAttributeSuffix);
+                    return FindAccessibleNamedType(candidateName, ComputeGenericArity(generic));
+                }
+
             case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
                 {
                     var container = TryLookupNamespaceOrType(qualified.Left);
@@ -144,6 +150,39 @@ internal sealed class AttributeBinder : BlockBinder
 
                     var candidateName = AppendAttributeSuffixIfNeeded(rightIdentifier.Identifier.ValueText, appendAttributeSuffix);
                     return container.LookupType(candidateName) as INamedTypeSymbol;
+                }
+
+            case QualifiedNameSyntax qualified when qualified.Right is GenericNameSyntax rightGeneric:
+                {
+                    var container = TryLookupNamespaceOrType(qualified.Left);
+                    if (container is null)
+                        return null;
+
+                    var candidateName = AppendAttributeSuffixIfNeeded(rightGeneric.Identifier.ValueText, appendAttributeSuffix);
+                    return TryLookupNestedNamedType(container, candidateName, ComputeGenericArity(rightGeneric));
+                }
+
+            case AliasQualifiedNameSyntax aliasQualified:
+                {
+                    var container = TryLookupAliasTarget(aliasQualified.Alias);
+                    if (container is null)
+                        return null;
+
+                    switch (aliasQualified.Name)
+                    {
+                        case IdentifierNameSyntax identifierName:
+                            {
+                                var candidateName = AppendAttributeSuffixIfNeeded(identifierName.Identifier.ValueText, appendAttributeSuffix);
+                                return container.LookupType(candidateName) as INamedTypeSymbol;
+                            }
+                        case GenericNameSyntax genericName:
+                            {
+                                var candidateName = AppendAttributeSuffixIfNeeded(genericName.Identifier.ValueText, appendAttributeSuffix);
+                                return TryLookupNestedNamedType(container, candidateName, ComputeGenericArity(genericName));
+                            }
+                    }
+
+                    break;
                 }
         }
 
@@ -167,6 +206,11 @@ internal sealed class AttributeBinder : BlockBinder
                     return LookupType(identifier.Identifier.ValueText) as INamespaceOrTypeSymbol;
                 }
 
+            case AliasQualifiedNameSyntax aliasQualified:
+                {
+                    return TryLookupAliasTarget(aliasQualified.Alias);
+                }
+
             case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
                 {
                     var left = TryLookupNamespaceOrType(qualified.Left);
@@ -187,6 +231,37 @@ internal sealed class AttributeBinder : BlockBinder
         return null;
     }
 
+    private INamespaceOrTypeSymbol? TryLookupAliasTarget(IdentifierNameSyntax alias)
+    {
+        var symbol = LookupSymbol(alias.Identifier.ValueText);
+        return symbol switch
+        {
+            INamespaceSymbol namespaceSymbol => namespaceSymbol,
+            INamedTypeSymbol typeSymbol => typeSymbol,
+            _ => null
+        };
+    }
+
+    private static INamedTypeSymbol? TryLookupNestedNamedType(INamespaceOrTypeSymbol container, string name, int arity)
+    {
+        if (container.LookupType(name) is not INamedTypeSymbol typeSymbol)
+            return null;
+
+        var candidate = NormalizeDefinition(typeSymbol);
+        return candidate.Arity == arity ? candidate : null;
+    }
+
+    private static int ComputeGenericArity(GenericNameSyntax generic)
+    {
+        var argumentCount = generic.TypeArgumentList.Arguments.Count;
+        var separators = generic.TypeArgumentList.Arguments.SeparatorCount + 1;
+
+        if (argumentCount == 0)
+            return Math.Max(1, separators);
+
+        return Math.Max(argumentCount, separators);
+    }
+
     private static string AppendAttributeSuffixIfNeeded(string name, bool append)
     {
         if (!append)
@@ -204,6 +279,7 @@ internal sealed class AttributeBinder : BlockBinder
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText.EndsWith("Attribute", StringComparison.Ordinal),
             GenericNameSyntax generic => generic.Identifier.ValueText.EndsWith("Attribute", StringComparison.Ordinal),
             QualifiedNameSyntax qualified => HasAttributeSuffix(qualified.Right),
+            AliasQualifiedNameSyntax aliasQualified => HasAttributeSuffix(aliasQualified.Name),
             _ => false
         };
     }
