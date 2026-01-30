@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
@@ -29,9 +30,15 @@ internal class Lexer : ILexer
         _tokenStartPosition = position;
         _textSource.ResetPosition(position);
 
+        PrintDebug($"Lexer reset ot position {position}");
+    }
+
+    [Conditional("DEBUG")]
+    private static void PrintDebug(string text)
+    {
         if (LexerFlags.PrintDebug)
         {
-            Console.WriteLine($"Lexer reset ot position {position}");
+            Console.WriteLine(text);
         }
     }
 
@@ -39,10 +46,7 @@ internal class Lexer : ILexer
     {
         var position = _textSource.PushPosition();
 
-        if (LexerFlags.PrintDebug)
-        {
-            Console.WriteLine($"Lexer pushed checkpoint for position {position}");
-        }
+        PrintDebug($"Lexer pushed checkpoint for position {position}");
     }
 
     public void RewindToCheckpoint()
@@ -52,20 +56,14 @@ internal class Lexer : ILexer
         _currentPosition = position;
         _tokenStartPosition = position;
 
-        if (LexerFlags.PrintDebug)
-        {
-            Console.WriteLine($"Lexer rewind to position {position}");
-        }
+        PrintDebug($"Lexer rewind to position {position}");
     }
 
     public void ClearCheckpoint()
     {
         var position = _textSource.PopPosition();
 
-        if (LexerFlags.PrintDebug)
-        {
-            Console.WriteLine($"Lexer cleared checkpoint at position {position}");
-        }
+        PrintDebug($"Lexer cleared checkpoint at position {position}");
     }
 
     /// <summary>
@@ -99,10 +97,7 @@ internal class Lexer : ILexer
             token = ReadTokenCore();
         }
 
-        if (LexerFlags.PrintDebug)
-        {
-            Console.WriteLine($"Lexer read token: {token.Kind} {token.Text}{(token.Value is not null ? $" ({token.Value})" : "")}, at position {_tokenStartPosition} (Width: {token.Length})");
-        }
+        PrintDebug($"Lexer read token: {token.Kind} {token.Text}{(token.Value is not null ? $" ({token.Value})" : "")}, at position {_tokenStartPosition} (Width: {token.Length})");
 
         return token;
     }

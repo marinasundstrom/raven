@@ -7,6 +7,15 @@ internal abstract class ParseContext
 {
     protected static Stopwatch _stopwatch = new Stopwatch();
 
+    [Conditional("DEBUG")]
+    protected static void PrintDebug(string text)
+    {
+        if (CodeGenFlags.PrintDebug)
+        {
+            Console.WriteLine($"{PrintLeadingDebug()}{text}");
+        }
+    }
+
     protected static string PrintLeadingDebug()
     {
         if (SyntaxParserFlags.PrintTimestamp)
@@ -16,13 +25,7 @@ internal abstract class ParseContext
         return string.Empty;
     }
 
-    private static readonly Lazy<bool> _isInDebugMode =
-        new(() => SyntaxParserFlags.PrintParseSequence);
-
-    public static bool IsInDebugMode => _isInDebugMode.Value;
-
     private List<DiagnosticInfo>? _diagnostics;
-
 
     private int _parenDepth;
     public void EnterParens() => _parenDepth++;

@@ -12,6 +12,8 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
+using static Raven.CodeAnalysis.CodeGen.DebugUtils;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal class CodeGenerator
@@ -1119,6 +1121,8 @@ internal class CodeGenerator
 
     private void DefineTypeBuilders()
     {
+        PrintDebug("Defining type builders...");
+
         EnsureAsyncStateMachines();
         EnsureIteratorStateMachines();
 
@@ -1216,6 +1220,8 @@ internal class CodeGenerator
 
         foreach (var tree in Compilation.SyntaxTrees)
         {
+            PrintDebug($"Ensuring async state machine for Syntax Tree: {tree.FilePath}");
+
             var semanticModel = Compilation.GetSemanticModel(tree);
             var root = tree.GetRoot();
 
@@ -1268,6 +1274,8 @@ internal class CodeGenerator
     {
         foreach (var lambdaSyntax in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
         {
+            PrintDebug($"Rewriting lambda: {lambdaSyntax}");
+
             if (semanticModel.GetBoundNode(lambdaSyntax) is not BoundLambdaExpression boundLambda)
                 continue;
 

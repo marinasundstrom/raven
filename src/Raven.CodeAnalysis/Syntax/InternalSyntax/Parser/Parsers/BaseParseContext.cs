@@ -87,10 +87,7 @@ internal partial class BaseParseContext : ParseContext
         if (_treatNewlinesAsTokens == value)
             return;
 
-        if (IsInDebugMode)
-        {
-            Console.WriteLine($"{PrintLeadingDebug()}Set treat newlines as tokens: {value}");
-        }
+        PrintDebug($"{PrintLeadingDebug()}Set treat newlines as tokens: {value}");
 
         _treatNewlinesAsTokens = value;
 
@@ -155,10 +152,10 @@ internal partial class BaseParseContext : ParseContext
         [CallerFilePath] string? callerFilePath = null,
         [CallerLineNumber] int? callerLineNumber = null)
     {
-        if (IsInDebugMode)
+        if (SyntaxParserFlags.PrintParseSequence)
         {
             callerFilePath = Path.GetRelativePath(Environment.CurrentDirectory, callerFilePath ?? Environment.CurrentDirectory);
-            Console.WriteLine($"{PrintLeadingDebug()}Created checkpoint{(string.IsNullOrEmpty(debugName) ? string.Empty : $" \"{debugName}\"")} (position {_position}), at member {callerMemberName}, in {callerFilePath}, at line {callerLineNumber} ");
+            PrintDebug($"{PrintLeadingDebug()}Created checkpoint{(string.IsNullOrEmpty(debugName) ? string.Empty : $" \"{debugName}\"")} (position {_position}), at member {callerMemberName}, in {callerFilePath}, at line {callerLineNumber} ");
         }
         return new ParserCheckpoint(this, debugName);
     }
@@ -219,7 +216,7 @@ internal partial class BaseParseContext : ParseContext
 
         TrackBlockDepth(_lastToken);
 
-        if (IsInDebugMode)
+        if (SyntaxParserFlags.PrintParseSequence)
         {
             DebugPrintToken("Read token", _lastToken, actualPosition);
         }
@@ -247,7 +244,7 @@ internal partial class BaseParseContext : ParseContext
 
         var token = _lookaheadTokens[index];
 
-        if (IsInDebugMode && false)
+        if (SyntaxParserFlags.PrintParseSequence)
         {
             int pos = _position;
 

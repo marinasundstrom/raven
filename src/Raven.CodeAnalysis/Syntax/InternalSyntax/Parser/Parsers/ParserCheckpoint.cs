@@ -29,11 +29,12 @@ internal struct ParserCheckpoint : IDisposable
         [CallerFilePath] string? callerFilePath = null,
         [CallerLineNumber] int? callerLineNumber = null)
     {
-        if (ParseContext.IsInDebugMode)
+        if (SyntaxParserFlags.PrintParseSequence)
         {
             callerFilePath = Path.GetRelativePath(Environment.CurrentDirectory, callerFilePath ?? Environment.CurrentDirectory);
             Console.WriteLine($"Rewind to checkpoint{(string.IsNullOrEmpty(DebugName) ? string.Empty : $" \"{DebugName}\"")} (position {_position}), at {callerMemberName}, in {callerFilePath}, at line {callerLineNumber} ");
         }
+
         _context.RewindToPosition(_position);
         _context._lastToken = _lastToken;
         _context._blockDepth = _blockDepth;
