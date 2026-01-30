@@ -4443,7 +4443,7 @@ partial class BlockBinder : Binder
     private string NormalizeIdentifier(IdentifierNameSyntax syntax, string name)
     {
         if (this is AttributeBinder
-            && syntax.FirstAncestorOrSelf<ParameterListSyntax>() is null)
+            && syntax.FirstAncestorOrSelf<ArgumentListSyntax>() is null)
         {
             if (!name.EndsWith("Attribute"))
             {

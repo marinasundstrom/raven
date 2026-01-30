@@ -128,7 +128,24 @@ internal sealed class AttributeBinder : BlockBinder
 
     private INamedTypeSymbol? TryLookupAttributeType(TypeSyntax attributeName, bool appendAttributeSuffix)
     {
-        return (INamedTypeSymbol?)(ParentBinder?.ResolveType(attributeName));
+        var lookupSyntax = appendAttributeSuffix ? AppendAttributeSuffix(attributeName) : attributeName;
+        return (INamedTypeSymbol?)(ParentBinder?.ResolveType(lookupSyntax));
+    }
+
+    private static TypeSyntax AppendAttributeSuffix(TypeSyntax syntax)
+    {
+        return syntax switch
+        {
+            IdentifierNameSyntax identifier => identifier.WithIdentifier(
+                SyntaxFactory.Identifier(AppendAttributeSuffixIfNeeded(identifier.Identifier.ValueText, append: true))),
+            GenericNameSyntax generic => generic.WithIdentifier(
+                SyntaxFactory.Identifier(AppendAttributeSuffixIfNeeded(generic.Identifier.ValueText, append: true))),
+            QualifiedNameSyntax qualified => qualified.WithRight(
+                (SimpleNameSyntax)AppendAttributeSuffix(qualified.Right)),
+            AliasQualifiedNameSyntax aliasQualified => aliasQualified.WithName(
+                (SimpleNameSyntax)AppendAttributeSuffix(aliasQualified.Name)),
+            _ => syntax
+        };
     }
 
     private INamespaceOrTypeSymbol? TryLookupNamespaceOrType(TypeSyntax syntax)
