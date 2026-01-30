@@ -10,7 +10,7 @@ internal abstract class ParseContext
     [Conditional("DEBUG")]
     protected static void PrintDebug(string text)
     {
-        if (CodeGenFlags.PrintDebug)
+        if (SyntaxParserFlags.PrintParseSequence)
         {
             Console.WriteLine($"{PrintLeadingDebug()}{text}");
         }

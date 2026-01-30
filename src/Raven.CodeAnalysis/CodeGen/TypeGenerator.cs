@@ -734,13 +734,6 @@ internal class TypeGenerator
 
     public Type CreateType()
     {
-        if (TypeSymbol is INamedTypeSymbol { ContainingType: INamedTypeSymbol containingType })
-        {
-            var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
-            if (containingGenerator.TypeBuilder is not null && !containingGenerator.TypeBuilder.IsCreated())
-                containingGenerator.CreateType();
-        }
-
         foreach (var closure in _lambdaClosures.Values)
             closure.CreateType();
 

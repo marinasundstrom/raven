@@ -735,6 +735,25 @@ internal class CodeGenerator
                 }
             }
 
+            var deferredMethodTypes = _typeGenerators.Values
+                .SelectMany(generator => generator.MethodGenerators)
+                .Select(generator => generator.MethodBase?.DeclaringType)
+                .OfType<TypeBuilder>()
+                .Where(builder => !builder.IsCreated())
+                .Distinct()
+                .ToArray();
+
+            if (deferredMethodTypes.Length > 0)
+            {
+                PrintDebug($"Found {deferredMethodTypes.Length} method declaring types not created after CreateTypes.");
+                foreach (var builder in deferredMethodTypes)
+                {
+                    PrintDebug($"Creating declaring type for method: {builder.FullName ?? builder.Name}");
+                    var owner = _typeGenerators.Values.FirstOrDefault(generator => ReferenceEquals(generator.TypeBuilder, builder));
+                    owner?.CreateType();
+                }
+            }
+
             var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
                 ? _compilation.GetEntryPoint()
                 : null;
@@ -1730,10 +1749,24 @@ internal class CodeGenerator
     private void CreateTypes()
     {
         PrintDebug("Creating runtime types.");
-        foreach (var typeGenerator in _typeGenerators.Values)
+        foreach (var typeGenerator in _typeGenerators.Values
+            .OrderByDescending(generator => GetContainingTypeDepth(generator.TypeSymbol)))
         {
             typeGenerator.CreateType();
         }
+    }
+
+    private static int GetContainingTypeDepth(ITypeSymbol typeSymbol)
+    {
+        var depth = 0;
+        var current = (typeSymbol as INamedTypeSymbol)?.ContainingType;
+        while (current is not null)
+        {
+            depth++;
+            current = current.ContainingType;
+        }
+
+        return depth;
     }
 
     private void EmitMemberILBodies()

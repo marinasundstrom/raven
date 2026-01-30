@@ -552,7 +552,11 @@ internal class MethodGenerator
                 closureSelfType = closure.Symbol;
             }
 
-            var rewritten = AsyncLowerer.Rewrite(sourceLambda, block, selfType: closureSelfType);
+            var rewritten = AsyncLowerer.Rewrite(
+                sourceLambda,
+                block,
+                sourceLambda.AsyncStateMachine,
+                closureSelfType);
             if (rewritten.StateMachine is not null)
             {
                 if (TypeGenerator.CodeGen.TryGetRuntimeTypeForSymbol(rewritten.StateMachine, out var runtimeType))

@@ -8,6 +8,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
     private bool _hasAsyncReturnTypeError;
     private bool _containsAwait;
+    private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
 
     public SourceLambdaSymbol(
         IReadOnlyList<IParameterSymbol> parameters,
@@ -78,6 +79,8 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public bool ContainsAwait => _containsAwait;
 
+    internal SynthesizedAsyncStateMachineTypeSymbol? AsyncStateMachine => _asyncStateMachine;
+
     internal void MarkAsyncReturnTypeError()
     {
         _hasAsyncReturnTypeError = true;
@@ -102,6 +105,11 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public void SetContainsAwait(bool containsAwait)
     {
         _containsAwait = containsAwait;
+    }
+
+    internal void SetAsyncStateMachine(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+    {
+        _asyncStateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
     }
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
