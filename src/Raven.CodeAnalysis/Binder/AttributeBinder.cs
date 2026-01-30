@@ -123,7 +123,22 @@ internal sealed class AttributeBinder : BlockBinder
                 return withSuffix;
         }
 
-        return TryLookupAttributeType(attributeName, appendAttributeSuffix: false);
+        var withoutSuffix = TryLookupAttributeType(attributeName, appendAttributeSuffix: false);
+        if (withoutSuffix is not null)
+            return withoutSuffix;
+
+        return TryLookupFrameworkAttributeType(attributeName, hasAttributeSuffix);
+    }
+
+    private INamedTypeSymbol? TryLookupFrameworkAttributeType(TypeSyntax attributeName, bool hasAttributeSuffix)
+    {
+        if (attributeName is not IdentifierNameSyntax identifier)
+            return null;
+
+        var baseName = identifier.Identifier.ValueText;
+        var candidateName = AppendAttributeSuffixIfNeeded(baseName, !hasAttributeSuffix);
+
+        return Compilation.GetTypeByMetadataName($"System.{candidateName}") as INamedTypeSymbol;
     }
 
     private INamedTypeSymbol? TryLookupAttributeType(TypeSyntax attributeName, bool appendAttributeSuffix)
