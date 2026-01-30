@@ -79,13 +79,16 @@ internal abstract class SourceSymbol : Symbol
 
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
-                var data = semanticModel.BindAttribute(attribute);
+                var binder = semanticModel.GetBinder(attribute);
+                var attributeBinder = binder as AttributeBinder ?? new AttributeBinder(this, binder);
+                var boundAttribute = attributeBinder.BindAttribute(attribute);
+                var data = AttributeDataFactory.Create(boundAttribute, attribute);
                 if (data is null)
                     continue;
 
                 if (AttributeUsageHelper.TryValidateAttribute(
                         compilation,
-                        semanticModel,
+                        attributeBinder,
                         this,
                         attribute,
                         data,
