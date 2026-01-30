@@ -34,7 +34,8 @@ Declaration              ::= NamespaceDeclaration
                            | UnionDeclaration
                            | ClassDeclaration
                            | StructDeclaration
-                           | InterfaceDeclaration ;
+                           | InterfaceDeclaration
+                           | DelegateDeclaration ;
 
 NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {Declaration | Statement} '}' ;
 
@@ -111,6 +112,12 @@ UnionDeclaration         ::= TypeModifiers? 'union' Identifier TypeParameterList
                              WhereClauseList?
                              '{' UnionCaseList '}' TypeTerminator? ;
 
+DelegateDeclaration      ::= TypeModifiers? 'delegate' Identifier TypeParameterList?
+                             '(' ParameterList? ')'
+                             ReturnTypeClause?
+                             WhereClauseList?
+                             TypeTerminator? ;
+
 UnionCaseList            ::= UnionCaseClause {UnionCaseClause} ;
 UnionCaseClause          ::= Identifier ParameterList? ;
 
@@ -129,7 +136,8 @@ ClassMember              ::= FieldDeclaration
                            | ConstructorDeclaration
                            | EventDeclaration
                            | PropertyDeclaration
-                           | IndexerDeclaration ;
+                           | IndexerDeclaration
+                           | DelegateDeclaration ;
 
 FieldDeclaration         ::= MemberModifiers? FieldKind VariableDeclarators ';' ;
 FieldKind                ::= 'let' | 'val' | 'var' | 'const' ;

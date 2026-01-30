@@ -1,7 +1,13 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Threading;
 
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Documentation;
@@ -530,6 +536,8 @@ public partial class SemanticModel
         var enumSymbols = new Dictionary<EnumDeclarationSyntax, SourceNamedTypeSymbol>();
         var unionSymbols = new Dictionary<UnionDeclarationSyntax, SourceDiscriminatedUnionSymbol>();
 
+        var delegateSymbols = new Dictionary<DelegateDeclarationSyntax, SourceNamedTypeSymbol>();
+
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
 
         foreach (var member in containerNode.ChildNodes())
@@ -615,6 +623,40 @@ public partial class SemanticModel
                             InitializeTypeParameters(classSymbol, classDecl.TypeParameterList, classDecl.ConstraintClauses);
 
                         classSymbols[classDecl] = classSymbol;
+                        break;
+                    }
+
+                case DelegateDeclarationSyntax delegateDecl:
+                    {
+                        ReportExternalTypeRedeclaration(
+                            parentNamespace,
+                            delegateDecl.Identifier,
+                            delegateDecl.TypeParameterList?.Parameters.Count ?? 0,
+                            parentBinder.Diagnostics);
+
+                        var baseType = Compilation.GetSpecialType(SpecialType.System_MulticastDelegate);
+
+                        var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            delegateDecl.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+
+                        var delegateSymbol = new SourceNamedTypeSymbol(
+                            delegateDecl.Identifier.ValueText,
+                            baseType!,
+                            TypeKind.Delegate,
+                            parentNamespace.AsSourceNamespace(),
+                            null,
+                            parentNamespace.AsSourceNamespace(),
+                            new[] { delegateDecl.GetLocation() },
+                            new[] { delegateDecl.GetReference() },
+                            isSealed: true,
+                            isAbstract: true,
+                            isStatic: false,
+                            declaredAccessibility: delegateAccessibility);
+
+                        InitializeTypeParameters(delegateSymbol, delegateDecl.TypeParameterList, delegateDecl.ConstraintClauses);
+
+                        delegateSymbols[delegateDecl] = delegateSymbol;
                         break;
                     }
 
@@ -899,6 +941,20 @@ public partial class SemanticModel
                         break;
                     }
 
+                case DelegateDeclarationSyntax delegateDecl:
+                    {
+                        var delegateSymbol = delegateSymbols[delegateDecl];
+
+                        // Binder for attributes/type parameter constraints
+                        var delegateBinder = new DelegateDeclarationBinder(parentBinder, delegateSymbol, delegateDecl);
+                        delegateBinder.EnsureTypeParameterConstraintTypesResolved(delegateSymbol.TypeParameters);
+                        _binderCache[delegateDecl] = delegateBinder;
+
+                        EnsureDelegateMembers(delegateSymbol, delegateDecl, delegateBinder);
+
+                        break;
+                    }
+
                 case EnumDeclarationSyntax enumDecl:
                     {
                         var enumSymbol = enumSymbols[enumDecl];
@@ -956,6 +1012,124 @@ public partial class SemanticModel
             return builder.ToImmutable();
         }
     }
+
+    private void EnsureDelegateMembers(SourceNamedTypeSymbol delegateSymbol, DelegateDeclarationSyntax delegateDecl, Binder binder)
+    {
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+        void RegisterMember(SourceNamedTypeSymbol owner, ISymbol member)
+        {
+            if (!owner.GetMembers().Any(m => SymbolEqualityComparer.Default.Equals(m, member)))
+                owner.AddMember(member);
+        }
+
+        static RefKind GetRefKind(ParameterSyntax parameter)
+        {
+            var typeSyntax = parameter.TypeAnnotation!.Type;
+            var refKindTokenKind = parameter.RefKindKeyword?.Kind;
+            return typeSyntax is ByRefTypeSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
+        }
+
+        static bool RequiresByRefType(TypeSyntax typeSyntax, RefKind refKind)
+            => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
+               typeSyntax is ByRefTypeSyntax;
+
+        // .ctor(object, IntPtr)
+        var ctor = new SourceMethodSymbol(
+            ".ctor",
+            unitType!,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            delegateSymbol,
+            delegateSymbol,
+            delegateSymbol.ContainingNamespace,
+            new[] { delegateDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: false,
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: Accessibility.Public);
+
+        var ctorParams = ImmutableArray.Create(
+            new SourceParameterSymbol(
+                "object",
+                objectType!,
+                ctor,
+                delegateSymbol,
+                delegateSymbol.ContainingNamespace,
+                new[] { delegateDecl.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                RefKind.None),
+            new SourceParameterSymbol(
+                "method",
+                intPtrType!,
+                ctor,
+                delegateSymbol,
+                delegateSymbol.ContainingNamespace,
+                new[] { delegateDecl.GetLocation() },
+                Array.Empty<SyntaxReference>(),
+                RefKind.None));
+
+        ctor.SetParameters(ctorParams);
+        RegisterMember(delegateSymbol, ctor);
+
+        // Invoke
+        var returnType = delegateDecl.ReturnType is null
+            ? unitType!
+            : binder.ResolveType(delegateDecl.ReturnType.Type);
+
+        var invoke = new SourceMethodSymbol(
+            "Invoke",
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            delegateSymbol,
+            delegateSymbol,
+            delegateSymbol.ContainingNamespace,
+            new[] { delegateDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: false,
+            methodKind: MethodKind.Ordinary,
+            declaredAccessibility: Accessibility.Public);
+
+        var invokeParams = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDecl.ParameterList.Parameters.Count);
+        foreach (var p in delegateDecl.ParameterList.Parameters)
+        {
+            var refKind = GetRefKind(p);
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+            var pType = RequiresByRefType(typeSyntax, refKindForType)
+                ? binder.ResolveType(typeSyntax, refKindForType)
+                : binder.ResolveType(typeSyntax);
+
+            invokeParams.Add(new SourceParameterSymbol(
+                p.Identifier.ValueText,
+                pType,
+                invoke,
+                delegateSymbol,
+                delegateSymbol.ContainingNamespace,
+                new[] { p.GetLocation() },
+                new[] { p.GetReference() },
+                refKind));
+        }
+
+        invoke.SetParameters(invokeParams.ToImmutable());
+        RegisterMember(delegateSymbol, invoke);
+    }
+
     private void RegisterUnionCases(UnionDeclarationSyntax unionDecl, UnionDeclarationBinder unionBinder, SourceDiscriminatedUnionSymbol unionSymbol)
     {
         var namespaceSymbol = unionBinder.CurrentNamespace?.AsSourceNamespace()
@@ -1535,6 +1709,30 @@ public partial class SemanticModel
                         nestedUnionSymbols[nestedUnion] = unionSymbol;
                         break;
                     }
+
+                case DelegateDeclarationSyntax delegateDecl:
+                    {
+                        var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            delegateDecl.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
+
+                        var delegateSymbol = new SourceNamedTypeSymbol(
+                            delegateDecl.Identifier.ValueText,
+                            Compilation.GetSpecialType(SpecialType.System_MulticastDelegate)!,
+                            TypeKind.Delegate,
+                            parentType,
+                            parentType,
+                            classBinder.CurrentNamespace!.AsSourceNamespace(),
+                            [delegateDecl.GetLocation()],
+                            [delegateDecl.GetReference()],
+                            isSealed: true,
+                            isAbstract: true,
+                            isStatic: false,
+                            declaredAccessibility: delegateAccessibility);
+
+                        InitializeTypeParameters(delegateSymbol, delegateDecl.TypeParameterList, delegateDecl.ConstraintClauses);
+                        break;
+                    }
             }
         }
 
@@ -1602,6 +1800,12 @@ public partial class SemanticModel
                     var namedCtorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var namedCtorBinder = namedCtorMemberBinder.BindNamedConstructorDeclaration(ctorDecl);
                     _binderCache[ctorDecl] = namedCtorBinder;
+                    break;
+
+                case DelegateDeclarationSyntax del:
+                    var delMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var delBinder = delMemberBinder.BindDelegateDeclaration(del);
+                    _binderCache[del] = delBinder;
                     break;
 
                 case ClassDeclarationSyntax nestedClass:

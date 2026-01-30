@@ -280,6 +280,12 @@ internal class TypeDeclarationParser : SyntaxParser
                 memberDeclarationCheckpoint.Rewind();
                 return new UnionDeclarationParser(this).Parse();
             }
+
+            if (typeKeywordKind == SyntaxKind.DelegateKeyword)
+            {
+                memberDeclarationCheckpoint.Rewind();
+                return ParseDelegateDeclaration(attributeLists, modifiers);
+            }
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
@@ -298,6 +304,11 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             memberDeclarationCheckpoint.Rewind();
             return new UnionDeclarationParser(this).Parse();
+        }
+
+        if (keywordOrIdentifier.IsKind(SyntaxKind.DelegateKeyword))
+        {
+            return ParseDelegateDeclaration(attributeLists, modifiers);
         }
 
         if ((keywordOrIdentifier.IsKind(SyntaxKind.ExplicitKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.ImplicitKeyword))
@@ -1023,16 +1034,51 @@ internal class TypeDeclarationParser : SyntaxParser
         return new VariableDeclarationSyntax(bindingKeyword, declarators);
     }
 
-    private TypeAnnotationClauseSyntax? ParseTypeAnnotationClauseSyntax()
+    public DelegateDeclarationSyntax ParseDelegateDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
-        if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
-        {
-            TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
+        var delegateKeyword = ReadToken();
 
-            return TypeAnnotationClause(colonToken, type);
+        if (!ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier))
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.IdentifierExpected,
+                    GetEndOfLastToken()));
         }
 
-        return null;
+        TypeParameterListSyntax? typeParameterList = null;
+        if (PeekToken().IsKind(SyntaxKind.LessThanToken))
+        {
+            typeParameterList = ParseTypeParameterList();
+        }
+
+        var parameterList = ParseParameterList();
+
+        ArrowTypeClauseSyntax? returnType = null;
+        if (PeekToken().IsKind(SyntaxKind.ArrowToken))
+        {
+            returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+        }
+
+        SyntaxList constraintClauses = SyntaxList.Empty;
+        while (PeekToken().IsKind(SyntaxKind.WhereKeyword))
+        {
+            constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return DelegateDeclaration(
+            attributeLists,
+            modifiers,
+            delegateKeyword,
+            identifier,
+            typeParameterList,
+            parameterList,
+            returnType,
+            constraintClauses,
+            terminatorToken,
+            Diagnostics);
     }
 
     public BracketedParameterListSyntax ParseBracketedParameterList()

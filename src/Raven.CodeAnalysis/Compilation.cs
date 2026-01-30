@@ -611,6 +611,130 @@ public partial class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
             }
         }
+        else if (memberDeclaration is DelegateDeclarationSyntax delegateDeclaration)
+        {
+            Location[] locations = [syntaxTree.GetLocation(delegateDeclaration.EffectiveSpan)];
+            SyntaxReference[] references = [delegateDeclaration.GetReference()];
+
+            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingNamespace = declaringSymbol switch
+            {
+                INamespaceSymbol ns => ns,
+                INamedTypeSymbol type => type.ContainingNamespace,
+                _ => null
+            };
+
+            var baseTypeSymbol = GetSpecialType(SpecialType.System_MulticastDelegate);
+
+            var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                delegateDeclaration.Modifiers,
+                AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
+
+            var symbol = new SourceNamedTypeSymbol(
+                delegateDeclaration.Identifier.ValueText,
+                baseTypeSymbol,
+                TypeKind.Delegate,
+                declaringSymbol,
+                containingType,
+                containingNamespace,
+                locations,
+                references,
+                isSealed: true,
+                isAbstract: true,
+                isStatic: false,
+                declaredAccessibility: typeAccessibility);
+
+            InitializeTypeParameters(symbol, delegateDeclaration.TypeParameterList, delegateDeclaration.ConstraintClauses, syntaxTree);
+
+            // .ctor(object, IntPtr)
+            var ctorParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(2);
+            ctorParameters.Add(new SourceParameterSymbol(
+                "object",
+                GetSpecialType(SpecialType.System_Object),
+                symbol,
+                symbol,
+                symbol.ContainingNamespace,
+                locations,
+                references,
+                RefKind.None));
+            ctorParameters.Add(new SourceParameterSymbol(
+                "method",
+                GetSpecialType(SpecialType.System_IntPtr),
+                symbol,
+                symbol,
+                symbol.ContainingNamespace,
+                locations,
+                references,
+                RefKind.None));
+
+            _ = new SourceMethodSymbol(
+                ".ctor",
+                GetSpecialType(SpecialType.System_Unit),
+                ctorParameters.MoveToImmutable(),
+                symbol,
+                symbol,
+                symbol.ContainingNamespace,
+                locations,
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Constructor,
+                declaredAccessibility: Accessibility.Public);
+
+            // Invoke
+            var returnType = delegateDeclaration.ReturnType is null
+                ? GetSpecialType(SpecialType.System_Unit)
+                : ResolveTypeSyntax(delegateDeclaration.ReturnType.Type, symbol);
+
+            var invokeParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDeclaration.ParameterList.Parameters.Count);
+            foreach (var p in delegateDeclaration.ParameterList.Parameters)
+            {
+                var refKindTokenKind = p.RefKindKeyword?.Kind;
+                var typeSyntax = p.TypeAnnotation!.Type;
+                var refKind = typeSyntax is ByRefTypeSyntax
+                    ? refKindTokenKind switch
+                    {
+                        SyntaxKind.OutKeyword => RefKind.Out,
+                        SyntaxKind.InKeyword => RefKind.In,
+                        SyntaxKind.RefKeyword => RefKind.Ref,
+                        _ => RefKind.Ref,
+                    }
+                    : refKindTokenKind switch
+                    {
+                        SyntaxKind.OutKeyword => RefKind.Out,
+                        SyntaxKind.InKeyword => RefKind.In,
+                        SyntaxKind.RefKeyword => RefKind.Ref,
+                        _ => RefKind.None,
+                    };
+
+                var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+                var resolvedType = ResolveTypeSyntax(typeSyntax, symbol);
+                var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? resolvedType is ByRefTypeSymbol ? resolvedType : new ByRefTypeSymbol(resolvedType)
+                    : resolvedType;
+
+                invokeParameters.Add(new SourceParameterSymbol(
+                    p.Identifier.ValueText,
+                    pType,
+                    symbol,
+                    symbol,
+                    symbol.ContainingNamespace,
+                    locations,
+                    references,
+                    refKind));
+            }
+
+            _ = new SourceMethodSymbol(
+                "Invoke",
+                returnType,
+                invokeParameters.MoveToImmutable(),
+                symbol,
+                symbol,
+                symbol.ContainingNamespace,
+                locations,
+                references,
+                isStatic: false,
+                declaredAccessibility: Accessibility.Public);
+        }
         else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
             Location[] locations = [syntaxTree.GetLocation(methodDeclaration.EffectiveSpan)];
@@ -723,6 +847,84 @@ public partial class Compilation
     public ITypeSymbol ConstructGenericType(INamedTypeSymbol genericDefinition, ITypeSymbol[] typeArgs)
     {
         return genericDefinition.Construct(typeArgs);
+    }
+
+    private ITypeSymbol ResolveTypeSyntax(TypeSyntax typeSyntax, ISymbol container)
+    {
+        switch (typeSyntax)
+        {
+            case ByRefTypeSyntax byRef:
+                {
+                    var elementType = ResolveTypeSyntax(byRef.ElementType, container);
+                    return new ByRefTypeSymbol(elementType);
+                }
+
+            case PredefinedTypeSyntax predefined:
+                return ResolvePredefinedType(predefined);
+
+            case IdentifierNameSyntax id:
+                if (container is INamedTypeSymbol namedType)
+                {
+                    var typeParameter = namedType.TypeParameters.FirstOrDefault(tp => tp.Name == id.Identifier.ValueText);
+                    if (typeParameter is not null)
+                        return typeParameter;
+                }
+
+                return (container switch
+                {
+                    INamespaceSymbol ns => ns.LookupType(id.Identifier.ValueText),
+                    INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.ValueText),
+                    _ => null
+                }) as ITypeSymbol ?? ErrorTypeSymbol;
+
+            case QualifiedNameSyntax qn:
+                {
+                    // Resolve left as namespace, then right as type
+                    var leftName = qn.Left.ToString();
+                    string rightName = string.Empty;
+                    if (qn.Right is IdentifierNameSyntax ifname)
+                    {
+                        rightName = ifname.Identifier.ValueText;
+                    }
+
+                    var ns = (container switch
+                    {
+                        INamespaceSymbol nns => nns,
+                        INamedTypeSymbol nt => nt.ContainingNamespace,
+                        _ => null
+                    });
+
+                    var resolvedNs = ns?.LookupNamespace(leftName);
+                    if (resolvedNs is not null)
+                        return resolvedNs.LookupType(rightName) as ITypeSymbol ?? ErrorTypeSymbol;
+
+                    // Fallback: treat as metadata name
+                    var metadata = qn.ToString();
+                    return GetTypeByMetadataName(metadata) ?? ErrorTypeSymbol;
+                }
+
+            case GenericNameSyntax gn:
+                {
+                    var def = (container switch
+                    {
+                        INamespaceSymbol ns => ns.LookupType(gn.Identifier.ValueText),
+                        INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(gn.Identifier.ValueText),
+                        _ => null
+                    }) as INamedTypeSymbol;
+
+                    if (def is null)
+                        return ErrorTypeSymbol;
+
+                    var args = gn.TypeArgumentList.Arguments
+                        .Select(a => ResolveTypeSyntax(a.Type, container))
+                        .ToArray();
+
+                    return def.Construct(args);
+                }
+
+            default:
+                return ErrorTypeSymbol;
+        }
     }
 
     public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)

@@ -104,6 +104,7 @@ internal class TypeMemberBinder : Binder
             IndexerDeclarationSyntax indexer => BindIndexerSymbol(indexer),
             AccessorDeclarationSyntax accessor => BindAccessorSymbol(accessor),
             VariableDeclaratorSyntax variable => BindFieldSymbol(variable),
+            DelegateDeclarationSyntax del => BindDelegateSymbol(del),
             _ => base.BindDeclaredSymbol(node)
         };
     }
@@ -114,6 +115,15 @@ internal class TypeMemberBinder : Binder
             .OfType<IFieldSymbol>()
             .FirstOrDefault(f => f.Name == variable.Identifier.ValueText &&
                                  f.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == variable));
+    }
+
+    private ISymbol? BindDelegateSymbol(DelegateDeclarationSyntax del)
+    {
+        return _containingType.GetMembers()
+            .OfType<INamedTypeSymbol>()
+            .Where(x => x.TypeKind == TypeKind.Delegate)
+            .FirstOrDefault(f => f.Name == del.Identifier.ValueText &&
+                                 f.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == del));
     }
 
     private ISymbol? BindMethodSymbol(MethodDeclarationSyntax method)
@@ -1280,6 +1290,157 @@ internal class TypeMemberBinder : Binder
 
         ctorSymbol.SetParameters(parameters);
         return new MethodBinder(ctorSymbol, this);
+    }
+
+    public DelegateDeclarationBinder BindDelegateDeclaration(DelegateDeclarationSyntax delegateDecl)
+    {
+        var declared = BindDelegateSymbol(delegateDecl);
+        var delegateSymbol = declared as SourceNamedTypeSymbol;
+
+        if (delegateSymbol is null)
+        {
+            var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                delegateDecl.Modifiers,
+                AccessibilityUtilities.GetDefaultTypeAccessibility(_containingType));
+
+            // If the delegate symbol wasn't registered (or we're binding against metadata),
+            // fall back to a synthesized container so we can keep producing diagnostics.
+            delegateSymbol = new SourceNamedTypeSymbol(
+                delegateDecl.Identifier.ValueText,
+                Compilation.GetSpecialType(SpecialType.System_MulticastDelegate)!,
+                TypeKind.Delegate,
+                _containingType,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [delegateDecl.GetLocation()],
+                [delegateDecl.GetReference()],
+                isSealed: true,
+                isAbstract: true,
+                isStatic: false,
+                declaredAccessibility: delegateAccessibility);
+        }
+
+        var binder = new DelegateDeclarationBinder(this, delegateSymbol, delegateDecl);
+        binder.EnsureTypeParameterConstraintTypesResolved(delegateSymbol.TypeParameters);
+        EnsureDelegateMembers(delegateSymbol, delegateDecl, binder);
+        return binder;
+    }
+
+    private void EnsureDelegateMembers(SourceNamedTypeSymbol delegateSymbol, DelegateDeclarationSyntax delegateDecl, Binder binder)
+    {
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+        void RegisterMember(SourceNamedTypeSymbol owner, ISymbol member)
+        {
+            if (!owner.GetMembers().Any(m => SymbolEqualityComparer.Default.Equals(m, member)))
+                owner.AddMember(member);
+        }
+
+        static RefKind GetRefKind(ParameterSyntax parameter)
+        {
+            var typeSyntax = parameter.TypeAnnotation!.Type;
+            var refKindTokenKind = parameter.RefKindKeyword?.Kind;
+            return typeSyntax is ByRefTypeSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
+        }
+
+        static bool RequiresByRefType(TypeSyntax typeSyntax, RefKind refKind)
+            => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
+               typeSyntax is ByRefTypeSyntax;
+
+        // .ctor(object, IntPtr)
+        var ctor = new SourceMethodSymbol(
+            ".ctor",
+            unitType!,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            delegateSymbol,
+            delegateSymbol,
+            CurrentNamespace.AsSourceNamespace(),
+            new[] { delegateDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: false,
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: Accessibility.Public);
+
+        var ctorParams = ImmutableArray.Create(
+                   new SourceParameterSymbol(
+                       "object",
+                       objectType!,
+                       ctor,
+                       delegateSymbol,
+                       CurrentNamespace.AsSourceNamespace(),
+                       new[] { delegateDecl.GetLocation() },
+                       Array.Empty<SyntaxReference>(),
+                       RefKind.None),
+                   new SourceParameterSymbol(
+                       "method",
+                       intPtrType!,
+                       ctor,
+                       delegateSymbol,
+                       CurrentNamespace.AsSourceNamespace(),
+                       new[] { delegateDecl.GetLocation() },
+                       Array.Empty<SyntaxReference>(),
+                       RefKind.None));
+
+        ctor.SetParameters(ctorParams);
+        RegisterMember(delegateSymbol, ctor);
+
+        // Invoke
+        var returnType = delegateDecl.ReturnType is null
+            ? unitType!
+            : binder.ResolveType(delegateDecl.ReturnType.Type);
+
+        var invoke = new SourceMethodSymbol(
+            "Invoke",
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            delegateSymbol,
+            delegateSymbol,
+            CurrentNamespace.AsSourceNamespace(),
+            new[] { delegateDecl.GetLocation() },
+            Array.Empty<SyntaxReference>(),
+            isStatic: false,
+            methodKind: MethodKind.Ordinary,
+            declaredAccessibility: Accessibility.Public);
+
+        var invokeParams = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDecl.ParameterList.Parameters.Count);
+        foreach (var p in delegateDecl.ParameterList.Parameters)
+        {
+            var refKind = GetRefKind(p);
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+            var pType = RequiresByRefType(typeSyntax, refKindForType)
+                ? binder.ResolveType(typeSyntax, refKindForType)
+                : binder.ResolveType(typeSyntax);
+
+            invokeParams.Add(new SourceParameterSymbol(
+                p.Identifier.ValueText,
+                pType,
+                invoke,
+                delegateSymbol,
+                CurrentNamespace.AsSourceNamespace(),
+                new[] { p.GetLocation() },
+                new[] { p.GetReference() },
+                refKind));
+        }
+
+        invoke.SetParameters(invokeParams.ToImmutable());
+        RegisterMember(delegateSymbol, invoke);
     }
 
     private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location, SyntaxNode? currentDeclaration)

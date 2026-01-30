@@ -42,6 +42,23 @@ class Counter
 * Members can be marked `static` to associate them with the type rather than an instance.
 * Members that intentionally hide inherited members should use the `new` modifier; otherwise the compiler emits a warning.
 
+### Delegate declarations
+
+Delegate declarations introduce callable types by naming the `Invoke` signature. They can appear at the top level or nested inside other types.
+
+```raven
+delegate Transformer(value: int) -> string
+
+class Pipeline
+{
+    public delegate Stage<T>(ref value: T) -> bool
+}
+```
+
+The compiler synthesizes the standard delegate members: a constructor `.ctor(object, IntPtr)` and an `Invoke` method that matches the declared parameter list and return type. If the return type clause is omitted, the delegate returns `unit`.
+
+Delegate parameters support the same `ref`/`out`/`in` modifiers as methods. Delegate declarations can be generic and accept type parameter constraints using the same `where` clause syntax as other type declarations.
+
 ### Static classes
 
 Classes marked `static` are utility containers. They are implicitly `abstract`
