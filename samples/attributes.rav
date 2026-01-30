@@ -3,13 +3,11 @@ import System.Console.*
 
 Console.WriteLine("Test");
 
-// Works
 [ObsoleteAttribute("Hello")]
 class Foo {
 
 }
 
-// Doesn't work
 //[Obsolete("Hello")]
 class Foo2 {
 
