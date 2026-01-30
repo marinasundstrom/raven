@@ -1750,7 +1750,7 @@ internal class CodeGenerator
     {
         PrintDebug("Creating runtime types.");
         foreach (var typeGenerator in _typeGenerators.Values
-            .OrderByDescending(generator => GetContainingTypeDepth(generator.TypeSymbol)))
+            .OrderBy(generator => GetContainingTypeDepth(generator.TypeSymbol)))
         {
             typeGenerator.CreateType();
         }
