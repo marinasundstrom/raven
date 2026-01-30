@@ -979,8 +979,8 @@ Init-only accessors are treated as initializer-only members, so they may be assi
 ```raven
 class Settings
 {
-    init Theme: string
-    init FontSize: int
+    public Theme: string { get; init; }
+    public FontSize: int { get; init; }
 }
 
 val settings = Settings {
@@ -1041,8 +1041,8 @@ With expressions are the preferred way to update record values, producing a new 
 ```raven
 record Point
 {
-    init X: int
-    init Y: int
+    public X: int { get; init; }
+    public Y: int { get; init; }
 }
 
 val origin = Point { X = 0, Y = 0 }

@@ -188,7 +188,7 @@ EventDeclaration         ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? 'event' Identifier ':' Type ( EventAccessorList | ';' ) ;
 
 AccessorList             ::= '{' Accessor {Accessor} '}' ;
-Accessor                 ::= AccessorModifier? ('get' | 'set')
+Accessor                 ::= AccessorModifier? ('get' | 'set' | 'init')
                              ( Block | '=>' Expression | ';' ) ;
 
 EventAccessorList        ::= '{' EventAccessor {EventAccessor} '}' ;
