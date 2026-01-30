@@ -45,6 +45,41 @@ internal static class AttributeUsageHelper
         if (seenAttributes is null)
             throw new ArgumentNullException(nameof(seenAttributes));
 
+        var binder = semanticModel.GetBinder(attributeSyntax) as AttributeBinder;
+        return TryValidateAttribute(
+            compilation,
+            binder,
+            owner,
+            attributeSyntax,
+            data,
+            defaultTarget,
+            seenAttributes);
+    }
+
+    public static bool TryValidateAttribute(
+        Compilation compilation,
+        AttributeBinder? binder,
+        ISymbol owner,
+        AttributeSyntax attributeSyntax,
+        AttributeData data,
+        AttributeTargets defaultTarget,
+        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes)
+    {
+        if (compilation is null)
+            throw new ArgumentNullException(nameof(compilation));
+
+        if (owner is null)
+            throw new ArgumentNullException(nameof(owner));
+
+        if (attributeSyntax is null)
+            throw new ArgumentNullException(nameof(attributeSyntax));
+
+        if (data is null)
+            throw new ArgumentNullException(nameof(data));
+
+        if (seenAttributes is null)
+            throw new ArgumentNullException(nameof(seenAttributes));
+
         var attributeClass = data.AttributeClass;
         if (attributeClass is null)
             return false;
@@ -54,13 +89,13 @@ internal static class AttributeUsageHelper
 
         if (!IsTargetAllowed(target, usage.ValidTargets))
         {
-            ReportAttributeNotValidForTarget(semanticModel, attributeSyntax, attributeClass.Name, target, usage.ValidTargets);
+            ReportAttributeNotValidForTarget(binder, attributeSyntax, attributeClass.Name, target, usage.ValidTargets);
             return false;
         }
 
         if (!usage.AllowMultiple && !RegisterAttributeApplication(seenAttributes, target, attributeClass))
         {
-            ReportAttributeDoesNotAllowMultiple(semanticModel, attributeSyntax, attributeClass.Name, target);
+            ReportAttributeDoesNotAllowMultiple(binder, attributeSyntax, attributeClass.Name, target);
             return false;
         }
 
@@ -90,35 +125,35 @@ internal static class AttributeUsageHelper
     }
 
     private static void ReportAttributeNotValidForTarget(
-        SemanticModel semanticModel,
+        AttributeBinder? binder,
         AttributeSyntax attributeSyntax,
         string attributeName,
         AttributeTargets attemptedTarget,
         AttributeTargets validTargets)
     {
-        if (semanticModel.GetBinder(attributeSyntax) is AttributeBinder binder)
-        {
-            binder.Diagnostics.ReportAttributeNotValidForTarget(
-                attributeName,
-                GetTargetDisplay(attemptedTarget),
-                GetTargetsDisplay(validTargets),
-                attributeSyntax.GetLocation());
-        }
+        if (binder is null)
+            return;
+
+        binder.Diagnostics.ReportAttributeNotValidForTarget(
+            attributeName,
+            GetTargetDisplay(attemptedTarget),
+            GetTargetsDisplay(validTargets),
+            attributeSyntax.GetLocation());
     }
 
     private static void ReportAttributeDoesNotAllowMultiple(
-        SemanticModel semanticModel,
+        AttributeBinder? binder,
         AttributeSyntax attributeSyntax,
         string attributeName,
         AttributeTargets target)
     {
-        if (semanticModel.GetBinder(attributeSyntax) is AttributeBinder binder)
-        {
-            binder.Diagnostics.ReportAttributeDoesNotAllowMultiple(
-                attributeName,
-                GetTargetDisplay(target),
-                attributeSyntax.GetLocation());
-        }
+        if (binder is null)
+            return;
+
+        binder.Diagnostics.ReportAttributeDoesNotAllowMultiple(
+            attributeName,
+            GetTargetDisplay(target),
+            attributeSyntax.GetLocation());
     }
 
     private static AttributeTargets ResolveAttributeTarget(AttributeSyntax attributeSyntax, ISymbol owner, AttributeTargets defaultTarget)

@@ -315,6 +315,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
         var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
         const AttributeTargets defaultTarget = AttributeTargets.ReturnValue;
+        var bindingContext = new AttributeBindingContext(compilation);
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
@@ -330,17 +331,17 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             if (returnClause is null || returnClause.AttributeLists.Count == 0)
                 continue;
 
-            var semanticModel = compilation.GetSemanticModel(returnClause.SyntaxTree);
-
             foreach (var attribute in returnClause.AttributeLists.SelectMany(static list => list.Attributes))
             {
-                var data = semanticModel.BindAttribute(attribute);
+                var binder = bindingContext.CreateAttributeBinder(this, attribute);
+                var boundAttribute = binder.BindAttribute(attribute);
+                var data = AttributeDataFactory.Create(boundAttribute, attribute);
                 if (data is null)
                     continue;
 
                 if (AttributeUsageHelper.TryValidateAttribute(
                         compilation,
-                        semanticModel,
+                        binder,
                         this,
                         attribute,
                         data,

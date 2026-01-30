@@ -66,6 +66,7 @@ internal abstract class SourceSymbol : Symbol
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
         var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
         var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
+        var bindingContext = new AttributeBindingContext(compilation);
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
@@ -75,17 +76,17 @@ internal abstract class SourceSymbol : Symbol
             if (attributeLists.Count == 0)
                 continue;
 
-            var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
-
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
-                var data = semanticModel.BindAttribute(attribute);
+                var binder = bindingContext.CreateAttributeBinder(this, attribute);
+                var boundAttribute = binder.BindAttribute(attribute);
+                var data = AttributeDataFactory.Create(boundAttribute, attribute);
                 if (data is null)
                     continue;
 
                 if (AttributeUsageHelper.TryValidateAttribute(
                         compilation,
-                        semanticModel,
+                        binder,
                         this,
                         attribute,
                         data,
