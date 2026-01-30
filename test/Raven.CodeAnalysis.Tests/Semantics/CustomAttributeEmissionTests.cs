@@ -117,4 +117,32 @@ class Widget
         var debuggerBrowsable = Assert.Single(fieldAttributes, a => a.AttributeType == typeof(DebuggerBrowsableAttribute));
         Assert.Equal(DebuggerBrowsableState.Never, (DebuggerBrowsableState)debuggerBrowsable.ConstructorArguments[0].Value!);
     }
+
+    [Fact]
+    public void TypeAttributes_DoNotFlowToSynthesizedConstructors()
+    {
+        const string source = """
+[System.Obsolete("dd")]
+class Control
+{
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var controlType = assembly.GetType("Control", throwOnError: true)!;
+
+        Assert.Contains(controlType.GetCustomAttributesData(), attribute => attribute.AttributeType == typeof(ObsoleteAttribute));
+
+        var ctor = controlType.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        Assert.NotNull(ctor);
+        Assert.DoesNotContain(ctor!.GetCustomAttributesData(), attribute => attribute.AttributeType == typeof(ObsoleteAttribute));
+    }
 }

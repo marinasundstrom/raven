@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -51,7 +52,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                     ContainingSymbol,
                     CurrentNamespace!.AsSourceNamespace(),
                     [classSyntax.GetLocation()],
-                    [classSyntax.GetReference()],
+                    Array.Empty<SyntaxReference>(),
                     isStatic: false,
                     methodKind: MethodKind.Constructor,
                     declaredAccessibility: Accessibility.Public);
@@ -69,7 +70,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                     ContainingSymbol,
                     CurrentNamespace!.AsSourceNamespace(),
                     [classSyntax.GetLocation()],
-                    [classSyntax.GetReference()],
+                    Array.Empty<SyntaxReference>(),
                     isStatic: false,
                     methodKind: MethodKind.Constructor,
                     declaredAccessibility: Accessibility.Private);
@@ -103,7 +104,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
             ContainingSymbol,
             CurrentNamespace!.AsSourceNamespace(),
             [classSyntax.GetLocation()],
-            [classSyntax.GetReference()],
+            Array.Empty<SyntaxReference>(),
             isStatic: true,
             methodKind: MethodKind.Constructor,
             declaredAccessibility: Accessibility.Private);
