@@ -124,4 +124,25 @@ class Person {
         var verifier = CreateVerifier(source);
         verifier.Verify();
     }
+
+    [Fact]
+    public void WithExpression_AssignsRecordProperties()
+    {
+        const string source = """
+record class Person(Name: string, MiddleName: string?, LastName: string, YearOfBirth: int)
+
+val bob = Person("Bob", null, "Smith", 1978)
+
+val newBob = bob with {
+    MiddleName = "Leslie"
+}
+
+val renamed = newBob with {
+    LastName = "Jones"
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        verifier.Verify();
+    }
 }
