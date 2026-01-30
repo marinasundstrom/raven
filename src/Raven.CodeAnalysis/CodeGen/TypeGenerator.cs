@@ -460,9 +460,9 @@ internal class TypeGenerator
 
     public void DefineMemberBuilders()
     {
-        if (TypeSymbol is SynthesizedDelegateTypeSymbol synthesizedDelegate)
+        if (TypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
         {
-            DefineDelegateMembers(synthesizedDelegate);
+            DefineDelegateMembers(delegateType);
             return;
         }
 
@@ -665,33 +665,45 @@ internal class TypeGenerator
 
     }
 
-    private void DefineDelegateMembers(SynthesizedDelegateTypeSymbol delegateType)
+    private void DefineDelegateMembers(INamedTypeSymbol delegateType)
     {
         if (TypeBuilder is null)
             throw new InvalidOperationException("Type builder must be defined before creating delegate members.");
 
-        var ctorParameters = delegateType.Constructor.Parameters
-            .Select(p => ResolveClrType(p.Type))
-            .ToArray();
+        var ctorSymbol = delegateType.Constructors.FirstOrDefault();
+        if (ctorSymbol is not null)
+        {
+            var ctorParameters = ctorSymbol.Parameters
+                .Select(p => ResolveClrType(p.Type))
+                .ToArray();
 
-        var ctorBuilder = TypeBuilder.DefineConstructor(
-            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName,
-            CallingConventions.Standard,
-            ctorParameters);
-        ctorBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
-        CodeGen.AddMemberBuilder(delegateType.Constructor, ctorBuilder);
+            var ctorBuilder = TypeBuilder.DefineConstructor(
+                MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName,
+                CallingConventions.Standard,
+                ctorParameters);
+            ctorBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+            CodeGen.ApplyCustomAttributes(ctorSymbol.GetAttributes(), attribute => ctorBuilder.SetCustomAttribute(attribute));
+            if (ctorSymbol is SourceSymbol ctorSource)
+                CodeGen.AddMemberBuilder(ctorSource, ctorBuilder);
+        }
 
-        var invokeParameters = delegateType.InvokeMethod.Parameters
-            .Select(p => ResolveClrType(p.Type))
-            .ToArray();
+        var invokeSymbol = delegateType.GetDelegateInvokeMethod();
+        if (invokeSymbol is not null)
+        {
+            var invokeParameters = invokeSymbol.Parameters
+                .Select(p => ResolveClrType(p.Type))
+                .ToArray();
 
-        var invokeBuilder = TypeBuilder.DefineMethod(
-            delegateType.InvokeMethod.Name,
-            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
-            ResolveClrType(delegateType.InvokeMethod.ReturnType),
-            invokeParameters);
-        invokeBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
-        CodeGen.AddMemberBuilder(delegateType.InvokeMethod, invokeBuilder);
+            var invokeBuilder = TypeBuilder.DefineMethod(
+                invokeSymbol.Name,
+                MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
+                ResolveClrType(invokeSymbol.ReturnType),
+                invokeParameters);
+            invokeBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+            CodeGen.ApplyCustomAttributes(invokeSymbol.GetAttributes(), attribute => invokeBuilder.SetCustomAttribute(attribute));
+            if (invokeSymbol is SourceSymbol invokeSource)
+                CodeGen.AddMemberBuilder(invokeSource, invokeBuilder);
+        }
     }
 
     public void EmitMemberILBodies()
