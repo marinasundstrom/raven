@@ -8,6 +8,9 @@ When interacting with .NET, methods that return `void` are projected as returnin
 ## Return statements
 A `return` without an expression in a method that returns `unit` emits IL with no value. If the underlying method returns `void`, `Unit.Value` is loaded to produce a `unit` result before the `ret` instruction.
 
+## Attributes
+Source attributes are bound using the same import and namespace lookup rules as other type references, so `import System.*` enables `[Obsolete]` without a fully qualified name. When Raven creates metadata `AttributeData`, it accepts the subset of argument expressions supported by the runtime: literals (including `null`), `typeof` expressions, array/collection literals (including empty collections when a target type is known), and conversions among those forms. The compiler lowers these argument forms to typed constants before emitting the attribute payload.
+
 ## Extension members
 Raven both declares and consumes extension members using the CLR's
 `ExtensionAttribute`. Source extensions arise from two forms:
