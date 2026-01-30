@@ -683,24 +683,44 @@ public partial class Compilation
             // Invoke
             var returnType = delegateDeclaration.ReturnType is null
                 ? GetSpecialType(SpecialType.System_Unit)
-                : ResolveTypeSyntax(delegateDeclaration.ReturnType.Type, declaringSymbol);
+                : ResolveTypeSyntax(delegateDeclaration.ReturnType.Type, symbol);
 
             var invokeParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDeclaration.ParameterList.Parameters.Count);
-            int ordinal = 0;
             foreach (var p in delegateDeclaration.ParameterList.Parameters)
             {
-                var pType = ResolveTypeSyntax(p.TypeAnnotation.Type, declaringSymbol);
-                var pName = p.Identifier.ValueText;
+                var refKindTokenKind = p.RefKindKeyword?.Kind;
+                var typeSyntax = p.TypeAnnotation!.Type;
+                var refKind = typeSyntax is ByRefTypeSyntax
+                    ? refKindTokenKind switch
+                    {
+                        SyntaxKind.OutKeyword => RefKind.Out,
+                        SyntaxKind.InKeyword => RefKind.In,
+                        SyntaxKind.RefKeyword => RefKind.Ref,
+                        _ => RefKind.Ref,
+                    }
+                    : refKindTokenKind switch
+                    {
+                        SyntaxKind.OutKeyword => RefKind.Out,
+                        SyntaxKind.InKeyword => RefKind.In,
+                        SyntaxKind.RefKeyword => RefKind.Ref,
+                        _ => RefKind.None,
+                    };
+
+                var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+                var resolvedType = ResolveTypeSyntax(typeSyntax, symbol);
+                var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? resolvedType is ByRefTypeSymbol ? resolvedType : new ByRefTypeSymbol(resolvedType)
+                    : resolvedType;
 
                 invokeParameters.Add(new SourceParameterSymbol(
-                    pName,
+                    p.Identifier.ValueText,
                     pType,
                     symbol,
                     symbol,
                     symbol.ContainingNamespace,
                     locations,
                     references,
-                    RefKind.None));
+                    refKind));
             }
 
             _ = new SourceMethodSymbol(
@@ -833,10 +853,23 @@ public partial class Compilation
     {
         switch (typeSyntax)
         {
+            case ByRefTypeSyntax byRef:
+                {
+                    var elementType = ResolveTypeSyntax(byRef.ElementType, container);
+                    return new ByRefTypeSymbol(elementType);
+                }
+
             case PredefinedTypeSyntax predefined:
                 return ResolvePredefinedType(predefined);
 
             case IdentifierNameSyntax id:
+                if (container is INamedTypeSymbol namedType)
+                {
+                    var typeParameter = namedType.TypeParameters.FirstOrDefault(tp => tp.Name == id.Identifier.ValueText);
+                    if (typeParameter is not null)
+                        return typeParameter;
+                }
+
                 return (container switch
                 {
                     INamespaceSymbol ns => ns.LookupType(id.Identifier.ValueText),
