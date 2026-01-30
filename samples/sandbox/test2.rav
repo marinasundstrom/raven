@@ -6,16 +6,16 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 val builder = WebAppBuilder()
-builder.MapPost("/", (arg: string) -> HttpResults<()> => {
+builder.MapPost("/", async (arg: string) -> Task<HttpResult<()>> => {
+    await Task.Delay(200)
     return .Created
 })
 
-union HttpResults<T> {
+union HttpResult<T> {
     Ok
     Created
-    BadRequest()
+    BadRequest
 }
-
 
 class WebAppBuilder {
     public MapPost(path: string, d: Delegate) -> () {
@@ -26,3 +26,7 @@ class WebAppBuilder {
         }
     }
 }
+
+//class HttpContext {}
+
+//delegate RequestDelegate(context: HttpContext) -> Task
