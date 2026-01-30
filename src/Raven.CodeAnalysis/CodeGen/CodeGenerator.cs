@@ -1701,9 +1701,19 @@ internal class CodeGenerator
 
     private void EmitMemberILBodies()
     {
-        foreach (var typeGenerator in _typeGenerators.Values.ToArray())
+        while (true)
         {
-            typeGenerator.EmitMemberILBodies();
+            var pending = _typeGenerators.Values
+                .Where(static generator => generator.MethodGenerators.Any(method => !method.HasEmittedBody))
+                .ToList();
+
+            if (pending.Count == 0)
+                break;
+
+            foreach (var typeGenerator in pending)
+            {
+                typeGenerator.EmitMemberILBodies();
+            }
         }
     }
 

@@ -549,10 +549,10 @@ internal class MethodGenerator
                 if (!TypeGenerator.CodeGen.TryGetRuntimeTypeForSymbol(rewritten.StateMachine, out _))
                 {
                     var stateMachineGenerator = TypeGenerator.CodeGen.GetOrCreateTypeGenerator(rewritten.StateMachine);
-                    stateMachineGenerator.DefineTypeBuilder();
+                    if (stateMachineGenerator.TypeBuilder is null)
+                        stateMachineGenerator.DefineTypeBuilder();
                     stateMachineGenerator.DefineMemberBuilders();
-                    stateMachineGenerator.EmitMemberILBodies();
-                    stateMachineGenerator.CreateType();
+                    stateMachineGenerator.CompleteInterfaceImplementations();
                 }
             }
 
