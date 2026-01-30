@@ -948,7 +948,7 @@ internal class MethodBodyGenerator
     private bool TryEmitRecordMethod(SourceNamedTypeSymbol recordType)
     {
         if (MethodSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
-            MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet &&
+            MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly &&
             MethodSymbol.ContainingSymbol is SourcePropertySymbol propertySymbol &&
             propertySymbol.BackingField is SourceFieldSymbol backingField)
         {

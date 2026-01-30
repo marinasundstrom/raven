@@ -2639,32 +2639,29 @@ public partial class SemanticModel
             methodKind: MethodKind.PropertyGet,
             declaredAccessibility: Accessibility.Public);
 
-        SourceMethodSymbol? setMethod = null;
-        if (parameterSymbol.IsMutable)
-        {
-            setMethod = new SourceMethodSymbol(
-                $"set_{propertySymbol.Name}",
-                Compilation.GetSpecialType(SpecialType.System_Unit),
-                ImmutableArray<SourceParameterSymbol>.Empty,
-                propertySymbol,
-                classSymbol,
-                namespaceSymbol,
-                [location],
-                references,
-                isStatic: false,
-                methodKind: MethodKind.PropertySet,
-                declaredAccessibility: Accessibility.Public);
+        var setMethodKind = parameterSymbol.IsMutable ? MethodKind.PropertySet : MethodKind.InitOnly;
+        var setMethod = new SourceMethodSymbol(
+            $"set_{propertySymbol.Name}",
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            propertySymbol,
+            classSymbol,
+            namespaceSymbol,
+            [location],
+            references,
+            isStatic: false,
+            methodKind: setMethodKind,
+            declaredAccessibility: Accessibility.Public);
 
-            var valueParameter = new SourceParameterSymbol(
-                "value",
-                parameterType,
-                setMethod,
-                classSymbol,
-                namespaceSymbol,
-                [location],
-                references);
-            setMethod.SetParameters(ImmutableArray.Create(valueParameter));
-        }
+        var valueParameter = new SourceParameterSymbol(
+            "value",
+            parameterType,
+            setMethod,
+            classSymbol,
+            namespaceSymbol,
+            [location],
+            references);
+        setMethod.SetParameters(ImmutableArray.Create(valueParameter));
 
         propertySymbol.SetAccessors(getMethod, setMethod);
         return propertySymbol;
