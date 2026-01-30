@@ -810,6 +810,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
             if (!ConsumeToken(SyntaxKind.GetKeyword, out name) &&
                 !ConsumeToken(SyntaxKind.SetKeyword, out name) &&
+                !ConsumeToken(SyntaxKind.InitKeyword, out name) &&
                 !ConsumeToken(SyntaxKind.AddKeyword, out name) &&
                 !ConsumeToken(SyntaxKind.RemoveKeyword, out name))
             {
@@ -840,6 +841,7 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 SyntaxKind.GetKeyword => SyntaxKind.GetAccessorDeclaration,
                 SyntaxKind.SetKeyword => SyntaxKind.SetAccessorDeclaration,
+                SyntaxKind.InitKeyword => SyntaxKind.InitAccessorDeclaration,
                 SyntaxKind.AddKeyword => SyntaxKind.AddAccessorDeclaration,
                 SyntaxKind.RemoveKeyword => SyntaxKind.RemoveAccessorDeclaration,
                 _ => SyntaxKind.GetAccessorDeclaration,

@@ -49,6 +49,7 @@
   <TokenKind Name="BreakKeyword" Text="break" IsReservedWord="true" />
   <TokenKind Name="ContinueKeyword" Text="continue" IsReservedWord="true" />
   <TokenKind Name="MatchKeyword" Text="match" IsReservedWord="true" />
+  <TokenKind Name="WithKeyword" Text="with" IsReservedWord="true" />
   <TokenKind Name="ReturnKeyword" Text="return" IsReservedWord="true" />
   <TokenKind Name="YieldKeyword" Text="yield" IsReservedWord="true" />
   <TokenKind Name="ThrowKeyword" Text="throw" IsReservedWord="true" />

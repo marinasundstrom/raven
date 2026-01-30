@@ -26,6 +26,20 @@ partial class BlockBinder : Binder
     private int _loopDepth;
     private int _expressionContextDepth;
     private int _tempCounter;
+    private int _objectInitializerDepth;
+    private int _withInitializerDepth;
+
+    private bool IsInObjectInitializer => _objectInitializerDepth > 0;
+    private bool IsInWithInitializer => _withInitializerDepth > 0;
+
+    private bool IsInConstructorInitializerContext =>
+        _containingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.NamedConstructor, IsStatic: false };
+
+    private bool IsInInitOnlyAssignmentContext =>
+        IsInObjectInitializer || IsInWithInitializer || IsInConstructorInitializerContext;
+
+    private static bool IsInitOnly(IPropertySymbol property)
+        => property.SetMethod?.MethodKind == MethodKind.InitOnly;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -673,6 +687,7 @@ partial class BlockBinder : Binder
             RangeExpressionSyntax rangeExpression => BindRangeExpression(rangeExpression),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
             ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
+            WithExpressionSyntax withExpression => BindWithExpression(withExpression),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
             MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding),
             ConditionalAccessExpressionSyntax conditionalAccess => BindConditionalAccessExpression(conditionalAccess),
@@ -7513,108 +7528,586 @@ partial class BlockBinder : Binder
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
     }
 
+    private BoundExpression BindWithExpression(WithExpressionSyntax syntax)
+    {
+        var receiver = BindExpression(syntax.Expression);
+        var receiverType = UnwrapAlias(receiver.Type ?? Compilation.ErrorTypeSymbol);
+
+        var assignments = BindWithAssignments(receiverType, syntax.Assignments);
+
+        if (receiverType.TypeKind == TypeKind.Error)
+            return new BoundErrorExpression(receiverType, null, BoundExpressionReason.OtherError);
+
+        if (receiverType is not INamedTypeSymbol namedReceiver)
+        {
+            _diagnostics.ReportTypeDoesNotSupportWithExpression(
+                receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.WithKeyword.GetLocation());
+            return new BoundErrorExpression(receiverType, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        if (IsRecordType(receiverType) && TryGetCopyConstructor(namedReceiver, out var recordCopyConstructor))
+        {
+            return new BoundWithExpression(
+                receiver,
+                assignments,
+                BoundWithStrategyKind.RecordClone,
+                method: null,
+                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: null,
+                copyConstructor: recordCopyConstructor,
+                type: receiverType);
+        }
+
+        if (TryBindWithConventionMethod(receiver, namedReceiver, assignments, syntax, "Update", BoundWithStrategyKind.UpdateMethod, out var updateBound))
+            return updateBound;
+
+        if (TryBindWithConventionMethod(receiver, namedReceiver, assignments, syntax, "With", BoundWithStrategyKind.WithMethod, out var withBound))
+            return withBound;
+
+        if (TryBindWithMemberMethods(receiver, namedReceiver, assignments, syntax, out var memberMethods, out var memberMethodsReturnType))
+        {
+            return new BoundWithExpression(
+                receiver,
+                assignments,
+                BoundWithStrategyKind.WithMemberMethods,
+                method: null,
+                memberMethods: memberMethods,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: null,
+                copyConstructor: null,
+                type: memberMethodsReturnType);
+        }
+
+        if (TryGetCloneMethod(namedReceiver, syntax.WithKeyword.GetLocation(), out var cloneMethod))
+        {
+            return new BoundWithExpression(
+                receiver,
+                assignments,
+                BoundWithStrategyKind.Clone,
+                method: null,
+                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: cloneMethod,
+                copyConstructor: null,
+                type: cloneMethod.ReturnType);
+        }
+
+        if (TryGetCopyConstructor(namedReceiver, out var copyConstructor))
+        {
+            return new BoundWithExpression(
+                receiver,
+                assignments,
+                BoundWithStrategyKind.Clone,
+                method: null,
+                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: null,
+                copyConstructor: copyConstructor,
+                type: receiverType);
+        }
+
+        _diagnostics.ReportTypeDoesNotSupportWithExpression(
+            receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            syntax.WithKeyword.GetLocation());
+        return new BoundErrorExpression(receiverType, null, BoundExpressionReason.UnsupportedOperation);
+    }
+
+    private ImmutableArray<BoundWithAssignment> BindWithAssignments(
+        ITypeSymbol receiverType,
+        SyntaxList<WithAssignmentSyntax> assignments)
+    {
+        if (assignments.Count == 0)
+            return ImmutableArray<BoundWithAssignment>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<BoundWithAssignment>(assignments.Count);
+        var seenMembers = new HashSet<string>(StringComparer.Ordinal);
+
+        _withInitializerDepth++;
+        try
+        {
+            foreach (var assignment in assignments)
+            {
+                var nameSyntax = assignment.Name;
+                var nameToken = nameSyntax.Identifier;
+                var memberName = nameToken.ValueText;
+
+                if (string.IsNullOrEmpty(memberName))
+                {
+                    _ = BindExpression(assignment.Expression, allowReturn: false);
+                    continue;
+                }
+
+                if (!seenMembers.Add(memberName))
+                {
+                    _diagnostics.ReportWithExpressionMemberAssignedMultipleTimes(memberName, nameSyntax.GetLocation());
+                    _ = BindExpression(assignment.Expression, allowReturn: false);
+                    continue;
+                }
+
+                if (receiverType is not INamedTypeSymbol namedReceiver)
+                {
+                    _ = BindExpression(assignment.Expression, allowReturn: false);
+                    continue;
+                }
+
+                if (!TryGetAssignableMember(namedReceiver, assignment, out var member, out var memberType))
+                    continue;
+
+                var value = BindExpressionWithTargetType(assignment.Expression, memberType, allowReturn: false);
+                value = PrepareRightForAssignment(value, memberType, assignment.Expression);
+                if (value is BoundErrorExpression)
+                    continue;
+
+                builder.Add(new BoundWithAssignment(member, value));
+            }
+        }
+        finally
+        {
+            _withInitializerDepth--;
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private bool TryBindWithConventionMethod(
+        BoundExpression receiver,
+        INamedTypeSymbol receiverType,
+        ImmutableArray<BoundWithAssignment> assignments,
+        WithExpressionSyntax syntax,
+        string methodName,
+        BoundWithStrategyKind strategy,
+        out BoundWithExpression boundExpression)
+    {
+        boundExpression = null!;
+
+        var candidates = new SymbolQuery(methodName, receiverType, IsStatic: false)
+            .LookupMethods(this)
+            .ToImmutableArray();
+
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        var accessible = GetAccessibleMethods(candidates, syntax.WithKeyword.GetLocation(), reportIfInaccessible: false);
+        if (accessible.IsDefaultOrEmpty)
+            return false;
+
+        var assignmentMap = assignments.ToDictionary(a => a.Member.Name, StringComparer.Ordinal);
+        var applicable = new List<(IMethodSymbol Method, ImmutableArray<ISymbol> ParameterMembers)>();
+
+        foreach (var method in accessible)
+        {
+            if (!IsReturnTypeCovariant(receiverType, method.ReturnType))
+                continue;
+
+            var parameterMembers = ImmutableArray.CreateBuilder<ISymbol>(method.Parameters.Length);
+            var parameterNames = new HashSet<string>(StringComparer.Ordinal);
+            var valid = true;
+
+            foreach (var parameter in method.Parameters)
+            {
+                if (!TryGetReadableMember(receiverType, parameter.Name, syntax.WithKeyword.GetLocation(), out var member))
+                {
+                    valid = false;
+                    break;
+                }
+
+                parameterMembers.Add(member);
+                parameterNames.Add(parameter.Name);
+
+                var argumentType = assignmentMap.TryGetValue(parameter.Name, out var assignment)
+                    ? assignment.Value.Type ?? Compilation.ErrorTypeSymbol
+                    : GetMemberType(member);
+
+                if (!IsAssignable(parameter.Type, argumentType, out _))
+                {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (!valid)
+                continue;
+
+            if (assignmentMap.Keys.Any(name => !parameterNames.Contains(name)))
+                continue;
+
+            applicable.Add((method, parameterMembers.ToImmutable()));
+        }
+
+        if (applicable.Count == 0)
+            return false;
+
+        if (applicable.Count > 1)
+        {
+            _diagnostics.ReportCallIsAmbiguous(methodName, applicable.Select(x => x.Method).ToImmutableArray(), syntax.WithKeyword.GetLocation());
+            boundExpression = new BoundWithExpression(
+                receiver,
+                assignments,
+                strategy,
+                method: null,
+                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: null,
+                copyConstructor: null,
+                type: receiverType,
+                reason: BoundExpressionReason.Ambiguous);
+            return true;
+        }
+
+        var selected = applicable[0];
+        boundExpression = new BoundWithExpression(
+            receiver,
+            assignments,
+            strategy,
+            selected.Method,
+            memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+            parameterMembers: selected.ParameterMembers,
+            cloneMethod: null,
+            copyConstructor: null,
+            type: selected.Method.ReturnType);
+
+        return true;
+    }
+
+    private bool TryBindWithMemberMethods(
+        BoundExpression receiver,
+        INamedTypeSymbol receiverType,
+        ImmutableArray<BoundWithAssignment> assignments,
+        WithExpressionSyntax syntax,
+        out ImmutableArray<IMethodSymbol> memberMethods,
+        out ITypeSymbol returnType)
+    {
+        memberMethods = ImmutableArray<IMethodSymbol>.Empty;
+        returnType = receiverType;
+
+        if (assignments.IsDefaultOrEmpty)
+            return false;
+
+        var methods = ImmutableArray.CreateBuilder<IMethodSymbol>(assignments.Length);
+        ITypeSymbol lastReturnType = receiverType;
+
+        foreach (var assignment in assignments)
+        {
+            var methodName = $"With{assignment.Member.Name}";
+            var candidates = new SymbolQuery(methodName, receiverType, IsStatic: false)
+                .LookupMethods(this)
+                .ToImmutableArray();
+
+            if (candidates.IsDefaultOrEmpty)
+                return false;
+
+            var accessible = GetAccessibleMethods(candidates, syntax.WithKeyword.GetLocation(), reportIfInaccessible: false);
+            if (accessible.IsDefaultOrEmpty)
+                return false;
+
+            var applicable = accessible
+                .Where(m => m.Parameters.Length == 1 && IsReturnTypeCovariant(receiverType, m.ReturnType))
+                .ToImmutableArray();
+
+            if (applicable.IsDefaultOrEmpty)
+                return false;
+
+            var args = new[] { new BoundArgument(assignment.Value, RefKind.None, name: null, syntax) };
+            var resolution = OverloadResolver.ResolveOverload(applicable, args, Compilation, receiver: receiver, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
+
+            if (resolution.IsAmbiguous)
+            {
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.WithKeyword.GetLocation());
+                return false;
+            }
+
+            if (!resolution.Success)
+                return false;
+
+            methods.Add(resolution.Method!);
+            lastReturnType = resolution.Method!.ReturnType;
+        }
+
+        memberMethods = methods.ToImmutable();
+        returnType = lastReturnType;
+        return true;
+    }
+
+    private bool TryGetAssignableMember(
+        INamedTypeSymbol receiverType,
+        WithAssignmentSyntax assignment,
+        out ISymbol member,
+        out ITypeSymbol memberType)
+    {
+        member = null!;
+        memberType = Compilation.ErrorTypeSymbol;
+
+        var memberName = assignment.Name.Identifier.ValueText;
+        var members = receiverType.GetMembers(memberName);
+
+        var property = members.OfType<IPropertySymbol>().FirstOrDefault();
+        if (property is not null)
+        {
+            if (!EnsureMemberAccessible(property, assignment.Name.GetLocation(), "property"))
+                return false;
+
+            if (property.SetMethod is null)
+            {
+                _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(property.Name, assignment.Name.GetLocation());
+                _ = BindExpression(assignment.Expression, allowReturn: false);
+                return false;
+            }
+
+            member = property;
+            memberType = property.Type;
+            return true;
+        }
+
+        var field = members.OfType<IFieldSymbol>().FirstOrDefault();
+        if (field is not null)
+        {
+            if (!EnsureMemberAccessible(field, assignment.Name.GetLocation(), "field"))
+                return false;
+
+            if (field.IsConst || !field.IsMutable)
+            {
+                _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(assignment.Name.GetLocation());
+                _ = BindExpression(assignment.Expression, allowReturn: false);
+                return false;
+            }
+
+            member = field;
+            memberType = field.Type;
+            return true;
+        }
+
+        _diagnostics.ReportMemberDoesNotContainDefinition(
+            receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            memberName,
+            assignment.Name.GetLocation());
+        _ = BindExpression(assignment.Expression, allowReturn: false);
+        return false;
+    }
+
+    private bool TryGetReadableMember(
+        INamedTypeSymbol receiverType,
+        string memberName,
+        Location location,
+        out ISymbol member)
+    {
+        member = null!;
+        var members = receiverType.GetMembers(memberName);
+
+        foreach (var candidate in members.OfType<IPropertySymbol>())
+        {
+            if (candidate.IsStatic || candidate.GetMethod is null)
+                continue;
+
+            if (!IsSymbolAccessible(candidate))
+                continue;
+
+            member = candidate;
+            return true;
+        }
+
+        foreach (var candidate in members.OfType<IFieldSymbol>())
+        {
+            if (candidate.IsStatic)
+                continue;
+
+            if (!IsSymbolAccessible(candidate))
+                continue;
+
+            member = candidate;
+            return true;
+        }
+
+        if (members.Length > 0)
+            _ = EnsureMemberAccessible(members[0], location, "member");
+
+        return false;
+    }
+
+    private bool TryGetCloneMethod(
+        INamedTypeSymbol receiverType,
+        Location location,
+        out IMethodSymbol cloneMethod)
+    {
+        cloneMethod = null!;
+        var candidates = new SymbolQuery("Clone", receiverType, IsStatic: false)
+            .LookupMethods(this)
+            .ToImmutableArray();
+
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        var accessible = GetAccessibleMethods(candidates, location, reportIfInaccessible: false);
+        if (accessible.IsDefaultOrEmpty)
+            return false;
+
+        var applicable = accessible
+            .Where(m => m.Parameters.Length == 0 && IsReturnTypeCovariant(receiverType, m.ReturnType))
+            .ToImmutableArray();
+
+        if (applicable.IsDefaultOrEmpty)
+            return false;
+
+        if (applicable.Length > 1)
+        {
+            _diagnostics.ReportCallIsAmbiguous("Clone", applicable, location);
+            return false;
+        }
+
+        cloneMethod = applicable[0];
+        return true;
+    }
+
+    private bool TryGetCopyConstructor(INamedTypeSymbol receiverType, out IMethodSymbol copyConstructor)
+    {
+        copyConstructor = null!;
+
+        foreach (var ctor in receiverType.InstanceConstructors)
+        {
+            if (ctor.IsStatic || ctor.Parameters.Length != 1)
+                continue;
+
+            if (!SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, receiverType))
+                continue;
+
+            if (!IsSymbolAccessible(ctor))
+                continue;
+
+            copyConstructor = ctor;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsReturnTypeCovariant(ITypeSymbol receiverType, ITypeSymbol returnType)
+        => IsAssignable(receiverType, returnType, out _);
+
+    private static bool IsRecordType(ITypeSymbol typeSymbol)
+        => typeSymbol is SourceNamedTypeSymbol { IsRecord: true } ||
+           typeSymbol is ConstructedNamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } };
+
+    private static ITypeSymbol GetMemberType(ISymbol member)
+    {
+        return member switch
+        {
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => throw new InvalidOperationException($"Unsupported member type: {member.GetType()}")
+        };
+    }
+
     private BoundObjectInitializer BindObjectInitializer(
      ITypeSymbol instanceType,
      ObjectInitializerExpressionSyntax initializer)
     {
-        // Bind initializer entries in source order and keep them as a bound node.
-        // Lowering into a block happens later.
-
-        instanceType = UnwrapAlias(instanceType);
-
-        // SwiftUI-style convention:
-        // If the instance type has a settable `Content` property, then exactly one content entry is allowed.
-        // That entry is lowered as `Content = <expr>`.
-        IPropertySymbol? contentProperty = null;
-        if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
+        _objectInitializerDepth++;
+        try
         {
-            foreach (var member in namedInstance.GetMembers("Content"))
+            // Bind initializer entries in source order and keep them as a bound node.
+            // Lowering into a block happens later.
+
+            instanceType = UnwrapAlias(instanceType);
+
+            // SwiftUI-style convention:
+            // If the instance type has a settable `Content` property, then exactly one content entry is allowed.
+            // That entry is lowered as `Content = <expr>`.
+            IPropertySymbol? contentProperty = null;
+            if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
             {
-                if (member is not IPropertySymbol p)
-                    continue;
+                foreach (var member in namedInstance.GetMembers("Content"))
+                {
+                    if (member is not IPropertySymbol p)
+                        continue;
 
-                if (p.IsStatic)
-                    continue;
+                    if (p.IsStatic)
+                        continue;
 
-                if (p.SetMethod is null)
-                    continue;
+                    if (p.SetMethod is null)
+                        continue;
 
-                // Use the existing accessibility helper.
-                // NOTE: We don't have a great location yet; we will re-check with the actual entry location when used.
-                contentProperty = p;
-                break;
+                    // Use the existing accessibility helper.
+                    // NOTE: We don't have a great location yet; we will re-check with the actual entry location when used.
+                    contentProperty = p;
+                    break;
+                }
             }
-        }
 
-        var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
+            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
 
-        var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
-        var seenContentEntry = false;
+            var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
+            var seenContentEntry = false;
 
-        foreach (var entry in initializer.Entries)
-        {
-            switch (entry)
+            foreach (var entry in initializer.Entries)
             {
-                case ObjectInitializerAssignmentEntrySyntax assignment:
-                    {
-                        var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
-                        if (boundEntry is not null)
-                            entries.Add(boundEntry);
-                        break;
-                    }
-
-                case ObjectInitializerExpressionEntrySyntax exprEntry:
-                    {
-                        if (!hasContentConvention)
+                switch (entry)
+                {
+                    case ObjectInitializerAssignmentEntrySyntax assignment:
                         {
-                            // No Content property: keep the existing behavior.
-                            var expr = BindExpression(exprEntry.Expression, allowReturn: false);
-                            entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                            var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
+                            if (boundEntry is not null)
+                                entries.Add(boundEntry);
                             break;
                         }
 
-                        // With Content property: only one content entry is allowed.
-                        if (seenContentEntry)
+                    case ObjectInitializerExpressionEntrySyntax exprEntry:
                         {
-                            // Still bind the expression so it gets typed and any nested diagnostics flow.
-                            var extra = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-
-                            if (extra.Type is { } extraType)
+                            if (!hasContentConvention)
                             {
-                                _diagnostics.ReportMultipleContentEntriesNotAllowed(
-                                    instanceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                    exprEntry.Expression.GetLocation());
+                                // No Content property: keep the existing behavior.
+                                var expr = BindExpression(exprEntry.Expression, allowReturn: false);
+                                entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                                break;
                             }
 
+                            // With Content property: only one content entry is allowed.
+                            if (seenContentEntry)
+                            {
+                                // Still bind the expression so it gets typed and any nested diagnostics flow.
+                                var extra = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+
+                                if (extra.Type is { } extraType)
+                                {
+                                    _diagnostics.ReportMultipleContentEntriesNotAllowed(
+                                        instanceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                        exprEntry.Expression.GetLocation());
+                                }
+
+                                break;
+                            }
+
+                            // First content entry.
+                            seenContentEntry = true;
+
+                            // Ensure the Content property is accessible at the point of use.
+                            if (!EnsureMemberAccessible(contentProperty!, exprEntry.GetLocation(), "property"))
+                            {
+                                // Still bind expression for diagnostics.
+                                _ = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+                                break;
+                            }
+
+                            var value = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+                            value = PrepareRightForAssignment(value, contentProperty!.Type, exprEntry.Expression);
+
+                            // If conversion fails, diagnostics are already reported by PrepareRightForAssignment.
+                            if (value is BoundErrorExpression)
+                                break;
+
+                            // Rewrite as `Content = <value>`.
+                            entries.Add(new BoundObjectInitializerAssignmentEntry(contentProperty!, value));
                             break;
                         }
-
-                        // First content entry.
-                        seenContentEntry = true;
-
-                        // Ensure the Content property is accessible at the point of use.
-                        if (!EnsureMemberAccessible(contentProperty!, exprEntry.GetLocation(), "property"))
-                        {
-                            // Still bind expression for diagnostics.
-                            _ = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-                            break;
-                        }
-
-                        var value = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-                        value = PrepareRightForAssignment(value, contentProperty!.Type, exprEntry.Expression);
-
-                        // If conversion fails, diagnostics are already reported by PrepareRightForAssignment.
-                        if (value is BoundErrorExpression)
-                            break;
-
-                        // Rewrite as `Content = <value>`.
-                        entries.Add(new BoundObjectInitializerAssignmentEntry(contentProperty!, value));
-                        break;
-                    }
+                }
             }
-        }
 
-        return new BoundObjectInitializer(entries.ToImmutable());
+            return new BoundObjectInitializer(entries.ToImmutable());
+        }
+        finally
+        {
+            _objectInitializerDepth--;
+        }
     }
 
     private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
@@ -7679,8 +8172,21 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(property, assignment.Name.GetLocation(), "property"))
                 return null;
 
-            if (property.SetMethod is null)
+            var setMethod = property.SetMethod;
+
+            if (setMethod is null)
+            {
+                // report no setter (existing behavior)
                 return null;
+            }
+            else if (setMethod.MethodKind == MethodKind.InitOnly)
+            {
+                // OK here (object initializer context)
+            }
+            else
+            {
+                // OK (normal setter)
+            }
 
             var value = BindExpressionWithTargetType(assignment.Expression, property.Type, allowReturn: false);
             value = PrepareRightForAssignment(value, property.Type, assignment.Expression);

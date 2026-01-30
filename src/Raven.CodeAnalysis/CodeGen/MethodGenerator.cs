@@ -55,7 +55,7 @@ internal class MethodGenerator
         if (_lambdaClosure is not null)
             attributes = (attributes & ~MethodAttributes.MemberAccessMask) | MethodAttributes.Public;
 
-        if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove)
+        if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove)
             attributes |= MethodAttributes.SpecialName;
 
         var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
@@ -166,12 +166,20 @@ internal class MethodGenerator
                     ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
                     : ResolveClrType(MethodSymbol.ReturnType);
 
-                methodBuilder.SetReturnType(returnType);
-
                 parameterTypes = BuildParameterTypes();
 
-                if (parameterTypes.Length > 0)
-                    methodBuilder.SetParameters(parameterTypes);
+                Type[]? requiredReturnMods =
+                    MethodSymbol.MethodKind == MethodKind.InitOnly
+                        ? new[] { typeof(System.Runtime.CompilerServices.IsExternalInit) }
+                        : null;
+
+                methodBuilder.SetSignature(
+                    returnType,
+                    requiredReturnMods,
+                    null,
+                    parameterTypes,
+                    null,
+                    null);
             }
             finally
             {

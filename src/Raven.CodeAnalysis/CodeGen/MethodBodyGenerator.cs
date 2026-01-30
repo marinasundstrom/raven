@@ -992,6 +992,14 @@ internal class MethodBodyGenerator
             return true;
         }
 
+        if (MethodSymbol.MethodKind == MethodKind.Constructor &&
+            MethodSymbol.Parameters.Length == 1 &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol.Parameters[0].Type, recordType))
+        {
+            EmitRecordCopyConstructor(recordType);
+            return true;
+        }
+
         if (MethodSymbol.MethodKind == MethodKind.UserDefinedOperator &&
             MethodSymbol.Parameters.Length == 2 &&
             MethodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
@@ -1012,6 +1020,28 @@ internal class MethodBodyGenerator
         }
 
         return false;
+    }
+
+    private void EmitRecordCopyConstructor(SourceNamedTypeSymbol recordType)
+    {
+        var baseCtor = GetBaseConstructor();
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        ILGenerator.Emit(OpCodes.Call, baseCtor);
+
+        foreach (var property in recordType.RecordProperties)
+        {
+            if (property.BackingField is not SourceFieldSymbol backingField)
+                continue;
+
+            var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldarg_1);
+            ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            ILGenerator.Emit(OpCodes.Stfld, fieldInfo);
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
     }
 
     private void EmitRecordObjectEquals(SourceNamedTypeSymbol recordType)

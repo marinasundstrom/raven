@@ -312,6 +312,7 @@ public enum MethodKind
     Ordinary,
     PropertyGet,
     PropertySet,
+    InitOnly,
     ReducedExtension,
     StaticConstructor,
     BuiltinOperator,

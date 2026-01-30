@@ -535,7 +535,7 @@ internal class TypeGenerator
 
             switch (memberSymbol)
             {
-                case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove):
+                case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove):
                     {
                         if (methodSymbol is SynthesizedMainMethodSymbol { ContainsExecutableCode: false })
                             break;
@@ -1180,12 +1180,22 @@ internal class TypeGenerator
         if (isStatic)
             attributes |= MethodAttributes.Static;
 
+        // Add required return-type modifier for init-only setters
+        var isInitOnly = accessorSymbol.MethodKind == MethodKind.InitOnly;
+        var requiredReturnMods = isInitOnly
+            ? new[] { typeof(System.Runtime.CompilerServices.IsExternalInit) }
+            : null;
+
         var accessorBuilder = _extensionGroupingTypeBuilder.DefineMethod(
             accessorSymbol.Name,
             attributes,
             CallingConventions.Standard,
             returnType,
-            parameterTypes);
+            requiredReturnMods,
+            null,
+            parameterTypes,
+            null,
+            null);
 
         for (int i = 0; i < parameterSymbols.Length; i++)
         {

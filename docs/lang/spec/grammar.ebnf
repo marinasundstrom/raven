@@ -196,7 +196,7 @@ EventDeclaration         ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? 'event' Identifier ':' Type ( EventAccessorList | ';' ) ;
 
 AccessorList             ::= '{' Accessor {Accessor} '}' ;
-Accessor                 ::= AccessorModifier? ('get' | 'set')
+Accessor                 ::= AccessorModifier? ('get' | 'set' | 'init')
                              ( Block | '=>' Expression | ';' ) ;
 
 EventAccessorList        ::= '{' EventAccessor {EventAccessor} '}' ;
@@ -436,7 +436,8 @@ PostfixTrailer           ::= ArgumentList
                            | ElementAccessTrailer
                            | PropagateTrailer
                            | ConditionalAccessTrailer
-                           | ObjectInitializer ;
+                           | ObjectInitializer
+                           | WithExpression ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
 Argument                 ::= [Identifier ':'] Expression ;
@@ -473,6 +474,14 @@ ObjectInitializerExpressionEntry
 (* Terminators are context-sensitive in Raven; commas are permitted but not required when a newline ends the entry. *)
 ObjectInitializerTerminator
                            ::= ',' | NewLineToken | ';' ;
+
+(* ---------- With expressions ---------- *)
+
+WithExpression           ::= 'with' '{' { WithAssignment } '}' ;
+
+WithAssignment           ::= Identifier '=' Expression WithAssignmentTerminator? ;
+
+WithAssignmentTerminator ::= ',' | NewLineToken | ';' ;
 MemberBindingExpression  ::= '.' Identifier ;
 
 (* ---------- Primaries ----------

@@ -530,6 +530,19 @@
     <Slot Name="WhenKeyword" Type="Token" DefaultToken="WhenKeyword" />
     <Slot Name="Condition" Type="Expression" />
   </Node>
+  <Node Name="WithExpression" Inherits="Expression">
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="WithKeyword" Type="Token" DefaultToken="WithKeyword" />
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="Assignments" Type="List" ElementType="WithAssignment" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+  </Node>
+  <Node Name="WithAssignment" Inherits="Node">
+    <Slot Name="Name" Type="IdentifierName" />
+    <Slot Name="EqualsToken" Type="Token" DefaultToken="EqualsToken" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
   <Node Name="TypeArgumentList" Inherits="Node">
     <Slot Name="GreaterThanToken" Type="Token" DefaultToken="GreaterThanToken" />
     <Slot Name="Arguments" Type="SeparatedList" ElementType="TypeArgument" />
