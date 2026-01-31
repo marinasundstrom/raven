@@ -1081,6 +1081,20 @@ internal static class AsyncLowerer
             var implicitFromOk = SubstituteMethod(node.ResultImplicitFromOk) ?? node.ResultImplicitFromOk;
             var implicitFromError = SubstituteMethod(node.ResultImplicitFromError) ?? node.ResultImplicitFromError;
 
+            var receiverResultOkCaseType = SubstituteType(node.ReceiverResultOkCaseType) ?? node.ReceiverResultOkCaseType;
+            var receiverResultErrorCaseType = SubstituteType(node.ReceiverResultErrorCaseType) ?? node.ReceiverResultErrorCaseType;
+            var receiverResultOkValueGetter = SubstituteMethod(node.ReceiverResultOkValueGetter) ?? node.ReceiverResultOkValueGetter;
+            var receiverResultErrorDataGetter = SubstituteMethod(node.ReceiverResultErrorDataGetter) ?? node.ReceiverResultErrorDataGetter;
+
+            var optionSomeCaseType = SubstituteType(node.OptionSomeCaseType) ?? node.OptionSomeCaseType;
+            var optionNoneCaseType = SubstituteType(node.OptionNoneCaseType) ?? node.OptionNoneCaseType;
+            var optionTryGetSomeMethod = SubstituteMethod(node.OptionTryGetSomeMethod) ?? node.OptionTryGetSomeMethod;
+            var optionSomeValueGetter = SubstituteMethod(node.OptionSomeValueGetter) ?? node.OptionSomeValueGetter;
+            var optionSomeCtor = SubstituteMethod(node.OptionSomeCtor) ?? node.OptionSomeCtor;
+            var optionNoneCtorOrFactory = SubstituteMethod(node.OptionNoneCtorOrFactory) ?? node.OptionNoneCtorOrFactory;
+            var optionImplicitFromSome = SubstituteMethod(node.OptionImplicitFromSome) ?? node.OptionImplicitFromSome;
+            var optionImplicitFromNone = SubstituteMethod(node.OptionImplicitFromNone) ?? node.OptionImplicitFromNone;
+
             // If nothing changed, keep the existing node.
             if (ReferenceEquals(receiver, node.Receiver) &&
                 ReferenceEquals(whenPresent, node.WhenPresent) &&
@@ -1096,7 +1110,19 @@ internal static class AsyncLowerer
                 SymbolEqualityComparer.Default.Equals(okCtor, node.ResultOkCtor) &&
                 SymbolEqualityComparer.Default.Equals(errorCtor, node.ResultErrorCtor) &&
                 SymbolEqualityComparer.Default.Equals(implicitFromOk, node.ResultImplicitFromOk) &&
-                SymbolEqualityComparer.Default.Equals(implicitFromError, node.ResultImplicitFromError))
+                SymbolEqualityComparer.Default.Equals(implicitFromError, node.ResultImplicitFromError) &&
+                SymbolEqualityComparer.Default.Equals(receiverResultOkCaseType, node.ReceiverResultOkCaseType) &&
+                SymbolEqualityComparer.Default.Equals(receiverResultErrorCaseType, node.ReceiverResultErrorCaseType) &&
+                SymbolEqualityComparer.Default.Equals(receiverResultOkValueGetter, node.ReceiverResultOkValueGetter) &&
+                SymbolEqualityComparer.Default.Equals(receiverResultErrorDataGetter, node.ReceiverResultErrorDataGetter) &&
+                SymbolEqualityComparer.Default.Equals(optionSomeCaseType, node.OptionSomeCaseType) &&
+                SymbolEqualityComparer.Default.Equals(optionNoneCaseType, node.OptionNoneCaseType) &&
+                SymbolEqualityComparer.Default.Equals(optionTryGetSomeMethod, node.OptionTryGetSomeMethod) &&
+                SymbolEqualityComparer.Default.Equals(optionSomeValueGetter, node.OptionSomeValueGetter) &&
+                SymbolEqualityComparer.Default.Equals(optionSomeCtor, node.OptionSomeCtor) &&
+                SymbolEqualityComparer.Default.Equals(optionNoneCtorOrFactory, node.OptionNoneCtorOrFactory) &&
+                SymbolEqualityComparer.Default.Equals(optionImplicitFromSome, node.OptionImplicitFromSome) &&
+                SymbolEqualityComparer.Default.Equals(optionImplicitFromNone, node.OptionImplicitFromNone))
             {
                 return node;
             }
@@ -1110,6 +1136,10 @@ internal static class AsyncLowerer
                 resultType: resultType,
                 payloadLocal: node.PayloadLocal,
                 carrierType: (INamedTypeSymbol?)carrierType,
+                receiverResultOkCaseType: (INamedTypeSymbol?)receiverResultOkCaseType,
+                receiverResultErrorCaseType: (INamedTypeSymbol?)receiverResultErrorCaseType,
+                receiverResultOkValueGetter: receiverResultOkValueGetter,
+                receiverResultErrorDataGetter: receiverResultErrorDataGetter,
                 resultOkCaseType: (INamedTypeSymbol?)resultOkCaseType,
                 resultErrorCaseType: (INamedTypeSymbol?)resultErrorCaseType,
                 resultTryGetOkMethod: tryGetOk,
@@ -1120,6 +1150,14 @@ internal static class AsyncLowerer
                 resultErrorCtor: errorCtor,
                 resultImplicitFromOk: implicitFromOk,
                 resultImplicitFromError: implicitFromError,
+                optionSomeCaseType: (INamedTypeSymbol?)optionSomeCaseType,
+                optionNoneCaseType: (INamedTypeSymbol?)optionNoneCaseType,
+                optionTryGetSomeMethod: optionTryGetSomeMethod,
+                optionSomeValueGetter: optionSomeValueGetter,
+                optionSomeCtor: optionSomeCtor,
+                optionNoneCtorOrFactory: optionNoneCtorOrFactory,
+                optionImplicitFromSome: optionImplicitFromSome,
+                optionImplicitFromNone: optionImplicitFromNone,
                 carrierKind: node.CarrierKind);
         }
 
