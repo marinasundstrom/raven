@@ -69,13 +69,56 @@ internal partial class ExpressionGenerator : Generator
 
     public EmitInfo Emit2()
     {
-        if (!_preserveResult && _expression is BoundAssignmentExpression assignmentExpression)
-        {
-            EmitAssignmentExpression(assignmentExpression, preserveResult: false);
-            return EmitInfo.None;
-        }
+        return EmitExpressionAdjusted(_expression, _rootContext);
+    }
 
-        return EmitExpression(_expression);
+    private static EmitContext Effective(EmitContext ctx)
+    {
+        if (ctx.ResultKind == EmitResultKind.None && ctx.ForceValue)
+            return EmitContext.Value;
+
+        return ctx;
+    }
+
+    private bool IsUnit(ITypeSymbol? type)
+        => type?.SpecialType == SpecialType.System_Unit;
+
+    private EmitInfo EmitExpressionAdjusted(BoundExpression expr, EmitContext ctx)
+    {
+        ctx = Effective(ctx);
+
+        if (ctx.ResultKind == EmitResultKind.Address)
+            return EmitExpression(expr, EmitContext.Address);
+
+        var savedPreserve = _preserveResult;
+        _preserveResult = ctx.ResultKind == EmitResultKind.Value;
+        try
+        {
+            var info = EmitExpression(expr, ctx);
+
+            if (ctx.ResultKind == EmitResultKind.None)
+            {
+                if (info.HasValueOnStack)
+                    ILGenerator.Emit(OpCodes.Pop);
+
+                return EmitInfo.None;
+            }
+
+            if (info.HasValueOnStack)
+                return info;
+
+            if (IsUnit(expr.Type))
+            {
+                EmitUnitValue();
+                return EmitInfo.ForValue();
+            }
+
+            throw new InvalidOperationException("Void expression used in value context");
+        }
+        finally
+        {
+            _preserveResult = savedPreserve;
+        }
     }
 
     private void EmitNullableValueExpression(BoundNullableValueExpression expr)
@@ -172,6 +215,8 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundInvocationExpression invocationExpression:
                 EmitInvocationExpression(invocationExpression);
+                if (invocationExpression.Type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+                    info = EmitInfo.None;
                 break;
 
             case BoundLiteralExpression literalExpression:
@@ -183,7 +228,7 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundParenthesizedExpression parenthesized:
-                info = EmitExpression(parenthesized.Expression);
+                info = EmitExpression(parenthesized.Expression, context);
                 break;
 
             case BoundConversionExpression conversionExpression:
@@ -195,11 +240,11 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundIfExpression ifStatement:
-                EmitIfExpression(ifStatement);
+                info = EmitIfExpression(ifStatement, context);
                 break;
 
             case BoundBlockExpression block:
-                EmitBlock(block);
+                info = EmitBlock(block, context);
                 break;
 
             case BoundTupleExpression tupleExpression:
@@ -207,14 +252,17 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundAssignmentExpression assignmentExpression:
-                EmitAssignmentExpression(assignmentExpression);
+                var preserveResult = Effective(context).ResultKind == EmitResultKind.Value;
+                EmitAssignmentExpression(assignmentExpression, preserveResult: preserveResult);
+                if (!preserveResult || assignmentExpression.Type?.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+                    info = EmitInfo.None;
                 break;
 
             case BoundObjectCreationExpression objectCreationExpression:
                 EmitObjectCreationExpression(objectCreationExpression);
                 break;
             case BoundMatchExpression matchExpression:
-                EmitMatchExpression(matchExpression, context);
+                info = EmitMatchExpression(matchExpression, context);
                 break;
 
             case BoundCollectionExpression collectionExpression:
@@ -260,7 +308,7 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundUnitExpression unitExpression:
-                EmitUnitExpression(unitExpression);
+                info = EmitUnitExpression(unitExpression, context);
                 break;
 
             case BoundLambdaExpression lambdaExpression:
@@ -284,11 +332,11 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundRequiredResultExpression requiredResultExpression:
-                EmitRequiredResultExpression(requiredResultExpression);
+                info = EmitRequiredResultExpression(requiredResultExpression);
                 break;
 
             case BoundErrorExpression errorExpression:
-                EmitErrorExpression(errorExpression);
+                info = EmitErrorExpression(errorExpression, context);
                 break;
 
             default:
@@ -298,20 +346,11 @@ internal partial class ExpressionGenerator : Generator
         return info;
     }
 
-    private void EmitRequiredResultExpression(BoundRequiredResultExpression e)
+    private EmitInfo EmitRequiredResultExpression(BoundRequiredResultExpression e)
     {
         // RequiredResult means: this expression must materialize a value,
         // regardless of the surrounding discard context.
-        var saved = _preserveResult;
-        _preserveResult = true;
-        try
-        {
-            EmitExpression(e.Operand);
-        }
-        finally
-        {
-            _preserveResult = saved;
-        }
+        return EmitExpressionAdjusted(e.Operand, EmitContext.RequiredValue);
     }
 
     private EmitInfo TryEmitAddress(BoundExpression expression)
@@ -454,15 +493,16 @@ internal partial class ExpressionGenerator : Generator
         EmitDelegateCreation(methodGroup.Receiver, method, delegateTypeSymbol);
     }
 
-    private void EmitErrorExpression(BoundErrorExpression errorExpression)
+    private EmitInfo EmitErrorExpression(BoundErrorExpression errorExpression, EmitContext context)
     {
-        if (!_preserveResult)
-            return;
+        if (Effective(context).ResultKind == EmitResultKind.None)
+            return EmitInfo.None;
 
         if (errorExpression.Type.SpecialType == SpecialType.System_Void)
-            return;
+            return EmitInfo.None;
 
         EmitDefaultValue(errorExpression.Type);
+        return EmitInfo.ForValue();
     }
 
     private void EmitDelegateCreation(BoundExpression? receiver, IMethodSymbol method, INamedTypeSymbol delegateType)
@@ -826,10 +866,15 @@ internal partial class ExpressionGenerator : Generator
             modifiers: null);
     }
 
-    private void EmitUnitExpression(BoundUnitExpression unitExpression)
+    private EmitInfo EmitUnitExpression(BoundUnitExpression unitExpression, EmitContext context)
     {
-        if (_preserveResult)
+        if (Effective(context).ResultKind == EmitResultKind.Value)
+        {
             EmitUnitValue();
+            return EmitInfo.ForValue();
+        }
+
+        return EmitInfo.None;
     }
 
     private void EmitPropagateExpression(BoundPropagateExpression expr)
@@ -2276,8 +2321,6 @@ internal partial class ExpressionGenerator : Generator
                 throw new NotSupportedException($"Unknown BoundAssignmentExpression: {node.GetType().Name}");
         }
 
-        if (preserveResult && node.Type?.SpecialType == SpecialType.System_Unit)
-            EmitUnitValue();
     }
 
     private void EmitParameterAssignmentExpression(BoundParameterAssignmentExpression node, bool preserveResult)
@@ -3301,11 +3344,6 @@ internal partial class ExpressionGenerator : Generator
     private void EmitInvocationExpression(BoundInvocationExpression invocationExpression, bool receiverAlreadyLoaded = false)
     {
         EmitInvocationExpressionBase(invocationExpression, receiverAlreadyLoaded);
-
-        if (_preserveResult && invocationExpression.Type.SpecialType == SpecialType.System_Unit)
-        {
-            EmitUnitValue();
-        }
     }
 
     /// <summary>
@@ -3315,7 +3353,7 @@ internal partial class ExpressionGenerator : Generator
     {
         // Receivers and value arguments are required to be present on the stack to perform calls.
         // They must be emitted regardless of this generator's _preserveResult.
-        new ExpressionGenerator(this, expr, preserveResult: true).Emit2();
+        EmitExpressionAdjusted(expr, EmitContext.RequiredValue);
     }
 
     private void EmitUnitValue()
@@ -4210,21 +4248,23 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, constructor);
     }
 
-    private void EmitIfExpression(BoundIfExpression ifStatement)
+    private EmitInfo EmitIfExpression(BoundIfExpression ifStatement, EmitContext context)
     {
         var elseLabel = ILGenerator.DefineLabel();
 
         // Create a scope upfront so any pattern variables introduced in the
         // condition are available within the "then" branch.
         var scope = new Scope(this);
-        new ExpressionGenerator(scope, ifStatement.Condition)
+        new ExpressionGenerator(scope, ifStatement.Condition, EmitContext.Value)
             .EmitBranchOpForCondition(ifStatement.Condition, elseLabel);
 
+        var effectiveContext = Effective(context);
         var resultClrType = ifStatement.Type is not null
             ? ResolveClrType(ifStatement.Type)
             : null;
 
-        new ExpressionGenerator(scope, ifStatement.ThenBranch).Emit();
+        new ExpressionGenerator(scope, ifStatement.ThenBranch, context)
+            .EmitExpressionAdjusted(ifStatement.ThenBranch, context);
 
         var thenType = ifStatement.ThenBranch.Type;
 
@@ -4232,7 +4272,7 @@ internal partial class ExpressionGenerator : Generator
             resultClrType is { IsValueType: false }
             && (thenType?.IsValueType ?? false);
 
-        if (thenRequiresBox)
+        if (effectiveContext.ResultKind == EmitResultKind.Value && thenRequiresBox)
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType));
         }
@@ -4250,7 +4290,8 @@ internal partial class ExpressionGenerator : Generator
 
             // Emit the 'else' block
             var scope2 = new Scope(this);
-            new ExpressionGenerator(scope2, ifStatement.ElseBranch).Emit();
+            new ExpressionGenerator(scope2, ifStatement.ElseBranch, context)
+                .EmitExpressionAdjusted(ifStatement.ElseBranch, context);
 
             var elseType = ifStatement.ElseBranch.Type;
 
@@ -4258,7 +4299,7 @@ internal partial class ExpressionGenerator : Generator
                 resultClrType is { IsValueType: false }
                 && (elseType?.IsValueType ?? false);
 
-            if (elseRequiresBox)
+            if (effectiveContext.ResultKind == EmitResultKind.Value && elseRequiresBox)
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(elseType));
             }
@@ -4271,6 +4312,10 @@ internal partial class ExpressionGenerator : Generator
             // If no 'else' block, mark the 'else' label
             ILGenerator.MarkLabel(elseLabel);
         }
+
+        return effectiveContext.ResultKind == EmitResultKind.Value
+            ? EmitInfo.ForValue()
+            : EmitInfo.None;
     }
 
     internal void EmitBranchOpForCondition(BoundExpression expression, ILLabel end)
@@ -4344,7 +4389,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBlock(BoundBlockExpression block)
+    private EmitInfo EmitBlock(BoundBlockExpression block, EmitContext context)
     {
         var scope = new Scope(this, block.LocalsToDispose);
         var statements = block.Statements.ToArray();
@@ -4352,41 +4397,21 @@ internal partial class ExpressionGenerator : Generator
         if (statements.Length > 0)
             MethodBodyGenerator.DeclareLocals(scope, statements);
 
-        BoundExpression? resultExpression = null;
-        var count = statements.Length;
-
-        if (count > 0 &&
-            statements[^1] is BoundExpressionStatement exprStmt &&
-            exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
-        {
-            resultExpression = exprStmt.Expression;
-            count--;
-        }
-
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < statements.Length; i++)
         {
             var statement = statements[i];
             EmitStatement(statement, scope);
         }
 
-        IILocal? resultTemp = null;
-        if (resultExpression is not null)
-        {
-            new ExpressionGenerator(scope, resultExpression).Emit();
-
-            var resultType = resultExpression.Type;
-            if (resultType is not null)
-            {
-                var clrType = ResolveClrType(resultType);
-                resultTemp = ILGenerator.DeclareLocal(clrType);
-                ILGenerator.Emit(OpCodes.Stloc, resultTemp);
-            }
-        }
-
         EmitDispose(block.LocalsToDispose);
 
-        if (resultTemp is not null)
-            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+        if (Effective(context).ResultKind == EmitResultKind.Value)
+        {
+            EmitUnitValue();
+            return EmitInfo.ForValue();
+        }
+
+        return EmitInfo.None;
     }
 
     private void EmitTryExpression(BoundTryExpression tryExpression)
@@ -4412,12 +4437,13 @@ internal partial class ExpressionGenerator : Generator
 
         if (tryExpression.Expression is BoundBlockExpression blockExpression)
         {
-            EmitTryExpressionBlock(tryScope, blockExpression);
+            EmitTryExpressionBlock(tryScope, blockExpression, EmitContext.Value);
         }
         else
         {
             ILGenerator.BeginExceptionBlock();
-            new ExpressionGenerator(tryScope, tryExpression.Expression).Emit();
+            new ExpressionGenerator(tryScope, tryExpression.Expression, EmitContext.Value)
+                .EmitExpressionAdjusted(tryExpression.Expression, EmitContext.Value);
         }
 
         if (okConstructor.Parameters.Length > 0)
@@ -4481,7 +4507,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
     }
 
-    private void EmitTryExpressionBlock(Scope tryScope, BoundBlockExpression blockExpression)
+    private void EmitTryExpressionBlock(Scope tryScope, BoundBlockExpression blockExpression, EmitContext context)
     {
         var blockScope = new Scope(tryScope, blockExpression.LocalsToDispose);
         var statements = blockExpression.Statements.ToArray();
@@ -4489,18 +4515,7 @@ internal partial class ExpressionGenerator : Generator
         if (statements.Length > 0)
             MethodBodyGenerator.DeclareLocals(blockScope, statements);
 
-        BoundExpression? resultExpression = null;
-        var count = statements.Length;
-
-        if (count > 0 &&
-            statements[^1] is BoundExpressionStatement exprStmt &&
-            exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
-        {
-            resultExpression = exprStmt.Expression;
-            count--;
-        }
-
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < statements.Length; i++)
         {
             if (statements[i] is BoundLabeledStatement labeled)
                 MethodBodyGenerator.RegisterLabelScope(labeled.Label, blockScope);
@@ -4508,7 +4523,7 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.BeginExceptionBlock();
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < statements.Length; i++)
         {
             var statement = statements[i];
             if (statement is BoundLabeledStatement labeled)
@@ -4524,24 +4539,10 @@ internal partial class ExpressionGenerator : Generator
             }
         }
 
-        IILocal? resultTemp = null;
-        if (resultExpression is not null)
-        {
-            new ExpressionGenerator(blockScope, resultExpression).Emit();
-
-            var resultExprType = resultExpression.Type;
-            if (resultExprType is not null)
-            {
-                var clrType = ResolveClrType(resultExprType);
-                resultTemp = ILGenerator.DeclareLocal(clrType);
-                ILGenerator.Emit(OpCodes.Stloc, resultTemp);
-            }
-        }
-
         EmitDispose(blockExpression.LocalsToDispose);
 
-        if (resultTemp is not null)
-            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+        if (Effective(context).ResultKind == EmitResultKind.Value && IsUnit(blockExpression.Type))
+            EmitUnitValue();
     }
 
     private void EmitStatement(BoundStatement statement, Scope scope)

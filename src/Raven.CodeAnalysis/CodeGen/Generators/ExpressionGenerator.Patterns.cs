@@ -29,8 +29,10 @@ internal partial class ExpressionGenerator
         EmitPattern(e.Pattern, inputType, scope: null);
     }
 
-    private void EmitMatchExpression(BoundMatchExpression matchExpression, EmitContext context)
+    private EmitInfo EmitMatchExpression(BoundMatchExpression matchExpression, EmitContext context)
     {
+        var effectiveContext = Effective(context);
+
         // Determine scrutinee type (fall back to object on error)
         var scrutineeType =
             matchExpression.Expression.Type
@@ -141,16 +143,20 @@ internal partial class ExpressionGenerator
             // --- Guard ---
             if (arm.Guard is not null)
             {
-                new ExpressionGenerator(scope, arm.Guard).Emit();
+                new ExpressionGenerator(scope, arm.Guard, EmitContext.Value)
+                    .EmitExpressionAdjusted(arm.Guard, EmitContext.Value);
                 ILGenerator.Emit(OpCodes.Brfalse, nextArmLabel);
             }
 
             // --- Arm body ---
-            new ExpressionGenerator(scope, arm.Expression).Emit();
+            new ExpressionGenerator(scope, arm.Expression, context)
+                .EmitExpressionAdjusted(arm.Expression, context);
 
             // If the match expression itself is a union, box arm values when needed
             var armType = arm.Expression.Type;
-            if ((matchExpression.Type?.IsTypeUnion ?? false) && (armType?.IsValueType ?? false))
+            if (effectiveContext.ResultKind == EmitResultKind.Value
+                && (matchExpression.Type?.IsTypeUnion ?? false)
+                && (armType?.IsValueType ?? false))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
             }
@@ -174,6 +180,10 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Throw);
 
         ILGenerator.MarkLabel(exitLabel);
+
+        return effectiveContext.ResultKind == EmitResultKind.Value
+            ? EmitInfo.ForValue()
+            : EmitInfo.None;
     }
 
     // ============================================
