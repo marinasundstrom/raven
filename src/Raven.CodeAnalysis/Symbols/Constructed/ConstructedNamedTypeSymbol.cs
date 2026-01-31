@@ -373,7 +373,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public INamedTypeSymbol? UnderlyingDiscriminatedUnion => _originalDefinition.UnderlyingDiscriminatedUnion;
     public INamedTypeSymbol? ContainingType => _containingTypeOverride ?? _originalDefinition.ContainingType;
     public INamespaceSymbol? ContainingNamespace => _originalDefinition.ContainingNamespace;
-    public ISymbol? ContainingSymbol => _originalDefinition.ContainingSymbol;
+    public ISymbol? ContainingSymbol => _containingTypeOverride ?? _originalDefinition.ContainingSymbol;
     public IAssemblySymbol? ContainingAssembly => _originalDefinition.ContainingAssembly;
     public IModuleSymbol? ContainingModule => _originalDefinition.ContainingModule;
     public Accessibility DeclaredAccessibility => _originalDefinition.DeclaredAccessibility;

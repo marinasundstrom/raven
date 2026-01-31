@@ -830,13 +830,35 @@ partial class BlockBinder
 
     private static IMethodSymbol? FindImplicitConversion(INamedTypeSymbol carrier, INamedTypeSymbol from)
     {
-        return carrier.GetMembers("op_Implicit")
+        foreach (var m in carrier.GetMembers("op_Implicit").OfType<IMethodSymbol>())
+        {
+            var returnType =
+                SymbolEqualityComparer.Default.Equals(m.ReturnType, carrier);
+
+            var param = m.Parameters[0];
+            var type = param.Type;
+
+            var parameter =
+                SymbolEqualityComparer.Default.Equals(type, from);
+
+            if (
+                m.IsStatic && returnType &&
+                m.Parameters.Length == 1 && parameter)
+            {
+                return m;
+            }
+        }
+
+        return null;
+
+        /*return carrier.GetMembers("op_Implicit")
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m =>
                 m.IsStatic &&
                 SymbolEqualityComparer.Default.Equals(m.ReturnType, carrier) &&
                 m.Parameters.Length == 1 &&
                 SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, from));
+                */
     }
 
     private BoundExpression BindNullableConditionalAccessExpression(
