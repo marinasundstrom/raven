@@ -847,7 +847,7 @@ internal class CodeGenerator
         finally
         {
             _stopwatch.Stop();
-            PrintDebug($"Emitted code in: {_stopwatch.ElapsedMilliseconds} ms");
+            PrintDebug($"Emitted code in {_stopwatch.ElapsedMilliseconds} ms");
         }
     }
 

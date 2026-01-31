@@ -832,6 +832,8 @@ internal class TypeGenerator
 
     public void EmitMemberILBodies()
     {
+        DebugUtils.PrintDebug($"Emitting IL bodies for type: {TypeSymbol.ToDisplayString()}");
+
         while (true)
         {
             var pending = _methodGenerators.Values
@@ -846,6 +848,8 @@ internal class TypeGenerator
                 CodeGen.CurrentEmittingMethod = methodGenerator.MethodSymbol;
                 try
                 {
+                    DebugUtils.PrintDebug($"Emitting IL body for method: {methodGenerator.MethodSymbol.ToDisplayString()}");
+
                     methodGenerator.EmitBody();
                 }
                 catch (Exception ex)
