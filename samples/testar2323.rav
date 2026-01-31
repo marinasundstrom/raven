@@ -1,0 +1,8 @@
+val c: Foo = .B('Ö', 2)
+
+System.Console.WriteLine(c)
+
+union Foo {
+    A(a: int)
+    B(a: char, b: int)
+}
