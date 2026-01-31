@@ -12,7 +12,7 @@ func GetItem() -> Result<string, Err> {
     val maybeItem = GetUser()?.Item?
 
     return maybeItem match {
-        .Some(let item) => .Ok(item.Name)
+        .Some(val item) => .Ok(item.Name)
         .None  => .Error(Err.MissingName)
     }
 }

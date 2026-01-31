@@ -19,7 +19,7 @@ func Main() {
             Print(character)
         }
 
-        if character is { Species: .Dog, Name: let dogName } {
+        if character is { Species: .Dog, Name: val dogName } {
             WriteLine("Dog: $dogName")
         }
 

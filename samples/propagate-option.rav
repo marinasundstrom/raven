@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 
 val x = test() match {
-    .Some(let y) => "Foo: $y"
+    .Some(val y) => "Foo: $y"
     .None => "None"
 }
 

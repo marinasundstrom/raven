@@ -4,9 +4,9 @@
 
 import System.Console.*
 
-let x: int? = 2
+val x: int? = 2
 
-let opt: Option<int> = x
+val opt: Option<int> = x
 
 union Option<T: struct> {
     Some(value: T)

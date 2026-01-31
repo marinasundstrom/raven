@@ -6,10 +6,10 @@ async func WaitAndReturn(value: int, delay: int) -> Task<int> {
     return value
 }
 
-let first = await WaitAndReturn(21, 5)
-let second = await WaitAndReturn(21, 10)
+val first = await WaitAndReturn(21, 5)
+val second = await WaitAndReturn(21, 10)
 
-let result = first + second
+val result = first + second
 
 WriteLine(result)
 return result

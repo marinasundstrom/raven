@@ -15,7 +15,7 @@ async func GetItem() -> Task<Result<string, Err>> {
     await Task.Delay(200);
 
     return maybeItem match {
-        .Some(let item) => .Ok(item.Name)
+        .Some(val item) => .Ok(item.Name)
         .None  => .Error(Err.MissingName)
     }
 }

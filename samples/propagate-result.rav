@@ -2,8 +2,8 @@ import System.*
 import System.Console.*
 
 val x = test() match {
-    .Ok(let y) => "Foo: $y"
-    .Error(let exc) => "Error: ${exc.Message}"
+    .Ok(val y) => "Foo: $y"
+    .Error(val exc) => "Error: ${exc.Message}"
 }
 
 WriteLine(x)

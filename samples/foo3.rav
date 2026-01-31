@@ -1,6 +1,6 @@
 import System.Console.*
 
-let x = Foo.A
+val x = Foo.A
 
 WriteLine("Value: $x = ${(int)x}")
 
