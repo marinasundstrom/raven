@@ -12,6 +12,8 @@ using System.Text;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 
+using static Raven.CodeAnalysis.CodeGen.DebugUtils;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal partial class ExpressionGenerator : Generator
@@ -91,6 +93,8 @@ internal partial class ExpressionGenerator : Generator
 
     private EmitInfo EmitExpression(BoundExpression expression, EmitContext context)
     {
+        PrintDebug($"Emitting bound expression: {expression}", () => CodeGenFlags.PrintEmittedBoundNodes);
+
         if (context.ResultKind == EmitResultKind.Address)
         {
             var addressInfo = TryEmitAddress(expression);
