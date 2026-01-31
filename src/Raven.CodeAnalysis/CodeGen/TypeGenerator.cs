@@ -85,8 +85,13 @@ internal class TypeGenerator
                     typeAttributes |= TypeAttributes.Sealed;
             }
 
-            if (TypeSymbol is SourceDiscriminatedUnionSymbol)
-                typeAttributes |= TypeAttributes.ExplicitLayout;
+            if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
+            {
+                var unionNamed = (INamedTypeSymbol)unionSymbol;
+                typeAttributes |= unionNamed.IsGenericType
+                    ? TypeAttributes.SequentialLayout
+                    : TypeAttributes.ExplicitLayout;
+            }
         }
 
         if (TypeSymbol.BaseType.Name == "Enum")
@@ -249,7 +254,7 @@ internal class TypeGenerator
 
         if (TypeSymbol is SourceDiscriminatedUnionSymbol)
         {
-            ApplyExplicitDiscriminatedUnionLayout();
+            ApplyDiscriminatedUnionLayout();
             var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
             TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
         }
@@ -275,16 +280,23 @@ internal class TypeGenerator
         return name;
     }
 
-    private void ApplyExplicitDiscriminatedUnionLayout()
+    private void ApplyDiscriminatedUnionLayout()
     {
         if (TypeBuilder is null)
             return;
 
+        if (TypeSymbol is not INamedTypeSymbol namedType)
+            return;
+
+        var layoutKind = namedType.IsGenericType ? LayoutKind.Sequential : LayoutKind.Explicit;
         var layoutCtor = typeof(StructLayoutAttribute).GetConstructor(new[] { typeof(LayoutKind) });
         if (layoutCtor is null)
             return;
 
-        var attribute = new CustomAttributeBuilder(layoutCtor, new object[] { LayoutKind.Explicit });
+        if (namedType.IsGenericType && layoutKind == LayoutKind.Explicit)
+            throw new InvalidOperationException("Generic discriminated unions cannot use explicit layout on .NET.");
+
+        var attribute = new CustomAttributeBuilder(layoutCtor, new object[] { layoutKind });
         TypeBuilder.SetCustomAttribute(attribute);
     }
 
@@ -399,12 +411,16 @@ internal class TypeGenerator
 
         var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, fieldType, attributes);
 
-        if (TypeSymbol is SourceDiscriminatedUnionSymbol)
+        if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
         {
-            if (DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name))
-                fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.TagFieldOffset);
-            else if (DiscriminatedUnionFieldUtilities.IsPayloadFieldName(fieldSymbol.Name))
-                fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.PayloadFieldOffset);
+            var unionNamed = (INamedTypeSymbol)unionSymbol;
+            if (!unionNamed.IsGenericType)
+            {
+                if (DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name))
+                    fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.TagFieldOffset);
+                else if (DiscriminatedUnionFieldUtilities.IsPayloadFieldName(fieldSymbol.Name))
+                    fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.PayloadFieldOffset);
+            }
         }
 
         if (fieldSymbol.IsConst)

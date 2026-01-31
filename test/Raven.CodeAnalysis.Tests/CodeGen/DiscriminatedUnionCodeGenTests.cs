@@ -340,6 +340,45 @@ union Option {
     public void DiscriminatedUnion_UsesExplicitLayoutAndOffsets()
     {
         var code = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Result", throwOnError: true)!;
+
+        var layout = unionType.StructLayoutAttribute;
+        Assert.NotNull(layout);
+        Assert.Equal(LayoutKind.Explicit, layout!.Value);
+
+        Assert.Equal(0, Marshal.OffsetOf(unionType, "<Tag>").ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf(unionType, "<OkPayload>").ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf(unionType, "<ErrorPayload>").ToInt32());
+    }
+
+    [Fact]
+    public void DiscriminatedUnion_GenericUsesSequentialLayout()
+    {
+        var code = """
 union Option<T> {
     Some(value: T)
     None
@@ -369,11 +408,7 @@ union Option<T> {
 
         var layout = unionType.StructLayoutAttribute;
         Assert.NotNull(layout);
-        Assert.Equal(LayoutKind.Explicit, layout!.Value);
-
-        Assert.Equal(0, Marshal.OffsetOf(unionType, "<Tag>").ToInt32());
-        Assert.Equal(8, Marshal.OffsetOf(unionType, "<SomePayload>").ToInt32());
-        Assert.Equal(8, Marshal.OffsetOf(unionType, "<NonePayload>").ToInt32());
+        Assert.Equal(LayoutKind.Sequential, layout!.Value);
     }
 
     [Fact]
