@@ -208,28 +208,6 @@ internal class TypeResolver(Compilation compilation)
             return pointer;
         }
 
-        if (type.IsNested && type.DeclaringType is not null)
-        {
-            var declaringType = ResolveType(type.DeclaringType, methodContext) as INamedTypeSymbol;
-            if (declaringType is not null)
-            {
-                var nested = declaringType.GetTypeMembers(type.Name).FirstOrDefault();
-                if (nested is not null)
-                {
-                    if (type.IsGenericType)
-                    {
-                        var args = type.GetGenericArguments()
-                            .Select(x => ResolveType(x, methodContext)!)
-                            .ToArray();
-                        nested = nested.Construct(args);
-                    }
-
-                    _cache[type] = nested;
-                    return nested;
-                }
-            }
-        }
-
         if (type.IsGenericTypeDefinition)
         {
             return ResolveTypeCore(type);
@@ -237,9 +215,22 @@ internal class TypeResolver(Compilation compilation)
 
         if (type.IsGenericType)
         {
-            var genericTypeDefinition = (INamedTypeSymbol?)ResolveType(type.GetGenericTypeDefinition());
-            var args = type.GetGenericArguments().Select(x => ResolveType(x)!);
-            return genericTypeDefinition.Construct(args.ToArray());
+            // Important:
+            // - For *nested* types, reflection may report generic arguments that include the declaring type's
+            //   arguments. The correct way to resolve these is to rebuild the declaring-type chain and
+            //   anchor the nested type under the constructed declaring type.
+            // - For *non-nested* generic types (e.g. TaskAwaiter<TResult>), we can resolve the generic
+            //   definition and construct it directly.
+
+            if (type.IsNested)
+                return ResolveNestedTypeChain(type, methodContext);
+
+            var genericTypeDefinition = (INamedTypeSymbol?)ResolveType(type.GetGenericTypeDefinition(), methodContext);
+            if (genericTypeDefinition is null)
+                return null;
+
+            var args = type.GetGenericArguments().Select(x => ResolveType(x, methodContext)!).ToArray();
+            return genericTypeDefinition.Construct(args);
         }
 
         if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
@@ -273,6 +264,126 @@ internal class TypeResolver(Compilation compilation)
         _cache[type] = symbol!;
 
         return symbol;
+    }
+
+    private INamedTypeSymbol ResolveNestedTypeChain(Type t, MethodBase? methodContext)
+    {
+        // 1) chain outermost..innermost
+        var chain = new List<Type>();
+        for (var cur = t; cur != null; cur = cur.DeclaringType)
+            chain.Add(cur);
+        chain.Reverse();
+
+        // 2) declared arity per level
+        var arities = chain.Select(GetDeclaredArity).ToArray();
+
+        // 3) flat args for *t* (innermost)
+        var flat = t.IsGenericType || t.ContainsGenericParameters
+            ? t.GetGenericArguments()
+            : Type.EmptyTypes;
+
+        // 4) slice args per level
+        var slices = SliceArguments(flat, arities); // returns Type[][]
+
+        // 5) resolve outermost and walk down
+        INamedTypeSymbol current = (INamedTypeSymbol)ResolveType(chain[0], methodContext)!;
+
+        if (arities[0] > 0)
+            current = (INamedTypeSymbol)current.Construct(slices[0].Select(x => ResolveType(x, methodContext)!).ToArray());
+
+        for (int i = 1; i < chain.Count; i++)
+        {
+            var levelType = chain[i];
+
+            // Find nested under current containing symbol
+            var nestedDef = FindNested(current, levelType);
+
+            current = nestedDef;
+
+            if (arities[i] > 0)
+                current = (INamedTypeSymbol)current.Construct(slices[i].Select(x => ResolveType(x, methodContext)!).ToArray());
+        }
+
+        return current;
+    }
+
+    private static int GetDeclaredArity(Type level)
+    {
+        if (!level.IsGenericType && !level.IsGenericTypeDefinition)
+            return 0;
+
+        var def = level.IsGenericTypeDefinition ? level : level.GetGenericTypeDefinition();
+        return def.GetGenericArguments().Length;
+    }
+
+    private static Type[][] SliceArguments(Type[] flat, int[] arities)
+    {
+        var result = new Type[arities.Length][];
+        int pos = 0;
+        for (int i = 0; i < arities.Length; i++)
+        {
+            var n = arities[i];
+            if (n == 0) { result[i] = Array.Empty<Type>(); continue; }
+            result[i] = flat.Skip(pos).Take(n).ToArray();
+            pos += n;
+        }
+        return result;
+    }
+
+    private static INamedTypeSymbol FindNested(INamedTypeSymbol containing, Type nestedRuntimeType)
+    {
+        // Use Name+Arity, *not* just Name.
+        var (name, arity) = GetRuntimeNestedNameAndArity(nestedRuntimeType);
+
+        // if your symbol exposes MetadataName, use that instead (best).
+        var candidates = containing.GetMembers(name).OfType<INamedTypeSymbol>();
+        foreach (var c in candidates)
+        {
+            if (c.Arity == arity) // or MetadataName match
+                return c;
+        }
+
+        // fallback: if only one match by name, return it
+        var single = candidates.FirstOrDefault();
+        if (single is not null) return single;
+
+        throw new InvalidOperationException($"Could not resolve nested type {nestedRuntimeType} under {containing}.");
+    }
+
+    private static (string name, int arity) GetRuntimeNestedNameAndArity(Type t)
+    {
+        // Reflection reports nested generic type parameters as the concatenation of:
+        //   declaring type parameters + nested type's own parameters.
+        //
+        // Example (no nested parameters declared in source):
+        //   Result<T, E>.Ok  -> runtime nested type may appear as Ok`2 with [T, E]
+        //   but the nested type's *own* arity in the source model is 0.
+        //
+        // Example (nested declares its own params):
+        //   Outer<T>.Inner<U> -> runtime Inner may appear with arity 2 total, but nested-own arity is 1.
+
+        var name = t.Name;
+        var tick = name.IndexOf('`');
+        if (tick >= 0)
+            name = name[..tick];
+
+        // Compute nested-own arity by subtracting declaring arity from total generic arguments.
+        // For non-generic or non-nested types, this degenerates safely.
+        var total = (t.IsGenericType || t.IsGenericTypeDefinition)
+            ? (t.IsGenericTypeDefinition ? t.GetGenericArguments().Length : t.GetGenericArguments().Length)
+            : 0;
+
+        var declaring = t.DeclaringType;
+        var declaringTotal = 0;
+        if (declaring is not null && (declaring.IsGenericType || declaring.IsGenericTypeDefinition))
+        {
+            declaringTotal = declaring.IsGenericTypeDefinition
+                ? declaring.GetGenericArguments().Length
+                : declaring.GetGenericArguments().Length;
+        }
+
+        var nestedOwnArity = Math.Max(0, total - declaringTotal);
+        return (name, nestedOwnArity);
     }
 
     internal ITypeParameterSymbol ResolveMethodTypeParameter(Type type, PEMethodSymbol methodSymbol)
