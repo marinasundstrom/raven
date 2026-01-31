@@ -91,6 +91,74 @@ public class ResultMetadataSymbolTests
         }
     }
 
+    [Fact]
+    public void ResultFromMetadata_ImplicitConversions_UseCaseTypes()
+    {
+        var (reference, path) = CreateRavenCoreResultReference();
+        try
+        {
+            var compilation = Compilation.Create("metadata-result-conversions", new CompilationOptions(OutputKind.ConsoleApplication))
+                .AddReferences([.. TestMetadataReferences.Default, reference]);
+
+            var systemNamespace = compilation.GlobalNamespace.LookupNamespace("System")
+                ?? compilation.GlobalNamespace;
+            var resultDefinition = systemNamespace
+                .GetMembers("Result")
+                .OfType<INamedTypeSymbol>()
+                .Single(symbol => symbol.Arity == 2);
+
+            var okCase = Assert.Single(resultDefinition.GetMembers("Ok").OfType<INamedTypeSymbol>());
+            var errorCase = Assert.Single(resultDefinition.GetMembers("Error").OfType<INamedTypeSymbol>());
+
+            var conversions = resultDefinition.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
+            Assert.NotEmpty(conversions);
+
+            Assert.Contains(conversions, conversion => HasParameterType(conversion, okCase));
+            Assert.Contains(conversions, conversion => HasParameterType(conversion, errorCase));
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ConstructedResultFromMetadata_ImplicitConversions_UseCaseTypes()
+    {
+        var (reference, path) = CreateRavenCoreResultReference();
+        try
+        {
+            var compilation = Compilation.Create("metadata-result-conversions-constructed", new CompilationOptions(OutputKind.ConsoleApplication))
+                .AddReferences([.. TestMetadataReferences.Default, reference]);
+
+            var systemNamespace = compilation.GlobalNamespace.LookupNamespace("System")
+                ?? compilation.GlobalNamespace;
+            var resultDefinition = systemNamespace
+                .GetMembers("Result")
+                .OfType<INamedTypeSymbol>()
+                .Single(symbol => symbol.Arity == 2);
+
+            var stringType = compilation.GetSpecialType(SpecialType.System_String);
+            var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
+            var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Construct(stringType, exceptionType));
+
+            var okCase = Assert.Single(constructedResult.GetMembers("Ok").OfType<INamedTypeSymbol>());
+            var errorCase = Assert.Single(constructedResult.GetMembers("Error").OfType<INamedTypeSymbol>());
+
+            var conversions = constructedResult.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
+            Assert.NotEmpty(conversions);
+
+            Assert.Contains(conversions, conversion => HasParameterType(conversion, okCase));
+            Assert.Contains(conversions, conversion => HasParameterType(conversion, errorCase));
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
     private static (MetadataReference Reference, string Path) CreateRavenCoreResultReference()
     {
         var sourcePath = Path.GetFullPath(Path.Combine(
@@ -110,5 +178,14 @@ public class ResultMetadataSymbolTests
         var path = Path.Combine(Path.GetTempPath(), $"raven-core-result-{Guid.NewGuid():N}.dll");
         File.WriteAllBytes(path, stream.ToArray());
         return (MetadataReference.CreateFromFile(path), path);
+    }
+
+    private static bool HasParameterType(IMethodSymbol method, INamedTypeSymbol expectedType)
+    {
+        if (method.Parameters.Length != 1)
+            return false;
+
+        var parameterType = method.Parameters[0].Type;
+        return SymbolEqualityComparer.Default.Equals(parameterType, expectedType);
     }
 }

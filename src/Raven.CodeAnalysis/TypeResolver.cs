@@ -466,17 +466,21 @@ internal class TypeResolver(Compilation compilation)
 
     private static string? GetMetadataName(Type type)
     {
+        if (type.DeclaringType is { } declaringType)
+        {
+            var declaringName = GetMetadataName(declaringType);
+            if (declaringName is null)
+                return null;
+
+            var (nestedName, nestedArity) = GetRuntimeNestedNameAndArity(type);
+            var nestedMetadataName = nestedArity > 0 ? $"{nestedName}`{nestedArity}" : nestedName;
+            return $"{declaringName}+{nestedMetadataName}";
+        }
+
         if (type.FullName is { } fullName)
             return fullName;
 
         var name = type.Name;
-
-        if (type.DeclaringType is { } declaringType)
-        {
-            var declaringName = GetMetadataName(declaringType);
-            return declaringName is null ? null : $"{declaringName}+{name}";
-        }
-
         return string.IsNullOrEmpty(type.Namespace)
             ? name
             : $"{type.Namespace}.{name}";
