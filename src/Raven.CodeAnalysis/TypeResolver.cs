@@ -266,7 +266,7 @@ internal class TypeResolver(Compilation compilation)
         return symbol;
     }
 
-    private INamedTypeSymbol ResolveNestedTypeChain(Type t, MethodBase? methodContext)
+    private INamedTypeSymbol? ResolveNestedTypeChain(Type t, MethodBase? methodContext)
     {
         // 1) chain outermost..innermost
         var chain = new List<Type>();
@@ -286,7 +286,11 @@ internal class TypeResolver(Compilation compilation)
         var slices = SliceArguments(flat, arities); // returns Type[][]
 
         // 5) resolve outermost and walk down
-        INamedTypeSymbol current = (INamedTypeSymbol)ResolveType(chain[0], methodContext)!;
+        var resolvedOuter = ResolveType(chain[0], methodContext);
+        if (resolvedOuter is not INamedTypeSymbol outerNamed)
+            return null;
+
+        INamedTypeSymbol current = outerNamed;
 
         if (arities[0] > 0)
             current = (INamedTypeSymbol)current.Construct(slices[0].Select(x => ResolveType(x, methodContext)!).ToArray());
@@ -297,6 +301,8 @@ internal class TypeResolver(Compilation compilation)
 
             // Find nested under current containing symbol
             var nestedDef = FindNested(current, levelType);
+            if (nestedDef is null)
+                return null;
 
             current = nestedDef;
 
@@ -330,24 +336,24 @@ internal class TypeResolver(Compilation compilation)
         return result;
     }
 
-    private static INamedTypeSymbol FindNested(INamedTypeSymbol containing, Type nestedRuntimeType)
+    private static INamedTypeSymbol? FindNested(INamedTypeSymbol containing, Type nestedRuntimeType)
     {
         // Use Name+Arity, *not* just Name.
         var (name, arity) = GetRuntimeNestedNameAndArity(nestedRuntimeType);
+        var runtimeMetadataName = nestedRuntimeType.Name;
 
-        // if your symbol exposes MetadataName, use that instead (best).
-        var candidates = containing.GetMembers(name).OfType<INamedTypeSymbol>();
-        foreach (var c in candidates)
+        var candidates = containing.GetMembers().OfType<INamedTypeSymbol>();
+        INamedTypeSymbol? nameMatch = null;
+        foreach (var candidate in candidates)
         {
-            if (c.Arity == arity) // or MetadataName match
-                return c;
+            if (string.Equals(candidate.MetadataName, runtimeMetadataName, StringComparison.Ordinal))
+                return candidate;
+
+            if (string.Equals(candidate.Name, name, StringComparison.Ordinal) && candidate.Arity == arity)
+                nameMatch ??= candidate;
         }
 
-        // fallback: if only one match by name, return it
-        var single = candidates.FirstOrDefault();
-        if (single is not null) return single;
-
-        throw new InvalidOperationException($"Could not resolve nested type {nestedRuntimeType} under {containing}.");
+        return nameMatch;
     }
 
     private static (string name, int arity) GetRuntimeNestedNameAndArity(Type t)

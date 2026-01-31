@@ -79,6 +79,39 @@ class Container<T>
     }
 
     [Fact]
+    public void ConstructedType_FromSource_NestedTypeMembers_HaveConstructedContainingSymbol()
+    {
+        var source = """
+class Container<T>
+{
+    public class Holder
+    {
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "constructed-source-nested-containing",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var containerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Container"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(containerDefinition.Construct(intType));
+
+        var holder = Assert.IsAssignableFrom<INamedTypeSymbol>(constructed.LookupType("Holder"));
+        var holderMember = Assert.Single(constructed.GetMembers("Holder").OfType<INamedTypeSymbol>());
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingSymbol));
+        Assert.True(SymbolEqualityComparer.Default.Equals(holder, holderMember));
+    }
+
+    [Fact]
     public void ConstructedType_NestedTypeInstantiation_RetainsContainingType()
     {
         var source = """
@@ -304,6 +337,26 @@ class Outer<T>
 
         var metadataName = enumerator.ToFullyQualifiedMetadataName();
         Assert.Equal("System.Collections.Generic.List`1+Enumerator", metadataName);
+    }
+
+    [Fact]
+    public void ConstructedMetadataType_NestedTypeMembers_HaveConstructedContainingSymbol()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+
+        var enumerator = Assert.IsAssignableFrom<INamedTypeSymbol>(listOfInt.LookupType("Enumerator"));
+        var enumeratorMember = Assert.Single(listOfInt.GetMembers("Enumerator").OfType<INamedTypeSymbol>());
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(listOfInt, enumerator.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(listOfInt, enumerator.ContainingSymbol));
+        Assert.True(SymbolEqualityComparer.Default.Equals(enumerator, enumeratorMember));
     }
 
     [Fact]
