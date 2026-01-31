@@ -220,6 +220,43 @@ public static class Extensions {
     }
 
     [Fact]
+    public void MemberAccess_WithExtensionBeforeRecord_ResolvesExtension()
+    {
+        const string source = """
+import System.Console.*
+
+val bob = Person("Bob", 1979)
+WriteLine(bob.GetDisplayString(2025))
+
+extension for Person {
+    GetDisplayString(currentYear: int) -> string {
+        return "${self.Name} is ${currentYear - self.YearOfBirth} years old"
+    }
+}
+
+record class Person(Name: string, YearOfBirth: int)
+""";
+
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "GetDisplayString");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Equal("Person", boundInvocation.ExtensionReceiver!.Type?.Name);
+    }
+
+    [Fact]
     public void MemberAccess_WithSourceExtensionAndBaseTypeReceiver_BindsExtensionInvocation()
     {
         const string source = """
