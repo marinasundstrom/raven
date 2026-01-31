@@ -266,7 +266,7 @@ internal class TypeResolver(Compilation compilation)
         return symbol;
     }
 
-    private INamedTypeSymbol? ResolveNestedTypeChain(Type t, MethodBase? methodContext)
+    private INamedTypeSymbol ResolveNestedTypeChain(Type t, MethodBase? methodContext)
     {
         // 1) chain outermost..innermost
         var chain = new List<Type>();
@@ -288,7 +288,7 @@ internal class TypeResolver(Compilation compilation)
         // 5) resolve outermost and walk down
         var resolvedOuter = ResolveType(chain[0], methodContext);
         if (resolvedOuter is not INamedTypeSymbol outerNamed)
-            return null;
+            return compilation.ErrorTypeSymbol;
 
         INamedTypeSymbol current = outerNamed;
 
@@ -302,7 +302,7 @@ internal class TypeResolver(Compilation compilation)
             // Find nested under current containing symbol
             var nestedDef = FindNested(current, levelType);
             if (nestedDef is null)
-                return null;
+                return compilation.ErrorTypeSymbol;
 
             current = nestedDef;
 
@@ -442,9 +442,12 @@ internal class TypeResolver(Compilation compilation)
         return typeSymbol;
     }
 
-    protected ITypeSymbol? ResolveTypeCore(Type type)
+    protected ITypeSymbol ResolveTypeCore(Type type)
     {
         var typeInfo = type.GetTypeInfo();
+        var metadataName = GetMetadataName(typeInfo);
+        if (string.IsNullOrEmpty(metadataName))
+            return compilation.ErrorTypeSymbol;
 
         var assemblyName = type.Assembly.GetName().Name;
         var corLibrary = (PEAssemblySymbol)compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
@@ -452,10 +455,29 @@ internal class TypeResolver(Compilation compilation)
             ?? corLibrary;
 
         if (assemblySymbol is null)
-            return compilation.GetTypeByMetadataName(type.FullName);
+            return compilation.GetTypeByMetadataName(metadataName) ?? compilation.ErrorTypeSymbol;
 
-        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName)
-            ?? compilation.GetTypeByMetadataName(type.FullName);
+        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, metadataName)
+            ?? compilation.GetTypeByMetadataName(metadataName)
+            ?? compilation.ErrorTypeSymbol;
+    }
+
+    private static string? GetMetadataName(Type type)
+    {
+        if (type.FullName is { } fullName)
+            return fullName;
+
+        var name = type.Name;
+
+        if (type.DeclaringType is { } declaringType)
+        {
+            var declaringName = GetMetadataName(declaringType);
+            return declaringName is null ? null : $"{declaringName}+{name}";
+        }
+
+        return string.IsNullOrEmpty(type.Namespace)
+            ? name
+            : $"{type.Namespace}.{name}";
     }
 
     public IMethodSymbol? ResolveMethodSymbol(MethodInfo ifaceMethod)

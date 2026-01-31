@@ -92,6 +92,9 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
     {
+        if (string.IsNullOrEmpty(name))
+            return null;
+
         var nsName = namespaceSymbol.ToMetadataName();
         var fullName = string.IsNullOrEmpty(nsName) ? name : nsName + "." + name;
 
