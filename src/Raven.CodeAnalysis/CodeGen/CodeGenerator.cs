@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -18,6 +19,8 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class CodeGenerator
 {
+    readonly Stopwatch _stopwatch = new Stopwatch();
+
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
@@ -683,6 +686,11 @@ internal class CodeGenerator
 
     public void Emit(Stream peStream, Stream? pdbStream)
     {
+        _stopwatch.Reset();
+        _stopwatch.Start();
+
+        PrintDebug($"Starting emitting code...");
+
         try
         {
             PrintDebug("Starting code generation emission.");
@@ -835,6 +843,11 @@ internal class CodeGenerator
                 throw new InvalidOperationException($"Emission failed while processing method '{method.ToDisplayString()}'", ex);
 
             throw;
+        }
+        finally
+        {
+            _stopwatch.Stop();
+            PrintDebug($"Emitted code in: {_stopwatch.ElapsedMilliseconds} ms");
         }
     }
 

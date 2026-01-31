@@ -1657,12 +1657,16 @@ internal class MethodBodyGenerator
             var payloadType = payloadFieldSymbol.Type;
 
             ILGenerator.Emit(OpCodes.Ldarg_0);
-            ILGenerator.Emit(OpCodes.Ldfld, payloadField);
 
             if (payloadType.IsValueType)
             {
+                ILGenerator.Emit(OpCodes.Ldflda, payloadField);
                 var payloadClrType = ResolveUnionCaseClrType(payloadType);
                 ILGenerator.Emit(OpCodes.Constrained, payloadClrType);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldfld, payloadField);
             }
 
             ILGenerator.Emit(OpCodes.Callvirt, objectToString);

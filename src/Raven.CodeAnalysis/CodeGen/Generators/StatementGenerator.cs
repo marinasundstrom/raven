@@ -9,6 +9,8 @@ using System.Reflection.Emit;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
+using static Raven.CodeAnalysis.CodeGen.DebugUtils;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal class StatementGenerator : Generator
@@ -22,6 +24,8 @@ internal class StatementGenerator : Generator
 
     public override void Emit()
     {
+        PrintDebug($"Emitting bound statement: {_statement}", () => CodeGenFlags.PrintEmittedBoundNodes);
+
         MethodBodyGenerator.EmitSequencePoint(_statement);
 
         switch (_statement)

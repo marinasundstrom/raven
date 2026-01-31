@@ -28,6 +28,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
     private readonly ImmutableArray<ITypeSymbol> _explicitTypeArguments;
     private ImmutableArray<ITypeSymbol> _typeArguments;
+    private ImmutableArray<ITypeSymbol> _allTypeArguments;
 
     public ConstructedNamedTypeSymbol(INamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
         : this(originalDefinition, typeArguments, inheritedSubstitution: null, containingTypeOverride: null)
@@ -184,6 +185,26 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             return constructedFrom.Construct(substitutedArgs);
         }
 
+        if (type is INamedTypeSymbol nestedNamed &&
+            !nestedNamed.IsGenericType &&
+            nestedNamed.ContainingType is INamedTypeSymbol containingType &&
+            containingType.TypeParameters.Length > 0)
+        {
+            var needsContainingSubstitution = false;
+            foreach (var typeParameter in containingType.TypeParameters)
+            {
+                if (TryGetSubstitution(typeParameter, out var replacement) &&
+                    !SymbolEqualityComparer.Default.Equals(replacement, typeParameter))
+                {
+                    needsContainingSubstitution = true;
+                    break;
+                }
+            }
+
+            if (needsContainingSubstitution)
+                return SubstituteNamedType(nestedNamed);
+        }
+
         return type;
     }
 
@@ -193,32 +214,35 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public ImmutableArray<ISymbol> GetMembers(string name) =>
         GetMembers().Where(m => m.Name == name).ToImmutableArray();
 
-    internal ImmutableArray<ITypeSymbol> GetAllTypeArguments() => TypeArguments;
+    internal ImmutableArray<ITypeSymbol> GetAllTypeArguments() =>
+        _allTypeArguments.IsDefault ? _allTypeArguments = BuildAllTypeArguments() : _allTypeArguments;
 
-    private ImmutableArray<ITypeSymbol> BuildTypeArguments()
+    private ImmutableArray<ITypeSymbol> BuildAllTypeArguments()
     {
-        var normalizedArguments = NormalizeTypeArguments(_explicitTypeArguments);
+        var selfArgs = TypeArguments;
 
         if (_containingTypeOverride is ConstructedNamedTypeSymbol constructedContaining)
         {
-            var inherited = constructedContaining.GetAllTypeArguments();
-            if (normalizedArguments.IsDefaultOrEmpty || normalizedArguments.Length == 0)
-                return inherited;
+            var outerArgs = constructedContaining.GetAllTypeArguments();
+            if (selfArgs.IsDefaultOrEmpty || selfArgs.Length == 0)
+                return outerArgs;
 
-            return inherited.AddRange(normalizedArguments);
+            return outerArgs.AddRange(selfArgs);
         }
 
-        return normalizedArguments;
+        return selfArgs;
+    }
+
+    private ImmutableArray<ITypeSymbol> BuildTypeArguments()
+    {
+        // Nested non-generic types (e.g. Test<T>.A) do NOT become generic.
+        // Outer substitution is carried via _substitutionMap and _containingTypeOverride.
+        return NormalizeTypeArguments(_explicitTypeArguments);
     }
 
     private ImmutableArray<ITypeParameterSymbol> BuildTypeParameters()
     {
-        if (_containingTypeOverride is INamedTypeSymbol constructedContaining)
-            return constructedContaining.TypeParameters.AddRange(_originalDefinition.TypeParameters);
-
-        if (_originalDefinition.ContainingType is INamedTypeSymbol containingDefinition)
-            return containingDefinition.TypeParameters.AddRange(_originalDefinition.TypeParameters);
-
+        // Nested types do not implicitly inherit containing type parameters.
         return _originalDefinition.TypeParameters;
     }
 
@@ -361,16 +385,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public ImmutableArray<AttributeData> GetAttributes() => _originalDefinition.GetAttributes();
-    public int Arity
-    {
-        get
-        {
-            if (_originalDefinition.Arity == 0 && _containingTypeOverride is INamedTypeSymbol containing)
-                return containing.TypeParameters.Length;
-
-            return _originalDefinition.Arity;
-        }
-    }
+    public int Arity => _originalDefinition.Arity;
     public ImmutableArray<ITypeSymbol> GetTypeArguments() => TypeArguments;
     public ITypeSymbol? OriginalDefinition => _originalDefinition;
     public INamedTypeSymbol? BaseType => _originalDefinition.BaseType;
@@ -379,7 +394,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract => _originalDefinition.IsAbstract;
     public bool IsSealed => _originalDefinition.IsSealed;
-    public bool IsGenericType => true;
+    public bool IsGenericType => _originalDefinition.IsGenericType;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<INamedTypeSymbol> Interfaces =>
         _interfaces ??= _originalDefinition.Interfaces
@@ -1314,7 +1329,12 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
         {
             var field = peField.GetFieldInfo();
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
-            return constructedType.GetField(field.Name)!;
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            var resolved = constructedType.GetField(field.Name, bindingFlags);
+            if (resolved is not null)
+                return resolved;
+
+            throw new MissingFieldException(constructedType.FullName, field.Name);
         }
 
         if (_original is SourceFieldSymbol sourceField)
