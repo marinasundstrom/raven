@@ -836,6 +836,19 @@ internal partial class ExpressionGenerator : Generator
         var okLabel = ILGenerator.DefineLabel();
         var tryGetOkName = $"TryGet{expr.OkCaseName}";
 
+        static bool TypesMatch(ITypeSymbol? left, ITypeSymbol? right)
+        {
+            if (left is null || right is null)
+                return false;
+
+            if (SymbolEqualityComparer.Default.Equals(left, right))
+                return true;
+
+            var leftDefinition = left.OriginalDefinition ?? left;
+            var rightDefinition = right.OriginalDefinition ?? right;
+            return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
+        }
+
         if (expr.OkCaseType is not null)
         {
             var okCaseClrType = ResolveClrType(expr.OkCaseType);
@@ -852,7 +865,7 @@ internal partial class ExpressionGenerator : Generator
                     m.Parameters.Length == 1 &&
                     m.Parameters[0].RefKind == RefKind.Out &&
                     expr.OkCaseType is not null &&
-                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type.GetElementType(), expr.OkCaseType));
+                    TypesMatch(m.Parameters[0].Type.GetElementType(), expr.OkCaseType));
 
             if (tryGetOkSymbol is null)
                 throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkCaseType}) on '{expr.Operand.Type}'.");
@@ -910,10 +923,10 @@ internal partial class ExpressionGenerator : Generator
                 .GetMembers(tryGetOkName)
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault(m =>
-                    !m.IsStatic &&
-                    m.Parameters.Length == 1 &&
-                    m.Parameters[0].RefKind == RefKind.Out &&
-                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, expr.OkType));
+                !m.IsStatic &&
+                m.Parameters.Length == 1 &&
+                m.Parameters[0].RefKind == RefKind.Out &&
+                TypesMatch(m.Parameters[0].Type, expr.OkType));
 
             if (tryGetOkSymbol is null)
                 throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkType}) on '{expr.Operand.Type}'.");
