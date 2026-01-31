@@ -288,7 +288,7 @@ internal class TypeResolver(Compilation compilation)
         // 5) resolve outermost and walk down
         var resolvedOuter = ResolveType(chain[0], methodContext);
         if (resolvedOuter is not INamedTypeSymbol outerNamed)
-            return compilation.ErrorTypeSymbol;
+            return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
 
         INamedTypeSymbol current = outerNamed;
 
@@ -302,7 +302,7 @@ internal class TypeResolver(Compilation compilation)
             // Find nested under current containing symbol
             var nestedDef = FindNested(current, levelType);
             if (nestedDef is null)
-                return compilation.ErrorTypeSymbol;
+                return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
 
             current = nestedDef;
 

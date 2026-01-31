@@ -97,9 +97,21 @@ public partial class Compilation
 
     internal BoundNodeFactory BoundNodeFactory => _boundNodeFactory ??= new BoundNodeFactory(this);
 
-    public ISymbol ErrorSymbol => _errorSymbol ??= new ErrorSymbol(this, "Error", null, [], []);
+    public ISymbol ErrorSymbol => _errorSymbol ??= CreateErrorSymbol();
 
-    public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
+    public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= CreateErrorTypeSymbol();
+
+    private ErrorSymbol CreateErrorSymbol()
+    {
+        EnsureSetup();
+        return new ErrorSymbol(this, "Error", GlobalNamespace, [], []);
+    }
+
+    private ErrorTypeSymbol CreateErrorTypeSymbol()
+    {
+        EnsureSetup();
+        return new ErrorTypeSymbol(this, "Error", GlobalNamespace, [], []);
+    }
 
     public ITypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
     public INamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= CreateUnitTypeSymbol();
