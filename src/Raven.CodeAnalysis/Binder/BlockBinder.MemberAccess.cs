@@ -807,7 +807,7 @@ partial class BlockBinder
             .FirstOrDefault(m =>
                 m.Parameters.Length == 1 &&
                 m.ReturnType.SpecialType == SpecialType.System_Boolean &&
-                m.Parameters[0].RefKind == RefKind.Out);
+                (m.Parameters[0].RefKind == RefKind.Out || m.Parameters[0].RefKind == RefKind.Ref));
     }
 
     private static IMethodSymbol? FindPropertyGetter(INamedTypeSymbol type, string propertyName)
