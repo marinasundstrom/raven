@@ -902,10 +902,16 @@ public partial class Compilation
                 if (method.Parameters.Length != 1)
                     continue;
 
-                if (!SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, sourceType))
+                if (!SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, sourceType) &&
+                    !SymbolEqualityComparer.Default.Equals(
+                        method.Parameters[0].Type.OriginalDefinition ?? method.Parameters[0].Type,
+                        sourceType.OriginalDefinition ?? sourceType))
                     continue;
 
-                if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, destinationType))
+                if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, destinationType) &&
+                    !SymbolEqualityComparer.Default.Equals(
+                        method.ReturnType.OriginalDefinition ?? method.ReturnType,
+                        destinationType.OriginalDefinition ?? destinationType))
                     continue;
 
                 return method;

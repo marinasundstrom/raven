@@ -185,6 +185,26 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             return constructedFrom.Construct(substitutedArgs);
         }
 
+        if (type is INamedTypeSymbol nestedNamed &&
+            !nestedNamed.IsGenericType &&
+            nestedNamed.ContainingType is INamedTypeSymbol containingType &&
+            containingType.TypeParameters.Length > 0)
+        {
+            var needsContainingSubstitution = false;
+            foreach (var typeParameter in containingType.TypeParameters)
+            {
+                if (TryGetSubstitution(typeParameter, out var replacement) &&
+                    !SymbolEqualityComparer.Default.Equals(replacement, typeParameter))
+                {
+                    needsContainingSubstitution = true;
+                    break;
+                }
+            }
+
+            if (needsContainingSubstitution)
+                return SubstituteNamedType(nestedNamed);
+        }
+
         return type;
     }
 
@@ -1309,7 +1329,12 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
         {
             var field = peField.GetFieldInfo();
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
-            return constructedType.GetField(field.Name)!;
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            var resolved = constructedType.GetField(field.Name, bindingFlags);
+            if (resolved is not null)
+                return resolved;
+
+            throw new MissingFieldException(constructedType.FullName, field.Name);
         }
 
         if (_original is SourceFieldSymbol sourceField)
