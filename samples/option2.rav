@@ -1,0 +1,17 @@
+/*
+ * Demonstrates discriminated unions in Raven.
+ */
+
+import System.Console.*
+
+val x: Test2<int> = .A(42)
+
+union Test1 {
+    A(x: int)
+    B
+}
+
+union Test2<T> {
+    A(value: T)
+    B
+}

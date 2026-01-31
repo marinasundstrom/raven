@@ -2980,8 +2980,9 @@ val best = A
 ### Discriminated unions
 
 A discriminated union declaration defines a value type composed of a fixed set
-of **cases**. Each case acts like an inline constructor with an optional payload
-described by a parameter list. Unions use the `union` keyword:
+of **cases**. Union values are stored inline (as value types) and do not allocate
+on the managed heap. Each case acts like an inline constructor with an optional
+payload described by a parameter list. Unions use the `union` keyword:
 
 ```raven
 union Token {

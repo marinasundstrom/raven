@@ -2003,6 +2003,9 @@ internal partial class ExpressionGenerator : Generator
                         }
                     }
 
+                    var needsTagConversion = fieldSymbol.Type.SpecialType == SpecialType.System_Byte
+                        && DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name);
+
                     if (!cacheRightValue)
                     {
                         // Emit RHS value
@@ -2014,6 +2017,11 @@ internal partial class ExpressionGenerator : Generator
                             ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
                         }
 
+                        if (needsTagConversion)
+                        {
+                            ILGenerator.Emit(OpCodes.Conv_U1);
+                        }
+
                         if (fieldNeedsResult)
                         {
                             ILGenerator.Emit(OpCodes.Dup);
@@ -2022,6 +2030,11 @@ internal partial class ExpressionGenerator : Generator
                     else if (cachedRightLocal is not null)
                     {
                         ILGenerator.Emit(OpCodes.Ldloc, cachedRightLocal);
+
+                        if (needsTagConversion)
+                        {
+                            ILGenerator.Emit(OpCodes.Conv_U1);
+                        }
                     }
 
                     ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));

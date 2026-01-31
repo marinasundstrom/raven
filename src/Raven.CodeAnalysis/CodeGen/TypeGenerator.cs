@@ -5,7 +5,9 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -81,6 +83,14 @@ internal class TypeGenerator
 
                 if (named.IsSealed)
                     typeAttributes |= TypeAttributes.Sealed;
+            }
+
+            if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
+            {
+                var unionNamed = (INamedTypeSymbol)unionSymbol;
+                typeAttributes |= unionNamed.IsGenericType
+                    ? TypeAttributes.SequentialLayout
+                    : TypeAttributes.ExplicitLayout;
             }
         }
 
@@ -244,6 +254,7 @@ internal class TypeGenerator
 
         if (TypeSymbol is SourceDiscriminatedUnionSymbol)
         {
+            ApplyDiscriminatedUnionLayout();
             var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
             TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
         }
@@ -267,6 +278,26 @@ internal class TypeGenerator
             name = $"{name}`{type.Arity}";
 
         return name;
+    }
+
+    private void ApplyDiscriminatedUnionLayout()
+    {
+        if (TypeBuilder is null)
+            return;
+
+        if (TypeSymbol is not INamedTypeSymbol namedType)
+            return;
+
+        var layoutKind = namedType.IsGenericType ? LayoutKind.Sequential : LayoutKind.Explicit;
+        var layoutCtor = typeof(StructLayoutAttribute).GetConstructor(new[] { typeof(LayoutKind) });
+        if (layoutCtor is null)
+            return;
+
+        if (namedType.IsGenericType && layoutKind == LayoutKind.Explicit)
+            throw new InvalidOperationException("Generic discriminated unions cannot use explicit layout on .NET.");
+
+        var attribute = new CustomAttributeBuilder(layoutCtor, new object[] { layoutKind });
+        TypeBuilder.SetCustomAttribute(attribute);
     }
 
     private void DefineTypeGenericParameters(INamedTypeSymbol namedType)
@@ -379,6 +410,18 @@ internal class TypeGenerator
             attributes |= FieldAttributes.Static;
 
         var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, fieldType, attributes);
+
+        if (TypeSymbol is SourceDiscriminatedUnionSymbol unionSymbol)
+        {
+            var unionNamed = (INamedTypeSymbol)unionSymbol;
+            if (!unionNamed.IsGenericType)
+            {
+                if (DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name))
+                    fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.TagFieldOffset);
+                else if (DiscriminatedUnionFieldUtilities.IsPayloadFieldName(fieldSymbol.Name))
+                    fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.PayloadFieldOffset);
+            }
+        }
 
         if (fieldSymbol.IsConst)
             fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
