@@ -5,7 +5,9 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -82,6 +84,9 @@ internal class TypeGenerator
                 if (named.IsSealed)
                     typeAttributes |= TypeAttributes.Sealed;
             }
+
+            if (TypeSymbol is SourceDiscriminatedUnionSymbol)
+                typeAttributes |= TypeAttributes.ExplicitLayout;
         }
 
         if (TypeSymbol.BaseType.Name == "Enum")
@@ -244,6 +249,7 @@ internal class TypeGenerator
 
         if (TypeSymbol is SourceDiscriminatedUnionSymbol)
         {
+            ApplyExplicitDiscriminatedUnionLayout();
             var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
             TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
         }
@@ -267,6 +273,19 @@ internal class TypeGenerator
             name = $"{name}`{type.Arity}";
 
         return name;
+    }
+
+    private void ApplyExplicitDiscriminatedUnionLayout()
+    {
+        if (TypeBuilder is null)
+            return;
+
+        var layoutCtor = typeof(StructLayoutAttribute).GetConstructor(new[] { typeof(LayoutKind) });
+        if (layoutCtor is null)
+            return;
+
+        var attribute = new CustomAttributeBuilder(layoutCtor, new object[] { LayoutKind.Explicit });
+        TypeBuilder.SetCustomAttribute(attribute);
     }
 
     private void DefineTypeGenericParameters(INamedTypeSymbol namedType)
@@ -379,6 +398,14 @@ internal class TypeGenerator
             attributes |= FieldAttributes.Static;
 
         var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, fieldType, attributes);
+
+        if (TypeSymbol is SourceDiscriminatedUnionSymbol)
+        {
+            if (DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name))
+                fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.TagFieldOffset);
+            else if (DiscriminatedUnionFieldUtilities.IsPayloadFieldName(fieldSymbol.Name))
+                fieldBuilder.SetOffset(DiscriminatedUnionFieldUtilities.PayloadFieldOffset);
+        }
 
         if (fieldSymbol.IsConst)
             fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());

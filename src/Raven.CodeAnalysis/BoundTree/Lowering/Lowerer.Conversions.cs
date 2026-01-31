@@ -25,10 +25,10 @@ internal sealed partial class Lowerer
         var compilation = GetCompilation();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
         var unionType = (INamedTypeSymbol)node.Type!;
-        var discriminatorField = GetRequiredUnionField(unionType, "<Tag>");
-        var payloadField = GetRequiredUnionField(unionType, "<Payload>");
         var caseDefinition = rewrittenExpression.Type?.TryGetDiscriminatedUnionCase()
             ?? throw new InvalidOperationException("Missing discriminated union case information.");
+        var discriminatorField = GetRequiredUnionField(unionType, DiscriminatedUnionFieldUtilities.TagFieldName);
+        var payloadField = DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(unionType, caseDefinition);
 
         var caseType = rewrittenExpression.Type ?? compilation.ErrorTypeSymbol;
         var caseLocal = CreateTempLocal("case", caseType, isMutable: true);

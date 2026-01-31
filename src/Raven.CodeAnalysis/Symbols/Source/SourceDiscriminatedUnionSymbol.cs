@@ -25,14 +25,22 @@ internal sealed class SourceDiscriminatedUnionSymbol : SourceNamedTypeSymbol, ID
 
     public IFieldSymbol PayloadField { get; private set; } = null!;
 
+    public ImmutableArray<IFieldSymbol> PayloadFields { get; private set; } = ImmutableArray<IFieldSymbol>.Empty;
+
     internal void SetCases(IEnumerable<IDiscriminatedUnionCaseSymbol> cases)
     {
         _cases = cases.ToImmutableArray();
     }
 
-    internal void InitializeStorageFields(SourceFieldSymbol discriminator, SourceFieldSymbol payload)
+    internal void SetDiscriminatorField(SourceFieldSymbol discriminator)
     {
         DiscriminatorField = discriminator;
-        PayloadField = payload;
+    }
+
+    internal void SetPayloadFields(IEnumerable<SourceFieldSymbol> payloadFields)
+    {
+        PayloadFields = payloadFields.ToImmutableArray<IFieldSymbol>();
+        if (!PayloadFields.IsDefaultOrEmpty)
+            PayloadField = PayloadFields[0];
     }
 }
