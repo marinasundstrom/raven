@@ -685,6 +685,7 @@ internal class CodeGenerator
     {
         try
         {
+            PrintDebug("Starting code generation emission.");
             var assemblyName = new AssemblyName(_compilation.AssemblyName)
             {
                 Version = new Version(1, 0, 0, 0)
@@ -694,6 +695,7 @@ internal class CodeGenerator
             ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
             DetermineShimTypeRequirements();
+            PrintDebug("Determined shim type requirements.");
 
             if (!_compilation.Options.EmbedCoreTypes)
                 TryBindRuntimeCoreTypes();
@@ -708,12 +710,63 @@ internal class CodeGenerator
                 CreateUnitStruct();
 
             DefineTypeBuilders();
+            PrintDebug("Type builders defined.");
 
             DefineMemberBuilders();
+            PrintDebug("Member builders defined.");
 
             EmitMemberILBodies();
+            PrintDebug("Member IL bodies emitted.");
 
             CreateTypes();
+            PrintDebug("All types created.");
+
+            var asyncStateMachines = Compilation.GetSynthesizedAsyncStateMachineTypes().ToArray();
+            foreach (var asyncStateMachine in asyncStateMachines)
+            {
+                var generator = GetOrCreateTypeGenerator(asyncStateMachine);
+                if (generator.TypeBuilder is null)
+                    generator.DefineTypeBuilder();
+
+                if (generator.TypeBuilder is { } builder && !builder.IsCreated())
+                {
+                    PrintDebug($"Creating async state machine type: {asyncStateMachine.ToDisplayString()}");
+                    generator.CreateType();
+                }
+            }
+
+            var deferredTypes = _typeGenerators.Values
+                .Where(generator => generator.TypeBuilder is { } builder && !builder.IsCreated())
+                .ToArray();
+
+            if (deferredTypes.Length > 0)
+            {
+                PrintDebug($"Found {deferredTypes.Length} type builders not created after CreateTypes.");
+                foreach (var generator in deferredTypes)
+                {
+                    PrintDebug($"Creating deferred type: {generator.TypeSymbol.ToDisplayString()}");
+                    generator.CreateType();
+                }
+            }
+
+            var deferredMethodTypes = _typeGenerators.Values
+                .SelectMany(generator => generator.MethodGenerators)
+                .Select(generator => generator.MethodBase?.DeclaringType)
+                .OfType<TypeBuilder>()
+                .Where(builder => !builder.IsCreated())
+                .Distinct()
+                .ToArray();
+
+            if (deferredMethodTypes.Length > 0)
+            {
+                PrintDebug($"Found {deferredMethodTypes.Length} method declaring types not created after CreateTypes.");
+                foreach (var builder in deferredMethodTypes)
+                {
+                    PrintDebug($"Creating declaring type for method: {builder.FullName ?? builder.Name}");
+                    var owner = _typeGenerators.Values.FirstOrDefault(generator => ReferenceEquals(generator.TypeBuilder, builder));
+                    owner?.CreateType();
+                }
+            }
 
             var entryPointSymbol = _compilation.Options.OutputKind == OutputKind.ConsoleApplication
                 ? _compilation.GetEntryPoint()
@@ -745,8 +798,13 @@ internal class CodeGenerator
             }
 
             EntryPoint = entryPointGenerator?.MethodBase;
+            if (EntryPoint is not null)
+                PrintDebug($"Selected entry point: {EntryPoint.Name}");
+
+            PrintUncreatedModuleTypeBuilders();
 
             MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
+            PrintDebug("Generated assembly metadata.");
             MethodDefinitionHandle entryPointHandle = EntryPoint is not null
                 ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
                 : default;
@@ -1617,7 +1675,10 @@ internal class CodeGenerator
         }
 
         if (generator.TypeBuilder is null)
+        {
+            PrintDebug($"Defining type builder for {typeSymbol.ToDisplayString()}");
             generator.DefineTypeBuilder();
+        }
 
         visiting.Remove(typeSymbol);
         visited.Add(typeSymbol);
@@ -1688,11 +1749,13 @@ internal class CodeGenerator
 
     private void DefineMemberBuilders()
     {
+        PrintDebug("Defining member builders for all types.");
         foreach (var typeGenerator in _typeGenerators.Values)
         {
             typeGenerator.DefineMemberBuilders();
         }
 
+        PrintDebug("Completing interface implementations for all types.");
         foreach (var typeGenerator in _typeGenerators.Values)
         {
             typeGenerator.CompleteInterfaceImplementations();
@@ -1701,14 +1764,84 @@ internal class CodeGenerator
 
     private void CreateTypes()
     {
-        foreach (var typeGenerator in _typeGenerators.Values)
+        PrintDebug("Creating runtime types.");
+        foreach (var typeGenerator in _typeGenerators.Values
+            .OrderBy(generator => GetContainingTypeDepth(generator.TypeSymbol)))
         {
             typeGenerator.CreateType();
         }
     }
 
+    private static int GetContainingTypeDepth(ITypeSymbol typeSymbol)
+    {
+        var depth = 0;
+        var current = (typeSymbol as INamedTypeSymbol)?.ContainingType;
+        while (current is not null)
+        {
+            depth++;
+            current = current.ContainingType;
+        }
+
+        return depth;
+    }
+
+    private void PrintUncreatedModuleTypeBuilders()
+    {
+        var builders = new HashSet<TypeBuilder>();
+        var moduleType = ModuleBuilder.GetType();
+
+        foreach (var field in moduleType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
+        {
+            var value = field.GetValue(ModuleBuilder);
+            if (value is null)
+                continue;
+
+            if (value is TypeBuilder singleBuilder)
+            {
+                builders.Add(singleBuilder);
+                continue;
+            }
+
+            if (value is string)
+                continue;
+
+            if (value is System.Collections.IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    if (item is TypeBuilder builder)
+                        builders.Add(builder);
+                }
+            }
+        }
+
+        var uncreatedBuilders = builders.Where(builder => !builder.IsCreated()).ToArray();
+        if (uncreatedBuilders.Length == 0)
+            return;
+
+        PrintDebug($"Found {uncreatedBuilders.Length} uncreated module type builders.");
+        foreach (var builder in uncreatedBuilders)
+        {
+            PrintDebug($"Uncreated module type builder: {builder.FullName ?? builder.Name}");
+
+            if (string.Equals(builder.Name, "<Module>", StringComparison.Ordinal))
+                continue;
+
+            try
+            {
+                builder.CreateType();
+                PrintDebug($"Created module type builder: {builder.FullName ?? builder.Name}");
+            }
+            catch (Exception ex)
+            {
+                PrintDebug($"Failed to create module type builder: {builder.FullName ?? builder.Name} ({ex.GetType().Name})");
+            }
+        }
+    }
+
     private void EmitMemberILBodies()
     {
+        PrintDebug("Emitting IL bodies for members.");
         foreach (var typeGenerator in _typeGenerators.Values.ToArray())
         {
             typeGenerator.EmitMemberILBodies();

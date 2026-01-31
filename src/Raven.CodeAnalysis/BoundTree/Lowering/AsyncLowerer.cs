@@ -151,7 +151,12 @@ internal static class AsyncLowerer
 
         closureSelfType ??= FindCapturedClosureType(body);
 
-        stateMachine ??= compilation.CreateAsyncStateMachine(lambda, closureSelfType);
+        stateMachine ??= lambda.AsyncStateMachine;
+        if (stateMachine is null)
+        {
+            stateMachine = compilation.CreateAsyncStateMachine(lambda, closureSelfType);
+            lambda.SetAsyncStateMachine(stateMachine);
+        }
 
         if (stateMachine.OriginalBody is null)
             stateMachine.SetOriginalBody(body);
