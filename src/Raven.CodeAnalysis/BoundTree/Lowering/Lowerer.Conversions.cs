@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -24,9 +25,15 @@ internal sealed partial class Lowerer
     {
         var compilation = GetCompilation();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
-        var unionType = (INamedTypeSymbol)node.Type!;
         var caseDefinition = rewrittenExpression.Type?.TryGetDiscriminatedUnionCase()
             ?? throw new InvalidOperationException("Missing discriminated union case information.");
+        var unionType = (INamedTypeSymbol)node.Type!;
+        if (unionType.IsGenericType &&
+            unionType.TypeArguments.Any(static arg => arg is ITypeParameterSymbol))
+        {
+            unionType = (INamedTypeSymbol)caseDefinition.Union;
+        }
+
         var discriminatorField = GetRequiredUnionField(unionType, DiscriminatedUnionFieldUtilities.TagFieldName);
         var payloadField = DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(unionType, caseDefinition);
 
