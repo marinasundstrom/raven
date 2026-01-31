@@ -341,12 +341,14 @@ internal class TypeResolver(Compilation compilation)
         // Use Name+Arity, *not* just Name.
         var (name, arity) = GetRuntimeNestedNameAndArity(nestedRuntimeType);
         var runtimeMetadataName = nestedRuntimeType.Name;
+        var fullRuntimeMetadataName = $"{containing.MetadataName}+{runtimeMetadataName}";
 
         var candidates = containing.GetMembers().OfType<INamedTypeSymbol>();
         INamedTypeSymbol? nameMatch = null;
         foreach (var candidate in candidates)
         {
-            if (string.Equals(candidate.MetadataName, runtimeMetadataName, StringComparison.Ordinal))
+            if (string.Equals(candidate.MetadataName, runtimeMetadataName, StringComparison.Ordinal) ||
+                string.Equals(candidate.MetadataName, fullRuntimeMetadataName, StringComparison.Ordinal))
                 return candidate;
 
             if (string.Equals(candidate.Name, name, StringComparison.Ordinal) && candidate.Arity == arity)
