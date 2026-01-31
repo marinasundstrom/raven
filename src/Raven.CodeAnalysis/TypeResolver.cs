@@ -208,6 +208,28 @@ internal class TypeResolver(Compilation compilation)
             return pointer;
         }
 
+        if (type.IsNested && type.DeclaringType is not null)
+        {
+            var declaringType = ResolveType(type.DeclaringType, methodContext) as INamedTypeSymbol;
+            if (declaringType is not null)
+            {
+                var nested = declaringType.GetTypeMembers(type.Name).FirstOrDefault();
+                if (nested is not null)
+                {
+                    if (type.IsGenericType)
+                    {
+                        var args = type.GetGenericArguments()
+                            .Select(x => ResolveType(x, methodContext)!)
+                            .ToArray();
+                        nested = nested.Construct(args);
+                    }
+
+                    _cache[type] = nested;
+                    return nested;
+                }
+            }
+        }
+
         if (type.IsGenericTypeDefinition)
         {
             return ResolveTypeCore(type);
