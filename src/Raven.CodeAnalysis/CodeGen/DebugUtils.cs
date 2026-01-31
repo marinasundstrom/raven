@@ -9,7 +9,24 @@ public static class DebugUtils
     {
         if (CodeGenFlags.PrintDebug)
         {
-            Console.WriteLine(text);
+            PrintCore(text);
         }
+    }
+
+    [Conditional("DEBUG")]
+    public static void PrintDebug(string text, Func<bool> condition)
+    {
+        if (!CodeGenFlags.PrintDebug)
+            return;
+
+        if (!condition())
+            return;
+
+        PrintCore(text);
+    }
+
+    private static void PrintCore(string text)
+    {
+        Console.WriteLine(text);
     }
 }

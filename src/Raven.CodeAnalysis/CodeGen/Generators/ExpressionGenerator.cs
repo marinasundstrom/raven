@@ -12,6 +12,8 @@ using System.Text;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 
+using static Raven.CodeAnalysis.CodeGen.DebugUtils;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal partial class ExpressionGenerator : Generator
@@ -91,6 +93,8 @@ internal partial class ExpressionGenerator : Generator
 
     private EmitInfo EmitExpression(BoundExpression expression, EmitContext context)
     {
+        PrintDebug($"Emitting bound expression: {expression}", () => CodeGenFlags.PrintEmittedBoundNodes);
+
         if (context.ResultKind == EmitResultKind.Address)
         {
             var addressInfo = TryEmitAddress(expression);
@@ -836,6 +840,19 @@ internal partial class ExpressionGenerator : Generator
         var okLabel = ILGenerator.DefineLabel();
         var tryGetOkName = $"TryGet{expr.OkCaseName}";
 
+        static bool TypesMatch(ITypeSymbol? left, ITypeSymbol? right)
+        {
+            if (left is null || right is null)
+                return false;
+
+            if (SymbolEqualityComparer.Default.Equals(left, right))
+                return true;
+
+            var leftDefinition = left.OriginalDefinition ?? left;
+            var rightDefinition = right.OriginalDefinition ?? right;
+            return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
+        }
+
         if (expr.OkCaseType is not null)
         {
             var okCaseClrType = ResolveClrType(expr.OkCaseType);
@@ -852,7 +869,7 @@ internal partial class ExpressionGenerator : Generator
                     m.Parameters.Length == 1 &&
                     m.Parameters[0].RefKind == RefKind.Out &&
                     expr.OkCaseType is not null &&
-                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type.GetElementType(), expr.OkCaseType));
+                    TypesMatch(m.Parameters[0].Type.GetElementType(), expr.OkCaseType));
 
             if (tryGetOkSymbol is null)
                 throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkCaseType}) on '{expr.Operand.Type}'.");
@@ -910,10 +927,10 @@ internal partial class ExpressionGenerator : Generator
                 .GetMembers(tryGetOkName)
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault(m =>
-                    !m.IsStatic &&
-                    m.Parameters.Length == 1 &&
-                    m.Parameters[0].RefKind == RefKind.Out &&
-                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, expr.OkType));
+                !m.IsStatic &&
+                m.Parameters.Length == 1 &&
+                m.Parameters[0].RefKind == RefKind.Out &&
+                TypesMatch(m.Parameters[0].Type, expr.OkType));
 
             if (tryGetOkSymbol is null)
                 throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkType}) on '{expr.Operand.Type}'.");
@@ -2003,6 +2020,9 @@ internal partial class ExpressionGenerator : Generator
                         }
                     }
 
+                    var needsTagConversion = fieldSymbol.Type.SpecialType == SpecialType.System_Byte
+                        && DiscriminatedUnionFieldUtilities.IsTagFieldName(fieldSymbol.Name);
+
                     if (!cacheRightValue)
                     {
                         // Emit RHS value
@@ -2014,6 +2034,11 @@ internal partial class ExpressionGenerator : Generator
                             ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
                         }
 
+                        if (needsTagConversion)
+                        {
+                            ILGenerator.Emit(OpCodes.Conv_U1);
+                        }
+
                         if (fieldNeedsResult)
                         {
                             ILGenerator.Emit(OpCodes.Dup);
@@ -2022,6 +2047,11 @@ internal partial class ExpressionGenerator : Generator
                     else if (cachedRightLocal is not null)
                     {
                         ILGenerator.Emit(OpCodes.Ldloc, cachedRightLocal);
+
+                        if (needsTagConversion)
+                        {
+                            ILGenerator.Emit(OpCodes.Conv_U1);
+                        }
                     }
 
                     ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));

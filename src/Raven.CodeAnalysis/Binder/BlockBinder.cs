@@ -32,11 +32,8 @@ partial class BlockBinder : Binder
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
     private bool IsInWithInitializer => _withInitializerDepth > 0;
 
-    private bool IsInConstructorInitializerContext =>
-        _containingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.NamedConstructor, IsStatic: false };
-
     private bool IsInInitOnlyAssignmentContext =>
-        IsInObjectInitializer || IsInWithInitializer || IsInConstructorInitializerContext;
+        IsInObjectInitializer || IsInWithInitializer;
 
     private static bool IsInitOnly(IPropertySymbol property)
         => property.SetMethod?.MethodKind == MethodKind.InitOnly;
@@ -7692,6 +7689,16 @@ partial class BlockBinder : Binder
         var accessible = GetAccessibleMethods(candidates, syntax.WithKeyword.GetLocation(), reportIfInaccessible: false);
         if (accessible.IsDefaultOrEmpty)
             return false;
+
+        if (string.Equals(methodName, "With", StringComparison.Ordinal))
+        {
+            accessible = accessible
+                .Where(static method => !method.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+                .ToImmutableArray();
+
+            if (accessible.IsDefaultOrEmpty)
+                return false;
+        }
 
         // Map assignments by *parameter-style* name (camelCase), because convention methods typically
         // use parameter names like `middleName` while members are `MiddleName`.

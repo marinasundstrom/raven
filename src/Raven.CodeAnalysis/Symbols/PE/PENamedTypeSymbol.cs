@@ -4,6 +4,8 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Reflection;
 
+using Raven.CodeAnalysis;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
@@ -91,24 +93,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         {
             var fields = typeInfo.DeclaredFields;
 
-            static string Normalize(string name)
-            {
-                Span<char> buffer = stackalloc char[name.Length];
-                var index = 0;
-
-                foreach (var ch in name)
-                {
-                    if (ch is '<' or '>' or '_')
-                        continue;
-
-                    buffer[index++] = ch;
-                }
-
-                return new string(buffer[..index]);
-            }
-
-            return fields.Any(f => Normalize(f.Name) == "Tag")
-                && fields.Any(f => Normalize(f.Name) == "Payload");
+            return fields.Any(f => DiscriminatedUnionFieldUtilities.IsTagFieldName(f.Name))
+                && fields.Any(f => DiscriminatedUnionFieldUtilities.IsPayloadFieldName(f.Name));
         }
         catch (ArgumentException)
         {

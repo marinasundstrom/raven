@@ -1135,6 +1135,7 @@ public partial class SemanticModel
         var namespaceSymbol = unionBinder.CurrentNamespace?.AsSourceNamespace()
             ?? unionSymbol.ContainingNamespace?.AsSourceNamespace();
         var caseSymbols = new List<IDiscriminatedUnionCaseSymbol>();
+        var payloadFields = new List<SourceFieldSymbol>();
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
@@ -1170,6 +1171,23 @@ public partial class SemanticModel
                 unionAccessibility);
 
             RegisterMember(unionSymbol, caseSymbol);
+
+            var payloadField = new SourceFieldSymbol(
+                DiscriminatedUnionFieldUtilities.GetPayloadFieldName(caseSymbol.Name),
+                caseSymbol,
+                isStatic: false,
+                isMutable: true,
+                isConst: false,
+                constantValue: null,
+                unionSymbol,
+                unionSymbol,
+                namespaceSymbol,
+                [caseClause.GetLocation()],
+                [caseClause.GetReference()],
+                null,
+                declaredAccessibility: Accessibility.Internal);
+
+            payloadFields.Add(payloadField);
 
             var constructor = new SourceMethodSymbol(
                 ".ctor",
@@ -1412,6 +1430,7 @@ public partial class SemanticModel
         }
 
         unionSymbol.SetCases(caseSymbols);
+        unionSymbol.SetPayloadFields(payloadFields);
     }
 
     private static string GetUnionCasePropertyName(string parameterName)
@@ -1488,27 +1507,12 @@ public partial class SemanticModel
         namespaceSymbol ??= unionSymbol.ContainingNamespace?.AsSourceNamespace();
 
         var discriminatorField = new SourceFieldSymbol(
-            "<Tag>",
-            Compilation.GetSpecialType(SpecialType.System_Int32),
+            DiscriminatedUnionFieldUtilities.TagFieldName,
+            Compilation.GetSpecialType(SpecialType.System_Byte),
             isStatic: false,
             isMutable: true,
             isConst: false,
             constantValue: 0,
-            unionSymbol,
-            unionSymbol,
-            namespaceSymbol,
-            [unionDecl.GetLocation()],
-            [unionDecl.GetReference()],
-            null,
-            declaredAccessibility: Accessibility.Internal);
-
-        var payloadField = new SourceFieldSymbol(
-            "<Payload>",
-            Compilation.GetSpecialType(SpecialType.System_Object),
-            isStatic: false,
-            isMutable: true,
-            isConst: false,
-            constantValue: null,
             unionSymbol,
             unionSymbol,
             namespaceSymbol,
@@ -1535,7 +1539,7 @@ public partial class SemanticModel
             declaredAccessibility: Accessibility.Public);
 
         unionToString.SetOverriddenMethod(objectToString);
-        unionSymbol.InitializeStorageFields(discriminatorField, payloadField);
+        unionSymbol.SetDiscriminatorField(discriminatorField);
 
         RegisterUnionSymbol(unionDecl, unionSymbol);
 

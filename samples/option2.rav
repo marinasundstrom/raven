@@ -1,0 +1,32 @@
+/*
+ * Demonstrates discriminated unions in Raven.
+ */
+
+import System.Console.*
+
+val x: Test1 = .A(42)
+val x2: Test2<int> = .A(42)
+
+WriteLine(x)
+WriteLine(x2)
+
+func test1() -> Test1 {
+    return .A(42)
+}
+
+func test2() -> Test2<int> {
+    return .A(42)
+}
+
+WriteLine(test1())
+WriteLine(test2())
+
+union Test1 {
+    A(x: int)
+    B
+}
+
+union Test2<T> {
+    A(value: T)
+    B
+}

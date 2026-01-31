@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
@@ -266,9 +268,9 @@ class Container {
 
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
         var tagField = unionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var payloadField = unionType.GetField("<Payload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var payloadField = unionType.GetField("<SomePayload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Assert.Equal(1, (int)tagField.GetValue(unionValue)!);
+        Assert.Equal((byte)1, (byte)tagField.GetValue(unionValue)!);
 
         var payload = payloadField.GetValue(unionValue);
         Assert.NotNull(payload);
@@ -325,13 +327,175 @@ union Option {
         Assert.NotNull(unionValue);
 
         var tagField = unionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var payloadField = unionType.GetField("<Payload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var payloadField = unionType.GetField("<SomePayload>", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Assert.Equal(1, (int)tagField.GetValue(unionValue)!);
+        Assert.Equal((byte)1, (byte)tagField.GetValue(unionValue)!);
 
         var payload = payloadField.GetValue(unionValue);
         Assert.NotNull(payload);
         Assert.Equal(caseType, payload!.GetType());
+    }
+
+    [Fact]
+    public void DiscriminatedUnion_UsesExplicitLayoutAndOffsets()
+    {
+        var code = """
+union Result {
+    Ok(value: int)
+    Error(message: string)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Result", throwOnError: true)!;
+
+        var layout = unionType.StructLayoutAttribute;
+        Assert.NotNull(layout);
+        Assert.Equal(LayoutKind.Explicit, layout!.Value);
+
+        Assert.Equal(0, Marshal.OffsetOf(unionType, "<Tag>").ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf(unionType, "<OkPayload>").ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf(unionType, "<ErrorPayload>").ToInt32());
+    }
+
+    [Fact]
+    public void DiscriminatedUnion_GenericUsesSequentialLayout()
+    {
+        var code = """
+union Option<T> {
+    Some(value: T)
+    None
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionDefinition = runtimeAssembly.GetType("Option`1", throwOnError: true)!;
+        var unionType = unionDefinition.MakeGenericType(typeof(int));
+
+        var layout = unionType.StructLayoutAttribute;
+        Assert.NotNull(layout);
+        Assert.Equal(LayoutKind.Sequential, layout!.Value);
+    }
+
+    [Fact]
+    public void DiscriminatedUnionConversion_DoesNotBoxValuePayload()
+    {
+        var code = """
+union Option {
+    Some(value: int)
+    None
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var caseType = unionType.GetNestedType("Some", BindingFlags.Public | BindingFlags.NonPublic)!;
+        var conversionMethod = unionType.GetMethod(
+            "op_Implicit",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: new[] { caseType },
+            modifiers: null)!;
+
+        var opcodes = ILReader.GetOpCodes(conversionMethod);
+        Assert.DoesNotContain(opcodes, opcode => opcode == OpCodes.Box);
+    }
+
+    [Fact]
+    public void DiscriminatedUnionConversion_DoesNotAllocate()
+    {
+        var code = """
+import System.*
+
+union Option {
+    Some(value: int)
+    None
+}
+
+class Container {
+    public static Measure() -> long {
+        let before = GC.GetAllocatedBytesForCurrentThread()
+        let opt: Option = .Some(123)
+        let after = GC.GetAllocatedBytesForCurrentThread()
+        return after - before
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var measureMethod = containerType.GetMethod("Measure", BindingFlags.Public | BindingFlags.Static)!;
+
+        var allocated = (long)measureMethod.Invoke(null, Array.Empty<object?>())!;
+        Assert.Equal(0L, allocated);
     }
 
     [Fact]
@@ -707,7 +871,7 @@ class Container {
     }
 
     [Fact]
-    public void UnionToString_ReturnsUninitializedWhenPayloadIsNull()
+    public void UnionToString_ReturnsUninitializedWhenTagIsInvalid()
     {
         var code = """
 union Maybe<T> {
@@ -738,6 +902,8 @@ union Maybe<T> {
         var closedUnionType = unionTypeDefinition.MakeGenericType(typeof(int));
 
         var instance = Activator.CreateInstance(closedUnionType)!;
+        var tagField = closedUnionType.GetField("<Tag>", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        tagField.SetValue(instance, (byte)255);
         var toString = closedUnionType.GetMethod("ToString", BindingFlags.Public | BindingFlags.Instance)!;
 
         var text = (string)toString.Invoke(instance, Array.Empty<object?>())!;

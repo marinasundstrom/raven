@@ -1489,7 +1489,6 @@ internal class MethodBodyGenerator
         var unionClrType = Generator.InstantiateType(
             MethodGenerator.TypeGenerator.TypeBuilder
                 ?? ResolveClrType(MethodSymbol.ContainingType!));
-        var payloadType = unionSymbol.PayloadField.Type;
         var unionLocal = ILGenerator.DeclareLocal(unionClrType);
 
         ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
@@ -1502,17 +1501,13 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
         ILGenerator.Emit(OpCodes.Stfld, discriminatorField);
 
-        var payloadField = ((SourceFieldSymbol)unionSymbol.PayloadField)
-            .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var payloadFieldSymbol = (SourceFieldSymbol)DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(
+            unionSymbol,
+            caseSymbol);
+        var payloadField = payloadFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
 
         ILGenerator.Emit(OpCodes.Ldloca, unionLocal);
         ILGenerator.Emit(OpCodes.Ldarg_0);
-
-        if (parameterType.IsValueType && !payloadType.IsValueType)
-        {
-            var parameterClrType = ResolveUnionCaseClrType(parameterType);
-            ILGenerator.Emit(OpCodes.Box, parameterClrType);
-        }
 
         ILGenerator.Emit(OpCodes.Stfld, payloadField);
         ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
@@ -1541,8 +1536,10 @@ internal class MethodBodyGenerator
     {
         var discriminatorField = ((SourceFieldSymbol)unionSymbol.DiscriminatorField)
             .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
-        var payloadField = ((SourceFieldSymbol)unionSymbol.PayloadField)
-            .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var payloadFieldSymbol = (SourceFieldSymbol)DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(
+            unionSymbol,
+            caseSymbol);
+        var payloadField = payloadFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
         var failLabel = ILGenerator.DefineLabel();
 
         ILGenerator.Emit(OpCodes.Ldarg_0);
@@ -1550,7 +1547,7 @@ internal class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
         ILGenerator.Emit(OpCodes.Bne_Un_S, failLabel);
 
-        EmitStoreDiscriminatedUnionPayload(targetParameter, unionSymbol.PayloadField.Type, payloadField);
+        EmitStoreDiscriminatedUnionPayload(targetParameter, payloadFieldSymbol.Type, payloadField);
 
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(OpCodes.Ret);
@@ -1638,44 +1635,48 @@ internal class MethodBodyGenerator
 
     private void EmitDiscriminatedUnionToString(SourceDiscriminatedUnionSymbol unionSymbol)
     {
-        var payloadField = ((SourceFieldSymbol)unionSymbol.PayloadField)
+        var discriminatorField = ((SourceFieldSymbol)unionSymbol.DiscriminatorField)
             .GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
         var objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
-
-        var payloadPresentLabel = ILGenerator.DefineLabel();
-        var resultPresentLabel = ILGenerator.DefineLabel();
-        var storeResultLabel = ILGenerator.DefineLabel();
+        var cases = unionSymbol.Cases;
         var endLabel = ILGenerator.DefineLabel();
 
-        var resultLocal = ILGenerator.DeclareLocal(typeof(string));
-        resultLocal.SetLocalSymInfo("result");
+        foreach (var caseSymbol in cases)
+        {
+            var nextLabel = ILGenerator.DefineLabel();
 
-        // var result = _<Payload>?.ToString() ?? "<Uninitialized>";
-        ILGenerator.Emit(OpCodes.Ldarg_0);
-        ILGenerator.Emit(OpCodes.Ldfld, payloadField);
-        ILGenerator.Emit(OpCodes.Dup);
-        ILGenerator.Emit(OpCodes.Brtrue, payloadPresentLabel);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            ILGenerator.Emit(OpCodes.Ldfld, discriminatorField);
+            ILGenerator.Emit(OpCodes.Ldc_I4, caseSymbol.Ordinal);
+            ILGenerator.Emit(OpCodes.Bne_Un_S, nextLabel);
 
-        ILGenerator.Emit(OpCodes.Pop);
-        ILGenerator.Emit(OpCodes.Ldnull);
-        ILGenerator.Emit(OpCodes.Br, resultPresentLabel);
+            var payloadFieldSymbol = (SourceFieldSymbol)DiscriminatedUnionFieldUtilities.GetRequiredPayloadField(
+                unionSymbol,
+                caseSymbol);
+            var payloadField = payloadFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var payloadType = payloadFieldSymbol.Type;
 
-        ILGenerator.MarkLabel(payloadPresentLabel);
-        ILGenerator.Emit(OpCodes.Callvirt, objectToString);
+            ILGenerator.Emit(OpCodes.Ldarg_0);
 
-        ILGenerator.MarkLabel(resultPresentLabel);
-        ILGenerator.Emit(OpCodes.Dup);
-        ILGenerator.Emit(OpCodes.Brtrue, storeResultLabel);
+            if (payloadType.IsValueType)
+            {
+                ILGenerator.Emit(OpCodes.Ldflda, payloadField);
+                var payloadClrType = ResolveUnionCaseClrType(payloadType);
+                ILGenerator.Emit(OpCodes.Constrained, payloadClrType);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldfld, payloadField);
+            }
 
-        ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Callvirt, objectToString);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
+
+            ILGenerator.MarkLabel(nextLabel);
+        }
+
         ILGenerator.Emit(OpCodes.Ldstr, "<Uninitialized>");
-
-        ILGenerator.MarkLabel(storeResultLabel);
-        ILGenerator.Emit(OpCodes.Stloc, resultLocal);
-        ILGenerator.Emit(OpCodes.Br, endLabel);
-
         ILGenerator.MarkLabel(endLabel);
-        ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
         ILGenerator.Emit(OpCodes.Ret);
     }
 

@@ -3,6 +3,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscriminatedUnionSymbol
@@ -50,43 +52,25 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
     }
 
     public IFieldSymbol DiscriminatorField =>
-        _discriminatorField ??= FindUnionField("Tag")
+        _discriminatorField ??= FindUnionField(DiscriminatedUnionFieldUtilities.IsTagFieldName)
             ?? throw new InvalidOperationException($"Missing discriminator field on discriminated union '{Name}'.");
 
     public IFieldSymbol PayloadField =>
-        _payloadField ??= FindUnionField("Payload")
+        _payloadField ??= FindUnionField(DiscriminatedUnionFieldUtilities.IsPayloadFieldName)
             ?? throw new InvalidOperationException($"Missing payload field on discriminated union '{Name}'.");
 
-    private IFieldSymbol? FindUnionField(string target)
+    private IFieldSymbol? FindUnionField(Func<string, bool> predicate)
     {
         var fields = GetMembers()
             .OfType<IFieldSymbol>();
 
         foreach (var field in fields)
         {
-            var normalized = NormalizeFieldName(field.Name);
-            if (normalized == target)
+            if (predicate(field.Name))
                 return field;
         }
 
         return null;
-    }
-
-    private static string NormalizeFieldName(string name)
-    {
-        // Drop common punctuation so variants like "<Tag>", "_Tag" or "Tag" all match.
-        Span<char> buffer = stackalloc char[name.Length];
-        var index = 0;
-
-        foreach (var ch in name)
-        {
-            if (ch is '<' or '>' or '_')
-                continue;
-
-            buffer[index++] = ch;
-        }
-
-        return new string(buffer[..index]);
     }
 }
 

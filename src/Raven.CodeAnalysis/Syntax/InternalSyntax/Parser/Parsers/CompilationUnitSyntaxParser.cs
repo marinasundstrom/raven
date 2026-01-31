@@ -23,6 +23,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     public CompilationUnitSyntax Parse()
     {
+        _stopwatch.Reset();
         _stopwatch.Start();
 
         SetTreatNewlinesAsTokens(false);
