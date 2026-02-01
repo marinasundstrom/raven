@@ -13,6 +13,7 @@
   <ItemGroup>
     <RavenSource Include="Option.rav" />
     <RavenSource Include="Result.rav" />
+    <RavenSource Include="Either.rav" />
   </ItemGroup>
 
   <Target Name="CompileRavenCore"

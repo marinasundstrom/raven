@@ -1,0 +1,8 @@
+import System.*
+import System.Console.*
+
+test(.Left(42));
+
+func test(value: Either<int, string>) {
+    WriteLine(value);
+}
