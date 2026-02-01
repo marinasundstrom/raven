@@ -6,17 +6,17 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly EventInfo _eventInfo;
     private ITypeSymbol? _type;
     private Accessibility? _accessibility;
     private ImmutableArray<IEventSymbol>? _explicitInterfaceImplementations;
     private string? _name;
 
-    public PEEventSymbol(TypeResolver typeResolver, EventInfo eventInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEEventSymbol(ReflectionTypeLoader reflectionTypeLoader, EventInfo eventInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _eventInfo = eventInfo;
     }
 
@@ -44,7 +44,7 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
         }
     }
 
-    public ITypeSymbol Type => _type ??= _typeResolver.ResolveType(_eventInfo) ?? _typeResolver.ResolveType(_eventInfo.EventHandlerType!);
+    public ITypeSymbol Type => _type ??= _reflectionTypeLoader.ResolveType(_eventInfo) ?? _reflectionTypeLoader.ResolveType(_eventInfo.EventHandlerType!);
 
     public IMethodSymbol? AddMethod { get; set; }
 
@@ -120,7 +120,7 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
                     if (!EventSignaturesMatch(_eventInfo, ifaceEvent))
                         continue;
 
-                    var ifaceEventSymbol = _typeResolver.ResolveEventSymbol(ifaceEvent);
+                    var ifaceEventSymbol = _reflectionTypeLoader.ResolveEventSymbol(ifaceEvent);
                     if (ifaceEventSymbol is not null)
                         builder.Add(ifaceEventSymbol);
                 }

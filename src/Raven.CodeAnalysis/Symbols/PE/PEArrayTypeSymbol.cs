@@ -6,8 +6,8 @@ internal partial class PEArrayTypeSymbol : PENamedTypeSymbol, IArrayTypeSymbol
 {
     private INamedTypeSymbol? _elementType;
 
-    public PEArrayTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
-        : base(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations)
+    public PEArrayTypeSymbol(ReflectionTypeLoader reflectionTypeLoader, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
+        : base(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
     {
 
     }

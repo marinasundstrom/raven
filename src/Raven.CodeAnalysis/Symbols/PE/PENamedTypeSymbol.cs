@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Reflection;
@@ -10,10 +11,10 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
-    protected readonly TypeResolver _typeResolver;
+    protected readonly ReflectionTypeLoader _reflectionTypeLoader;
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly bool _isValueType;
-    private readonly List<ISymbol> _members = new List<ISymbol>();
+    private readonly List<ISymbol> _members = new(); //new(SymbolEqualityComparer.Default);
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
@@ -28,13 +29,15 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private bool _hasExtensionMarkerMembers;
 
     internal static PENamedTypeSymbol Create(
-        TypeResolver typeResolver,
+        ReflectionTypeLoader reflectionTypeLoader,
         System.Reflection.TypeInfo typeInfo,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations)
     {
+        var name = typeInfo.Name;
+
         foreach (var attribute in GetCustomAttributesSafe(typeInfo))
         {
             var attributeName = GetAttributeTypeName(attribute);
@@ -42,7 +45,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 continue;
 
             if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
-                return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+            {
+                // Do not eagerly load members during construction; keep loading lazy to avoid re-entrancy/duplication.
+                return new PEDiscriminatedUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
+            }
 
             if (attributeName == "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
             {
@@ -55,36 +61,41 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
                 if (TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
                 {
-                    unionSymbol = typeResolver.ResolveType(unionType) as IDiscriminatedUnionSymbol;
+                    unionSymbol = reflectionTypeLoader.ResolveType(unionType) as IDiscriminatedUnionSymbol;
                 }
 
                 return new PEDiscriminatedUnionCaseSymbol(
-                    typeResolver,
+                    reflectionTypeLoader,
                     typeInfo,
                     containingSymbol,
                     containingType,
                     containingNamespace,
                     locations,
-                    unionSymbol);
+                    unionSymbol).AddAsMember();
+
             }
         }
 
         if (LooksLikeDiscriminatedUnion(typeInfo))
-            return new PEDiscriminatedUnionSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+        {
+            // Do not eagerly load members during construction; keep loading lazy to avoid re-entrancy/duplication.
+            return new PEDiscriminatedUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
+        }
 
         if (containingType is IDiscriminatedUnionSymbol parentUnion)
         {
             return new PEDiscriminatedUnionCaseSymbol(
-                typeResolver,
+                reflectionTypeLoader,
                 typeInfo,
                 containingSymbol,
                 containingType,
                 containingNamespace,
                 locations,
-                parentUnion);
+                parentUnion).AddAsMember();
         }
 
-        return new PENamedTypeSymbol(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations);
+        return new PENamedTypeSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
+            .AddAsMember();
     }
 
     private static bool LooksLikeDiscriminatedUnion(System.Reflection.TypeInfo typeInfo)
@@ -180,10 +191,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         return false;
     }
 
-    public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
-        : base(containingSymbol, containingType, containingNamespace, locations)
+    public PENamedTypeSymbol(ReflectionTypeLoader reflectionTypeLoader, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, bool addAsMember = true)
+        : base(containingSymbol, containingType, containingNamespace, locations, addAsMember: addAsMember)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _typeInfo = typeInfo;
 
         _isValueType = IsValueTypeLike(typeInfo);
@@ -397,7 +408,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(slice.Length);
         foreach (var tp in slice)
         {
-            var paramSymbol = (ITypeParameterSymbol)_typeResolver.ResolveType(tp)!;
+            var paramSymbol = (ITypeParameterSymbol)_reflectionTypeLoader.ResolveType(tp)!;
             builder.Add(paramSymbol);
         }
 
@@ -424,7 +435,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         if (ReferenceEquals(definitionType, type))
             return (constructedFrom, originalDefinition);
 
-        var resolved = _typeResolver.ResolveType(definitionType);
+        var resolved = _reflectionTypeLoader.ResolveType(definitionType);
         if (resolved is INamedTypeSymbol definitionSymbol)
         {
             constructedFrom = definitionSymbol;
@@ -459,7 +470,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
         _allInterfaces ??= _typeInfo.GetInterfaces()
-            .Select(i => (INamedTypeSymbol)_typeResolver.ResolveType(i)!)
+            .Select(i => (INamedTypeSymbol)_reflectionTypeLoader.ResolveType(i)!)
             .ToImmutableArray();
 
     private static bool IsDelegateType(System.Reflection.TypeInfo typeInfo)
@@ -664,6 +675,13 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     internal void AddMember(ISymbol member)
     {
         _members.Add(member);
+
+        /*
+        if (!_members.Add(member))
+        {
+            throw new InvalidOperationException($"Member '{member.ToDisplayString()}' has already been added to type '{this.ToDisplayString()}'");
+        }
+        */
     }
 
     private void EnsureMembersLoaded()
@@ -687,7 +705,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 continue;
 
             new PEMethodSymbol(
-                _typeResolver,
+                _reflectionTypeLoader,
                 methodInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -696,7 +714,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         foreach (var propertyInfo in _typeInfo.DeclaredProperties)
         {
             var property = new PEPropertySymbol(
-                _typeResolver,
+                _reflectionTypeLoader,
                 propertyInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -704,7 +722,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (propertyInfo.GetMethod is not null)
             {
                 property.GetMethod = new PEMethodSymbol(
-                    _typeResolver,
+                    _reflectionTypeLoader,
                     propertyInfo.GetMethod,
                     this,
                     this,
@@ -715,7 +733,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (propertyInfo.SetMethod is not null)
             {
                 property.SetMethod = new PEMethodSymbol(
-                    _typeResolver,
+                    _reflectionTypeLoader,
                     propertyInfo.SetMethod,
                     this,
                     this,
@@ -727,7 +745,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         foreach (var eventInfo in _typeInfo.DeclaredEvents)
         {
             var @event = new PEEventSymbol(
-                _typeResolver,
+                _reflectionTypeLoader,
                 eventInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -735,7 +753,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (eventInfo.AddMethod is not null)
             {
                 @event.AddMethod = new PEMethodSymbol(
-                    _typeResolver,
+                    _reflectionTypeLoader,
                     eventInfo.AddMethod,
                     this,
                     this,
@@ -746,7 +764,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (eventInfo.RemoveMethod is not null)
             {
                 @event.RemoveMethod = new PEMethodSymbol(
-                    _typeResolver,
+                    _reflectionTypeLoader,
                     eventInfo.RemoveMethod,
                     this,
                     this,
@@ -761,7 +779,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 continue;
 
             new PEFieldSymbol(
-                _typeResolver,
+                _reflectionTypeLoader,
                 fieldInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -770,7 +788,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         foreach (var constructorInfo in _typeInfo.DeclaredConstructors)
         {
             new PEMethodSymbol(
-                _typeResolver,
+                _reflectionTypeLoader,
                 constructorInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -778,12 +796,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
         {
+            // Always intern nested types via the module's Type-based cache to avoid creating duplicate symbols.
+            // The module is responsible for placing nested types under the correct containing type.
             var module = (PEModuleSymbol)ContainingModule;
-            module.CreateMetadataTypeSymbol(
-                nestedTypeInfo,
-                ContainingNamespace!,
-                this,
-                this);
+            _ = module.GetType(nestedTypeInfo.AsType());
         }
     }
 
@@ -791,9 +807,14 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
     {
-        // if (typeArguments.Length != Arity)
-        //   throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");
+        if (typeArguments.Length != Arity)
+            throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");
 
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
+    }
+
+    public override void Complete()
+    {
+        IsCompleted = true;
     }
 }

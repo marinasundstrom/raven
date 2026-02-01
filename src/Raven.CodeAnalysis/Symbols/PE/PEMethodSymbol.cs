@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
@@ -18,12 +18,12 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private Accessibility? _accessibility;
     private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
 
-    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
+    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _methodInfo = methodInfo;
-        _typeResolver.RegisterMethodSymbol(_methodInfo, this);
+        _reflectionTypeLoader.RegisterMethodSymbol(_methodInfo, this);
 
         var name = _methodInfo.Name;
 
@@ -71,12 +71,12 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         AssociatedSymbol = associatedSymbol;
     }
 
-    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodBaseInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
+    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodBaseInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null)
     : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _methodInfo = methodBaseInfo;
-        _typeResolver.RegisterMethodSymbol(_methodInfo, this);
+        _reflectionTypeLoader.RegisterMethodSymbol(_methodInfo, this);
 
         var name = _methodInfo.Name;
 
@@ -165,11 +165,13 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
                 if (_methodInfo is MethodInfo methodInfo)
                 {
                     var returnParam = methodInfo.ReturnParameter;
-                    _returnType = _typeResolver.ResolveType(returnParam)!;
+                    var returnParamTypeName = methodInfo.ReturnParameter.ParameterType.Name;
+
+                    _returnType = _reflectionTypeLoader.ResolveType(returnParam)!;
                 }
                 else if (MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
                 {
-                    _returnType = _typeResolver.ResolveType(typeof(void));
+                    _returnType = _reflectionTypeLoader.ResolveType(typeof(void));
                 }
                 else
                 {
@@ -187,7 +189,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             return _parameters ??= _methodInfo.GetParameters().Select(param =>
             {
                 return new PEParameterSymbol(
-                      _typeResolver,
+                      _reflectionTypeLoader,
                       param, this, this.ContainingType, this.ContainingNamespace,
                       [new MetadataLocation(ContainingModule!)]);
             }).OfType<IParameterSymbol>().ToImmutableArray();
@@ -380,8 +382,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
                     if (!HasSameSignature((MethodInfo)_methodInfo, ifaceMethod))
                         continue;
 
-                    // Map interface MethodInfo -> IMethodSymbol via TypeResolver
-                    var ifaceMethodSymbol = _typeResolver.ResolveMethodSymbol(ifaceMethod);
+                    // Map interface MethodInfo -> IMethodSymbol via ReflectionTypeLoader
+                    var ifaceMethodSymbol = _reflectionTypeLoader.ResolveMethodSymbol(ifaceMethod);
                     if (ifaceMethodSymbol is not null)
                         builder.Add(ifaceMethodSymbol);
                 }
@@ -458,7 +460,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         _typeParameters ??= !_methodInfo.IsGenericMethodDefinition
             ? ImmutableArray<ITypeParameterSymbol>.Empty
             : ((MethodInfo)_methodInfo).GetGenericArguments()
-                .Select(t => (ITypeParameterSymbol)_typeResolver.ResolveMethodTypeParameter(t, this)!)
+                .Select(t => (ITypeParameterSymbol)_reflectionTypeLoader.ResolveMethodTypeParameter(t, this)!)
                 .ToImmutableArray();
 
     public ImmutableArray<ITypeSymbol> TypeArguments =>

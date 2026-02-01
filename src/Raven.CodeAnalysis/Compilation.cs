@@ -32,7 +32,7 @@ public partial class Compilation
     private ErrorTypeSymbol _errorTypeSymbol;
     private NullTypeSymbol _nullTypeSymbol;
     private UnitTypeSymbol _unitTypeSymbol;
-    private TypeResolver _typeResolver;
+    private ReflectionTypeLoader _reflectionTypeLoader;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
@@ -97,9 +97,21 @@ public partial class Compilation
 
     internal BoundNodeFactory BoundNodeFactory => _boundNodeFactory ??= new BoundNodeFactory(this);
 
-    public ISymbol ErrorSymbol => _errorSymbol ??= new ErrorSymbol(this, "Error", null, [], []);
+    public ISymbol ErrorSymbol => _errorSymbol ??= CreateErrorSymbol();
 
-    public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
+    public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= CreateErrorTypeSymbol();
+
+    private ErrorSymbol CreateErrorSymbol()
+    {
+        EnsureSetup();
+        return new ErrorSymbol(this, "Error", GlobalNamespace, [], []);
+    }
+
+    private ErrorTypeSymbol CreateErrorTypeSymbol()
+    {
+        EnsureSetup();
+        return new ErrorTypeSymbol(this, "Error", GlobalNamespace, [], []);
+    }
 
     public ITypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
     public INamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= CreateUnitTypeSymbol();
@@ -189,7 +201,7 @@ public partial class Compilation
             InitializeTopLevelPrograms();
     }
 
-    internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
+    internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader ??= new ReflectionTypeLoader(this);
 
     private void InitializeTopLevelPrograms()
     {
@@ -951,7 +963,7 @@ public partial class Compilation
 
     public ITypeSymbol? GetType(Type type)
     {
-        return TypeResolver.ResolveType(type);
+        return ReflectionTypeLoader.ResolveType(type);
     }
 
     public ISymbol? GetAssemblyOrModuleSymbol(MetadataReference metadataReference)
@@ -998,7 +1010,7 @@ public partial class Compilation
 
         assemblySymbol.AddModules(
             new PEModuleSymbol(
-                TypeResolver,
+                ReflectionTypeLoader,
                 assemblySymbol,
                 assembly.ManifestModule,
                 [],

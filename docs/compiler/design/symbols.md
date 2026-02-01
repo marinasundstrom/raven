@@ -42,4 +42,4 @@ Other constructed type symbols serve particular purposes:
 
 ### Lazy initialization
 
-Every dependent type is resolved lazily via the injected `TypeResolver`, which creates symbols for arrays and closed generic types on demand. The resolver caches the mapping between `Type` and `ITypeSymbol` internally to avoid recomputation.
+Every dependent type is resolved lazily via the injected `ReflectionTypeLoader`, which creates symbols for arrays and closed generic types on demand. The resolver caches the mapping between `Type` and `ITypeSymbol` internally to avoid recomputation.
