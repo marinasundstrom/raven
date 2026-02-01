@@ -286,7 +286,11 @@ internal class TypeResolver(Compilation compilation)
         var slices = SliceArguments(flat, arities); // returns Type[][]
 
         // 5) resolve outermost and walk down
-        INamedTypeSymbol current = (INamedTypeSymbol)ResolveType(chain[0], methodContext)!;
+        var resolvedOuter = ResolveType(chain[0], methodContext);
+        if (resolvedOuter is not INamedTypeSymbol outerNamed)
+            return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
+
+        INamedTypeSymbol current = outerNamed;
 
         if (arities[0] > 0)
             current = (INamedTypeSymbol)current.Construct(slices[0].Select(x => ResolveType(x, methodContext)!).ToArray());
@@ -297,6 +301,8 @@ internal class TypeResolver(Compilation compilation)
 
             // Find nested under current containing symbol
             var nestedDef = FindNested(current, levelType);
+            if (nestedDef is null)
+                return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
 
             current = nestedDef;
 
@@ -330,24 +336,26 @@ internal class TypeResolver(Compilation compilation)
         return result;
     }
 
-    private static INamedTypeSymbol FindNested(INamedTypeSymbol containing, Type nestedRuntimeType)
+    private static INamedTypeSymbol? FindNested(INamedTypeSymbol containing, Type nestedRuntimeType)
     {
         // Use Name+Arity, *not* just Name.
         var (name, arity) = GetRuntimeNestedNameAndArity(nestedRuntimeType);
+        var runtimeMetadataName = nestedRuntimeType.Name;
+        var fullRuntimeMetadataName = $"{containing.MetadataName}+{runtimeMetadataName}";
 
-        // if your symbol exposes MetadataName, use that instead (best).
-        var candidates = containing.GetMembers(name).OfType<INamedTypeSymbol>();
-        foreach (var c in candidates)
+        var candidates = containing.GetMembers().OfType<INamedTypeSymbol>();
+        INamedTypeSymbol? nameMatch = null;
+        foreach (var candidate in candidates)
         {
-            if (c.Arity == arity) // or MetadataName match
-                return c;
+            if (string.Equals(candidate.MetadataName, runtimeMetadataName, StringComparison.Ordinal) ||
+                string.Equals(candidate.MetadataName, fullRuntimeMetadataName, StringComparison.Ordinal))
+                return candidate;
+
+            if (string.Equals(candidate.Name, name, StringComparison.Ordinal) && candidate.Arity == arity)
+                nameMatch ??= candidate;
         }
 
-        // fallback: if only one match by name, return it
-        var single = candidates.FirstOrDefault();
-        if (single is not null) return single;
-
-        throw new InvalidOperationException($"Could not resolve nested type {nestedRuntimeType} under {containing}.");
+        return nameMatch;
     }
 
     private static (string name, int arity) GetRuntimeNestedNameAndArity(Type t)
@@ -436,9 +444,12 @@ internal class TypeResolver(Compilation compilation)
         return typeSymbol;
     }
 
-    protected ITypeSymbol? ResolveTypeCore(Type type)
+    protected ITypeSymbol ResolveTypeCore(Type type)
     {
         var typeInfo = type.GetTypeInfo();
+        var metadataName = GetMetadataName(typeInfo);
+        if (string.IsNullOrEmpty(metadataName))
+            return compilation.ErrorTypeSymbol;
 
         var assemblyName = type.Assembly.GetName().Name;
         var corLibrary = (PEAssemblySymbol)compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
@@ -446,10 +457,33 @@ internal class TypeResolver(Compilation compilation)
             ?? corLibrary;
 
         if (assemblySymbol is null)
-            return compilation.GetTypeByMetadataName(type.FullName);
+            return compilation.GetTypeByMetadataName(metadataName) ?? compilation.ErrorTypeSymbol;
 
-        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName)
-            ?? compilation.GetTypeByMetadataName(type.FullName);
+        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, metadataName)
+            ?? compilation.GetTypeByMetadataName(metadataName)
+            ?? compilation.ErrorTypeSymbol;
+    }
+
+    private static string? GetMetadataName(Type type)
+    {
+        if (type.DeclaringType is { } declaringType)
+        {
+            var declaringName = GetMetadataName(declaringType);
+            if (declaringName is null)
+                return null;
+
+            var (nestedName, nestedArity) = GetRuntimeNestedNameAndArity(type);
+            var nestedMetadataName = nestedArity > 0 ? $"{nestedName}`{nestedArity}" : nestedName;
+            return $"{declaringName}+{nestedMetadataName}";
+        }
+
+        if (type.FullName is { } fullName)
+            return fullName;
+
+        var name = type.Name;
+        return string.IsNullOrEmpty(type.Namespace)
+            ? name
+            : $"{type.Namespace}.{name}";
     }
 
     public IMethodSymbol? ResolveMethodSymbol(MethodInfo ifaceMethod)

@@ -902,9 +902,13 @@ public partial class Compilation
                 if (method.Parameters.Length != 1)
                     continue;
 
-                if (!SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, sourceType) &&
+                var parameterType = method.Parameters[0].Type;
+                if (parameterType is null || method.ReturnType is null)
+                    continue;
+
+                if (!SymbolEqualityComparer.Default.Equals(parameterType, sourceType) &&
                     !SymbolEqualityComparer.Default.Equals(
-                        method.Parameters[0].Type.OriginalDefinition ?? method.Parameters[0].Type,
+                        parameterType.OriginalDefinition ?? parameterType,
                         sourceType.OriginalDefinition ?? sourceType))
                     continue;
 
