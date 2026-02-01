@@ -16,7 +16,7 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         int rank = 1)
-        : base(containingSymbol, containingType, containingNamespace, locations)
+        : base(containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
     {
         BaseType = baseType;
         ElementType = elementType;

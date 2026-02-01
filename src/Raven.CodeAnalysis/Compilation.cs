@@ -32,7 +32,7 @@ public partial class Compilation
     private ErrorTypeSymbol _errorTypeSymbol;
     private NullTypeSymbol _nullTypeSymbol;
     private UnitTypeSymbol _unitTypeSymbol;
-    private TypeResolver _typeResolver;
+    private ReflectionTypeLoader _reflectionTypeLoader;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
@@ -201,7 +201,7 @@ public partial class Compilation
             InitializeTopLevelPrograms();
     }
 
-    internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
+    internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader ??= new ReflectionTypeLoader(this);
 
     private void InitializeTopLevelPrograms()
     {
@@ -963,7 +963,7 @@ public partial class Compilation
 
     public ITypeSymbol? GetType(Type type)
     {
-        return TypeResolver.ResolveType(type);
+        return ReflectionTypeLoader.ResolveType(type);
     }
 
     public ISymbol? GetAssemblyOrModuleSymbol(MetadataReference metadataReference)
@@ -1010,7 +1010,7 @@ public partial class Compilation
 
         assemblySymbol.AddModules(
             new PEModuleSymbol(
-                TypeResolver,
+                ReflectionTypeLoader,
                 assemblySymbol,
                 assembly.ManifestModule,
                 [],

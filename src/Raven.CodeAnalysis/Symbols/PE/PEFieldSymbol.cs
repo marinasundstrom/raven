@@ -4,16 +4,16 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly FieldInfo _fieldInfo;
     private ITypeSymbol? _type;
     private Accessibility? _accessibility;
     private FieldInfo? _runtimeFieldInfo;
 
-    public PEFieldSymbol(TypeResolver typeResolver, FieldInfo fieldInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEFieldSymbol(ReflectionTypeLoader reflectionTypeLoader, FieldInfo fieldInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _fieldInfo = fieldInfo;
     }
 
@@ -24,7 +24,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     {
         get
         {
-            return _type ??= _typeResolver.ResolveType(_fieldInfo);
+            return _type ??= _reflectionTypeLoader.ResolveType(_fieldInfo);
         }
     }
 
@@ -42,7 +42,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
         if (_runtimeFieldInfo is not null)
             return _runtimeFieldInfo;
 
-        var runtimeField = _typeResolver.ResolveRuntimeField(_fieldInfo);
+        var runtimeField = _reflectionTypeLoader.ResolveRuntimeField(_fieldInfo);
         if (runtimeField is not null)
         {
             _runtimeFieldInfo = runtimeField;

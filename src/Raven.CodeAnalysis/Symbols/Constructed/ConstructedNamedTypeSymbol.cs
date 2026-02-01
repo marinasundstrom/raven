@@ -178,31 +178,34 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             }
 
             if (!changed)
+            {
+                // Even if generic args did not change, we may still need to re-anchor a nested type
+                // under a substituted containing type.
+                if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
+                    return new ConstructedNamedTypeSymbol((INamedTypeSymbol?)(named.ConstructedFrom ?? named) ?? named, named.TypeArguments, _substitutionMap, containingOverride);
+
                 return named;
+            }
 
             // Avoid reusing a possibly already-constructed named
             var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+
+            // If this is nested and the containing type must be substituted, create a constructed wrapper
+            // so ContainingType/ContainingSymbol reflect the constructed outer.
+            if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
+            {
+                var immutableArguments = ImmutableArray.Create(substitutedArgs);
+                return new ConstructedNamedTypeSymbol(constructedFrom, immutableArguments, _substitutionMap, overrideContaining);
+            }
+
             return constructedFrom.Construct(substitutedArgs);
         }
 
-        if (type is INamedTypeSymbol nestedNamed &&
-            !nestedNamed.IsGenericType &&
-            nestedNamed.ContainingType is INamedTypeSymbol containingType &&
-            containingType.TypeParameters.Length > 0)
+        // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
+        if (type is INamedTypeSymbol nestedNamed && nestedNamed.ContainingType is INamedTypeSymbol)
         {
-            var needsContainingSubstitution = false;
-            foreach (var typeParameter in containingType.TypeParameters)
-            {
-                if (TryGetSubstitution(typeParameter, out var replacement) &&
-                    !SymbolEqualityComparer.Default.Equals(replacement, typeParameter))
-                {
-                    needsContainingSubstitution = true;
-                    break;
-                }
-            }
-
-            if (needsContainingSubstitution)
-                return SubstituteNamedType(nestedNamed);
+            if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
+                return new ConstructedNamedTypeSymbol(nestedNamed, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride);
         }
 
         return type;
@@ -261,6 +264,52 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         return builder.MoveToImmutable();
     }
 
+    // Helper methods for chain-aware substitution of nested types
+    private INamedTypeSymbol? SubstituteContainingType(INamedTypeSymbol? containing)
+    {
+        if (containing is null)
+            return null;
+
+        // Substitute the containing type using the current substitution map.
+        // This will walk outward (recursively) and produce the constructed outer chain when needed.
+        var substituted = Substitute(containing) as INamedTypeSymbol;
+
+        if (substituted is null)
+            return containing;
+
+        return substituted;
+    }
+
+    private bool TryGetContainingOverride(INamedTypeSymbol namedType, out INamedTypeSymbol? containingOverride)
+    {
+        containingOverride = null;
+
+        if (namedType.ContainingType is not INamedTypeSymbol containing)
+            return false;
+
+        var substitutedContaining = SubstituteContainingType(containing);
+
+        if (substitutedContaining is null)
+            return false;
+
+        // If the containing type changed due to substitution (or the symbol is logically the same but a different instance),
+        // we must re-anchor the nested type under the substituted containing type.
+        if (!SymbolEqualityComparer.Default.Equals(substitutedContaining, containing))
+        {
+            containingOverride = substitutedContaining;
+            return true;
+        }
+
+        // Also re-anchor if the nested type is directly under the original definition and we are the constructed instance.
+        if (_containingTypeOverride is null && SymbolEqualityComparer.Default.Equals(containing, _originalDefinition))
+        {
+            containingOverride = this;
+            return true;
+        }
+
+        return false;
+    }
+
     private ISymbol SubstituteMember(ISymbol member) => member switch
     {
         IMethodSymbol m => new SubstitutedMethodSymbol(m, this),
@@ -272,11 +321,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
     private INamedTypeSymbol SubstituteNamedType(INamedTypeSymbol namedType)
     {
-        var containingOverride = namedType.ContainingType is INamedTypeSymbol containing &&
-            SymbolEqualityComparer.Default.Equals(containing, _originalDefinition)
-            ? this
-            : null;
+        // Determine whether this type must be re-anchored under a substituted containing type.
+        INamedTypeSymbol? containingOverride = null;
+        _ = TryGetContainingOverride(namedType, out containingOverride);
 
+        // Non-generic nested types (arity 0) still require a constructed wrapper when the containing type changes.
         if (namedType.Arity == 0)
         {
             return containingOverride is not null
@@ -293,12 +342,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         }
 
         var typeArguments = new ITypeSymbol[typeParameters.Length];
+        var changed = false;
+
         for (var i = 0; i < typeParameters.Length; i++)
         {
             var parameter = typeParameters[i];
             if (TryGetSubstitution(parameter, out var replacement))
             {
                 typeArguments[i] = replacement;
+                if (!SymbolEqualityComparer.Default.Equals(replacement, parameter))
+                    changed = true;
             }
             else
             {
@@ -306,10 +359,15 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             }
         }
 
+        // If nothing changed and there is no containing override, reuse the existing symbol.
+        if (!changed && containingOverride is null)
+            return namedType;
+
+        var immutableArguments = ImmutableArray.Create(typeArguments);
+
         if (containingOverride is null)
             return (INamedTypeSymbol)namedType.Construct(typeArguments);
 
-        var immutableArguments = ImmutableArray.Create(typeArguments);
         return new ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride);
     }
 
@@ -372,7 +430,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public bool IsDiscriminatedUnionCase => _originalDefinition.IsDiscriminatedUnionCase;
     public INamedTypeSymbol? UnderlyingDiscriminatedUnion => _originalDefinition.UnderlyingDiscriminatedUnion;
     public INamedTypeSymbol? ContainingType => _containingTypeOverride ?? _originalDefinition.ContainingType;
-    public INamespaceSymbol? ContainingNamespace => _originalDefinition.ContainingNamespace;
+    public INamespaceSymbol? ContainingNamespace => _containingTypeOverride?.ContainingNamespace ?? _originalDefinition.ContainingNamespace;
     public ISymbol? ContainingSymbol => _containingTypeOverride ?? _originalDefinition.ContainingSymbol;
     public IAssemblySymbol? ContainingAssembly => _originalDefinition.ContainingAssembly;
     public IModuleSymbol? ContainingModule => _originalDefinition.ContainingModule;
@@ -856,6 +914,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     public string Name => _original.Name;
     public ITypeSymbol ReturnType => _constructed.Substitute(_original.ReturnType, _methodTypeParameterMap);
+
     public ImmutableArray<IParameterSymbol> Parameters =>
         _parameters ??= _original.Parameters
             .Select(p => (IParameterSymbol)new SubstitutedParameterSymbol(p, _constructed, _methodTypeParameterMap))

@@ -9,11 +9,11 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
+internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
     private readonly Type _type;
 
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private TypeParameterConstraintKind? _lazyConstraintKind;
     private ImmutableArray<ITypeSymbol>? _lazyConstraintTypes;
 
@@ -23,14 +23,14 @@ internal sealed partial class PETypeParameterSymbol : Symbol, ITypeParameterSymb
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
-        TypeResolver typeResolver)
-        : base(containingSymbol, containingType, containingNamespace, locations, [])
+        ReflectionTypeLoader reflectionTypeLoader)
+        : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: false)
     {
         if (!type.IsGenericParameter)
             throw new ArgumentException("Type must be a generic parameter", nameof(type));
 
         _type = type;
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
     }
 
     public override string Name => _type.Name;
@@ -111,7 +111,7 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(constraints.Length);
             foreach (var constraint in constraints)
             {
-                var resolved = _typeResolver.ResolveType(constraint, _type.DeclaringMethod);
+                var resolved = _reflectionTypeLoader.ResolveType(constraint, _type.DeclaringMethod);
                 if (resolved is not null)
                     builder.Add(resolved);
             }

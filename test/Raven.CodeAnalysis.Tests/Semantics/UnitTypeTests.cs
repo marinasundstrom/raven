@@ -3,6 +3,7 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -50,7 +51,7 @@ let x: () = ping()
     }
 
     [Fact]
-    public void TypeResolver_Wraps_Void_In_UnitTypeSymbol()
+    public void ReflectionTypeLoader_Wraps_Void_In_UnitTypeSymbol()
     {
         var compilation = CreateCompilation();
         compilation.EnsureSetup();

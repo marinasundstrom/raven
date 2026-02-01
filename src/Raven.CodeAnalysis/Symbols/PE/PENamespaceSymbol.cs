@@ -5,23 +5,23 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEModuleSymbol _module = default!;
-    private readonly List<ISymbol> _members = new();
+    private readonly List<ISymbol> _members = new(); // new(SymbolEqualityComparer.Default);
     private readonly string _name;
     private bool _membersLoaded;
 
-    public PENamespaceSymbol(TypeResolver typeResolver, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
+    public PENamespaceSymbol(ReflectionTypeLoader reflectionTypeLoader, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _name = name;
     }
 
-    public PENamespaceSymbol(TypeResolver typeResolver, PEModuleSymbol containingModule, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
+    public PENamespaceSymbol(ReflectionTypeLoader reflectionTypeLoader, PEModuleSymbol containingModule, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _module = containingModule;
         _name = name;
     }
@@ -37,7 +37,17 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;
 
-    internal void AddMember(ISymbol symbol) => _members.Add(symbol);
+    internal void AddMember(ISymbol member)
+    {
+        _members.Add(member);
+
+        /*
+        if (!_members.Add(member))
+        {
+            throw new InvalidOperationException($"Member '{member.ToDisplayString()}' has already been added to namespace '{this.ToDisplayString()}'");
+        }
+        */
+    }
 
     public ImmutableArray<ISymbol> GetMembers()
     {
@@ -100,22 +110,23 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
             if (type.Namespace != MetadataName)
                 continue;
 
-            var typeSymbol = PENamedTypeSymbol.Create(
-                _typeResolver,
-                type.GetTypeInfo(),
-                this,
-                null,
-                this,
-                [new MetadataLocation(ContainingModule!)]);
-
-            AddMember(typeSymbol);
+            // IMPORTANT: Always intern types via the module's Type-based cache.
+            // Creating symbols directly here bypasses the module cache and can create duplicate type symbols
+            // (e.g., two instances of Result`2 with different loaded states).
+            var module = (PEModuleSymbol)ContainingModule;
+            _ = module.GetType(type);
         }
 
         foreach (var nsName in FindNestedNamespaces(assemblyInfo))
         {
             var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
-            var nestedNamespace = new PENamespaceSymbol(_typeResolver, _module, childName, this, this);
-            AddMember(nestedNamespace);
+            var nestedNamespace = new PENamespaceSymbol(_reflectionTypeLoader, _module, childName, this, this);
+            //AddMember(nestedNamespace);
+        }
+
+        foreach (var member in _members.OfType<PEAssemblySymbol>())
+        {
+            member.Complete();
         }
     }
 

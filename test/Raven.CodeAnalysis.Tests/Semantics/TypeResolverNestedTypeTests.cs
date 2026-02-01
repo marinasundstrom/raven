@@ -7,10 +7,10 @@ using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class TypeResolverNestedTypeTests : CompilationTestBase
+public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
 {
     protected override MetadataReference[] GetMetadataReferences()
-        => [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(typeof(TypeResolverNestedTypeTests).Assembly.Location)];
+        => [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(typeof(ReflectionTypeLoaderNestedTypeTests).Assembly.Location)];
 
     [Fact]
     public void ResolveNestedTypeChain_PreservesContainingTypeForNonGenericInner()
@@ -18,8 +18,8 @@ public class TypeResolverNestedTypeTests : CompilationTestBase
         var compilation = CreateCompilation();
         compilation.EnsureSetup();
 
-        var resolver = compilation.TypeResolver;
-        var runtimeInner = typeof(TypeResolverNestedTypeFixtures.Outer<int>.Inner);
+        var resolver = compilation.ReflectionTypeLoader;
+        var runtimeInner = typeof(ReflectionTypeLoaderNestedTypeFixtures.Outer<int>.Inner);
 
         var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(resolver.ResolveType(runtimeInner));
         var containing = Assert.IsAssignableFrom<INamedTypeSymbol>(resolved.ContainingType);
@@ -38,8 +38,8 @@ public class TypeResolverNestedTypeTests : CompilationTestBase
         var compilation = CreateCompilation();
         compilation.EnsureSetup();
 
-        var resolver = compilation.TypeResolver;
-        var runtimeInner = typeof(TypeResolverNestedTypeFixtures.Outer<int>.InnerWith<string>);
+        var resolver = compilation.ReflectionTypeLoader;
+        var runtimeInner = typeof(ReflectionTypeLoaderNestedTypeFixtures.Outer<int>.InnerWith<string>);
 
         var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(resolver.ResolveType(runtimeInner));
         var containing = Assert.IsAssignableFrom<INamedTypeSymbol>(resolved.ContainingType);
@@ -57,7 +57,7 @@ public class TypeResolverNestedTypeTests : CompilationTestBase
         Assert.True(SymbolEqualityComparer.Default.Equals(resolved, nestedMember));
     }
 
-    internal static class TypeResolverNestedTypeFixtures
+    internal static class ReflectionTypeLoaderNestedTypeFixtures
     {
         public class Outer<T>
         {

@@ -33,7 +33,8 @@ internal abstract class Symbol : ISymbol
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        Accessibility declaredAccessibility = Accessibility.NotApplicable,
+        bool addAsMember = true)
     {
         _declaredAccessibility = declaredAccessibility;
         ContainingType = containingType;
@@ -42,11 +43,17 @@ internal abstract class Symbol : ISymbol
         Locations = [.. locations];
         DeclaringSyntaxReferences = [.. declaringSyntaxReferences];
 
+        if (addAsMember)
+            AddAsMember(containingType, containingNamespace);
+    }
+
+    internal bool AddAsMember(INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace)
+    {
         if (this is IParameterSymbol)
-            return;
+            return false;
 
         if (this is ITypeParameterSymbol)
-            return;
+            return false;
 
         if (this is ITypeSymbol or INamespaceSymbol)
         {
@@ -65,7 +72,7 @@ internal abstract class Symbol : ISymbol
         }
 
         if (this is ILocalSymbol or ILabelSymbol)
-            return;
+            return false;
 
         if (containingType is SourceNamedTypeSymbol t)
         {
@@ -75,8 +82,9 @@ internal abstract class Symbol : ISymbol
         {
             t2.AddMember(this);
         }
-    }
 
+        return true;
+    }
 
     public virtual SymbolKind Kind
     {
@@ -226,4 +234,21 @@ internal abstract class Symbol : ISymbol
     public abstract void Accept(CodeAnalysis.SymbolVisitor visitor);
 
     public abstract TResult Accept<TResult>(CodeAnalysis.SymbolVisitor<TResult> visitor);
+}
+
+static class Foo
+{
+    public static T AddAsMember<T>(this T symbol)
+        where T : PENamedTypeSymbol
+    {
+        symbol.AddAsMember(symbol.ContainingType, symbol.ContainingNamespace);
+        return symbol;
+    }
+
+    public static T AddAsMember2<T>(this T symbol)
+        where T : PETypeParameterSymbol
+    {
+        symbol.AddAsMember(symbol.ContainingType, symbol.ContainingNamespace);
+        return symbol;
+    }
 }

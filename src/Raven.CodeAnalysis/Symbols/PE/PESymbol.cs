@@ -7,7 +7,7 @@ internal abstract class PESymbol : Symbol
 {
     protected PESymbol(ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
-        Location[] locations) : base(containingSymbol, containingType, containingNamespace, locations, [])
+        Location[] locations, bool addAsMember = true) : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: addAsMember)
     {
 
     }
@@ -93,4 +93,10 @@ internal abstract class PESymbol : Symbol
 
         return Accessibility.NotApplicable;
     }
+
+    public virtual void Complete()
+    {
+    }
+
+    public bool IsCompleted { get; set; }
 }

@@ -14,13 +14,13 @@ internal sealed class PEDiscriminatedUnionSymbol : PENamedTypeSymbol, IDiscrimin
     private IFieldSymbol? _payloadField;
 
     public PEDiscriminatedUnionSymbol(
-        TypeResolver typeResolver,
+        ReflectionTypeLoader reflectionTypeLoader,
         System.Reflection.TypeInfo typeInfo,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations)
-        : base(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations)
+        : base(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
     {
     }
 
@@ -82,14 +82,15 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
     private int? _ordinal;
 
     public PEDiscriminatedUnionCaseSymbol(
-        TypeResolver typeResolver,
+        ReflectionTypeLoader reflectionTypeLoader,
         System.Reflection.TypeInfo typeInfo,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         IDiscriminatedUnionSymbol? unionFromAttribute)
-        : base(typeResolver, typeInfo, containingSymbol, containingType, containingNamespace, locations)
+        : base(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations,
+        addAsMember: false)
     {
         _unionFromAttribute = unionFromAttribute;
     }
@@ -156,7 +157,7 @@ internal sealed class PEDiscriminatedUnionCaseSymbol : PENamedTypeSymbol, IDiscr
             if (!TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
                 continue;
 
-            var resolvedUnion = _typeResolver.ResolveType(unionType);
+            var resolvedUnion = _reflectionTypeLoader.ResolveType(unionType);
             return resolvedUnion as IDiscriminatedUnionSymbol;
         }
 

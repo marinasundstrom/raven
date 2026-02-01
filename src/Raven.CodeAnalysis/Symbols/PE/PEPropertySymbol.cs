@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 {
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PropertyInfo _propertyInfo;
     private ITypeSymbol _type;
     private Accessibility? _accessibility;
@@ -13,10 +13,10 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     private string? _name;
     private string? _extensionMarkerName;
 
-    public PEPropertySymbol(TypeResolver typeResolver, PropertyInfo propertyInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEPropertySymbol(ReflectionTypeLoader reflectionTypeLoader, PropertyInfo propertyInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _propertyInfo = propertyInfo;
     }
 
@@ -46,7 +46,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     {
         get
         {
-            return _type ??= _typeResolver.ResolveType(_propertyInfo);
+            return _type ??= _reflectionTypeLoader.ResolveType(_propertyInfo);
         }
     }
 
@@ -132,7 +132,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
                     if (!PropertySignaturesMatch(_propertyInfo, ifaceProp))
                         continue;
 
-                    var ifacePropSymbol = _typeResolver.ResolvePropertySymbol(ifaceProp);
+                    var ifacePropSymbol = _reflectionTypeLoader.ResolvePropertySymbol(ifaceProp);
                     if (ifacePropSymbol is not null)
                         builder.Add(ifacePropSymbol);
                 }

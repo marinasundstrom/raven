@@ -7,20 +7,20 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 {
     readonly Dictionary<Type, ITypeSymbol> _typeSymbolTypeInfoMapping = new Dictionary<Type, ITypeSymbol>();
     readonly Dictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new();
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEAssemblySymbol _assembly;
     private readonly Module _module;
     private INamespaceSymbol? _globalNamespace;
 
     public PEModuleSymbol(
-        TypeResolver typeResolver,
+        ReflectionTypeLoader reflectionTypeLoader,
         PEAssemblySymbol assembly,
         Module module,
         Location[] locations,
         IEnumerable<IAssemblySymbol> referencedAssemblySymbols)
         : base(null!, null, null, locations)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _assembly = assembly;
         _module = module;
         ReferencedAssemblySymbols = referencedAssemblySymbols.ToImmutableArray();
@@ -33,7 +33,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
     public override IAssemblySymbol ContainingAssembly => _assembly;
 
     public INamespaceSymbol GlobalNamespace =>
-        _globalNamespace ??= new PENamespaceSymbol(_typeResolver, this, string.Empty, this, null);
+        _globalNamespace ??= new PENamespaceSymbol(_reflectionTypeLoader, this, string.Empty, this, null);
 
     public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols { get; }
 
@@ -47,20 +47,27 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         if (_typeSymbolTypeInfoMapping.TryGetValue(type, out var typeSymbol))
             return typeSymbol;
 
-        var p = FindType(GlobalNamespace, type);
-        if (p is not null)
-        {
-            return p;
-        }
+        // If the runtime type belongs to this module's assembly, we can intern it directly.
+        // Avoid walking namespaces/members first, as that can create alternate symbol instances.
+        var thisAssembly = PEContainingAssembly.GetAssemblyInfo();
+        if (ReferenceEquals(type.Assembly, thisAssembly))
+            return GetOrCreateTypeSymbol(type);
 
+        // Otherwise, ask referenced assemblies.
         return ReferencedAssemblySymbols
-                .OfType<PEAssemblySymbol>()
-                .Select(x => x.GetType(type))
-                .FirstOrDefault();
+            .OfType<PEAssemblySymbol>()
+            .Select(x => x.GetType(type))
+            .FirstOrDefault();
     }
 
     private ITypeSymbol? FindType(INamespaceSymbol namespaceSymbol, Type type)
     {
+        if (type.IsNested)
+        {
+            // Nested types are not namespace members; they are members of their declaring type.
+            return GetOrCreateTypeSymbol(type);
+        }
+
         var parts = type.FullName!.Split('.'); // "System.Collections.Generic.List`1" → [System, Collections, Generic, List`1]
         int index = 0;
         INamespaceSymbol currentNamespace = namespaceSymbol;
@@ -103,12 +110,13 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         var assembly = PEContainingAssembly.GetAssemblyInfo();
 
-        var type = assembly.GetType(fullName, throwOnError: false, ignoreCase: false);
-        if (type is not null)
+        var value = ResolveTypeFromAssembly(fullName, assembly);
+        if (value is not null)
         {
-            var symbol = CreateMetadataTypeSymbol(type);
-            _resolvedMetadataTypes[fullName] = symbol;
-            return symbol;
+            if (value is INamedTypeSymbol named)
+                _resolvedMetadataTypes[fullName] = named;
+
+            return value;
         }
 
         // If no type found, try to verify as a namespace
@@ -125,14 +133,77 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             if (parentNs is PENamespaceSymbol peParent)
             {
                 var module = peParent.ContainingModule as PEModuleSymbol ?? this;
-                var nestedNamespace = new PENamespaceSymbol(_typeResolver, module, name, peParent, peParent);
+                var nestedNamespace = new PENamespaceSymbol(_reflectionTypeLoader, module, name, peParent, peParent);
                 return nestedNamespace;
             }
 
-            return new PENamespaceSymbol(_typeResolver, name, parentNs, parentNs);
+            return new PENamespaceSymbol(_reflectionTypeLoader, name, parentNs, parentNs);
         }
 
         return null;
+    }
+
+    private ISymbol? ResolveTypeFromAssembly(string fullName, Assembly assembly)
+    {
+        var type = assembly.GetType(fullName, throwOnError: false, ignoreCase: false);
+        if (type is not null)
+        {
+            return GetType(type);
+        }
+
+        return null;
+    }
+
+    /*
+        private ITypeSymbol GetOrCreateTypeSymbol(Type type)
+        {
+            if (_typeSymbolTypeInfoMapping.TryGetValue(type, out var existing))
+                return existing;
+
+            // Nested types must be created under their declaring type, not under the namespace.
+            if (type.IsNested && type.DeclaringType is not null)
+            {
+                var declaring = GetType(type.DeclaringType) as INamedTypeSymbol;
+                if (declaring is null)
+                    return compilation.GetTypeByMetadataName(type.FullName ?? type.Name) ?? compilation.ErrorTypeSymbol;
+
+                // Ensure the declaring type has had a chance to load its members so the nested container is stable.
+                _ = declaring.GetMembers();
+
+                var containingNamespace = declaring.ContainingNamespace;
+                return CreateMetadataTypeSymbol(type.GetTypeInfo(), containingNamespace, declaring, declaring);
+            }
+
+            // Top-level type: create under its namespace.
+            var ns = GetOrCreateNamespaceSymbol(type.Namespace);
+            return CreateMetadataTypeSymbol(type.GetTypeInfo(), ns, containingType: null, containingSymbol: ns);
+        }
+        */
+
+    private ITypeSymbol GetOrCreateTypeSymbol(Type type)
+    {
+        if (_typeSymbolTypeInfoMapping.TryGetValue(type, out var existing))
+            return existing;
+
+        // Nested types must be created under their declaring type, not under the namespace.
+        if (type.IsNested && type.DeclaringType is not null)
+        {
+            var declaring = GetType(type.DeclaringType) as INamedTypeSymbol;
+            if (declaring is null)
+            {
+                // Fallback: attempt direct creation; will still be cached by Type.
+                return CreateMetadataTypeSymbol(type);
+            }
+
+            // Ensure the declaring type has had a chance to load its members so the nested container is stable.
+            _ = declaring.GetMembers();
+
+            var containingNamespace = declaring.ContainingNamespace;
+            return CreateMetadataTypeSymbol(type.GetTypeInfo(), containingNamespace, declaring, declaring);
+        }
+
+        // Top-level type: create under its namespace.
+        return CreateMetadataTypeSymbol(type);
     }
 
     private PENamedTypeSymbol CreateMetadataTypeSymbol(Type type)
@@ -157,14 +228,14 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         if (typeInfo.IsArray)
         {
             typeSymbol = new PEArrayTypeSymbol(
-                _typeResolver,
+                _reflectionTypeLoader,
                 typeInfo, containingSymbol, containingType, containingNamespace,
                 [new MetadataLocation(containingNamespace.ContainingModule!)]);
         }
         else
         {
             typeSymbol = PENamedTypeSymbol.Create(
-                _typeResolver,
+                _reflectionTypeLoader,
                 typeInfo,
                 containingSymbol,
                 containingType,
@@ -193,7 +264,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
             if (next is null)
             {
-                next = new PENamespaceSymbol(_typeResolver, part, _assembly, current);
+                next = new PENamespaceSymbol(_reflectionTypeLoader, part, _assembly, current);
             }
 
             current = next;

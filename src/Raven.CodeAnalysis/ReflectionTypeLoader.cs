@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System;
 using System.Reflection;
 
@@ -5,7 +7,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal class TypeResolver(Compilation compilation)
+internal class ReflectionTypeLoader(Compilation compilation)
 {
     private readonly Dictionary<Type, ITypeSymbol> _cache = new();
     private readonly NullabilityInfoContext _nullabilityContext = new();
@@ -186,12 +188,9 @@ internal class TypeResolver(Compilation compilation)
         if (type.Name == "Null")
             return compilation.NullTypeSymbol;
 
-        var nullable = compilation.GetSpecialType(SpecialType.System_Nullable_T);
-
-        if (type.IsGenericType
-            && type.GetGenericTypeDefinition().FullName.Contains("System.Nullable`1"))
+        if (type.IsNullableValueType())
         {
-            var underlying = ResolveType(type.GetGenericArguments()[0]);
+            var underlying = ResolveType(type.GetGenericArguments()[0], methodContext);
             return underlying!.MakeNullable();
         }
 
@@ -222,7 +221,7 @@ internal class TypeResolver(Compilation compilation)
             // - For *non-nested* generic types (e.g. TaskAwaiter<TResult>), we can resolve the generic
             //   definition and construct it directly.
 
-            if (type.IsNested)
+            if (type.RequiresNestedChainResolution())
                 return ResolveNestedTypeChain(type, methodContext);
 
             var genericTypeDefinition = (INamedTypeSymbol?)ResolveType(type.GetGenericTypeDefinition(), methodContext);
@@ -235,7 +234,7 @@ internal class TypeResolver(Compilation compilation)
 
         if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
         {
-            if (ResolveType(type.DeclaringType) is not INamedTypeSymbol declaringNamedType)
+            if (ResolveType(type.DeclaringType!) is not INamedTypeSymbol declaringNamedType)
                 throw new InvalidOperationException($"Could not resolve declaring type for type parameter: {type}");
 
             if (type.IsGenericMethodParameter)
@@ -250,7 +249,7 @@ internal class TypeResolver(Compilation compilation)
                 return ResolveMethodTypeParameter(type, methodSymbol);
             }
 
-            return new PETypeParameterSymbol(type, declaringNamedType, declaringNamedType, declaringNamedType.ContainingNamespace, [], this);
+            return new PETypeParameterSymbol(type, declaringNamedType, declaringNamedType, declaringNamedType.ContainingNamespace, [], this).AddAsMember2();
         }
 
         if (type.IsArray)
@@ -269,129 +268,39 @@ internal class TypeResolver(Compilation compilation)
     private INamedTypeSymbol ResolveNestedTypeChain(Type t, MethodBase? methodContext)
     {
         // 1) chain outermost..innermost
-        var chain = new List<Type>();
-        for (var cur = t; cur != null; cur = cur.DeclaringType)
-            chain.Add(cur);
-        chain.Reverse();
+        var chain = t.DeclaringTypeChain();
 
-        // 2) declared arity per level
-        var arities = chain.Select(GetDeclaredArity).ToArray();
+        // 2) slice args per level (declared arity per level)
+        var slices = t.SliceGenericArgumentsPerLevel(chain);
 
-        // 3) flat args for *t* (innermost)
-        var flat = t.IsGenericType || t.ContainsGenericParameters
-            ? t.GetGenericArguments()
-            : Type.EmptyTypes;
-
-        // 4) slice args per level
-        var slices = SliceArguments(flat, arities); // returns Type[][]
-
-        // 5) resolve outermost and walk down
+        // 3) resolve outermost and walk down
         var resolvedOuter = ResolveType(chain[0], methodContext);
         if (resolvedOuter is not INamedTypeSymbol outerNamed)
             return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
 
         INamedTypeSymbol current = outerNamed;
 
-        if (arities[0] > 0)
+        if (slices[0].Length > 0)
             current = (INamedTypeSymbol)current.Construct(slices[0].Select(x => ResolveType(x, methodContext)!).ToArray());
+
+        var str = current.ToString();
 
         for (int i = 1; i < chain.Count; i++)
         {
             var levelType = chain[i];
 
             // Find nested under current containing symbol
-            var nestedDef = FindNested(current, levelType);
+            var nestedDef = current.FindNestedTypeForRuntime(levelType);
             if (nestedDef is null)
                 return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
 
             current = nestedDef;
 
-            if (arities[i] > 0)
+            if (slices[i].Length > 0)
                 current = (INamedTypeSymbol)current.Construct(slices[i].Select(x => ResolveType(x, methodContext)!).ToArray());
         }
 
         return current;
-    }
-
-    private static int GetDeclaredArity(Type level)
-    {
-        if (!level.IsGenericType && !level.IsGenericTypeDefinition)
-            return 0;
-
-        var def = level.IsGenericTypeDefinition ? level : level.GetGenericTypeDefinition();
-        return def.GetGenericArguments().Length;
-    }
-
-    private static Type[][] SliceArguments(Type[] flat, int[] arities)
-    {
-        var result = new Type[arities.Length][];
-        int pos = 0;
-        for (int i = 0; i < arities.Length; i++)
-        {
-            var n = arities[i];
-            if (n == 0) { result[i] = Array.Empty<Type>(); continue; }
-            result[i] = flat.Skip(pos).Take(n).ToArray();
-            pos += n;
-        }
-        return result;
-    }
-
-    private static INamedTypeSymbol? FindNested(INamedTypeSymbol containing, Type nestedRuntimeType)
-    {
-        // Use Name+Arity, *not* just Name.
-        var (name, arity) = GetRuntimeNestedNameAndArity(nestedRuntimeType);
-        var runtimeMetadataName = nestedRuntimeType.Name;
-        var fullRuntimeMetadataName = $"{containing.MetadataName}+{runtimeMetadataName}";
-
-        var candidates = containing.GetMembers().OfType<INamedTypeSymbol>();
-        INamedTypeSymbol? nameMatch = null;
-        foreach (var candidate in candidates)
-        {
-            if (string.Equals(candidate.MetadataName, runtimeMetadataName, StringComparison.Ordinal) ||
-                string.Equals(candidate.MetadataName, fullRuntimeMetadataName, StringComparison.Ordinal))
-                return candidate;
-
-            if (string.Equals(candidate.Name, name, StringComparison.Ordinal) && candidate.Arity == arity)
-                nameMatch ??= candidate;
-        }
-
-        return nameMatch;
-    }
-
-    private static (string name, int arity) GetRuntimeNestedNameAndArity(Type t)
-    {
-        // Reflection reports nested generic type parameters as the concatenation of:
-        //   declaring type parameters + nested type's own parameters.
-        //
-        // Example (no nested parameters declared in source):
-        //   Result<T, E>.Ok  -> runtime nested type may appear as Ok`2 with [T, E]
-        //   but the nested type's *own* arity in the source model is 0.
-        //
-        // Example (nested declares its own params):
-        //   Outer<T>.Inner<U> -> runtime Inner may appear with arity 2 total, but nested-own arity is 1.
-
-        var name = t.Name;
-        var tick = name.IndexOf('`');
-        if (tick >= 0)
-            name = name[..tick];
-
-        // Compute nested-own arity by subtracting declaring arity from total generic arguments.
-        // For non-generic or non-nested types, this degenerates safely.
-        var total = (t.IsGenericType || t.IsGenericTypeDefinition)
-            ? (t.IsGenericTypeDefinition ? t.GetGenericArguments().Length : t.GetGenericArguments().Length)
-            : 0;
-
-        var declaring = t.DeclaringType;
-        var declaringTotal = 0;
-        if (declaring is not null && (declaring.IsGenericType || declaring.IsGenericTypeDefinition))
-        {
-            declaringTotal = declaring.IsGenericTypeDefinition
-                ? declaring.GetGenericArguments().Length
-                : declaring.GetGenericArguments().Length;
-        }
-
-        var nestedOwnArity = Math.Max(0, total - declaringTotal);
-        return (name, nestedOwnArity);
     }
 
     internal ITypeParameterSymbol ResolveMethodTypeParameter(Type type, PEMethodSymbol methodSymbol)
@@ -401,7 +310,7 @@ internal class TypeResolver(Compilation compilation)
         if (_methodTypeParameters.TryGetValue(key, out var existing))
             return existing;
 
-        var symbol = new PETypeParameterSymbol(type, methodSymbol, methodSymbol.ContainingType, methodSymbol.ContainingNamespace, [new MetadataLocation(methodSymbol.ContainingModule!)], this);
+        var symbol = new PETypeParameterSymbol(type, methodSymbol, methodSymbol.ContainingType, methodSymbol.ContainingNamespace, [new MetadataLocation(methodSymbol.ContainingModule!)], this).AddAsMember2();
         _methodTypeParameters[key] = symbol;
         return symbol;
     }
@@ -459,8 +368,12 @@ internal class TypeResolver(Compilation compilation)
         if (assemblySymbol is null)
             return compilation.GetTypeByMetadataName(metadataName) ?? compilation.ErrorTypeSymbol;
 
-        return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, metadataName)
-            ?? compilation.GetTypeByMetadataName(metadataName)
+        // When we already have a runtime Type, always intern through the module's Type-based cache
+        // to ensure we never create a second instance for the same type via the metadata-name path.
+        if (assemblySymbol.PrimaryModule is PEModuleSymbol peModule)
+            return peModule.GetType(type);
+
+        return compilation.GetTypeByMetadataName(metadataName)
             ?? compilation.ErrorTypeSymbol;
     }
 
@@ -472,7 +385,7 @@ internal class TypeResolver(Compilation compilation)
             if (declaringName is null)
                 return null;
 
-            var (nestedName, nestedArity) = GetRuntimeNestedNameAndArity(type);
+            var (nestedName, nestedArity) = type.NestedNameAndDeclaredArity();
             var nestedMetadataName = nestedArity > 0 ? $"{nestedName}`{nestedArity}" : nestedName;
             return $"{declaringName}+{nestedMetadataName}";
         }
@@ -517,5 +430,125 @@ internal class TypeResolver(Compilation compilation)
             .OfType<IEventSymbol>()
             // TODO: Better condition for filtering
             .FirstOrDefault(x => x.Name == ifaceEvent.Name);
+    }
+}
+
+internal static class ReflectionTypeExtensions
+{
+    /// <summary>True if this Type represents System.Nullable&lt;T&gt;.</summary>
+    public static bool IsNullableValueType(this Type t)
+        => t.IsGenericType && t.GetGenericTypeDefinition().Name.Contains("Nullable");
+
+    /// <summary>
+    /// True when reflection generic args include inherited outer args and we must rebuild the chain.
+    /// </summary>
+    public static bool RequiresNestedChainResolution(this Type t)
+        => t.IsNested && (
+               t.IsGenericType
+            || t.ContainsGenericParameters
+            || (t.DeclaringType?.IsGenericType ?? false)
+           );
+
+    /// <summary>The declaring type chain from outermost -> innermost (includes this type).</summary>
+    public static IReadOnlyList<Type> DeclaringTypeChain(this Type t)
+    {
+        var chain = new List<Type>();
+        for (var cur = t; cur != null; cur = cur.DeclaringType)
+            chain.Add(cur);
+        chain.Reverse();
+        return chain;
+    }
+
+    /// <summary>Simple runtime name without generic arity tick (e.g. "Ok`2" -> "Ok").</summary>
+    public static string SimpleName(this Type t)
+    {
+        var name = t.Name;
+        var tick = name.IndexOf('`');
+        return tick >= 0 ? name[..tick] : name;
+    }
+
+    /// <summary>Total arity according to reflection (includes inherited outer args for nested types).</summary>
+    public static int TotalRuntimeArity(this Type t)
+    {
+        if (!t.IsGenericType && !t.IsGenericTypeDefinition) return 0;
+        var def = t.IsGenericTypeDefinition ? t : t.GetGenericTypeDefinition();
+        return def.GetGenericArguments().Length;
+    }
+
+    /// <summary>
+    /// Declared arity for this level in the source sense:
+    /// for nested types, subtract declaring total arity.
+    /// </summary>
+    public static int DeclaredArity(this Type t)
+    {
+        if (!t.IsGenericType && !t.IsGenericTypeDefinition) return 0;
+
+        var total = t.TotalRuntimeArity();
+        var decl = t.DeclaringType;
+        var declTotal = decl is null ? 0 : decl.TotalRuntimeArity();
+        return Math.Max(0, total - declTotal);
+    }
+
+    /// <summary>Returns (simpleName, declaredArity) for nested matching.</summary>
+    public static (string name, int declaredArity) NestedNameAndDeclaredArity(this Type t)
+        => (t.SimpleName(), t.DeclaredArity());
+}
+
+internal static class ReflectionGenericArgumentExtensions
+{
+    /// <summary>
+    /// Slices the flat generic argument list into per-level slices using each level's declared arity.
+    /// Outer-to-inner order.
+    /// </summary>
+    public static Type[][] SliceGenericArgumentsPerLevel(this Type innermost, IReadOnlyList<Type> chain)
+    {
+        var arities = chain.Select(x => x.DeclaredArity()).ToArray();
+
+        var flat = (innermost.IsGenericType || innermost.ContainsGenericParameters)
+            ? innermost.GetGenericArguments()
+            : Type.EmptyTypes;
+
+        var result = new Type[arities.Length][];
+        var pos = 0;
+
+        for (int i = 0; i < arities.Length; i++)
+        {
+            var n = arities[i];
+            if (n == 0)
+            {
+                result[i] = Array.Empty<Type>();
+                continue;
+            }
+
+            result[i] = flat.Skip(pos).Take(n).ToArray();
+            pos += n;
+        }
+
+        return result;
+    }
+}
+
+internal static class SymbolNestedLookupExtensions
+{
+    /// <summary>
+    /// Finds a nested type symbol under <paramref name="containing"/> that corresponds to the runtime nested type.
+    /// Matching is based on simple name + declared arity (not total runtime arity).
+    /// </summary>
+    public static INamedTypeSymbol? FindNestedTypeForRuntime(this INamedTypeSymbol containing, Type runtimeNestedType)
+    {
+        var (name, declaredArity) = runtimeNestedType.NestedNameAndDeclaredArity();
+
+        INamedTypeSymbol? bestNameOnly = null;
+
+        foreach (var candidate in containing.GetMembers().OfType<INamedTypeSymbol>())
+        {
+            if (string.Equals(candidate.Name, name, StringComparison.Ordinal) && candidate.Arity == declaredArity)
+                return candidate;
+
+            if (bestNameOnly is null && string.Equals(candidate.Name, name, StringComparison.Ordinal))
+                bestNameOnly = candidate;
+        }
+
+        return bestNameOnly;
     }
 }

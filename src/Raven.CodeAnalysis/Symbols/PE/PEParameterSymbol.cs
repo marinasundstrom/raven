@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
 {
-    private readonly TypeResolver _typeResolver;
+    private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly ParameterInfo _parameterInfo;
     private ITypeSymbol _type;
     private bool _defaultValueComputed;
@@ -13,22 +13,16 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     private object? _explicitDefaultValue;
     private bool _explicitDefaultValueIsTypeDefault;
 
-    public PEParameterSymbol(TypeResolver typeResolver, ParameterInfo parameterInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PEParameterSymbol(ReflectionTypeLoader reflectionTypeLoader, ParameterInfo parameterInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
-        _typeResolver = typeResolver;
+        _reflectionTypeLoader = reflectionTypeLoader;
         _parameterInfo = parameterInfo;
     }
 
     public override SymbolKind Kind => SymbolKind.Parameter;
     public override string Name => _parameterInfo.Name;
-    public ITypeSymbol Type
-    {
-        get
-        {
-            return _type ??= _typeResolver.ResolveType(_parameterInfo);
-        }
-    }
+    public ITypeSymbol Type => _type ??= _reflectionTypeLoader.ResolveType(_parameterInfo);
 
     public bool IsParams
     {
