@@ -1,7 +1,16 @@
 import System.Console.*
 
+// Normal multiline string literal
+val test = """
+    test
+        32
+    """
+
+WriteLine(test)
+
 val text = "Hi!"
 
+// Multiline string literal with interpolation
 val bb = """
     test ${41 + 1}
       r ${text}
