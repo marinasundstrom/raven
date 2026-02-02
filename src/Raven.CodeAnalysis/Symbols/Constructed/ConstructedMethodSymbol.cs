@@ -171,6 +171,36 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return new ConstructedMethodSymbol(_definition, typeArguments.ToImmutableArray(), _containingType);
     }
 
+    // Helper methods for chain-aware substitution of nested types (matches ConstructedNamedTypeSymbol behavior)
+    private INamedTypeSymbol? SubstituteContainingType(INamedTypeSymbol? containing)
+    {
+        if (containing is null)
+            return null;
+
+        var substituted = Substitute(containing) as INamedTypeSymbol;
+        return substituted ?? containing;
+    }
+
+    private bool TryGetContainingOverride(INamedTypeSymbol namedType, out INamedTypeSymbol? containingOverride)
+    {
+        containingOverride = null;
+
+        if (namedType.ContainingType is not INamedTypeSymbol containing)
+            return false;
+
+        var substitutedContaining = SubstituteContainingType(containing);
+        if (substitutedContaining is null)
+            return false;
+
+        if (!SymbolEqualityComparer.Default.Equals(substitutedContaining, containing))
+        {
+            containingOverride = substitutedContaining;
+            return true;
+        }
+
+        return false;
+    }
+
     private ITypeSymbol Substitute(ITypeSymbol type)
     {
         if (type is ITypeParameterSymbol tp)
@@ -238,11 +268,49 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             }
 
             if (!changed)
+            {
+                // Even if type arguments did not change, nested types may need re-anchoring
+                // under a substituted containing type.
+                if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
+                {
+                    var constructedFromSame = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+                    return ConstructedNamedTypeSymbol.ReanchorNested(
+                        constructedFromSame,
+                        containingOverride,
+                        inheritedSubstitution: null,
+                        typeArguments: named.TypeArguments);
+                }
+
                 return named;
+            }
 
             // Avoid reusing a possibly already-constructed named
             var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+
+            if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
+            {
+                var immutableArguments = ImmutableArray.Create(substitutedArgs);
+                return ConstructedNamedTypeSymbol.ReanchorNested(
+                    constructedFrom,
+                    overrideContaining,
+                    inheritedSubstitution: null,
+                    typeArguments: immutableArguments);
+            }
+
             return constructedFrom.Construct(substitutedArgs);
+        }
+
+        // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
+        if (type is INamedTypeSymbol nestedNamed && nestedNamed.ContainingType is INamedTypeSymbol)
+        {
+            if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
+            {
+                return ConstructedNamedTypeSymbol.ReanchorNested(
+                    nestedNamed,
+                    containingOverride,
+                    inheritedSubstitution: null,
+                    typeArguments: ImmutableArray<ITypeSymbol>.Empty);
+            }
         }
 
         return type;

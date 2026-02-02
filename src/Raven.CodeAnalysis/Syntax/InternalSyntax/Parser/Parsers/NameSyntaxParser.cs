@@ -456,7 +456,7 @@ internal class NameSyntaxParser : SyntaxParser
                     ">"));
         }
 
-        return TypeArgumentList(greaterThanToken, List(argumentList.ToArray()), lessThanToken, Diagnostics);
+        return TypeArgumentList(LessThanToken, List(argumentList.ToArray()), GreaterThanToken, Diagnostics);
     }
 
     private static bool IsNewLineLike(SyntaxToken token)

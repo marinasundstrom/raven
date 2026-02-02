@@ -1,0 +1,9 @@
+import System.*
+
+func test<T>(value: T) -> Result<T, CustomError>.Ok  {
+    return Result<T, CustomError>.Ok(value)
+}
+
+test<int>(42) // returns Result<int, CustomError>.Ok
+
+record class CustomError()

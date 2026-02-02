@@ -1374,7 +1374,7 @@ internal abstract class Binder
 
         if (resolved is null)
         {
-            var metadataName = qualified.ToString();
+            var metadataName = ToMetadataName(qualified);
             if (!string.IsNullOrEmpty(metadataName) && Compilation.GetTypeByMetadataName(metadataName) is { } metadataType)
                 return metadataType;
 
@@ -1382,6 +1382,108 @@ internal abstract class Binder
         }
 
         return resolved;
+    }
+
+    private string? ToMetadataName(QualifiedNameSyntax qualified)
+    {
+        // Convert a qualified name syntax into a metadata name usable with GetTypeByMetadataName.
+        // Examples:
+        //   System.Collections.Generic.List<int>  -> System.Collections.Generic.List`1
+        //   System.Result<int, CustomError>.Ok    -> System.Result`2+Ok
+        //
+        // Notes:
+        // - Namespace separators are '.'
+        // - Nested type separators are '+'
+        // - Generic arity is encoded as `N on the type name
+        // - Type arguments are ignored (metadata lookup expects definitions)
+
+        var parts = new List<NameSyntax>();
+        CollectQualifiedParts(qualified, parts);
+
+        if (parts.Count == 0)
+            return null;
+
+        // First, consume namespace segments from the global namespace.
+        var nsParts = new List<string>();
+        var currentNs = Compilation.GlobalNamespace;
+        int typeStartIndex = -1;
+
+        for (int i = 0; i < parts.Count; i++)
+        {
+            var part = parts[i];
+
+            // A generic name can never be a namespace.
+            if (part is GenericNameSyntax)
+            {
+                typeStartIndex = i;
+                break;
+            }
+
+            if (part is IdentifierNameSyntax id)
+            {
+                var text = id.Identifier.ValueText;
+                var nestedNs = currentNs.LookupNamespace(text);
+                if (nestedNs is not null)
+                {
+                    nsParts.Add(text);
+                    currentNs = nestedNs;
+                    continue;
+                }
+
+                // Not a namespace: this is the first type segment.
+                typeStartIndex = i;
+                break;
+            }
+
+            // Unknown name kind -> cannot build metadata name reliably.
+            return null;
+        }
+
+        if (typeStartIndex < 0)
+            return null;
+
+        // Build type segments (first is top-level type, remaining are nested types).
+        var typeSegments = new List<string>();
+        for (int i = typeStartIndex; i < parts.Count; i++)
+        {
+            var part = parts[i];
+            switch (part)
+            {
+                case IdentifierNameSyntax id:
+                    typeSegments.Add(id.Identifier.ValueText);
+                    break;
+                case GenericNameSyntax gen:
+                    var arity = ComputeGenericArity(gen);
+                    typeSegments.Add(gen.Identifier.ValueText + "`" + arity);
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        if (typeSegments.Count == 0)
+            return null;
+
+        var nsPrefix = nsParts.Count > 0 ? string.Join(".", nsParts) : null;
+        var typePath = string.Join("+", typeSegments);
+
+        return nsPrefix is null ? typePath : nsPrefix + "." + typePath;
+
+        static void CollectQualifiedParts(QualifiedNameSyntax q, List<NameSyntax> builder)
+        {
+            // Left side can be another qualified name.
+            if (q.Left is QualifiedNameSyntax leftQualified)
+            {
+                CollectQualifiedParts(leftQualified, builder);
+            }
+            else if (q.Left is NameSyntax leftName)
+            {
+                builder.Add(leftName);
+            }
+
+            if (q.Right is NameSyntax rightName)
+                builder.Add(rightName);
+        }
     }
 
     private INamespaceOrTypeSymbol? ResolveQualifiedLeft(TypeSyntax left)

@@ -97,9 +97,22 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         return ResolveMetadataMember(GlobalNamespace, type.FullName) as ITypeSymbol;
     }
 
+    // Metadata type names never contain generic argument lists ("<...>") or commas.
+    // Commas are interpreted by the runtime as assembly-qualified name separators.
+    // Examples of problematic display names: "System.Result<(), CustomError>.Ok".
+    private static bool LooksLikeNonMetadataTypeName(string name)
+    {
+        return name.IndexOf('<') >= 0 || name.IndexOf('>') >= 0 || name.IndexOf(',') >= 0;
+    }
+
     public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
     {
         if (string.IsNullOrEmpty(name))
+            return null;
+
+        // This API only supports metadata names (no type arguments). If a display-form name
+        // slips through (e.g. contains "<" or ","), do not forward it to reflection.
+        if (LooksLikeNonMetadataTypeName(name))
             return null;
 
         var nsName = namespaceSymbol.ToMetadataName();
@@ -145,6 +158,11 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     private ISymbol? ResolveTypeFromAssembly(string fullName, Assembly assembly)
     {
+        // If a display-form name slips through, `Assembly.GetType` (under MetadataLoadContext)
+        // may interpret the comma in generic argument lists as an assembly separator and throw.
+        if (LooksLikeNonMetadataTypeName(fullName))
+            return null;
+
         var type = assembly.GetType(fullName, throwOnError: false, ignoreCase: false);
         if (type is not null)
         {

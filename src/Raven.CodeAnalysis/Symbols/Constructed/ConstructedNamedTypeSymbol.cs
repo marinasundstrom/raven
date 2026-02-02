@@ -264,6 +264,19 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         return builder.MoveToImmutable();
     }
 
+    /// <summary>
+    /// Factory for re-anchoring a nested named type under a possibly-substituted containing type.
+    /// Used by other constructed symbol wrappers (e.g. ConstructedMethodSymbol).
+    /// </summary>
+    internal static INamedTypeSymbol ReanchorNested(
+        INamedTypeSymbol nestedDefinition,
+        INamedTypeSymbol containingOverride,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution,
+        ImmutableArray<ITypeSymbol> typeArguments)
+    {
+        return new ConstructedNamedTypeSymbol(nestedDefinition, typeArguments, inheritedSubstitution, containingOverride);
+    }
+
     // Helper methods for chain-aware substitution of nested types
     private INamedTypeSymbol? SubstituteContainingType(INamedTypeSymbol? containing)
     {
