@@ -57,12 +57,22 @@ internal class SyntaxToken : GreenNode
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
-        return new SyntaxToken(Kind, _text, _value, Width, SyntaxTriviaList.Create(trivias.ToArray()), TrailingTrivia, _diagnostics, _annotations);
+        return WithLeadingTrivia(trivias);
     }
 
     public SyntaxToken WithTrailingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
-        return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, SyntaxTriviaList.Create(trivias.ToArray()), _diagnostics, _annotations);
+        return WithTrailingTrivia(trivias);
+    }
+
+    public SyntaxToken WithLeadingTrivia(SyntaxTriviaList triviaList)
+    {
+        return new SyntaxToken(Kind, _text, _value, Width, triviaList, TrailingTrivia, _diagnostics, _annotations);
+    }
+
+    public SyntaxToken WithTrailingTrivia(SyntaxTriviaList triviaList)
+    {
+        return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, triviaList, _diagnostics, _annotations);
     }
 
     public override int GetLeadingTriviaWidth() => LeadingTrivia.Width;

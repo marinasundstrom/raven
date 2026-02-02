@@ -164,10 +164,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             {
                 if (_methodInfo is MethodInfo methodInfo)
                 {
-                    var returnParam = methodInfo.ReturnParameter;
-                    var returnParamTypeName = methodInfo.ReturnParameter.ParameterType.Name;
-
-                    _returnType = _reflectionTypeLoader.ResolveType(returnParam)!;
+                    _returnType = _reflectionTypeLoader.ResolveType(methodInfo.ReturnParameter)!;
                 }
                 else if (MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
                 {

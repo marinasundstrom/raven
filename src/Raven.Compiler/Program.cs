@@ -290,7 +290,7 @@ if (printParseSequence)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/constr{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/raven-api{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)
@@ -380,6 +380,42 @@ if (!string.IsNullOrEmpty(ravenCorePath))
     }
 }
 
+string? ResolveAndCopyLocalDependency(string fileName, params string[] candidates)
+{
+    foreach (var candidate in candidates)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+            continue;
+
+        var full = Path.GetFullPath(candidate);
+        if (!File.Exists(full))
+            continue;
+
+        Directory.CreateDirectory(outputDirectory!);
+        var destination = Path.Combine(outputDirectory!, fileName);
+
+        if (!string.Equals(full, destination, StringComparison.OrdinalIgnoreCase))
+            File.Copy(full, destination, overwrite: true);
+
+        return destination;
+    }
+
+    return null;
+}
+
+var testDepPath = ResolveAndCopyLocalDependency(
+    "TestDep.dll",
+    Path.Combine(AppContext.BaseDirectory, "TestDep.dll"),
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "TestDep.dll"),
+    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net9.0/TestDep.dll"),
+    Path.GetFullPath("../../../../../src/TestDep/bin/Debug/net9.0/net9.0/TestDep.dll"));
+
+var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
+    "Raven.CodeAnalysis.dll",
+    Path.Combine(AppContext.BaseDirectory, "Raven.CodeAnalysis.dll"),
+    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/Raven.CodeAnalysis.dll"),
+    Path.GetFullPath("../../../../../src/Raven.CodeAnalysis/bin/Debug/net9.0/net9.0/Raven.CodeAnalysis.dll"));
+
 var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 
@@ -437,8 +473,23 @@ if (!string.IsNullOrWhiteSpace(ravenCorePath))
     project = project.AddMetadataReference(MetadataReference.CreateFromFile(ravenCorePath));
 }
 
-project = project.AddMetadataReference(
-    MetadataReference.CreateFromFile(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll"))));
+if (!string.IsNullOrWhiteSpace(testDepPath))
+{
+    project = project.AddMetadataReference(MetadataReference.CreateFromFile(testDepPath));
+}
+else
+{
+    AnsiConsole.MarkupLine("[yellow]Warning: Could not locate TestDep.dll; compilation may fail unless you pass --refs.[/]");
+}
+
+if (!string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
+{
+    project = project.AddMetadataReference(MetadataReference.CreateFromFile(ravenCodeAnalysisPath));
+}
+else
+{
+    AnsiConsole.MarkupLine("[yellow]Warning: Could not locate Raven.CodeAnalysis.dll; compilation may fail unless you pass --refs.[/]");
+}
 
 foreach (var r in additionalRefs)
 {

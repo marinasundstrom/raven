@@ -6986,6 +6986,65 @@ partial class BlockBinder : Binder
             return new BoundCollectionExpression(arrayType, converted.ToImmutable());
         }
 
+        // Bind to IEnumerable<T> targets by producing a T[] and relying on the implicit conversion
+        // from array to IEnumerable<T> (and other compatible interfaces).
+        if (targetType is INamedTypeSymbol enumerableTarget &&
+            TryGetIEnumerableElementType(enumerableTarget, out var enumerableElementType))
+        {
+            var arrayElementType = enumerableElementType;
+            var arrayType2 = Compilation.CreateArrayTypeSymbol(arrayElementType);
+
+            var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
+
+            for (var i = 0; i < elements.Count; i++)
+            {
+                var element = elements[i];
+                var elementSyntax = elementNodes[i];
+
+                if (element is BoundSpreadElement spread)
+                {
+                    var sourceType = GetSpreadElementType(spread.Expression.Type!);
+                    if (!IsAssignable(arrayElementType, sourceType, out _))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            arrayElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+
+                    converted.Add(element);
+                    continue;
+                }
+
+                if (arrayElementType.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(element))
+                {
+                    if (!IsAssignable(arrayElementType, element.Type!, out var conversion2))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            arrayElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+                    else
+                    {
+                        converted.Add(ApplyConversion(element, arrayElementType, conversion2, elementSyntax));
+                        continue;
+                    }
+                }
+
+                converted.Add(element);
+            }
+
+            BoundExpression arrayExpr = new BoundCollectionExpression(arrayType2, converted.ToImmutable());
+
+            var conversion = Compilation.ClassifyConversion(arrayType2, enumerableTarget);
+            if (conversion.Exists && conversion.IsImplicit)
+                return ApplyConversion(arrayExpr, enumerableTarget, conversion, syntax);
+
+            return arrayExpr;
+        }
+
         if (targetType is INamedTypeSymbol namedType)
         {
             // Look for an Add method to infer element type
@@ -7125,6 +7184,51 @@ partial class BlockBinder : Binder
             return candidate;
 
         return Compilation.GetSpecialType(SpecialType.System_Object);
+    }
+
+    private bool TryGetIEnumerableElementType(INamedTypeSymbol targetType, out ITypeSymbol elementType)
+    {
+        elementType = Compilation.ErrorTypeSymbol;
+
+        // Direct match: IEnumerable<T>
+        if (targetType.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+            targetType.TypeArguments.Length == 1)
+        {
+            elementType = targetType.TypeArguments[0];
+            return true;
+        }
+
+        // Check original definition by metadata name (covers symbols that don't set SpecialType)
+        var def = targetType.OriginalDefinition ?? targetType;
+        if (def.MetadataName == "IEnumerable`1" &&
+            def.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
+            targetType.TypeArguments.Length == 1)
+        {
+            elementType = targetType.TypeArguments[0];
+            return true;
+        }
+
+        // Interface implementation: look for IEnumerable<T> among all interfaces
+        foreach (var iface in targetType.AllInterfaces)
+        {
+            if (iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+                iface.TypeArguments.Length == 1)
+            {
+                elementType = iface.TypeArguments[0];
+                return true;
+            }
+
+            var idef = iface.OriginalDefinition ?? iface;
+            if (idef.MetadataName == "IEnumerable`1" &&
+                idef.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
+                iface.TypeArguments.Length == 1)
+            {
+                elementType = iface.TypeArguments[0];
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private ITypeSymbol GetSpreadElementType(ITypeSymbol type)
@@ -7529,25 +7633,39 @@ partial class BlockBinder : Binder
     {
         var receiver = BindExpression(syntax.Expression);
         var receiverType = UnwrapAlias(receiver.Type ?? Compilation.ErrorTypeSymbol);
-
         var assignments = BindWithAssignments(receiverType, syntax.Assignments);
 
+        BoundExpression ReturnWithError(BoundExpressionReason reason)
+        {
+            return new BoundWithExpression(
+                receiver,
+                 [.. assignments.Select(x => x.BoundNode)],
+                strategy: BoundWithStrategyKind.UpdateMethod,
+                method: null,
+                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: null,
+                copyConstructor: null,
+                type: Compilation.ErrorTypeSymbol,
+                reason: reason);
+        }
+
         if (receiverType.TypeKind == TypeKind.Error)
-            return new BoundErrorExpression(receiverType, null, BoundExpressionReason.OtherError);
+            return ReturnWithError(BoundExpressionReason.OtherError);
 
         if (receiverType is not INamedTypeSymbol namedReceiver)
         {
             _diagnostics.ReportTypeDoesNotSupportWithExpression(
                 receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.WithKeyword.GetLocation());
-            return new BoundErrorExpression(receiverType, null, BoundExpressionReason.UnsupportedOperation);
+            return ReturnWithError(BoundExpressionReason.UnsupportedOperation);
         }
 
         if (IsRecordType(receiverType) && TryGetCopyConstructor(namedReceiver, out var recordCopyConstructor))
         {
             return new BoundWithExpression(
                 receiver,
-                assignments,
+                 [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.RecordClone,
                 method: null,
                 memberMethods: ImmutableArray<IMethodSymbol>.Empty,
@@ -7555,6 +7673,23 @@ partial class BlockBinder : Binder
                 cloneMethod: null,
                 copyConstructor: recordCopyConstructor,
                 type: receiverType);
+        }
+
+        // Optimization: if only a single member is updated and a matching WithX(...) member method exists,
+        // prefer that over the broader Update/With convention methods.
+        if (assignments.Length == 1 &&
+            TryBindWithMemberMethods(receiver, namedReceiver, assignments, syntax, out var singleMemberMethods, out var singleMemberMethodsReturnType))
+        {
+            return new BoundWithExpression(
+                receiver,
+                 [.. assignments.Select(x => x.BoundNode)],
+                BoundWithStrategyKind.WithMemberMethods,
+                method: null,
+                memberMethods: singleMemberMethods,
+                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                cloneMethod: null,
+                copyConstructor: null,
+                type: singleMemberMethodsReturnType);
         }
 
         if (TryBindWithConventionMethod(receiver, namedReceiver, assignments, syntax, "Update", BoundWithStrategyKind.UpdateMethod, out var updateBound))
@@ -7567,7 +7702,7 @@ partial class BlockBinder : Binder
         {
             return new BoundWithExpression(
                 receiver,
-                assignments,
+                 [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.WithMemberMethods,
                 method: null,
                 memberMethods: memberMethods,
@@ -7581,7 +7716,7 @@ partial class BlockBinder : Binder
         {
             return new BoundWithExpression(
                 receiver,
-                assignments,
+                 [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.Clone,
                 method: null,
                 memberMethods: ImmutableArray<IMethodSymbol>.Empty,
@@ -7595,7 +7730,7 @@ partial class BlockBinder : Binder
         {
             return new BoundWithExpression(
                 receiver,
-                assignments,
+                 [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.Clone,
                 method: null,
                 memberMethods: ImmutableArray<IMethodSymbol>.Empty,
@@ -7608,17 +7743,17 @@ partial class BlockBinder : Binder
         _diagnostics.ReportTypeDoesNotSupportWithExpression(
             receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
             syntax.WithKeyword.GetLocation());
-        return new BoundErrorExpression(receiverType, null, BoundExpressionReason.UnsupportedOperation);
+        return ReturnWithError(BoundExpressionReason.UnsupportedOperation);
     }
 
-    private ImmutableArray<BoundWithAssignment> BindWithAssignments(
+    private ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)> BindWithAssignments(
         ITypeSymbol receiverType,
         SyntaxList<WithAssignmentSyntax> assignments)
     {
         if (assignments.Count == 0)
-            return ImmutableArray<BoundWithAssignment>.Empty;
+            return ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<BoundWithAssignment>(assignments.Count);
+        var builder = ImmutableArray.CreateBuilder<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)>(assignments.Count);
         var seenMembers = new HashSet<string>(StringComparer.Ordinal);
 
         _withInitializerDepth++;
@@ -7657,7 +7792,7 @@ partial class BlockBinder : Binder
                 if (value is BoundErrorExpression)
                     continue;
 
-                builder.Add(new BoundWithAssignment(member, value));
+                builder.Add((new BoundWithAssignment(member, value), assignment));
             }
         }
         finally
@@ -7671,7 +7806,7 @@ partial class BlockBinder : Binder
     private bool TryBindWithConventionMethod(
         BoundExpression receiver,
         INamedTypeSymbol receiverType,
-        ImmutableArray<BoundWithAssignment> assignments,
+        ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax Syntax)> assignments,
         WithExpressionSyntax syntax,
         string methodName,
         BoundWithStrategyKind strategy,
@@ -7704,7 +7839,7 @@ partial class BlockBinder : Binder
         // use parameter names like `middleName` while members are `MiddleName`.
         // This prevents false negatives when comparing assignment keys to method parameter names.
         var assignmentMap = new Dictionary<string, BoundWithAssignment>(StringComparer.Ordinal);
-        foreach (var a in assignments)
+        foreach (var (a, snode) in assignments)
         {
             var key = NormalizeWithConventionKey(a.Member.Name);
             assignmentMap[key] = a;
@@ -7761,7 +7896,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportCallIsAmbiguous(methodName, applicable.Select(x => x.Method).ToImmutableArray(), syntax.WithKeyword.GetLocation());
             boundExpression = new BoundWithExpression(
                 receiver,
-                assignments,
+                [.. assignments.Select(x => x.BoundNode)],
                 strategy,
                 method: null,
                 memberMethods: ImmutableArray<IMethodSymbol>.Empty,
@@ -7776,7 +7911,7 @@ partial class BlockBinder : Binder
         var selected = applicable[0];
         boundExpression = new BoundWithExpression(
             receiver,
-            assignments,
+            [.. assignments.Select(x => x.BoundNode)],
             strategy,
             selected.Method,
             memberMethods: ImmutableArray<IMethodSymbol>.Empty,
@@ -7807,12 +7942,31 @@ partial class BlockBinder : Binder
     }
 
     private bool TryBindWithMemberMethods(
+    BoundExpression receiver,
+    INamedTypeSymbol namedReceiver,
+    ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax Syntax)> assignments,
+    WithExpressionSyntax syntax,
+    out ImmutableArray<IMethodSymbol> memberMethods,
+    out ITypeSymbol memberMethodsReturnType)
+    {
+        return TryBindWithMemberMethods(
+            receiver,
+            namedReceiver,
+            assignments,
+            syntax,
+            out memberMethods,
+            out memberMethodsReturnType,
+            reportDiagnostics: true);
+    }
+
+    private bool TryBindWithMemberMethods(
         BoundExpression receiver,
         INamedTypeSymbol receiverType,
-        ImmutableArray<BoundWithAssignment> assignments,
+        ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax Syntax)> assignments,
         WithExpressionSyntax syntax,
         out ImmutableArray<IMethodSymbol> memberMethods,
-        out ITypeSymbol returnType)
+        out ITypeSymbol returnType,
+        bool reportDiagnostics)
     {
         memberMethods = ImmutableArray<IMethodSymbol>.Empty;
         returnType = receiverType;
@@ -7823,7 +7977,8 @@ partial class BlockBinder : Binder
         var methods = ImmutableArray.CreateBuilder<IMethodSymbol>(assignments.Length);
         ITypeSymbol lastReturnType = receiverType;
 
-        foreach (var assignment in assignments)
+        int i = 0;
+        foreach (var (assignment, syntaxNode) in assignments)
         {
             var methodName = $"With{assignment.Member.Name}";
             var candidates = new SymbolQuery(methodName, receiverType, IsStatic: false)
@@ -7831,7 +7986,11 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
 
             if (candidates.IsDefaultOrEmpty)
+            {
+                if (reportDiagnostics)
+                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntaxNode.Name.GetLocation());
                 return false;
+            }
 
             var accessible = GetAccessibleMethods(candidates, syntax.WithKeyword.GetLocation(), reportIfInaccessible: false);
             if (accessible.IsDefaultOrEmpty)
@@ -7842,7 +8001,12 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
 
             if (applicable.IsDefaultOrEmpty)
+            {
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(
+                    methodName,
+                    syntaxNode.Name.GetLocation());
                 return false;
+            }
 
             var args = new[] { new BoundArgument(assignment.Value, RefKind.None, name: null, syntax) };
             var resolution = OverloadResolver.ResolveOverload(applicable, args, Compilation, receiver: receiver, canBindLambda: EnsureLambdaCompatible, callSyntax: syntax);
@@ -7854,7 +8018,23 @@ partial class BlockBinder : Binder
             }
 
             if (!resolution.Success)
+            {
+                if (reportDiagnostics)
+                {
+                    // Best effort expected type:
+                    var expectedType = candidates[0].Parameters[0].Type;
+
+                    var valueType = assignment.Value.Type ?? Compilation.ErrorTypeSymbol;
+                    if (valueType.TypeKind != TypeKind.Error && expectedType.TypeKind != TypeKind.Error)
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            valueType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            expectedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.Assignments[i++].Expression.GetLocation());
+                    }
+                }
                 return false;
+            }
 
             methods.Add(resolution.Method!);
             lastReturnType = resolution.Method!.ReturnType;
@@ -7883,11 +8063,29 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(property, assignment.Name.GetLocation(), "property"))
                 return false;
 
-            if (property.SetMethod is null)
+            // In a `with` initializer, assignments are *conceptual* updates that may be applied via
+            // Update/With conventions or cloning strategies. A property can therefore be assignable
+            // even if it has no setter.
+            var inWithInitializer = _withInitializerDepth > 0;
+
+            // Still require the member to be readable so we can treat it as a stable assignment target
+            // (and so convention methods can map parameter names back to members).
+            if (property.GetMethod is null)
             {
                 _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(property.Name, assignment.Name.GetLocation());
                 _ = BindExpression(assignment.Expression, allowReturn: false);
                 return false;
+            }
+
+            if (!inWithInitializer)
+            {
+                // Outside of `with`, require a real setter.
+                if (property.SetMethod is null)
+                {
+                    _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(property.Name, assignment.Name.GetLocation());
+                    _ = BindExpression(assignment.Expression, allowReturn: false);
+                    return false;
+                }
             }
 
             member = property;
@@ -7901,7 +8099,9 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(field, assignment.Name.GetLocation(), "field"))
                 return false;
 
-            if (field.IsConst || !field.IsMutable)
+            var inWithInitializer = _withInitializerDepth > 0;
+
+            if (field.IsConst || (!inWithInitializer && !field.IsMutable))
             {
                 _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(assignment.Name.GetLocation());
                 _ = BindExpression(assignment.Expression, allowReturn: false);

@@ -116,6 +116,18 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         return new SyntaxToken(newGreen, Parent);
     }
 
+    public SyntaxToken WithLeadingTrivia(SyntaxTriviaList trivialList)
+    {
+        var newGreen = Green.WithLeadingTrivia(trivialList.Green);
+        return new SyntaxToken(newGreen, Parent);
+    }
+
+    public SyntaxToken WithTrailingTrivia(SyntaxTriviaList trivialList)
+    {
+        var newGreen = Green.WithTrailingTrivia(trivialList.Green);
+        return new SyntaxToken(newGreen, Parent);
+    }
+
     public Location GetLocation()
     {
         if (SyntaxTree is null)

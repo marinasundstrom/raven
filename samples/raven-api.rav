@@ -1,0 +1,20 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+val syntaxTree = SyntaxTree.ParseText("let x = 2")
+
+val root = syntaxTree.GetRoot()
+
+val oldNode = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First()
+
+val newNode = oldNode with {
+    Identifier = Identifier("foo") with {
+        TrailingTrivia = TriviaList([Trivia(SyntaxKind.WhitespaceTrivia, " ")])
+    }
+}
+
+WriteLine(newNode)

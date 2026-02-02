@@ -1461,14 +1461,7 @@ internal partial class ExpressionGenerator : Generator
 
                     EmitExpression(element);
 
-                    if (!arrayTypeSymbol.ElementType.IsValueType)
-                    {
-                        ILGenerator.Emit(OpCodes.Stelem_Ref);
-                    }
-                    else
-                    {
-                        ILGenerator.Emit(OpCodes.Stelem_I4);
-                    }
+                    EmitStoreElement(arrayTypeSymbol.ElementType);
 
                     index++;
                 }
@@ -1480,6 +1473,79 @@ internal partial class ExpressionGenerator : Generator
         }
         else if (target is INamedTypeSymbol namedType)
         {
+            // Special-case: target is IEnumerable<T>. We can materialize an array T[] (arrays implement IEnumerable<T>)
+            // and leave it on the stack.
+            var ienumerableDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
+            if (ienumerableDef is not null &&
+                SymbolEqualityComparer.Default.Equals(namedType.OriginalDefinition, ienumerableDef))
+            {
+                var elementType = namedType.TypeArguments[0];
+
+                // If no spreads, emit a simple array literal.
+                if (!collectionExpression.Elements.OfType<BoundSpreadElement>().Any())
+                {
+                    ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count());
+                    ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+
+                    int index = 0;
+                    foreach (var element in collectionExpression.Elements)
+                    {
+                        ILGenerator.Emit(OpCodes.Dup);
+                        ILGenerator.Emit(OpCodes.Ldc_I4, index);
+
+                        EmitExpression(element);
+
+                        // Store element into the array using the existing element-store helper.
+                        EmitStoreElement(elementType);
+
+                        index++;
+                    }
+
+                    return;
+                }
+
+                // With spreads: reuse the existing List<T> + ToArray lowering and return the array as IEnumerable<T>.
+                var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+                var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+
+                var ctor2 = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
+                var ctorInfo2 = ctor2.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+
+                ILGenerator.Emit(OpCodes.Newobj, ctorInfo2);
+                var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
+                ILGenerator.Emit(OpCodes.Stloc, listLocal);
+
+                var addMethod2 = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
+                var addMethodInfo = addMethod2.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+                foreach (var element in collectionExpression.Elements)
+                {
+                    if (element is BoundSpreadElement spread)
+                    {
+                        EmitSpreadElement(listLocal, spread, elementType, addMethodInfo);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+                        EmitExpression(element);
+
+                        if (element.Type is { IsValueType: true } && !elementType.IsValueType)
+                        {
+                            ILGenerator.Emit(OpCodes.Box, ResolveClrType(element.Type));
+                        }
+
+                        ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
+                    }
+                }
+
+                ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+                var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+                var toArrayInfo = toArrayMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+                ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
+
+                return;
+            }
+
             var ctor = namedType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
@@ -1789,13 +1855,55 @@ internal partial class ExpressionGenerator : Generator
     {
         var clrType = ResolveClrType(elementType);
 
-        if (clrType.IsValueType)
-        {
-            ILGenerator.Emit(OpCodes.Ldelem, clrType);
-        }
-        else
+        if (!elementType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Ldelem_Ref);
+            return;
+        }
+
+        // Match the logic in EmitStoreElement – use specialized opcodes for primitives
+        // and ldelem.any (OpCodes.Ldelem with type) for all other structs.
+        switch (elementType.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Byte:
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Ldelem_I1);
+                return;
+
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Ldelem_I2);
+                return;
+
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Ldelem_I4);
+                return;
+
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Ldelem_I8);
+                return;
+
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Ldelem_R4);
+                return;
+
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Ldelem_R8);
+                return;
+
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+                ILGenerator.Emit(OpCodes.Ldelem_I);
+                return;
+
+            default:
+                // Non‑primitive struct → ldelem.any <T>
+                ILGenerator.Emit(OpCodes.Ldelem, clrType);
+                return;
         }
     }
 
@@ -2508,11 +2616,53 @@ internal partial class ExpressionGenerator : Generator
         if (!elementType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Stelem_Ref);
+            return;
         }
-        else
+
+        // For primitive value types we can use the specialized stelem opcodes.
+        // For all other structs (e.g. SyntaxTrivia), we must use stelem.any
+        // (OpCodes.Stelem with the element type).
+        switch (elementType.SpecialType)
         {
-            // Default fallback: assume int-like
-            ILGenerator.Emit(OpCodes.Stelem_I4);
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Byte:
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Stelem_I1);
+                return;
+
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Stelem_I2);
+                return;
+
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Stelem_I4);
+                return;
+
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Stelem_I8);
+                return;
+
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Stelem_R4);
+                return;
+
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Stelem_R8);
+                return;
+
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+                ILGenerator.Emit(OpCodes.Stelem_I);
+                return;
+
+            default:
+                // Non-primitive struct: stelem.any <T>
+                ILGenerator.Emit(OpCodes.Stelem, ResolveClrType(elementType));
+                return;
         }
     }
 

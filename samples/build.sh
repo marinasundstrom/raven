@@ -11,12 +11,26 @@ cd "$SCRIPT_DIR"
 
 PROJECT_DIR="$REPO_ROOT/src/Raven.Compiler"
 
+
 RAVEN_CORE="${RAVEN_CORE:-$SCRIPT_DIR/Raven.Core.dll}"
 
 if [[ ! -f "$RAVEN_CORE" ]]; then
   BUILD_RAVEN_CORE="$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"
   if [[ -f "$BUILD_RAVEN_CORE" ]]; then
     RAVEN_CORE="$BUILD_RAVEN_CORE"
+  fi
+fi
+
+# Resolve Raven.CodeAnalysis.dll
+RAVEN_CODE_ANALYSIS="${RAVEN_CODE_ANALYSIS:-$SCRIPT_DIR/Raven.CodeAnalysis.dll}"
+
+if [[ ! -f "$RAVEN_CODE_ANALYSIS" ]]; then
+  BUILD_RAVEN_CODE_ANALYSIS="$REPO_ROOT/src/Raven.CodeAnalysis/bin/Debug/net9.0/Raven.CodeAnalysis.dll"
+  BUILD_RAVEN_CODE_ANALYSIS_ALT="$REPO_ROOT/src/Raven.CodeAnalysis/bin/Debug/net9.0/net9.0/Raven.CodeAnalysis.dll"
+  if [[ -f "$BUILD_RAVEN_CODE_ANALYSIS" ]]; then
+    RAVEN_CODE_ANALYSIS="$BUILD_RAVEN_CODE_ANALYSIS"
+  elif [[ -f "$BUILD_RAVEN_CODE_ANALYSIS_ALT" ]]; then
+    RAVEN_CODE_ANALYSIS="$BUILD_RAVEN_CODE_ANALYSIS_ALT"
   fi
 fi
 
@@ -55,8 +69,11 @@ if (( ${#rav_files[@]} == 0 )); then
   exit 0
 fi
 
+#
 # Make sure the compiler has been built
 dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG"
+dotnet build "$REPO_ROOT/src/Raven.CodeAnalysis" -c "$BUILD_CONFIG"
+dotnet build "$REPO_ROOT/src/TestDep" -c "$BUILD_CONFIG"
 COMPILER_BIN="$PROJECT_DIR/bin/$BUILD_CONFIG/$DOTNET_VERSION/$COMPILER_EXC"
 
 failures=()
@@ -103,6 +120,14 @@ cp "$TEST_DEP_DLL" "$OUTPUT_DIR"/TestDep.dll 2>/dev/null || \
 if [[ -f "$RAVEN_CORE" ]]; then
   cp "$RAVEN_CORE" "$OUTPUT_DIR"/ 2>/dev/null || \
     echo "Warning: Could not copy Raven.Core.dll"
+fi
+
+
+if [[ -f "$RAVEN_CODE_ANALYSIS" ]]; then
+  cp "$RAVEN_CODE_ANALYSIS" "$OUTPUT_DIR"/Raven.CodeAnalysis.dll 2>/dev/null || \
+    echo "Warning: Could not copy Raven.CodeAnalysis.dll"
+else
+  echo "Warning: Raven.CodeAnalysis.dll not found; tried: $RAVEN_CODE_ANALYSIS"
 fi
 
 echo "===== Compile Summary ====="
