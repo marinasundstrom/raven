@@ -5,7 +5,7 @@ import Raven.CodeAnalysis.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-val syntaxTree = SyntaxTree.ParseText("let x = 2")
+val syntaxTree = SyntaxTree.ParseText("val x = 2")
 
 val root = syntaxTree.GetRoot()
 
@@ -17,4 +17,6 @@ val newNode = oldNode with {
     }
 }
 
-WriteLine(newNode)
+val newRoot = root.ReplaceNode(oldNode, newNode)
+
+WriteLine(newRoot)
