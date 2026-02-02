@@ -290,7 +290,7 @@ if (printParseSequence)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/sandbox/required{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/string-interpolation3{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)

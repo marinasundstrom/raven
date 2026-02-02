@@ -18,18 +18,21 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
+            // Interpolated-string punctuation: color ${ and } as interpolation (but only when they belong to an Interpolation node).
+            else if ((kind == SyntaxKind.DollarToken ||
+                      kind == SyntaxKind.OpenBraceToken ||
+                      kind == SyntaxKind.CloseBraceToken) &&
+                     IsInterpolationPunctuation(descendant))
+            {
+                tokenMap[descendant] = SemanticClassification.Interpolation;
+            }
             // Literals
             else if (kind == SyntaxKind.StringLiteralToken ||
+                     kind == SyntaxKind.MultiLineStringLiteralToken ||
                      kind == SyntaxKind.StringStartToken ||
                      kind == SyntaxKind.StringEndToken)
             {
                 tokenMap[descendant] = SemanticClassification.StringLiteral;
-            }
-            else if (kind == SyntaxKind.DollarToken ||
-                     (kind == SyntaxKind.OpenBraceToken && descendant.Parent is InterpolationSyntax) ||
-                     (kind == SyntaxKind.CloseBraceToken && descendant.Parent is InterpolationSyntax))
-            {
-                tokenMap[descendant] = SemanticClassification.Interpolation;
             }
             else if (kind == SyntaxKind.NumericLiteralToken)
             {
@@ -129,6 +132,18 @@ public static class SemanticClassifier
         }
 
         return SemanticClassification.Default;
+    }
+
+    private static bool IsInterpolationPunctuation(SyntaxToken token)
+    {
+        // We only want to color these tokens as interpolation when they are part of an InterpolationSyntax node.
+        // This avoids coloring normal braces elsewhere.
+        var parent = token.Parent;
+
+        if (parent is InterpolationSyntax)
+            return true;
+
+        return parent?.Parent is InterpolationSyntax;
     }
 
     private static SyntaxNode? GetBindableParent(SyntaxToken token)

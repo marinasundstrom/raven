@@ -138,6 +138,7 @@
   <TokenKind Name="DollarToken" Text="$" />
   <TokenKind Name="StringStartToken" Text="&quot;" />
   <TokenKind Name="StringEndToken" Text="&quot;" />
+  <TokenKind Name="MultilineStringToken" Text="&quot;&quot;&quot;" />
 
   <!-- Trivia and specials -->
   <TokenKind Name="WhitespaceTrivia" Text=" " IsTrivia="true" />
@@ -163,4 +164,5 @@
   <TokenKind Name="NumericLiteralToken" />
   <TokenKind Name="CharacterLiteralToken" />
   <TokenKind Name="StringLiteralToken" />
+  <TokenKind Name="MultiLineStringLiteralToken" />
 </Tokens>

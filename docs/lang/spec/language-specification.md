@@ -842,6 +842,27 @@ emoji.
 | `\\\\` | Backslash |
 | `\\$` | Literal dollar sign in interpolated strings |
 
+#### Multiline string literals
+
+A multiline string literal is written using triple double quotes `"""` and spans zero or more lines.
+
+```raven
+val text = """
+    Line one
+    Line two
+"""
+```
+
+Multiline literals are **raw** with respect to escape processing: their contents are taken exactly as written between the delimiters and are **not subject to escape‑sequence decoding**. Unlike earlier revisions, multiline literals **may contain interpolation** using the same forms as ordinary strings (`$identifier` and `${ Expression }`). The parser preserves the raw text and source spans, while the binder interprets interpolation segments and produces the final value.
+
+Indentation trimming rules are applied to both plain and interpolated multiline strings. For interpolated forms the trimming is performed during binding so that interpolation segments remain span‑correct in the syntax tree while the resulting value matches the behavior of non‑interpolated multiline literals.
+
+The lexer produces a token of kind **`MultilineStringLiteralToken`** whose value text contains the literal characters between the delimiters after applying indentation trimming rules. No escape processing is performed, so sequences such as `\n` and `\t` represent backslash characters followed by letters rather than control characters.
+
+The delimiters must appear on their own lines or immediately adjacent to content; the closing `"""` terminates the literal at the first matching sequence. If the end of file is reached before a closing delimiter, the lexer reports an unterminated-string diagnostic and produces a `MultilineStringLiteralToken` containing the available content.
+
+Trivia and comments may appear adjacent to the delimiters but are not part of the literal value.
+
 ### String interpolation
 
 Embed expressions directly into strings using `${...}` without requiring a prefix.

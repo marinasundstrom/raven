@@ -536,6 +536,7 @@ ParenthesizedExpression  ::= '(' Expression ')' ;
 
 Literal                  ::= NumericLiteral
                            | StringLiteral
+                           | MultilineStringLiteral
                            | 'true' | 'false' | 'null' ;
 
 (* ---------- Types ---------- *)
@@ -581,9 +582,20 @@ QualifiedName            ::= Identifier {'.' Identifier} ;
 Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, digits, '_' or '$'.
                                The single '_' token is reserved for discards. */ ;
 
+
 StringLiteral            ::= '"' {InterpolatedStringText | Interpolation} '"' ;
 InterpolatedStringText   ::= /* content with escapes */ ;
 Interpolation            ::= '$' Identifier | '$' '{' Expression '}' ;
+
+(* Multiline string literals are triple-quoted strings that may span multiple lines.
+   They are raw (no escape-sequence decoding). Interpolation is permitted using the same
+   forms as regular strings: `$Identifier` and `${ Expression }`.
+
+   NOTE: Non-normative. The lexer produces the triple-quoted literal as a single token;
+   the parser/binder interpret interpolation within its raw text. *)
+MultilineStringLiteral        ::= '"""' {MultilineInterpolatedContent} '"""' ;
+MultilineInterpolatedContent  ::= MultilineInterpolatedText | Interpolation ;
+MultilineInterpolatedText     ::= /* raw text segment; may include newlines; stops before an interpolation start or closing delimiter */ ;
 
 (* ---------- Numeric literals (lexical forms) ---------- *)
 

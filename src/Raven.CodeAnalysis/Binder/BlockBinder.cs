@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -4298,54 +4299,171 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindInterpolatedStringExpression(InterpolatedStringExpressionSyntax syntax)
     {
+        // Normal interpolated strings: bind directly.
+        // Multiline interpolated strings (triple-quoted) should apply indentation trimming in binding/lowering,
+        // because the syntax tree must preserve raw spans while the runtime value should match multiline literal semantics.
+
+        var isMultiline = syntax.StringStartToken.Text == "\"\"\"";
+
         BoundExpression? result = null;
+
+        if (!isMultiline)
+        {
+            foreach (var content in syntax.Contents)
+            {
+                BoundExpression expr = content switch
+                {
+                    InterpolatedStringTextSyntax text => new BoundLiteralExpression(
+                        BoundLiteralExpressionKind.StringLiteral,
+                        text.Token.ValueText ?? string.Empty,
+                        Compilation.GetSpecialType(SpecialType.System_String)),
+                    InterpolationSyntax interpolation => BindExpression(interpolation.Expression),
+                    _ => throw new InvalidOperationException("Unknown interpolated string content")
+                };
+
+                result = ConcatOrFirst(result, expr);
+            }
+
+            return result ?? new BoundLiteralExpression(
+                BoundLiteralExpressionKind.StringLiteral,
+                string.Empty,
+                Compilation.GetSpecialType(SpecialType.System_String));
+        }
+
+        // Multiline: reconstruct a raw template with sentinels for interpolations, trim indentation on the template,
+        // then split back into text/interpolation parts.
+        const char Sentinel = '\u0001';
+
+        var templateBuilder = new StringBuilder();
+        var interpolations = new List<InterpolationSyntax>();
+
         foreach (var content in syntax.Contents)
         {
-            BoundExpression expr = content switch
+            switch (content)
             {
-                InterpolatedStringTextSyntax text => new BoundLiteralExpression(
+                case InterpolatedStringTextSyntax text:
+                    templateBuilder.Append(text.Token.ValueText ?? string.Empty);
+                    break;
+
+                case InterpolationSyntax interpolation:
+                    interpolations.Add(interpolation);
+                    templateBuilder.Append(Sentinel);
+                    break;
+
+                default:
+                    throw new InvalidOperationException("Unknown interpolated string content");
+            }
+        }
+
+        var trimmedTemplate = TrimMultilineTemplate(templateBuilder.ToString());
+        var parts = SplitBySentinel(trimmedTemplate, Sentinel);
+
+        // Interleave text parts with bound interpolation expressions.
+        var interpIndex = 0;
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var textPart = parts[i];
+            if (!string.IsNullOrEmpty(textPart))
+            {
+                var textExpr = new BoundLiteralExpression(
                     BoundLiteralExpressionKind.StringLiteral,
-                    text.Token.ValueText ?? string.Empty,
-                    Compilation.GetSpecialType(SpecialType.System_String)),
-                InterpolationSyntax interpolation => BindExpression(interpolation.Expression),
-                _ => throw new InvalidOperationException("Unknown interpolated string content")
-            };
+                    textPart,
+                    Compilation.GetSpecialType(SpecialType.System_String));
 
-            if (result is null)
-            {
-                result = expr;
-                continue;
+                result = ConcatOrFirst(result, textExpr);
             }
 
-            if (result is BoundErrorExpression)
-                continue;
-
-            if (expr is BoundErrorExpression)
+            if (interpIndex < interpolations.Count)
             {
-                result = expr;
-                continue;
+                var interpolationExpr = BindExpression(interpolations[interpIndex].Expression);
+                result = ConcatOrFirst(result, interpolationExpr);
+                interpIndex++;
             }
-
-            if (IsErrorOrNull(result) || IsErrorOrNull(expr))
-            {
-                result = ErrorExpression(reason: BoundExpressionReason.OtherError);
-                continue;
-            }
-
-            var concatMethod = ResolveStringConcatMethod(result, expr);
-            if (concatMethod is null)
-            {
-                result = ErrorExpression(reason: BoundExpressionReason.OtherError);
-                continue;
-            }
-
-            result = new BoundInvocationExpression(concatMethod, [result, expr]);
         }
 
         return result ?? new BoundLiteralExpression(
             BoundLiteralExpressionKind.StringLiteral,
             string.Empty,
             Compilation.GetSpecialType(SpecialType.System_String));
+
+        BoundExpression? ConcatOrFirst(BoundExpression? left, BoundExpression right)
+        {
+            if (left is null)
+                return right;
+
+            if (left is BoundErrorExpression)
+                return left;
+
+            if (right is BoundErrorExpression)
+                return right;
+
+            if (IsErrorOrNull(left) || IsErrorOrNull(right))
+                return ErrorExpression(reason: BoundExpressionReason.OtherError);
+
+            var concatMethod = ResolveStringConcatMethod(left, right);
+            return concatMethod is null
+                ? ErrorExpression(reason: BoundExpressionReason.OtherError)
+                : new BoundInvocationExpression(concatMethod, [left, right]);
+        }
+
+        static List<string> SplitBySentinel(string s, char sentinel)
+        {
+            var list = new List<string>();
+            var start = 0;
+
+            for (var i = 0; i < s.Length; i++)
+            {
+                if (s[i] == sentinel)
+                {
+                    list.Add(i > start ? s.Substring(start, i - start) : string.Empty);
+                    start = i + 1;
+                }
+            }
+
+            list.Add(start < s.Length ? s.Substring(start) : string.Empty);
+            return list;
+        }
+
+        static string TrimMultilineTemplate(string template)
+        {
+            if (string.IsNullOrEmpty(template))
+                return string.Empty;
+
+            // Normalize CRLF to LF for trimming logic.
+            template = template.Replace("\r\n", "\n");
+
+            // Remove the first newline if present (common triple-quoted form).
+            if (template.StartsWith("\n", StringComparison.Ordinal))
+                template = template.Substring(1);
+
+            // Determine indentation from the final line (the whitespace before the closing delimiter).
+            var lastNl = template.LastIndexOf('\n');
+            if (lastNl < 0)
+                return template;
+
+            var suffix = template.Substring(lastNl + 1);
+            if (!suffix.All(static ch => ch == ' ' || ch == '\t'))
+                return template;
+
+            var indent = suffix;
+
+            // Drop the final newline + indent line entirely.
+            template = template.Substring(0, lastNl);
+
+            if (indent.Length == 0)
+                return template;
+
+            // Remove the indentation prefix from each line when present.
+            var lines = template.Split('\n');
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                if (line.StartsWith(indent, StringComparison.Ordinal))
+                    lines[i] = line.Substring(indent.Length);
+            }
+
+            return string.Join("\n", lines);
+        }
     }
 
     private static bool IsErrorOrNull(BoundExpression expression)

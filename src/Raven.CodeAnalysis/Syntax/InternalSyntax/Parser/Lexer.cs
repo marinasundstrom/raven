@@ -547,119 +547,18 @@ internal class Lexer : ILexer
                         }
 
                     case '"':
-                        _stringBuilder.Append(ch); // Append opening quote
+                        _stringBuilder.Append(ch); // opening quote
 
-                        var interpolationDepth = 0;
-
-                        while (true)
+                        // Triple-quote raw multi-line string: """ ... """
+                        // Closing delimiter must be the first non-whitespace on its line.
+                        // Value is indentation-trimmed based on the closing delimiter line.
+                        if (TryConsumeTripleQuoteStart())
                         {
-                            if (!PeekChar(out ch2))
-                            {
-                                diagnostics.Add(
-                                    DiagnosticInfo.Create(
-                                        CompilerDiagnostics.NewlineInConstant,
-                                        GetTokenStartPositionSpan()));
-                                break;
-                            }
-
-                            ReadChar();
-
-                            if (ch2 == '"' && interpolationDepth == 0) // Found closing quote
-                            {
-                                _stringBuilder.Append(ch2);
-                                break;
-                            }
-
-                            if (IsEndOfLine(ch2)) // Check EOL before adding anything
-                            {
-                                diagnostics.Add(
-                                    DiagnosticInfo.Create(
-                                        CompilerDiagnostics.NewlineInConstant,
-                                        GetTokenStartPositionSpan()));
-                                break;
-                            }
-
-                            if (ch2 == '\\')
-                            {
-                                _stringBuilder.Append(ch2);
-
-                                if (!PeekChar(out var escaped))
-                                {
-                                    diagnostics.Add(
-                                        DiagnosticInfo.Create(
-                                            CompilerDiagnostics.NewlineInConstant,
-                                            GetTokenStartPositionSpan()));
-                                    break;
-                                }
-
-                                ReadChar();
-
-                                if (IsEndOfLine(escaped))
-                                {
-                                    diagnostics.Add(
-                                        DiagnosticInfo.Create(
-                                            CompilerDiagnostics.NewlineInConstant,
-                                            GetTokenStartPositionSpan()));
-                                    break;
-                                }
-
-                                _stringBuilder.Append(escaped);
-                                continue;
-                            }
-
-                            if (interpolationDepth == 0 && ch2 == '$')
-                            {
-                                _stringBuilder.Append(ch2);
-
-                                if (PeekChar(out var next) && next == '{')
-                                {
-                                    ReadChar();
-                                    _stringBuilder.Append(next);
-                                    interpolationDepth = 1;
-                                }
-
-                                continue;
-                            }
-
-                            if (interpolationDepth > 0)
-                            {
-                                if (ch2 == '{')
-                                {
-                                    _stringBuilder.Append(ch2);
-                                    interpolationDepth++;
-                                    continue;
-                                }
-
-                                if (ch2 == '}')
-                                {
-                                    _stringBuilder.Append(ch2);
-                                    interpolationDepth--;
-                                    continue;
-                                }
-                            }
-
-                            _stringBuilder.Append(ch2);
+                            return ParseTripleQuotedStringLiteral(diagnostics);
                         }
 
-                        var str = GetStringBuilderValue();
-                        ReadOnlySpan<char> innerText = str.Length >= 2
-                            ? str.AsSpan(1, str.Length - 2)
-                            : ReadOnlySpan<char>.Empty;
-                        var decoded = SyntaxFacts.DecodeStringLiteralContent(innerText, out var hadInvalidEscape);
-
-                        if (hadInvalidEscape)
-                        {
-                            diagnostics.Add(
-                                DiagnosticInfo.Create(
-                                    CompilerDiagnostics.InvalidEscapeSequence,
-                                    GetTokenStartPositionSpan()));
-                        }
-
-                        return new Token(
-                            SyntaxKind.StringLiteralToken,
-                            str,
-                            string.Intern(decoded),
-                            diagnostics: diagnostics);
+                        // Normal (single-line) string literal
+                        return ParseSingleLineStringLiteral(diagnostics);
 
                     /*
 
@@ -706,6 +605,327 @@ internal class Lexer : ILexer
         }
 
         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
+    }
+
+    private bool TryConsumeTripleQuoteStart()
+    {
+        // Called after consuming/appending the first '"'.
+        // Look ahead for two more quotes without committing speculative reads.
+        if (!PeekChar(out var next) || next != '"')
+            return false;
+
+        var checkpoint = _currentPosition;
+        _textSource.PushPosition();
+
+        if (!ReadChar(out var q2) || q2 != '"')
+        {
+            _textSource.PopAndRestorePosition();
+            _currentPosition = checkpoint;
+            return false;
+        }
+
+        if (!ReadChar(out var q3) || q3 != '"')
+        {
+            _textSource.PopAndRestorePosition();
+            _currentPosition = checkpoint;
+            return false;
+        }
+
+        // Restore, then consume for real.
+        _textSource.PopAndRestorePosition();
+        _currentPosition = checkpoint;
+
+        ReadChar();
+        _stringBuilder.Append('"');
+        ReadChar();
+        _stringBuilder.Append('"');
+
+        return true;
+    }
+
+    private Token ParseSingleLineStringLiteral(List<DiagnosticInfo> diagnostics)
+    {
+        // We enter after consuming/appending the opening quote.
+        while (true)
+        {
+            if (!PeekChar(out var ch2))
+            {
+                diagnostics.Add(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.NewlineInConstant,
+                        GetTokenStartPositionSpan()));
+                break;
+            }
+
+            ReadChar();
+
+            if (ch2 == '"')
+            {
+                _stringBuilder.Append(ch2);
+                break;
+            }
+
+            if (IsEndOfLine(ch2))
+            {
+                diagnostics.Add(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.NewlineInConstant,
+                        GetTokenStartPositionSpan()));
+                break;
+            }
+
+            if (ch2 == '\\')
+            {
+                _stringBuilder.Append(ch2);
+
+                if (!PeekChar(out var escaped))
+                {
+                    diagnostics.Add(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.NewlineInConstant,
+                            GetTokenStartPositionSpan()));
+                    break;
+                }
+
+                ReadChar();
+
+                if (IsEndOfLine(escaped))
+                {
+                    diagnostics.Add(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.NewlineInConstant,
+                            GetTokenStartPositionSpan()));
+                    break;
+                }
+
+                _stringBuilder.Append(escaped);
+                continue;
+            }
+
+            _stringBuilder.Append(ch2);
+        }
+
+        var rawText = GetStringBuilderValue();
+        ReadOnlySpan<char> innerText = rawText.Length >= 2
+            ? rawText.AsSpan(1, rawText.Length - 2)
+            : ReadOnlySpan<char>.Empty;
+
+        var decoded = SyntaxFacts.DecodeStringLiteralContent(innerText, out var hadInvalidEscape);
+
+        if (hadInvalidEscape)
+        {
+            diagnostics.Add(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.InvalidEscapeSequence,
+                    GetTokenStartPositionSpan()));
+        }
+
+        // Value is the decoded inner content (no quotes).
+        return new Token(
+            SyntaxKind.StringLiteralToken,
+            rawText,
+            string.Intern(decoded),
+            diagnostics: diagnostics);
+    }
+
+    private Token ParseTripleQuotedStringLiteral(List<DiagnosticInfo> diagnostics)
+    {
+        // Entered after consuming/appending opening: """
+        // Raw content (no escape decoding). Newlines are allowed.
+        // Closing delimiter must be first non-whitespace on its line.
+
+        var content = new StringBuilder();
+
+        // Track indentation at the start of the current line.
+        var lineIndent = new StringBuilder();
+        bool lineHasNonWhitespace = false;
+        bool firstChar = true;
+        bool indentBuffered = false; // true when we have buffered whitespace that has not been flushed to content
+
+        while (true)
+        {
+            if (!PeekChar(out var c))
+            {
+                // Unterminated raw string. Return what we have.
+                break;
+            }
+
+            // Closing delimiter: """ at current position, only if first non-whitespace on line.
+            if (c == '"' && !lineHasNonWhitespace && TryPeekTripleQuote())
+            {
+                var trimIndent = lineIndent.ToString();
+
+                // Consume closing delimiter into raw text.
+                ReadChar(); _stringBuilder.Append('"');
+                ReadChar(); _stringBuilder.Append('"');
+                ReadChar(); _stringBuilder.Append('"');
+
+                var rawText = GetStringBuilderValue();
+
+                var value = TrimTripleQuotedValue(content.ToString(), trimIndent);
+                return new Token(
+                    SyntaxKind.MultiLineStringLiteralToken,
+                    rawText,
+                    string.Intern(value),
+                    diagnostics: diagnostics);
+            }
+
+            // Consume character.
+            ReadChar();
+            _stringBuilder.Append(c);
+
+            // Drop the very first newline after the opening delimiter (C# raw string style).
+            if (firstChar)
+            {
+                firstChar = false;
+                if (c == '\r')
+                {
+                    // If CRLF, also drop the LF.
+                    if (PeekChar(out var lf) && lf == '\n')
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(lf);
+                    }
+
+                    // Reset line state.
+                    lineIndent.Clear();
+                    lineHasNonWhitespace = false;
+                    indentBuffered = false;
+                    continue;
+                }
+
+                if (c == '\n' || c == '\u0085' || c == '\u2028' || c == '\u2029')
+                {
+                    lineIndent.Clear();
+                    lineHasNonWhitespace = false;
+                    indentBuffered = false;
+                    continue;
+                }
+
+                // If first char isn't a newline, keep it.
+            }
+
+            // Track line state + accumulate content.
+            if (c == '\r')
+            {
+                content.Append(c);
+                lineIndent.Clear();
+                lineHasNonWhitespace = false;
+                indentBuffered = false;
+                continue;
+            }
+
+            if (c == '\n' || c == '\u0085' || c == '\u2028' || c == '\u2029')
+            {
+                content.Append(c);
+                lineIndent.Clear();
+                lineHasNonWhitespace = false;
+                indentBuffered = false;
+                continue;
+            }
+
+            if (!lineHasNonWhitespace && (c == ' ' || c == '\t'))
+            {
+                // Buffer indentation but do not commit it to content until we see a non-whitespace character.
+                lineIndent.Append(c);
+                indentBuffered = true;
+                continue;
+            }
+
+            if (!lineHasNonWhitespace)
+            {
+                lineHasNonWhitespace = true;
+
+                // Commit buffered indentation to content now that we know this line has real content.
+                if (indentBuffered && lineIndent.Length > 0)
+                {
+                    content.Append(lineIndent);
+                }
+
+                indentBuffered = false;
+            }
+
+            content.Append(c);
+        }
+
+        // Unterminated: return raw token + raw value.
+        var unterminatedRaw = GetStringBuilderValue();
+        return new Token(
+            SyntaxKind.MultiLineStringLiteralToken,
+            unterminatedRaw,
+            string.Intern(content.ToString()),
+            diagnostics: diagnostics);
+
+        bool TryPeekTripleQuote()
+        {
+            var checkpoint = _currentPosition;
+            _textSource.PushPosition();
+
+            if (!ReadChar(out var q1) || q1 != '"')
+            {
+                _textSource.PopAndRestorePosition();
+                _currentPosition = checkpoint;
+                return false;
+            }
+
+            if (!ReadChar(out var q2) || q2 != '"')
+            {
+                _textSource.PopAndRestorePosition();
+                _currentPosition = checkpoint;
+                return false;
+            }
+
+            if (!ReadChar(out var q3) || q3 != '"')
+            {
+                _textSource.PopAndRestorePosition();
+                _currentPosition = checkpoint;
+                return false;
+            }
+
+            _textSource.PopAndRestorePosition();
+            _currentPosition = checkpoint;
+            return true;
+        }
+
+        static string TrimTripleQuotedValue(string value, string trimIndent)
+        {
+            if (trimIndent.Length == 0)
+                return value;
+
+            var sb = new StringBuilder(value.Length);
+
+            int i = 0;
+            while (i < value.Length)
+            {
+                int lineStart = i;
+
+                while (i < value.Length && value[i] != '\n' && value[i] != '\r' && value[i] != '\u0085' && value[i] != '\u2028' && value[i] != '\u2029')
+                    i++;
+
+                var line = value.Substring(lineStart, i - lineStart);
+
+                if (line.StartsWith(trimIndent, StringComparison.Ordinal))
+                    sb.Append(line.Substring(trimIndent.Length));
+                else
+                    sb.Append(line);
+
+                if (i < value.Length)
+                {
+                    if (value[i] == '\r' && i + 1 < value.Length && value[i + 1] == '\n')
+                    {
+                        sb.Append("\r\n");
+                        i += 2;
+                    }
+                    else
+                    {
+                        sb.Append(value[i]);
+                        i++;
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
     }
 
     private Token ParseNumber(List<DiagnosticInfo> diagnostics, ref char ch, bool negative = false)

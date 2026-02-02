@@ -1,0 +1,10 @@
+import System.Console.*
+
+val text = "Hi!"
+
+val bb = """
+    test ${41 + 1}
+      r ${text}
+    """
+
+WriteLine(bb)
