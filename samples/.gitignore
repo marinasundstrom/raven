@@ -5,3 +5,4 @@ test
 test.runtimeconfig.json
 TestDep.dll
 Raven.Core.dll
+Raven.CodeAnalysis.dll
