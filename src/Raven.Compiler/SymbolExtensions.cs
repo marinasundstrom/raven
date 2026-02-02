@@ -230,6 +230,7 @@ public static class SymbolExtensions
             case IPropertySymbol propertySymbol:
                 AppendProperty(builder, "Type", propertySymbol.Type.ToDisplayString(displayFormat));
                 AppendBooleanProperty(builder, "IsIndexer", propertySymbol.IsIndexer);
+                AppendBooleanProperty(builder, "IsRequired", propertySymbol.IsRequired);
                 AppendProperty(builder, "Getter", FormatDisplay(propertySymbol.GetMethod, displayFormat));
                 AppendProperty(builder, "Setter", FormatDisplay(propertySymbol.SetMethod, displayFormat));
                 if (propertySymbol.ExplicitInterfaceImplementations.Length > 0)
@@ -240,6 +241,7 @@ public static class SymbolExtensions
                 AppendProperty(builder, "Type", fieldSymbol.Type.ToDisplayString(displayFormat));
                 AppendBooleanProperty(builder, "IsMutable", fieldSymbol.IsMutable);
                 AppendBooleanProperty(builder, "IsConst", fieldSymbol.IsConst);
+                AppendBooleanProperty(builder, "IsRequired", fieldSymbol.IsRequired);
                 if (fieldSymbol.IsConst)
                 {
                     var constantValue = fieldSymbol.GetConstantValue();

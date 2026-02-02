@@ -138,6 +138,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
     public IMethodSymbol? ConstructedFrom => _definition;
 
+    public bool SetsRequiredMembers => _definition.SetsRequiredMembers;
+
     public void Accept(SymbolVisitor visitor) => visitor.VisitMethod(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitMethod(this);
 

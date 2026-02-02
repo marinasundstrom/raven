@@ -295,6 +295,7 @@ public interface IMethodSymbol : ISymbol
 
     IMethodSymbol Construct(params ITypeSymbol[] typeArguments);
 
+    bool SetsRequiredMembers { get; }
 }
 
 public enum MethodKind
@@ -364,6 +365,8 @@ public interface IFieldSymbol : ISymbol
 
     bool IsMutable { get; }
 
+    bool IsRequired { get; }
+
     object? GetConstantValue();
 }
 
@@ -374,6 +377,7 @@ public interface IPropertySymbol : ISymbol
     IMethodSymbol? GetMethod { get; }
     IMethodSymbol? SetMethod { get; }
     bool IsIndexer { get; }
+    bool IsRequired { get; }
     ImmutableArray<IParameterSymbol> Parameters => IsIndexer ? GetMethod?.Parameters ?? [] : [];
     ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => [];
 }

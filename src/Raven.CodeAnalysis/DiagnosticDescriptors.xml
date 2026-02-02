@@ -717,4 +717,12 @@
     Title="Public extension requires an identifier"
     Message="Public extension declarations must have an explicit identifier"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0905" Identifier="RequiredMemberMustBeSet"
+    Title="Required member must be set"
+    Message="Required member '{memberName}' must be set"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0906" Identifier="RequiredFieldMustBeMutable"
+    Title="Required field must be mutable"
+    Message="Required field '{fieldName}' must be mutable"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

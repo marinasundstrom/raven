@@ -28,6 +28,16 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
         }
     }
 
+    bool? _isRequired = null;
+
+    public bool IsRequired
+    {
+        get
+        {
+            return _isRequired ??= _fieldInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName != "System.Runtime.CompilerServices.RequiredMemberAttribute");
+        }
+    }
+
     public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_fieldInfo);
 
     public override bool IsStatic => _fieldInfo.IsStatic;

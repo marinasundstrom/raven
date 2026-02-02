@@ -221,6 +221,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private bool? _lazyIsExtensionMethod;
     private string? _name;
     private string? _extensionMarkerName;
+    private bool? _setsRequiredMembers;
 
     public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
 
@@ -473,5 +474,13 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             throw new ArgumentNullException(nameof(typeArguments));
 
         return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
+    }
+
+    public bool SetsRequiredMembers
+    {
+        get
+        {
+            return _setsRequiredMembers ??= _methodInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName != "System.Runtime.CompilerServices.SetsRequiredMembersAttribute");
+        }
     }
 }

@@ -92,6 +92,8 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
 
+    public bool SetsRequiredMembers => false;
+
     public void SetDelegateType(ITypeSymbol delegateType)
     {
         DelegateType = delegateType;

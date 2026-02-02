@@ -1192,6 +1192,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         public bool IsAlias => false;
 
+        public bool SetsRequiredMembers => false;
+
         public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
 
         public void Accept(SymbolVisitor visitor)
@@ -1398,6 +1400,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public ISymbol UnderlyingSymbol => _original;
 
         public bool IsAlias => false;
+
+        public bool IsRequired => _original.IsRequired;
 
         public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
 

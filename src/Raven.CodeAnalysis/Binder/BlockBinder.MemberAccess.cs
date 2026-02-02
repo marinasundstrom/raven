@@ -396,6 +396,13 @@ partial class BlockBinder
                 initializer = BindObjectInitializer(typeSymbol, o2.Initializer);
             }
 
+            ValidateRequiredMembers(typeSymbol, constructor, callSyntax, initializerSyntax: callSyntax switch
+            {
+                InvocationExpressionSyntax { Initializer: { } i } => i,
+                ObjectCreationExpressionSyntax { Initializer: { } i } => i,
+                _ => null
+            });
+
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver, initializer);
         }
 
@@ -412,6 +419,74 @@ partial class BlockBinder
         ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, callSyntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private void ValidateRequiredMembers(
+    INamedTypeSymbol typeSymbol,
+    IMethodSymbol constructor,
+    SyntaxNode creationSyntax,
+    ObjectInitializerExpressionSyntax? initializerSyntax)
+    {
+        // If the selected constructor claims it sets required members, we're done.
+        // Later steps can implement deeper checks (e.g. ctor chaining, actual assignments).
+        if (constructor.SetsRequiredMembers)
+            return;
+
+        // Collect required member names from this type + base types.
+        var required = GetRequiredMembers(typeSymbol);
+        if (required.IsDefaultOrEmpty)
+            return;
+
+        // Determine which members are assigned in the object initializer.
+        var assigned = initializerSyntax is null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : GetAssignedMemberNames(initializerSyntax);
+
+        foreach (var memberName in required)
+        {
+            if (!assigned.Contains(memberName))
+                _diagnostics.ReportRequiredMemberMustBeSet(memberName, creationSyntax.GetLocation());
+        }
+    }
+
+    private static ImmutableArray<string> GetRequiredMembers(INamedTypeSymbol type)
+    {
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        for (INamedTypeSymbol? t = type; t is not null; t = t.BaseType)
+        {
+            foreach (var member in t.GetMembers())
+            {
+                if (member is SourceFieldSymbol field && field.IsRequired)
+                    builder.Add(field.Name);
+                else if (member is SourcePropertySymbol prop && prop.IsRequired)
+                    builder.Add(prop.Name);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static HashSet<string> GetAssignedMemberNames(ObjectInitializerExpressionSyntax initializer)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        // Best-effort: look for assignment expressions within the initializer and capture
+        // simple `Identifier = ...` and `this.Identifier = ...` / `obj.Identifier = ...`.
+        foreach (var node in initializer.DescendantNodes())
+        {
+            if (node is ObjectInitializerAssignmentEntrySyntax assign)
+            {
+                switch (assign.Name)
+                {
+                    case IdentifierNameSyntax id:
+                        names.Add(id.Identifier.ValueText);
+                        break;
+                }
+            }
+        }
+
+        return names;
     }
 
     private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
@@ -472,7 +547,14 @@ partial class BlockBinder
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
 
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
-            return new BoundObjectCreationExpression(constructor, convertedArgs);
+
+            BoundObjectInitializer? initializer = null;
+            if (syntax.Initializer is not null)
+                initializer = BindObjectInitializer(typeSymbol, syntax.Initializer);
+
+            ValidateRequiredMembers(typeSymbol, constructor, syntax, syntax.Initializer);
+
+            return new BoundObjectCreationExpression(constructor, convertedArgs, receiver: null, initializer);
         }
 
         if (resolution.IsAmbiguous)

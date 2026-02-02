@@ -10,6 +10,7 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
     private readonly object _constantValue;
     private readonly bool _isMutable;
     private readonly bool _isStatic;
+    private bool _isRequired;
     private SourcePropertySymbol? _associatedProperty;
     private SourceEventSymbol? _associatedEvent;
     private ImmutableArray<AttributeData> _lazyAttributesWithSynthesized;
@@ -31,6 +32,8 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
 
     public bool IsMutable => _isMutable;
 
+    public bool IsRequired => _isRequired;
+
     public BoundExpression? Initializer { get; }
 
     internal bool IsAutoPropertyBackingField => _associatedProperty is not null || _associatedEvent is not null;
@@ -44,21 +47,28 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
-        if (!IsAutoPropertyBackingField)
-            return base.GetAttributes();
-
         if (_lazyAttributesWithSynthesized.IsDefault)
         {
             var attributes = base.GetAttributes();
             var builder = ImmutableArray.CreateBuilder<AttributeData>();
 
-            var compilerGenerated = CreateCompilerGeneratedAttribute();
-            if (compilerGenerated is not null)
-                builder.Add(compilerGenerated);
+            if (IsAutoPropertyBackingField)
+            {
+                var compilerGenerated = CreateCompilerGeneratedAttribute();
+                if (compilerGenerated is not null)
+                    builder.Add(compilerGenerated);
 
-            var debuggerBrowsable = CreateDebuggerBrowsableAttribute();
-            if (debuggerBrowsable is not null)
-                builder.Add(debuggerBrowsable);
+                var debuggerBrowsable = CreateDebuggerBrowsableAttribute();
+                if (debuggerBrowsable is not null)
+                    builder.Add(debuggerBrowsable);
+            }
+
+            if (IsRequired)
+            {
+                var requiredMember = CreateRequiredMemberAttribute()!;
+                if (requiredMember is not null)
+                    builder.Add(requiredMember);
+            }
 
             _lazyAttributesWithSynthesized = builder.Count == 0
                 ? attributes
@@ -107,4 +117,6 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
             ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
             syntaxReference);
     }
+
+    public void MarkAsRequired() => _isRequired = true;
 }

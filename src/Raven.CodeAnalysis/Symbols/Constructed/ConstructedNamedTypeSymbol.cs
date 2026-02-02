@@ -1030,6 +1030,9 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsStatic => _original.IsStatic;
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
+
+    public bool SetsRequiredMembers => _original.SetsRequiredMembers;
+
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
 
     public void Accept(SymbolVisitor visitor)
@@ -1364,6 +1367,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
 
     public bool IsConst => _original.IsConst;
     public bool IsMutable => _original.IsMutable;
+    public bool IsRequired => _original.IsRequired;
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
@@ -1463,6 +1467,8 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public IMethodSymbol? GetMethod => _original.GetMethod is null ? null : new SubstitutedMethodSymbol(_original.GetMethod, _constructed);
     public IMethodSymbol? SetMethod => _original.SetMethod is null ? null : new SubstitutedMethodSymbol(_original.SetMethod, _constructed);
     public bool IsIndexer => _original.IsIndexer;
+    public bool IsRequired => _original.IsRequired;
+
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;

@@ -17,6 +17,7 @@ fi
 EXCLUDE=(
   "TestDep.dll"
   "Raven.Core.dll"
+  "Raven.CodeAnalysis.dll"
   "goto.dll"
   "parse-number.dll"
   # add others as needed

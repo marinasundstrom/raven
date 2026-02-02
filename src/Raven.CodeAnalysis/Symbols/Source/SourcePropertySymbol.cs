@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
@@ -7,6 +9,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     private SourceFieldSymbol? _backingField;
     private bool _declaredInExtension;
     private ITypeSymbol? _extensionReceiverType;
+    private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
 
     public SourcePropertySymbol(
         string name,
@@ -64,5 +67,34 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     {
         _declaredInExtension = true;
         _extensionReceiverType = receiverType;
+    }
+
+    public bool IsRequired
+    {
+        get; private set;
+    }
+
+    public void MarkAsRequired() => IsRequired = true;
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (_lazyAugmentedAttributes.IsDefault)
+        {
+            var baseAttributes = base.GetAttributes();
+            var builder = ImmutableArray.CreateBuilder<AttributeData>();
+
+            if (IsRequired)
+            {
+                var compilerGenerated = CreateRequiredMemberAttribute();
+                if (compilerGenerated is not null)
+                    builder.Add(compilerGenerated);
+            }
+
+            _lazyAugmentedAttributes = builder.Count == 0
+                ? baseAttributes
+                : baseAttributes.AddRange(builder.ToImmutable());
+        }
+
+        return _lazyAugmentedAttributes;
     }
 }

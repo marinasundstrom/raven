@@ -55,6 +55,16 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 
     public IPropertySymbol OriginalDefinition { get; }
 
+    bool? _isRequired = null;
+
+    public bool IsRequired
+    {
+        get
+        {
+            return _isRequired ??= _propertyInfo.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName != "System.Runtime.CompilerServices.RequiredMemberAttribute");
+        }
+    }
+
     public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_propertyInfo);
 
     public override bool IsStatic => (_propertyInfo.GetMethod?.IsStatic ?? false) || (_propertyInfo.SetMethod?.IsStatic ?? false);

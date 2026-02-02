@@ -141,6 +141,35 @@ internal abstract class SourceSymbol : Symbol
             syntaxReference);
     }
 
+    protected AttributeData? CreateRequiredMemberAttribute()
+    {
+        var compilation = GetDeclaringCompilation();
+        if (compilation is null)
+            return null;
+
+        //if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
+        //    return null;
+
+        var syntaxReference = DeclaringSyntaxReferences.FirstOrDefault();
+        //if (syntaxReference is null)
+        //    return null;
+
+        var attributeType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RequiredMemberAttribute");
+        if (attributeType is not INamedTypeSymbol namedAttributeType)
+            return null;
+
+        var constructor = namedAttributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
+        if (constructor is null)
+            return null;
+
+        return new AttributeData(
+            namedAttributeType,
+            constructor,
+            ImmutableArray<TypedConstant>.Empty,
+            ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
+            syntaxReference);
+    }
+
     protected Compilation? GetDeclaringCompilation()
     {
         if (this is SourceAssemblySymbol assemblySymbol)

@@ -32,6 +32,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _hasAsyncReturnTypeError;
     private bool _requiresAsyncReturnTypeInference;
     private bool _asyncReturnTypeInferenceComplete;
+    private bool _setsRequiredMembers;
 
     private bool IsAutoPropertyAccessor
         => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -178,6 +179,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public BoundObjectCreationExpression? ConstructorInitializer { get; private set; }
 
     public bool HasConstructorInitializerSyntax { get; private set; }
+    public bool SetsRequiredMembers { get => _setsRequiredMembers; set => _setsRequiredMembers = value; }
 
     internal void MarkConstructorInitializerSyntax() => HasConstructorInitializerSyntax = true;
 
@@ -224,7 +226,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
-        if (!_declaredInExtension && !IsAutoPropertyAccessor)
+        var addSetsRequiredMembers = ShouldAddSetsRequiredMembersAttribute();
+
+        if (!_declaredInExtension && !IsAutoPropertyAccessor && !addSetsRequiredMembers)
             return base.GetAttributes();
 
         if (_lazyAugmentedAttributes.IsDefault)
@@ -246,12 +250,107 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                     builder.Add(extensionAttribute);
             }
 
+            if (addSetsRequiredMembers)
+            {
+                var setsRequiredMembers = CreateSetsRequiredMembersAttributeData();
+                if (setsRequiredMembers is not null)
+                    builder.Add(setsRequiredMembers);
+            }
+
             _lazyAugmentedAttributes = builder.Count == 0
                 ? baseAttributes
                 : baseAttributes.AddRange(builder.ToImmutable());
         }
 
         return _lazyAugmentedAttributes;
+    }
+
+    private bool ShouldAddSetsRequiredMembersAttribute()
+    {
+        // Explicitly marked (e.g. by binders for normal constructors)
+        if (SetsRequiredMembers)
+            return true;
+
+        // Records: the primary constructor is synthesized and does not go through
+        // TypeMemberBinder.BindConstructorSymbol. For now we conservatively add the
+        // metadata to constructors on record types that contain at least one required
+        // member. Later steps will implement full initialization semantics and checks.
+        if (MethodKind is not MethodKind.Constructor and not MethodKind.NamedConstructor)
+            return false;
+
+        var containingType = ContainingType;
+        if (containingType is null)
+            return false;
+
+        if (!IsRecordType(containingType))
+            return false;
+
+        return HasRequiredMembers(containingType);
+
+        static bool HasRequiredMembers(INamedTypeSymbol type)
+        {
+            foreach (var member in type.GetMembers())
+            {
+                if (member is SourceFieldSymbol field && field.IsRequired)
+                    return true;
+                if (member is SourcePropertySymbol prop && prop.IsRequired)
+                    return true;
+            }
+
+            return false;
+        }
+
+        static bool IsRecordType(INamedTypeSymbol type)
+        {
+            // Prefer a direct API if the symbol model provides it.
+            var isRecordProperty = type.GetType().GetProperty("IsRecord");
+            if (isRecordProperty is not null && isRecordProperty.PropertyType == typeof(bool))
+            {
+                try
+                {
+                    return (bool)isRecordProperty.GetValue(type)!;
+                }
+                catch
+                {
+                    // ignore and fall back
+                }
+            }
+
+            foreach (var r in type.DeclaringSyntaxReferences)
+            {
+                var syntax = r.GetSyntax();
+                if (syntax is ClassDeclarationSyntax cd && cd.Modifiers.Any(x => x.Kind == SyntaxKind.RecordKeyword))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    private AttributeData? CreateSetsRequiredMembersAttributeData()
+    {
+        var compilation = GetDeclaringCompilation();
+        if (compilation is null)
+            return null;
+
+        var attributeType = compilation.GetTypeByMetadataName("System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute");
+        if (attributeType is null)
+            return null;
+
+        var constructor = attributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
+        if (constructor is null)
+            return null;
+
+        var syntaxReference = DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is null)
+            return null;
+
+        return new AttributeData(
+            attributeType,
+            constructor,
+            ImmutableArray<TypedConstant>.Empty,
+            ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
+            syntaxReference);
     }
 
     internal void MarkAsyncReturnTypeError()
@@ -423,5 +522,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             ImmutableArray<TypedConstant>.Empty,
             ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
             syntaxReference);
+    }
+
+    internal void MarkSetsRequiredMembers()
+    {
+        SetsRequiredMembers = true;
     }
 }

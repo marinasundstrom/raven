@@ -2493,6 +2493,11 @@ public partial class SemanticModel
             methodKind: MethodKind.Constructor,
             declaredAccessibility: classSymbol.DeclaredAccessibility);
 
+        if (isRecord)
+        {
+            constructorSymbol.MarkSetsRequiredMembers();
+        }
+
         var parameters = new List<SourceParameterSymbol>();
         var recordProperties = isRecord
             ? ImmutableArray.CreateBuilder<SourcePropertySymbol>()
@@ -2526,7 +2531,7 @@ public partial class SemanticModel
                 ref seenOptionalParameter);
             var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             var parameterSymbol = new SourceParameterSymbol(
-                parameterSyntax.Identifier.ValueText,
+                ToCamelCase(parameterSyntax.Identifier.ValueText),
                 parameterType,
                 constructorSymbol,
                 classSymbol,
@@ -2581,6 +2586,11 @@ public partial class SemanticModel
             classSymbol.SetRecordProperties(recordProperties.ToImmutable());
     }
 
+    private string ToCamelCase(string valueText)
+    {
+        return char.ToLowerInvariant(valueText[0]) + valueText[1..];
+    }
+
     private SourcePropertySymbol? CreateRecordPropertyFromPrimaryConstructor(
         SourceNamedTypeSymbol classSymbol,
         SourceParameterSymbol parameterSymbol,
@@ -2612,6 +2622,8 @@ public partial class SemanticModel
             references,
             isStatic: false,
             declaredAccessibility: Accessibility.Public);
+
+        propertySymbol.MarkAsRequired();
 
         var backingField = new SourceFieldSymbol(
             $"<{propertySymbol.Name}>k__BackingField",

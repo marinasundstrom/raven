@@ -13,7 +13,8 @@ AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fu
 MemberModifiers          ::= { MemberModifier } ;
 MemberModifier           ::= AccessModifier
                            | 'static' | 'abstract' | 'virtual' | 'override' | 'final' | 'sealed' | 'new'
-                           | 'readonly' | 'async' | 'extern' ;
+                           | 'readonly' | 'required'
+                           | 'async' | 'extern' ;
 
 AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 
@@ -139,7 +140,7 @@ ClassMember              ::= FieldDeclaration
                            | IndexerDeclaration
                            | DelegateDeclaration ;
 
-FieldDeclaration         ::= MemberModifiers? FieldKind VariableDeclarators ';' ;
+FieldDeclaration         ::= MemberModifiers? FieldKind VariableDeclarators ';' ;  (* `required` is a MemberModifier *)
 FieldKind                ::= 'let' | 'val' | 'var' | 'const' ;
 
 VariableDeclarators      ::= VariableDeclarator {',' VariableDeclarator} ;
@@ -187,7 +188,7 @@ InvocationOperatorDeclaration
                                ( Block | '=>' Expression ) ;
 
 PropertyDeclaration      ::= MemberModifiers?
-                             ExplicitInterfaceSpecifier? Identifier ':' Type AccessorList ;
+                             ExplicitInterfaceSpecifier? Identifier ':' Type AccessorList ;  (* `required` is a MemberModifier *)
 
 IndexerDeclaration       ::= MemberModifiers?
                              ExplicitInterfaceSpecifier? Identifier BracketedParameterList ':' Type AccessorList ;

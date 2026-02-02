@@ -297,6 +297,8 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 
     public IMethodSymbol? ConstructedFrom => _method.ConstructedFrom;
 
+    public bool SetsRequiredMembers => _method.SetsRequiredMembers;
+
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _method.GetReturnTypeAttributes();
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments) => _method.Construct(typeArguments);
@@ -319,6 +321,8 @@ internal sealed class AliasPropertySymbol : AliasSymbol, IPropertySymbol
     public IMethodSymbol? SetMethod => _property.SetMethod;
 
     public bool IsIndexer => _property.IsIndexer;
+
+    public bool IsRequired => _property.IsRequired;
 }
 
 internal sealed class AliasFieldSymbol : AliasSymbol, IFieldSymbol
@@ -336,6 +340,8 @@ internal sealed class AliasFieldSymbol : AliasSymbol, IFieldSymbol
     public bool IsConst => _field.IsConst;
 
     public bool IsMutable => _field.IsMutable;
+
+    public bool IsRequired => _field.IsRequired;
 
     public object? GetConstantValue() => _field.GetConstantValue();
 }

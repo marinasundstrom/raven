@@ -29,6 +29,7 @@ internal sealed class ConstructedExtensionPropertySymbol : IPropertySymbol
     public IMethodSymbol? GetMethod => _getMethod;
     public IMethodSymbol? SetMethod => _setMethod;
     public bool IsIndexer => _definition.IsIndexer;
+    public bool IsRequired => _definition.IsRequired;
     public SymbolKind Kind => _definition.Kind;
     public string MetadataName => _definition.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _definition.ContainingAssembly;

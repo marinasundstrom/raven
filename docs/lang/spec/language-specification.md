@@ -1021,6 +1021,64 @@ If more than one content entry is provided for a type that uses the Content prop
 
 > **Note:** The Content property convention is intended to support DSL-style UI composition (for example SwiftUI/Flutter-like syntax). Container types that accept multiple children should expose a collection-like API (for example `Add(TChild)` or a `Children` collection) instead of `Content`.
 
+
+#### Required members and init semantics
+
+Members marked as **required** must be definitely assigned during object construction. A required member may be a field or property. Required members participate in object initializer checking and influence which constructors are considered complete.
+
+```raven
+class Person
+{
+    public required Name: string { get; init; }
+    public required Age: int { get; init; }
+}
+
+val p = Person { Name = "Ada", Age = 36 }   // ok
+val q = Person { Name = "Ada" }            // error: Age must be set
+```
+
+##### Declaration rules
+
+* A required **field** must be **mutable**. Declaring `required` on an immutable (`let`) field is an error.
+* A required **property** must have an accessible **init** or **set** accessor so that it can be assigned during initialization.
+* `required` is not permitted on `const`, `static`, or read‑only members.
+
+##### Constructors and `SetsRequiredMembers`
+
+A constructor may satisfy required members directly. Such constructors are annotated with the attribute `System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute`. When a constructor carries this attribute, the compiler considers all required members to be assigned by that constructor and does not require an object initializer.
+
+```raven
+record Person(Name: string, Age: int)
+// primary record constructor is treated as [SetsRequiredMembers]
+
+val p = Person("Ada", 36)   // ok
+```
+
+For constructors **without** this attribute, all required members must be provided by an object initializer at each creation site.
+
+##### Object initializer checking
+
+When binding an object creation expression:
+
+1. Collect the set of required members declared on the type and its base types.
+2. If the selected constructor has `SetsRequiredMembers`, no further checks are performed.
+3. Otherwise, an object initializer must assign **all** required members.
+4. Omitting any required member produces a compile‑time error.
+
+Assignments in the initializer may target fields or properties with `init`/`set` accessors. Nested initializers and `with` expressions are treated as initializer contexts.
+
+##### Inheritance
+
+Required members declared on base types are inherited by derived types and must also be satisfied during construction of the derived type, unless a base constructor is marked with `SetsRequiredMembers`.
+
+##### Interaction with `with` expressions
+
+`with` expressions operate in initializer context. Required members may be assigned within a `with` initializer just as in object initializers:
+
+```raven
+val p2 = p with { Age = 37 }
+```
+
 #### With expressions
 
 A **with expression** creates a copy of a value and applies a list of member assignments without mutating the original instance. The syntax is:

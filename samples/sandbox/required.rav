@@ -1,0 +1,18 @@
+import System.Console.*
+
+val foo = Foo("Foo")
+
+val foo2 = Foo2 {
+    Test = 42,
+    x = 2
+}
+
+//foo2.Test = 2
+
+public record class Foo(Name: string)
+
+class Foo2 {
+    public required Test: int { get; init; }
+
+    public required var x = 2
+}

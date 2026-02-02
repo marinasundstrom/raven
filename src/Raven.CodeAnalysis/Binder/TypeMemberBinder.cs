@@ -170,10 +170,12 @@ internal class TypeMemberBinder : Binder
         if (ctor is NamedConstructorDeclarationSyntax namedCtor)
             name = namedCtor.Identifier.ValueText;
 
-        return _containingType.GetMembers()
+        var method = _containingType.GetMembers()
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.Name == name &&
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == ctor));
+
+        return method;
     }
 
     private ISymbol? BindPropertySymbol(PropertyDeclarationSyntax property)
@@ -220,6 +222,7 @@ internal class TypeMemberBinder : Binder
         var isConstDeclaration = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
         var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
         var hasNewModifier = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
+        var isRequired = fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.RequiredKeyword));
         var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
             fieldDecl.Modifiers,
             AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType));
@@ -283,6 +286,12 @@ internal class TypeMemberBinder : Binder
             var constantValueForSymbol = isConst ? constantValue : null;
             var isMutable = bindingKeyword.Kind == SyntaxKind.VarKeyword;
 
+            // Required fields must be mutable (assignable from an object initializer or equivalent init semantics).
+            if (isRequired && !isMutable)
+            {
+                _diagnostics.ReportRequiredFieldMustBeMutable(decl.Identifier.ValueText, decl.Identifier.GetLocation());
+            }
+
             var fieldTypeLocation = decl.TypeAnnotation?.Type.GetLocation() ?? decl.Identifier.GetLocation();
             ValidateTypeAccessibility(
                 fieldType,
@@ -303,7 +312,7 @@ internal class TypeMemberBinder : Binder
                 ReportMemberHidingIfNeeded(hiddenMember, decl.Identifier.ValueText, hasNewModifier, decl.Identifier.GetLocation());
             }
 
-            _ = new SourceFieldSymbol(
+            var f = new SourceFieldSymbol(
                 decl.Identifier.ValueText,
                 fieldType,
                 isStatic: isStatic,
@@ -318,6 +327,11 @@ internal class TypeMemberBinder : Binder
                 initializerForSymbol,
                 declaredAccessibility: fieldAccessibility
             );
+
+            if (isRequired)
+                f.MarkAsRequired();
+
+            return;
         }
     }
 
@@ -1500,6 +1514,7 @@ internal class TypeMemberBinder : Binder
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
+        var isRequired = modifiers.Any(m => m.Kind == SyntaxKind.RequiredKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var propertyAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = propertyDecl.ExplicitInterfaceSpecifier;
@@ -1656,6 +1671,9 @@ internal class TypeMemberBinder : Binder
 
         if (isExtensionMember)
             propertySymbol.MarkDeclaredInExtension(receiverType);
+
+        if (isRequired)
+            propertySymbol.MarkAsRequired();
 
         // Bind property initializer (if any) with the property's declared type as target type.
         BoundExpression? initializer = null;

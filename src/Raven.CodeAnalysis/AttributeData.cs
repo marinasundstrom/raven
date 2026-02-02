@@ -12,7 +12,7 @@ public sealed class AttributeData
         IMethodSymbol attributeConstructor,
         ImmutableArray<TypedConstant> constructorArguments,
         ImmutableArray<KeyValuePair<string, TypedConstant>> namedArguments,
-        SyntaxReference applicationSyntaxReference)
+        SyntaxReference? applicationSyntaxReference)
     {
         AttributeClass = attributeClass;
         AttributeConstructor = attributeConstructor;
@@ -29,5 +29,5 @@ public sealed class AttributeData
 
     public ImmutableArray<KeyValuePair<string, TypedConstant>> NamedArguments { get; }
 
-    public SyntaxReference ApplicationSyntaxReference { get; }
+    public SyntaxReference? ApplicationSyntaxReference { get; }
 }
