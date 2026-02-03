@@ -5,7 +5,11 @@ import Raven.CodeAnalysis.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-val syntaxTree = SyntaxTree.ParseText("val x = 2")
+val code = """
+    val x = 2
+    """
+
+val syntaxTree = SyntaxTree.ParseText(code)
 
 val root = syntaxTree.GetRoot()
 
