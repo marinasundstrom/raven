@@ -21,7 +21,7 @@ func Foo() {}
         var documentationTrivia = SyntaxTree.ParseText(code)
             .GetRoot()
             .DescendantTrivia(descendIntoStructuredTrivia: true)
-            .Where(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia)
+            .Where(t => t.Kind == SyntaxKind.DocumentationCommentTrivia)
             .ToList();
 
         documentationTrivia.Count.ShouldBe(1);
@@ -39,7 +39,7 @@ func Foo() {}
         var documentationTrivia = SyntaxTree.ParseText(code)
             .GetRoot()
             .DescendantTrivia(descendIntoStructuredTrivia: true)
-            .Where(t => t.Kind == SyntaxKind.SingleLineDocumentationCommentTrivia)
+            .Where(t => t.Kind == SyntaxKind.DocumentationCommentTrivia)
             .ToList();
 
         documentationTrivia.Count.ShouldBe(1);
@@ -90,7 +90,7 @@ func Foo() {}
         firstStatement.GetLastToken().Kind.ShouldBe(SyntaxKind.NewLineToken);
 
         var nextFirstToken = secondStatement.GetFirstToken(includeZeroWidth: true);
-        nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
+        nextFirstToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
     }
 
     [Fact]
@@ -127,8 +127,8 @@ func Foo() {}
 
         var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
-        funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
-        funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia)
+        funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
+        funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.DocumentationCommentTrivia)
             .Text.StartsWith("/// <summary>").ShouldBeTrue();
     }
 
@@ -172,7 +172,7 @@ func Foo() {}
         var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
 
-        var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
+        var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
         docTrivia.Text.ShouldStartWith("/// <summary>\n");
         docTrivia.Text.ShouldContain("// A 32-bit signed integer hash code for the current object.\n");
     }
@@ -203,7 +203,7 @@ func Foo() {}
             .ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
 
         var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
-        funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
+        funcToken.LeadingTrivia.ShouldContain(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
     }
 
@@ -234,7 +234,7 @@ Foo()
         var funcToken = secondStatement.GetFirstToken(includeZeroWidth: true);
         funcToken.LeadingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.SkippedTokensTrivia);
 
-        var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.MultiLineDocumentationCommentTrivia);
+        var docTrivia = funcToken.LeadingTrivia.First(t => t.Kind == SyntaxKind.DocumentationCommentTrivia);
         docTrivia.Text.ShouldStartWith("/// ");
         docTrivia.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length.ShouldBeGreaterThanOrEqualTo(40);
     }

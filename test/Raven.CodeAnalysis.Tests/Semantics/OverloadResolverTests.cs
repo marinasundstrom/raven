@@ -418,6 +418,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public IMethodSymbol? ConstructedFrom => this;
 
+        public bool SetsRequiredMembers => throw new NotImplementedException();
+
         public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
         {
             if (typeArguments is null)
