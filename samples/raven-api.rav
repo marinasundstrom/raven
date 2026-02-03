@@ -15,17 +15,38 @@ val syntaxTree = SyntaxTree.ParseText(code)
 
 val root = syntaxTree.GetRoot()
 
-val result = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().FirstOrNone()
+val result = root.DescendantNodes()
+    .OfType<VariableDeclaratorSyntax>()
+    .FirstOrNone()
 
-if result is .Some(val oldNode) {
-    val newNode = oldNode with {
+if result is .Some(val variableDeclarator) {
+    val newVariableDeclarator = variableDeclarator with {
         Identifier = Identifier("foo") with {
-            LeadingTrivia = oldNode.Identifier.LeadingTrivia
-            TrailingTrivia = oldNode.Identifier.TrailingTrivia
+            LeadingTrivia = variableDeclarator.Identifier.LeadingTrivia
+            TrailingTrivia = variableDeclarator.Identifier.TrailingTrivia
         }
     }
 
-    val newRoot = root.ReplaceNode(oldNode, newNode)
+    // Create a new root in which variableDeclarator has been replaced by newVariableDeclarator
+    val newRoot = root.ReplaceNode(variableDeclarator, newVariableDeclarator)
 
     WriteLine(newRoot)
+
+    // Wrap the root in a syntax tree
+    val newTree = SyntaxTree.Create(newRoot)
+
+    Console.Print(newTree.GetRoot())
+}
+
+extension for Console {
+    public static Print(node: SyntaxNode) -> () {
+        return node.PrintSyntaxTree(PrinterOptions {
+         IncludeTokens = true,
+            IncludeTrivia = true,
+            IncludeSpans = true,
+            IncludeLocations = true,
+            IncludeNames = true,
+            Colorize = true
+        })
+    }
 }
