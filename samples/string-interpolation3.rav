@@ -17,3 +17,11 @@ val bb = """
     """
 
 WriteLine(bb)
+
+    // Multiline string literal with interpolation
+val bc = """
+    test ${41 + 1}
+      r $text
+    """
+
+WriteLine(bc)

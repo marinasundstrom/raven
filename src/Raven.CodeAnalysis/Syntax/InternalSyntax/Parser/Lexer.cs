@@ -646,6 +646,7 @@ internal class Lexer : ILexer
     private Token ParseSingleLineStringLiteral(List<DiagnosticInfo> diagnostics)
     {
         // We enter after consuming/appending the opening quote.
+        // Interpolation-aware lexing: quotes inside ${...} or $ident do not terminate the string.
         while (true)
         {
             if (!PeekChar(out var ch2))
@@ -658,6 +659,77 @@ internal class Lexer : ILexer
             }
 
             ReadChar();
+
+            // Legacy interpolation introducer: \$ident or \${...}
+            // Historically Raven allowed `\$x` to mean the same as `$x`.
+            // After the interpolation-aware changes, `\$` was treated as a normal escape.
+            // For consistency with multiline strings (and backwards compatibility),
+            // treat `\$` followed by `{` or an identifier-start as interpolation.
+            if (ch2 == '\\' && PeekChar(out var dollar) && dollar == '$')
+            {
+                // Speculatively consume '$' and decide if this is an interpolation.
+                var checkpoint = _currentPosition;
+                _textSource.PushPosition();
+
+                ReadChar(); // consume '$'
+
+                if (PeekChar(out var afterDollar) && (afterDollar == '{' || SyntaxFacts.IsIdentifierStartCharacter(afterDollar)))
+                {
+                    // Commit: drop the backslash, keep '$' and scan interpolation.
+                    _textSource.PopPosition();
+
+                    _stringBuilder.Append('$');
+
+                    if (afterDollar == '{')
+                    {
+                        ReadChar(); // consume '{'
+                        _stringBuilder.Append('{');
+                        ScanInterpolationBodyIntoBuilder();
+                    }
+                    else
+                    {
+                        // $identifier form
+                        ReadChar(); // consume first identifier char
+                        _stringBuilder.Append(afterDollar);
+
+                        while (PeekChar(out var idPart) && SyntaxFacts.IsIdentifierPartCharacter(idPart))
+                        {
+                            ReadChar();
+                            _stringBuilder.Append(idPart);
+                        }
+                    }
+
+                    continue;
+                }
+
+                // Not an interpolation: rewind and let normal escape handling deal with it.
+                _textSource.PopAndRestorePosition();
+                _currentPosition = checkpoint;
+            }
+
+            // Interpolation: $ (not escaped), followed by { or identifier start
+            if (ch2 == '$' && !IsDollarEscaped(_stringBuilder) && PeekChar(out var next) && (next == '{' || SyntaxFacts.IsIdentifierStartCharacter(next)))
+            {
+                _stringBuilder.Append('$');
+                if (next == '{')
+                {
+                    ReadChar(); // consume '{'
+                    _stringBuilder.Append('{');
+                    ScanInterpolationBodyIntoBuilder();
+                }
+                else
+                {
+                    // $identifier form
+                    ReadChar(); // consume first identifier char
+                    _stringBuilder.Append(next);
+                    while (PeekChar(out var idch) && SyntaxFacts.IsIdentifierPartCharacter(idch))
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(idch);
+                    }
+                }
+                continue;
+            }
 
             if (ch2 == '"')
             {
@@ -676,9 +748,43 @@ internal class Lexer : ILexer
 
             if (ch2 == '\\')
             {
+                // Support legacy interpolation introducer: \$name and \${...}
+                // (i.e. the backslash is not retained; it only forces interpolation).
+                if (PeekChar(out var escaped) && escaped == '$')
+                {
+                    // Look ahead one more character after '$' to determine interpolation form.
+                    if (_textSource.PeekChar(1, out var afterDollar) && (afterDollar == '{' || SyntaxFacts.IsIdentifierStartCharacter(afterDollar)))
+                    {
+                        ReadChar(); // consume '$'
+
+                        _stringBuilder.Append('$');
+
+                        if (afterDollar == '{')
+                        {
+                            ReadChar(); // consume '{'
+                            _stringBuilder.Append('{');
+                            ScanInterpolationBodyIntoBuilder();
+                        }
+                        else
+                        {
+                            // $identifier form
+                            ReadChar(); // consume first identifier char
+                            _stringBuilder.Append(afterDollar);
+                            while (PeekChar(out var idch) && SyntaxFacts.IsIdentifierPartCharacter(idch))
+                            {
+                                ReadChar();
+                                _stringBuilder.Append(idch);
+                            }
+                        }
+
+                        continue;
+                    }
+                }
+
+                // Normal escape handling
                 _stringBuilder.Append(ch2);
 
-                if (!PeekChar(out var escaped))
+                if (!PeekChar(out var escaped2))
                 {
                     diagnostics.Add(
                         DiagnosticInfo.Create(
@@ -689,7 +795,7 @@ internal class Lexer : ILexer
 
                 ReadChar();
 
-                if (IsEndOfLine(escaped))
+                if (IsEndOfLine(escaped2))
                 {
                     diagnostics.Add(
                         DiagnosticInfo.Create(
@@ -698,7 +804,7 @@ internal class Lexer : ILexer
                     break;
                 }
 
-                _stringBuilder.Append(escaped);
+                _stringBuilder.Append(escaped2);
                 continue;
             }
 
@@ -726,6 +832,264 @@ internal class Lexer : ILexer
             rawText,
             string.Intern(decoded),
             diagnostics: diagnostics);
+
+        // --- Local helpers for interpolation-aware lexing ---
+
+        // Returns true if the $ is immediately preceded by an odd number of backslashes in the builder.
+        static bool IsDollarEscaped(StringBuilder sb)
+        {
+            int count = 0;
+            for (int i = sb.Length - 1; i >= 0 && sb[i] == '\\'; i--)
+                count++;
+            return (count & 1) == 1;
+        }
+
+        // Scan the body of an interpolation (after `${` has been appended, and the `{` consumed).
+        void ScanInterpolationBodyIntoBuilder()
+        {
+            int braceDepth = 1;
+            int parenDepth = 0;
+            int bracketDepth = 0;
+            while (true)
+            {
+                if (!PeekChar(out var c))
+                {
+                    // Unterminated interpolation: just stop.
+                    break;
+                }
+                // Do not allow newlines inside interpolation in single-line strings.
+                if (IsEndOfLine(c))
+                {
+                    // Emit newline-in-constant diagnostic and stop.
+                    diagnostics.Add(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.NewlineInConstant,
+                            GetTokenStartPositionSpan()));
+                    break;
+                }
+                // Handle string literals inside interpolation
+                if (c == '"')
+                {
+                    ReadChar();
+                    _stringBuilder.Append('"');
+                    // Check for raw triple-quote
+                    if (PeekChar(out var q2) && q2 == '"' && _textSource.PeekChar(1, out var q3) && q3 == '"')
+                    {
+                        ReadChar(); _stringBuilder.Append('"');
+                        ReadChar(); _stringBuilder.Append('"');
+                        ScanRawTripleQuotedStringLiteralIntoBuilder();
+                    }
+                    else
+                    {
+                        ScanNormalStringLiteralIntoBuilder();
+                    }
+                    continue;
+                }
+                // Handle character literals inside interpolation
+                if (c == '\'')
+                {
+                    ReadChar();
+                    _stringBuilder.Append('\'');
+                    ScanCharacterLiteralIntoBuilder();
+                    continue;
+                }
+                // Handle comments
+                if (c == '/' && PeekChar(out var next))
+                {
+                    if (_textSource.PeekChar(1, out var n2))
+                    {
+                        if (next == '/')
+                        {
+                            ReadChar(); _stringBuilder.Append('/');
+                            ReadChar(); _stringBuilder.Append('/');
+                            ScanSingleLineCommentIntoBuilder();
+                            continue;
+                        }
+                        else if (next == '*')
+                        {
+                            ReadChar(); _stringBuilder.Append('/');
+                            ReadChar(); _stringBuilder.Append('*');
+                            ScanMultiLineCommentIntoBuilder();
+                            continue;
+                        }
+                    }
+                }
+                // Handle nesting
+                if (c == '{')
+                {
+                    ReadChar();
+                    _stringBuilder.Append('{');
+                    braceDepth++;
+                    continue;
+                }
+                if (c == '}')
+                {
+                    if (braceDepth == 1 && parenDepth == 0 && bracketDepth == 0)
+                    {
+                        ReadChar();
+                        _stringBuilder.Append('}');
+                        // End of interpolation
+                        break;
+                    }
+                    else
+                    {
+                        ReadChar();
+                        _stringBuilder.Append('}');
+                        if (braceDepth > 1) braceDepth--;
+                        continue;
+                    }
+                }
+                if (c == '(')
+                {
+                    ReadChar();
+                    _stringBuilder.Append('(');
+                    parenDepth++;
+                    continue;
+                }
+                if (c == ')')
+                {
+                    ReadChar();
+                    _stringBuilder.Append(')');
+                    if (parenDepth > 0) parenDepth--;
+                    continue;
+                }
+                if (c == '[')
+                {
+                    ReadChar();
+                    _stringBuilder.Append('[');
+                    bracketDepth++;
+                    continue;
+                }
+                if (c == ']')
+                {
+                    ReadChar();
+                    _stringBuilder.Append(']');
+                    if (bracketDepth > 0) bracketDepth--;
+                    continue;
+                }
+                // Otherwise, consume and append
+                ReadChar();
+                _stringBuilder.Append(c);
+            }
+        }
+
+        // Scan a normal string literal (entered after opening " is already appended)
+        void ScanNormalStringLiteralIntoBuilder()
+        {
+            while (PeekChar(out var c))
+            {
+                ReadChar();
+                _stringBuilder.Append(c);
+                if (c == '\\')
+                {
+                    if (PeekChar(out var next))
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(next);
+                        continue;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                if (c == '"')
+                {
+                    break;
+                }
+                // Do not allow newlines in string literal
+                if (IsEndOfLine(c))
+                {
+                    break;
+                }
+            }
+        }
+
+        // Scan a raw triple-quoted string literal (entered after opening """ is already appended)
+        void ScanRawTripleQuotedStringLiteralIntoBuilder()
+        {
+            while (true)
+            {
+                if (!PeekChar(out var c))
+                {
+                    break;
+                }
+                // End at next """
+                if (c == '"' && _textSource.PeekChar(1, out var q2) && q2 == '"' && _textSource.PeekChar(2, out var q3) && q3 == '"')
+                {
+                    ReadChar(); _stringBuilder.Append('"');
+                    ReadChar(); _stringBuilder.Append('"');
+                    ReadChar(); _stringBuilder.Append('"');
+                    break;
+                }
+                // Newline or EOF ends triple-quoted string inside interpolation
+                if (IsEndOfLine(c))
+                {
+                    break;
+                }
+                ReadChar();
+                _stringBuilder.Append(c);
+            }
+        }
+
+        // Scan a character literal (entered after opening ' is already appended)
+        void ScanCharacterLiteralIntoBuilder()
+        {
+            while (PeekChar(out var c))
+            {
+                ReadChar();
+                _stringBuilder.Append(c);
+                if (c == '\\')
+                {
+                    if (PeekChar(out var next))
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(next);
+                        continue;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                if (c == '\'')
+                {
+                    break;
+                }
+                if (IsEndOfLine(c))
+                {
+                    break;
+                }
+            }
+        }
+
+        // Scan a single-line comment (entered after // is already appended)
+        void ScanSingleLineCommentIntoBuilder()
+        {
+            while (PeekChar(out var c))
+            {
+                if (IsEndOfLine(c))
+                    break;
+                ReadChar();
+                _stringBuilder.Append(c);
+            }
+        }
+
+        // Scan a multi-line comment (entered after /* is already appended)
+        void ScanMultiLineCommentIntoBuilder()
+        {
+            while (PeekChar(out var c))
+            {
+                ReadChar();
+                _stringBuilder.Append(c);
+                if (c == '*' && PeekChar(out var next) && next == '/')
+                {
+                    ReadChar();
+                    _stringBuilder.Append('/');
+                    break;
+                }
+            }
+        }
     }
 
     private Token ParseTripleQuotedStringLiteral(List<DiagnosticInfo> diagnostics)

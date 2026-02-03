@@ -80,6 +80,24 @@ internal sealed class SeekableTextSource
         return InBufferRange(_position) ? GetFromBuffer(_position) : -1;
     }
 
+    public bool PeekChar(int offset, out char ch)
+    {
+        EnsureBuffered(_position + offset);
+        if (!InBufferRange(_position))
+        {
+            ch = '\0';
+            return false;
+        }
+        var no = GetFromBuffer(_position);
+        if (no == -1)
+        {
+            ch = '\0';
+            return false;
+        }
+        ch = (char)no;
+        return true;
+    }
+
     public int Read()
     {
         EnsureBuffered(_position);
