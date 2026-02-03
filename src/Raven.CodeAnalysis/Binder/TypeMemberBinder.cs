@@ -513,7 +513,53 @@ internal class TypeMemberBinder : Binder
         if (isAsync && methodDecl.ReturnType is null)
             methodSymbol.RequireAsyncReturnTypeInference();
 
+        // Bind method-declared type parameters first (e.g. <B>)
         InitializeMethodTypeParameters(methodSymbol, methodDecl.TypeParameterList);
+
+        // If we are inside an extension container, the lowering pipeline should already have
+        // projected the extension container type parameters onto the method as method-owned
+        // type parameters. We still need a substitution map so we can bind the receiver type
+        // syntax (e.g. IEnumerable<T>) against the *method's* type parameter identity.
+        IReadOnlyDictionary<string, ITypeSymbol>? extensionTypeParameterSubstitutions = null;
+
+        if (IsExtensionContainer && !_containingType.TypeParameters.IsDefaultOrEmpty)
+        {
+            var methodTypeParameters = methodSymbol.TypeParameters;
+
+            // Expected invariant: extension type params are the first method type params.
+            if (!methodTypeParameters.IsDefaultOrEmpty &&
+                methodTypeParameters.Length >= _containingType.TypeParameters.Length)
+            {
+                var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+                for (int i = 0; i < _containingType.TypeParameters.Length; i++)
+                    map[_containingType.TypeParameters[i].Name] = methodTypeParameters[i];
+
+                extensionTypeParameterSubstitutions = map;
+            }
+            else
+            {
+                // Fallback: only if method doesn't already have the lowered extension TPs
+                var loweredExtensionTypeParameters = CreateExtensionTypeParameters(methodSymbol);
+                if (!loweredExtensionTypeParameters.IsDefaultOrEmpty)
+                {
+                    var existing = methodSymbol.TypeParameters;
+                    var merged = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(
+                        loweredExtensionTypeParameters.Length + existing.Length);
+
+                    merged.AddRange(loweredExtensionTypeParameters);
+                    merged.AddRange(existing);
+
+                    methodSymbol.SetTypeParameters(merged.ToImmutable());
+
+                    var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+                    var count = Math.Min(_containingType.TypeParameters.Length, loweredExtensionTypeParameters.Length);
+                    for (int i = 0; i < count; i++)
+                        map[_containingType.TypeParameters[i].Name] = loweredExtensionTypeParameters[i];
+
+                    extensionTypeParameterSubstitutions = map;
+                }
+            }
+        }
 
         var hasInvalidAsyncReturnType = false;
 
@@ -544,7 +590,19 @@ internal class TypeMemberBinder : Binder
 
         ITypeSymbol? receiverType = null;
         if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
-            receiverType = methodBinder.ResolveType(_extensionReceiverTypeSyntax);
+        {
+            var type = methodBinder.BindType(
+                _extensionReceiverTypeSyntax,
+                extensionTypeParameterSubstitutions is null
+                    ? null
+                    : new Binder.TypeResolutionOptions
+                    {
+                        TypeParameterSubstitutions = extensionTypeParameterSubstitutions,
+                        SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
+                    });
+
+            receiverType = type.ResolvedType;
+        }
 
         var signatureParameters = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToList();
         if (receiverType is not null)

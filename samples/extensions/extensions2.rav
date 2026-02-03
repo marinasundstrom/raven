@@ -1,0 +1,36 @@
+import System.Console.*
+import System.Collections.Generic.*
+
+val items = List<int>()
+items.Add(1)
+items.Add(2)
+val count = items.CountItems()
+
+WriteLine(count)
+
+val count2 = items.CountItems<int, string>(2)
+
+WriteLine(count2)
+
+val count3 = items.CountItems(true)
+
+WriteLine(count3)
+
+
+public extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
+    public CountItems() -> int {
+        var total: int = 0
+        for each in self {
+            total = total + 1
+        }
+        return total
+    }
+
+    public CountItems<B>(arg: T) -> B {
+        return default(B)
+    }
+
+    public CountItems<B>(arg: B) -> B {
+        return arg
+    }
+}

@@ -8,7 +8,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-internal abstract class Binder
+internal abstract partial class Binder
 {
     protected readonly DiagnosticBag _diagnostics;
 

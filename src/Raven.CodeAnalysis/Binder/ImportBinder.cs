@@ -243,4 +243,29 @@ class ImportBinder : Binder
             if (seen.Add(property))
                 yield return property;
     }
+
+    protected override IReadOnlyList<INamespaceOrTypeSymbol> GetImportedScopesForTypeResolution()
+    {
+        var scopes = new List<INamespaceOrTypeSymbol>(capacity: 8);
+
+        // 1) add imported scopes first (highest priority)
+        foreach (var s in _namespaceOrTypeScopeImports) // whatever your internal representation is
+        {
+            if (s is null)
+                continue;
+
+            if (!scopes.Contains(s, SymbolEqualityComparer.Default))
+                scopes.Add(s);
+        }
+
+        // 2) then append the base/parent scopes
+        var baseScopes = base.GetImportedScopesForTypeResolution();
+        foreach (var s in baseScopes)
+        {
+            if (!scopes.Contains(s, SymbolEqualityComparer.Default))
+                scopes.Add(s);
+        }
+
+        return scopes;
+    }
 }
