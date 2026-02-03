@@ -28,7 +28,8 @@ if result is .Some(val variableDeclarator) {
     }
 
     // Create a new root in which variableDeclarator has been replaced by newVariableDeclarator
-    val newRoot = root.ReplaceNode(variableDeclarator, newVariableDeclarator)
+    val newRoot = root
+        .ReplaceNode(variableDeclarator, newVariableDeclarator)
 
     WriteLine(newRoot)
 
@@ -41,7 +42,7 @@ if result is .Some(val variableDeclarator) {
 extension for Console {
     public static Print(node: SyntaxNode) -> () {
         return node.PrintSyntaxTree(PrinterOptions {
-         IncludeTokens = true,
+            IncludeTokens = true,
             IncludeTrivia = true,
             IncludeSpans = true,
             IncludeLocations = true,
