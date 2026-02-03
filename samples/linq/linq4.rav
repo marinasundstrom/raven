@@ -1,0 +1,21 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+val arr = [1, -1, 3]
+
+val result = arr.Select(Compute)
+
+WriteLine(result)
+
+val result2 = arr.Select(n => Compute(n))
+
+WriteLine(result2)
+
+func Compute(n: int) -> Option<int> {
+    if n < 0 {
+        return .None
+    }
+    return .Some(n * 2)
+}

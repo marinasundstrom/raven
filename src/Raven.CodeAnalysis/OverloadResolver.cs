@@ -212,6 +212,14 @@ internal sealed class OverloadResolver
                 continue;
             }
 
+            if (expression is BoundMethodGroupExpression methodGroup)
+            {
+                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method))
+                    return null;
+
+                continue;
+            }
+
             var argumentType = expression.Type;
             if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
                 continue;
@@ -374,6 +382,87 @@ internal sealed class OverloadResolver
         }
 
         return true;
+    }
+
+    private static bool TryInferFromMethodGroup(
+        Compilation compilation,
+        ITypeSymbol parameterType,
+        BoundMethodGroupExpression methodGroup,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        IMethodSymbol? inferenceMethod)
+    {
+        // Method groups only participate in inference when the target parameter is a delegate type.
+        if (parameterType is not INamedTypeSymbol delegateType ||
+            delegateType.TypeKind != TypeKind.Delegate)
+        {
+            return true;
+        }
+
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return true;
+
+        // Best-effort: pick the first candidate that can unify with the delegate signature
+        // without producing conflicting substitutions.
+        var candidates = methodGroup.Methods;
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var candidate in candidates)
+        {
+            if (candidate is null)
+                continue;
+
+            // Skip open generic method-group candidates for now.
+            // (C# can sometimes infer these too, but this keeps Raven behavior predictable
+            // until we add a dedicated inference pass for the group method's own type params.)
+            if (candidate.IsGenericMethod && candidate.TypeParameters.Length > 0)
+                continue;
+
+            if (candidate.Parameters.Length != invoke.Parameters.Length)
+                continue;
+
+            // Backtrackable inference: try candidate against a copy, then commit.
+            var temp = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(substitutions, SymbolEqualityComparer.Default);
+
+            var ok = true;
+
+            for (int i = 0; i < invoke.Parameters.Length; i++)
+            {
+                var expectedParam = invoke.Parameters[i];
+                var candidateParam = candidate.Parameters[i];
+
+                // Ref-kind mismatch cannot be bridged by conversions.
+                if (expectedParam.RefKind != candidateParam.RefKind)
+                {
+                    ok = false;
+                    break;
+                }
+
+                if (!TryInferFromTypes(compilation, expectedParam.Type, candidateParam.Type, temp, inferenceMethod))
+                {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (!ok)
+                continue;
+
+            // Unify return types as well so we can infer TResult from a method group like `Compute`.
+            if (!TryInferFromTypes(compilation, invoke.ReturnType, candidate.ReturnType, temp, inferenceMethod))
+                continue;
+
+            // Commit inferred substitutions.
+            substitutions.Clear();
+            foreach (var kv in temp)
+                substitutions[kv.Key] = kv.Value;
+
+            return true;
+        }
+
+        // No candidate could be used to infer the delegate conversion.
+        return false;
     }
 
     private static ImmutableArray<OverloadCandidateLog> MarkCandidates(
