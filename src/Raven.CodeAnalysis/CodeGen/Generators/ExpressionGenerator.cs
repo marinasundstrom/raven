@@ -42,6 +42,10 @@ internal partial class ExpressionGenerator : Generator
         .GetMethod(nameof(string.Format), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
         ?? throw new InvalidOperationException("Failed to resolve string.Format(string, object).");
 
+    private static readonly MethodInfo ArrayEmptyGenericMethod = typeof(Array)
+        .GetMethod(nameof(Array.Empty), BindingFlags.Public | BindingFlags.Static, binder: null, Type.EmptyTypes, modifiers: null)
+        ?? throw new InvalidOperationException("Failed to resolve Array.Empty<T>().");
+
     public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true)
         : this(parent, expression, preserveResult ? EmitContext.Value : EmitContext.None)
     {
@@ -1743,18 +1747,15 @@ internal partial class ExpressionGenerator : Generator
             SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, ienumerableDef))
         {
             var elementType = named.TypeArguments[0];
-
-            ILGenerator.Emit(OpCodes.Ldc_I4, 0);
-            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+            var elementClrType = ResolveClrType(elementType);
+            ILGenerator.Emit(OpCodes.Call, ArrayEmptyGenericMethod.MakeGenericMethod(elementClrType));
             return;
         }
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
-            // TODO: Use Array.Empty<T>() or Enumerable.Empty<T>().
-
-            ILGenerator.Emit(OpCodes.Ldc_I4, 0);
-            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
+            var elementClrType = ResolveClrType(arrayTypeSymbol.ElementType);
+            ILGenerator.Emit(OpCodes.Call, ArrayEmptyGenericMethod.MakeGenericMethod(elementClrType));
         }
         else if (target is INamedTypeSymbol namedType)
         {
