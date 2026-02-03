@@ -55,13 +55,13 @@ When emitted to .NET metadata, a union is projected as the narrowest common deno
 For example:
 
 ```raven
-let pet = if flag { Dog() } else { Cat() } // Dog | Cat
+val pet = if flag { Dog() } else { Cat() } // Dog | Cat
 ```
 
 Emits `Animal` because both `Dog` and `Cat` derive from it. In contrast:
 
 ```raven
-let value = if flag { 0 } else { "hi" } // int | string | null
+val value = if flag { 0 } else { "hi" } // int | string | null
 ```
 
 Emits `object?` since `int` and `string` share no base class other than `object`, and `null` is included.

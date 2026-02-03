@@ -15,7 +15,7 @@ Raven embraces a declarative, expression-first design where nearly every constru
 Raven eliminates redundant syntax where it doesn’t add value. Familiar patterns are respected when they communicate intent, but tradition alone is never a sufficient reason to carry ceremony forward. Object construction does not require repeating type names, and type instantiation stays low-ceremony even as APIs grow more complex:
 
 ```raven
-let user = User(name: "Anna")  // Not new User(...)
+val user = User(name: "Anna")  // Not new User(...)
 ```
 
 Constructors are expressed through `init` blocks or named methods, making object creation feel like invoking functionality, not a compiler formality. The language defaults to the shortest spelling that still tells the truth about what the code is doing and encourages the flow of data without redundant wrappers or boilerplate.
@@ -29,7 +29,7 @@ public init WithName(name: string) {
 The usage:
 
 ```raven
-let user = User.WithName("Anna") 
+val user = User.WithName("Anna") 
 ```
 
 ---
@@ -49,7 +49,7 @@ This symmetry improves reasoning and avoids special cases. Everything flows: the
 
 ```raven
 func Foo(a: int, b: int) -> (x: int, z: string) {
-  let inputs = (a, b)
+  val inputs = (a, b)
   return (x: inputs.0 + 1, z: inputs.1.ToString())
 }
 ```
@@ -57,7 +57,7 @@ func Foo(a: int, b: int) -> (x: int, z: string) {
 The tuple that enters `Foo`, the tuple it returns, and the signature that frames both all share the same surface form, so reading and writing code feels consistent regardless of whether you are looking at data, parameters, or types. Even when values flow through a standalone type annotation, the shapes line up:
 
 ```raven
-let add: (int, int) -> int = (x, y) => x + y
+val add: (int, int) -> int = (x, y) => x + y
 ```
 
 The type annotation, the lambda parameters, and the tuple literal all share the same syntax, reinforcing the idea that symmetry is not abstract philosophy but a concrete rule the language follows.
@@ -69,15 +69,15 @@ The type annotation, the lambda parameters, and the tuple literal all share the 
 Raven favors declarative constructs before imperative ceremony. Control flow and data shaping begin as expressions that state *what* should happen, reserving step-by-step mutation for cases where it truly clarifies intent. Pattern matching, comprehensions, and expression-bodied members keep business logic focused on outcomes, not scaffolding.
 
 ```raven
-let positives = numbers.Where(n => n > 0)
-let summary = match (positives, negatives) {
+val positives = numbers.Where(n => n > 0)
+val summary = match (positives, negatives) {
   ([], []) -> "empty",
   (_, []) -> "gains",
   ([], _) -> "losses",
   _ -> "mixed"
 }
 
-let totalRevenue = orders
+val totalRevenue = orders
   .Where(order => order.isPaid)
   .Select(x => Invoice(x)))
   .Sum(x => x.Total)
@@ -98,7 +98,7 @@ value match {
     _ -> "non-zero"
 }
 
-let message = if user.isAnonymous
+val message = if user.isAnonymous
   "Welcome!"
 else
   $"Welcome back, {user.displayName}!"
@@ -132,7 +132,7 @@ else
 Semicolon may act as a divider:
 
 ```raven
-let x = 2; Console.WriteLine(x)
+val x = 2; Console.WriteLine(x)
 ```
 
 ---
@@ -142,22 +142,22 @@ let x = 2; Console.WriteLine(x)
 Raven supports target-typed expressions, allowing constructs like:
 
 ```raven
-let x: string = .Empty  // If type context implies a known receiver
+val x: string = .Empty  // If type context implies a known receiver
 ```
 
 This enables more concise and predictive IntelliSense experiences and binds expression semantics to the type system, not just to the lexical scope.
 
 ---
 
-### 9. **`let` vs `var`: Mutability by Design**
+### 9. **`val` vs `var`: Mutability by Design**
 
-Raven uses `let` and `var` to make **mutability an explicit decision**:
+Raven uses `val` and `var` to make **mutability an explicit decision**:
 
-* `let` declares an immutable binding (cannot be reassigned)
+* `val` declares an immutable binding (cannot be reassigned)
 * `var` declares a mutable one (can be reassigned)
 
 ```raven
-let name = "Anna"   // Immutable
+val name = "Anna"   // Immutable
 var counter = 0     // Mutable
 ```
 
@@ -180,9 +180,9 @@ Raven pursues correctness through the type system, diagnostics, and analyzers. S
 Exception handling follows the same philosophy: `try` is an expression, and `match` offers structured recovery without imperative sprawl.
 
 ```raven
-let profile = try fetchProfile(for: userId)
+val profile = try fetchProfile(for: userId)
 
-let theme = match try loadSettings("prefs.json") {
+val theme = try loadSettings("prefs.json") match {
   Settings(value) -> value.theme,
   FileError.NotFound -> "light",
   error -> throw error
@@ -200,9 +200,9 @@ Raven code should feel like it moves. "Everything flows" means APIs, control str
 The type system supports that flow. Types are inferred wherever intent is already obvious, and explicit annotations appear only when they disambiguate, document, or unlock new capabilities. Unions describe possible shapes of values succinctly, keeping branching logic declarative without drowning the reader in edge cases.
 
 ```raven
-let items = fetchItems()
-let filtered = items.Where(item => item.isActive)
-let report: Report = .from(filtered)  // Explicit only when the story needs a cast
+val items = fetchItems()
+val filtered = items.Where(item => item.isActive)
+val report: Report = .from(filtered)  // Explicit only when the story needs a cast
 ```
 
 By default, specificity waits until the developer actually needs it. That restraint keeps the language lightweight, expressive, and ready to scale from scripts to systems without drowning the reader in redundant type names.

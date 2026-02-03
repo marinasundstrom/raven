@@ -42,12 +42,12 @@ value-level constraints, most often used as branches in union
 types or other constructs that restrict a value to specific constants.
 
 ```raven
-let value: "yes" | "no" = "yes"
+val value: "yes" | "no" = "yes"
 
 alias Switch = "yes" | "no"
-let value: Switch = "yes"
+val value: Switch = "yes"
 
-let literalInt: int = 2      // literal widens to its underlying type
+val literalInt: int = 2      // literal widens to its underlying type
 ```
 
 Supported literal types are:
@@ -79,11 +79,11 @@ while disjoint literal values remain literal to preserve the precise set of
 constants.
 
 ```raven
-let yes: "yes" = "yes"
-let one: 1 = 1
-let two: int = one      // implicit conversion to int
-let d: double = one     // underlying int widens to double
-let inferred = 1        // inferred int, literal type is widened
+val yes: "yes" = "yes"
+val one: 1 = 1
+val two: int = one      // implicit conversion to int
+val d: double = one     // underlying int widens to double
+val inferred = 1        // inferred int, literal type is widened
 ```
 
 ## Composite and derived types
@@ -108,9 +108,9 @@ return type. A single parameter may omit its parentheses, while zero parameters
 use the empty tuple `()`.
 
 ```raven
-let logger: string -> unit
-let reducer: (int, int) -> int
-let factory: () -> Task<string>
+val logger: string -> unit
+val reducer: (int, int) -> int
+val factory: () -> Task<string>
 ```
 
 In a function parameter:
@@ -170,7 +170,7 @@ on a shared base class remain available. Value-type branches are boxed when the
 common denominator is a reference type.
 
 ```raven
-let union: int | string = "foo"
+val union: int | string = "foo"
 Console.WriteLine(union.ToString()) // members from the common base type are available
 ```
 
@@ -178,9 +178,9 @@ Common use cases include mixing unrelated primitives, modeling optional values,
 or constraining a value to specific literals:
 
 ```raven
-let a: int | string = "2"   // either an int or a string
-let b: string | null = null // optional string (converts to `string?` when required)
-let c: "yes" | "no" = "yes" // constrained to specific constants
+val a: int | string = "2"   // either an int or a string
+val b: string | null = null // optional string (converts to `string?` when required)
+val c: "yes" | "no" = "yes" // constrained to specific constants
 ```
 
 To model absence explicitly, Raven recommends the **Option union** defined in
@@ -193,9 +193,9 @@ A value is assignable to a union when it can convert to at least one member.
 Literal branches are matched by value rather than by type:
 
 ```raven
-let d: "true" | 1 = 1   // ok
-let e: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
-let f: "true" | int = 1 // ok: 1 matches int
+val d: "true" | 1 = 1   // ok
+val e: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
+val f: "true" | int = 1 // ok: 1 matches int
 ```
 
 When a union contains `null` and exactly one other type, it remains a union but
@@ -225,8 +225,8 @@ emits regular CLR generic instantiations, so generic Raven code interops with
 existing .NET libraries.
 
 ```raven
-let box = Box<string>("hi")
-let copy = box.Value
+val box = Box<string>("hi")
+val copy = box.Value
 ```
 
 Generic methods use the same syntax. Call sites may provide explicit type
@@ -237,8 +237,8 @@ choice; otherwise, type arguments must be written explicitly.
 ```raven
 func identity<T>(value: T) -> T { value }
 
-let inferred = identity(42)      // infers T = int
-let explicit = identity<double>(42)
+val inferred = identity(42)      // infers T = int
+val explicit = identity<double>(42)
 ```
 
 Type parameters optionally declare constraints after a colon. The keywords
@@ -340,7 +340,7 @@ Raven synthesizes one whose parameters (including `ref`/`out` modifiers) and
 return type match the method being referenced. Subsequent method references with
 the same signature reuse the synthesized delegate.
 
-Method groups cannot flow into typeless contexts. Writing `let callback =
+Method groups cannot flow into typeless contexts. Writing `val callback =
 Logger.Log` produces diagnostic `RAV2201` because no delegate target is
 available. Likewise, when multiple overloads remain compatible with the target
 delegate (for example, `Action<int>` matching methods that accept `int` or
@@ -367,7 +367,7 @@ between delegate types requires an explicit cast.
 Because Raven reuses .NET types, existing libraries can be consumed seamlessly:
 
 ```raven
-let ids: Guid[] = [Guid.NewGuid()]
+val ids: Guid[] = [Guid.NewGuid()]
 Console.WriteLine(ids[0])
 ```
 
@@ -401,9 +401,9 @@ the core compiler.
 Raven uses C#-style cast syntax for conversions that are not implicit, such as downcasting or numeric narrowing:
 
 ```raven
-let d = (double)1
-let n = (int)3.14
-let s = obj as string
+val d = (double)1
+val n = (int)3.14
+val s = obj as string
 ```
 
 `(T)expr` performs a runtime-checked cast and throws an `InvalidCastException` if `expr` cannot convert to `T`.
@@ -420,7 +420,7 @@ converted to its underlying primitive type before the ranking is applied. If no
 candidate is strictly better, the call is reported as ambiguous.
 
 ```raven
-let parsed = int.Parse("42") // string literal selects the overload taking string
+val parsed = int.Parse("42") // string literal selects the overload taking string
 ```
 
 Arguments with union types participate using the union's base type. The compiler
@@ -432,7 +432,7 @@ the overload that best matches its shared base type:
 func print(x: object) -> () {}
 func print(x: int) -> () {}
 
-let u: int | string = "hi"
+val u: int | string = "hi"
 print(u) // calls print(object)
 ```
 

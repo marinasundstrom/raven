@@ -491,7 +491,7 @@ When you want to propagate failures immediately, use `try?`. It combines `try` w
 
 ```raven
 func ParseInt(text: string) -> Result<int, string> {
-    let value = try? int.Parse(text)
+    val value = try? int.Parse(text)
     return .Ok(value)
 }
 ```

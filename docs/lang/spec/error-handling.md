@@ -34,7 +34,7 @@ func parseInt(text: string) -> int | ParseError {
 }
 
 func readConfig(path: string) {
-    using let stream = File.OpenRead(path)
+    using val stream = File.OpenRead(path)
     if stream is null {
         throw System.IO.FileNotFoundException(path)
     }
@@ -91,10 +91,10 @@ exception escapes the operand, the expression instead yields `.Error(exception)`
 This makes `try` expressions particularly useful with pattern matching:
 
 ```raven
-let value = try int.Parse(input) match {
-    .Ok(let no) => $"No is {no}"
+val value = try int.Parse(input) match {
+    .Ok(val no) => $"No is {no}"
     .Error(FormatException ex) => $"Format invalid: {ex.Message}"
-    .Error(let ex) => $"Unexpected error: {ex.Message}"
+    .Error(val ex) => $"Unexpected error: {ex.Message}"
 }
 ```
 

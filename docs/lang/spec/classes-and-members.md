@@ -14,7 +14,7 @@ requires a virtual base member).
 ```raven
 class Counter
 {
-    public let Name: string
+    public val Name: string
 
     private var _value: int = 0
 
@@ -97,8 +97,8 @@ class Box<T>
     init(value: T) { Value = value }
 }
 
-let ints = Box<int>(1)
-let words = Box<string>("ok")
+val ints = Box<int>(1)
+val words = Box<string>("ok")
 ```
 
 Instantiating a generic type supplies concrete type arguments between `<` and
@@ -178,8 +178,8 @@ class Person(name: string, age: int)
     public GetAge() -> int => age
 }
 
-let person = Person("Ada", 42)
-let years = person.GetAge()
+val person = Person("Ada", 42)
+val years = person.GetAge()
 ```
 
 ### Record classes
@@ -192,10 +192,10 @@ synthesizes value-based `Equals`, `GetHashCode`, and `==`/`!=` operators.
 ```raven
 record class Person(name: string, age: int);
 
-let a = Person("Ada", 42)
-let b = Person("Ada", 42)
+val a = Person("Ada", 42)
+val b = Person("Ada", 42)
 
-let same = a == b
+val same = a == b
 ```
 
 ### Properties
@@ -466,8 +466,8 @@ class Adder
     public self(x: int, y: int) -> int => x + y
 }
 
-let add = Adder()
-let sum = add(1, 2) // calls self(1, 2)
+val add = Adder()
+val sum = add(1, 2) // calls self(1, 2)
 ```
 
 Invocation operators can themselves be overloaded by providing multiple `self`
@@ -525,7 +525,7 @@ class QuietLogger : ILogger
 ```
 
 ```
-let logger = QuietLogger()
+val logger = QuietLogger()
 logger.Log("hi")              // error: member not found
 (logger :> ILogger).Log("hi") // ok
 ```

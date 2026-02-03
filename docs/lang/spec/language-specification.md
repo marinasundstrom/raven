@@ -528,7 +528,7 @@ WriteLine(ParseInt("foo"))
 
 ```raven
 func ParseInt(text: string) -> Result<int, string> {
-    let value = try? int.Parse(text)
+    val value = try? int.Parse(text)
     return .Ok(value)
 }
 ```
@@ -721,7 +721,7 @@ func GetItem() -> Result<string, Err> {
     val maybeItem = GetUser()?.Item?
 
     return maybeItem match {
-        .Some(let item) => .Ok(item.Name)
+        .Some(val item) => .Ok(item.Name)
         .None           => .Error(Err.MissingName)
     }
 }

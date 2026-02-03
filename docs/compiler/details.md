@@ -33,8 +33,8 @@ for the non-method members. Filter the list first, for example:
 ```raven
 import System.Reflection.*
 
-let type = typeof(System.String)
-let members = type.GetMembers()
+val type = typeof(System.String)
+val members = type.GetMembers()
 
 for member in members {
     if member is MethodInfo method {

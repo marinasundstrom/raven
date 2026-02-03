@@ -88,24 +88,24 @@ continued line becomes leading whitespace trivia for the next token, while the
 terminating newline token itself remains trivia-free.
 
 ```raven
-let sum =
+val sum =
     1
     + offset
 
-let labelled = 42 // comment stays with the literal
-let next =
+val labelled = 42 // comment stays with the literal
+val next =
     labelled
 ```
 
 In the example above, the newline following `=` and the newline immediately
 before `+` attach to the numeric literal and the operator, respectively. The
 comment preceding a terminating newline remains trailing trivia on the
-preceding token, and the indentation before `let next` is preserved as leading
+preceding token, and the indentation before `val next` is preserved as leading
 whitespace on the next statement's first token.
 
 ```raven
-let a = 42
-let b = 1; b = 3
+val a = 42
+val b = 1; b = 3
 ```
 
 ## Assignment statements
