@@ -155,14 +155,20 @@ internal sealed class OverloadResolver
         BoundArgument[] arguments,
         Compilation compilation)
     {
+        // Extension lookup may return a method already adjusted for the receiver
+        // (e.g. from a constructed extension container type), but the method can
+        // still have method-level type parameters (like <E>) that must be inferred.
         if (!method.IsGenericMethod || method.TypeParameters.IsDefaultOrEmpty || method.TypeParameters.Length == 0)
             return method;
 
-        if (!ReferenceEquals(method, method.ConstructedFrom))
-            return method;
-
         var treatAsExtension = method.IsExtensionMethod && receiver is not null;
-        return TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation);
+
+        // Run inference on the method instance we have (which may already have receiver substitutions),
+        // so we infer the remaining method type parameters from the call arguments.
+        var inferred = TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation);
+
+        // If inference fails, keep the original (don’t null out a viable candidate too early).
+        return inferred ?? method;
     }
 
     private static IMethodSymbol? TryConstructMethodWithInference(

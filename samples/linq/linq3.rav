@@ -18,7 +18,7 @@ Console.WriteLine(result)
 Console.WriteLine(test([]))
 
 func test(items: IEnumerable<int>) -> Result<int, DomainError>
-    val first = items.FirstOrError<int, DomainError>(() => DomainError("Wow"))?
+    val first = items.FirstOrError(() => DomainError("Wow"))?
     return .Ok(first)
 }
 
