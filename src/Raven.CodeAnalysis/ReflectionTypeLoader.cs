@@ -371,7 +371,13 @@ internal class ReflectionTypeLoader(Compilation compilation)
         // When we already have a runtime Type, always intern through the module's Type-based cache
         // to ensure we never create a second instance for the same type via the metadata-name path.
         if (assemblySymbol.PrimaryModule is PEModuleSymbol peModule)
-            return peModule.GetType(type);
+        {
+            var r = peModule.GetType(type);
+            if (r is not null)
+            {
+                return r;
+            }
+        }
 
         return compilation.GetTypeByMetadataName(metadataName)
             ?? compilation.ErrorTypeSymbol;

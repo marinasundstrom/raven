@@ -1736,6 +1736,19 @@ internal partial class ExpressionGenerator : Generator
     {
         var target = emptyCollectionExpression.Type;
 
+        // If target is IEnumerable<T>, default to emitting an empty T[] since arrays implement IEnumerable<T>
+        var ienumerableDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
+        if (ienumerableDef is not null &&
+            target is INamedTypeSymbol named &&
+            SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, ienumerableDef))
+        {
+            var elementType = named.TypeArguments[0];
+
+            ILGenerator.Emit(OpCodes.Ldc_I4, 0);
+            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
+            return;
+        }
+
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
             // TODO: Use Array.Empty<T>() or Enumerable.Empty<T>().

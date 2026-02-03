@@ -353,7 +353,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
     public IMethodSymbol? StaticConstructor { get; }
-    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
+    public ImmutableArray<ITypeSymbol> TypeArguments { get; } = [];
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
         _typeParameters ??= ComputeTypeParameters();

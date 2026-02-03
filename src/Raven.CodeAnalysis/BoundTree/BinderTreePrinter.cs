@@ -124,7 +124,7 @@ public static class BinderTreePrinter
                 {
                     var symbol = binder.BindDeclaredSymbol(node);
                     if (symbol is not null)
-                        return $" ({MaybeColorize(symbol.Name, AnsiColor.Cyan)})";
+                        return $" ({MaybeColorize(symbol.ToDisplayString(), AnsiColor.Cyan)})";
                 }
             }
             else if (parentToChildren.TryGetValue(binder, out var children))
@@ -137,7 +137,7 @@ public static class BinderTreePrinter
                         {
                             var symbol = binder.BindDeclaredSymbol(node);
                             if (symbol is not null)
-                                return $" ({MaybeColorize(symbol.Name, AnsiColor.Cyan)})";
+                                return $" ({MaybeColorize(symbol.ToDisplayString(), AnsiColor.Cyan)})";
                         }
                     }
                 }
@@ -177,10 +177,10 @@ public static class BinderTreePrinter
             TopLevelBinder => coloredKind + " (" + MaybeColorize("synthesized Main", AnsiColor.BrightBlue) + ")",
 
             TypeDeclarationBinder td =>
-                coloredKind + " (" + MaybeColorize(td.ContainingSymbol?.Name ?? "?", AnsiColor.Cyan) + ")",
+                coloredKind + " (" + MaybeColorize(td.ContainingSymbol?.ToDisplayString() ?? "?", AnsiColor.Cyan) + ")",
 
             MethodBinder m =>
-                coloredKind + " (" + MaybeColorize(m.GetMethodSymbol()?.Name ?? "?", AnsiColor.Cyan) + ")",
+                coloredKind + " (" + MaybeColorize(m.GetMethodSymbol()?.ToDisplayString() ?? "?", AnsiColor.Cyan) + ")",
 
             TypeMemberBinder => coloredKind + DescribeSymbol(binder, binderNodes, parentToChildren),
 

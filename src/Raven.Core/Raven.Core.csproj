@@ -14,6 +14,7 @@
     <RavenSource Include="Option.rav" />
     <RavenSource Include="Result.rav" />
     <RavenSource Include="Either.rav" />
+    <RavenSource Include="LinqExtensions.rav" />
   </ItemGroup>
 
   <Target Name="CompileRavenCore"

@@ -833,6 +833,7 @@ internal abstract class Binder
             if (!includePartialMatches && name is not null && member.Name != name)
                 continue;
 
+            var str = member.ToDisplayString();
             yield return member;
         }
 

@@ -2036,7 +2036,7 @@ partial class BlockBinder
             if (TryBindDiscriminatedUnionCase(expectedType, memberName, nameLocation) is BoundExpression unionCase)
                 return unionCase;
 
-            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, nameLocation);
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, nameLocation ?? Location.None);
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 

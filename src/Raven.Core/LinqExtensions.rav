@@ -1,0 +1,232 @@
+namespace System.Linq
+
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+public extension EnumerableOption<T> for IEnumerable<T> {
+
+    // -------------------------
+    // First
+    // -------------------------
+
+    public FirstOrNone() -> Option<T> {
+        for item in self {
+            return .Some(item)
+        }
+        return .None
+    }
+
+    public FirstOrNone(predicate: T -> bool) -> Option<T> {
+        for item in self {
+            if predicate(item) {
+                return .Some(item)
+            }
+        }
+        return .None
+    }
+
+    public FirstOrError<E>(errorFactory: () -> E) -> Result<T, E> {
+        for item in self {
+            return .Ok(item)
+        }
+        return .Error(errorFactory())
+    }
+
+    public FirstOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
+        for item in self {
+            if predicate(item) {
+                return .Ok(item)
+            }
+        }
+        return .Error(errorFactory())
+    }
+
+    // -------------------------
+    // Last
+    // -------------------------
+
+    public LastOrNone() -> Option<T> {
+        var result: Option<T> = .None
+        for item in self {
+            result = .Some(item)
+        }
+        return result
+    }
+
+    public LastOrNone(predicate: T -> bool) -> Option<T> {
+        var result: Option<T> = .None
+        for item in self {
+            if predicate(item) {
+                result = .Some(item)
+            }
+        }
+        return result
+    }
+
+    public LastOrError<E>(errorFactory: () -> E) -> Result<T, E> {
+        var result: Option<T> = .None
+        for item in self {
+            result = .Some(item)
+        }
+
+        return result match {
+            .Some(val value) => .Ok(value)
+            .None => .Error(errorFactory())
+        }
+    }
+
+    public LastOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
+        var result: Option<T> = .None
+        for item in self {
+            if predicate(item) {
+                result = .Some(item)
+            }
+        }
+
+        return result match {
+            .Some(val value) => .Ok(value)
+            .None => .Error(errorFactory())
+        }
+    }
+
+    // -------------------------
+    // Single
+    // -------------------------
+
+    public SingleOrNone() -> Option<T> {
+        var seen = false
+        var value: Option<T> = .None
+
+        for item in self {
+            if seen {
+                return .None
+            }
+            seen = true
+            value = .Some(item)
+        }
+
+        return value
+    }
+
+    public SingleOrNone(predicate: T -> bool) -> Option<T> {
+        var seen = false
+        var value: Option<T> = .None
+
+        for item in self {
+            if predicate(item) {
+                if seen {
+                    return .None
+                }
+                seen = true
+                value = .Some(item)
+            }
+        }
+
+        return value
+    }
+
+    public SingleOrError<E>(errorFactory: () -> E) -> Result<T, E> {
+        var seen = false
+        var value: Option<T> = .None
+
+        for item in self {
+            if seen {
+                return .Error(errorFactory())
+            }
+            seen = true
+            value = .Some(item)
+        }
+
+        return value match {
+            .Some(val v) => .Ok(v)
+            .None => .Error(errorFactory())
+        }
+    }
+
+    public SingleOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
+        var seen = false
+        var value: Option<T> = .None
+
+        for item in self {
+            if predicate(item) {
+                if seen {
+                    return .Error(errorFactory())
+                }
+                seen = true
+                value = .Some(item)
+            }
+        }
+
+        return value match {
+            .Some(val v) => .Ok(v)
+            .None => .Error(errorFactory())
+        }
+    }
+
+    public SingleOrError<E>(errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
+        var seen = false
+        var value: Option<T> = .None
+
+        for item in self {
+            if seen {
+                return .Error(errorIfMany())
+            }
+            seen = true
+            value = .Some(item)
+        }
+
+        return value match {
+            .Some(val v) => .Ok(v)
+            .None => .Error(errorIfNone())
+        }
+    }
+
+    public SingleOrError<E>(predicate: T -> bool, errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
+        var seen = false
+        var value: Option<T> = .None
+
+        for item in self {
+            if predicate(item) {
+                if seen {
+                    return .Error(errorIfMany())
+                }
+                seen = true
+                value = .Some(item)
+            }
+        }
+
+        return value match {
+            .Some(val v) => .Ok(v)
+            .None => .Error(errorIfNone())
+        }
+    }
+
+    // -------------------------
+    // ElementAt
+    // -------------------------
+
+    public ElementAtOrNone(index: int) -> Option<T> {
+        if index < 0 {
+            return .None
+        }
+
+        var i = 0
+        for item in self {
+            if i == index {
+                return .Some(item)
+            }
+            i = i + 1
+        }
+
+        return .None
+    }
+
+    public ElementAtOrError<E>(index: int, errorFactory: () -> E) -> Result<T, E> {
+        val opt = self.ElementAtOrNone(index)
+        return opt match {
+            .Some(val v) => .Ok(v)
+            .None => .Error(errorFactory())
+        }
+    }
+}
