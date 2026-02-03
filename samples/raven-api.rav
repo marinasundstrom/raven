@@ -15,14 +15,17 @@ val syntaxTree = SyntaxTree.ParseText(code)
 
 val root = syntaxTree.GetRoot()
 
-val oldNode = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First()
+val result = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().FirstOrNone()
 
-val newNode = oldNode with {
-    Identifier = Identifier("foo") with {
-        TrailingTrivia = TriviaList([Trivia(SyntaxKind.WhitespaceTrivia, " ")])
+if result is .Some(val oldNode) {
+    val newNode = oldNode with {
+        Identifier = Identifier("foo") with {
+            LeadingTrivia = oldNode.Identifier.LeadingTrivia
+            TrailingTrivia = oldNode.Identifier.TrailingTrivia
+        }
     }
+
+    val newRoot = root.ReplaceNode(oldNode, newNode)
+
+    WriteLine(newRoot)
 }
-
-val newRoot = root.ReplaceNode(oldNode, newNode)
-
-WriteLine(newRoot)
