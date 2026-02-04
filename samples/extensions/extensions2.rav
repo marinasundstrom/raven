@@ -8,7 +8,7 @@ val count = items.CountItems()
 
 WriteLine(count)
 
-val count2 = items.CountItems<int, string>(2)
+val count2 = items.CountItems<double>(2)
 
 WriteLine(count2)
 

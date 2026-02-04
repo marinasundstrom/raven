@@ -15,10 +15,14 @@ internal sealed class OverloadResolver
         Compilation compilation,
         BoundExpression? receiver = null,
         Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null,
-        SyntaxNode? callSyntax = null)
+        SyntaxNode? callSyntax = null,
+        ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
     {
         var logger = compilation.Options.OverloadResolutionLogger;
         List<OverloadCandidateLog>? candidateLogs = logger is null ? null : new();
+
+        if (explicitTypeArguments.IsDefault)
+            explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
 
         IMethodSymbol? bestMatch = null;
         int bestScore = int.MaxValue;
@@ -31,7 +35,14 @@ internal sealed class OverloadResolver
             int? candidateScore = null;
             IMethodSymbol? constructed = null;
             List<OverloadArgumentComparisonLog>? candidateComparisons = logger is null ? null : new();
-            var method = ApplyTypeArgumentInference(candidate, receiver, arguments, compilation);
+            var method = ApplyTypeArgumentInference(
+                candidate,
+                receiver,
+                arguments,
+                compilation,
+                explicitTypeArguments: !explicitTypeArguments.IsDefaultOrEmpty
+                    ? explicitTypeArguments
+                    : GetExplicitTypeArguments(callSyntax, compilation));
             if (method is null)
             {
                 candidateStatus = OverloadCandidateStatus.TypeInferenceFailed;
@@ -149,26 +160,202 @@ internal sealed class OverloadResolver
         }
     }
 
+    private static ImmutableArray<ITypeSymbol> GetExplicitTypeArguments(SyntaxNode? callSyntax, Compilation compilation)
+    {
+        // Fallback: Only used if the binder cannot provide explicit type arguments.
+        // We only support explicit method type arguments from invocation receivers like:
+        //   items.CountItems<double>(2)
+        // where the member name is a GenericNameSyntax.
+        if (callSyntax is not InvocationExpressionSyntax inv)
+            return ImmutableArray<ITypeSymbol>.Empty;
+
+        // InvocationExpressionSyntax.Expression can be IdentifierNameSyntax, MemberAccessExpressionSyntax, etc.
+        // We only care about the right-most name being a GenericNameSyntax.
+        GenericNameSyntax? genericName = null;
+
+        if (inv.Expression is MemberAccessExpressionSyntax ma)
+            genericName = ma.Name as GenericNameSyntax;
+        else if (inv.Expression is IdentifierNameSyntax)
+            genericName = null;
+        else if (inv.Expression is GenericNameSyntax g)
+            genericName = g;
+
+        if (genericName is null)
+            return ImmutableArray<ITypeSymbol>.Empty;
+
+        // Bind the explicit type arguments using a binder-independent binder helper.
+        // We can’t bind types here without a binder, so we only support predefined/identifier types
+        // through the compilation’s type resolver via metadata/predefined lookup.
+        // If a type arg can’t be resolved, we keep it as ErrorType to let resolution fail gracefully.
+        var args = genericName.TypeArgumentList.Arguments;
+        if (args.Count == 0)
+            return ImmutableArray<ITypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(args.Count);
+        for (int i = 0; i < args.Count; i++)
+        {
+            var ts = args[i];
+            var resolved = compilation.TryBindTypeSyntaxWithoutBinder(ts.Type);
+            builder.Add(resolved ?? compilation.ErrorTypeSymbol);
+        }
+
+        return builder.ToImmutable();
+    }
+
     internal static IMethodSymbol? ApplyTypeArgumentInference(
         IMethodSymbol method,
         BoundExpression? receiver,
         BoundArgument[] arguments,
-        Compilation compilation)
+        Compilation compilation,
+        ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
     {
         // Extension lookup may return a method already adjusted for the receiver
         // (e.g. from a constructed extension container type), but the method can
         // still have method-level type parameters (like <E>) that must be inferred.
+        if (explicitTypeArguments.IsDefault)
+            explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
+
+        // If the method isn’t generic, nothing to do.
         if (!method.IsGenericMethod || method.TypeParameters.IsDefaultOrEmpty || method.TypeParameters.Length == 0)
             return method;
 
         var treatAsExtension = method.IsExtensionMethod && receiver is not null;
 
-        // Run inference on the method instance we have (which may already have receiver substitutions),
-        // so we infer the remaining method type parameters from the call arguments.
-        var inferred = TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation);
+        // If explicit type args were provided, allow partial lists (Raven feature):
+        // - if count == arity: construct directly
+        // - if count < arity: right-align them to the last type parameters, infer the rest
+        // - if count > arity: impossible
+        if (!explicitTypeArguments.IsDefaultOrEmpty)
+        {
+            var constructed = TryConstructMethodWithExplicitAndInference(
+                method,
+                explicitTypeArguments,
+                receiver,
+                arguments,
+                treatAsExtension,
+                compilation);
 
-        // If inference fails, keep the original (don’t null out a viable candidate too early).
+            return constructed;
+        }
+
+        // Otherwise infer all method type parameters.
+        var inferred = TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation);
         return inferred ?? method;
+    }
+
+    private static IMethodSymbol? TryConstructMethodWithExplicitAndInference(
+    IMethodSymbol method,
+    ImmutableArray<ITypeSymbol> explicitTypeArguments,
+    BoundExpression? receiver,
+    BoundArgument[] arguments,
+    bool treatAsExtension,
+    Compilation compilation)
+    {
+        if (explicitTypeArguments.IsDefaultOrEmpty)
+            return TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation) ?? method;
+
+        var arity = method.TypeParameters.Length;
+        if (explicitTypeArguments.Length > arity)
+            return null;
+
+        // Right-align explicit args to the last type parameters.
+        var fixedArgs = new ITypeSymbol?[arity];
+        var offset = arity - explicitTypeArguments.Length;
+        for (int i = 0; i < explicitTypeArguments.Length; i++)
+        {
+            fixedArgs[offset + i] = NormalizeType(explicitTypeArguments[i]);
+        }
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        // Seed substitutions with the fixed args.
+        for (int i = 0; i < arity; i++)
+        {
+            if (fixedArgs[i] is { } fixedType && fixedType.TypeKind != TypeKind.Error)
+                substitutions[method.TypeParameters[i]] = fixedType;
+        }
+
+        var parameters = method.Parameters;
+        var parameterIndex = 0;
+
+        if (treatAsExtension)
+        {
+            if (receiver?.Type is null)
+                return null;
+
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions, method))
+                return null;
+
+            parameterIndex++;
+        }
+
+        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments))
+            return null;
+
+        for (; parameterIndex < parameters.Length; parameterIndex++)
+        {
+            var mapped = mappedArguments[parameterIndex];
+            if (mapped is null)
+                continue;
+
+            var expression = mapped.Value.Expression;
+
+            if (expression is BoundLambdaExpression lambda)
+            {
+                if (!TryInferFromLambda(compilation, parameters[parameterIndex].Type, lambda, substitutions, method))
+                    return null;
+                continue;
+            }
+
+            if (expression is BoundMethodGroupExpression methodGroup)
+            {
+                if (!TryInferFromMethodGroup(compilation, parameters[parameterIndex].Type, methodGroup, substitutions, method))
+                    return null;
+                continue;
+            }
+
+            var argumentType = expression.Type;
+            if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
+                continue;
+
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions, method))
+                return null;
+        }
+
+        // Produce final type arguments array: fixed args win; otherwise take inferred.
+        var finalArgs = new ITypeSymbol[arity];
+        for (int i = 0; i < arity; i++)
+        {
+            var tp = method.TypeParameters[i];
+
+            if (fixedArgs[i] is { } fixedType)
+            {
+                // If inference produced something conflicting, fail.
+                if (substitutions.TryGetValue(tp, out var inferred) &&
+                    inferred.TypeKind != TypeKind.Error &&
+                    fixedType.TypeKind != TypeKind.Error &&
+                    !SymbolEqualityComparer.Default.Equals(NormalizeType(inferred), NormalizeType(fixedType)))
+                {
+                    // Allow implicit identity-ish compatibility by preferring the fixed type.
+                    // If you later want to allow implicit conversions here, add a check.
+                    return null;
+                }
+
+                finalArgs[i] = NormalizeType(fixedType);
+                continue;
+            }
+
+            if (!substitutions.TryGetValue(tp, out var inferred2))
+                return null;
+
+            finalArgs[i] = NormalizeType(inferred2);
+        }
+
+        var immutableArguments = ImmutableArray.CreateRange(finalArgs);
+        if (!SatisfiesMethodConstraints(method, immutableArguments))
+            return null;
+
+        return method.Construct(finalArgs);
     }
 
     private static IMethodSymbol? TryConstructMethodWithInference(
@@ -531,14 +718,14 @@ internal sealed class OverloadResolver
                 if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
                     return true;
 
+                // If the existing substitution is a fixed/explicit type arg, don’t override it.
+                // Accept if the argument can convert to the fixed type.
                 if (compilation.ClassifyConversion(argumentType, existing).IsImplicit)
                     return true;
 
+                // Otherwise, if the fixed type can convert to the argument type, keep the fixed one.
                 if (compilation.ClassifyConversion(existing, argumentType).IsImplicit)
-                {
-                    substitutions[typeParameter] = argumentType;
                     return true;
-                }
 
                 return false;
             }

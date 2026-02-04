@@ -111,14 +111,42 @@ partial class BlockBinder
         var extensionReceiver = IsExtensionReceiver(methodGroup.Receiver) ? methodGroup.Receiver : null;
         var receiverSyntax = GetInvocationReceiverSyntax(syntax) ?? syntax.Expression;
 
+        // Extract explicit method type arguments at the call site (if any), e.g. `items.CountItems<double>(2)`.
+        // We bind these here (binder context) so the selected fast-path can still apply partial generic arguments.
+        ImmutableArray<ITypeSymbol> explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
+
+        if (syntax.Expression is MemberAccessExpressionSyntax { Name: GenericNameSyntax g })
+        {
+            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(g.TypeArgumentList.Arguments.Count);
+            foreach (var ta in g.TypeArgumentList.Arguments)
+            {
+                var boundType = BindTypeSyntax(ta.Type);
+                builder.Add(boundType.Type ?? Compilation.ErrorTypeSymbol);
+            }
+            explicitTypeArguments = builder.ToImmutable();
+        }
+        else if (syntax.Expression is GenericNameSyntax g2)
+        {
+            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(g2.TypeArgumentList.Arguments.Count);
+            foreach (var ta in g2.TypeArgumentList.Arguments)
+            {
+                var boundType = BindTypeSyntax(ta.Type);
+                builder.Add(boundType.Type ?? Compilation.ErrorTypeSymbol);
+            }
+            explicitTypeArguments = builder.ToImmutable();
+        }
+
         if (selected is not null)
         {
-            var inferred = OverloadResolver.ApplyTypeArgumentInference(selected, extensionReceiver, boundArguments, Compilation);
+            var inferred = OverloadResolver.ApplyTypeArgumentInference(selected, extensionReceiver, boundArguments, Compilation, explicitTypeArguments);
             if (inferred is not null)
             {
-                selected = inferred;
-
-                if (AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver, boundArguments))
+                // If we still have unbound type parameters, skip the fast-path and fall back to full overload resolution.
+                if (selected.IsGenericMethod && selected.TypeParameters.Length > 0)
+                {
+                    // Continue into normal overload resolution below.
+                }
+                else if (AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver, boundArguments))
                 {
                     var converted = ConvertInvocationArguments(
                         selected,
@@ -137,7 +165,8 @@ partial class BlockBinder
             Compilation,
             extensionReceiver,
             EnsureLambdaCompatible,
-            callSyntax: syntax);
+            callSyntax: syntax,
+            explicitTypeArguments: explicitTypeArguments);
 
         if (resolution.Success)
         {
@@ -1519,6 +1548,27 @@ partial class BlockBinder
         ITypeSymbol? receiverTypeForLookup,
         bool forceExtensionReceiver)
     {
+        // Raven feature: allow partial explicit method type arguments at the call site, e.g.:
+        //   items.CountItems<double>(2)
+        // Overload resolution will right-align the explicit args and infer the rest.
+        // Therefore, member lookup must NOT require exact generic arity matches here.
+        //
+        // Implementation: strip the type-argument list for lookup so the existing method/extension
+        // lookup can find candidates by name, then let OverloadResolver apply the explicit args.
+        if (preferMethods && simpleName is GenericNameSyntax g)
+        {
+            var identifierOnly = SyntaxFactory.IdentifierName(g.Identifier);
+
+            return BindMemberAccessOnReceiver(
+                receiver,
+                identifierOnly,
+                preferMethods,
+                allowEventAccess,
+                suppressNullWarning,
+                receiverTypeForLookup,
+                forceExtensionReceiver);
+        }
+
         // NOTE: For '.' we already reported null-ref and pass suppressNullWarning=true here.
         // For '?.' we also suppress, because conditional access handles null.
         // This method should not report possible null reference itself.

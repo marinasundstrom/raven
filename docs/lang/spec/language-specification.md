@@ -1236,6 +1236,7 @@ modifiers are rejected. As a result, extensions cannot declare `protected` or
 
 #### Extension methods
 
+
 Extension methods add callable helpers to the receiver type. They are declared
 inside an `extension` container as function members:
 
@@ -1256,6 +1257,41 @@ optional, `params`, or accept lambdas. Generic receiver parameters are
 substituted during method type inference, so helpers like `Where<T>(this
 IEnumerable<T>, Func<T, bool>)` become available to Raven code as soon as the
 appropriate namespace is imported.
+
+##### Partial explicit type arguments
+
+When calling a generic method (including extension methods), Raven permits supplying **only the trailing type arguments** that cannot be inferred.
+
+* The receiver's type is inferred from the call-site receiver expression.
+* Any remaining type parameters are inferred from the provided arguments.
+* Explicit type arguments provided at the call site are **right-aligned** with the method's type parameter list.
+
+This mirrors the common C# ergonomics for extension calls where the receiver type is already known.
+
+```raven
+import System.Console.*
+import System.Collections.Generic.*
+
+val items = List<int>()
+items.Add(1)
+items.Add(2)
+
+public extension MyEnumerableExt<T> for System.Collections.Generic.IEnumerable<T> {
+    public CountItems<B>(arg: T) -> B {
+        return default(B)
+    }
+}
+
+// T is inferred from the receiver (`IEnumerable<int>`), while B is specified explicitly.
+val count2 = items.CountItems<double>(2)
+WriteLine(count2)
+
+// The fully specified form is still valid.
+val count3 = items.CountItems<int, double>(2)
+WriteLine(count3)
+```
+
+If the supplied explicit type arguments do not match the method's trailing type parameters (or if inference cannot determine the remaining parameters), overload resolution fails and a diagnostic is reported.
 
 Extension methods participate in lookup through the same `import` mechanism used
 for types. Importing a namespace brings every extension method declared on the

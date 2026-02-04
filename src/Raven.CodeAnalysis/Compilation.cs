@@ -1667,4 +1667,34 @@ public partial class Compilation
             _ => VarianceKind.None,
         };
     }
+
+    internal ITypeSymbol? TryBindTypeSyntaxWithoutBinder(TypeSyntax syntax)
+    {
+        // Minimal binding for explicit generic type arguments at overload-resolution time.
+        // Supports predefined types and simple/qualified identifiers via metadata lookup.
+        // Full fidelity binding still happens in the binder.
+
+        switch (syntax)
+        {
+            case PredefinedTypeSyntax pts:
+                return ResolvePredefinedType(pts);
+
+            case IdentifierNameSyntax id:
+                return GetTypeByMetadataName(id.Identifier.ValueText) ?? ErrorTypeSymbol;
+
+            case QualifiedNameSyntax q:
+                {
+                    // Use the display string as a metadata name best-effort.
+                    var name = q.ToString();
+                    return GetTypeByMetadataName(name) ?? ErrorTypeSymbol;
+                }
+
+            case GenericNameSyntax:
+                // Nested generic type args in explicit method arg lists are not supported here yet.
+                return ErrorTypeSymbol;
+
+            default:
+                return ErrorTypeSymbol;
+        }
+    }
 }
