@@ -1508,13 +1508,119 @@ partial class BlockBinder
     // Member access (updated)
     // ============================
 
+    private static bool TryRewriteAsTypeSyntax(ExpressionSyntax expression, out TypeSyntax typeSyntax)
+    {
+        // If the parser already produced a TypeSyntax in expression position, keep it.
+        if (expression is TypeSyntax ts)
+        {
+            typeSyntax = ts;
+            return true;
+        }
+
+        // Simple names that are also valid type names.
+        if (expression is IdentifierNameSyntax id)
+        {
+            typeSyntax = id;
+            return true;
+        }
+
+        if (expression is GenericNameSyntax g)
+        {
+            typeSyntax = g;
+            return true;
+        }
+
+        // Recurse through member-access chains and rewrite them as qualified names.
+        if (expression is MemberAccessExpressionSyntax ma)
+        {
+            if (TryRewriteAsNameSyntax(ma.Expression, out var leftName))
+            {
+                // Right is already a SimpleNameSyntax (IdentifierNameSyntax/GenericNameSyntax)
+                // and also a NameSyntax in the type grammar.
+                typeSyntax = SyntaxFactory.QualifiedName(leftName, ma.OperatorToken, ma.Name);
+                return true;
+            }
+        }
+
+        typeSyntax = null!;
+        return false;
+    }
+
+    private static bool TryRewriteAsNameSyntax(ExpressionSyntax expression, out NameSyntax nameSyntax)
+    {
+        if (expression is NameSyntax n)
+        {
+            nameSyntax = n;
+            return true;
+        }
+
+        if (expression is IdentifierNameSyntax id)
+        {
+            nameSyntax = id;
+            return true;
+        }
+
+        if (expression is GenericNameSyntax g)
+        {
+            nameSyntax = g;
+            return true;
+        }
+
+        if (expression is MemberAccessExpressionSyntax ma)
+        {
+            if (TryRewriteAsNameSyntax(ma.Expression, out var leftName))
+            {
+                nameSyntax = SyntaxFactory.QualifiedName(leftName, ma.OperatorToken, ma.Name);
+                return true;
+            }
+        }
+
+        nameSyntax = null!;
+        return false;
+    }
+
     private BoundExpression BindMemberAccessExpression(
        MemberAccessExpressionSyntax memberAccess,
        bool preferMethods = false,
        bool allowEventAccess = false)
     {
-        // Binding for explicit receiver
-        var receiver = BindExpression(memberAccess.Expression);
+        // First, attempt to treat the *entire* member access as a type name.
+        // This enables nested-type construction like `Outer<int>.Inner<string>` and `Foo<int>.Bar`.
+        // MemberAccessExpressionSyntax nodes are still expressions in the syntax tree, but if the chain
+        // consists only of name-like parts, we can rewrite it into a TypeSyntax and bind it as a type.
+        if (TryRewriteAsTypeSyntax(memberAccess, out var rewrittenTypeSyntax))
+        {
+            // This is a hack
+            TypeSyntax newNode = CreateShadowTreeWithRewrittenNode(memberAccess, rewrittenTypeSyntax);
+
+            var typeResult = BindType(newNode);
+
+            // Only accept the reinterpretation if we resolved a *real* type.
+            // Otherwise, ordinary member access like `handler.Handle` would be mis-bound as a type.
+            if (typeResult.Success &&
+                typeResult.ResolvedType is { } resolved &&
+                resolved.TypeKind != TypeKind.Error)
+            {
+                return new BoundTypeExpression(resolved);
+            }
+
+            // If type binding fails (or resolves to error), fall back to regular member access binding below.
+        }
+
+        // Regular expression receiver binding.
+        // IMPORTANT: Many name nodes (IdentifierName/GenericName/QualifiedName) also implement TypeSyntax.
+        // We must NOT treat those as type receivers here, or ordinary member access like `handler.Handle`
+        // would be bound as a static type access.
+        BoundExpression receiver;
+        if (memberAccess.Expression is TypeSyntax ts && memberAccess.Expression is not NameSyntax)
+        {
+            var r = BindType(ts);
+            receiver = new BoundTypeExpression(r.Success ? (r.ResolvedType ?? Compilation.ErrorTypeSymbol) : Compilation.ErrorTypeSymbol);
+        }
+        else
+        {
+            receiver = BindExpression(memberAccess.Expression);
+        }
 
         if (IsErrorExpression(receiver))
             return receiver is BoundErrorExpression boundError
@@ -1534,6 +1640,20 @@ partial class BlockBinder
             suppressNullWarning: true,
             receiverTypeForLookup: null,
             forceExtensionReceiver: false);
+    }
+
+    private static TypeSyntax CreateShadowTreeWithRewrittenNode(MemberAccessExpressionSyntax memberAccess, TypeSyntax rewrittenTypeSyntax)
+    {
+        var annotation = new SyntaxAnnotation("rewritten");
+
+        var newRoot = memberAccess.SyntaxTree!.GetRoot().ReplaceNode(memberAccess, rewrittenTypeSyntax.WithAdditionalAnnotations(annotation));
+        var newTree = SyntaxTree.Create(newRoot);
+        var newNode = newTree.GetRoot().DescendantNodes().OfType<TypeSyntax>()
+            .Single(n => n.HasAnnotation(annotation));
+
+        //Console.WriteLine($"New node: {newNode}");
+
+        return newNode;
     }
 
     /// <summary>
@@ -1586,6 +1706,8 @@ partial class BlockBinder
 
         if (simpleName is GenericNameSyntax genericName)
         {
+            var r = BindType(genericName);
+
             var boundTypeArguments = TryBindTypeArguments(genericName);
             if (boundTypeArguments is null)
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
@@ -1743,7 +1865,7 @@ partial class BlockBinder
                     if (!accessibleProperties.IsDefaultOrEmpty)
                     {
                         if (accessibleProperties.Length == 1)
-                            return new BoundMemberAccessExpression(typeExpr, accessibleProperties[0]);
+                            return BindExtensionPropertyGetInvocation(typeExpr, accessibleProperties[0], receiverSyntax: simpleName);
 
                         var ambiguousMethods = accessibleProperties
                             .Select(p => p.GetMethod ?? p.SetMethod)
@@ -1925,7 +2047,10 @@ partial class BlockBinder
                     if (!accessibleProperties.IsDefaultOrEmpty)
                     {
                         if (accessibleProperties.Length == 1)
-                            return new BoundMemberAccessExpression(receiver, accessibleProperties[0]);
+                        {
+                            var receiverSyntaxNode = simpleName.Parent ?? (SyntaxNode)simpleName;
+                            return BindExtensionPropertyGetInvocation(receiver, accessibleProperties[0], receiverSyntaxNode);
+                        }
 
                         var ambiguousMethods = accessibleProperties
                             .Select(p => p.GetMethod ?? p.SetMethod)
@@ -1956,6 +2081,56 @@ partial class BlockBinder
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation);
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindExtensionPropertyGetInvocation(
+        BoundExpression receiver,
+        IPropertySymbol property,
+        SyntaxNode receiverSyntax)
+    {
+        var getter = property.GetMethod;
+        if (getter is null)
+            return new BoundMemberAccessExpression(receiver, property);
+
+        // Lowered extension-property getter should be: static get_Xxx(self: TReceiver, ...) -> TResult
+        var looksLikeLoweredExtensionGetter =
+            getter.IsStatic &&
+            getter.Parameters.Length > 0 &&
+            string.Equals(getter.Parameters[0].Name, "self", StringComparison.Ordinal);
+
+        // If this isn’t the lowered extension form, keep it as a normal property access.
+        if (!looksLikeLoweredExtensionGetter && !getter.IsExtensionMethod)
+            return new BoundMemberAccessExpression(receiver, property);
+
+        // Property getter has no call-site args.
+        var boundArguments = Array.Empty<BoundArgument>();
+
+        // Receiver becomes the extension receiver.
+        var extensionReceiver = receiver;
+
+        // Critical: run type argument inference so T/E get inferred from `self` (and/or return type later).
+        var inferred = OverloadResolver.ApplyTypeArgumentInference(
+            getter,
+            extensionReceiver,
+            boundArguments,
+            Compilation,
+            explicitTypeArguments: ImmutableArray<ITypeSymbol>.Empty);
+
+        var chosen = inferred ?? getter;
+
+        var convertedArgs = ConvertInvocationArguments(
+            chosen,
+            boundArguments,
+            extensionReceiver,
+            receiverSyntax,
+            out var convertedExtensionReceiver);
+
+        // Extension call: no instance receiver, only ExtensionReceiver.
+        return new BoundInvocationExpression(
+            chosen,
+            convertedArgs,
+            receiver: null,
+            convertedExtensionReceiver);
     }
 
     // --- your BindMemberBindingExpression and below remains unchanged ---

@@ -742,6 +742,41 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             }
         }
 
+        if (this.HasStaticExtensionMembers())
+        {
+            var props = ExtensionPropertyReflection.GroupByAccessorConvention(_typeInfo);
+
+            foreach (var prop in props)
+            {
+                var property = new SynthesizedExtensionPropertySymbol(
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        [], name: prop.Name);
+
+                if (prop.GetMethod is not null)
+                {
+                    property.GetMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        prop.GetMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: property);
+                }
+
+                if (prop.SetMethod is not null)
+                {
+                    property.SetMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        prop.SetMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: property);
+                }
+            }
+        }
+
         foreach (var eventInfo in _typeInfo.DeclaredEvents)
         {
             var @event = new PEEventSymbol(

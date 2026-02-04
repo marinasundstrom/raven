@@ -47,6 +47,27 @@ public union Option<T> {
 /// Contains extensions for the Option<T> type
 public extension OptionExtensions<T> for Option<T> {
 
+    /// Gets a value indicating whether the Option has Some
+    public HasSome: bool {
+        get => self is .Some(val v)
+    }
+
+    /*public IsOkOr<E>(error: E) -> Result<T, E> {
+        if self is .Some(val v2) {
+            return .Ok(v2)
+        }
+
+        return .Error(error)    
+    }
+
+    public IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
+        if self is .Some(val v2) {
+            return .Ok(v2)
+        }
+
+        return .Error(errorFactory())    
+    }*/
+
     /// Unwrap the value if Some, otherwise return the default value
     public UnwrapOrDefault() -> T {
         if self is .Some(val value) {

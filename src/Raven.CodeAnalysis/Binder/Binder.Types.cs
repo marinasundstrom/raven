@@ -201,6 +201,60 @@ internal abstract partial class Binder
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,
         IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
     {
+        // Fast-path: nested type lookup when the left side is a TYPE (including constructed generic types).
+        // This is required for forms like `Outer<int>.Inner<string>` and `Foo<int>.Bar`.
+        // If the left side resolves to a named type, we bind the right side as a nested type member.
+        {
+            var leftAsType = BindTypeCore((TypeSyntax)q.Left, typeParams, importedScopes);
+            if (leftAsType.Success && leftAsType.ResolvedType is INamedTypeSymbol leftNamed)
+            {
+                // Right side: Identifier (non-generic nested type)
+                if (q.Right is IdentifierNameSyntax rid)
+                {
+                    var nestedName = rid.Identifier.ValueText;
+                    var nestedCandidates = leftNamed.GetTypeMembers(nestedName).ToArray();
+
+                    if (nestedCandidates.Length == 1)
+                    {
+                        var nested = nestedCandidates[0];
+                        return new ResolveTypeResult
+                        {
+                            ResolvedType = nested,
+                            ResolvedNamedDefinition = nested
+                        };
+                    }
+
+                    if (nestedCandidates.Length > 1)
+                        return Ambiguous(q, nestedCandidates.ToImmutableArray());
+
+                    // If not found as nested type, fall back to namespace-qualified lookup below.
+                }
+
+                // Right side: GenericName (generic nested type)
+                if (q.Right is GenericNameSyntax rg)
+                {
+                    var nestedName = rg.Identifier.ValueText;
+                    var nestedCandidates = leftNamed.GetTypeMembers(nestedName).ToArray();
+
+                    if (nestedCandidates.Length == 1)
+                    {
+                        var nestedDef = nestedCandidates[0];
+
+                        var args = BindTypeArguments(rg.TypeArgumentList, typeParams, importedScopes);
+                        if (!args.Success)
+                            return args;
+
+                        return Construct(nestedDef, args.ResolvedTypeArguments);
+                    }
+
+                    if (nestedCandidates.Length > 1)
+                        return Ambiguous(q, nestedCandidates.ToImmutableArray());
+
+                    // If not found as nested type, fall back to namespace-qualified lookup below.
+                }
+            }
+        }
+
         if (q.Right is GenericNameSyntax g)
         {
             var left = Flatten(q.Left);
@@ -394,10 +448,39 @@ internal abstract partial class Binder
 
     private ResolveTypeResult Construct(INamedTypeSymbol def, ImmutableArray<ITypeSymbol> args)
     {
-        var definition =
-            def.ConstructedFrom as INamedTypeSymbol ??
-            def.OriginalDefinition as INamedTypeSymbol ??
-            def;
+        // IMPORTANT: For nested types found on a constructed containing type (e.g. Outer<int>.Inner<B>),
+        // we must preserve the containing-type context when constructing the nested type.
+        // Using ConstructedFrom/OriginalDefinition can drop the containing override and revert to
+        // Outer<A>.Inner<B>, which then breaks substitution and display.
+        INamedTypeSymbol definition;
+
+        if (def.ContainingType is null)
+        {
+            // Non-nested type: normalize to the unconstructed definition.
+            definition =
+                def.ConstructedFrom as INamedTypeSymbol ??
+                def.OriginalDefinition as INamedTypeSymbol ??
+                def;
+        }
+        else
+        {
+            // Nested type: only normalize if the containing type is itself not constructed.
+            // If the containing type is constructed, keep `def` so we retain the containing override.
+            if (def.ContainingType is INamedTypeSymbol ct &&
+                !ct.TypeArguments.IsDefaultOrEmpty &&
+                ct.TypeArguments.Length > 0 &&
+                !SymbolEqualityComparer.Default.Equals(ct, ct.OriginalDefinition))
+            {
+                definition = def;
+            }
+            else
+            {
+                definition =
+                    def.ConstructedFrom as INamedTypeSymbol ??
+                    def.OriginalDefinition as INamedTypeSymbol ??
+                    def;
+            }
+        }
 
         if (definition.TypeParameters.Length != args.Length)
         {
@@ -475,8 +558,16 @@ internal abstract partial class Binder
         {
             switch (n)
             {
-                case IdentifierNameSyntax id: parts.Add(id.Identifier.ValueText); break;
-                case QualifiedNameSyntax q: Walk(q.Left); Walk(q.Right); break;
+                case IdentifierNameSyntax id:
+                    parts.Add(id.Identifier.ValueText);
+                    break;
+                case GenericNameSyntax g:
+                    parts.Add(g.Identifier.ValueText);
+                    break;
+                case QualifiedNameSyntax q:
+                    Walk(q.Left);
+                    Walk(q.Right);
+                    break;
             }
         }
 

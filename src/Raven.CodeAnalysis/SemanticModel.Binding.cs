@@ -83,7 +83,7 @@ public partial class SemanticModel
         }
         else
         {
-            targetNamespace = Compilation.SourceGlobalNamespace;
+            targetNamespace = Compilation.GlobalNamespace;
             namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace);
             parentBinder = namespaceBinder;
         }

@@ -31,9 +31,24 @@
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/src/Raven.Editor/bin/Debug/net9.0/Raven.Editor.dll",
             "args": [
-                "../Raven.Compiler/samples/classes.rav"
+                "../../samples/classes.rav"
             ],
             "cwd": "${workspaceFolder}/src/Raven.Editor",
+            // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
+            "console": "externalTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Raven.Compiler (console)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            // If you have changed target frameworks, make sure to update the program path.
+            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net9.0/Raven.Compiler.dll",
+            "args": [
+                "../../Raven.samples/classes.rav"
+            ],
+            "cwd": "${workspaceFolder}/src/Raven.Compiler",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "externalTerminal",
             "stopAtEntry": false

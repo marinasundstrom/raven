@@ -38,6 +38,7 @@ public partial class Compilation
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
     private BoundNodeFactory? _boundNodeFactory;
     private ErrorSymbol _errorSymbol;
+    private bool isSettingUp;
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -73,7 +74,10 @@ public partial class Compilation
     {
         get
         {
-            EnsureSetup();
+            if (!isSettingUp)
+            {
+                EnsureSetup();
+            }
 
             return _globalNamespace ??=
                 new MergedNamespaceSymbol(
@@ -154,6 +158,8 @@ public partial class Compilation
     {
         if (setup)
             return;
+
+        isSettingUp = true;
 
         lock (_setupLock)
         {
@@ -413,39 +419,101 @@ public partial class Compilation
 
     internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {
+        // Caller asked for the root. Return the merged root.
         if (ns is null)
             return GlobalNamespace;
 
         var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (namespaceParts.Length == 0)
-            return SourceGlobalNamespace;
 
+        // Empty string / only dots => treat as root (merged).
+        if (namespaceParts.Length == 0)
+            return GlobalNamespace;
+
+        // 1) Ensure the SOURCE namespace chain exists.
         var currentSourceNamespace = SourceGlobalNamespace;
 
         foreach (var part in namespaceParts)
         {
-            var next = currentSourceNamespace
+            var nextSource = currentSourceNamespace
                 .GetMembers(part)
                 .OfType<SourceNamespaceSymbol>()
                 .FirstOrDefault();
 
-            if (next is null)
+            if (nextSource is null)
             {
-                next = new SourceNamespaceSymbol(
+                nextSource = new SourceNamespaceSymbol(
                     part,
                     currentSourceNamespace,
                     currentSourceNamespace,
                     [],
                     []);
 
-                currentSourceNamespace.AddMember(next);
+                currentSourceNamespace.AddMember(nextSource);
             }
 
-            currentSourceNamespace = next;
+            currentSourceNamespace = nextSource;
         }
 
-        return currentSourceNamespace;
+        // 2) Now return the corresponding namespace symbol from the MERGED global root.
+        // This relies on GlobalNamespace being the merged view that includes source namespaces.
+        INamespaceSymbol currentMerged = GlobalNamespace;
+
+        foreach (var part in namespaceParts)
+        {
+            // Prefer a dedicated namespace lookup API if you have it:
+            var nextMerged =
+                currentMerged.LookupNamespace(part) // if available on your namespace symbol
+                ?? currentMerged.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+
+            if (nextMerged is null)
+            {
+                // If this happens, it usually means the merged namespace view did not
+                // observe the newly-added source namespace (lazy merge / caching issue).
+                return null;
+            }
+
+            currentMerged = nextMerged;
+        }
+
+        return currentMerged;
     }
+
+    /*
+        internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
+        {
+            if (ns is null)
+                return GlobalNamespace;
+
+            var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            if (namespaceParts.Length == 0)
+                return SourceGlobalNamespace;
+
+            var currentSourceNamespace = SourceGlobalNamespace;
+
+            foreach (var part in namespaceParts)
+            {
+                var next = currentSourceNamespace
+                    .GetMembers(part)
+                    .OfType<SourceNamespaceSymbol>()
+                    .FirstOrDefault();
+
+                if (next is null)
+                {
+                    next = new SourceNamespaceSymbol(
+                        part,
+                        currentSourceNamespace,
+                        currentSourceNamespace,
+                        [],
+                        []);
+
+                    currentSourceNamespace.AddMember(next);
+                }
+
+                currentSourceNamespace = next;
+            }
+
+            return currentSourceNamespace;
+        }*/
 
     private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
     {

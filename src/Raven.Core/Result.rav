@@ -48,15 +48,26 @@ public union Result<T, E> {
 public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Gets a value indicating whether the Result was Ok
-    public IsOk: bool {
+    public HasOk: bool {
         get => self is .Ok(val message)
     }
 
     /// Gets a value indicating whether the Result was Error
-    public IsError: bool {
+    public HasError: bool {
         get => self is .Error(val message)
     }
 
+    /// Converts the Result to an Option
+    public IsOk: Option<T> {
+        get {
+            if self is .Ok(val v) {
+                return .Some(v)
+            }
+
+            return .None
+        }
+    }
+    
     /// Unwrap the value if Ok, otherwise return the default value
     public UnwrapOrDefault() -> T {
         if self is .Ok(val value) {

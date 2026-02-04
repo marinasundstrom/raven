@@ -6,7 +6,7 @@ import System.*
 
 val res = parseNumber("foo")
 
-Console.WriteLine("Is error: ${res.IsError}")
+Console.WriteLine("Is error: ${res.HasError}")
 
 val str = res match {
     .Ok(val v) => "Number is: $v"

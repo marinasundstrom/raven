@@ -695,6 +695,39 @@ internal class TypeGenerator
                         var getterSymbol = propertySymbol.GetMethod as IMethodSymbol;
                         var setterSymbol = propertySymbol.SetMethod as IMethodSymbol;
 
+                        DebugUtils.PrintDebug($"Defining propertySymbol: {propertySymbol.Name} from {TypeBuilder.Name}");
+
+                        if (propertySymbol.IsExtensionProperty)
+                        {
+                            // Extension properties are not emitted as real CLR properties on the extension container.
+                            // But their accessor methods *must* be emitted as real methods so invocation works.
+
+                            if (getterSymbol is not null)
+                            {
+                                if (_methodGenerators.ContainsKey(getterSymbol))
+                                    continue;
+
+                                var getGen2 = new MethodGenerator(this, getterSymbol, CodeGen.ILBuilderFactory);
+                                _methodGenerators[getterSymbol] = getGen2;
+                                getGen2.DefineMethodBuilder();
+                                CodeGen.AddMemberBuilder((SourceSymbol)getterSymbol, getGen2.MethodBase);
+                            }
+
+                            if (setterSymbol is not null)
+                            {
+                                if (_methodGenerators.ContainsKey(setterSymbol))
+                                    continue;
+
+                                var setGen2 = new MethodGenerator(this, setterSymbol, CodeGen.ILBuilderFactory);
+                                _methodGenerators[setterSymbol] = setGen2;
+                                setGen2.DefineMethodBuilder();
+                                CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen2.MethodBase);
+                            }
+
+                            // No CLR PropertyBuilder for extension properties on the container.
+                            break;
+                        }
+
                         MethodGenerator? getGen = null;
                         MethodGenerator? setGen = null;
 
@@ -1106,6 +1139,7 @@ internal class TypeGenerator
 
         try
         {
+            var emitted = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
             foreach (var memberSymbol in TypeSymbol.GetMembers())
             {
                 if (memberSymbol.ContainingType is { } containingType &&
@@ -1116,12 +1150,36 @@ internal class TypeGenerator
 
                 switch (memberSymbol)
                 {
-                    case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
-                        DefineExtensionSkeletonMethod(methodSymbol, markerAttribute);
-                        break;
+                    case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove):
+                        {
+                            // Only emit extension methods into the grouping type (as skeleton methods).
+                            if (methodSymbol.IsExtensionMethod && emitted.Add(methodSymbol))
+                            {
+                                DefineExtensionSkeletonMethod(methodSymbol, markerAttribute);
+                            }
+                            break;
+                        }
                     case IPropertySymbol propertySymbol:
-                        DefineExtensionSkeletonProperty(propertySymbol, markerAttribute);
-                        break;
+                        {
+                            // C#-compatible: do not emit a CLR Property for extension properties.
+                            // Only emit their accessor methods into the grouping type.
+                            if (propertySymbol.IsExtensionProperty)
+                            {
+                                if (propertySymbol.GetMethod is IMethodSymbol getMethod && emitted.Add(getMethod))
+                                    DefineExtensionSkeletonMethod(getMethod, markerAttribute);
+
+                                if (propertySymbol.SetMethod is IMethodSymbol setMethod && emitted.Add(setMethod))
+                                    DefineExtensionSkeletonMethod(setMethod, markerAttribute);
+
+                                // Only emit accessor skeletons, not a CLR property.
+                                break;
+                            }
+
+                            // Non-extension properties (if any appear here) can keep existing behavior,
+                            // but extension grouping is generally only for extension members.
+                            break;
+                        }
+                        // Other member kinds ignored for extension grouping.
                 }
             }
         }
@@ -1226,54 +1284,6 @@ internal class TypeGenerator
             if (registeredExtensionParameters)
                 CodeGen.UnregisterGenericParameters(extensionMethodTypeParameters);
         }
-    }
-
-    private void DefineExtensionSkeletonProperty(IPropertySymbol propertySymbol, CustomAttributeBuilder markerAttribute)
-    {
-        if (_extensionGroupingTypeBuilder is null)
-            return;
-
-        var propertyType = ResolveClrType(propertySymbol.Type);
-        var getMethod = propertySymbol.GetMethod;
-        var setMethod = propertySymbol.SetMethod;
-
-        MethodBuilder? getterBuilder = null;
-        MethodBuilder? setterBuilder = null;
-
-        if (getMethod is not null)
-            getterBuilder = DefineExtensionSkeletonAccessor(getMethod, propertyType, markerAttribute);
-
-        if (setMethod is not null)
-            setterBuilder = DefineExtensionSkeletonAccessor(setMethod, typeof(void), markerAttribute);
-
-        var propertyParameters = propertySymbol.Parameters;
-        var parameterSymbols = propertyParameters.Length > 0 && (getMethod?.IsExtensionMethod == true || setMethod?.IsExtensionMethod == true)
-            ? propertyParameters.Skip(1).ToArray()
-            : propertyParameters.ToArray();
-
-        var parameterTypes = parameterSymbols
-            .Select(p => ResolveClrType(p.Type))
-            .Select((type, index) =>
-            {
-                var parameter = parameterSymbols[index];
-                return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? type.MakeByRefType()
-                    : type;
-            })
-            .ToArray();
-
-        var propertyBuilder = _extensionGroupingTypeBuilder.DefineProperty(
-            propertySymbol.MetadataName,
-            PropertyAttributes.None,
-            propertyType,
-            parameterTypes);
-
-        if (getterBuilder is not null)
-            propertyBuilder.SetGetMethod(getterBuilder);
-        if (setterBuilder is not null)
-            propertyBuilder.SetSetMethod(setterBuilder);
-
-        propertyBuilder.SetCustomAttribute(markerAttribute);
     }
 
     private MethodBuilder DefineExtensionSkeletonAccessor(

@@ -33,12 +33,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public ConstructedNamedTypeSymbol(INamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
         : this(originalDefinition, typeArguments, inheritedSubstitution: null, containingTypeOverride: null)
     {
+        if (originalDefinition is ConstructedNamedTypeSymbol)
+        {
+            throw new InvalidOperationException($"The original definition '{originalDefinition}' has already been constructed");
+        }
     }
 
     private static Dictionary<ITypeParameterSymbol, ITypeSymbol> CreateSubstitutionMap(
-     INamedTypeSymbol originalDefinition,
-     ImmutableArray<ITypeSymbol> typeArguments,
-     Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
+        INamedTypeSymbol originalDefinition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
     {
         static ITypeParameterSymbol NormalizeKey(ITypeParameterSymbol parameter) =>
             (ITypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
@@ -217,6 +221,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public ImmutableArray<ISymbol> GetMembers(string name) =>
         GetMembers().Where(m => m.Name == name).ToImmutableArray();
 
+    public ImmutableArray<INamedTypeSymbol> GetTypeMembers() =>
+        [.. GetMembers().OfType<INamedTypeSymbol>()];
+
+    public ImmutableArray<INamedTypeSymbol> GetTypeMembers(string name) =>
+        [.. GetMembers(name).OfType<INamedTypeSymbol>()];
+
     internal ImmutableArray<ITypeSymbol> GetAllTypeArguments() =>
         _allTypeArguments.IsDefault ? _allTypeArguments = BuildAllTypeArguments() : _allTypeArguments;
 
@@ -370,6 +380,17 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             {
                 typeArguments[i] = parameter;
             }
+        }
+
+        // Even if no type arguments changed, nested types declared directly under the original definition
+        // must be re-anchored under this constructed instance (e.g. Outer<int>.Inner<B>).
+        if (!changed && containingOverride is null && namedType.ContainingType is INamedTypeSymbol ct)
+        {
+            var ctDef = (INamedTypeSymbol?)(ct.OriginalDefinition ?? ct) ?? ct;
+            var origDef = (INamedTypeSymbol?)(_originalDefinition.OriginalDefinition ?? _originalDefinition) ?? _originalDefinition;
+
+            if (SymbolEqualityComparer.Default.Equals(ctDef, origDef))
+                containingOverride = this;
         }
 
         // If nothing changed and there is no containing override, reuse the existing symbol.

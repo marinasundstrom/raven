@@ -316,6 +316,11 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         return Green.GetAnnotation(kind);
     }
 
+    public bool HasAnnotation(SyntaxAnnotation annotation)
+    {
+        return Green.HasAnnotation(annotation);
+    }
+
     public SyntaxNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
     {
         return Green.WithAdditionalAnnotations(annotations).CreateRed();

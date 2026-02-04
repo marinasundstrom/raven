@@ -985,7 +985,7 @@ class Container {
 
     public Check() -> bool {
         var value = CreateError()
-        return value.IsError
+        return value.HasError
     }
 }
 """;
@@ -1158,7 +1158,7 @@ class Container {
     }
 
     public Check(text: string) -> bool {
-        return Parse(text).IsError
+        return Parse(text).HasError
     }
 }
 """;

@@ -874,6 +874,8 @@ internal class CodeGenerator
                             CheckType(p.Type);
                         break;
                     case IPropertySymbol prop:
+                        if (prop.IsExtensionProperty)
+                            break;
                         CheckType(prop.Type);
                         break;
                     case IFieldSymbol field:

@@ -84,7 +84,7 @@ public static class TypeSymbolExtensionsForCodeGen
             if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameterSymbol, out var parameterType))
                 return parameterType;
 
-            throw new InvalidOperationException($"Unable to resolve runtime type for type parameter: {typeParameterSymbol.Name}");
+            throw new InvalidOperationException($"Unable to resolve runtime type for type parameter: {typeParameterSymbol.Name}, in {typeParameterSymbol.ContainingSymbol}");
         }
 
         if (typeSymbol is IArrayTypeSymbol arrayType)

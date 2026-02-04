@@ -317,15 +317,9 @@ partial class BlockBinder : Binder
         return Compilation.ErrorTypeSymbol;
     }
 
-    protected bool EnsureMemberAccessible(ISymbol symbol, Location location, string symbolKind)
+    protected override bool EnsureMemberAccessible(ISymbol symbol, Location location, string symbolKind)
     {
-        if (symbol is null)
-            return true;
-
-        if (symbol.DeclaredAccessibility == Accessibility.NotApplicable)
-            return true;
-
-        if (IsSymbolAccessible(symbol))
+        if (base.EnsureMemberAccessible(symbol, location, symbolKind))
             return true;
 
         var display = symbol is ITypeSymbol typeSymbol
@@ -334,30 +328,6 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportSymbolIsInaccessible(symbolKind, display, location);
         return false;
-    }
-
-    private ImmutableArray<IMethodSymbol> GetAccessibleMethods(
-        ImmutableArray<IMethodSymbol> methods,
-        Location location,
-        bool reportIfInaccessible = true)
-    {
-        if (methods.IsDefaultOrEmpty)
-            return methods;
-
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
-
-        foreach (var method in methods)
-        {
-            if (IsSymbolAccessible(method))
-                builder.Add(method);
-        }
-
-        if (builder.Count > 0)
-            return builder.ToImmutable();
-
-        if (reportIfInaccessible)
-            EnsureMemberAccessible(methods[0], location, "method");
-        return ImmutableArray<IMethodSymbol>.Empty;
     }
 
     private ImmutableArray<IPropertySymbol> GetAccessibleProperties(
@@ -1512,16 +1482,29 @@ partial class BlockBinder : Binder
         // even when the parser produced a name node (QualifiedName) rather than a member-access node.
         // Prefer expression resolution first, then fall back to type resolution.
 
-        // 1) If the operand is a qualified name, convert it to a member-access expression chain.
+        // 1) If the operand is a qualified name, interpret it as a member-access expression chain.
         //    This makes `nameof(System.Console.WriteLine)` resolve to `WriteLine`, not `Console`.
         if (operand is QualifiedNameSyntax qn)
         {
-            var converted = ConvertQualifiedNameToMemberAccess(qn);
-            if (converted is not null)
+            if (TryBindTypeSyntaxAsMemberAccessExpression(qn, out var boundExpression)
+                && boundExpression is not BoundErrorExpression)
             {
-                var sym = ResolveExpression(converted);
-                if (sym is not null)
-                    return sym;
+                // For nameof we want the *symbol* represented by the final segment, not the expression's resulting type.
+                // - Method groups: pick the selected method (or first candidate)
+                // - Member access: the accessed symbol
+                // - Type/namespace expressions: the type/namespace symbol
+                if (boundExpression is BoundMethodGroupExpression mg)
+                    return mg.SelectedMethod ?? mg.Methods.FirstOrDefault();
+
+                var info = boundExpression.GetSymbolInfo();
+                if (info.Symbol is not null)
+                    return info.Symbol;
+
+                if (boundExpression is BoundTypeExpression bt)
+                    return bt.Type;
+
+                if (boundExpression is BoundNamespaceExpression nsExpr)
+                    return nsExpr.Namespace;
             }
         }
 
@@ -1535,8 +1518,10 @@ partial class BlockBinder : Binder
         // 3) Fall back to type resolution for pure type operands like `List<int>`.
         if (operand is TypeSyntax typeSyntax)
         {
-            var resolved = ResolveType(typeSyntax);
-            return resolved.TypeKind == TypeKind.Error ? null : resolved;
+            if (TryBindTypeSyntaxAsMemberAccessExpression(typeSyntax, out var resolvedExpression))
+            {
+                return resolvedExpression.GetSymbolInfo().Symbol;
+            }
         }
 
         return null;

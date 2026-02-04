@@ -299,6 +299,11 @@ public abstract class GreenNode
         return _annotations?.FirstOrDefault(x => x.Kind == kind);
     }
 
+    public bool HasAnnotation(SyntaxAnnotation annotation)
+    {
+        return _annotations?.Any(x => x == annotation) ?? false;
+    }
+
     internal virtual GreenNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
     {
         throw new NotImplementedException("Override method");

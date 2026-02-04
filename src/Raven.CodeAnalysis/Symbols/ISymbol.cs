@@ -380,6 +380,7 @@ public interface IPropertySymbol : ISymbol
     bool IsRequired { get; }
     ImmutableArray<IParameterSymbol> Parameters => IsIndexer ? GetMethod?.Parameters ?? [] : [];
     ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => [];
+    bool IsExtensionProperty => false;
 }
 
 public interface IEventSymbol : ISymbol

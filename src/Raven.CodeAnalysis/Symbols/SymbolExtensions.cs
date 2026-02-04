@@ -1163,78 +1163,82 @@ public static partial class SymbolExtensions
 
     private static string GetFullType(ISymbol symbol, SymbolDisplayFormat format)
     {
-        // Special handling for nested named types: in Roslyn-style symbol models,
-        // a nested constructed type often carries all type arguments (including those
-        // for containing types) on the nested symbol, while ContainingType may still
-        // point at the original definition.
-        if (symbol is INamedTypeSymbol namedNested && namedNested.ContainingType is not null)
+        var types = new List<string>();
+
+        // Build containing type chain (outermost -> innermost containing type)
+        var chain = new List<INamedTypeSymbol>();
+        var current = symbol.ContainingType;
+        while (current is not null)
         {
-            var types = new List<string>();
+            if (current is INamedTypeSymbol ct)
+                chain.Add(ct);
 
-            // Collect containing type chain (outermost -> innermost)
-            var chain = new List<INamedTypeSymbol>();
-            var current = namedNested.ContainingType;
-            while (current is not null)
-            {
-                if (current is INamedTypeSymbol ct)
-                    chain.Add(ct);
-
-                current = current.ContainingType;
-            }
-
-            chain.Reverse();
-
-            // Attempt to slice type arguments from the nested type’s TypeArguments.
-            // We assume the ordering is outermost-to-innermost, matching Roslyn.
-            var allArgs = namedNested.TypeArguments;
-            var argIndex = 0;
-
-            foreach (var ct in chain)
-            {
-                if (ct.Arity > 0 && !allArgs.IsDefaultOrEmpty && allArgs.Length >= argIndex + ct.Arity)
-                {
-                    var sb = new StringBuilder();
-                    sb.Append(EscapeIdentifierIfNeeded(ct.Name, format));
-                    sb.Append('<');
-                    sb.Append(string.Join(", ", allArgs.Skip(argIndex).Take(ct.Arity).Select(a => FormatType(a, format))));
-                    sb.Append('>');
-                    types.Add(sb.ToString());
-
-                    argIndex += ct.Arity;
-                }
-                else
-                {
-                    // Fallback: use the containing type symbol as-is.
-                    types.Add(FormatSimpleNamedType(ct, format));
-
-                    // If we couldn’t slice, don’t advance argIndex.
-                }
-            }
-
-            return string.Join(".", types);
+            current = current.ContainingType;
         }
 
-        // Default behavior for non-nested symbols.
-        var defaultTypes = new List<string>();
-        var currentType = symbol.ContainingType;
+        chain.Reverse();
 
-        while (currentType is not null)
+        // Some symbol models may carry all generic arguments for nested types on the nested symbol.
+        // Use that as a fallback slicing source when containing types don't expose their own arguments.
+        ImmutableArray<ITypeSymbol> combinedArgs = default;
+        if (symbol is INamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty)
+            combinedArgs = named.TypeArguments;
+
+        var totalArity = 0;
+        foreach (var ct in chain)
+            totalArity += ct.Arity;
+
+        var canSliceCombined = !combinedArgs.IsDefaultOrEmpty && combinedArgs.Length >= totalArity;
+        var argIndex = 0;
+
+        foreach (var ct in chain)
         {
-            if (currentType is INamedTypeSymbol named)
+            // Prefer the containing type symbol's own type arguments when available.
+            if (ct.Arity > 0 &&
+                !ct.TypeArguments.IsDefaultOrEmpty &&
+                ct.TypeArguments.Length == ct.TypeParameters.Length)
             {
-                // Include generic type parameters/arguments for each containing type
-                defaultTypes.Insert(0, FormatSimpleNamedType(named, format));
-            }
-            else
-            {
-                // Fallback: just the name
-                defaultTypes.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
+                var args = ct.TypeArguments
+                    .Skip(ct.TypeArguments.Length - ct.Arity)
+                    .Take(ct.Arity)
+                    .Select(a => FormatType(a, format));
+
+                types.Add($"{EscapeIdentifierIfNeeded(ct.Name, format)}<{string.Join(", ", args)}>");
+                argIndex += ct.Arity;
+                continue;
             }
 
-            currentType = currentType.ContainingType;
+            // Fallback: if we can slice from combined args (outermost-to-innermost), do so.
+            if (ct.Arity > 0 && canSliceCombined && combinedArgs.Length >= argIndex + ct.Arity)
+            {
+                var args = combinedArgs
+                    .Skip(argIndex)
+                    .Take(ct.Arity)
+                    .Select(a => FormatType(a, format));
+
+                types.Add($"{EscapeIdentifierIfNeeded(ct.Name, format)}<{string.Join(", ", args)}>");
+                argIndex += ct.Arity;
+                continue;
+            }
+
+            // Unconstructed type: use the type parameters declared on this type.
+            if (ct.Arity > 0 && ct.TypeParameters is { IsDefaultOrEmpty: false })
+            {
+                var declaringType = ct.OriginalDefinition;
+                var args = ct.TypeParameters
+                    .Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, declaringType))
+                    .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+
+                types.Add($"{EscapeIdentifierIfNeeded(ct.Name, format)}<{string.Join(", ", args)}>");
+                // Do not advance argIndex here (we didn't consume combined args).
+                continue;
+            }
+
+            // Non-generic containing type
+            types.Add(EscapeIdentifierIfNeeded(ct.Name, format));
         }
 
-        return string.Join(".", defaultTypes);
+        return string.Join(".", types);
     }
 
     private static string GetMemberModifiers(ISymbol symbol)

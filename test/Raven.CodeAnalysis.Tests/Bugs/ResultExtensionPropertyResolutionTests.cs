@@ -13,7 +13,7 @@ public class ResultExtensionPropertyResolutionTests : DiagnosticTestBase
 
             val res: Result<int, string> = .Error("Bang")
 
-            Console.WriteLine("Is error: ${res.IsError}")
+            Console.WriteLine("Is error: ${res.HasError}")
             """;
 
         var verifier = CreateVerifier(testCode);
