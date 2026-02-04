@@ -1508,13 +1508,116 @@ partial class BlockBinder
     // Member access (updated)
     // ============================
 
+    private static bool TryRewriteAsTypeSyntax(ExpressionSyntax expression, out TypeSyntax typeSyntax)
+    {
+        // If the parser already produced a TypeSyntax in expression position, keep it.
+        if (expression is TypeSyntax ts)
+        {
+            typeSyntax = ts;
+            return true;
+        }
+
+        // Simple names that are also valid type names.
+        if (expression is IdentifierNameSyntax id)
+        {
+            typeSyntax = id;
+            return true;
+        }
+
+        if (expression is GenericNameSyntax g)
+        {
+            typeSyntax = g;
+            return true;
+        }
+
+        // Recurse through member-access chains and rewrite them as qualified names.
+        if (expression is MemberAccessExpressionSyntax ma)
+        {
+            if (TryRewriteAsNameSyntax(ma.Expression, out var leftName))
+            {
+                // Right is already a SimpleNameSyntax (IdentifierNameSyntax/GenericNameSyntax)
+                // and also a NameSyntax in the type grammar.
+                typeSyntax = SyntaxFactory.QualifiedName(leftName, ma.Name);
+                return true;
+            }
+        }
+
+        typeSyntax = null!;
+        return false;
+    }
+
+    private static bool TryRewriteAsNameSyntax(ExpressionSyntax expression, out NameSyntax nameSyntax)
+    {
+        if (expression is NameSyntax n)
+        {
+            nameSyntax = n;
+            return true;
+        }
+
+        if (expression is IdentifierNameSyntax id)
+        {
+            nameSyntax = id;
+            return true;
+        }
+
+        if (expression is GenericNameSyntax g)
+        {
+            nameSyntax = g;
+            return true;
+        }
+
+        if (expression is MemberAccessExpressionSyntax ma)
+        {
+            if (TryRewriteAsNameSyntax(ma.Expression, out var leftName))
+            {
+                nameSyntax = SyntaxFactory.QualifiedName(leftName, ma.Name);
+                return true;
+            }
+        }
+
+        nameSyntax = null!;
+        return false;
+    }
+
     private BoundExpression BindMemberAccessExpression(
        MemberAccessExpressionSyntax memberAccess,
        bool preferMethods = false,
        bool allowEventAccess = false)
     {
-        // Binding for explicit receiver
-        var receiver = BindExpression(memberAccess.Expression);
+        // First, attempt to treat the *entire* member access as a type name.
+        // This enables nested-type construction like `Outer<int>.Inner<string>` and `Foo<int>.Bar`.
+        // MemberAccessExpressionSyntax nodes are still expressions in the syntax tree, but if the chain
+        // consists only of name-like parts, we can rewrite it into a TypeSyntax and bind it as a type.
+        if (TryRewriteAsTypeSyntax(memberAccess, out var rewrittenTypeSyntax))
+        {
+            var typeResult = BindType(rewrittenTypeSyntax);
+
+            // Only accept the reinterpretation if we resolved a *real* type.
+            // Otherwise, ordinary member access like `handler.Handle` would be mis-bound as a type.
+            if (typeResult.Success &&
+                typeResult.ResolvedType is { } resolved &&
+                resolved.TypeKind != TypeKind.Error)
+            {
+                return new BoundTypeExpression(resolved);
+            }
+
+            // If type binding fails (or resolves to error), fall back to regular member access binding below.
+        }
+
+        // Regular expression receiver binding.
+        // IMPORTANT: Many name nodes (IdentifierName/GenericName/QualifiedName) also implement TypeSyntax.
+        // We must NOT treat those as type receivers here, or ordinary member access like `handler.Handle`
+        // would be bound as a static type access.
+        BoundExpression receiver;
+        if (memberAccess.Expression is TypeSyntax ts && memberAccess.Expression is not NameSyntax)
+        {
+            var r = BindType(ts);
+            receiver = new BoundTypeExpression(r.Success ? (r.ResolvedType ?? Compilation.ErrorTypeSymbol) : Compilation.ErrorTypeSymbol);
+        }
+        else
+        {
+            receiver = BindExpression(memberAccess.Expression);
+        }
 
         if (IsErrorExpression(receiver))
             return receiver is BoundErrorExpression boundError
@@ -1586,6 +1689,8 @@ partial class BlockBinder
 
         if (simpleName is GenericNameSyntax genericName)
         {
+            var r = BindType(genericName);
+
             var boundTypeArguments = TryBindTypeArguments(genericName);
             if (boundTypeArguments is null)
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
