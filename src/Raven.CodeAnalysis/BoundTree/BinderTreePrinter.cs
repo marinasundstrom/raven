@@ -16,8 +16,10 @@ public static class BinderTreePrinter
     private static string ColorizeText(string text, AnsiColor color)
         => $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
 
-    public static void PrintBinderTree(this SemanticModel model)
+    public static void PrintBinderTree(this SemanticModel model, bool colorize = true)
     {
+        Colorize = colorize;
+
         var cache = GetBinderCache(model);
         var binderNodes = cache
             .GroupBy(kv => kv.Value)

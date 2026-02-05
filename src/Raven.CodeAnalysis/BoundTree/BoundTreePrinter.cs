@@ -40,10 +40,13 @@ public static class BoundTreePrinter
         bool includeErrorNodes = false,
         bool includeBinderInfo = true,
         bool includeBinderChainOnRoots = true,
-        bool showBinderOnlyOnChange = true)
+        bool showBinderOnlyOnChange = true,
+        bool colorize = true)
     {
         if (model is null)
             throw new ArgumentNullException(nameof(model));
+
+        Colorize = colorize;
 
         var cache = GetBoundNodeCache(model);
         if (cache.Count == 0)

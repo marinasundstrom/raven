@@ -564,12 +564,12 @@ if (debugDir is not null)
             IncludeTrivia = true,
             IncludeSpans = true,
             IncludeLocations = true,
-            Colorize = true,
+            Colorize = false,
             ExpandListsAsProperties = true,
             IncludeDiagnostics = true,
             IncludeAnnotations = true,
             DiagnosticsAsChildren = true,
-            AnnotationsAsChildren = true
+            AnnotationsAsChildren = true,
         }).StripAnsiCodes();
 
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax-tree.txt"), treeText);
@@ -585,7 +585,7 @@ if (debugDir is not null)
         {
             var original = Console.Out;
             Console.SetOut(sw);
-            semanticModel.PrintBinderTree();
+            semanticModel.PrintBinderTree(colorize: false);
             Console.SetOut(original);
             File.WriteAllText(Path.Combine(debugDir, $"{name}.binders.txt"), sw.ToString());
         }
@@ -594,7 +594,7 @@ if (debugDir is not null)
         {
             var original = Console.Out;
             Console.SetOut(sw);
-            semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true);
+            semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true, colorize: false);
             Console.SetOut(original);
             File.WriteAllText(Path.Combine(debugDir, $"{name}.bound-tree.txt"), sw.ToString());
         }
