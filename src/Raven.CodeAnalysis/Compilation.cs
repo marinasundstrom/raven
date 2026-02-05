@@ -35,6 +35,9 @@ public partial class Compilation
     private ReflectionTypeLoader _reflectionTypeLoader;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
+    private readonly object _declarationGate = new();
+    private bool _sourceDeclarationsComplete;
+    private bool _isDeclaringSourceTypes;
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
     private BoundNodeFactory? _boundNodeFactory;
     private ErrorSymbol _errorSymbol;

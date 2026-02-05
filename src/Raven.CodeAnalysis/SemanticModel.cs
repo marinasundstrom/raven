@@ -18,6 +18,9 @@ public partial class SemanticModel
 
     private readonly Dictionary<BoundNode, SyntaxNode> _syntaxCache = new(ReferenceEqualityComparer.Instance);
     private IImmutableList<Diagnostic>? _diagnostics;
+    private readonly DiagnosticBag _declarationDiagnostics = new();
+    private bool _declarationsComplete;
+    private bool _rootBinderCreated;
 
     public bool IsDebuggingEnabled { get; set; } = true;
 
@@ -25,9 +28,6 @@ public partial class SemanticModel
     {
         Compilation = compilation;
         SyntaxTree = syntaxTree;
-
-        var root = SyntaxTree.GetRoot();
-        _ = GetBinder(root);
     }
 
     public Compilation Compilation { get; }
@@ -42,6 +42,7 @@ public partial class SemanticModel
 
             _diagnostics = _binderCache.Values
                 .SelectMany(b => b.Diagnostics.AsEnumerable())
+                .Concat(_declarationDiagnostics.AsEnumerable())
                 .Distinct()
                 .ToImmutableArray();
         }
@@ -219,6 +220,8 @@ public partial class SemanticModel
     /// <remarks>Might return a cached binder</remarks>
     internal Binder GetBinder(SyntaxNode node, Binder? parentBinder = null)
     {
+        Compilation.EnsureSourceDeclarationsComplete();
+
         if (_binderCache.TryGetValue(node, out var existingBinder))
             return existingBinder;
 
@@ -246,6 +249,16 @@ public partial class SemanticModel
 
         _binderCache[node] = newBinder;
         return newBinder;
+    }
+
+    internal void EnsureRootBinderCreated()
+    {
+        if (_rootBinderCreated)
+            return;
+
+        var root = SyntaxTree.GetRoot();
+        _ = GetBinder(root);
+        _rootBinderCreated = true;
     }
 
     private INamespaceSymbol? GetMergedNamespace(INamespaceSymbol? namespaceSymbol)

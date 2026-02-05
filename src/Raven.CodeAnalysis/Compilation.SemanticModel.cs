@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -16,6 +17,7 @@ public partial class Compilation
         EnsureSetup();
 
         EnsureSemanticModelsCreated();
+        EnsureSourceDeclarationsComplete();
 
         if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
         {
@@ -30,6 +32,40 @@ public partial class Compilation
         semanticModel = new SemanticModel(this, syntaxTree);
         _semanticModels[syntaxTree] = semanticModel;
         return semanticModel;
+    }
+
+    internal void EnsureSourceDeclarationsComplete()
+    {
+        EnsureSetup();
+
+        if (_sourceDeclarationsComplete || _isDeclaringSourceTypes)
+            return;
+
+        lock (_declarationGate)
+        {
+            if (_sourceDeclarationsComplete || _isDeclaringSourceTypes)
+                return;
+
+            _isDeclaringSourceTypes = true;
+            try
+            {
+                EnsureSemanticModelsCreated();
+
+                foreach (var model in _semanticModels.Values)
+                    model.EnsureDeclarations();
+
+                EnsureDefaultConstructorsDeclared();
+
+                foreach (var model in _semanticModels.Values)
+                    model.EnsureRootBinderCreated();
+
+                _sourceDeclarationsComplete = true;
+            }
+            finally
+            {
+                _isDeclaringSourceTypes = false;
+            }
+        }
     }
 
     private void EnsureSemanticModelsCreated()
@@ -56,5 +92,79 @@ public partial class Compilation
         {
             _isPopulatingSourceTypes = false;
         }
+    }
+
+    private void EnsureDefaultConstructorsDeclared()
+    {
+        var constructorFlags = new Dictionary<ISymbol, ConstructorDeclarationFlags>(SymbolEqualityComparer.Default);
+
+        foreach (var syntaxTree in _syntaxTrees)
+        {
+            if (!_semanticModels.TryGetValue(syntaxTree, out var model))
+                continue;
+
+            if (syntaxTree.GetRoot() is not CompilationUnitSyntax root)
+                continue;
+
+            foreach (var classDecl in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+            {
+                var symbol = model.GetDeclaredTypeSymbolForDeclaration(classDecl);
+
+                constructorFlags.TryGetValue(symbol, out var flags);
+
+                if (classDecl.ParameterList is not null)
+                    flags.HasPrimaryConstructor = true;
+
+                if (classDecl.Members.OfType<ConstructorDeclarationSyntax>()
+                    .Any(c => !c.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)))
+                {
+                    flags.HasExplicitInstanceConstructor = true;
+                }
+
+                if (classDecl.Members.OfType<NamedConstructorDeclarationSyntax>().Any())
+                    flags.HasNamedConstructor = true;
+
+                constructorFlags[symbol] = flags;
+            }
+        }
+
+        foreach (var (symbol, flags) in constructorFlags)
+        {
+            if (symbol is not SourceNamedTypeSymbol sourceType)
+                continue;
+
+            if (sourceType.IsStatic)
+                continue;
+
+            if (flags.HasPrimaryConstructor || flags.HasExplicitInstanceConstructor || flags.HasNamedConstructor)
+                continue;
+
+            if (sourceType.Constructors.Any(c => !c.IsStatic && c.Parameters.Length == 0))
+                continue;
+
+            var location = sourceType.Locations.FirstOrDefault() ?? Location.None;
+            var reference = sourceType.DeclaringSyntaxReferences.FirstOrDefault();
+            var references = reference is null ? Array.Empty<SyntaxReference>() : new[] { reference };
+
+            _ = new SourceMethodSymbol(
+                ".ctor",
+                GetSpecialType(SpecialType.System_Unit),
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                sourceType,
+                sourceType,
+                sourceType.ContainingNamespace?.AsSourceNamespace(),
+                new[] { location },
+                references,
+                isStatic: false,
+                methodKind: MethodKind.Constructor,
+                declaredAccessibility: Accessibility.Public);
+        }
+    }
+
+    private struct ConstructorDeclarationFlags
+    {
+        public bool HasPrimaryConstructor;
+        public bool HasExplicitInstanceConstructor;
+        public bool HasNamedConstructor;
     }
 }
