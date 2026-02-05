@@ -4,11 +4,11 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 val f: Option<int> = .Some(2)
-//val isOk = f.IsOkOr(CustomError("Bang!"))
+val isOk = f.IsOkOr(CustomError("Bang!"))
 
 WriteLine("Has Some: ${f.HasSome}")
-//WriteLine("Has None: ${f.HasNone}")
-//WriteLine("Is Ok: ${isOk}")
+WriteLine("Has None: ${f.HasNone}")
+WriteLine("Is Ok: ${isOk}")
 
 val f2: Result<int, CustomError> = .Ok(2)
 val isOk2 = f2.IsOk

@@ -52,7 +52,12 @@ public extension OptionExtensions<T> for Option<T> {
         get => self is .Some(val v)
     }
 
-    /*public IsOkOr<E>(error: E) -> Result<T, E> {
+    /// Gets a value indicating whether the Option has None
+    public HasNone: bool {
+        get => self is .None
+    }
+
+    public IsOkOr<E>(error: E) -> Result<T, E> {
         if self is .Some(val v2) {
             return .Ok(v2)
         }
@@ -66,7 +71,7 @@ public extension OptionExtensions<T> for Option<T> {
         }
 
         return .Error(errorFactory())    
-    }*/
+    }
 
     /// Unwrap the value if Some, otherwise return the default value
     public UnwrapOrDefault() -> T {
