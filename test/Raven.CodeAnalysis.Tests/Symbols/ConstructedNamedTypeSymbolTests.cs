@@ -1,580 +1,233 @@
-using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.Metadata;
-using System.Reflection.Metadata.Ecma335;
-using System.Reflection.PortableExecutable;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class ConstructedNamedTypeSymbolTests
+public class ConstructedNamedTypeSymbolTests : CompilationTestBase
 {
     [Fact]
-    public void ConstructedType_FromSource_SubstitutesTypeArgumentsInMethods()
+    public void NestedTypeConstruction_SubstitutesOuterTypeParameters()
     {
-        var source = """
-class Container<T>
-{
-    public Identity(value: T) -> T => value;
-}
-""";
+        const string source = """
+val a = Foo<int>.Bar()
 
-        var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create(
-                "constructed-source-method-substitution",
-                [syntaxTree],
-                TestMetadataReferences.Default,
-                new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var containerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Container"));
-
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(containerDefinition.Construct(stringType));
-
-        var identity = Assert.Single(constructed.GetMembers("Identity").OfType<IMethodSymbol>());
-
-        var parameter = Assert.Single(identity.Parameters);
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, identity.ReturnType));
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, parameter.Type));
-    }
-
-    [Fact]
-    public void ConstructedType_FromSource_SubstitutesNestedTypeMembers()
-    {
-        var source = """
-class Container<T>
-{
-    public class Holder
-    {
-        var value: T;
+class Foo<T> {
+    public class Bar {
+        val value: T
     }
 }
 """;
 
-        var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create(
-                "constructed-source-nested-type",
-                [syntaxTree],
-                TestMetadataReferences.Default,
-                new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var containerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Container"));
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+        var type = model.GetTypeInfo(declarator.Initializer!.Value).Type!;
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(containerDefinition.Construct(intType));
+        var fooDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Foo`1"));
+        var barDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(fooDefinition.LookupType("Bar"));
 
-        var holder = Assert.IsAssignableFrom<INamedTypeSymbol>(constructed.LookupType("Holder"));
-        var field = Assert.Single(holder.GetMembers("value").OfType<IFieldSymbol>());
+        var fooInt = Assert.IsAssignableFrom<INamedTypeSymbol>(fooDefinition.Construct(intType));
+        var barInFooInt = Assert.IsAssignableFrom<INamedTypeSymbol>(fooInt.LookupType("Bar"));
+        var valueField = Assert.Single(barInFooInt.GetMembers("value").OfType<IFieldSymbol>());
 
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, field.Type));
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
-    }
-
-    [Fact]
-    public void ConstructedType_FromSource_NestedTypeMembers_HaveConstructedContainingSymbol()
-    {
-        var source = """
-class Container<T>
-{
-    public class Holder
-    {
-    }
-}
-""";
-
-        var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create(
-                "constructed-source-nested-containing",
-                [syntaxTree],
-                TestMetadataReferences.Default,
-                new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var containerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Container"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(containerDefinition.Construct(intType));
-
-        var holder = Assert.IsAssignableFrom<INamedTypeSymbol>(constructed.LookupType("Holder"));
-        var holderMember = Assert.Single(constructed.GetMembers("Holder").OfType<INamedTypeSymbol>());
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingSymbol));
-        Assert.True(SymbolEqualityComparer.Default.Equals(holder, holderMember));
-    }
-
-    [Fact]
-    public void ConstructedType_NestedTypeInstantiation_RetainsContainingType()
-    {
-        var source = """
-class Container<T>
-{
-    public class Holder
-    {
-        var value: T;
-    }
-
-    public class Inner<U>
-    {
-        var value: T;
-        var data: U;
-    }
-}
-""";
-
-        var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create(
-                "constructed-nested-instantiation",
-                [syntaxTree],
-                TestMetadataReferences.Default,
-                new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var containerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Container"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(containerDefinition.Construct(intType));
-
-        var holder = Assert.IsAssignableFrom<INamedTypeSymbol>(constructed.LookupType("Holder"));
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, holder.ContainingType));
-
-        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructed.LookupType("Inner"));
-        var constructedInner = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.Construct(stringType));
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(constructed, constructedInner.ContainingType));
-
-        var valueField = Assert.Single(constructedInner.GetMembers("value").OfType<IFieldSymbol>());
+        Assert.Equal(barDefinition, type.OriginalDefinition, SymbolEqualityComparer.Default);
+        Assert.True(SymbolEqualityComparer.Default.Equals(barDefinition, barInFooInt.OriginalDefinition));
+        Assert.True(SymbolEqualityComparer.Default.Equals(fooInt, barInFooInt.ContainingType));
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, valueField.Type));
-
-        var dataField = Assert.Single(constructedInner.GetMembers("data").OfType<IFieldSymbol>());
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, dataField.Type));
+        Assert.Equal(barInFooInt, type, SymbolEqualityComparer.Default);
     }
 
     [Fact]
-    public void ConstructedType_NestedTypeInstantiation_PreservesAllTypeArguments()
+    public void NestedGenericTypeConstruction_SubstitutesOuterAndInnerTypeParameters()
     {
-        var source = """
-class Outer<T>
-{
-    public class Inner<U>
-    {
-        var outerValue: T;
-        var innerValue: U;
+        const string source = """
+val b = Outer<int>.Inner<string>()
+
+class Outer<A> {
+    public class Inner<B> {
+        val value: A
+        val b: B
     }
 }
 """;
 
-        var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create(
-                "constructed-nested-arguments",
-                [syntaxTree],
-                TestMetadataReferences.Default,
-                new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Outer"));
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+        var type = model.GetTypeInfo(declarator.Initializer!.Value).Type!;
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
 
-        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedOuter.LookupType("Inner"));
-        var constructedInner = Assert.IsAssignableFrom<ConstructedNamedTypeSymbol>(innerDefinition.Construct(stringType));
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Outer`1"));
+        var outerInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
 
-        var runtimeArguments = constructedInner.GetAllTypeArguments();
-        Assert.Equal(constructedInner.TypeParameters.Length, runtimeArguments.Length);
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, runtimeArguments[0]));
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, runtimeArguments[1]));
+        var innerDefinitionInOuterInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerInt.LookupType("Inner"));
+        var innerIntString = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinitionInOuterInt.Construct(stringType));
 
-        var display = constructedInner.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal("Outer<int>.Inner<string>", display);
+        var valueField = Assert.Single(innerIntString.GetMembers("value").OfType<IFieldSymbol>());
+        var bField = Assert.Single(innerIntString.GetMembers("b").OfType<IFieldSymbol>());
 
-        var metadataName = constructedInner.ToFullyQualifiedMetadataName();
-        Assert.Equal("Outer`1+Inner`1", metadataName);
-        Assert.Equal(1, constructedInner.Arity);
+        Assert.Equal(innerIntString, type, SymbolEqualityComparer.Default);
+        Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, innerIntString.ContainingType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, valueField.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, bField.Type));
     }
 
     [Fact]
-    public void ConstructedType_MethodGenerics_PreservesMethodTypeParameters()
+    public void ConstructedMetadataType_AllInterfaces_ForSelfReferentialNumericInterface_DoesNotCrash()
     {
-        var source = """
-import System.*
+        var compilation = Compilation.Create("constructed-all-interfaces-self-reference", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
 
-class Container<T>
-{
-    public Combine<U>(factory: Func<T, U>, seed: T) -> U => factory(seed);
-}
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var interfaceDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Numerics.INumber`1"));
+
+        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(interfaceDefinition.Construct(intType));
+
+        var exception = Record.Exception(() =>
+        {
+            var allInterfaces = constructed.AllInterfaces;
+            Assert.NotEmpty(allInterfaces);
+        });
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void ConstructedMetadataType_AllInterfaces_SubstitutesConcreteTypeArguments()
+    {
+        var compilation = Compilation.Create("constructed-all-interfaces-substitution", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var listInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+        var enumerableInterface = Assert.Single(listInt.AllInterfaces.Where(i => i.MetadataName == "IEnumerable`1"));
+
+        Assert.Single(enumerableInterface.TypeArguments);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, enumerableInterface.TypeArguments[0]));
+    }
+
+    [Fact]
+    public void ConstructedMetadataType_TaskRunDelegateComparisons_DoNotRecurse()
+    {
+        var compilation = Compilation.Create(
+                "constructed-task-run-symbol-comparison",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var taskType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var runMethods = taskType.GetMembers("Run")
+            .OfType<IMethodSymbol>()
+            .Where(m => m.Arity == 1 && m.Parameters.Length == 1)
+            .ToArray();
+
+        Assert.NotEmpty(runMethods);
+
+        var delegateTypes = runMethods
+            .SelectMany(method =>
+            {
+                var symbols = new List<INamedTypeSymbol>();
+                if (method.Parameters[0].Type is INamedTypeSymbol originalDelegate)
+                    symbols.Add(originalDelegate);
+
+                if (method.Construct(intType) is IMethodSymbol constructed
+                    && constructed.Parameters[0].Type is INamedTypeSymbol constructedDelegate)
+                {
+                    symbols.Add(constructedDelegate);
+                }
+
+                return symbols;
+            })
+            .ToArray();
+
+        var exception = Record.Exception(() =>
+        {
+            for (var i = 0; i < delegateTypes.Length; i++)
+            {
+                for (var j = 0; j < delegateTypes.Length; j++)
+                    _ = SymbolEqualityComparer.Default.Equals(delegateTypes[i], delegateTypes[j]);
+            }
+        });
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void ConstructedMetadataType_AsyncInference_DoesNotStackOverflow()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+val value = 42
+val result = await Task.Run(async () => {
+    await Task.Delay(10)
+    return value
+})
 """;
 
         var syntaxTree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create(
-                "constructed-source-method-generics",
-                [syntaxTree],
-                TestMetadataReferences.Default,
-                new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var containerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Container"));
-
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(containerDefinition.Construct(stringType));
-
-        var combine = Assert.IsType<SubstitutedMethodSymbol>(
-            constructed
-                .GetMembers("Combine")
-                .OfType<IMethodSymbol>()
-                .Single());
-
-        var factoryParameter = combine.Parameters[0];
-        var funcType = Assert.IsAssignableFrom<INamedTypeSymbol>(factoryParameter.Type);
-
-        Assert.Equal("Func", funcType.Name);
-        Assert.Equal(2, funcType.TypeArguments.Length);
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, funcType.TypeArguments[0]));
-
-        var methodTypeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(funcType.TypeArguments[1]);
-        Assert.Same(combine, methodTypeParameter.ContainingSymbol);
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, combine.Parameters[1].Type));
-
-        Assert.IsAssignableFrom<ITypeParameterSymbol>(combine.ReturnType);
-        Assert.Same(combine, ((ITypeParameterSymbol)combine.ReturnType).ContainingSymbol);
-    }
-
-    [Fact]
-    public void ConstructedType_ToStringAndDebuggerDisplay_UseDisplayStrings()
-    {
-        var source = """
-class Outer<T>
-{
-    public class Inner<U>
-    {
-        var value: T;
-        var data: U;
-    }
-}
-""";
-
-        var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create(
-                "constructed-debugger-display-nested",
-                [syntaxTree],
-                TestMetadataReferences.Default,
-                new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Outer"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
-
-        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedOuter.LookupType("Inner"));
-        var constructedInner = Assert.IsAssignableFrom<ConstructedNamedTypeSymbol>(innerDefinition.Construct(stringType));
-
-        var errorDisplay = constructedInner.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal(errorDisplay, constructedInner.ToString());
-
-        var debuggerMethod = typeof(ConstructedNamedTypeSymbol).GetMethod(
-            "GetDebuggerDisplay",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-
-        var debuggerDisplay = Assert.IsType<string>(debuggerMethod!.Invoke(constructedInner, null));
-        var fullyQualified = constructedInner.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        Assert.Equal($"{constructedInner.Kind}: {fullyQualified}", debuggerDisplay);
-    }
-
-    [Fact]
-    public void LookupType_SubstitutesOuterTypeArguments()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
-
-        var enumeratorType = Assert.IsAssignableFrom<INamedTypeSymbol>(listOfInt.LookupType("Enumerator"));
-
-        Assert.Equal("Enumerator", enumeratorType.Name);
-        Assert.Equal(1, enumeratorType.Arity);
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, enumeratorType.TypeArguments[0]));
-    }
-
-    [Fact]
-    public void ConstructedMetadataType_DisplayAndMetadataNamesStayClosed()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
-
-        var enumerator = Assert.IsAssignableFrom<INamedTypeSymbol>(listOfInt.LookupType("Enumerator"));
-
-        var errorDisplay = enumerator.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal("List<int>.Enumerator<int>", errorDisplay);
-
-        var fullyQualified = enumerator.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        Assert.Equal("System.Collections.Generic.List<int>.Enumerator<int>", fullyQualified);
-
-        Assert.Equal(errorDisplay, enumerator.ToString());
-
-        var metadataName = enumerator.ToFullyQualifiedMetadataName();
-        Assert.Equal("System.Collections.Generic.List`1+Enumerator", metadataName);
-    }
-
-    [Fact]
-    public void ConstructedMetadataType_NestedTypeMembers_HaveConstructedContainingSymbol()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
-
-        var enumerator = Assert.IsAssignableFrom<INamedTypeSymbol>(listOfInt.LookupType("Enumerator"));
-        var enumeratorMember = Assert.Single(listOfInt.GetMembers("Enumerator").OfType<INamedTypeSymbol>());
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(listOfInt, enumerator.ContainingType));
-        Assert.True(SymbolEqualityComparer.Default.Equals(listOfInt, enumerator.ContainingSymbol));
-        Assert.True(SymbolEqualityComparer.Default.Equals(enumerator, enumeratorMember));
-    }
-
-    [Fact]
-    public void IsMemberDefined_ReturnsSubstitutedMember()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
-
-        Assert.True(listOfInt.IsMemberDefined("Add", out var symbol));
-        var addMethod = Assert.IsAssignableFrom<IMethodSymbol>(symbol);
-
-        Assert.Single(addMethod.Parameters);
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, addMethod.Parameters[0].Type));
-    }
-
-    [Fact]
-    public void GetMembers_SubstitutedMethod_UsesConstructedContainingType()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var listOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(stringType));
-
-        var addRange = Assert.Single(
-            listOfString.GetMembers("AddRange").OfType<IMethodSymbol>());
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(listOfString, addRange.ContainingType));
-
-        var parameter = Assert.Single(addRange.Parameters);
-        var enumerable = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
-
-        Assert.Equal("IEnumerable", enumerable.Name);
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, enumerable.TypeArguments[0]));
-    }
-
-    [Fact]
-    public void SubstitutedMethod_ReturnType_UsesTypeArgument()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var listOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(stringType));
-
-        var find = Assert.Single(
-            listOfString.GetMembers("Find").OfType<IMethodSymbol>());
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, find.ReturnType));
-
-        var predicate = Assert.Single(find.Parameters);
-        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicate.Type);
-
-        Assert.Equal("Predicate", predicateType.Name);
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, predicateType.TypeArguments[0]));
-    }
-
-    [Fact]
-    public void MetadataDiscriminatedUnion_UsesConstructedConstructors()
-    {
-        var ravenCoreSourcePath = Path.GetFullPath(Path.Combine(
-            "..", "..", "..", "..", "..", "src", "Raven.Core", "Result.rav"));
-        var ravenCoreSource = File.ReadAllText(ravenCoreSourcePath);
-
-        var ravenCoreTree = SyntaxTree.ParseText(ravenCoreSource);
-        var ravenCoreCompilation = Compilation.Create(
-            "raven-core-fixture",
-            [ravenCoreTree],
+            "constructed-async-inference-regression",
+            [syntaxTree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var ravenCoreAssemblyPath = Path.Combine(Path.GetTempPath(), $"raven-core-fixture-{Guid.NewGuid():N}.dll");
-
-        try
+        var exception = Record.Exception(() =>
         {
-            using var ravenCoreStream = new MemoryStream();
-            var ravenCoreEmit = ravenCoreCompilation.Emit(ravenCoreStream);
-            Assert.True(ravenCoreEmit.Success, string.Join(Environment.NewLine, ravenCoreEmit.Diagnostics));
+            var diagnostics = compilation.GetDiagnostics();
+            Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        });
 
-            File.WriteAllBytes(ravenCoreAssemblyPath, ravenCoreStream.ToArray());
+        Assert.Null(exception);
+    }
 
-            var ravenCoreReference = MetadataReference.CreateFromFile(ravenCoreAssemblyPath);
-
-            var consumerSource = """
-import System.*
-
-class Program
-{
-    public static Main() -> unit
+    [Fact]
+    public void SourceNestedType_Substitution_UsesMethodTypeParameterSymbol_NotNameOrdinalOnly()
     {
-        let result: Result<int, string> = .Ok(42)
-        Console.WriteLine(result)
+        const string source = """
+class Wrapper<T> {
+    public class Node {
+        public init(value: T) { }
+    }
+}
+
+class Program {
+    public static CreateNode<T>(value: T) -> Wrapper<T>.Node {
+        return Wrapper<T>.Node(value)
     }
 }
 """;
 
-            var consumerTree = SyntaxTree.ParseText(consumerSource);
-            var consumerCompilation = Compilation.Create(
-                "metadata-union-consumer",
-                [consumerTree],
-                [.. TestMetadataReferences.Default, ravenCoreReference],
-                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-            using var consumerStream = new MemoryStream();
-            var consumerEmit = consumerCompilation.Emit(consumerStream);
-            Assert.True(consumerEmit.Success, string.Join(Environment.NewLine, consumerEmit.Diagnostics));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
-            var consumerImage = consumerStream.ToArray();
+        var programType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Program"));
+        var method = Assert.Single(programType.GetMembers("CreateNode").OfType<IMethodSymbol>());
+        var methodTypeParameter = Assert.Single(method.TypeParameters);
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        var wrapperType = Assert.IsAssignableFrom<INamedTypeSymbol>(returnType.ContainingType);
+        var wrapperArgument = Assert.Single(wrapperType.TypeArguments);
 
-            var systemNamespace = consumerCompilation.GlobalNamespace.LookupNamespace("System")
-                ?? consumerCompilation.GlobalNamespace;
-            var resultDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-                systemNamespace
-                    .GetMembers("Result")
-                    .OfType<INamedTypeSymbol>()
-                    .First(symbol => symbol.Arity == 1));
-
-            Assert.Equal(TypeKind.Struct, resultDefinition.TypeKind);
-            Assert.True(resultDefinition.IsValueType);
-
-            var intType = consumerCompilation.GetSpecialType(SpecialType.System_Int32);
-            var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Construct(intType));
-
-            Assert.True(constructedResult.IsValueType);
-
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.LookupType("Ok"));
-            var constructor = Assert.Single(okCase.Constructors);
-
-            var parameterType = Assert.Single(constructor.Parameters).Type;
-            Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameterType));
-
-            Assert.True(okCase.IsValueType);
-
-            var mainIl = GetMethodIl(consumerImage, "Program", "Main");
-            Assert.True(ContainsOpCode(mainIl, ILOpCode.Box), "Expected Main to box Result<int, string> before calling Console.WriteLine(object).");
-        }
-        finally
-        {
-            if (File.Exists(ravenCoreAssemblyPath))
-                File.Delete(ravenCoreAssemblyPath);
-        }
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, wrapperArgument));
     }
 
-    [Fact]
-    public void TupleElements_AreSubstitutedFromDefinition()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var tupleDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("System.ValueTuple`2"));
-
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-
-        var tuple = Assert.IsAssignableFrom<INamedTypeSymbol>(tupleDefinition.Construct(intType, stringType));
-
-        Assert.True(SymbolEqualityComparer.Default.Equals(tuple, tuple.UnderlyingTupleType));
-
-        var elements = tuple.TupleElements;
-        Assert.Equal(2, elements.Length);
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, elements[0].Type));
-        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, elements[1].Type));
-    }
-
-    private static byte[] GetMethodIl(byte[] peImage, string typeName, string methodName)
-    {
-        using var peReader = new PEReader(new MemoryStream(peImage, writable: false));
-        var reader = peReader.GetMetadataReader();
-
-        foreach (var methodHandle in reader.MethodDefinitions)
-        {
-            var methodDefinition = reader.GetMethodDefinition(methodHandle);
-            var name = reader.GetString(methodDefinition.Name);
-
-            if (!string.Equals(name, methodName, StringComparison.Ordinal))
-                continue;
-
-            var typeDefinition = reader.GetTypeDefinition(methodDefinition.GetDeclaringType());
-            var declaredTypeName = reader.GetString(typeDefinition.Name);
-
-            if (!string.Equals(declaredTypeName, typeName, StringComparison.Ordinal))
-                continue;
-
-            var body = peReader.GetMethodBody(methodDefinition.RelativeVirtualAddress);
-            var ilReader = body.GetILReader();
-            return ilReader.ReadBytes(ilReader.Length);
-        }
-
-        throw new InvalidOperationException($"Method {typeName}.{methodName} not found in PE image.");
-    }
-
-    private static bool ContainsOpCode(byte[] ilBytes, ILOpCode opcode)
-    {
-        var opcodeByte = (byte)opcode;
-
-        for (int i = 0; i < ilBytes.Length; i++)
-        {
-            if (ilBytes[i] == opcodeByte)
-                return true;
-
-            // Skip two-byte instruction prefix when present
-            if (ilBytes[i] == 0xFE && i + 1 < ilBytes.Length && ilBytes[i + 1] == opcodeByte)
-                return true;
-        }
-
-        return false;
-    }
 }

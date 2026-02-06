@@ -1,0 +1,126 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+val ratePlans = List<RatePlan>()
+ratePlans.Add(RatePlan("NorthStar", 500, 120))
+ratePlans.Add(RatePlan("Oceanic", 450, 150))
+
+val requests = List<ShipmentRequest>()
+requests.Add(ShipmentRequest("REQ-1001", "NorthStar", 10, true, ["fragile"], .Some("SAVE5")))
+requests.Add(ShipmentRequest("REQ-1002", "Oceanic", 3, false, ["priority"], .None))
+requests.Add(ShipmentRequest("REQ-1003", "Unknown", 5, true, [], .Some("UNKNOWN")))
+
+val summaryResult = BuildQuoteSummary(requests, ratePlans)
+
+val message = summaryResult match {
+    .Ok(val summary) => FormatSummary(summary)
+    .Error(val error) => "Quote failed: ${error.Message}"
+}
+
+WriteLine(message)
+
+val latePickup = requests.Where(r => !r.OnTime).FirstOrNone()
+val lateMessage = latePickup match {
+    .Some(val req) => "Late pickup: ${req.Id}"
+    .None => "No late pickups today"
+}
+
+WriteLine(lateMessage)
+
+func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerable<RatePlan>) -> Result<QuoteSummary, QuoteError> {
+    val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
+    val quote = QuoteShipment(request, plans)?
+    val decision = DecideQuote(quote, request)
+    return .Ok(QuoteSummary(quote, decision))
+}
+
+func QuoteShipment(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Result<Quote, QuoteError> {
+    val plan = FindRatePlan(plans, request.Carrier)?
+    val surcharge = ResolveSurcharge(request.Tags)
+    val promoCents = PromoCents(request.PromoCode).UnwrapOr(0)
+    val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents) + surcharge.UnwrapOr(0) - promoCents
+
+    val note = surcharge match {
+        .Some(_) => "Includes fragile handling"
+        .None => "Standard handling"
+    }
+
+    return .Ok(Quote(request.Id, request.Carrier, total, note))
+}
+
+func FindRatePlan(plans: IEnumerable<RatePlan>, carrier: string) -> Result<RatePlan, QuoteError> {
+    return plans.FirstOrError(p => p.Carrier == carrier, () => QuoteError("No rate plan for carrier: $carrier"))
+}
+
+func ResolveSurcharge(tags: string[]) -> Option<int> {
+    return tags.FirstOrNone(t => t == "fragile") match {
+        .Some(_) => .Some(250)
+        .None => .None
+    }
+}
+
+func PromoCents(code: Option<string>) -> Option<int> {
+    val raw = code?
+    val normalized = raw.Trim().ToUpperInvariant()
+
+    return normalized match {
+        "SAVE5" => .Some(500)
+        "FREESHIP" => .Some(200)
+        _ => .None
+    }
+}
+
+func DecideQuote(quote: Quote, request: ShipmentRequest) -> Decision {
+    if request.WeightKg > 25 {
+        return .ManualReview("Weight requires extra handling")
+    }
+
+    if HasTag(request.Tags, "prohibited") {
+        return .Reject("Contains prohibited tag")
+    }
+
+    if !request.OnTime {
+        return .ManualReview("Late pickup risk")
+    }
+
+    return .Approve
+}
+
+func HasTag(tags: string[], tag: string) -> bool {
+    return tags.FirstOrNone(t => t == tag) match {
+        .Some(_) => true
+        .None => false
+    }
+}
+
+func FormatSummary(summary: QuoteSummary) -> string {
+    val decisionText = summary.Decision match {
+        .Approve => "Approved"
+        .ManualReview(val reason) => "Review: $reason"
+        .Reject(val reason) => "Rejected: $reason"
+    }
+
+    return "Quote ${summary.Quote.Id} via ${summary.Quote.Carrier}: ${summary.Quote.TotalCents} cents ($decisionText)"
+}
+
+record class ShipmentRequest(
+    Id: string,
+    Carrier: string,
+    WeightKg: int,
+    OnTime: bool,
+    Tags: string[],
+    PromoCode: Option<string>
+)
+
+record class RatePlan(Carrier: string, BaseCents: int, PerKgCents: int)
+record class Quote(Id: string, Carrier: string, TotalCents: int, Note: string)
+record class QuoteSummary(Quote: Quote, Decision: Decision)
+record class QuoteError(Message: string)
+
+union Decision {
+    Approve
+    ManualReview(reason: string)
+    Reject(reason: string)
+}

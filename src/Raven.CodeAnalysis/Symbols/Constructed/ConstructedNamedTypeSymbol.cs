@@ -29,26 +29,23 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     private readonly ImmutableArray<ITypeSymbol> _explicitTypeArguments;
     private ImmutableArray<ITypeSymbol> _typeArguments;
     private ImmutableArray<ITypeSymbol> _allTypeArguments;
+    private bool _isBuildingTypeArguments;
 
     public ConstructedNamedTypeSymbol(INamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
         : this(originalDefinition, typeArguments, inheritedSubstitution: null, containingTypeOverride: null)
     {
-        if (originalDefinition is ConstructedNamedTypeSymbol)
-        {
-            throw new InvalidOperationException($"The original definition '{originalDefinition}' has already been constructed");
-        }
     }
 
     private static Dictionary<ITypeParameterSymbol, ITypeSymbol> CreateSubstitutionMap(
-        INamedTypeSymbol originalDefinition,
-        ImmutableArray<ITypeSymbol> typeArguments,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
+     INamedTypeSymbol originalDefinition,
+     ImmutableArray<ITypeSymbol> typeArguments,
+     Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution)
     {
         static ITypeParameterSymbol NormalizeKey(ITypeParameterSymbol parameter) =>
             (ITypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
 
         var substitution = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(
-            TypeParameterSubstitutionComparer.Instance);
+            ReferenceEqualityComparer.Instance);
 
         if (inheritedSubstitution is not null)
         {
@@ -108,111 +105,296 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     private bool TryGetSubstitution(ITypeParameterSymbol parameter, out ITypeSymbol replacement)
     {
         var lookup = (ITypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
-        return _substitutionMap.TryGetValue(lookup, out replacement!);
+        if (_substitutionMap.TryGetValue(lookup, out replacement!))
+            return true;
+
+        foreach (var (key, value) in _substitutionMap)
+        {
+            var normalizedKey = (ITypeParameterSymbol)(key.OriginalDefinition ?? key);
+            if (normalizedKey.Ordinal == lookup.Ordinal && normalizedKey.Name == lookup.Name)
+            {
+                replacement = value;
+                return true;
+            }
+        }
+
+        replacement = null!;
+        return false;
     }
 
     public ITypeSymbol Substitute(
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null)
     {
-        if (type is ITypeParameterSymbol tp)
+        return SubstituteCore(type, methodMap, new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+    }
+
+
+    private ITypeSymbol SubstituteCore(
+        ITypeSymbol type,
+        Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap,
+        HashSet<ITypeSymbol> inProgress)
+    {
+        if (!inProgress.Add(type))
+            return type;
+
+        try
         {
-            if (methodMap is not null && methodMap.TryGetValue(tp, out var mappedMethodParameter))
-                return mappedMethodParameter;
 
-            if (TryGetSubstitution(tp, out var concrete))
-                return concrete;
-        }
+            if (type is ITypeParameterSymbol tp)
+            {
+                if (methodMap is not null && methodMap.TryGetValue(tp, out var mappedMethodParameter))
+                    return mappedMethodParameter;
 
-        if (type is NullableTypeSymbol nullableTypeSymbol)
-        {
-            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, methodMap);
+                if (TryGetSubstitution(tp, out var concrete))
+                    return concrete;
+            }
 
-            if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
-                return underlyingType.MakeNullable();
+            if (type is NullableTypeSymbol nullableTypeSymbol)
+            {
+                var underlyingType = SubstituteCore(nullableTypeSymbol.UnderlyingType, methodMap, inProgress);
+
+                if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                    return underlyingType.MakeNullable();
+
+                return type;
+            }
+
+            if (type is ByRefTypeSymbol byRef)
+            {
+                var substitutedElement = SubstituteCore(byRef.ElementType, methodMap, inProgress);
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                    return new ByRefTypeSymbol(substitutedElement);
+
+                return type;
+            }
+
+            if (type is IAddressTypeSymbol address)
+            {
+                var substitutedElement = SubstituteCore(address.ReferencedType, methodMap, inProgress);
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                    return new AddressTypeSymbol(substitutedElement);
+
+                return type;
+            }
+
+            if (type is IArrayTypeSymbol arrayType)
+            {
+                var substitutedElement = SubstituteCore(arrayType.ElementType, methodMap, inProgress);
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                    return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+
+                return type;
+            }
+
+            if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            {
+                var typeArguments = named.TypeArguments;
+                var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+                var changed = false;
+
+                for (int i = 0; i < typeArguments.Length; i++)
+                {
+                    var originalArg = typeArguments[i];
+                    var substitutedArg = SubstituteCore(originalArg, methodMap, inProgress);
+
+                    substitutedArgs[i] = substitutedArg;
+
+                    if (!IsEquivalentForSubstitution(substitutedArg, originalArg))
+                        changed = true;
+                }
+
+                if (!changed)
+                {
+                    // Even if generic args did not change, we may still need to re-anchor a nested type
+                    // under a substituted containing type.
+                    if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
+                        return new ConstructedNamedTypeSymbol((INamedTypeSymbol?)(named.ConstructedFrom ?? named) ?? named, named.TypeArguments, _substitutionMap, containingOverride);
+
+                    return named;
+                }
+
+                // Avoid reusing a possibly already-constructed named
+                var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+
+                // If this is nested and the containing type must be substituted, create a constructed wrapper
+                // so ContainingType/ContainingSymbol reflect the constructed outer.
+                if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
+                {
+                    var immutableArguments = ImmutableArray.Create(substitutedArgs);
+                    return new ConstructedNamedTypeSymbol(constructedFrom, immutableArguments, _substitutionMap, overrideContaining);
+                }
+
+                return constructedFrom.Construct(substitutedArgs);
+            }
+
+            // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
+            if (type is INamedTypeSymbol nestedNamed && nestedNamed.ContainingType is INamedTypeSymbol)
+            {
+                if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
+                    return new ConstructedNamedTypeSymbol(nestedNamed, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride);
+            }
 
             return type;
         }
-
-        if (type is ByRefTypeSymbol byRef)
+        finally
         {
-            var substitutedElement = Substitute(byRef.ElementType, methodMap);
+            inProgress.Remove(type);
+        }
+    }
 
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                return new ByRefTypeSymbol(substitutedElement);
+    private static bool IsEquivalentForSubstitution(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
 
-            return type;
+        if (left is ITypeParameterSymbol leftParameter && right is ITypeParameterSymbol rightParameter)
+        {
+            var leftDefinition = (ITypeParameterSymbol)(leftParameter.OriginalDefinition ?? leftParameter);
+            var rightDefinition = (ITypeParameterSymbol)(rightParameter.OriginalDefinition ?? rightParameter);
+            return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
         }
 
-        if (type is IAddressTypeSymbol address)
+        if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed)
         {
-            var substitutedElement = Substitute(address.ReferencedType, methodMap);
-
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
-                return new AddressTypeSymbol(substitutedElement);
-
-            return type;
+            var leftDefinition = (INamedTypeSymbol)(leftNamed.OriginalDefinition ?? leftNamed);
+            var rightDefinition = (INamedTypeSymbol)(rightNamed.OriginalDefinition ?? rightNamed);
+            return leftDefinition.MetadataName == rightDefinition.MetadataName
+                && leftDefinition.Arity == rightDefinition.Arity;
         }
 
-        if (type is IArrayTypeSymbol arrayType)
+        return false;
+    }
+
+    internal static INamedTypeSymbol ReanchorNested(
+        INamedTypeSymbol nestedDefinition,
+        INamedTypeSymbol containingOverride,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution,
+        ImmutableArray<ITypeSymbol> typeArguments)
+    {
+        return new ConstructedNamedTypeSymbol(nestedDefinition, typeArguments, inheritedSubstitution, containingOverride);
+    }
+
+    private ImmutableArray<INamedTypeSymbol> BuildSubstitutedInterfaceSet(ImmutableArray<INamedTypeSymbol> interfaces)
+    {
+        if (interfaces.IsDefaultOrEmpty || interfaces.Length == 0)
+            return interfaces;
+
+        var cache = new Dictionary<INamedTypeSymbol, INamedTypeSymbol>(ReferenceEqualityComparer.Instance);
+        var visiting = new HashSet<INamedTypeSymbol>(ReferenceEqualityComparer.Instance);
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>(interfaces.Length);
+
+        foreach (var interfaceType in interfaces)
+            builder.Add(SubstituteInterfaceType(interfaceType, cache, visiting));
+
+        return builder.MoveToImmutable();
+    }
+
+    private INamedTypeSymbol SubstituteInterfaceType(
+        INamedTypeSymbol interfaceType,
+        Dictionary<INamedTypeSymbol, INamedTypeSymbol> cache,
+        HashSet<INamedTypeSymbol> visiting)
+    {
+        if (cache.TryGetValue(interfaceType, out var cached))
+            return cached;
+
+        if (!visiting.Add(interfaceType))
+            return interfaceType;
+
+        try
         {
-            var substitutedElement = Substitute(arrayType.ElementType, methodMap);
+            if (!interfaceType.IsGenericType || interfaceType.IsUnboundGenericType)
+            {
+                cache[interfaceType] = interfaceType;
+                return interfaceType;
+            }
 
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
-                return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
-
-            return type;
-        }
-
-        if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
-        {
-            var typeArguments = named.TypeArguments;
-            var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+            var originalArguments = interfaceType.TypeArguments;
+            var substitutedArguments = new ITypeSymbol[originalArguments.Length];
             var changed = false;
 
-            for (int i = 0; i < typeArguments.Length; i++)
+            for (var i = 0; i < originalArguments.Length; i++)
             {
-                var originalArg = typeArguments[i];
-                var substitutedArg = Substitute(originalArg, methodMap);
+                var original = originalArguments[i];
+                var substituted = SubstituteInterfaceTypeArgument(original, cache, visiting);
+                substitutedArguments[i] = substituted;
 
-                substitutedArgs[i] = substitutedArg;
-
-                if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
+                if (!IsEquivalentForSubstitution(substituted, original))
                     changed = true;
             }
 
             if (!changed)
             {
-                // Even if generic args did not change, we may still need to re-anchor a nested type
-                // under a substituted containing type.
-                if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
-                    return new ConstructedNamedTypeSymbol((INamedTypeSymbol?)(named.ConstructedFrom ?? named) ?? named, named.TypeArguments, _substitutionMap, containingOverride);
-
-                return named;
+                cache[interfaceType] = interfaceType;
+                return interfaceType;
             }
 
-            // Avoid reusing a possibly already-constructed named
-            var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
-
-            // If this is nested and the containing type must be substituted, create a constructed wrapper
-            // so ContainingType/ContainingSymbol reflect the constructed outer.
-            if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
-            {
-                var immutableArguments = ImmutableArray.Create(substitutedArgs);
-                return new ConstructedNamedTypeSymbol(constructedFrom, immutableArguments, _substitutionMap, overrideContaining);
-            }
-
-            return constructedFrom.Construct(substitutedArgs);
+            var definition = (INamedTypeSymbol?)(interfaceType.ConstructedFrom ?? interfaceType) ?? interfaceType;
+            var constructed = (INamedTypeSymbol)definition.Construct(substitutedArguments);
+            cache[interfaceType] = constructed;
+            return constructed;
         }
-
-        // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
-        if (type is INamedTypeSymbol nestedNamed && nestedNamed.ContainingType is INamedTypeSymbol)
+        finally
         {
-            if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
-                return new ConstructedNamedTypeSymbol(nestedNamed, ImmutableArray<ITypeSymbol>.Empty, _substitutionMap, containingOverride);
+            visiting.Remove(interfaceType);
+        }
+    }
+
+    private ITypeSymbol SubstituteInterfaceTypeArgument(
+        ITypeSymbol argument,
+        Dictionary<INamedTypeSymbol, INamedTypeSymbol> cache,
+        HashSet<INamedTypeSymbol> visiting)
+    {
+        if (argument is ITypeParameterSymbol typeParameter && TryGetSubstitution(typeParameter, out var replacement))
+            return replacement;
+
+        if (argument is INamedTypeSymbol)
+            return argument;
+
+        if (argument is NullableTypeSymbol nullableArgument)
+        {
+            var underlying = SubstituteInterfaceTypeArgument(nullableArgument.UnderlyingType, cache, visiting);
+            return IsEquivalentForSubstitution(underlying, nullableArgument.UnderlyingType)
+                ? argument
+                : underlying.MakeNullable();
         }
 
-        return type;
+        if (argument is IArrayTypeSymbol arrayArgument)
+        {
+            var element = SubstituteInterfaceTypeArgument(arrayArgument.ElementType, cache, visiting);
+            if (IsEquivalentForSubstitution(element, arrayArgument.ElementType))
+                return argument;
+
+            return new ArrayTypeSymbol(
+                arrayArgument.BaseType,
+                element,
+                arrayArgument.ContainingSymbol,
+                arrayArgument.ContainingType,
+                arrayArgument.ContainingNamespace,
+                [],
+                arrayArgument.Rank);
+        }
+
+        if (argument is ByRefTypeSymbol byRefArgument)
+        {
+            var element = SubstituteInterfaceTypeArgument(byRefArgument.ElementType, cache, visiting);
+            return IsEquivalentForSubstitution(element, byRefArgument.ElementType)
+                ? argument
+                : new ByRefTypeSymbol(element);
+        }
+
+        if (argument is IAddressTypeSymbol addressArgument)
+        {
+            var element = SubstituteInterfaceTypeArgument(addressArgument.ReferencedType, cache, visiting);
+            return IsEquivalentForSubstitution(element, addressArgument.ReferencedType)
+                ? argument
+                : new AddressTypeSymbol(element);
+        }
+
+        return argument;
     }
 
     public ImmutableArray<ISymbol> GetMembers() =>
@@ -220,12 +402,6 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
     public ImmutableArray<ISymbol> GetMembers(string name) =>
         GetMembers().Where(m => m.Name == name).ToImmutableArray();
-
-    public ImmutableArray<INamedTypeSymbol> GetTypeMembers() =>
-        [.. GetMembers().OfType<INamedTypeSymbol>()];
-
-    public ImmutableArray<INamedTypeSymbol> GetTypeMembers(string name) =>
-        [.. GetMembers(name).OfType<INamedTypeSymbol>()];
 
     internal ImmutableArray<ITypeSymbol> GetAllTypeArguments() =>
         _allTypeArguments.IsDefault ? _allTypeArguments = BuildAllTypeArguments() : _allTypeArguments;
@@ -248,9 +424,25 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
     private ImmutableArray<ITypeSymbol> BuildTypeArguments()
     {
+        if (_isBuildingTypeArguments)
+            return _explicitTypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _explicitTypeArguments;
+
+        // Metadata generic instantiations already carry closed type arguments.
+        // Re-substituting them can recurse in self-referential generic graphs.
+        if (_originalDefinition is PENamedTypeSymbol)
+            return _explicitTypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _explicitTypeArguments;
+
+        _isBuildingTypeArguments = true;
+        try
+        {
         // Nested non-generic types (e.g. Test<T>.A) do NOT become generic.
         // Outer substitution is carried via _substitutionMap and _containingTypeOverride.
         return NormalizeTypeArguments(_explicitTypeArguments);
+        }
+        finally
+        {
+            _isBuildingTypeArguments = false;
+        }
     }
 
     private ImmutableArray<ITypeParameterSymbol> BuildTypeParameters()
@@ -272,19 +464,6 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             builder.Add(Substitute(argument));
 
         return builder.MoveToImmutable();
-    }
-
-    /// <summary>
-    /// Factory for re-anchoring a nested named type under a possibly-substituted containing type.
-    /// Used by other constructed symbol wrappers (e.g. ConstructedMethodSymbol).
-    /// </summary>
-    internal static INamedTypeSymbol ReanchorNested(
-        INamedTypeSymbol nestedDefinition,
-        INamedTypeSymbol containingOverride,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution,
-        ImmutableArray<ITypeSymbol> typeArguments)
-    {
-        return new ConstructedNamedTypeSymbol(nestedDefinition, typeArguments, inheritedSubstitution, containingOverride);
     }
 
     // Helper methods for chain-aware substitution of nested types
@@ -380,17 +559,6 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
             {
                 typeArguments[i] = parameter;
             }
-        }
-
-        // Even if no type arguments changed, nested types declared directly under the original definition
-        // must be re-anchored under this constructed instance (e.g. Outer<int>.Inner<B>).
-        if (!changed && containingOverride is null && namedType.ContainingType is INamedTypeSymbol ct)
-        {
-            var ctDef = (INamedTypeSymbol?)(ct.OriginalDefinition ?? ct) ?? ct;
-            var origDef = (INamedTypeSymbol?)(_originalDefinition.OriginalDefinition ?? _originalDefinition) ?? _originalDefinition;
-
-            if (SymbolEqualityComparer.Default.Equals(ctDef, origDef))
-                containingOverride = this;
         }
 
         // If nothing changed and there is no containing override, reuse the existing symbol.
@@ -489,13 +657,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     public bool IsGenericType => _originalDefinition.IsGenericType;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<INamedTypeSymbol> Interfaces =>
-        _interfaces ??= _originalDefinition.Interfaces
-            .Select(i => (INamedTypeSymbol)Substitute(i))
-            .ToImmutableArray();
+ _interfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces);
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
-        _allInterfaces ??= _originalDefinition.AllInterfaces
-            .Select(i => (INamedTypeSymbol)Substitute(i))
-            .ToImmutableArray();
+       _allInterfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces);
     public ImmutableArray<IDiscriminatedUnionCaseSymbol> Cases
     {
         get
@@ -972,6 +1136,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsReadOnly => _original.IsReadOnly;
     public bool IsFinal => _original.IsFinal;
     public bool IsVirtual => _original.IsVirtual;
+    public bool SetsRequiredMembers => _original.SetsRequiredMembers;
     public bool IsIterator => _original.IsIterator;
     public IteratorMethodKind IteratorKind => _original.IteratorKind;
     public ITypeSymbol? IteratorElementType => _original.IteratorElementType;
@@ -1051,9 +1216,6 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsStatic => _original.IsStatic;
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
-
-    public bool SetsRequiredMembers => _original.SetsRequiredMembers;
-
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
 
     public void Accept(SymbolVisitor visitor)
@@ -1387,8 +1549,8 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     public ISymbol ContainingSymbol => _constructed;
 
     public bool IsConst => _original.IsConst;
-    public bool IsMutable => _original.IsMutable;
     public bool IsRequired => _original.IsRequired;
+    public bool IsMutable => _original.IsMutable;
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
@@ -1489,7 +1651,6 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public IMethodSymbol? SetMethod => _original.SetMethod is null ? null : new SubstitutedMethodSymbol(_original.SetMethod, _constructed);
     public bool IsIndexer => _original.IsIndexer;
     public bool IsRequired => _original.IsRequired;
-
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
@@ -1638,22 +1799,17 @@ internal sealed class TypeParameterSubstitutionComparer : IEqualityComparer<ITyp
 
     private TypeParameterSubstitutionComparer() { }
 
-    public bool Equals(ITypeParameterSymbol? x, ITypeParameterSymbol? y)
+    public bool Equals(ITypeParameterSymbol? defX, ITypeParameterSymbol? defY)
     {
-        if (ReferenceEquals(x, y))
-            return true;
-        if (x is null || y is null)
-            return false;
-
-        var defX = (ITypeParameterSymbol)(x.OriginalDefinition ?? x);
-        var defY = (ITypeParameterSymbol)(y.OriginalDefinition ?? y);
-
-        return SymbolEqualityComparer.Default.IgnoreContainingNamespaceOrType().Equals(defX, defY);
+        return defX.Ordinal == defY.Ordinal
+            && defX.Name == defY.Name;
     }
 
-    public int GetHashCode(ITypeParameterSymbol obj)
+    public int GetHashCode(ITypeParameterSymbol def)
     {
-        var def = (ITypeParameterSymbol)(obj.OriginalDefinition ?? obj);
-        return SymbolEqualityComparer.Default.GetHashCode(def);
+        // Avoid recursive symbol-display hashing for constructed/nested contexts.
+        return HashCode.Combine(
+            def.Name,
+            def.Ordinal);
     }
 }
