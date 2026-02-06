@@ -1072,44 +1072,45 @@ class C {
         AsyncLowerer.Rewrite(methodSymbol, boundBody);
 
         var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
-        var hoistedLocals = stateMachine.HoistedLocals.ToArray();
-        var hoistedDisposable = Assert.Single(hoistedLocals.Where(field => field.Name == "<>local0"));
-        Assert.Contains(hoistedDisposable, stateMachine.HoistedLocalsToDispose);
+        Assert.Empty(stateMachine.HoistedLocalsToDispose);
 
-        var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
-        var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(moveNextBody.Statements));
+        var originalBody = Assert.IsType<BoundBlockStatement>(stateMachine.OriginalBody);
+        var hasUsingDeclaration = false;
+        var hasTryFinally = false;
 
-        var tryStatements = tryStatement.TryBlock.Statements.ToArray();
-        var entryLabeled = Assert.IsType<BoundLabeledStatement>(tryStatements[^1]);
-        var entryBlock = Assert.IsType<BoundBlockStatement>(entryLabeled.Statement);
-        var entryStatements = entryBlock.Statements.ToArray();
+        ScanStatements(originalBody.Statements);
 
-        var disposeGuard = Assert.IsType<BoundIfStatement>(entryStatements[^4]);
-        var disposeBlock = Assert.IsType<BoundBlockStatement>(disposeGuard.ThenNode);
-        var disposeStatements = disposeBlock.Statements.ToArray();
-        var disposeCallStatement = Assert.IsType<BoundExpressionStatement>(disposeStatements[0]);
-        var disposeInvocation = Assert.IsType<BoundInvocationExpression>(disposeCallStatement.Expression);
-        Assert.Equal("Dispose", disposeInvocation.Method.Name);
-        var disposeReceiver = Assert.IsType<BoundMemberAccessExpression>(disposeInvocation.Receiver);
-        Assert.Same(hoistedDisposable, Assert.IsAssignableFrom<IFieldSymbol>(disposeReceiver.Member));
+        Assert.False(hasUsingDeclaration);
+        Assert.True(hasTryFinally);
 
-        if (disposeStatements.Length > 1)
+        void ScanStatements(IEnumerable<BoundStatement> statements)
         {
-            var resetAssignment = Assert.IsType<BoundAssignmentStatement>(disposeStatements[1]);
-            var resetField = Assert.IsType<BoundFieldAssignmentExpression>(resetAssignment.Expression);
-            Assert.Same(hoistedDisposable, Assert.IsAssignableFrom<IFieldSymbol>(resetField.Field));
-        }
+            foreach (var statement in statements)
+            {
+                switch (statement)
+                {
+                    case BoundLocalDeclarationStatement localDeclaration when localDeclaration.IsUsing:
+                        hasUsingDeclaration = true;
+                        break;
+                    case BoundTryStatement tryStatement:
+                        if (tryStatement.FinallyBlock is not null)
+                            hasTryFinally = true;
 
-        var catchClause = Assert.Single(tryStatement.CatchClauses);
-        var catchStatements = catchClause.Block.Statements.ToArray();
-        var catchDisposeGuard = Assert.IsType<BoundIfStatement>(catchStatements[1]);
-        var catchDisposeBlock = Assert.IsType<BoundBlockStatement>(catchDisposeGuard.ThenNode);
-        var catchDisposeStatements = catchDisposeBlock.Statements.ToArray();
-        var catchDisposeInvocation = Assert.IsType<BoundInvocationExpression>(
-            Assert.IsType<BoundExpressionStatement>(catchDisposeStatements[0]).Expression);
-        Assert.Equal("Dispose", catchDisposeInvocation.Method.Name);
-        var catchReceiver = Assert.IsType<BoundMemberAccessExpression>(catchDisposeInvocation.Receiver);
-        Assert.Same(hoistedDisposable, Assert.IsAssignableFrom<IFieldSymbol>(catchReceiver.Member));
+                        ScanStatements(tryStatement.TryBlock.Statements);
+                        foreach (var catchClause in tryStatement.CatchClauses)
+                            ScanStatements(catchClause.Block.Statements);
+                        if (tryStatement.FinallyBlock is not null)
+                            ScanStatements(tryStatement.FinallyBlock.Statements);
+                        break;
+                    case BoundBlockStatement blockStatement:
+                        ScanStatements(blockStatement.Statements);
+                        break;
+                    case BoundLabeledStatement labeledStatement:
+                        ScanStatements(new[] { labeledStatement.Statement });
+                        break;
+                }
+            }
+        }
     }
 
     [Fact]

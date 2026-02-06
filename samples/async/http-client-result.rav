@@ -22,5 +22,7 @@ async func fetch(url: string) -> Task<Result<string, string>> {
         return .Ok(responseBody)
     } catch (HttpRequestException e) {
         return .Error(e.Message)
-    }
+    } catch (TaskCanceledException) {
+        return .Error("Request timed out or was canceled.")
+    } 
 }

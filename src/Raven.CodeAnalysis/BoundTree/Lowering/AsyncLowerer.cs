@@ -108,6 +108,8 @@ internal static class AsyncLowerer
             throw new ArgumentNullException(nameof(body));
 
         var analysis = Analyze(method, body);
+        if (analysis.ContainsAwait)
+            body = LowerBeforeAsyncRewrite(method, body);
         var compilation = GetCompilation(method);
 
         return RewriteMethod(compilation, method, body, analysis);
@@ -125,6 +127,8 @@ internal static class AsyncLowerer
             throw new ArgumentNullException(nameof(body));
 
         var analysis = Analyze(lambda, body);
+        if (analysis.ContainsAwait)
+            body = LowerBeforeAsyncRewrite(lambda, body);
         var compilation = GetCompilation(lambda);
 
         if (!analysis.ContainsAwait)
@@ -177,6 +181,197 @@ internal static class AsyncLowerer
         var asyncMethod = stateMachine.AsyncMethod;
         var rewrittenBody = RewriteAsyncBody(compilation, asyncMethod, stateMachine);
         return new AsyncRewriteResult(rewrittenBody, stateMachine, analysis);
+    }
+
+    private static BoundBlockStatement LowerBeforeAsyncRewrite(ISymbol symbol, BoundBlockStatement body)
+    {
+        if (symbol is null)
+            throw new ArgumentNullException(nameof(symbol));
+        if (body is null)
+            throw new ArgumentNullException(nameof(body));
+
+        // Normalize using declarations into try/finally before await/state-machine
+        // rewriting so dispatch guards are computed against final protected regions.
+        var compilation = GetCompilation(symbol);
+        var lowerer = new AsyncUsingDeclarationLowerer(compilation);
+        return lowerer.Rewrite(body);
+    }
+
+    private sealed class AsyncUsingDeclarationLowerer : BoundTreeRewriter
+    {
+        private readonly Compilation _compilation;
+
+        public AsyncUsingDeclarationLowerer(Compilation compilation)
+        {
+            _compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
+        }
+
+        public BoundBlockStatement Rewrite(BoundBlockStatement body)
+        {
+            return (BoundBlockStatement)VisitBlockStatement(body)!;
+        }
+
+        public override BoundNode DefaultVisit(BoundNode boundNode)
+        {
+            return boundNode;
+        }
+
+        public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var statements = new List<BoundStatement>();
+            foreach (var statement in node.Statements)
+                statements.Add((BoundStatement)VisitStatement(statement)!);
+
+            var loweredStatements = statements.ToImmutableArray();
+            var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+            var rewritten = RewriteUsingDeclarations(loweredStatements, handledUsingLocals);
+
+            if (handledUsingLocals.Count == 0)
+                return new BoundBlockStatement(rewritten, node.LocalsToDispose);
+
+            var localsBuilder = ImmutableArray.CreateBuilder<ILocalSymbol>(node.LocalsToDispose.Length);
+            foreach (var local in node.LocalsToDispose)
+            {
+                if (!handledUsingLocals.Contains(local))
+                    localsBuilder.Add(local);
+            }
+
+            return new BoundBlockStatement(rewritten, localsBuilder.ToImmutable());
+        }
+
+        public override BoundNode? VisitBlockExpression(BoundBlockExpression node)
+        {
+            if (node is null)
+                return null;
+
+            var statements = new List<BoundStatement>();
+            foreach (var statement in node.Statements)
+                statements.Add((BoundStatement)VisitStatement(statement)!);
+
+            var loweredStatements = statements.ToImmutableArray();
+            var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+            var rewritten = RewriteUsingDeclarations(loweredStatements, handledUsingLocals);
+
+            if (handledUsingLocals.Count == 0)
+                return new BoundBlockExpression(rewritten, node.UnitType, node.LocalsToDispose);
+
+            var localsBuilder = ImmutableArray.CreateBuilder<ILocalSymbol>(node.LocalsToDispose.Length);
+            foreach (var local in node.LocalsToDispose)
+            {
+                if (!handledUsingLocals.Contains(local))
+                    localsBuilder.Add(local);
+            }
+
+            return new BoundBlockExpression(rewritten, node.UnitType, localsBuilder.ToImmutable());
+        }
+
+        private ImmutableArray<BoundStatement> RewriteUsingDeclarations(
+            ImmutableArray<BoundStatement> statements,
+            HashSet<ILocalSymbol> handledUsingLocals)
+        {
+            if (statements.IsDefaultOrEmpty)
+                return statements;
+
+            var builder = ImmutableArray.CreateBuilder<BoundStatement>(statements.Length);
+
+            for (var i = 0; i < statements.Length; i++)
+            {
+                var statement = statements[i];
+
+                if (statement is BoundLocalDeclarationStatement { IsUsing: true } usingDeclaration)
+                {
+                    var declarators = usingDeclaration.Declarators.ToArray();
+                    foreach (var declarator in declarators)
+                        handledUsingLocals.Add(declarator.Local);
+
+                    var loweredUsing = new BoundLocalDeclarationStatement(declarators);
+                    var remaining = statements.RemoveRange(0, i + 1);
+                    var tryBlockStatements = RewriteUsingDeclarations(remaining, handledUsingLocals);
+                    var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<ILocalSymbol>.Empty);
+
+                    var finallyStatements = CreateDisposeStatements(declarators);
+                    var finallyBlock = new BoundBlockStatement(finallyStatements, ImmutableArray<ILocalSymbol>.Empty);
+                    var tryStatement = new BoundTryStatement(tryBlock, ImmutableArray<BoundCatchClause>.Empty, finallyBlock);
+
+                    builder.Add(loweredUsing);
+                    builder.Add(tryStatement);
+                    return builder.ToImmutable();
+                }
+
+                builder.Add(statement);
+            }
+
+            return builder.ToImmutable();
+        }
+
+        private ImmutableArray<BoundStatement> CreateDisposeStatements(BoundVariableDeclarator[] declarators)
+        {
+            if (declarators.Length == 0)
+                return ImmutableArray<BoundStatement>.Empty;
+
+            var disposableType = _compilation.GetSpecialType(SpecialType.System_IDisposable);
+            if (disposableType.TypeKind == TypeKind.Error)
+                return ImmutableArray<BoundStatement>.Empty;
+
+            var disposeMethod = disposableType
+                .GetMembers(nameof(IDisposable.Dispose))
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m => m.Parameters.Length == 0);
+
+            if (disposeMethod is null)
+                return ImmutableArray<BoundStatement>.Empty;
+
+            var builder = ImmutableArray.CreateBuilder<BoundStatement>(declarators.Length);
+
+            for (var i = declarators.Length - 1; i >= 0; i--)
+            {
+                var local = declarators[i].Local;
+                if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
+                    continue;
+
+                var disposeStatement = CreateDisposeStatement(local, disposeMethod);
+                if (disposeStatement is not null)
+                    builder.Add(disposeStatement);
+            }
+
+            return builder.ToImmutable();
+        }
+
+        private BoundStatement? CreateDisposeStatement(ILocalSymbol local, IMethodSymbol disposeMethod)
+        {
+            if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
+                return null;
+
+            var disposeCall = new BoundExpressionStatement(
+                new BoundInvocationExpression(disposeMethod, Array.Empty<BoundExpression>(), new BoundLocalAccess(local)));
+
+            if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
+            {
+                var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, local.Type);
+
+                if (BoundBinaryOperator.TryLookup(_compilation, SyntaxKind.NotEqualsToken, local.Type, local.Type, out var notEquals))
+                {
+                    var condition2 = new BoundBinaryExpression(new BoundLocalAccess(local), notEquals, nullLiteral);
+                    return new BoundIfStatement(condition2, new BoundBlockStatement(new[] { disposeCall }));
+                }
+
+                var booleanType = _compilation.GetSpecialType(SpecialType.System_Boolean);
+                var objectType = _compilation.GetSpecialType(SpecialType.System_Object);
+                if (booleanType.TypeKind == TypeKind.Error || objectType.TypeKind == TypeKind.Error)
+                    return disposeCall;
+
+                var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, _compilation);
+                var nullPattern = new BoundConstantPattern(nullLiteralType);
+                var notNullPattern = new BoundNotPattern(nullPattern);
+                var condition = new BoundIsPatternExpression(new BoundLocalAccess(local), notNullPattern, booleanType);
+                return new BoundIfStatement(condition, new BoundBlockStatement(new[] { disposeCall }));
+            }
+
+            return disposeCall;
+        }
     }
 
     private static AsyncRewriteResult RewriteMethod(

@@ -22,6 +22,8 @@ extension HttpClientExtensions for HttpClient {
             return .Ok(responseBody)
         } catch (HttpRequestException e) {
             return .Error(e.Message)
+        } catch (TaskCanceledException) {
+            return .Error("Request timed out or was canceled.")
         }
     }
 }

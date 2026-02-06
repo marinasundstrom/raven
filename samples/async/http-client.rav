@@ -2,6 +2,7 @@
 
 import System.Console.*
 import System.Net.Http.*
+import System.Threading.Tasks.*
 
 using val client = HttpClient()
 
@@ -16,4 +17,6 @@ try {
 } catch (HttpRequestException e) {
     WriteLine("\nException Caught!")
     WriteLine("Message :${e.Message} ")
-}
+} catch (TaskCanceledException e) {
+    WriteLine("Message :${e.Message} ")
+} 
