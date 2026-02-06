@@ -14,6 +14,33 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class CustomAttributeEmissionTests
 {
     [Fact]
+    public void AttributeTypeArgument_CanReferenceSourceTypeDeclaredLater()
+    {
+        const string source = """
+import System.*
+import System.Text.Json.Serialization.*
+
+[JsonDerivedType(typeof(Button), "Button")]
+open class Control { }
+
+class Button : Control { }
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var controlType = assembly.GetType("Control", throwOnError: true)!;
+        var attribute = Assert.Single(controlType.GetCustomAttributesData(), a => a.AttributeType.Name == "JsonDerivedTypeAttribute");
+        Assert.Equal(assembly.GetType("Button", throwOnError: true), attribute.ConstructorArguments[0].Value);
+    }
+
+    [Fact]
     public void CustomAttributes_AreEmitted()
     {
         const string source = """
@@ -117,4 +144,5 @@ class Widget
         var debuggerBrowsable = Assert.Single(fieldAttributes, a => a.AttributeType == typeof(DebuggerBrowsableAttribute));
         Assert.Equal(DebuggerBrowsableState.Never, (DebuggerBrowsableState)debuggerBrowsable.ConstructorArguments[0].Value!);
     }
+
 }

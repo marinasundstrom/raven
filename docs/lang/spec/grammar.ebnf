@@ -442,6 +442,8 @@ PostfixTrailer           ::= ArgumentList
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
 Argument                 ::= [Identifier ':'] Expression ;
+AttributeArgumentList    ::= '(' [AttributeArgument {',' AttributeArgument}] ')' ;
+AttributeArgument        ::= [Identifier ':'] Expression ; (* Attribute named arguments must use ':'; '=' is not valid syntax. *)
 
 MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;

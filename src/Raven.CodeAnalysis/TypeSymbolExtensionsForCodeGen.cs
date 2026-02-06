@@ -160,7 +160,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol is INamedTypeSymbol namedType)
         {
-            if (codeGen.TryGetRuntimeTypeForSymbol(namedType, out var builtType))
+            if (codeGen.TryEnsureRuntimeTypeForSymbol(namedType, out var builtType))
                 return builtType;
 
             var metadataName = namedType.ToFullyQualifiedMetadataName();

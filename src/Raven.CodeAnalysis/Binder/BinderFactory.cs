@@ -23,6 +23,7 @@ class BinderFactory
         Binder? newBinder = node switch
         {
             AttributeListSyntax attributeList => CreateAttributeBinder(attributeList, parentBinder!),
+            AttributeSyntax attribute when attribute.Parent is AttributeListSyntax attributeList => CreateAttributeBinder(attributeList, parentBinder!),
             BaseNamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
             MethodDeclarationSyntax => parentBinder,
             BlockSyntax => CreateBlockBinder(parentBinder),

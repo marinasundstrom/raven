@@ -433,7 +433,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
             foreach (var attribute in returnClause.AttributeLists.SelectMany(static list => list.Attributes))
             {
-                var binder = semanticModel.GetBinder(attribute);
+                var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
+                var binder = semanticModel.GetBinder(binderNode);
                 var attributeBinder = binder as AttributeBinder ?? new AttributeBinder(this, binder);
                 var boundAttribute = attributeBinder.BindAttribute(attribute);
                 var data = AttributeDataFactory.Create(boundAttribute, attribute);

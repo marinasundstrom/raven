@@ -922,7 +922,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return expr;
     }
 
-    internal ArgumentListSyntax ParseArgumentListSyntax()
+    internal ArgumentListSyntax ParseArgumentListSyntax(bool allowLegacyNamedArgumentEquals = true)
     {
         // We assume current token is '('
         var openParenToken = ReadToken();
@@ -991,7 +991,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 //      42)
                 //
                 // just see the newlines as trivia around '42'.
-                var arg = new ExpressionSyntaxParser(this).ParseArgument(out var nameSpan);
+                var arg = new ExpressionSyntaxParser(this).ParseArgument(allowLegacyNamedArgumentEquals, out var nameSpan);
 
                 if (arg is null or { IsMissing: true })
                 {
@@ -1012,6 +1012,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                                 CompilerDiagnostics.DuplicateNamedArgument,
                                 nameSpan ?? GetSpanOfLastToken(),
                                 name));
+                    }
+
+                    if (!allowLegacyNamedArgumentEquals &&
+                        (nameColon.ColonToken.IsMissing || nameColon.ColonToken.Kind != SyntaxKind.ColonToken))
+                    {
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.CharacterExpected,
+                                GetSpanOfLastToken(),
+                                ":"));
                     }
                 }
 
@@ -1041,10 +1051,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     public ArgumentSyntax ParseArgument()
     {
-        return ParseArgument(out _);
+        return ParseArgument(allowLegacyNamedArgumentEquals: true, out _);
     }
 
     public ArgumentSyntax ParseArgument(out TextSpan? nameSpan)
+    {
+        return ParseArgument(allowLegacyNamedArgumentEquals: true, out nameSpan);
+    }
+
+    public ArgumentSyntax ParseArgument(bool allowLegacyNamedArgumentEquals, out TextSpan? nameSpan)
     {
         NameColonSyntax? nameColon = null;
         nameSpan = null;
@@ -1066,8 +1081,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         else if (PeekToken(1).IsKind(SyntaxKind.EqualsToken)
            && CanTokenBeIdentifier(PeekToken()))
         {
-            // HACK: Re-using NameColon syntax for NameEquals
-
             var name = ReadToken(); // identifier or keyword
             if (name.Kind != SyntaxKind.IdentifierToken)
             {
@@ -1075,8 +1088,24 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 UpdateLastToken(name);
             }
             nameSpan = GetSpanOfLastToken();
-            var equals = ReadToken(); // colon
-            nameColon = NameColon(IdentifierName(name), equals);
+            var equals = ReadToken();
+
+            if (allowLegacyNamedArgumentEquals)
+            {
+                // Backward compatibility for regular invocation argument lists.
+                // Attribute argument lists intentionally reject this form.
+                nameColon = NameColon(IdentifierName(name), equals);
+            }
+            else
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.CharacterExpected,
+                        GetSpanOfLastToken(),
+                        ":"));
+
+                nameColon = NameColon(IdentifierName(name), MissingToken(SyntaxKind.ColonToken));
+            }
         }
 
         var expr = ParseExpression();

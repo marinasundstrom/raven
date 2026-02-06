@@ -62,7 +62,7 @@ internal static class AttributeDeclarationParser
         ArgumentListSyntax? argumentList = null;
         if (parser.PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            argumentList = new ExpressionSyntaxParser(parser).ParseArgumentListSyntax();
+            argumentList = new ExpressionSyntaxParser(parser).ParseArgumentListSyntax(allowLegacyNamedArgumentEquals: false);
         }
 
         return Attribute(name, argumentList);

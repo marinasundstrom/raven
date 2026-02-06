@@ -370,6 +370,10 @@
     Title="Attribute does not allow multiple"
     Message="Attribute '{attributeName}' cannot be applied multiple times to the same '{targetName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0504" Identifier="AttributeArgumentMustBeConstant"
+    Title="Attribute argument must be constant"
+    Message="Attribute argument must be a constant expression"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0815" Identifier="CannotAssignVoidToAnImplicitlyTypedVariable"
     Title="Cannot assign void to an implicitly-typed variable"
     Message="Cannot assign void to an implicitly-typed variable" Category="compiler"

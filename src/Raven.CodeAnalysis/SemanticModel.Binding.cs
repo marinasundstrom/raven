@@ -35,10 +35,15 @@ public partial class SemanticModel
         EnsureDiagnosticsCollected();
 
         BoundExpression? boundExpression = TryGetCachedBoundNode(attribute) as BoundExpression;
-        var binder = GetBinder(attribute);
+        var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
+        var binder = GetBinder(binderNode);
 
-        if (boundExpression is null && binder is AttributeBinder attributeBinder)
+        if (boundExpression is null)
+        {
+            var attributeBinder = binder as AttributeBinder
+                ?? new AttributeBinder(binder.ContainingSymbol, binder);
             boundExpression = attributeBinder.BindAttribute(attribute);
+        }
 
         var data = AttributeDataFactory.Create(boundExpression, attribute);
 

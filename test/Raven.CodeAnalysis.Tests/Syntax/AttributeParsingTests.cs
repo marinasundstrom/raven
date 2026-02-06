@@ -10,6 +10,44 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class AttributeParsingTests : DiagnosticTestBase
 {
     [Fact]
+    public void Attribute_WithNamedArgumentUsingColon_Parses()
+    {
+        const string code = """
+            [JsonPolymorphic(TypeDiscriminatorPropertyName: "type")]
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+
+        var attribute = Assert.Single(Assert.Single(declaration.AttributeLists).Attributes);
+        var argument = Assert.Single(attribute.ArgumentList!.Arguments);
+
+        Assert.Equal("TypeDiscriminatorPropertyName", argument.NameColon!.Name.Identifier.Text);
+        Assert.Equal(SyntaxKind.ColonToken, argument.NameColon.ColonToken.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void Attribute_WithNamedArgumentUsingEquals_ReportsDiagnostic()
+    {
+        const string code = """
+            [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var diagnostics = tree.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("RAV1003", diagnostic.Descriptor.Id);
+        Assert.Contains(":", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void ConstructorDeclaration_WithAttributeList_ParsesAttributes()
     {
         const string code = """

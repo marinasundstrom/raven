@@ -1902,6 +1902,23 @@ internal class CodeGenerator
         return false;
     }
 
+    internal bool TryEnsureRuntimeTypeForSymbol(INamedTypeSymbol symbol, out Type type)
+    {
+        if (TryGetRuntimeTypeForSymbol(symbol, out type))
+            return true;
+
+        if (_typeGenerators.TryGetValue(symbol, out var generator))
+        {
+            if (generator.TypeBuilder is null && generator.Type is null)
+                generator.DefineTypeBuilder();
+
+            return TryGetRuntimeTypeForSymbol(symbol, out type);
+        }
+
+        type = null!;
+        return false;
+    }
+
     internal bool TryGetRuntimeTypeForTypeParameter(ITypeParameterSymbol symbol, out Type type)
     {
         if (_genericParameterMap.TryGetValue(symbol, out var stack) && stack.Count > 0)

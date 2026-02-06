@@ -964,8 +964,10 @@ parameter declared by the target. After a named argument is used, any remaining
 positional arguments must correspond to parameters that have not already been
 specified by name and that occur after the right-most named argument. Duplicate
 or unknown names cause overload resolution to reject the candidate. Named
-arguments are supported anywhere an argument list appears, including function
-invocations, object creation, constructor initializers, and attribute usage.
+arguments are supported in function invocations, object creation, and
+constructor initializers. Attribute argument lists also support named
+arguments, but they use the same `name: expression` form only; the legacy
+`name = expression` C# style is not valid Raven syntax.
 
 ```raven
 func makePoint(x: int, y: int, label: string = "origin") -> string

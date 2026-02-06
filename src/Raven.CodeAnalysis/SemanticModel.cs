@@ -65,6 +65,17 @@ public partial class SemanticModel
             {
                 var childBinder = GetBinder(child, currentBinder);
 
+                if (child is AttributeSyntax attributeSyntax)
+                {
+                    // Attribute names/arguments have attribute-specific binding rules.
+                    // Binding descendant expressions directly can produce bogus name lookup
+                    // diagnostics (e.g. [Obsolete] resolving as an identifier expression).
+                    var attributeBinder = childBinder as AttributeBinder
+                        ?? new AttributeBinder(childBinder.ContainingSymbol, childBinder);
+                    _ = attributeBinder.BindAttribute(attributeSyntax);
+                    continue;
+                }
+
                 if (child is GlobalStatementSyntax global)
                 {
                     // Bind the contained statement so locals are registered

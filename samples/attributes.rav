@@ -8,7 +8,7 @@ class Foo {
 
 }
 
-//[Obsolete("Hello")]
+[Obsolete("Hello")]
 class Foo2 {
 
 }

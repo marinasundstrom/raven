@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -41,7 +43,7 @@ internal sealed class AttributeBinder : BlockBinder
 
     private BoundExpression BindAttributeCore(AttributeSyntax attribute)
     {
-        var attributeType = TryResolveAttributeType(attribute.Name);
+        var attributeType = BindAttributeType(attribute.Name);
 
         if (attributeType is null)
         {
@@ -64,21 +66,42 @@ internal sealed class AttributeBinder : BlockBinder
         var argumentSyntaxes = argumentList?.Arguments ?? SeparatedSyntaxList<ArgumentSyntax>.Empty;
 
         var boundArguments = ImmutableArray.CreateBuilder<BoundArgument>(argumentSyntaxes.Count);
+        var namedAssignments = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>();
         bool hasErrors = false;
 
         for (int i = 0; i < argumentSyntaxes.Count; i++)
         {
             var argumentSyntax = argumentSyntaxes[i];
-            var boundArgument = BindExpression(argumentSyntax.Expression);
-
-            if (boundArgument is BoundErrorExpression)
-                hasErrors = true;
-
             var name = argumentSyntax.NameColon?.Name.Identifier.ValueText;
+
+            // In attribute argument lists, named entries can target assignable
+            // instance properties/fields on the attribute type.
+            if (!string.IsNullOrEmpty(name) &&
+                TryBindAttributeNamedArgument(attributeType, name, argumentSyntax.Expression, out var assignmentEntry, ref hasErrors))
+            {
+                namedAssignments.Add(assignmentEntry);
+                continue;
+            }
+
+            var boundArgumentExpression = BindExpression(argumentSyntax.Expression);
+            if (boundArgumentExpression is BoundErrorExpression)
+            {
+                hasErrors = true;
+            }
+            else if (!AttributeDataFactory.TryCreateTypedConstant(boundArgumentExpression, out _))
+            {
+                _diagnostics.ReportAttributeArgumentMustBeConstant(argumentSyntax.Expression.GetLocation());
+                boundArgumentExpression = new BoundErrorExpression(
+                    boundArgumentExpression.Type ?? Compilation.ErrorTypeSymbol,
+                    null,
+                    BoundExpressionReason.ConstantExpected);
+                hasErrors = true;
+            }
+
             if (string.IsNullOrEmpty(name))
                 name = null;
 
-            boundArguments.Add(new BoundArgument(boundArgument, RefKind.None, name, argumentSyntax));
+            boundArguments.Add(new BoundArgument(boundArgumentExpression, RefKind.None, name, argumentSyntax));
         }
 
         if (hasErrors)
@@ -95,7 +118,10 @@ internal sealed class AttributeBinder : BlockBinder
                 return new BoundErrorExpression(attributeType, constructor, BoundExpressionReason.Inaccessible);
 
             var converted = ConvertArguments(constructor.Parameters, arguments);
-            return new BoundObjectCreationExpression(constructor, converted);
+            var initializer = namedAssignments.Count > 0
+                ? new BoundObjectInitializer(namedAssignments.ToImmutable())
+                : null;
+            return new BoundObjectCreationExpression(constructor, converted, initializer: initializer);
         }
 
         if (resolution.IsAmbiguous)
@@ -112,7 +138,41 @@ internal sealed class AttributeBinder : BlockBinder
         return new BoundErrorExpression(attributeType, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
-    private INamedTypeSymbol? TryResolveAttributeType(TypeSyntax attributeName)
+    private INamedTypeSymbol? BindAttributeType(TypeSyntax attributeName)
+    {
+        if (TryBindAttributeTypeCore(attributeName, out var resolved))
+            return resolved;
+
+        if (!HasAttributeSuffix(attributeName))
+        {
+            var suffixed = TryAppendAttributeSuffix(attributeName);
+            if (suffixed is not null && TryBindAttributeTypeCore(suffixed, out resolved))
+                return resolved;
+        }
+
+        return TryResolveAttributeTypeFallback(attributeName);
+    }
+
+    private bool TryBindAttributeTypeCore(TypeSyntax attributeName, out INamedTypeSymbol? resolved)
+    {
+        var result = BindType(attributeName);
+        if (result.Success && result.ResolvedType is INamedTypeSymbol named)
+        {
+            resolved = named;
+            return true;
+        }
+
+        if (result.ResolvedType is INamedTypeSymbol resolvedNamed && resolvedNamed.TypeKind != TypeKind.Error)
+        {
+            resolved = resolvedNamed;
+            return true;
+        }
+
+        resolved = null;
+        return false;
+    }
+
+    private INamedTypeSymbol? TryResolveAttributeTypeFallback(TypeSyntax attributeName)
     {
         var hasAttributeSuffix = HasAttributeSuffix(attributeName);
 
@@ -124,6 +184,96 @@ internal sealed class AttributeBinder : BlockBinder
         }
 
         return TryLookupAttributeType(attributeName, appendAttributeSuffix: false);
+    }
+
+    private bool TryBindAttributeNamedArgument(
+        INamedTypeSymbol attributeType,
+        string name,
+        ExpressionSyntax expression,
+        out BoundObjectInitializerAssignmentEntry assignmentEntry,
+        ref bool hasErrors)
+    {
+        assignmentEntry = null!;
+
+        var member = FindAttributeNamedMember(attributeType, name);
+        if (member is null)
+            return false;
+
+        if (member.IsStatic)
+            return false;
+
+        var memberType = member switch
+        {
+            IPropertySymbol property => property.Type,
+            IFieldSymbol field => field.Type,
+            _ => null
+        };
+
+        if (memberType is null)
+            return false;
+
+        var memberKind = member is IPropertySymbol ? "property" : "field";
+        if (!EnsureMemberAccessible(member, expression.GetLocation(), memberKind))
+            hasErrors = true;
+
+        var boundValue = BindExpression(expression);
+        if (boundValue is BoundErrorExpression)
+        {
+            hasErrors = true;
+        }
+        else if (!AttributeDataFactory.TryCreateTypedConstant(boundValue, out _))
+        {
+            _diagnostics.ReportAttributeArgumentMustBeConstant(expression.GetLocation());
+            boundValue = new BoundErrorExpression(
+                boundValue.Type ?? Compilation.ErrorTypeSymbol,
+                null,
+                BoundExpressionReason.ConstantExpected);
+            hasErrors = true;
+        }
+
+        assignmentEntry = new BoundObjectInitializerAssignmentEntry(member, boundValue);
+        return true;
+    }
+
+    private static ISymbol? FindAttributeNamedMember(INamedTypeSymbol attributeType, string name)
+    {
+        for (INamedTypeSymbol? current = attributeType; current is not null; current = current.BaseType as INamedTypeSymbol)
+        {
+            var members = current.GetMembers(name);
+
+            var property = members
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(p => !p.IsStatic && p.SetMethod is not null);
+            if (property is not null)
+                return property;
+
+            var field = members
+                .OfType<IFieldSymbol>()
+                .FirstOrDefault(f => !f.IsStatic);
+            if (field is not null)
+                return field;
+        }
+
+        return null;
+    }
+
+    private static TypeSyntax? TryAppendAttributeSuffix(TypeSyntax syntax)
+    {
+        return syntax switch
+        {
+            IdentifierNameSyntax identifier => SyntaxFactory.IdentifierName(
+                SyntaxFactory.Identifier(AppendAttributeSuffix(identifier.Identifier.ValueText))),
+            GenericNameSyntax generic => SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(AppendAttributeSuffix(generic.Identifier.ValueText)),
+                generic.TypeArgumentList),
+            QualifiedNameSyntax qualified => TryAppendAttributeSuffix(qualified.Right) is UnqualifiedNameSyntax suffixedRight
+                ? SyntaxFactory.QualifiedName(qualified.Left, qualified.DotToken, suffixedRight)
+                : null,
+            AliasQualifiedNameSyntax aliasQualified => TryAppendAttributeSuffix(aliasQualified.Name) is SimpleNameSyntax suffixedName
+                ? SyntaxFactory.AliasQualifiedName(aliasQualified.Alias, aliasQualified.ColonColonToken, suffixedName)
+                : null,
+            _ => null
+        };
     }
 
     private INamedTypeSymbol? TryLookupAttributeType(TypeSyntax attributeName, bool appendAttributeSuffix)
@@ -262,14 +412,19 @@ internal sealed class AttributeBinder : BlockBinder
         return Math.Max(argumentCount, separators);
     }
 
+    private static string AppendAttributeSuffix(string name)
+    {
+        return name.EndsWith("Attribute", StringComparison.Ordinal)
+            ? name
+            : string.Concat(name, "Attribute");
+    }
+
     private static string AppendAttributeSuffixIfNeeded(string name, bool append)
     {
         if (!append)
             return name;
 
-        return name.EndsWith("Attribute", StringComparison.Ordinal)
-            ? name
-            : string.Concat(name, "Attribute");
+        return AppendAttributeSuffix(name);
     }
 
     private static bool HasAttributeSuffix(TypeSyntax syntax)

@@ -2,6 +2,7 @@ import System.*
 import System.Console.*
 import System.Collections.Generic.*
 import System.Text.Json.*
+import System.Text.Json.Serialization.*
 
 val window = Window {
     Title = "Main"
@@ -77,9 +78,9 @@ enum DialogResult {
     No 
 }
 
-//[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
-//[JsonDerivedType(typeof(Button), "StackPanel")]
-//[JsonDerivedType(typeof(StackPanel), "StackPanel")]
+[JsonPolymorphic(TypeDiscriminatorPropertyName: "type")]
+[JsonDerivedType(typeof(Button), "Button")]
+[JsonDerivedType(typeof(StackPanel), "StackPanel")]
 open abstract class Control {}
 
 interface IHasChildren {

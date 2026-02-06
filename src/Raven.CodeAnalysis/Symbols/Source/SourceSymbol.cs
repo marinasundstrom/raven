@@ -79,7 +79,8 @@ internal abstract class SourceSymbol : Symbol
 
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
-                var binder = semanticModel.GetBinder(attribute);
+                var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
+                var binder = semanticModel.GetBinder(binderNode);
                 var attributeBinder = binder as AttributeBinder ?? new AttributeBinder(this, binder);
                 var boundAttribute = attributeBinder.BindAttribute(attribute);
                 var data = AttributeDataFactory.Create(boundAttribute, attribute);
@@ -180,11 +181,11 @@ internal abstract class SourceSymbol : Symbol
             : null;
     }
 
-    private static SyntaxList<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
+    private SyntaxList<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
         => syntax switch
         {
-            CompilationUnitSyntax compilationUnit => compilationUnit.AttributeLists,
-            BaseTypeDeclarationSyntax typeDeclaration => typeDeclaration.AttributeLists,
+            CompilationUnitSyntax compilationUnit when this is IAssemblySymbol => compilationUnit.AttributeLists,
+            BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
             ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,

@@ -285,7 +285,16 @@ internal static class AttributeUsageHelper
     {
         try
         {
-            var clrType = attributeType.GetClrType(compilation);
+            var metadataName = attributeType.ToFullyQualifiedMetadataName();
+            Type? clrType = null;
+
+            if (attributeType is PENamedTypeSymbol peAttributeType)
+                clrType = compilation.ResolveRuntimeType(peAttributeType);
+
+            if (!string.IsNullOrWhiteSpace(metadataName))
+                clrType ??= compilation.ResolveRuntimeType(metadataName);
+
+            clrType ??= attributeType.GetClrType(compilation);
             if (clrType is null)
                 return null;
 

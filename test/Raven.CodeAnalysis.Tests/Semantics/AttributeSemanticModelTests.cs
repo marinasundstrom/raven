@@ -84,4 +84,36 @@ class Widget {}
         Assert.Equal("ExportAttribute", data.AttributeClass.Name);
         Assert.Equal("Lib", data.AttributeClass.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
+
+    [Fact]
+    public void GetAttribute_BindsNamedPropertyArguments()
+    {
+        const string source = """
+class NamedAttribute : System.Attribute
+{
+    public init(id: int) {}
+    public Label: string { get; set; }
+}
+
+[Named(42, Label: "demo")]
+class Widget {}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var widgetDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "Widget");
+
+        var widgetSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
+        var data = Assert.Single(widgetSymbol.GetAttributes());
+
+        Assert.Equal("NamedAttribute", data.AttributeClass.Name);
+        Assert.Single(data.ConstructorArguments);
+        Assert.Equal(42, data.ConstructorArguments[0].Value);
+
+        var named = Assert.Single(data.NamedArguments);
+        Assert.Equal("Label", named.Key);
+        Assert.Equal(TypedConstantKind.Primitive, named.Value.Kind);
+        Assert.Equal("demo", named.Value.Value);
+    }
 }
