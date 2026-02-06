@@ -140,10 +140,10 @@ internal class StatementGenerator : Generator
 
         if (expression is not null)
         {
-            var preserveResult = !isVoidLikeReturn;
-            var info = new ExpressionGenerator(this, expression, preserveResult).Emit2();
+            var context = isVoidLikeReturn ? EmitContext.None : EmitContext.Value;
+            var info = new ExpressionGenerator(this, expression, context).Emit2();
 
-            if (preserveResult && localsToDispose.Length > 0 && expressionType is not null)
+            if (!isVoidLikeReturn && localsToDispose.Length > 0 && expressionType is not null)
             {
                 var clrType = ResolveClrType(expressionType);
                 resultTemp = SpillValueToLocalIfNeeded(clrType, info);
@@ -186,7 +186,7 @@ internal class StatementGenerator : Generator
         var expression = returnStatement.Expression!;
         var expressionType = expression.Type;
         IILocal? resultTemp = null;
-        var info = new ExpressionGenerator(this, expression, preserveResult: true).Emit2();
+        var info = new ExpressionGenerator(this, expression, EmitContext.Value).Emit2();
 
         if (expressionType is not null)
         {
@@ -306,24 +306,12 @@ internal class StatementGenerator : Generator
     private void EmitExpressionStatement(BoundExpressionStatement expressionStatement)
     {
         var expression = expressionStatement.Expression;
-
-        // We are discarding the value of the expression. Never materialize Unit.Value in this case.
-        // (ExpressionGenerator will still emit side-effects.)
-        if (expression.Type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
-        {
-            new ExpressionGenerator(this, expression, EmitContext.None).Emit2();
-            return;
-        }
-
-        new ExpressionGenerator(this, expression, EmitContext.Value).Emit2();
-
-        // Pop the result
-        ILGenerator.Emit(OpCodes.Pop);
+        new ExpressionGenerator(this, expression, EmitContext.None).Emit2();
     }
 
     private void EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement)
     {
-        new ExpressionGenerator(this, assignmentStatement.Expression, preserveResult: false).Emit();
+        new ExpressionGenerator(this, assignmentStatement.Expression, EmitContext.None).Emit2();
     }
 
     private void EmitForStatement(BoundForStatement forStatement)
@@ -754,10 +742,11 @@ internal class StatementGenerator : Generator
 
         if (declarator.Initializer is not null)
         {
-            var initType = declarator.Initializer.Type;
-            var discardValue = localBuilder is null && initType?.SpecialType is (SpecialType.System_Void or SpecialType.System_Unit);
+            var context = localBuilder is null
+                ? EmitContext.None
+                : EmitContext.Value;
 
-            new ExpressionGenerator(this, declarator.Initializer, preserveResult: !discardValue).Emit2();
+            new ExpressionGenerator(this, declarator.Initializer, context).Emit2();
 
             var expressionType = declarator.Initializer.Type;
 
@@ -765,13 +754,6 @@ internal class StatementGenerator : Generator
             // there's nothing to store.
             if (localBuilder is null)
             {
-                if (expressionType is null ||
-                    expressionType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
-                {
-                    return;
-                }
-
-                ILGenerator.Emit(OpCodes.Pop);
                 return;
             }
 
