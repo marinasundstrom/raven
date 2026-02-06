@@ -1,0 +1,16 @@
+import System.*
+import System.Console.*
+import System.Linq.*
+
+WriteLine(test())
+
+func test() -> Result<int, CustomError> {
+    val f = test2()
+    return f.IsOkOr(CustomError("Bang!"))
+}
+
+func test2() -> Option<int> {
+    return .Some(2)
+}
+
+record class CustomError(message: string);

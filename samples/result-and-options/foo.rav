@@ -1,7 +1,6 @@
 import System.*
 import System.Console.*
 import System.Linq.*
-import System.Collections.Generic.*
 
 val f: Option<int> = .Some(2)
 val isOk = f.IsOkOr(CustomError("Bang!"))
