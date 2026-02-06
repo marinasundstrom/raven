@@ -18,6 +18,16 @@ public class StringLiteralTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void MultiLineStringLiteral_WithValidTermination_ShouldNotProduceDiagnostics()
+    {
+        string testCode = "\"\"\"\nHello\nWorld\n\"\"\";";
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void StringLiteral_WithMissingTermination_ShouldProduceExpectedDiagnostics()
     {
         string testCode =

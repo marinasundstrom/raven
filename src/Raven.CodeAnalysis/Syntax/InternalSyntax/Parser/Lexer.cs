@@ -660,53 +660,6 @@ internal class Lexer : ILexer
 
             ReadChar();
 
-            // Legacy interpolation introducer: \$ident or \${...}
-            // Historically Raven allowed `\$x` to mean the same as `$x`.
-            // After the interpolation-aware changes, `\$` was treated as a normal escape.
-            // For consistency with multiline strings (and backwards compatibility),
-            // treat `\$` followed by `{` or an identifier-start as interpolation.
-            if (ch2 == '\\' && PeekChar(out var dollar) && dollar == '$')
-            {
-                // Speculatively consume '$' and decide if this is an interpolation.
-                var checkpoint = _currentPosition;
-                _textSource.PushPosition();
-
-                ReadChar(); // consume '$'
-
-                if (PeekChar(out var afterDollar) && (afterDollar == '{' || SyntaxFacts.IsIdentifierStartCharacter(afterDollar)))
-                {
-                    // Commit: drop the backslash, keep '$' and scan interpolation.
-                    _textSource.PopPosition();
-
-                    _stringBuilder.Append('$');
-
-                    if (afterDollar == '{')
-                    {
-                        ReadChar(); // consume '{'
-                        _stringBuilder.Append('{');
-                        ScanInterpolationBodyIntoBuilder();
-                    }
-                    else
-                    {
-                        // $identifier form
-                        ReadChar(); // consume first identifier char
-                        _stringBuilder.Append(afterDollar);
-
-                        while (PeekChar(out var idPart) && SyntaxFacts.IsIdentifierPartCharacter(idPart))
-                        {
-                            ReadChar();
-                            _stringBuilder.Append(idPart);
-                        }
-                    }
-
-                    continue;
-                }
-
-                // Not an interpolation: rewind and let normal escape handling deal with it.
-                _textSource.PopAndRestorePosition();
-                _currentPosition = checkpoint;
-            }
-
             // Interpolation: $ (not escaped), followed by { or identifier start
             if (ch2 == '$' && !IsDollarEscaped(_stringBuilder) && PeekChar(out var next) && (next == '{' || SyntaxFacts.IsIdentifierStartCharacter(next)))
             {
@@ -748,39 +701,6 @@ internal class Lexer : ILexer
 
             if (ch2 == '\\')
             {
-                // Support legacy interpolation introducer: \$name and \${...}
-                // (i.e. the backslash is not retained; it only forces interpolation).
-                if (PeekChar(out var escaped) && escaped == '$')
-                {
-                    // Look ahead one more character after '$' to determine interpolation form.
-                    if (_textSource.PeekChar(1, out var afterDollar) && (afterDollar == '{' || SyntaxFacts.IsIdentifierStartCharacter(afterDollar)))
-                    {
-                        ReadChar(); // consume '$'
-
-                        _stringBuilder.Append('$');
-
-                        if (afterDollar == '{')
-                        {
-                            ReadChar(); // consume '{'
-                            _stringBuilder.Append('{');
-                            ScanInterpolationBodyIntoBuilder();
-                        }
-                        else
-                        {
-                            // $identifier form
-                            ReadChar(); // consume first identifier char
-                            _stringBuilder.Append(afterDollar);
-                            while (PeekChar(out var idch) && SyntaxFacts.IsIdentifierPartCharacter(idch))
-                            {
-                                ReadChar();
-                                _stringBuilder.Append(idch);
-                            }
-                        }
-
-                        continue;
-                    }
-                }
-
                 // Normal escape handling
                 _stringBuilder.Append(ch2);
 

@@ -502,6 +502,7 @@ project = project.AddAnalyzerReference(new AnalyzerReference(new EventDelegateMu
 project = project.AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;

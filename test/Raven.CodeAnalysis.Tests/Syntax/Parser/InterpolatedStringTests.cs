@@ -51,7 +51,7 @@ public class InterpolatedStringTests
     [Fact]
     public void InterpolatedStringText_AllowsEscapedIdentifierShorthand()
     {
-        var source = "let s = \"Cost \\\\$value\";";
+        var source = @"let s = ""Cost \$value"";";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -294,5 +294,73 @@ let result = describe(null)
         var expectedStart = source.IndexOf("describe(null)", StringComparison.Ordinal);
         Assert.Equal(expectedStart, invocation.Span.Start);
         Assert.Equal("describe(null)".Length, invocation.Span.Length);
+    }
+
+    [Fact]
+    public void InterpolatedStringText_EscapedDollarBeforeBracedInterpolation_IsLiteral()
+    {
+        var source = "let s = \"Cost \\${value}\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Empty(root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>());
+
+        var literal = root.DescendantNodes().OfType<LiteralExpressionSyntax>().Single();
+        Assert.Equal("Cost ${value}", literal.Token.ValueText);
+    }
+
+    [Fact]
+    public void InterpolatedMultiLineString_AllowsIdentifierAndBracedForms()
+    {
+        var source = "let s = \"\"\"Hello $name\nCount: ${count + 1}\n\"\"\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var leading = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Hello ", leading.Token.ValueText);
+            },
+            second =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(second);
+                Assert.True(interpolation.OpenBraceToken.IsMissing);
+                Assert.Equal("name", interpolation.Expression.ToString());
+                Assert.True(interpolation.CloseBraceToken.IsMissing);
+            },
+            third =>
+            {
+                var middle = Assert.IsType<InterpolatedStringTextSyntax>(third);
+                Assert.Equal("\nCount: ", middle.Token.ValueText);
+            },
+            fourth =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(fourth);
+                Assert.False(interpolation.OpenBraceToken.IsMissing);
+                Assert.Equal("count + 1", interpolation.Expression.ToString());
+                Assert.False(interpolation.CloseBraceToken.IsMissing);
+            },
+            fifth =>
+            {
+                var trailing = Assert.IsType<InterpolatedStringTextSyntax>(fifth);
+                Assert.Equal("\n", trailing.Token.ValueText);
+            });
+    }
+
+    [Fact]
+    public void InterpolatedMultiLineString_EscapedDollar_PreventsInterpolation()
+    {
+        var source = "let s = \"\"\"Cost \\${value}\n\"\"\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Empty(root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>());
+
+        var literal = root.DescendantNodes().OfType<LiteralExpressionSyntax>().Single();
+        Assert.Equal("Cost \\${value}\n", literal.Token.ValueText);
     }
 }
