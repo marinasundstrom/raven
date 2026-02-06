@@ -14,14 +14,22 @@ internal sealed partial class Lowerer
 
         var scrutinee = (BoundExpression)VisitExpression(node.Expression)!;
         var scrutineeType = scrutinee.Type ?? compilation.ErrorTypeSymbol;
-        var scrutineeLocal = CreateTempLocal("match_scrutinee", scrutineeType, isMutable: false);
+        ILocalSymbol scrutineeLocal;
 
-        var statements = new List<BoundStatement>
+        var statements = new List<BoundStatement>();
+
+        if (scrutinee is BoundLocalAccess localAccess)
         {
-            new BoundLocalDeclarationStatement([
+            // Reuse an existing local scrutinee to avoid introducing redundant alias temps.
+            scrutineeLocal = localAccess.Local;
+        }
+        else
+        {
+            scrutineeLocal = CreateTempLocal("match_scrutinee", scrutineeType, isMutable: false);
+            statements.Add(new BoundLocalDeclarationStatement([
                 new BoundVariableDeclarator(scrutineeLocal, scrutinee)
-            ])
-        };
+            ]));
+        }
 
         var resultType = node.Type ?? compilation.ErrorTypeSymbol;
         var resultLocal = CreateTempLocal("match_result", resultType, isMutable: true);

@@ -17,7 +17,7 @@ internal partial class ExpressionGenerator
 
     private void EmitIsPatternExpression(BoundIsPatternExpression e, EmitContext context)
     {
-        EmitExpression(e.Expression);
+        var info = EmitExpression(e.Expression);
 
         var inputType =
             e.Expression.Type
@@ -26,7 +26,8 @@ internal partial class ExpressionGenerator
         if (inputType.TypeKind == TypeKind.Error)
             inputType = Compilation.GetSpecialType(SpecialType.System_Object);
 
-        EmitPattern(e.Pattern, inputType, scope: null);
+        var scrutineeLocal = SpillValueToLocalIfNeeded(ResolveClrType(inputType), info, keepValueOnStack: true);
+        EmitPattern(e.Pattern, inputType, scope: null, scrutineeLocal2: scrutineeLocal);
     }
 
     private void EmitMatchExpression(BoundMatchExpression matchExpression, EmitContext context)
@@ -352,14 +353,21 @@ internal partial class ExpressionGenerator
                 var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
                 if (unionClrType.IsValueType && ClrTypesMatch(inputClr, unionClrType))
                 {
-                    var unionLocal2 = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
+                    IILocal unionLocal2;
+                    if (scrutineeLocal2 is not null)
+                    {
+                        unionLocal2 = scrutineeLocal2;
+                        ILGenerator.Emit(OpCodes.Pop);
+                    }
+                    else
+                    {
+                        unionLocal2 = ILGenerator.DeclareLocal(unionClrType);
+                        ILGenerator.Emit(OpCodes.Stloc, unionLocal2);
+                    }
                     var caseLocal2 = ILGenerator.DeclareLocal(caseClrType);
 
                     var labelFail2 = ILGenerator.DefineLabel();
                     var labelDone2 = ILGenerator.DefineLabel();
-
-                    // stack: <union>
-                    ILGenerator.Emit(OpCodes.Stloc, unionLocal2);
 
                     ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
                     ILGenerator.Emit(OpCodes.Initobj, caseClrType);
@@ -2068,11 +2076,18 @@ internal partial class ExpressionGenerator
                 var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
                 if (unionClrType.IsValueType && ClrTypesMatch(inputClr, unionClrType))
                 {
-                    var unionLocal2 = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
+                    IILocal unionLocal2;
+                    if (scrutineeLocal2 is not null)
+                    {
+                        unionLocal2 = scrutineeLocal2;
+                        ILGenerator.Emit(OpCodes.Pop);
+                    }
+                    else
+                    {
+                        unionLocal2 = ILGenerator.DeclareLocal(unionClrType);
+                        ILGenerator.Emit(OpCodes.Stloc, unionLocal2);
+                    }
                     var caseLocal2 = ILGenerator.DeclareLocal(caseClrType);
-
-                    // stack: <union>
-                    ILGenerator.Emit(OpCodes.Stloc, unionLocal2);
 
                     ILGenerator.Emit(OpCodes.Ldloca, caseLocal2);
                     ILGenerator.Emit(OpCodes.Initobj, caseClrType);
