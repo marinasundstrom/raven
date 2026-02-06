@@ -23,10 +23,10 @@ val renamed = newBob with {
 WriteLine(renamed)
 
 public class Person {
-    public Name: string { get; init; } 
-    public MiddleName: string? { get; init; }
-    public LastName: string { get; init; }
-    public YearOfBirth: int { get; init; }
+    public required Name: string { get; init; } 
+    public required MiddleName: string? { get; init; }
+    public required LastName: string { get; init; }
+    public required YearOfBirth: int { get; init; }
 
     public override ToString() -> string {
         return "$Name $MiddleName $LastName ($YearOfBirth)"
