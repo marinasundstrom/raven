@@ -1,4 +1,0 @@
-import SomeNamespaceWithPrivateMember.*
-
-val x = SomeType()
-Console.WriteLine(x.Secret) // should be “inaccessible”, not “does not exist”

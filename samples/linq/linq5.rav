@@ -3,14 +3,16 @@ import System.Console.*
 import System.Linq.*
 import System.Collections.Generic.*
 
-val ratePlans = List<RatePlan>()
-ratePlans.Add(RatePlan("NorthStar", 500, 120))
-ratePlans.Add(RatePlan("Oceanic", 450, 150))
+val ratePlans = List<RatePlan> {
+    RatePlan("NorthStar", 500, 120)
+    RatePlan("Oceanic", 450, 150)
+}
 
-val requests = List<ShipmentRequest>()
-requests.Add(ShipmentRequest("REQ-1001", "NorthStar", 10, true, ["fragile"], .Some("SAVE5")))
-requests.Add(ShipmentRequest("REQ-1002", "Oceanic", 3, false, ["priority"], .None))
-requests.Add(ShipmentRequest("REQ-1003", "Unknown", 5, true, [], .Some("UNKNOWN")))
+val requests = List<ShipmentRequest> {
+    ShipmentRequest("REQ-1001", "NorthStar", 10, true, ["fragile"], .Some("SAVE5")),
+    ShipmentRequest("REQ-1002", "Oceanic", 3, false, ["priority"], .None),
+    ShipmentRequest("REQ-1003", "Unknown", 5, true, [], .Some("UNKNOWN"))
+}
 
 val summaryResult = BuildQuoteSummary(requests, ratePlans)
 

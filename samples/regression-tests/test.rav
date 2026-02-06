@@ -1,6 +1,0 @@
-import System.*
-import System.Linq.*
-
-val arr = [1,2,3]
-Console.WriteLine(arr.Count(x => x > 2)) // should bind to Enumerable.Count
-Console.WriteLine(arr.Length)           // should bind to array property, not extension
