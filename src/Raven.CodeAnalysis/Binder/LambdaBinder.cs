@@ -24,6 +24,28 @@ class LambdaBinder : BlockBinder
         return base.LookupSymbol(name);
     }
 
+    public override BoundExpression BindExpression(ExpressionSyntax expression)
+    {
+        // Lambda bodies are rebound during target-typed replay; evict any cached nodes
+        // (including descendants) so bindings reflect the current lambda parameter scope.
+        ClearCachedBoundNodes(expression);
+        return base.BindExpression(expression);
+    }
+
+    public override BoundStatement BindStatement(StatementSyntax statement)
+    {
+        // Avoid reusing cached statements (and descendants) bound under a different scope.
+        ClearCachedBoundNodes(statement);
+        return base.BindStatement(statement);
+    }
+
+    private void ClearCachedBoundNodes(SyntaxNode node)
+    {
+        RemoveCachedBoundNode(node);
+        foreach (var child in node.DescendantNodes())
+            RemoveCachedBoundNode(child);
+    }
+
     public IReadOnlyList<ISymbol> AnalyzeCapturedVariables()
     {
         if (_lambdaBody is null)

@@ -5,13 +5,27 @@ import System.Collections.Generic.*
 
 val arr = [1, -1, 3]
 
-val result = arr.Select(Compute)
+val result = arr.Select(n => if n < 0 { 
+        Option<int>.None 
+    } else { 
+        Option<int>.Some(n * 2) 
+    })
 
-WriteLine(result)
+for no in result {
+    WriteLine(no)
+}
+
+val result1 = arr.Select(Compute)
+
+for no in result1 {
+    WriteLine(no)
+}
 
 val result2 = arr.Select(n => Compute(n))
 
-WriteLine(result2)
+for no in result2 {
+    WriteLine(no)
+}
 
 func Compute(n: int) -> Option<int> {
     if n < 0 {

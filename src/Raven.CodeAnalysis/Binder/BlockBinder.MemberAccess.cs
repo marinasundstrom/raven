@@ -292,6 +292,14 @@ partial class BlockBinder
                 ? BindExpression(arg.Expression)
                 : BindExpressionWithTargetType(arg.Expression, targetType);
 
+            if (IsErrorExpression(boundExpr) && targetType is not null)
+            {
+                // Target-typed binding can fail for otherwise-valid expressions (e.g., nested union
+                // case construction). Retry without the target type before treating it as an error.
+                RemoveCachedBoundNode(arg.Expression);
+                boundExpr = BindExpression(arg.Expression);
+            }
+
             if (IsErrorExpression(boundExpr))
                 hasErrors = true;
 

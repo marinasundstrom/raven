@@ -3426,7 +3426,48 @@ partial class BlockBinder : Binder
             ? ebb.BindExpression(ifExpression.ElseClause.Expression, _allowReturnsInExpression)
             : elseBinder.BindExpression(ifExpression.ElseClause.Expression);
 
+        var thenType = thenExpr.Type ?? Compilation.ErrorTypeSymbol;
+        var elseType = elseExpr.Type ?? Compilation.ErrorTypeSymbol;
+
+        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { thenType, elseType });
+
+        var targetType = GetTargetType(ifExpression);
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
+
+        if (targetType is not null &&
+            targetType.TypeKind != TypeKind.Error &&
+            IsAssignable(targetType, thenType, out _) &&
+            IsAssignable(targetType, elseType, out _))
+        {
+            resultType = targetType;
+        }
+
+        thenExpr = ConvertIfNeeded(resultType, thenExpr, ifExpression.Expression);
+        elseExpr = ConvertIfNeeded(resultType, elseExpr, ifExpression.ElseClause.Expression);
+
         return new BoundIfExpression(condition, thenExpr, elseExpr);
+
+        BoundExpression ConvertIfNeeded(ITypeSymbol target, BoundExpression expression, ExpressionSyntax syntax)
+        {
+            if (target.TypeKind == TypeKind.Error || !ShouldAttemptConversion(expression))
+                return expression;
+
+            var sourceType = expression.Type;
+            if (sourceType is null || SymbolEqualityComparer.Default.Equals(sourceType, target))
+                return expression;
+
+            if (!IsAssignable(target, sourceType, out var conversion))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    target.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.GetLocation());
+                return new BoundErrorExpression(target, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            return ApplyConversion(expression, target, conversion, syntax);
+        }
     }
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)

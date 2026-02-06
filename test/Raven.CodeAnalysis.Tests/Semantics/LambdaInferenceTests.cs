@@ -373,6 +373,59 @@ let makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a
     }
 
     [Fact]
+    public void Lambda_WithUnionCaseConstructor_BindsWithoutErrors()
+    {
+        const string code = """
+import System.*
+
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+class Container {
+    Map(value: int, selector: Func<int, Option<int>>) -> Option<int> {
+        return selector(value)
+    }
+
+    Test() -> Option<int> {
+        return Map(1, n => if n < 0 { Option<int>.None } else { Option<int>.Some(n * 2) })
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var ifExpression = Assert.IsType<BoundIfExpression>(boundLambda.Body);
+        var elseBranch = ifExpression.ElseBranch;
+        if (elseBranch is BoundConversionExpression conversion)
+            elseBranch = conversion.Expression;
+
+        var elseBlock = Assert.IsType<BoundBlockExpression>(elseBranch);
+        var elseExpression = elseBlock.Statements
+            .OfType<BoundExpressionStatement>()
+            .Single()
+            .Expression;
+
+        var expectedReturn = boundLambda.ReturnType;
+        Assert.NotNull(expectedReturn);
+        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, ifExpression.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, ifExpression.ThenBranch.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, ifExpression.ElseBranch?.Type));
+
+        Assert.False(elseExpression is BoundErrorExpression, elseExpression.ToString());
+    }
+
+    [Fact]
     public void MetadataDelegate_PreservesDelegateTypeKind_WhenConstructed()
     {
         const string code = "class Container { }";

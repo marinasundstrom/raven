@@ -223,7 +223,18 @@ public partial class SemanticModel
         Compilation.EnsureSourceDeclarationsComplete();
 
         if (_binderCache.TryGetValue(node, out var existingBinder))
+        {
+            if (parentBinder is not null &&
+                !ReferenceEquals(existingBinder.ParentBinder, parentBinder) &&
+                (parentBinder is LambdaBinder || parentBinder.ContainingSymbol is ILambdaSymbol))
+            {
+                // Lambda rebinds must not reuse cached binders from other scopes,
+                // or lambda parameters may resolve incorrectly.
+                return Compilation.BinderFactory.GetBinder(node, parentBinder) ?? existingBinder;
+            }
+
             return existingBinder;
+        }
 
         // special case for CompilationUnitSyntax
         if (node is CompilationUnitSyntax cu)
