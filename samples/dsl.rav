@@ -48,15 +48,15 @@ if window.Content is StackPanel stackPanel {
 }
 
 class Window {
-    public Title: string { get; set; }
+    public Title: string { get; set; } = ""
 
-    public Width: int { get; set; }
+    public Width: int { get; set; } = 250
 
-    public Height: int { get; set; }
+    public Height: int { get; set; } = 250
 
-    public Content: Control { get; set; }
+    public Content: Control? { get; set; } = null
 
-    public IsVisible: bool { get; private set; }
+    public IsVisible: bool { get; private set; } = false
 
     public Show() -> () {
         IsVisible = true
@@ -71,6 +71,7 @@ class Window {
     }
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<DialogResult>))]
 enum DialogResult { 
     Ok, 
     Cancel, 
@@ -111,14 +112,16 @@ class StackPanel : Control, IHasChildren {
 class Button(text: string) : Control {
     public Text: string { get; set; } = text
 
-    public HorizontalAlignment: HorizontalAlignment { get; set; } 
+    public HorizontalAlignment: HorizontalAlignment { get; set; } = .Fill
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<Orientation>))]
 enum Orientation {
     Horizontal,
     Vertical
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<HorizontalAlignment>))]
 enum HorizontalAlignment {
     Left,
     Center,
