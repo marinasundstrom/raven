@@ -16,6 +16,13 @@ internal sealed partial class Lowerer
 
         foreach (var statement in node.Statements)
         {
+            if (statement is BoundLocalDeclarationStatement localDeclarationWithInitializer
+                && TryRewriteObjectInitializerLocalDeclaration(localDeclarationWithInitializer, out var rewrittenObjectInitializerStatements))
+            {
+                statements.AddRange(rewrittenObjectInitializerStatements);
+                continue;
+            }
+
             if (statement is BoundLocalDeclarationStatement localDeclaration
                 && TryRewritePropagateLocalDeclaration(localDeclaration, out var rewrittenLocalStatements))
             {
@@ -48,6 +55,60 @@ internal sealed partial class Lowerer
         }
 
         return new BoundBlockStatement(rewritten, localsBuilder.ToImmutable());
+    }
+
+    private bool TryRewriteObjectInitializerLocalDeclaration(
+        BoundLocalDeclarationStatement localDeclaration,
+        out ImmutableArray<BoundStatement> statements)
+    {
+        statements = ImmutableArray<BoundStatement>.Empty;
+        var declarators = localDeclaration.Declarators.ToImmutableArray();
+
+        if (localDeclaration.IsUsing || declarators.Length != 1)
+            return false;
+
+        var declarator = declarators[0];
+        if (declarator.Initializer is not BoundObjectCreationExpression objectCreation || objectCreation.Initializer is null)
+            return false;
+
+        // Safe rewrite only when the declared local type matches the constructed instance type.
+        // Otherwise we would lose access to members bound on the concrete receiver.
+        if (!SymbolEqualityComparer.Default.Equals(declarator.Local.Type, objectCreation.Type))
+            return false;
+
+        objectCreation = (BoundObjectCreationExpression)base.VisitObjectCreationExpression(objectCreation)!;
+        if (objectCreation.Initializer is null)
+            return false;
+
+        var instanceExpression = new BoundObjectCreationExpression(
+            objectCreation.Constructor,
+            objectCreation.Arguments,
+            objectCreation.Receiver,
+            initializer: null);
+
+        var rewritten = ImmutableArray.CreateBuilder<BoundStatement>();
+        rewritten.Add(new BoundLocalDeclarationStatement([
+            new BoundVariableDeclarator(declarator.Local, instanceExpression)
+        ]));
+
+        var receiver = new BoundLocalAccess(declarator.Local);
+        var compilation = GetCompilation();
+
+        foreach (var entry in objectCreation.Initializer.Entries)
+        {
+            switch (entry)
+            {
+                case BoundObjectInitializerAssignmentEntry assignmentEntry:
+                    rewritten.Add(LowerObjectInitializerAssignment(receiver, assignmentEntry, compilation));
+                    break;
+                case BoundObjectInitializerExpressionEntry expressionEntry:
+                    rewritten.Add(LowerObjectInitializerContentEntry(receiver, expressionEntry, compilation));
+                    break;
+            }
+        }
+
+        statements = rewritten.ToImmutable();
+        return true;
     }
 
     private ImmutableArray<BoundStatement> RewriteUsingDeclarations(

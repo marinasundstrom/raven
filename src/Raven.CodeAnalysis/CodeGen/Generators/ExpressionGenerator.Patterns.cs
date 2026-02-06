@@ -17,7 +17,7 @@ internal partial class ExpressionGenerator
 
     private void EmitIsPatternExpression(BoundIsPatternExpression e, EmitContext context)
     {
-        var info = EmitExpression(e.Expression);
+        EmitExpression(e.Expression);
 
         var inputType =
             e.Expression.Type
@@ -26,8 +26,7 @@ internal partial class ExpressionGenerator
         if (inputType.TypeKind == TypeKind.Error)
             inputType = Compilation.GetSpecialType(SpecialType.System_Object);
 
-        var scrutineeLocal = SpillValueToLocalIfNeeded(ResolveClrType(inputType), info, keepValueOnStack: true);
-        EmitPattern(e.Pattern, inputType, scope: null, scrutineeLocal2: scrutineeLocal);
+        EmitPattern(e.Pattern, inputType, scope: null);
     }
 
     private void EmitMatchExpression(BoundMatchExpression matchExpression, EmitContext context)
@@ -401,7 +400,7 @@ internal partial class ExpressionGenerator
                         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                         // IMPORTANT: do not pre-box; nested patterns decide.
-                        EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail2, scrutineeLocal2);
+                        EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail2, null);
                     }
 
                     ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -468,7 +467,7 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                 // IMPORTANT: do not pre-box; nested patterns decide.
-                EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, scrutineeLocal2);
+                EmitPatternTestBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);
             }
 
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -2121,7 +2120,7 @@ internal partial class ExpressionGenerator
                         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
                         // Branching nested pattern test.
-                        EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, scrutineeLocal2);
+                        EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);
                     }
 
                     return;
@@ -2177,7 +2176,7 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit(OpCodes.Ldloca, caseLocal);
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
 
-                EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, scrutineeLocal2);
+                EmitPatternBranchFalse(casePattern.Arguments[i], propertySymbol.Type, scope, labelFail, null);
             }
 
             return;

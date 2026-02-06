@@ -4370,16 +4370,26 @@ internal partial class ExpressionGenerator : Generator
         }
 
         IILocal? resultTemp = null;
+        IILocal? resultLocal = null;
         if (resultExpression is not null)
         {
-            new ExpressionGenerator(scope, resultExpression).Emit();
-
-            var resultType = resultExpression.Type;
-            if (resultType is not null)
+            if (resultExpression is BoundLocalAccess localAccess &&
+                !block.LocalsToDispose.Any(local => SymbolEqualityComparer.Default.Equals(local, localAccess.Local)) &&
+                scope.GetLocal(localAccess.Local) is { } existingLocal)
             {
-                var clrType = ResolveClrType(resultType);
-                resultTemp = ILGenerator.DeclareLocal(clrType);
-                ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+                resultLocal = existingLocal;
+            }
+            else
+            {
+                new ExpressionGenerator(scope, resultExpression).Emit();
+
+                var resultType = resultExpression.Type;
+                if (resultType is not null)
+                {
+                    var clrType = ResolveClrType(resultType);
+                    resultTemp = ILGenerator.DeclareLocal(clrType);
+                    ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+                }
             }
         }
 
@@ -4387,6 +4397,8 @@ internal partial class ExpressionGenerator : Generator
 
         if (resultTemp is not null)
             ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+        else if (resultLocal is not null)
+            ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
     }
 
     private void EmitTryExpression(BoundTryExpression tryExpression)
