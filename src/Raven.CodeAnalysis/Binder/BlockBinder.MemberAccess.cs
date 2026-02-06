@@ -1512,81 +1512,6 @@ partial class BlockBinder
         return ErrorExpression(right.Type, reason: BoundExpressionReason.NotFound);
     }
 
-    // ============================
-    // Member access (updated)
-    // ============================
-
-    private static bool TryRewriteAsTypeSyntax(ExpressionSyntax expression, out TypeSyntax typeSyntax)
-    {
-        // If the parser already produced a TypeSyntax in expression position, keep it.
-        if (expression is TypeSyntax ts)
-        {
-            typeSyntax = ts;
-            return true;
-        }
-
-        // Simple names that are also valid type names.
-        if (expression is IdentifierNameSyntax id)
-        {
-            typeSyntax = id;
-            return true;
-        }
-
-        if (expression is GenericNameSyntax g)
-        {
-            typeSyntax = g;
-            return true;
-        }
-
-        // Recurse through member-access chains and rewrite them as qualified names.
-        if (expression is MemberAccessExpressionSyntax ma)
-        {
-            if (TryRewriteAsNameSyntax(ma.Expression, out var leftName))
-            {
-                // Right is already a SimpleNameSyntax (IdentifierNameSyntax/GenericNameSyntax)
-                // and also a NameSyntax in the type grammar.
-                typeSyntax = SyntaxFactory.QualifiedName(leftName, ma.OperatorToken, ma.Name);
-                return true;
-            }
-        }
-
-        typeSyntax = null!;
-        return false;
-    }
-
-    private static bool TryRewriteAsNameSyntax(ExpressionSyntax expression, out NameSyntax nameSyntax)
-    {
-        if (expression is NameSyntax n)
-        {
-            nameSyntax = n;
-            return true;
-        }
-
-        if (expression is IdentifierNameSyntax id)
-        {
-            nameSyntax = id;
-            return true;
-        }
-
-        if (expression is GenericNameSyntax g)
-        {
-            nameSyntax = g;
-            return true;
-        }
-
-        if (expression is MemberAccessExpressionSyntax ma)
-        {
-            if (TryRewriteAsNameSyntax(ma.Expression, out var leftName))
-            {
-                nameSyntax = SyntaxFactory.QualifiedName(leftName, ma.OperatorToken, ma.Name);
-                return true;
-            }
-        }
-
-        nameSyntax = null!;
-        return false;
-    }
-
     private BoundExpression BindMemberAccessExpression(
        MemberAccessExpressionSyntax memberAccess,
        bool preferMethods = false,
@@ -1594,25 +1519,11 @@ partial class BlockBinder
     {
         // First, attempt to treat the *entire* member access as a type name.
         // This enables nested-type construction like `Outer<int>.Inner<string>` and `Foo<int>.Bar`.
-        // MemberAccessExpressionSyntax nodes are still expressions in the syntax tree, but if the chain
-        // consists only of name-like parts, we can rewrite it into a TypeSyntax and bind it as a type.
-        if (TryRewriteAsTypeSyntax(memberAccess, out var rewrittenTypeSyntax))
+        // Avoid rewriting syntax trees; resolve directly in the binder.
+        if (TryBindMemberAccessExpressionAsType(memberAccess, out var resolvedType) &&
+            resolvedType.TypeKind != TypeKind.Error)
         {
-            // This is a hack
-            TypeSyntax newNode = CreateShadowTreeWithRewrittenNode(memberAccess, rewrittenTypeSyntax);
-
-            var typeResult = BindType(newNode);
-
-            // Only accept the reinterpretation if we resolved a *real* type.
-            // Otherwise, ordinary member access like `handler.Handle` would be mis-bound as a type.
-            if (typeResult.Success &&
-                typeResult.ResolvedType is { } resolved &&
-                resolved.TypeKind != TypeKind.Error)
-            {
-                return new BoundTypeExpression(resolved);
-            }
-
-            // If type binding fails (or resolves to error), fall back to regular member access binding below.
+            return new BoundTypeExpression(resolvedType);
         }
 
         // Regular expression receiver binding.
@@ -1648,20 +1559,6 @@ partial class BlockBinder
             suppressNullWarning: true,
             receiverTypeForLookup: null,
             forceExtensionReceiver: false);
-    }
-
-    private static TypeSyntax CreateShadowTreeWithRewrittenNode(MemberAccessExpressionSyntax memberAccess, TypeSyntax rewrittenTypeSyntax)
-    {
-        var annotation = new SyntaxAnnotation("rewritten");
-
-        var newRoot = memberAccess.SyntaxTree!.GetRoot().ReplaceNode(memberAccess, rewrittenTypeSyntax.WithAdditionalAnnotations(annotation));
-        var newTree = SyntaxTree.Create(newRoot);
-        var newNode = newTree.GetRoot().DescendantNodes().OfType<TypeSyntax>()
-            .Single(n => n.HasAnnotation(annotation));
-
-        //Console.WriteLine($"New node: {newNode}");
-
-        return newNode;
     }
 
     /// <summary>

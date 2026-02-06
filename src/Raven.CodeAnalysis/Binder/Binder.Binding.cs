@@ -249,30 +249,61 @@ internal abstract partial class Binder
         if (parts.Length == 0)
             return false;
 
+        // Binder-scope type parameters and imported scopes (same as BindType).
+        var typeParams = GetInScopeTypeParameters();
+        var importedScopes = GetImportedScopesForTypeResolution();
+
         // First segment: namespace or type.
-        INamespaceSymbol? ns = LookupNamespace(parts[0]);
+        INamespaceSymbol? ns = null;
         INamedTypeSymbol? currentType = null;
 
-        if (ns is null)
+        var first = parts[0];
+        if (first.TypeArguments is not null)
         {
-            currentType = LookupType(parts[0]) as INamedTypeSymbol;
+            var lookup = LookupNamedTypeByParts(new[] { first.Name }, importedScopes);
+            if (lookup.IsAmbiguous || lookup.Definition is null)
+                return false;
+
+            var constructed = ConstructFrom(lookup.Definition, first.TypeArguments);
+            if (!constructed.Success)
+                return false;
+
+            currentType = constructed.ResolvedType as INamedTypeSymbol;
             if (currentType is null)
                 return false;
+        }
+        else
+        {
+            ns = LookupNamespace(first.Name);
+            if (ns is null)
+            {
+                var lookup = LookupNamedTypeByParts(new[] { first.Name }, importedScopes);
+                if (lookup.IsAmbiguous || lookup.Definition is null)
+                    return false;
+
+                currentType = lookup.Definition;
+                if (currentType is null)
+                    return false;
+            }
         }
 
         // Walk remaining segments.
         for (int i = 1; i < parts.Length; i++)
         {
-            var name = parts[i];
+            var part = parts[i];
+            var name = part.Name;
 
             if (currentType is null)
             {
                 // Still in namespace chain.
-                var nextNs = ns!.LookupNamespace(name);
-                if (nextNs is not null)
+                if (part.TypeArguments is null)
                 {
-                    ns = nextNs;
-                    continue;
+                    var nextNs = ns!.LookupNamespace(name);
+                    if (nextNs is not null)
+                    {
+                        ns = nextNs;
+                        continue;
+                    }
                 }
 
                 // Then a type in that namespace.
@@ -280,7 +311,13 @@ internal abstract partial class Binder
                 if (t is null)
                     return false;
 
-                currentType = t;
+                var constructed = ConstructFrom(t, part.TypeArguments);
+                if (!constructed.Success)
+                    return false;
+
+                currentType = constructed.ResolvedType as INamedTypeSymbol;
+                if (currentType is null)
+                    return false;
                 continue;
             }
 
@@ -289,7 +326,14 @@ internal abstract partial class Binder
             if (nested.Length != 1)
                 return false;
 
-            currentType = nested[0];
+            var nestedDef = nested[0];
+            var nestedConstructed = ConstructFrom(nestedDef, part.TypeArguments);
+            if (!nestedConstructed.Success)
+                return false;
+
+            currentType = nestedConstructed.ResolvedType as INamedTypeSymbol;
+            if (currentType is null)
+                return false;
         }
 
         if (currentType is null)
@@ -298,21 +342,51 @@ internal abstract partial class Binder
         type = currentType;
         return type.TypeKind != TypeKind.Error;
 
-        static string[] FlattenMemberAccess(MemberAccessExpressionSyntax node)
+        ResolveTypeResult ConstructFrom(INamedTypeSymbol definition, TypeArgumentListSyntax? typeArguments)
         {
-            var parts = new List<string>();
+            if (typeArguments is null)
+            {
+                return new ResolveTypeResult
+                {
+                    ResolvedType = definition,
+                    ResolvedNamedDefinition = definition
+                };
+            }
+
+            var args = BindTypeArguments(typeArguments, typeParams, importedScopes);
+            if (!args.Success)
+                return args;
+
+            return Construct(definition, args.ResolvedTypeArguments);
+        }
+
+        static NamePart[] FlattenMemberAccess(MemberAccessExpressionSyntax node)
+        {
+            var parts = new List<NamePart>();
 
             void Walk(ExpressionSyntax expr)
             {
                 switch (expr)
                 {
                     case IdentifierNameSyntax id:
-                        parts.Add(id.Identifier.ValueText);
+                        parts.Add(new NamePart(id.Identifier.ValueText, typeArguments: null));
+                        break;
+
+                    case GenericNameSyntax g:
+                        parts.Add(new NamePart(g.Identifier.ValueText, g.TypeArgumentList));
                         break;
 
                     case MemberAccessExpressionSyntax ma:
                         Walk(ma.Expression);
-                        parts.Add(ma.Name.Identifier.ValueText);
+                        switch (ma.Name)
+                        {
+                            case IdentifierNameSyntax mid:
+                                parts.Add(new NamePart(mid.Identifier.ValueText, typeArguments: null));
+                                break;
+                            case GenericNameSyntax mg:
+                                parts.Add(new NamePart(mg.Identifier.ValueText, mg.TypeArgumentList));
+                                break;
+                        }
                         break;
                 }
             }
@@ -320,5 +394,17 @@ internal abstract partial class Binder
             Walk(node);
             return parts.ToArray();
         }
+    }
+
+    private readonly struct NamePart
+    {
+        public NamePart(string name, TypeArgumentListSyntax? typeArguments)
+        {
+            Name = name;
+            TypeArguments = typeArguments;
+        }
+
+        public string Name { get; }
+        public TypeArgumentListSyntax? TypeArguments { get; }
     }
 }
