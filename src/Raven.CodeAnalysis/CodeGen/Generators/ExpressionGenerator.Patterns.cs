@@ -275,7 +275,7 @@ internal partial class ExpressionGenerator
                 inputClr = Generator.InstantiateType(inputClr);
                 var declaredClr = Generator.InstantiateType(clrType);
 
-                if (inputClr == declaredClr)
+                if (ClrTypesMatch(inputClr, declaredClr))
                 {
                     var local = EmitDesignation(declarationPattern.Designator, scope);
                     if (local is not null)
@@ -350,7 +350,7 @@ internal partial class ExpressionGenerator
             if (inputType.TypeKind != TypeKind.Error)
             {
                 var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
-                if (unionClrType.IsValueType && inputClr == unionClrType)
+                if (unionClrType.IsValueType && ClrTypesMatch(inputClr, unionClrType))
                 {
                     var unionLocal2 = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
                     var caseLocal2 = ILGenerator.DeclareLocal(caseClrType);
@@ -629,7 +629,7 @@ internal partial class ExpressionGenerator
                 var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
                 var declaredClr = Generator.InstantiateType(ResolveClrType(declared));
 
-                if (inputClr == declaredClr)
+                if (ClrTypesMatch(inputClr, declaredClr))
                 {
                     var local = EmitDesignation(dp.Designator, scope);
                     if (local is not null)
@@ -1624,6 +1624,74 @@ internal partial class ExpressionGenerator
         return typeSymbol.IsReferenceType == true;
     }
 
+    private static bool ClrTypesMatch(Type? left, Type? right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left is null || right is null)
+            return false;
+
+        if (left == right)
+            return true;
+
+        if (left.IsArray || right.IsArray)
+        {
+            if (!left.IsArray || !right.IsArray)
+                return false;
+            if (left.GetArrayRank() != right.GetArrayRank())
+                return false;
+            return ClrTypesMatch(left.GetElementType(), right.GetElementType());
+        }
+
+        if (left.IsByRef || right.IsByRef)
+        {
+            if (!left.IsByRef || !right.IsByRef)
+                return false;
+            return ClrTypesMatch(left.GetElementType(), right.GetElementType());
+        }
+
+        if (left.IsPointer || right.IsPointer)
+        {
+            if (!left.IsPointer || !right.IsPointer)
+                return false;
+            return ClrTypesMatch(left.GetElementType(), right.GetElementType());
+        }
+
+        if (left.IsGenericType || right.IsGenericType)
+        {
+            if (!left.IsGenericType || !right.IsGenericType)
+                return false;
+
+            if (!ClrTypesMatch(left.GetGenericTypeDefinition(), right.GetGenericTypeDefinition()))
+                return false;
+
+            var leftArgs = left.GetGenericArguments();
+            var rightArgs = right.GetGenericArguments();
+            if (leftArgs.Length != rightArgs.Length)
+                return false;
+
+            for (var i = 0; i < leftArgs.Length; i++)
+            {
+                if (!ClrTypesMatch(leftArgs[i], rightArgs[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        if (left.IsGenericParameter || right.IsGenericParameter)
+        {
+            if (!left.IsGenericParameter || !right.IsGenericParameter)
+                return false;
+            return left.GenericParameterPosition == right.GenericParameterPosition &&
+                   string.Equals(left.Name, right.Name, StringComparison.Ordinal);
+        }
+
+        return string.Equals(left.FullName, right.FullName, StringComparison.Ordinal) &&
+               Equals(left.Assembly, right.Assembly);
+    }
+
     private static string GetCasePropertyName(string parameterName)
     {
         if (string.IsNullOrEmpty(parameterName))
@@ -1805,7 +1873,7 @@ internal partial class ExpressionGenerator
             var dpClr = ResolveClrType(dp.Type);
             dpClr = Generator.InstantiateType(dpClr);
 
-            if (dpClr != unionClrType)
+            if (!ClrTypesMatch(dpClr, unionClrType))
                 return false;
 
             var boundLocal = EmitDesignation(dp.Designator, scope);
@@ -1998,7 +2066,7 @@ internal partial class ExpressionGenerator
             if (inputType.TypeKind != TypeKind.Error)
             {
                 var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
-                if (unionClrType.IsValueType && inputClr == unionClrType)
+                if (unionClrType.IsValueType && ClrTypesMatch(inputClr, unionClrType))
                 {
                     var unionLocal2 = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
                     var caseLocal2 = ILGenerator.DeclareLocal(caseClrType);
