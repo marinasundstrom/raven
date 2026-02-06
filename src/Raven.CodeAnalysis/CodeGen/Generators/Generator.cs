@@ -316,9 +316,21 @@ internal abstract class Generator
 
         if (conversion.IsUnboxing)
         {
-            // Unboxing is always "object -> exact value type".
-            // Numeric conversion is a separate step and should be represented
-            // by a different conversion in the bound tree (or happen after unbox).
+            // Some bound conversions are classified as unboxing even when the emitted
+            // source is already a value type (for example duplicated union arms such as
+            // bool|bool lowering to bool). In that case there is nothing to unbox.
+            if (fromClrType.IsValueType)
+            {
+                if (toClrType == fromClrType)
+                    return;
+
+                if (conversion.IsNumeric)
+                {
+                    EmitNumericConversion(from, to);
+                    return;
+                }
+            }
+
             ILGenerator.Emit(OpCodes.Unbox_Any, toClrType);
             return;
         }
