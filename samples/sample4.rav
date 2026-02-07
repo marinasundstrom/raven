@@ -17,9 +17,7 @@ public class Foo(b: int) {
     public self(factor: int) -> int {
         return b * factor
     }
-}
-
-public trait Test for Foo {
+} public trait Test for Foo {
     public Hello() -> string {
         return self.ToString() 
     }

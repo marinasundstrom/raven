@@ -240,6 +240,26 @@ internal class SyntaxParser : ParseContext
         }
     }
 
+    protected TextSpan GetInsertionSpanBeforePeekedToken()
+    {
+        var peekedSpan = GetSpanOfPeekedToken();
+
+        try
+        {
+            var lastTokenSpan = GetSpanOfLastToken();
+            var gap = peekedSpan.Start - lastTokenSpan.End;
+
+            if (gap > 0)
+                return new TextSpan(peekedSpan.Start - 1, 1);
+
+            return new TextSpan(peekedSpan.Start, Math.Min(1, Math.Max(0, peekedSpan.Length)));
+        }
+        catch (InvalidOperationException)
+        {
+            return new TextSpan(peekedSpan.Start, Math.Min(1, Math.Max(0, peekedSpan.Length)));
+        }
+    }
+
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
         bool previous = TreatNewlinesAsTokens;

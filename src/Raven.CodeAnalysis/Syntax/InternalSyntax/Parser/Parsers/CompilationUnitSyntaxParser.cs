@@ -103,7 +103,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)
     {
         return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
-            SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
+            SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or
             SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
@@ -118,6 +118,17 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         List<MemberDeclarationSyntax> memberDeclarations,
         ref MemberOrder order)
     {
+        static bool HasNonGlobalDeclarations(List<MemberDeclarationSyntax> members)
+        {
+            foreach (var member in members)
+            {
+                if (member is not GlobalStatementSyntax)
+                    return true;
+            }
+
+            return false;
+        }
+
         if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
             var start = Position;
@@ -154,7 +165,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         {
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
-            memberDeclarations.Add(namespaceDeclaration);
+            AddMemberDeclaration(memberDeclarations, namespaceDeclaration);
             order = MemberOrder.Members;
         }
         else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
@@ -182,7 +193,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
                 var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
-                memberDeclarations.Add(namespaceDeclaration);
+                AddMemberDeclaration(memberDeclarations, namespaceDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -195,7 +206,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
                 var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
-                memberDeclarations.Add(enumDeclaration);
+                AddMemberDeclaration(memberDeclarations, enumDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -206,7 +217,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
                 var unionDeclaration = new UnionDeclarationParser(this).Parse();
 
-                memberDeclarations.Add(unionDeclaration);
+                AddMemberDeclaration(memberDeclarations, unionDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -217,7 +228,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
                 var delegateDeclaration = new TypeDeclarationParser(this).ParseDelegateDeclaration(attributeLists, modifiers);
 
-                memberDeclarations.Add(delegateDeclaration);
+                AddMemberDeclaration(memberDeclarations, delegateDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -226,7 +237,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             {
                 var extensionDeclaration = new ExtensionDeclarationParser(this).Parse(attributeLists, modifiers);
 
-                memberDeclarations.Add(extensionDeclaration);
+                AddMemberDeclaration(memberDeclarations, extensionDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -237,7 +248,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
                 var typeDeclaration = new TypeDeclarationParser(this).Parse();
 
-                memberDeclarations.Add(typeDeclaration);
+                AddMemberDeclaration(memberDeclarations, typeDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -247,9 +258,21 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             if (!statementStartAfterModifiers)
             {
                 var skippedToken = ParseIncompleteMemberTokens();
-                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, Diagnostics);
+                TryConsumeTerminator(out var terminatorToken);
+                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
 
-                memberDeclarations.Add(incompleteMember);
+                AddMemberDeclaration(memberDeclarations, incompleteMember);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            if (HasNonGlobalDeclarations(memberDeclarations))
+            {
+                var skippedToken = ParseIncompleteMemberTokens();
+                TryConsumeTerminator(out var terminatorToken);
+                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
+
+                AddMemberDeclaration(memberDeclarations, incompleteMember);
                 order = MemberOrder.Members;
                 return;
             }
@@ -269,9 +292,21 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             if (!statementStart)
             {
                 var skippedToken = ParseIncompleteMemberTokens();
-                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, Diagnostics);
+                TryConsumeTerminator(out var terminatorToken);
+                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, terminatorToken, Diagnostics);
 
-                memberDeclarations.Add(incompleteMember);
+                AddMemberDeclaration(memberDeclarations, incompleteMember);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            if (HasNonGlobalDeclarations(memberDeclarations))
+            {
+                var skippedToken = ParseIncompleteMemberTokens();
+                TryConsumeTerminator(out var terminatorToken);
+                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, terminatorToken, Diagnostics);
+
+                AddMemberDeclaration(memberDeclarations, incompleteMember);
                 order = MemberOrder.Members;
                 return;
             }
@@ -292,9 +327,70 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         SyntaxList modifiers,
         StatementSyntax statement)
     {
-        var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Diagnostics);
+        var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None), Diagnostics);
 
         memberDeclarations.Add(globalStatement);
+    }
+
+    private void AddMemberDeclaration(List<MemberDeclarationSyntax> memberDeclarations, MemberDeclarationSyntax declaration)
+    {
+        memberDeclarations.Add(declaration);
+        ValidateDeclarationSeparator(declaration);
+    }
+
+    private void ValidateDeclarationSeparator(MemberDeclarationSyntax member)
+    {
+        if (member is GlobalStatementSyntax or IncompleteMemberDeclarationSyntax)
+            return;
+
+        var next = PeekToken();
+        if (!IsPossibleCompilationUnitMemberStart(next))
+            return;
+
+        if (HasLeadingEndOfLineTrivia(next))
+            return;
+
+        if (!TryGetDeclarationTerminatorKind(member, out var terminatorKind))
+            return;
+
+        if (terminatorKind == SyntaxKind.SemicolonToken)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.PreferNewLineBetweenDeclarations,
+                    GetSpanOfLastToken()));
+            return;
+        }
+
+        if (terminatorKind == SyntaxKind.None)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.ExpectedNewLineBetweenDeclarations,
+                    GetInsertionSpanBeforePeekedToken()));
+        }
+    }
+
+    private static bool TryGetDeclarationTerminatorKind(MemberDeclarationSyntax member, out SyntaxKind terminatorKind)
+    {
+        switch (member)
+        {
+            case BaseTypeDeclarationSyntax typeDeclaration:
+                terminatorKind = typeDeclaration.TerminatorToken.Kind;
+                return true;
+            case DelegateDeclarationSyntax delegateDeclaration:
+                terminatorKind = delegateDeclaration.TerminatorToken.Kind;
+                return true;
+            case NamespaceDeclarationSyntax namespaceDeclaration:
+                terminatorKind = namespaceDeclaration.TerminatorToken.Kind;
+                return true;
+            case FileScopedNamespaceDeclarationSyntax fileScopedNamespaceDeclaration:
+                terminatorKind = fileScopedNamespaceDeclaration.TerminatorToken.Kind;
+                return true;
+            default:
+                terminatorKind = SyntaxKind.None;
+                return false;
+        }
     }
 
     private SyntaxToken ParseIncompleteMemberTokens()

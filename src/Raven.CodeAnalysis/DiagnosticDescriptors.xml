@@ -391,6 +391,14 @@
     Title="Expected newline or ';' to terminate the statement."
     Message="Expected newline or ';' to terminate the statement." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1023" Identifier="ExpectedNewLineBetweenDeclarations"
+    Title="Expected newline between declarations"
+    Message="Expected newline between declarations." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1051" Identifier="PreferNewLineBetweenDeclarations"
+    Title="Prefer newline between declarations"
+    Message="Prefer newline between declarations." Category="compiler"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1003" Identifier="CharacterExpected" Title="Character expected"
     Message="'{character}' expected" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

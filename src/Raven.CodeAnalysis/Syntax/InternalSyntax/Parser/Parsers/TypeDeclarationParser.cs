@@ -84,7 +84,8 @@ internal class TypeDeclarationParser : SyntaxParser
                 if (Position == memberStart)
                 {
                     var skippedToken = ParseIncompleteTypeMemberTokens();
-                    var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, Diagnostics);
+                    TryConsumeTerminator(out var memberTerminatorToken);
+                    var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, memberTerminatorToken, Diagnostics);
                     memberList.Add(incompleteMember);
                 }
                 else
@@ -343,7 +344,8 @@ internal class TypeDeclarationParser : SyntaxParser
         if (!IsPossibleTypeMemberStart(keywordOrIdentifier))
         {
             var skippedToken = ParseIncompleteTypeMemberTokens();
-            return IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, Diagnostics);
+            TryConsumeTerminator(out var terminatorToken);
+            return IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBracketToken))
@@ -507,7 +509,7 @@ internal class TypeDeclarationParser : SyntaxParser
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         return OperatorDeclaration(
             attributeLists,
@@ -545,7 +547,7 @@ internal class TypeDeclarationParser : SyntaxParser
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         return ConversionOperatorDeclaration(
             attributeLists,
@@ -598,7 +600,7 @@ internal class TypeDeclarationParser : SyntaxParser
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         if (identifier is null)
         {
@@ -693,7 +695,7 @@ internal class TypeDeclarationParser : SyntaxParser
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         if (expressionBody is not null)
         {
@@ -783,7 +785,7 @@ internal class TypeDeclarationParser : SyntaxParser
             initializer = new EqualsValueClauseSyntaxParser(this).Parse();
         }
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         return PropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, expressionBody, initializer, terminatorToken);
     }
@@ -802,7 +804,7 @@ internal class TypeDeclarationParser : SyntaxParser
             accessorList = ParseAccessorList();
         }
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         return EventDeclaration(
             attributeLists,
@@ -851,7 +853,7 @@ internal class TypeDeclarationParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.FatArrowToken))
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         return IndexerDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, parameterList, typeAnnotation, accessorList, expressionBody, null, terminatorToken);
     }
@@ -870,6 +872,11 @@ internal class TypeDeclarationParser : SyntaxParser
 
             if (t.IsKind(SyntaxKind.CloseBraceToken))
                 break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
+            var accessorStart = Position;
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
             SyntaxList modifiers = SyntaxList.Empty;
@@ -920,7 +927,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
             SetTreatNewlinesAsTokens(true);
 
-            TryConsumeTerminator(out var terminatorToken);
+            var terminatorToken = ConsumeMemberTerminator();
 
             SetTreatNewlinesAsTokens(false);
 
@@ -945,6 +952,26 @@ internal class TypeDeclarationParser : SyntaxParser
             else
             {
                 accessorList.Add(AccessorDeclaration(accessorKind, attributeLists, modifiers, name, null, null, terminatorToken));
+            }
+
+            if (Position == accessorStart)
+            {
+                var current = PeekToken();
+
+                if (current.IsKind(SyntaxKind.CloseBraceToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                var tokenText = string.IsNullOrEmpty(current.Text)
+                    ? current.Kind.ToString()
+                    : current.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                ReadToken();
             }
         }
 
@@ -999,9 +1026,10 @@ internal class TypeDeclarationParser : SyntaxParser
                                 CompilerDiagnostics.CharacterExpected,
                                 GetSpanOfLastToken(),
                                 ","));
-                    }
+                        }
                 }
 
+                var parameterStart = Position;
                 var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
                 SyntaxToken? refKindKeyword = null;
@@ -1028,6 +1056,26 @@ internal class TypeDeclarationParser : SyntaxParser
                 if (IsNextToken(SyntaxKind.EqualsToken, out _))
                 {
                     defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+                }
+
+                if (Position == parameterStart)
+                {
+                    var current = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(current.Text)
+                        ? current.Kind.ToString()
+                        : current.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (current.IsKind(SyntaxKind.CloseParenToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
                 }
 
                 parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
@@ -1059,7 +1107,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(true);
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         return FieldDeclaration(attributeLists, modifiers, declaration, terminatorToken, Diagnostics);
     }
@@ -1155,7 +1203,7 @@ internal class TypeDeclarationParser : SyntaxParser
             constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
         }
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeMemberTerminator();
 
         return DelegateDeclaration(
             attributeLists,
@@ -1214,9 +1262,10 @@ internal class TypeDeclarationParser : SyntaxParser
                                 CompilerDiagnostics.CharacterExpected,
                                 GetSpanOfLastToken(),
                                 ","));
-                    }
+                        }
                 }
 
+                var parameterStart = Position;
                 var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
                 SyntaxToken? refKindKeyword = null;
@@ -1243,6 +1292,26 @@ internal class TypeDeclarationParser : SyntaxParser
                 if (IsNextToken(SyntaxKind.EqualsToken, out _))
                 {
                     defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+                }
+
+                if (Position == parameterStart)
+                {
+                    var current = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(current.Text)
+                        ? current.Kind.ToString()
+                        : current.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (current.IsKind(SyntaxKind.CloseBracketToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
                 }
 
                 parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
@@ -1293,6 +1362,42 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             SetTreatNewlinesAsTokens(previous);
         }
+    }
+
+    private SyntaxToken ConsumeMemberTerminator()
+    {
+        TryConsumeTerminator(out var terminatorToken);
+
+        var current = PeekToken();
+
+        if (terminatorToken.IsKind(SyntaxKind.SemicolonToken))
+        {
+            if (IsPossibleTypeMemberStart(current) && !HasLeadingEndOfLineTrivia(current))
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.PreferNewLineBetweenDeclarations,
+                        GetSpanOfLastToken()));
+            }
+
+            return terminatorToken;
+        }
+
+        if (!terminatorToken.IsKind(SyntaxKind.None))
+            return terminatorToken;
+
+        if (current.IsKind(SyntaxKind.EndOfFileToken) || current.IsKind(SyntaxKind.CloseBraceToken))
+            return terminatorToken;
+
+        if (IsPossibleTypeMemberStart(current) && !HasLeadingEndOfLineTrivia(current))
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.ExpectedNewLineBetweenDeclarations,
+                    GetInsertionSpanBeforePeekedToken()));
+        }
+
+        return terminatorToken;
     }
 
     private static bool IsNewLineLike(SyntaxToken token)

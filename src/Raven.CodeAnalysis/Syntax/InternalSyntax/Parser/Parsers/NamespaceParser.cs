@@ -52,7 +52,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                         var statement = new StatementSyntaxParser(this).ParseStatement();
                         if (statement is not null && Position > start)
                         {
-                            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Diagnostics);
+                            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None), Diagnostics);
                             memberDeclarations.Add(globalStatement);
                             order = MemberOrder.Members;
                         }
@@ -142,6 +142,17 @@ internal class NamespaceDeclarationParser : SyntaxParser
         List<MemberDeclarationSyntax> memberDeclarations,
         ref MemberOrder order)
     {
+        static bool HasNonGlobalDeclarations(List<MemberDeclarationSyntax> members)
+        {
+            foreach (var member in members)
+            {
+                if (member is not GlobalStatementSyntax)
+                    return true;
+            }
+
+            return false;
+        }
+
         static bool IsLikelyNamespaceMemberStart(SyntaxToken token)
         {
             return token.Kind is
@@ -170,6 +181,67 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 SyntaxKind.PartialKeyword or
                 SyntaxKind.OverrideKeyword or
                 SyntaxKind.AsyncKeyword;
+        }
+
+        void AddMemberDeclarationWithSeparatorValidation(MemberDeclarationSyntax member)
+        {
+            memberDeclarations.Add(member);
+            ValidateDeclarationSeparator(member);
+        }
+
+        void ValidateDeclarationSeparator(MemberDeclarationSyntax member)
+        {
+            if (member is GlobalStatementSyntax or IncompleteMemberDeclarationSyntax)
+                return;
+
+            var next = PeekToken();
+            if (!IsLikelyNamespaceMemberStart(next))
+                return;
+
+            if (HasLeadingEndOfLineTrivia(next))
+                return;
+
+            if (!TryGetDeclarationTerminatorKind(member, out var terminatorKind))
+                return;
+
+            if (terminatorKind == SyntaxKind.SemicolonToken)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.PreferNewLineBetweenDeclarations,
+                        GetSpanOfLastToken()));
+                return;
+            }
+
+            if (terminatorKind == SyntaxKind.None)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.ExpectedNewLineBetweenDeclarations,
+                        GetInsertionSpanBeforePeekedToken()));
+            }
+        }
+
+        static bool TryGetDeclarationTerminatorKind(MemberDeclarationSyntax member, out SyntaxKind terminatorKind)
+        {
+            switch (member)
+            {
+                case BaseTypeDeclarationSyntax typeDeclaration:
+                    terminatorKind = typeDeclaration.TerminatorToken.Kind;
+                    return true;
+                case DelegateDeclarationSyntax delegateDeclaration:
+                    terminatorKind = delegateDeclaration.TerminatorToken.Kind;
+                    return true;
+                case NamespaceDeclarationSyntax namespaceDeclaration:
+                    terminatorKind = namespaceDeclaration.TerminatorToken.Kind;
+                    return true;
+                case FileScopedNamespaceDeclarationSyntax fileScopedNamespaceDeclaration:
+                    terminatorKind = fileScopedNamespaceDeclaration.TerminatorToken.Kind;
+                    return true;
+                default:
+                    terminatorKind = SyntaxKind.None;
+                    return false;
+            }
         }
 
         SyntaxToken ParseIncompleteNamespaceMemberTokens()
@@ -218,7 +290,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
         {
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
-            memberDeclarations.Add(namespaceDeclaration);
+            AddMemberDeclarationWithSeparatorValidation(namespaceDeclaration);
             order = MemberOrder.Members;
         }
         else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
@@ -245,7 +317,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
                 var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
-                memberDeclarations.Add(namespaceDeclaration);
+                AddMemberDeclarationWithSeparatorValidation(namespaceDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -258,7 +330,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
                 var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
-                memberDeclarations.Add(enumDeclaration);
+                AddMemberDeclarationWithSeparatorValidation(enumDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -269,7 +341,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
                 var unionDeclaration = new UnionDeclarationParser(this).Parse();
 
-                memberDeclarations.Add(unionDeclaration);
+                AddMemberDeclarationWithSeparatorValidation(unionDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -280,7 +352,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
                 var delegateDeclaration = new TypeDeclarationParser(this).ParseDelegateDeclaration(attributeLists, modifiers);
 
-                memberDeclarations.Add(delegateDeclaration);
+                AddMemberDeclarationWithSeparatorValidation(delegateDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -289,7 +361,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             {
                 var extensionDeclaration = new ExtensionDeclarationParser(this).Parse(attributeLists, modifiers);
 
-                memberDeclarations.Add(extensionDeclaration);
+                AddMemberDeclarationWithSeparatorValidation(extensionDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
@@ -300,7 +372,17 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
                 var typeDeclaration = new TypeDeclarationParser(this).Parse();
 
-                memberDeclarations.Add(typeDeclaration);
+                AddMemberDeclarationWithSeparatorValidation(typeDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            if (HasNonGlobalDeclarations(memberDeclarations))
+            {
+                var skippedToken = ParseIncompleteNamespaceMemberTokens();
+                TryConsumeTerminator(out var terminatorToken);
+                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
+                AddMemberDeclarationWithSeparatorValidation(incompleteMember);
                 order = MemberOrder.Members;
                 return;
             }
@@ -310,9 +392,9 @@ internal class NamespaceDeclarationParser : SyntaxParser
             if (statement is null)
                 return;
 
-            var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Diagnostics);
+            var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None), Diagnostics);
 
-            memberDeclarations.Add(globalStatement);
+            AddMemberDeclarationWithSeparatorValidation(globalStatement);
             order = MemberOrder.Members;
         }
         else
@@ -322,15 +404,26 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (statement is not null && Position > statementStart)
             {
-                var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Diagnostics);
-                memberDeclarations.Add(globalStatement);
+                if (HasNonGlobalDeclarations(memberDeclarations))
+                {
+                    var skippedTokenAfterDeclarations = ParseIncompleteNamespaceMemberTokens();
+                    TryConsumeTerminator(out var terminatorToken);
+                    var incompleteMemberAfterDeclarations = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedTokenAfterDeclarations, terminatorToken, Diagnostics);
+                    AddMemberDeclarationWithSeparatorValidation(incompleteMemberAfterDeclarations);
+                    order = MemberOrder.Members;
+                    return;
+                }
+
+                var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None), Diagnostics);
+                AddMemberDeclarationWithSeparatorValidation(globalStatement);
                 order = MemberOrder.Members;
                 return;
             }
 
             var skippedToken = ParseIncompleteNamespaceMemberTokens();
-            var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, Diagnostics);
-            memberDeclarations.Add(incompleteMember);
+            TryConsumeTerminator(out var fallbackTerminatorToken);
+            var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, fallbackTerminatorToken, Diagnostics);
+            AddMemberDeclarationWithSeparatorValidation(incompleteMember);
             order = MemberOrder.Members;
         }
     }

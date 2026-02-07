@@ -155,6 +155,8 @@ internal class StatementSyntaxParser : SyntaxParser
             SyntaxKind.CloseBraceToken => false,
             SyntaxKind.CloseParenToken => false,
             SyntaxKind.CloseBracketToken => false,
+            SyntaxKind.ArrowToken => false,
+            SyntaxKind.FatArrowToken => false,
             SyntaxKind.SemicolonToken => true,
             SyntaxKind.CommaToken => false,
             SyntaxKind.ColonToken => false,
@@ -872,7 +874,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 AddDiagnostic(
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon,
-                        GetSpanOfPeekedToken()));
+                        GetInsertionSpanBeforePeekedToken()));
                 reportedDiagnostic = true;
             }
 
