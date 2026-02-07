@@ -1386,8 +1386,10 @@ partial class BlockBinder : Binder
         var expression = BindExpression(castExpression.Expression);
         var targetType = ResolveType(castExpression.Type);
 
-        if (expression is BoundErrorExpression)
+        if (HasExpressionErrors(expression))
             return expression;
+        if (targetType.ContainsErrorType())
+            return ErrorExpression(targetType, reason: BoundExpressionReason.NotFound);
 
         var conversion = Compilation.ClassifyConversion(expression.Type!, targetType);
         if (!conversion.Exists)
@@ -1798,8 +1800,10 @@ partial class BlockBinder : Binder
         var expression = BindExpression(asExpression.Expression);
         var targetType = ResolveType(asExpression.Type);
 
-        if (expression is BoundErrorExpression)
+        if (HasExpressionErrors(expression))
             return expression;
+        if (targetType.ContainsErrorType())
+            return ErrorExpression(targetType.MakeNullable(), reason: BoundExpressionReason.NotFound);
 
         if (expression.Type!.IsValueType || targetType.IsValueType)
         {
@@ -3403,11 +3407,14 @@ partial class BlockBinder : Binder
     {
         var condition = BindExpression(ifExpression.Condition);
 
-        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
-        var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
-        if (!conversion.Exists)
+        if (!HasExpressionErrors(condition))
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(condition.Type, boolType, ifExpression.Condition.GetLocation());
+            var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+            var conversion = Compilation.ClassifyConversion(condition.Type, boolType);
+            if (!conversion.Exists)
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(condition.Type, boolType, ifExpression.Condition.GetLocation());
+            }
         }
 
         var thenBinder = SemanticModel.GetBinder(ifExpression, this);
@@ -4634,7 +4641,7 @@ partial class BlockBinder : Binder
         ExpressionSyntax? rightSyntax = null,
         SyntaxNode? callSyntax = null)
     {
-        if (left is BoundErrorExpression || right is BoundErrorExpression)
+        if (HasExpressionErrors(left) || HasExpressionErrors(right))
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
         // 1. Specialfall: string + any → string-konkatenering
@@ -5452,6 +5459,9 @@ partial class BlockBinder : Binder
         SyntaxNode callSyntax,
         bool suppressNullWarning = false)
     {
+        if (receiver is not null && HasExpressionErrors(receiver))
+            return AsErrorExpression(receiver);
+
         if (!suppressNullWarning)
             ReportPossibleNullReferenceAccess(receiver, receiverSyntax);
 
