@@ -78,6 +78,7 @@ internal class Program
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
+        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new ThrowStatementUseResultAnalyzer()));
 
         Workspace.TryApplyChanges(solution);
 

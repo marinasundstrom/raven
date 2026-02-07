@@ -525,6 +525,7 @@ project = project.AddAnalyzerReference(new AnalyzerReference(new MatchExhaustive
 project = project.AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()));
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
