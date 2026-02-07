@@ -87,15 +87,15 @@ async func GetPersonsCore() -> Task<Result<Person[], Exception>> {
 }
 
 class Person {
-    public Name: string { get; set; }
+    public Name: string { get; set; } = ""
 
-    public Products: List<Product> { get; set; }
+    public Products: List<Product> { get; set; } = []
 }
 
 /// # Test
 /// This is a documentation comment with markdown
 class Product {
-    public Name: string { get; set; }
+    public Name: string { get; set; } = ""
 }
 
 record class CustomError(Message: string)
