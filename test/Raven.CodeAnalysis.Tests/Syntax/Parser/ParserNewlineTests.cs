@@ -813,7 +813,7 @@ public class ParserNewlineTests
     }
 
     [Fact]
-    public void NamespaceMemberLoop_BadTokenBetweenMembers_ProducesIncompleteMemberAndContinues()
+    public void NamespaceMemberLoop_BadTokenBetweenMembers_ProducesIncompleteStatementGlobalMember_AndContinues()
     {
         var syntaxTree = SyntaxTree.ParseText("namespace N { class A {} ) class B {} }");
         var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
@@ -822,13 +822,38 @@ public class ParserNewlineTests
         namespaceDeclaration.Members.Count.ShouldBe(3);
 
         Assert.IsType<ClassDeclarationSyntax>(namespaceDeclaration.Members[0]);
-
-        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(namespaceDeclaration.Members[1]);
-        var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var globalStatement = Assert.IsType<GlobalStatementSyntax>(namespaceDeclaration.Members[1]);
+        var incompleteStatement = Assert.IsType<IncompleteStatementSyntax>(globalStatement.Statement);
+        var skippedTrivia = incompleteStatement.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
         var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
         skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
 
         Assert.IsType<ClassDeclarationSyntax>(namespaceDeclaration.Members[2]);
+    }
+
+    [Fact]
+    public void FileScopedNamespace_AllowsGlobalStatements_BetweenDirectivesAndDeclarations()
+    {
+        var syntaxTree = SyntaxTree.ParseText(
+            """
+            namespace N
+
+            import System.Console.*
+
+            val obj = 42
+            obj.ToString()
+
+            class C {}
+            """
+        );
+
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+        var fileScopedNamespace = Assert.IsType<FileScopedNamespaceDeclarationSyntax>(root.Members.Single());
+
+        Assert.True(fileScopedNamespace.Members.Count >= 3);
+        Assert.IsType<GlobalStatementSyntax>(fileScopedNamespace.Members[0]);
+        Assert.IsType<GlobalStatementSyntax>(fileScopedNamespace.Members[1]);
+        Assert.IsType<ClassDeclarationSyntax>(fileScopedNamespace.Members.Last());
     }
 
     private static void AssertSkippedTokensAreLeadingTriviaOnTerminator(SyntaxToken terminator, SyntaxKind expectedSkippedTokenKind)

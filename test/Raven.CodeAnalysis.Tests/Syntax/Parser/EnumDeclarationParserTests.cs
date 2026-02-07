@@ -34,8 +34,8 @@ public class EnumDeclarationParserTests
         var declaration = Assert.IsType<EnumDeclarationSyntax>(Assert.Single(root.Members));
 
         Assert.NotNull(declaration.BaseList);
-        var underlying = Assert.IsType<IdentifierNameSyntax>(Assert.Single(declaration.BaseList!.Types));
-        Assert.Equal("byte", underlying.Identifier.Text);
+        var underlying = Assert.IsType<PredefinedTypeSyntax>(Assert.Single(declaration.BaseList!.Types));
+        Assert.Equal(SyntaxKind.ByteKeyword, underlying.Keyword.Kind);
         Assert.Empty(tree.GetDiagnostics());
     }
 }

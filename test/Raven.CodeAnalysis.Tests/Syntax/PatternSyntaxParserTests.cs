@@ -106,19 +106,16 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
-    public void MemberPattern_WithQualifierAndPayload_Parses()
+    public void RecordPattern_WithQualifiedTypeAndPayload_Parses()
     {
         var (pattern, tree) = ParsePattern("Token.Identifier(let text)");
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
 
-        var casePattern = Assert.IsType<MemberPatternSyntax>(pattern);
-        Assert.Equal("Token.Identifier(let text)", sourceText.ToString(casePattern.Span));
-        Assert.Equal("Token", Assert.IsType<IdentifierNameSyntax>(casePattern.Path.Qualifier).Identifier.ValueText);
-        Assert.Equal("Identifier", casePattern.Path.Identifier.ValueText);
+        var recordPattern = Assert.IsType<RecordPatternSyntax>(pattern);
+        Assert.Equal("Token.Identifier(let text)", sourceText.ToString(recordPattern.Span));
+        Assert.Equal("Token.Identifier", recordPattern.Type.ToString());
 
-        var argumentList = casePattern.ArgumentList;
-        Assert.NotNull(argumentList);
-        var argument = Assert.Single(argumentList!.Arguments);
+        var argument = Assert.Single(recordPattern.ArgumentList.Arguments);
         Assert.IsType<VariablePatternSyntax>(argument);
 
         AssertNoErrors(tree);

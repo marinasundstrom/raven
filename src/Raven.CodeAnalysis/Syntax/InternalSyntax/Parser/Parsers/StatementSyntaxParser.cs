@@ -606,6 +606,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     }
                 }
 
+                var parameterStart = Position;
                 var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
                 SyntaxToken? refKindKeyword = null;
@@ -648,6 +649,26 @@ internal class StatementSyntaxParser : SyntaxParser
                 if (IsNextToken(SyntaxKind.EqualsToken, out _))
                 {
                     defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+                }
+
+                if (Position == parameterStart)
+                {
+                    var token = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(token.Text)
+                        ? token.Kind.ToString()
+                        : token.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (token.IsKind(SyntaxKind.CloseParenToken) || token.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
                 }
 
                 parameterList.Add(Parameter(attributeLists, refKindKeyword, bindingKeyword, name, typeAnnotation, defaultValue));
@@ -855,11 +876,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 reportedDiagnostic = true;
             }
 
-            var tokenToSkip = ReadToken();
-            if (skippedTokens.Count == 0 && tokenToSkip.LeadingTrivia.Count > 0)
-                tokenToSkip = tokenToSkip.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
-
-            skippedTokens.Add(tokenToSkip);
+            skippedTokens.Add(ReadToken());
         }
 
         static bool IsNewLineToken(SyntaxToken token)

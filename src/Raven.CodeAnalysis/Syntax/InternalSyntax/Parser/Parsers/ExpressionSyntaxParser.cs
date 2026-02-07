@@ -1798,6 +1798,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
                     break;
 
+                var armStart = Position;
                 var pattern = new PatternSyntaxParser(this).ParsePattern();
 
                 WhenClauseSyntax? whenClause = null;
@@ -1823,6 +1824,24 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 SetTreatNewlinesAsTokens(previousTreatNewlinesDuringExpression);
 
                 SetTreatNewlinesAsTokens(false);
+
+                if (Position == armStart)
+                {
+                    var bad = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(bad.Text) ? bad.Kind.ToString() : bad.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (bad.IsKind(SyntaxKind.CloseBraceToken) || bad.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
+                }
 
                 arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
             }

@@ -317,6 +317,17 @@ internal class NamespaceDeclarationParser : SyntaxParser
         }
         else
         {
+            var statementStart = Position;
+            var statement = new StatementSyntaxParser(this).ParseStatement();
+
+            if (statement is not null && Position > statementStart)
+            {
+                var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Diagnostics);
+                memberDeclarations.Add(globalStatement);
+                order = MemberOrder.Members;
+                return;
+            }
+
             var skippedToken = ParseIncompleteNamespaceMemberTokens();
             var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, Diagnostics);
             memberDeclarations.Add(incompleteMember);

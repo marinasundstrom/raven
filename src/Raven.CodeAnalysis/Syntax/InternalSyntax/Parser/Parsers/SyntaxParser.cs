@@ -281,8 +281,6 @@ internal class SyntaxParser : ParseContext
         while (true)
         {
             var t = ReadToken();
-            if (skippedTokens.Count == 0 && t.LeadingTrivia.Count > 0)
-                t = t.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
             skippedTokens.Add(t);
             current = PeekToken();
 

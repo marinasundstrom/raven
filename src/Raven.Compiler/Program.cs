@@ -59,6 +59,7 @@ var printBoundTree = false;
 var printBoundTreeErrors = true;
 var symbolDumpMode = SymbolDumpMode.None;
 var printParseSequence = false;
+var parseSequenceThrottleMilliseconds = 0;
 var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
@@ -144,6 +145,11 @@ for (int i = 0; i < args.Length; i++)
         case "-ps":
         case "--parse-sequence":
             printParseSequence = true;
+            break;
+        case "--ps-delay":
+        case "--parse-sequence-delay":
+            if (!TryParseNonNegativeInt(args, ref i, out parseSequenceThrottleMilliseconds))
+                hasInvalidOption = true;
             break;
         case "--symbols":
         case "--dump-symbols":
@@ -287,6 +293,7 @@ if (showHelp || hasInvalidOption)
 if (printParseSequence)
 {
     SyntaxParserFlags.PrintParseSequence = true;
+    SyntaxParserFlags.ParseSequenceThrottleMilliseconds = parseSequenceThrottleMilliseconds;
 }
 
 if (sourceFiles.Count == 0)
@@ -852,6 +859,7 @@ static void PrintHelp()
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
     Console.WriteLine("  -ps                Print the parsing sequence");
+    Console.WriteLine("  --ps-delay <ms>    Delay each parse-sequence log line by <ms> milliseconds");
     Console.WriteLine("  -d [plain|pretty[:no-diagnostics]] Dump syntax (single file only)");
     Console.WriteLine("                     'plain' writes the source text, 'pretty' writes highlighted syntax.");
     Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
@@ -1110,6 +1118,22 @@ static bool TryParseSymbolDumpMode(string[] args, ref int index, out SymbolDumpM
     AnsiConsole.MarkupLine($"[red]Unknown symbol dump format '{value}'.[/]");
     mode = SymbolDumpMode.None;
     return false;
+}
+
+static bool TryParseNonNegativeInt(string[] args, ref int index, out int value)
+{
+    value = 0;
+
+    if (index + 1 >= args.Length)
+        return false;
+
+    if (!int.TryParse(args[++index], out value))
+        return false;
+
+    if (value < 0)
+        return false;
+
+    return true;
 }
 
 enum SyntaxTreeFormat

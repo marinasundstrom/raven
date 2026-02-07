@@ -120,4 +120,18 @@ public class ArgumentAndParameterListTests
         var diagnostic = Assert.Single(tree.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.CharacterExpected, diagnostic.Descriptor);
     }
+
+    [Fact]
+    public void ParameterList_LeadingComma_ProducesDiagnosticsAndCompletesParse()
+    {
+        var tree = SyntaxTree.ParseText("func F(, value: int) {}");
+        var root = tree.GetRoot();
+
+        var function = Assert.IsType<GlobalStatementSyntax>(Assert.Single(root.Members)).Statement;
+        Assert.IsType<FunctionStatementSyntax>(function);
+
+        var diagnostics = tree.GetDiagnostics().ToArray();
+        Assert.NotEmpty(diagnostics);
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.IdentifierExpected);
+    }
 }

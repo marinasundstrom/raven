@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
@@ -13,6 +14,9 @@ internal abstract class ParseContext
         if (SyntaxParserFlags.PrintParseSequence)
         {
             Console.WriteLine($"{PrintLeadingDebug()}{text}");
+
+            if (SyntaxParserFlags.ParseSequenceThrottleMilliseconds > 0)
+                Thread.Sleep(SyntaxParserFlags.ParseSequenceThrottleMilliseconds);
         }
     }
 
@@ -80,7 +84,7 @@ internal abstract class ParseContext
     public virtual void RewindToPosition(int position)
     {
         Parent?.RewindToPosition(position);
-        Console.WriteLine($"{PrintLeadingDebug()}Rewinded to {position}");
+        PrintDebug($"Rewinded to {position}");
     }
 
     public virtual bool TreatNewlinesAsTokens => Parent?.TreatNewlinesAsTokens ?? throw new InvalidOperationException("No base or parent set");

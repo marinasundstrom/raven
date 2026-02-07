@@ -151,6 +151,7 @@ Options:
 - `--emit-core-types-only` &ndash; embed Raven core shims instead of using `Raven.Core.dll`
 - `-o <path>` &ndash; output assembly path
 - `-s` &ndash; display the syntax tree (single file only)
+- `-ps` &ndash; prints the tokens as they are being parsed
 - `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` for raw text, `pretty` for highlighted syntax; append `:no-diagnostics` to skip underlines, single file only)
 - `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
   compiler, analyzer, and emit diagnostics)

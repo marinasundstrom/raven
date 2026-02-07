@@ -89,6 +89,7 @@ If you change any flags, **rebuild the compiler** before running again.
 - run build/test (unless docs-only)  
 - keep generated files up to date  
 - add/update tests  
+- when touching a failing test area, clean it up as you go: update assertions to current syntax/semantics, remove obsolete tests only when behavior is intentionally no longer supported, and replace them with valid coverage for current behavior
 - write concise commit messages  
 - summarize PRs with relevant diagnostics  
 - update specs/grammar/docs alongside feature changes

@@ -17,9 +17,11 @@
 These are the main options available for when debugging the compiler:
 
 * **Print highlighted syntax** - `-d pretty`
+* **Print tokens as syntax is being parsed** - `-ps`
 * **Print syntax tree** - `-s`
 * **Print binder tree** - `-b`
 * **Print binder tree and bound tree** - `-bt`
+* **Print defined symbols** - `--symbols`
 
 ## Sample compilation and execution status
 

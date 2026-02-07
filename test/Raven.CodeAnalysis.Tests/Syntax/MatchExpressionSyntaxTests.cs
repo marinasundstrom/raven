@@ -182,6 +182,42 @@ let r = x match {
             second => Assert.IsType<PositionalPatternSyntax>(second.Pattern));
     }
 
+    [Fact]
+    public void MatchExpression_InvalidTokenBetweenArms_RecoversAndParsesFollowingArm()
+    {
+        const string code = """
+let result = value match {
+    1 => 1
+    )
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.True(match.Arms.Count >= 2);
+        Assert.IsType<DiscardPatternSyntax>(match.Arms.Last().Pattern);
+    }
+
+    [Fact]
+    public void MatchExpression_MissingArmExpression_RecoversAndParsesFollowingArm()
+    {
+        const string code = """
+let result = value match {
+    1 =>
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.True(match.Arms[0].Expression.IsMissing);
+        Assert.IsType<DiscardPatternSyntax>(match.Arms[1].Pattern);
+    }
+
     private static (MatchArmSyntax Arm, SyntaxTree Tree) ParseFirstMatchArm(string patternText)
     {
         var code = $$"""

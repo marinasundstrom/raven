@@ -1,3 +1,5 @@
+using System;
+
 namespace Raven.CodeAnalysis;
 
 public static class SyntaxParserFlags
@@ -5,6 +7,13 @@ public static class SyntaxParserFlags
     public static bool PrintParseSequence { get; set; } = false;
 
     public static bool PrintTimestamp { get; set; } = true;
+
+    private static int _parseSequenceThrottleMilliseconds;
+    public static int ParseSequenceThrottleMilliseconds
+    {
+        get => _parseSequenceThrottleMilliseconds;
+        set => _parseSequenceThrottleMilliseconds = Math.Max(0, value);
+    }
 }
 
 public static class LexerFlags

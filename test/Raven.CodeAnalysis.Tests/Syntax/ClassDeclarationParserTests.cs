@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -165,6 +167,25 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
 
         var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
         Assert.Equal("Inline", name.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void SelfMember_WithGenericReturnType_ParsesWithoutSyntaxErrors()
+    {
+        var source = """
+            class Foo {
+                public self(flag: bool) -> Task<Option<int>> {
+                    return Test(flag)
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var declaration = Assert.Single(root.Members.OfType<ClassDeclarationSyntax>());
+
+        Assert.NotNull(declaration);
         Assert.Empty(tree.GetDiagnostics());
     }
 }

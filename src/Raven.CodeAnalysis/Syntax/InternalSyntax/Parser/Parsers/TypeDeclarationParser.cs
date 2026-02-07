@@ -134,7 +134,10 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.RecordKeyword or
             SyntaxKind.OverrideKeyword or
             SyntaxKind.ClassKeyword or
+            SyntaxKind.StructKeyword or
             SyntaxKind.InterfaceKeyword or
+            SyntaxKind.ExtensionKeyword or
+            SyntaxKind.TraitKeyword or
             SyntaxKind.EnumKeyword or
             SyntaxKind.UnionKeyword or
             SyntaxKind.DelegateKeyword or
@@ -147,6 +150,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.VarKeyword or
             SyntaxKind.ConstKeyword or
             SyntaxKind.InitKeyword or
+            SyntaxKind.SelfKeyword or
             SyntaxKind.IdentifierToken;
     }
 
@@ -209,6 +213,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     }
                 }
 
+                var parameterStart = Position;
                 SyntaxToken? varianceKeyword = null;
                 if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
                 {
@@ -248,6 +253,26 @@ internal class TypeDeclarationParser : SyntaxParser
                     }
 
                     constraints = List(constraintNodes);
+                }
+
+                if (Position == parameterStart)
+                {
+                    var current = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(current.Text)
+                        ? current.Kind.ToString()
+                        : current.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (current.IsKind(SyntaxKind.GreaterThanToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
                 }
 
                 parameters.Add(TypeParameter(varianceKeyword, identifier, colonToken, constraints));
