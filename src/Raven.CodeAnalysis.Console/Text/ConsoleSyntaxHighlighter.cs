@@ -89,6 +89,50 @@ public static class ConsoleSyntaxHighlighter
 
     public static ColorScheme ColorScheme { get; set; } = ColorScheme.Dark;
 
+    public static string WriteTextToTextLight(string text, ParseOptions? options = null)
+    {
+        if (!s_supportsAnsi)
+            return text;
+
+        var syntaxTree = SyntaxTree.ParseText(text, options);
+        var root = syntaxTree.GetRoot();
+        var sourceText = syntaxTree.GetText()!;
+        var source = sourceText.ToString();
+        var lines = source.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        var lineTokens = new List<TokenSpan>[lines.Length];
+
+        foreach (var token in root.DescendantTokens())
+        {
+            var tokenClassification = GetTokenClassificationForToken(token);
+            if (tokenClassification != SemanticClassification.Default)
+                AddTokenSpan(lineTokens, lines, sourceText, token, tokenClassification);
+
+            foreach (var trivia in token.LeadingTrivia)
+            {
+                var triviaClassification = GetTriviaClassificationForKind(trivia.Kind);
+                if (triviaClassification != SemanticClassification.Default)
+                    AddTriviaSpan(lineTokens, lines, sourceText, trivia.Span, triviaClassification);
+            }
+
+            foreach (var trivia in token.TrailingTrivia)
+            {
+                var triviaClassification = GetTriviaClassificationForKind(trivia.Kind);
+                if (triviaClassification != SemanticClassification.Default)
+                    AddTriviaSpan(lineTokens, lines, sourceText, trivia.Span, triviaClassification);
+            }
+        }
+
+        var sb = new StringBuilder();
+        for (var index = 0; index < lines.Length; index++)
+        {
+            AppendLine(sb, lines[index], lineTokens[index], diagnostics: null);
+            if (index < lines.Length - 1)
+                sb.AppendLine();
+        }
+
+        return sb.ToString();
+    }
+
     public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false,
         bool diagnosticsOnly = false, IEnumerable<Diagnostic>? diagnostics = null, bool includeSuggestions = false)
     {
@@ -253,12 +297,26 @@ public static class ConsoleSyntaxHighlighter
             }
 
             if (includeSuggestions &&
-                EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out _, out var rewrittenCode))
+                EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
             {
+                var highlightedOriginal = WriteTextToTextLight(originalCode);
+                var highlightedSuggestion = WriteTextToTextLight(rewrittenCode);
+
                 sb.AppendLine();
-                sb.AppendLine("Write this instead:");
-                sb.Append("    ");
-                sb.AppendLine(rewrittenCode);
+                sb.AppendLine("  You wrote:");
+                foreach (var line in highlightedOriginal.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+                {
+                    sb.Append("    ");
+                    sb.AppendLine(line);
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("  Write this instead:");
+                foreach (var line in highlightedSuggestion.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+                {
+                    sb.Append("    ");
+                    sb.AppendLine(line);
+                }
             }
 
             if (i < diagnostics.Count - 1)
@@ -491,6 +549,165 @@ public static class ConsoleSyntaxHighlighter
             var list = lineDiagnostics[line] ??= new List<DiagnosticSpan>();
             list.Add(new DiagnosticSpan(start, end, severity));
         }
+    }
+
+    private static SemanticClassification GetTokenClassificationForToken(SyntaxToken token)
+    {
+        var kind = token.Kind;
+        if (SyntaxFacts.IsKeywordKind(kind))
+            return SemanticClassification.Keyword;
+
+        if (kind == SyntaxKind.IdentifierToken)
+        {
+            if (IsLabelIdentifier(token))
+                return SemanticClassification.Label;
+            if (IsNamespaceIdentifier(token))
+                return SemanticClassification.Namespace;
+            if (IsTypeIdentifier(token))
+                return SemanticClassification.Type;
+            if (IsMethodIdentifier(token))
+                return SemanticClassification.Method;
+            if (IsPropertyIdentifier(token))
+                return SemanticClassification.Property;
+            if (IsEventIdentifier(token))
+                return SemanticClassification.Event;
+            if (IsFieldIdentifier(token))
+                return SemanticClassification.Field;
+            if (IsParameterIdentifier(token))
+                return SemanticClassification.Parameter;
+            if (IsLocalIdentifier(token))
+                return SemanticClassification.Local;
+        }
+
+        return kind switch
+        {
+            SyntaxKind.NumericLiteralToken => SemanticClassification.NumericLiteral,
+            SyntaxKind.StringLiteralToken => SemanticClassification.StringLiteral,
+            SyntaxKind.MultiLineStringLiteralToken => SemanticClassification.StringLiteral,
+            SyntaxKind.MultilineStringToken => SemanticClassification.StringLiteral,
+            SyntaxKind.CharacterLiteralToken => SemanticClassification.StringLiteral,
+            SyntaxKind.StringStartToken => SemanticClassification.StringLiteral,
+            SyntaxKind.StringEndToken => SemanticClassification.StringLiteral,
+            SyntaxKind.DollarToken => SemanticClassification.Interpolation,
+            _ => SemanticClassification.Default
+        };
+    }
+
+    private static bool IsLabelIdentifier(SyntaxToken token)
+        => token.Parent?.Kind == SyntaxKind.LabeledStatement;
+
+    private static bool IsNamespaceIdentifier(SyntaxToken token)
+        => HasAncestorKind(token.Parent, SyntaxKind.NamespaceDeclaration)
+            || HasAncestorKind(token.Parent, SyntaxKind.FileScopedNamespaceDeclaration)
+            || HasAncestorKind(token.Parent, SyntaxKind.ImportDirective)
+            || HasAncestorKind(token.Parent, SyntaxKind.AliasDirective)
+            || HasAncestorKind(token.Parent, SyntaxKind.AliasQualifiedName);
+
+    private static bool IsTypeIdentifier(SyntaxToken token)
+    {
+        if (token.Parent is null)
+            return false;
+
+        if (HasAncestorKind(token.Parent, SyntaxKind.TypeAnnotationClause)
+            || HasAncestorKind(token.Parent, SyntaxKind.TypeArgument)
+            || HasAncestorKind(token.Parent, SyntaxKind.TypeParameter)
+            || HasAncestorKind(token.Parent, SyntaxKind.TypeConstraint)
+            || HasAncestorKind(token.Parent, SyntaxKind.TypeParameterConstraint)
+            || HasAncestorKind(token.Parent, SyntaxKind.TypeParameterConstraintClause)
+            || HasAncestorKind(token.Parent, SyntaxKind.ArrayType)
+            || HasAncestorKind(token.Parent, SyntaxKind.NullableType)
+            || HasAncestorKind(token.Parent, SyntaxKind.PointerType)
+            || HasAncestorKind(token.Parent, SyntaxKind.FunctionType)
+            || HasAncestorKind(token.Parent, SyntaxKind.TupleType)
+            || HasAncestorKind(token.Parent, SyntaxKind.ByRefType)
+            || HasAncestorKind(token.Parent, SyntaxKind.UnionType)
+            || HasAncestorKind(token.Parent, SyntaxKind.BaseList))
+            return true;
+
+        return token.Parent.Kind is SyntaxKind.ClassDeclaration
+            or SyntaxKind.TypeDeclaration
+            or SyntaxKind.BaseTypeDeclaration
+            or SyntaxKind.InterfaceDeclaration
+            or SyntaxKind.EnumDeclaration
+            or SyntaxKind.UnionDeclaration
+            or SyntaxKind.TypeParameter;
+    }
+
+    private static bool IsMethodIdentifier(SyntaxToken token)
+    {
+        if (token.Parent is null)
+            return false;
+
+        if (token.Parent.Kind is SyntaxKind.MethodDeclaration
+            or SyntaxKind.FunctionStatement
+            or SyntaxKind.ConstructorDeclaration
+            or SyntaxKind.NamedConstructorDeclaration
+            or SyntaxKind.ConversionOperatorDeclaration
+            or SyntaxKind.OperatorDeclaration)
+            return true;
+
+        if (token.Parent.Kind is SyntaxKind.IdentifierName or SyntaxKind.GenericName)
+        {
+            var parent = token.Parent.Parent;
+            if (parent?.Kind == SyntaxKind.InvocationExpression)
+                return true;
+
+            if (parent?.Kind == SyntaxKind.MemberAccessExpression && parent.Parent?.Kind == SyntaxKind.InvocationExpression)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsPropertyIdentifier(SyntaxToken token)
+    {
+        if (token.Parent is null)
+            return false;
+
+        if (token.Parent.Kind is SyntaxKind.PropertyDeclaration or SyntaxKind.IndexerDeclaration)
+            return true;
+
+        return token.Parent.Kind is SyntaxKind.IdentifierName or SyntaxKind.GenericName
+            && token.Parent.Parent?.Kind == SyntaxKind.MemberAccessExpression;
+    }
+
+    private static bool IsEventIdentifier(SyntaxToken token)
+        => token.Parent?.Kind == SyntaxKind.EventDeclaration;
+
+    private static bool IsFieldIdentifier(SyntaxToken token)
+        => token.Parent?.Kind == SyntaxKind.VariableDeclarator
+            && HasAncestorKind(token.Parent, SyntaxKind.FieldDeclaration);
+
+    private static bool IsParameterIdentifier(SyntaxToken token)
+        => token.Parent?.Kind == SyntaxKind.Parameter;
+
+    private static bool IsLocalIdentifier(SyntaxToken token)
+        => token.Parent?.Kind == SyntaxKind.VariableDeclarator
+            && (HasAncestorKind(token.Parent, SyntaxKind.LocalDeclarationStatement)
+                || HasAncestorKind(token.Parent, SyntaxKind.UsingDeclarationStatement));
+
+    private static bool HasAncestorKind(SyntaxNode? node, SyntaxKind kind)
+    {
+        var current = node;
+        while (current is not null)
+        {
+            if (current.Kind == kind)
+                return true;
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
+    private static SemanticClassification GetTriviaClassificationForKind(SyntaxKind kind)
+    {
+        return kind switch
+        {
+            SyntaxKind.SingleLineCommentTrivia => SemanticClassification.Comment,
+            SyntaxKind.MultiLineCommentTrivia => SemanticClassification.Comment,
+            SyntaxKind.DocumentationCommentTrivia => SemanticClassification.Comment,
+            _ => SemanticClassification.Default
+        };
     }
 
     private static AnsiColor GetColorForClassification(SemanticClassification classification) => classification switch

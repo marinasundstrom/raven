@@ -114,8 +114,11 @@ static class ConsoleEx
 
     private static void PrintDiagnosticList(IEnumerable<Diagnostic> diagnostics, bool includeSuggestions)
     {
-        foreach (var diagnostic in diagnostics)
+        var diagnosticArray = diagnostics.ToArray();
+
+        for (var i = 0; i < diagnosticArray.Length; i++)
         {
+            var diagnostic = diagnosticArray[i];
             var descriptor = diagnostic.Descriptor;
             var lineSpan = diagnostic.Location.GetLineSpan();
             var path = lineSpan.Path;
@@ -155,11 +158,19 @@ static class ConsoleEx
             if (includeSuggestions &&
                 EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
             {
+                Console.WriteLine();
                 AnsiConsole.MarkupLine("  [grey]You wrote:[/]");
-                AnsiConsole.MarkupLine($"    [red]{Markup.Escape(originalCode)}[/]");
+                foreach (var line in ConsoleSyntaxHighlighter.WriteTextToTextLight(originalCode).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+                    Console.WriteLine($"    {line}");
+
+                Console.WriteLine();
                 AnsiConsole.MarkupLine("  [grey]Write this instead:[/]");
-                AnsiConsole.MarkupLine($"    [green]{Markup.Escape(rewrittenCode)}[/]");
+                foreach (var line in ConsoleSyntaxHighlighter.WriteTextToTextLight(rewrittenCode).Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+                    Console.WriteLine($"    {line}");
             }
+
+            if (i < diagnosticArray.Length - 1)
+                Console.WriteLine();
         }
     }
 }
