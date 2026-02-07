@@ -16,7 +16,9 @@ func Main(args: string[]) -> () {
         WriteLine(member.Name)
     }
 
-    val member = members.First()
+    val result = members.FirstOrNone()
 
-    WriteLine("First $member")
+    if(result is .Some(val member)) {
+        WriteLine("First: $member")
+    }
 }
