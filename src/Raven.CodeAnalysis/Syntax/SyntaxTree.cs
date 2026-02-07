@@ -251,7 +251,13 @@ public class SyntaxTree
             return ParseText(newText, _options, FilePath);
         }
 
-        return Create(newText, newCompilationUnit, _options, FilePath);
+        var updatedTree = Create(newText, newCompilationUnit, _options, FilePath);
+        if (!string.Equals(updatedTree.GetRoot().ToFullString(), newText.ToString(), StringComparison.Ordinal))
+        {
+            return ParseText(newText, _options, FilePath);
+        }
+
+        return updatedTree;
     }
 
     private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)
@@ -288,8 +294,18 @@ public class SyntaxTree
         var parser = new InternalSyntax.Parser.LanguageParser(string.Empty, _options);
 
         var greenNode = parser.ParseSyntax(requestedSyntaxType, newText, position);
+        if (greenNode is null)
+        {
+            return null;
+        }
 
-        return greenNode?.CreateRed();
+        var newNode = greenNode.CreateRed();
+        if (!requestedSyntaxType.IsInstanceOfType(newNode))
+        {
+            return null;
+        }
+
+        return newNode;
     }
 }
 

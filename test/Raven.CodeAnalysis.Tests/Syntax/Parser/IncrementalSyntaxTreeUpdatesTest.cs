@@ -1,3 +1,5 @@
+using System;
+
 using Raven.CodeAnalysis.Text;
 using Xunit;
 
@@ -217,5 +219,21 @@ public class IncrementalSyntaxTreeUpdatesTest
 
         AssertIncrementalParse(sourceText, changedSourceText);
     }
-}
 
+    [Fact]
+    public void ApplyChangedTextToSyntaxTree_InsertAtStatementBoundaryInBlock()
+    {
+        var source = """
+            fn compute() {
+                return 1;
+            }
+            """;
+
+        var sourceText = SourceText.From(source);
+        var insertionPosition = source.IndexOf("return 1;", StringComparison.Ordinal) + "return 1;".Length;
+        var changedSourceText = sourceText.WithChange(
+            new TextChange(new TextSpan(insertionPosition, 0), "\n    return 2;"));
+
+        AssertIncrementalParse(sourceText, changedSourceText);
+    }
+}

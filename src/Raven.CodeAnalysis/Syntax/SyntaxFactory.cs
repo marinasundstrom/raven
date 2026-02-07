@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
 
@@ -19,4 +20,23 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken NewLineToken = (SyntaxToken)InternalSyntax.SyntaxFactory.NewLineToken;
     public static readonly SyntaxToken EndOfFileToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfFileToken;
 
+    public static ExpressionSyntax ParseExpression(string text, ParseOptions? options = null)
+        => ParseExpression(SourceText.From(text), options);
+
+    public static ExpressionSyntax ParseExpression(SourceText sourceText, ParseOptions? options = null, int position = 0)
+    {
+        var parser = new InternalSyntax.Parser.LanguageParser("file", options ?? new ParseOptions());
+        var node = parser.ParseSyntax(typeof(ExpressionSyntax), sourceText, position);
+
+        return node?.CreateRed() as ExpressionSyntax ?? new ExpressionSyntax.Missing();
+    }
+
+    public static StatementSyntax ParseStatement(string text, ParseOptions? options = null)
+        => ParseStatement(SourceText.From(text), options);
+
+    public static StatementSyntax ParseStatement(SourceText sourceText, ParseOptions? options = null, int position = 0)
+    {
+        var parser = new InternalSyntax.Parser.LanguageParser("file", options ?? new ParseOptions());
+        return (StatementSyntax)parser.ParseStatement(sourceText, position).CreateRed();
+    }
 }

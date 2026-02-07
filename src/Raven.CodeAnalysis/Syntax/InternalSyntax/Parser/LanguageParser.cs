@@ -61,7 +61,7 @@ internal class LanguageParser
         }
         else if (requestedSyntaxType == typeof(Syntax.BlockSyntax))
         {
-            return new ExpressionSyntaxParser(context).ParseExpression();
+            return new ExpressionSyntaxParser(context).ParseBlockSyntax();
         }
         else if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.ExpressionSyntax)))
         {
