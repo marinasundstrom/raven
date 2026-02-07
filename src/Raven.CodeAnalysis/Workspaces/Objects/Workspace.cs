@@ -226,8 +226,12 @@ public class Workspace
             {
                 foreach (var analyzer in reference.GetAnalyzers())
                 {
+                    var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
+
                     foreach (var diagnostic in analyzer.Analyze(compilation, cancellationToken))
                     {
+                        AnalyzerDiagnosticIdValidator.Validate(analyzer, diagnostic, isInternalAnalyzer);
+
                         var mapped = compilation.ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
                         if (mapped is not null)
                             diagnostics.Add(mapped);
