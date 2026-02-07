@@ -79,6 +79,9 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
             inferred.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
             return;
 
+        if (inferred is ErrorTypeSymbol)
+            return;
+
         if (inferred is ITypeUnionSymbol union &&
             union.Types.All(t => t.SpecialType != SpecialType.System_Unit && t.SpecialType != SpecialType.System_Void))
         {
