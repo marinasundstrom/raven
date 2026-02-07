@@ -15,6 +15,7 @@ internal class Lexer : ILexer
     private readonly List<Token> _lookaheadTokens = new List<Token>();
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
+    public Action<DiagnosticInfo>? DiagnosticSink { get; set; }
 
     public Lexer(TextReader textReader, int startPosition = 0)
     {
@@ -40,6 +41,11 @@ internal class Lexer : ILexer
         {
             Console.WriteLine(text);
         }
+    }
+
+    private void ReportDiagnostic(DiagnosticInfo diagnostic)
+    {
+        DiagnosticSink?.Invoke(diagnostic);
     }
 
     public void CreateCheckpoint()
@@ -133,8 +139,6 @@ internal class Lexer : ILexer
 
     private Token ReadTokenCore()
     {
-        List<DiagnosticInfo> diagnostics = new List<DiagnosticInfo>();
-
         _tokenStartPosition = _currentPosition;
 
         char ch = '\0', ch2 = '\0';
@@ -149,7 +153,7 @@ internal class Lexer : ILexer
 
                 if (!PeekChar(out ch2) || !SyntaxFacts.IsIdentifierStartCharacter(ch2))
                 {
-                    return new Token(SyntaxKind.IdentifierToken, GetStringBuilderValue(), diagnostics: diagnostics);
+                    return new Token(SyntaxKind.IdentifierToken, GetStringBuilderValue());
                 }
 
                 ReadChar(out ch2);
@@ -163,7 +167,7 @@ internal class Lexer : ILexer
 
                 var text = GetStringBuilderValue();
                 var valueText = string.Intern(text.Substring(1));
-                return new Token(SyntaxKind.IdentifierToken, text, valueText, diagnostics: diagnostics);
+                return new Token(SyntaxKind.IdentifierToken, text, valueText);
             }
 
             if (SyntaxFacts.IsIdentifierStartCharacter(ch) ||
@@ -195,16 +199,16 @@ internal class Lexer : ILexer
                     switch (syntaxKind)
                     {
                         case SyntaxKind.TrueKeyword:
-                            return new Token(SyntaxKind.TrueKeyword, GetStringBuilderValue(), true, _stringBuilder.Length, diagnostics: diagnostics);
+                            return new Token(SyntaxKind.TrueKeyword, GetStringBuilderValue(), true, _stringBuilder.Length);
 
                         case SyntaxKind.FalseKeyword:
-                            return new Token(SyntaxKind.FalseKeyword, GetStringBuilderValue(), false, _stringBuilder.Length, diagnostics: diagnostics);
+                            return new Token(SyntaxKind.FalseKeyword, GetStringBuilderValue(), false, _stringBuilder.Length);
                     }
 
-                    return new Token(syntaxKind, GetStringBuilderValue(), diagnostics: diagnostics);
+                    return new Token(syntaxKind, GetStringBuilderValue());
                 }
                 else if (char.IsDigit(ch) || ch == '.')
-                    return ParseNumber(diagnostics, ref ch);
+                    return ParseNumber(ref ch);
             }
             else
             {
@@ -233,7 +237,7 @@ internal class Lexer : ILexer
                         }
                         else if (PeekChar(out ch2) && (char.IsDigit(ch2) || ch2 == '.'))
                         {
-                            return ParseNumber(diagnostics, ref ch, true);
+                            return ParseNumber(ref ch, true);
                         }
                         else if (PeekChar(out ch2) && ch2 == '=')
                         {
@@ -281,7 +285,7 @@ internal class Lexer : ILexer
                                 }
 
                                 var kind = isDocComment ? SyntaxKind.DocumentationCommentTrivia : SyntaxKind.SingleLineCommentTrivia;
-                                return new Token(kind, GetStringBuilderValue(), diagnostics: diagnostics);
+                                return new Token(kind, GetStringBuilderValue());
                             }
 
                             // Multi-line comment: /* ... */
@@ -300,13 +304,13 @@ internal class Lexer : ILexer
                                     {
                                         ReadChar();
                                         _stringBuilder.Append('/');
-                                        return new Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue(), diagnostics: diagnostics);
+                                        return new Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue());
                                     }
                                 }
 
                                 // Unterminated comment; return what we have. (Keep newline/EOF behavior consistent.)
                                 // If you have a dedicated diagnostic for this, you can add it here.
-                                return new Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue(), diagnostics: diagnostics);
+                                return new Token(SyntaxKind.MultiLineCommentTrivia, GetStringBuilderValue());
                             }
                         }
 
@@ -457,10 +461,10 @@ internal class Lexer : ILexer
 
                             if (!ReadChar(out ch))
                             {
-                                diagnostics.Add(DiagnosticInfo.Create(
+                                ReportDiagnostic(DiagnosticInfo.Create(
                                     CompilerDiagnostics.UnterminatedCharacterLiteral,
                                     GetTokenStartPositionSpan()));
-                                return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue(), diagnostics: diagnostics);
+                                return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue());
                             }
 
                             char character;
@@ -471,10 +475,10 @@ internal class Lexer : ILexer
 
                                 if (!ReadChar(out ch))
                                 {
-                                    diagnostics.Add(DiagnosticInfo.Create(
+                                    ReportDiagnostic(DiagnosticInfo.Create(
                                         CompilerDiagnostics.UnterminatedCharacterLiteral,
                                         GetTokenStartPositionSpan()));
-                                    return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue(), diagnostics: diagnostics);
+                                    return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue());
                                 }
 
                                 _stringBuilder.Append(ch); // escaped char
@@ -515,7 +519,7 @@ internal class Lexer : ILexer
                                         character = '\v';
                                         break;
                                     default:
-                                        diagnostics.Add(DiagnosticInfo.Create(
+                                        ReportDiagnostic(DiagnosticInfo.Create(
                                             CompilerDiagnostics.InvalidEscapeSequence,
                                             GetTokenStartPositionSpan()));
                                         character = '?';
@@ -530,10 +534,10 @@ internal class Lexer : ILexer
 
                             if (!ReadChar(out ch) || ch != '\'')
                             {
-                                diagnostics.Add(DiagnosticInfo.Create(
+                                ReportDiagnostic(DiagnosticInfo.Create(
                                     CompilerDiagnostics.UnterminatedCharacterLiteral,
                                     GetTokenStartPositionSpan()));
-                                return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue(), diagnostics: diagnostics);
+                                return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue());
                             }
 
                             _stringBuilder.Append(ch); // closing quote
@@ -542,8 +546,7 @@ internal class Lexer : ILexer
                                 SyntaxKind.CharacterLiteralToken,
                                 GetStringBuilderValue(),
                                 character,
-                                _stringBuilder.Length,
-                                diagnostics: diagnostics);
+                                _stringBuilder.Length);
                         }
 
                     case '"':
@@ -554,11 +557,11 @@ internal class Lexer : ILexer
                         // Value is indentation-trimmed based on the closing delimiter line.
                         if (TryConsumeTripleQuoteStart())
                         {
-                            return ParseTripleQuotedStringLiteral(diagnostics);
+                            return ParseTripleQuotedStringLiteral();
                         }
 
                         // Normal (single-line) string literal
-                        return ParseSingleLineStringLiteral(diagnostics);
+                        return ParseSingleLineStringLiteral();
 
                     /*
 
@@ -596,7 +599,7 @@ internal class Lexer : ILexer
             }
 
             // Unknown token
-            /*diagnostics.Add(DiagnosticInfo.Create(
+            /*ReportDiagnostic(DiagnosticInfo.Create(
                      CompilerDiagnostics.UnknownCharacter,
                      new TextSpan(_tokenStartPosition, 1)
                  ));*/
@@ -643,7 +646,7 @@ internal class Lexer : ILexer
         return true;
     }
 
-    private Token ParseSingleLineStringLiteral(List<DiagnosticInfo> diagnostics)
+    private Token ParseSingleLineStringLiteral()
     {
         // We enter after consuming/appending the opening quote.
         // Interpolation-aware lexing: quotes inside ${...} or $ident do not terminate the string.
@@ -651,7 +654,7 @@ internal class Lexer : ILexer
         {
             if (!PeekChar(out var ch2))
             {
-                diagnostics.Add(
+                ReportDiagnostic(
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.NewlineInConstant,
                         GetTokenStartPositionSpan()));
@@ -692,7 +695,7 @@ internal class Lexer : ILexer
 
             if (IsEndOfLine(ch2))
             {
-                diagnostics.Add(
+                ReportDiagnostic(
                     DiagnosticInfo.Create(
                         CompilerDiagnostics.NewlineInConstant,
                         GetTokenStartPositionSpan()));
@@ -706,7 +709,7 @@ internal class Lexer : ILexer
 
                 if (!PeekChar(out var escaped2))
                 {
-                    diagnostics.Add(
+                    ReportDiagnostic(
                         DiagnosticInfo.Create(
                             CompilerDiagnostics.NewlineInConstant,
                             GetTokenStartPositionSpan()));
@@ -717,7 +720,7 @@ internal class Lexer : ILexer
 
                 if (IsEndOfLine(escaped2))
                 {
-                    diagnostics.Add(
+                    ReportDiagnostic(
                         DiagnosticInfo.Create(
                             CompilerDiagnostics.NewlineInConstant,
                             GetTokenStartPositionSpan()));
@@ -740,7 +743,7 @@ internal class Lexer : ILexer
 
         if (hadInvalidEscape)
         {
-            diagnostics.Add(
+            ReportDiagnostic(
                 DiagnosticInfo.Create(
                     CompilerDiagnostics.InvalidEscapeSequence,
                     GetTokenStartPositionSpan()));
@@ -750,8 +753,7 @@ internal class Lexer : ILexer
         return new Token(
             SyntaxKind.StringLiteralToken,
             rawText,
-            string.Intern(decoded),
-            diagnostics: diagnostics);
+            string.Intern(decoded));
 
         // --- Local helpers for interpolation-aware lexing ---
 
@@ -781,7 +783,7 @@ internal class Lexer : ILexer
                 if (IsEndOfLine(c))
                 {
                     // Emit newline-in-constant diagnostic and stop.
-                    diagnostics.Add(
+                    ReportDiagnostic(
                         DiagnosticInfo.Create(
                             CompilerDiagnostics.NewlineInConstant,
                             GetTokenStartPositionSpan()));
@@ -1012,7 +1014,7 @@ internal class Lexer : ILexer
         }
     }
 
-    private Token ParseTripleQuotedStringLiteral(List<DiagnosticInfo> diagnostics)
+    private Token ParseTripleQuotedStringLiteral()
     {
         // Entered after consuming/appending opening: """
         // Raw content (no escape decoding). Newlines are allowed.
@@ -1050,8 +1052,7 @@ internal class Lexer : ILexer
                 return new Token(
                     SyntaxKind.MultiLineStringLiteralToken,
                     rawText,
-                    string.Intern(value),
-                    diagnostics: diagnostics);
+                    string.Intern(value));
             }
 
             // Consume character.
@@ -1137,8 +1138,7 @@ internal class Lexer : ILexer
         return new Token(
             SyntaxKind.MultiLineStringLiteralToken,
             unterminatedRaw,
-            string.Intern(content.ToString()),
-            diagnostics: diagnostics);
+            string.Intern(content.ToString()));
 
         bool TryPeekTripleQuote()
         {
@@ -1212,7 +1212,7 @@ internal class Lexer : ILexer
         }
     }
 
-    private Token ParseNumber(List<DiagnosticInfo> diagnostics, ref char ch, bool negative = false)
+    private Token ParseNumber(ref char ch, bool negative = false)
     {
         bool isFloat = false;
         bool isDouble = false;
@@ -1346,25 +1346,25 @@ internal class Lexer : ILexer
             // Note: Raven follows C# here: decimal literals do not support exponent notation.
             if (numericText.IndexOf('e') >= 0 || numericText.IndexOf('E') >= 0)
             {
-                diagnostics.Add(DiagnosticInfo.Create(
+                ReportDiagnostic(DiagnosticInfo.Create(
                     CompilerDiagnostics.NumericLiteralOutOfRange,
                     new TextSpan(_tokenStartPosition, text.Length)
                 ));
 
-                return new Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length);
             }
 
             if (decimal.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue))
             {
-                return new Token(SyntaxKind.NumericLiteralToken, text, decimalValue, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, decimalValue, text.Length);
             }
             else
             {
-                diagnostics.Add(DiagnosticInfo.Create(
+                ReportDiagnostic(DiagnosticInfo.Create(
                     CompilerDiagnostics.NumericLiteralOutOfRange,
                     new TextSpan(_tokenStartPosition, text.Length)
                 ));
-                return new Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0m, text.Length);
             }
         }
 
@@ -1378,15 +1378,15 @@ internal class Lexer : ILexer
 
             if (float.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue))
             {
-                return new Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length);
             }
             else
             {
-                diagnostics.Add(DiagnosticInfo.Create(
+                ReportDiagnostic(DiagnosticInfo.Create(
                     CompilerDiagnostics.NumericLiteralOutOfRange,
                     new TextSpan(_tokenStartPosition, text.Length)
                 ));
-                return new Token(SyntaxKind.NumericLiteralToken, text, 0f, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0f, text.Length);
             }
         }
 
@@ -1401,15 +1401,15 @@ internal class Lexer : ILexer
             if (double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
             {
 
-                return new Token(SyntaxKind.NumericLiteralToken, text, doubleValue, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, doubleValue, text.Length);
             }
             else
             {
-                diagnostics.Add(DiagnosticInfo.Create(
+                ReportDiagnostic(DiagnosticInfo.Create(
                     CompilerDiagnostics.NumericLiteralOutOfRange,
                     new TextSpan(_tokenStartPosition, text.Length)
                 ));
-                return new Token(SyntaxKind.NumericLiteralToken, text, 0d, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0d, text.Length);
             }
         }
 
@@ -1425,14 +1425,14 @@ internal class Lexer : ILexer
 
             if (byte.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var byteValue))
             {
-                return new Token(SyntaxKind.NumericLiteralToken, text, byteValue, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, byteValue, text.Length);
             }
 
-            diagnostics.Add(DiagnosticInfo.Create(
+            ReportDiagnostic(DiagnosticInfo.Create(
                 CompilerDiagnostics.NumericLiteralOutOfRange,
                 new TextSpan(_tokenStartPosition, text.Length)
             ));
-            return new Token(SyntaxKind.NumericLiteralToken, text, (byte)0, text.Length, diagnostics: diagnostics);
+            return new Token(SyntaxKind.NumericLiteralToken, text, (byte)0, text.Length);
         }
 
         // Long suffix
@@ -1443,33 +1443,33 @@ internal class Lexer : ILexer
 
             if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
             {
-                return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length, diagnostics: diagnostics);
+                return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length);
             }
 
-            diagnostics.Add(DiagnosticInfo.Create(
+            ReportDiagnostic(DiagnosticInfo.Create(
                 CompilerDiagnostics.NumericLiteralOutOfRange,
                 new TextSpan(_tokenStartPosition, text.Length)
             ));
-            return new Token(SyntaxKind.NumericLiteralToken, text, 0L, text.Length, diagnostics: diagnostics);
+            return new Token(SyntaxKind.NumericLiteralToken, text, 0L, text.Length);
         }
 
         // Default integer literal chooses the smallest integral type starting at int (not byte).
 
         if (int.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
         {
-            return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
+            return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length);
         }
 
         if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue2))
         {
-            return new Token(SyntaxKind.NumericLiteralToken, text, longValue2, text.Length, diagnostics: diagnostics);
+            return new Token(SyntaxKind.NumericLiteralToken, text, longValue2, text.Length);
         }
 
-        diagnostics.Add(DiagnosticInfo.Create(
+        ReportDiagnostic(DiagnosticInfo.Create(
             CompilerDiagnostics.NumericLiteralOutOfRange,
             new TextSpan(_tokenStartPosition, text.Length)
         ));
-        return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length, diagnostics: diagnostics);
+        return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length);
     }
 
     // NOTE: Comment lexing uses IsEndOfLine to ensure single-line comments never consume newline tokens.

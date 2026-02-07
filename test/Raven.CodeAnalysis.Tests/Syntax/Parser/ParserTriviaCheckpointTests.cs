@@ -23,7 +23,7 @@ public class ParserTriviaCheckpointTests
         context.LastToken.ShouldNotBeNull();
         context.LastToken!.Kind.ShouldBe(SyntaxKind.SemicolonToken);
 
-        using (context.CreateCheckpoint())
+        var checkpoint = context.CreateCheckpoint();
         {
             var endOfFile = context.ReadToken();
             endOfFile.Kind.ShouldBe(SyntaxKind.EndOfFileToken);
@@ -34,6 +34,8 @@ public class ParserTriviaCheckpointTests
             context.LastToken!.Kind.ShouldBe(SyntaxKind.EndOfFileToken);
             context.Position.ShouldBeGreaterThan(positionBeforeCheckpoint);
         }
+
+        checkpoint.Rewind();
 
         context.Position.ShouldBe(positionBeforeCheckpoint);
         context.LastToken.ShouldNotBeNull();
@@ -56,7 +58,7 @@ public class ParserTriviaCheckpointTests
         context.LastToken.ShouldNotBeNull();
         context.LastToken!.Kind.ShouldBe(SyntaxKind.SemicolonToken);
 
-        using (context.CreateCheckpoint())
+        var checkpoint = context.CreateCheckpoint();
         {
             var endOfFile = context.ReadToken();
             endOfFile.Kind.ShouldBe(SyntaxKind.EndOfFileToken);
@@ -68,6 +70,8 @@ public class ParserTriviaCheckpointTests
             context.Position.ShouldBeGreaterThan(positionBeforeCheckpoint);
         }
 
+        checkpoint.Rewind();
+
         context.Position.ShouldBe(positionBeforeCheckpoint);
         context.LastToken.ShouldNotBeNull();
         context.LastToken!.Kind.ShouldBe(SyntaxKind.SemicolonToken);
@@ -77,6 +81,45 @@ public class ParserTriviaCheckpointTests
         AssertTrivia(endOfFileAfterReset, SyntaxKind.MultiLineCommentTrivia, "/* trailing */");
         context.LastToken.ShouldNotBeNull();
         context.LastToken!.Kind.ShouldBe(SyntaxKind.EndOfFileToken);
+    }
+
+    [Fact]
+    public void Diagnostics_AddedDuringSpeculation_AreRolledBackOnCheckpointRewind()
+    {
+        const string code = "(logger as ConsoleLogger)";
+        var context = new BaseParseContext(new Lexer(new StringReader(code)));
+
+        context.Diagnostics.ShouldBeEmpty();
+
+        var checkpoint = context.CreateCheckpoint();
+        {
+            var parameterList = new StatementSyntaxParser(context).ParseParameterList();
+            parameterList.ShouldNotBeNull();
+            context.Diagnostics.ShouldNotBeEmpty();
+        }
+
+        checkpoint.Rewind();
+
+        context.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void LexerDiagnostics_AddedDuringSpeculation_AreRolledBackOnCheckpointRewind()
+    {
+        const string code = "\"";
+        var context = new BaseParseContext(new Lexer(new StringReader(code)));
+
+        context.Diagnostics.ShouldBeEmpty();
+
+        var checkpoint = context.CreateCheckpoint();
+        {
+            context.ReadToken();
+            context.Diagnostics.ShouldNotBeEmpty();
+        }
+
+        checkpoint.Rewind();
+
+        context.Diagnostics.ShouldBeEmpty();
     }
 
     private static BaseParseContext CreateContextAndReadToToken(string code, SyntaxKind target)

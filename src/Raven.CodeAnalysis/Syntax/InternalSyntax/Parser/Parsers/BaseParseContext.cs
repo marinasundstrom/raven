@@ -24,6 +24,7 @@ internal partial class BaseParseContext : ParseContext
     public BaseParseContext(ILexer lexer, ParseOptions options, int position = 0) : base()
     {
         _lexer = lexer;
+        _lexer.DiagnosticSink = AddDiagnostic;
         _options = options ?? new ParseOptions();
         _position = position;
     }
@@ -268,7 +269,6 @@ internal partial class BaseParseContext : ParseContext
             // Immediately return NewLineToken.
 
             _lexer.ReadToken();
-            AddLexerTokenDiagnostics(token);
             return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, SyntaxTriviaList.Empty, SyntaxTriviaList.Empty);
         }
 
@@ -286,7 +286,6 @@ internal partial class BaseParseContext : ParseContext
             return syntheticNewline;
 
         token = _lexer.ReadToken();
-        AddLexerTokenDiagnostics(token);
 
         if (token.Kind == SyntaxKind.NewLineToken)
         {
@@ -298,20 +297,6 @@ internal partial class BaseParseContext : ParseContext
         SyntaxTriviaList trailingTrivia = ReadTrivia(isTrailingTrivia: true);
 
         return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, leadingTrivia, trailingTrivia);
-    }
-
-    private void AddLexerTokenDiagnostics(Token token)
-    {
-        var tokenDiagnostics = token.GetDiagnostics();
-        if (tokenDiagnostics is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in tokenDiagnostics)
-        {
-            AddDiagnostic(diagnostic);
-        }
     }
 
     private SyntaxToken? TryExtractNewlineTokenFromPendingTrivia(ref SyntaxTriviaList leadingTrivia)
@@ -423,7 +408,6 @@ internal partial class BaseParseContext : ParseContext
             else if (token.Kind == SyntaxKind.SingleLineCommentTrivia)
             {
                 _lexer.ReadToken();
-                AddLexerTokenDiagnostics(token);
                 var commentTrivia = new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, token.Text);
 
                 if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
@@ -438,7 +422,6 @@ internal partial class BaseParseContext : ParseContext
             else if (token.Kind == SyntaxKind.MultiLineCommentTrivia)
             {
                 _lexer.ReadToken();
-                AddLexerTokenDiagnostics(token);
                 var commentTrivia = new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, token.Text);
 
                 if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
@@ -455,13 +438,11 @@ internal partial class BaseParseContext : ParseContext
             {
                 case SyntaxKind.TabToken:
                     _lexer.ReadToken();
-                    AddLexerTokenDiagnostics(token);
                     trivia.Add(new SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
                     continue;
 
                 case SyntaxKind.Whitespace:
                     _lexer.ReadToken();
-                    AddLexerTokenDiagnostics(token);
                     trivia.Add(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
                     continue;
             }
@@ -619,7 +600,6 @@ internal partial class BaseParseContext : ParseContext
                 return;
 
             _lexer.ReadToken();
-            AddLexerTokenDiagnostics(comment);
             sb.Append(comment.Text);
             consumedWidth += comment.Length;
 

@@ -14,6 +14,7 @@ public class IdentifierTokenTests
     {
         private readonly ParserInternal.Token[] _tokens;
         private int _index;
+        public Action<IS.DiagnosticInfo>? DiagnosticSink { get; set; }
 
         public SingleTokenLexer(ParserInternal.Token token)
         {

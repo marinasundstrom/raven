@@ -309,7 +309,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 if (expr is not IdentifierNameSyntax
                     and not MemberAccessExpressionSyntax
                     and not MemberBindingExpressionSyntax
-                    and not ElementAccessExpressionSyntax)
+                    and not ElementAccessExpressionSyntax
+                    and not ConditionalAccessExpressionSyntax)
                 {
                     AddDiagnostic(
                         DiagnosticInfo.Create(
@@ -639,26 +640,32 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private bool IsParenthesizedCastAhead()
     {
-        using var checkpoint = CreateCheckpoint("lambda-cast-lookahead");
+        var checkpoint = CreateCheckpoint("lambda-cast-lookahead");
+        try
+        {
+            if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
+                return false;
 
-        if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
-            return false;
+            ReadToken();
 
-        ReadToken();
+            var typeName = new NameSyntaxParser(this).ParseTypeName();
 
-        var typeName = new NameSyntaxParser(this).ParseTypeName();
+            if (typeName.IsMissing)
+                return false;
 
-        if (typeName.IsMissing)
-            return false;
+            if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+                return false;
 
-        if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
-            return false;
+            ReadToken();
 
-        ReadToken();
+            var next = PeekToken();
 
-        var next = PeekToken();
-
-        return !next.IsKind(SyntaxKind.FatArrowToken);
+            return !next.IsKind(SyntaxKind.FatArrowToken);
+        }
+        finally
+        {
+            checkpoint.Rewind();
+        }
     }
 
     private bool TryParseParenthesizedLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
@@ -2195,8 +2202,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             {
                 if (t.IsKind(SyntaxKind.SemicolonToken)
                     || t.IsKind(SyntaxKind.CommaToken)
+                    || t.IsKind(SyntaxKind.OpenBraceToken)
                     || t.IsKind(SyntaxKind.CloseBracketToken)
-                    || t.IsKind(SyntaxKind.CloseBraceToken))
+                    || t.IsKind(SyntaxKind.CloseBraceToken)
+                    || t.IsKind(SyntaxKind.EqualsToken)
+                    || t.IsKind(SyntaxKind.PlusEqualsToken)
+                    || t.IsKind(SyntaxKind.MinusEqualsToken)
+                    || t.IsKind(SyntaxKind.StarEqualsToken)
+                    || t.IsKind(SyntaxKind.SlashEqualsToken))
                 {
                     return false;
                 }
@@ -2204,6 +2217,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             if (t.IsKind(SyntaxKind.FatArrowToken))
                 return true;
+
+            // `(expr as Type)` should never be treated as a lambda parameter list candidate.
+            if (depth == 1 && t.IsKind(SyntaxKind.AsKeyword))
+                return false;
 
             if (t.IsKind(SyntaxKind.OpenParenToken)
                 || t.IsKind(SyntaxKind.OpenBracketToken)

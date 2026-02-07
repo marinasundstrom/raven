@@ -304,7 +304,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             p = PeekToken();
 
-            if (!p.IsKind(SyntaxKind.OpenBraceToken))
+            if (!p.IsKind(SyntaxKind.OpenBraceToken) && !p.IsKind(SyntaxKind.IfKeyword))
             {
                 AddDiagnostic(DiagnosticInfo.Create(
                     CompilerDiagnostics.CharacterExpected,

@@ -1,8 +1,10 @@
-﻿
+
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal interface ILexer
 {
+    Action<DiagnosticInfo>? DiagnosticSink { get; set; }
+
     bool IsEndOfFile { get; }
 
     Token ReadToken();
@@ -34,32 +36,27 @@ internal interface ILexer
 
 internal struct Token
 {
-    private readonly IEnumerable<DiagnosticInfo>? _diagnostics;
-
-    public Token(SyntaxKind kind, string text, IEnumerable<DiagnosticInfo>? diagnostics = null)
+    public Token(SyntaxKind kind, string text)
     {
         Kind = kind;
         Text = string.Intern(text);
         Length = text.Length;
-        _diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
 
-    public Token(SyntaxKind kind, string text, object? value, IEnumerable<DiagnosticInfo>? diagnostics = null)
+    public Token(SyntaxKind kind, string text, object? value)
     {
         Kind = kind;
         Text = string.Intern(text);
         Value = value;
         Length = text.Length;
-        _diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
 
-    public Token(SyntaxKind kind, string text, object? value, int length, IEnumerable<DiagnosticInfo>? diagnostics = null)
+    public Token(SyntaxKind kind, string text, object? value, int length)
     {
         Kind = kind;
         Text = string.Intern(text);
         Value = value;
         Length = length;
-        _diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
 
     public SyntaxKind Kind { get; }
@@ -67,5 +64,4 @@ internal struct Token
     public object? Value { get; }
     public int Length { get; }
 
-    internal IEnumerable<DiagnosticInfo>? GetDiagnostics() => _diagnostics;
 }

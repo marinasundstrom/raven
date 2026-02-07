@@ -12,13 +12,15 @@ internal class TypeDeclarationParser : SyntaxParser
 {
     internal static SyntaxKind PeekTypeKeyword(ParseContext context)
     {
-        using var checkpoint = context.CreateCheckpoint("TypeDeclarationPeek");
+        var checkpoint = context.CreateCheckpoint("TypeDeclarationPeek");
 
         var parser = new TypeDeclarationParser(context);
         _ = AttributeDeclarationParser.ParseAttributeLists(parser);
         _ = parser.ParseModifiers();
 
-        return context.PeekToken().Kind;
+        var kind = context.PeekToken().Kind;
+        checkpoint.Rewind();
+        return kind;
     }
 
     public TypeDeclarationParser(ParseContext context) : base(context)

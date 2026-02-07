@@ -198,8 +198,6 @@ internal class NameSyntaxParser : SyntaxParser
             _ => numericToken.GetValue(),
         };
 
-        var diagnostics = CombineDiagnostics(signToken, numericToken);
-
         return new InternalSyntax.SyntaxToken(
             SyntaxKind.NumericLiteralToken,
             tokenText,
@@ -207,27 +205,8 @@ internal class NameSyntaxParser : SyntaxParser
             tokenText.Length,
             signToken.LeadingTrivia,
             numericToken.TrailingTrivia,
-            diagnostics,
+            diagnostics: null,
             annotations: null);
-    }
-
-    private static DiagnosticInfo[]? CombineDiagnostics(InternalSyntax.SyntaxToken first, InternalSyntax.SyntaxToken second)
-    {
-        List<DiagnosticInfo>? diagnostics = null;
-
-        foreach (var diagnostic in first.GetDiagnostics())
-        {
-            diagnostics ??= new List<DiagnosticInfo>();
-            diagnostics.Add(diagnostic);
-        }
-
-        foreach (var diagnostic in second.GetDiagnostics())
-        {
-            diagnostics ??= new List<DiagnosticInfo>();
-            diagnostics.Add(diagnostic);
-        }
-
-        return diagnostics?.ToArray();
     }
 
     private TypeSyntax ParseNameCore()

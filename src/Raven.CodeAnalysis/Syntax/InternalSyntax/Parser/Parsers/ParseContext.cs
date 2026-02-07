@@ -51,6 +51,32 @@ internal abstract class ParseContext
         (root._diagnostics ??= new List<DiagnosticInfo>()).Add(diagnostic);
     }
 
+    internal int GetDiagnosticCount()
+    {
+        var root = GetRootContext();
+        return root._diagnostics?.Count ?? 0;
+    }
+
+    internal void RestoreDiagnostics(int count)
+    {
+        var root = GetRootContext();
+        if (root._diagnostics is null)
+        {
+            return;
+        }
+
+        if (count <= 0)
+        {
+            root._diagnostics.Clear();
+            return;
+        }
+
+        if (root._diagnostics.Count > count)
+        {
+            root._diagnostics.RemoveRange(count, root._diagnostics.Count - count);
+        }
+    }
+
     private ParseContext GetRootContext()
     {
         var context = this;

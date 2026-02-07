@@ -11,6 +11,7 @@ internal struct ParserCheckpoint : IDisposable
     private readonly SyntaxToken? _lastToken;
     private readonly List<SyntaxTrivia> _pendingTriviaSnapshot;
     private readonly int _blockDepth;
+    private readonly int _diagnosticCount;
 
     internal ParserCheckpoint(BaseParseContext context, string debugName = "")
     {
@@ -20,6 +21,7 @@ internal struct ParserCheckpoint : IDisposable
         _lastToken = context._lastToken;
         _pendingTriviaSnapshot = [.. context._pendingTrivia];
         _blockDepth = context._blockDepth;
+        _diagnosticCount = context.GetDiagnosticCount();
     }
 
     public string DebugName => _debugName;
@@ -40,11 +42,11 @@ internal struct ParserCheckpoint : IDisposable
         _context._blockDepth = _blockDepth;
         _context._pendingTrivia.Clear();
         _context._pendingTrivia.AddRange(_pendingTriviaSnapshot);
+        _context.RestoreDiagnostics(_diagnosticCount);
     }
 
     public void Dispose()
     {
-        // TODO: Dispose shouldn't rewind, but dispose the checkpoint
-        Rewind();
+        // Intentionally does not rewind. Rewind is explicit at call sites.
     }
 }
