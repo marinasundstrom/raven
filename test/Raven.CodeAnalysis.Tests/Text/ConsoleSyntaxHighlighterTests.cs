@@ -251,4 +251,46 @@ Console.WriteLine("Foo")
 
         Assert.Equal(string.Empty, text);
     }
+
+    [Fact]
+    public void DiagnosticsOnly_WithMultipleDiagnosticsOnSameLine_UnderlinesOnlyCurrentDiagnostic()
+    {
+        var source = """
+import System.*
+
+Missing1(); Missing2()
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true);
+        var renderedSourceLines = text.Split('\n')
+            .Where(line => line.StripAnsiCodes().Contains("Missing1(); Missing2()", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(2, renderedSourceLines.Length);
+
+        foreach (var renderedLine in renderedSourceLines)
+        {
+            Assert.Equal(1, CountOccurrences(renderedLine, "\u001b[4:3m"));
+            Assert.Equal(1, CountOccurrences(renderedLine, "\u001b[4:0m"));
+        }
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(value))
+            return 0;
+
+        var count = 0;
+        var index = 0;
+        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
+    }
 }

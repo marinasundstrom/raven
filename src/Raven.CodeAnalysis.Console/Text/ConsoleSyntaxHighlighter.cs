@@ -144,7 +144,7 @@ public static class ConsoleSyntaxHighlighter
 
         var sb = new StringBuilder();
         if (diagnosticsOnly)
-            return WriteDiagnosticsOnly(sb, diagnosticsForTree, lines, lineTokens, lineDiagnostics, syntaxTree.FilePath, includeSuggestions);
+            return WriteDiagnosticsOnly(sb, diagnosticsForTree, lines, lineTokens, syntaxTree.FilePath, includeSuggestions);
 
         var lineOrder = Enumerable.Range(0, lines.Length).ToArray();
 
@@ -160,7 +160,7 @@ public static class ConsoleSyntaxHighlighter
     }
 
     private static string WriteDiagnosticsOnly(StringBuilder sb, IReadOnlyList<Diagnostic> diagnostics, string[] lines,
-        IReadOnlyList<List<TokenSpan>?> lineTokens, IReadOnlyList<List<DiagnosticSpan>?> lineDiagnostics, string? fallbackPath,
+        IReadOnlyList<List<TokenSpan>?> lineTokens, string? fallbackPath,
         bool includeSuggestions)
     {
         if (diagnostics.Count == 0)
@@ -240,8 +240,15 @@ public static class ConsoleSyntaxHighlighter
 
             for (var lineIndex = startLine; lineIndex <= endLine && lineIndex < lines.Length; lineIndex++)
             {
+                var currentDiagnosticLineSpans = GetDiagnosticSpansForLine(
+                    start,
+                    end,
+                    lineIndex,
+                    lines[lineIndex].Length,
+                    diagnostic.Severity);
+
                 sb.Append("    ");
-                AppendLine(sb, lines[lineIndex], lineTokens[lineIndex], lineDiagnostics[lineIndex]);
+                AppendLine(sb, lines[lineIndex], lineTokens[lineIndex], currentDiagnosticLineSpans);
                 sb.AppendLine();
             }
 
@@ -259,6 +266,28 @@ public static class ConsoleSyntaxHighlighter
         }
 
         return sb.ToString();
+    }
+
+    private static List<DiagnosticSpan>? GetDiagnosticSpansForLine(
+        LinePosition start,
+        LinePosition end,
+        int lineIndex,
+        int lineLength,
+        DiagnosticSeverity severity)
+    {
+        if (lineIndex < start.Line || lineIndex > end.Line)
+            return null;
+
+        var spanStart = lineIndex == start.Line ? start.Character : 0;
+        var spanEnd = lineIndex == end.Line ? end.Character : lineLength;
+
+        spanStart = Math.Clamp(spanStart, 0, lineLength);
+        spanEnd = Math.Clamp(spanEnd, 0, lineLength);
+
+        if (spanEnd <= spanStart)
+            return null;
+
+        return [new DiagnosticSpan(spanStart, spanEnd, severity)];
     }
 
     private static void AppendLine(StringBuilder sb, string line, List<TokenSpan>? tokens, List<DiagnosticSpan>? diagnostics)
