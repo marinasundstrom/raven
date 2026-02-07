@@ -389,6 +389,36 @@ class Widget {
         }
     }
 
+    [Fact]
+    public void WriteTextToTextLight_ColorizesCaseIdentifierInMemberPattern()
+    {
+        var source = """
+union Result =
+    | Case(value: int)
+
+func Render(result: Result) -> int {
+    return match result {
+        .Case(value) => value
+    }
+}
+""";
+
+        var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
+        try
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+
+            var text = ConsoleSyntaxHighlighter.WriteTextToTextLight(source);
+            var typeAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Type}m";
+
+            Assert.Contains($"{typeAnsi}Case", text);
+        }
+        finally
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
+        }
+    }
+
     private static int CountOccurrences(string source, string value)
     {
         if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(value))

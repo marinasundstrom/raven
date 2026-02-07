@@ -608,6 +608,9 @@ public static class ConsoleSyntaxHighlighter
         if (token.Parent is null)
             return false;
 
+        if (token.Parent.Kind == SyntaxKind.MemberPatternPath)
+            return true;
+
         if (HasAncestorKind(token.Parent, SyntaxKind.TypeAnnotationClause)
             || HasAncestorKind(token.Parent, SyntaxKind.TypeArgument)
             || HasAncestorKind(token.Parent, SyntaxKind.TypeParameter)

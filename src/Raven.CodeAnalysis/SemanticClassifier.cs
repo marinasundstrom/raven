@@ -100,6 +100,7 @@ public static class SemanticClassifier
             InvocationExpressionSyntax => SemanticClassification.Method,
             MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
             MemberBindingExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
+            MemberPatternPathSyntax => SemanticClassification.Type,
             ParameterSyntax => SemanticClassification.Parameter,
             TypeSyntax => SemanticClassification.Type,
             _ => SemanticClassification.Default

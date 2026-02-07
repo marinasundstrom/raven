@@ -80,4 +80,32 @@ label:
         result.Tokens[labels[0]].ShouldBe(SemanticClassification.Label);
         result.Tokens[labels[1]].ShouldBe(SemanticClassification.Label);
     }
+
+    [Fact]
+    public void MatchCasePattern_ClassifiesCaseIdentifierAsType()
+    {
+        var source = """
+union Result =
+    | Case(value: int)
+
+func Render(result: Result) -> int {
+    return match result {
+        .Case(value) => value
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
+
+        var caseToken = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberPatternPathSyntax>()
+            .Select(path => path.Identifier)
+            .Single(token => token.Text == "Case");
+
+        result.Tokens[caseToken].ShouldBe(SemanticClassification.Type);
+    }
 }
