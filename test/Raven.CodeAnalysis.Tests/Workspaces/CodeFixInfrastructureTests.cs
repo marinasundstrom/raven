@@ -160,4 +160,82 @@ func Test() {
         Assert.Equal(1, applyResult.AppliedFixCount);
         Assert.Contains("var value: Option<int> = null", updatedText, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ApplyCodeFixes_PreferDuLinqExtensions_RewritesMethodName()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+import System.Linq.*
+
+func Test() {
+    val arr = [1, 2, 3]
+    val first = arr.First()
+}
+""";
+
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var applyResult = workspace.ApplyCodeFixes(
+            projectId,
+            [new PreferDuLinqExtensionsCodeFixProvider()]);
+
+        workspace.TryApplyChanges(applyResult.Solution);
+        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
+        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
+
+        Assert.Equal(1, applyResult.AppliedFixCount);
+        Assert.Contains("val first = arr.FirstOrError(() => \"TODO: provide error\")", updatedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApplyCodeFixes_PreferDuLinqExtensions_FirstOrDefault_RewritesToFirstOrNone()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+import System.Linq.*
+
+func Test() {
+    val arr = [1, 2, 3]
+    val first = arr.FirstOrDefault()
+}
+""";
+
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var applyResult = workspace.ApplyCodeFixes(
+            projectId,
+            [new PreferDuLinqExtensionsCodeFixProvider()]);
+
+        workspace.TryApplyChanges(applyResult.Solution);
+        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
+        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
+
+        Assert.Equal(1, applyResult.AppliedFixCount);
+        Assert.Contains("val first = arr.FirstOrNone()", updatedText, StringComparison.Ordinal);
+    }
 }

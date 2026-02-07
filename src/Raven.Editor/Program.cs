@@ -79,6 +79,7 @@ internal class Program
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new ThrowStatementUseResultAnalyzer()));
+        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
 
         Workspace.TryApplyChanges(solution);
 

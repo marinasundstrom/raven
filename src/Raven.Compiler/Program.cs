@@ -526,6 +526,7 @@ project = project.AddAnalyzerReference(new AnalyzerReference(new PreferValInstea
 project = project.AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
