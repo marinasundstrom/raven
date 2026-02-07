@@ -49,11 +49,29 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         EnterParens(); // Treat block as a nesting construct
         var statements = new List<StatementSyntax>();
 
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _) &&
+               !IsNextToken(SyntaxKind.EndOfFileToken, out _))
         {
+            var statementStart = Position;
             var stmt = new StatementSyntaxParser(this).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
+
+            if (Position == statementStart)
+            {
+                var token = PeekToken();
+                var tokenText = string.IsNullOrEmpty(token.Text)
+                    ? token.Kind.ToString()
+                    : token.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                ReadToken();
+            }
 
             SetTreatNewlinesAsTokens(false);
         }
@@ -69,8 +87,28 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         List<StatementSyntax> statements = new List<StatementSyntax>();
         while (!ConsumeToken(untilToken, out token))
         {
+            if (PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
+            var statementStart = Position;
             var statement = new StatementSyntaxParser(this).ParseStatement();
             statements.Add(statement);
+
+            if (Position == statementStart)
+            {
+                var current = PeekToken();
+                var tokenText = string.IsNullOrEmpty(current.Text)
+                    ? current.Kind.ToString()
+                    : current.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                ReadToken();
+            }
         }
 
         return new SyntaxList(statements.ToArray());
@@ -991,6 +1029,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 //      42)
                 //
                 // just see the newlines as trivia around '42'.
+                var argumentStart = Position;
                 var arg = new ExpressionSyntaxParser(this).ParseArgument(allowLegacyNamedArgumentEquals, out var nameSpan);
 
                 if (arg is null or { IsMissing: true })
@@ -1023,6 +1062,26 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                                 GetSpanOfLastToken(),
                                 ":"));
                     }
+                }
+
+                if (Position == argumentStart)
+                {
+                    var token = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(token.Text)
+                        ? token.Kind.ToString()
+                        : token.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (token.IsKind(SyntaxKind.CloseParenToken) || token.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
                 }
 
                 argumentList.Add(arg);
@@ -1159,6 +1218,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     }
                 }
 
+                var argumentStart = Position;
                 var argument = new ExpressionSyntaxParser(this).ParseArgument();
 
                 if (argument is null or { IsMissing: true })
@@ -1169,6 +1229,26 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                             CompilerDiagnostics.InvalidExpressionTerm,
                             GetSpanOfPeekedToken(),
                             peekedToken.Text));
+                }
+
+                if (Position == argumentStart)
+                {
+                    var token = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(token.Text)
+                        ? token.Kind.ToString()
+                        : token.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (token.IsKind(SyntaxKind.CloseBracketToken) || token.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
                 }
 
                 argumentList.Add(argument);
@@ -1229,9 +1309,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             var t = PeekToken();
 
-            if (t.IsKind(SyntaxKind.CloseParenToken))
+            if (t.IsKind(SyntaxKind.CloseParenToken) || t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
+            var elementStart = Position;
             var expression = new ExpressionSyntaxParser(this).ParseExpression();
             if (expression is null)
                 break;
@@ -1243,6 +1324,25 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             {
                 ReadToken();
                 argumentList.Add(commaToken);
+            }
+
+            if (Position == elementStart)
+            {
+                var current = PeekToken();
+                var tokenText = string.IsNullOrEmpty(current.Text)
+                    ? current.Kind.ToString()
+                    : current.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                if (current.IsKind(SyntaxKind.CloseParenToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                ReadToken();
             }
         }
 
@@ -1450,10 +1550,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             var t = PeekToken();
 
-            if (t.IsKind(SyntaxKind.CloseBracketToken))
+            if (t.IsKind(SyntaxKind.CloseBracketToken) || t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             CollectionElementSyntax element;
+            var elementStart = Position;
 
             if (t.IsKind(SyntaxKind.DotDotToken))
             {
@@ -1478,6 +1579,25 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             {
                 ReadToken();
                 elementList.Add(commaToken);
+            }
+
+            if (Position == elementStart)
+            {
+                var current = PeekToken();
+                var tokenText = string.IsNullOrEmpty(current.Text)
+                    ? current.Kind.ToString()
+                    : current.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                if (current.IsKind(SyntaxKind.CloseBracketToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                ReadToken();
             }
         }
 

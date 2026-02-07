@@ -36,7 +36,36 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) && nextToken.Kind != SyntaxKind.CloseBraceToken)
             {
+                var start = Position;
+                var importCount = importDirectives.Count;
+                var aliasCount = aliasDirectives.Count;
+                var memberCount = memberDeclarations.Count;
+
                 ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
+
+                if (Position == start)
+                {
+                    if (importDirectives.Count == importCount &&
+                        aliasDirectives.Count == aliasCount &&
+                        memberDeclarations.Count == memberCount)
+                    {
+                        var statement = new StatementSyntaxParser(this).ParseStatement();
+                        if (statement is not null && Position > start)
+                        {
+                            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Diagnostics);
+                            memberDeclarations.Add(globalStatement);
+                            order = MemberOrder.Members;
+                        }
+                        else if (!PeekToken().IsKind(SyntaxKind.EndOfFileToken) && !PeekToken().IsKind(SyntaxKind.CloseBraceToken))
+                        {
+                            ReadToken();
+                        }
+                    }
+                    else if (!PeekToken().IsKind(SyntaxKind.EndOfFileToken) && !PeekToken().IsKind(SyntaxKind.CloseBraceToken))
+                    {
+                        ReadToken();
+                    }
+                }
             }
 
             if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
@@ -74,7 +103,27 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))
         {
+            var start = Position;
+            var importCount = importDirectives.Count;
+            var aliasCount = aliasDirectives.Count;
+            var memberCount = memberDeclarations.Count;
+
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
+
+            if (Position == start)
+            {
+                if (importDirectives.Count == importCount &&
+                    aliasDirectives.Count == aliasCount &&
+                    memberDeclarations.Count == memberCount &&
+                    !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                {
+                    ReadToken();
+                }
+                else if (!PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                {
+                    ReadToken();
+                }
+            }
 
             SetTreatNewlinesAsTokens(false);
         }
@@ -93,6 +142,46 @@ internal class NamespaceDeclarationParser : SyntaxParser
         List<MemberDeclarationSyntax> memberDeclarations,
         ref MemberOrder order)
     {
+        static bool IsLikelyNamespaceMemberStart(SyntaxToken token)
+        {
+            return token.Kind is
+                SyntaxKind.ImportKeyword or
+                SyntaxKind.AliasKeyword or
+                SyntaxKind.NamespaceKeyword or
+                SyntaxKind.EnumKeyword or
+                SyntaxKind.UnionKeyword or
+                SyntaxKind.DelegateKeyword or
+                SyntaxKind.StructKeyword or
+                SyntaxKind.ClassKeyword or
+                SyntaxKind.InterfaceKeyword or
+                SyntaxKind.ExtensionKeyword or
+                SyntaxKind.TraitKeyword or
+                SyntaxKind.OpenBracketToken or
+                SyntaxKind.PublicKeyword or
+                SyntaxKind.PrivateKeyword or
+                SyntaxKind.InternalKeyword or
+                SyntaxKind.ProtectedKeyword or
+                SyntaxKind.StaticKeyword or
+                SyntaxKind.AbstractKeyword or
+                SyntaxKind.FinalKeyword or
+                SyntaxKind.SealedKeyword or
+                SyntaxKind.OpenKeyword or
+                SyntaxKind.RecordKeyword or
+                SyntaxKind.PartialKeyword or
+                SyntaxKind.OverrideKeyword or
+                SyntaxKind.AsyncKeyword;
+        }
+
+        SyntaxToken ParseIncompleteNamespaceMemberTokens()
+        {
+            var span = GetSpanOfPeekedToken();
+            var skippedTokens = ConsumeSkippedTokensUntil(token =>
+                token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken ||
+                IsLikelyNamespaceMemberStart(token) ||
+                StatementSyntaxParser.IsTokenPotentialStatementStart(token));
+            return CreateSkippedToken(skippedTokens, span);
+        }
+
         if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
             var start = Position;
@@ -228,16 +317,9 @@ internal class NamespaceDeclarationParser : SyntaxParser
         }
         else
         {
-            // Should warn (?)
-
-            var statement = new StatementSyntaxParser(this).ParseStatement();
-
-            if (statement is null)
-                return;
-
-            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Diagnostics);
-
-            memberDeclarations.Add(globalStatement);
+            var skippedToken = ParseIncompleteNamespaceMemberTokens();
+            var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, Diagnostics);
+            memberDeclarations.Add(incompleteMember);
             order = MemberOrder.Members;
         }
     }

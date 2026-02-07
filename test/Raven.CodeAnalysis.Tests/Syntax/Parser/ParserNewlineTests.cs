@@ -306,7 +306,7 @@ public class ParserNewlineTests
     }
 
     [Fact]
-    public void Terminator_SkipsTokens_UntilEndOfFile()
+    public void Terminator_AttachesSkippedTokensAsLeadingTrivia_OnEndOfFileToken()
     {
         var source = "let x = 1 foo";
         var lexer = new Lexer(new StringReader(source));
@@ -330,7 +330,7 @@ public class ParserNewlineTests
     }
 
     [Fact]
-    public void ExpressionStatement_AttachesSkippedTokens_ToNewLine()
+    public void ExpressionStatement_AttachesSkippedTokensAsLeadingTrivia_OnNewLineTerminator()
     {
         var source = "System.Console.WriteLine(\"Examples\") 42\n";
         var lexer = new Lexer(new StringReader(source));
@@ -342,17 +342,14 @@ public class ParserNewlineTests
 
         terminator.Kind.ShouldBe(SyntaxKind.NewLineToken);
 
-        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
-        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
-
-        skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.NumericLiteralToken);
+        AssertSkippedTokensAreLeadingTriviaOnTerminator(terminator, SyntaxKind.NumericLiteralToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
         diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
     }
 
     [Fact]
-    public void ExpressionStatement_AttachesSkippedTokens_ToSemicolon()
+    public void ExpressionStatement_AttachesSkippedTokensAsLeadingTrivia_OnSemicolonTerminator()
     {
         var source = "System.Console.WriteLine(\"Examples\") ff ;";
         var lexer = new Lexer(new StringReader(source));
@@ -364,17 +361,14 @@ public class ParserNewlineTests
 
         terminator.Kind.ShouldBe(SyntaxKind.SemicolonToken);
 
-        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
-        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
-
-        skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.IdentifierToken);
+        AssertSkippedTokensAreLeadingTriviaOnTerminator(terminator, SyntaxKind.IdentifierToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
         diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
     }
 
     [Fact]
-    public void VariableDeclaration_AttachesSkippedTokens_AndReportsDiagnostic()
+    public void VariableDeclaration_AttachesSkippedTokensAsLeadingTrivia_OnTerminator_AndReportsDiagnostic()
     {
         var source = "var x = 2 test\n";
         var lexer = new Lexer(new StringReader(source));
@@ -386,10 +380,7 @@ public class ParserNewlineTests
 
         terminator.Kind.ShouldBe(SyntaxKind.NewLineToken);
 
-        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
-        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
-
-        skippedNode.Tokens.Single().Kind.ShouldBe(SyntaxKind.IdentifierToken);
+        AssertSkippedTokensAreLeadingTriviaOnTerminator(terminator, SyntaxKind.IdentifierToken);
 
         var diagnostic = Assert.Single(parser.Diagnostics);
         diagnostic.Descriptor.Id.ShouldBe(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id);
@@ -800,5 +791,51 @@ public class ParserNewlineTests
 
         context.ReadToken().Kind.ShouldBe(SyntaxKind.CloseBraceToken);
         context.IsInBlock.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void TypeMemberLoop_BadTokenBetweenMembers_ProducesIncompleteMemberAndContinues()
+    {
+        var syntaxTree = SyntaxTree.ParseText("class C { let x = 1; ) let y = 2; }");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var classDeclaration = Assert.IsType<ClassDeclarationSyntax>(root.Members.Single());
+        classDeclaration.Members.Count.ShouldBe(3);
+
+        Assert.IsType<FieldDeclarationSyntax>(classDeclaration.Members[0]);
+
+        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(classDeclaration.Members[1]);
+        var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+
+        Assert.IsType<FieldDeclarationSyntax>(classDeclaration.Members[2]);
+    }
+
+    [Fact]
+    public void NamespaceMemberLoop_BadTokenBetweenMembers_ProducesIncompleteMemberAndContinues()
+    {
+        var syntaxTree = SyntaxTree.ParseText("namespace N { class A {} ) class B {} }");
+        var root = (CompilationUnitSyntax)syntaxTree.GetRoot();
+
+        var namespaceDeclaration = Assert.IsType<NamespaceDeclarationSyntax>(root.Members.Single());
+        namespaceDeclaration.Members.Count.ShouldBe(3);
+
+        Assert.IsType<ClassDeclarationSyntax>(namespaceDeclaration.Members[0]);
+
+        var incompleteMember = Assert.IsType<IncompleteMemberDeclarationSyntax>(namespaceDeclaration.Members[1]);
+        var skippedTrivia = incompleteMember.SkippedTokens.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedTokens = (SkippedTokensTrivia)skippedTrivia.GetStructure()!;
+        skippedTokens.Tokens.Single().Kind.ShouldBe(SyntaxKind.CloseParenToken);
+
+        Assert.IsType<ClassDeclarationSyntax>(namespaceDeclaration.Members[2]);
+    }
+
+    private static void AssertSkippedTokensAreLeadingTriviaOnTerminator(SyntaxToken terminator, SyntaxKind expectedSkippedTokenKind)
+    {
+        // Recovery contract: skipped remainder is attached to the terminator token's leading trivia.
+        var skipped = terminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
+        skippedNode.Tokens.Single().Kind.ShouldBe(expectedSkippedTokenKind);
     }
 }

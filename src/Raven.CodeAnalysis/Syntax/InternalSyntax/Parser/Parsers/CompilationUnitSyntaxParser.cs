@@ -44,7 +44,21 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
+            var start = Position;
+            var importCount = importDirectives.Count;
+            var aliasCount = aliasDirectives.Count;
+            var memberCount = memberDeclarations.Count;
+
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
+
+            if (Position == start &&
+                importDirectives.Count == importCount &&
+                aliasDirectives.Count == aliasCount &&
+                memberDeclarations.Count == memberCount &&
+                !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+            {
+                ReadToken();
+            }
 
             SetTreatNewlinesAsTokens(false);
         }

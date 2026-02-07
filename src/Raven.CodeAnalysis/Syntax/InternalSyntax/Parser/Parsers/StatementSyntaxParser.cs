@@ -533,11 +533,29 @@ internal class StatementSyntaxParser : SyntaxParser
         EnterParens();
         var statements = new List<StatementSyntax>();
 
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _) &&
+               !IsNextToken(SyntaxKind.EndOfFileToken, out _))
         {
+            var statementStart = Position;
             var stmt = new StatementSyntaxParser(this).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
+
+            if (Position == statementStart)
+            {
+                var token = PeekToken();
+                var tokenText = string.IsNullOrEmpty(token.Text)
+                    ? token.Kind.ToString()
+                    : token.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                ReadToken();
+            }
 
             SetTreatNewlinesAsTokens(false);
         }

@@ -226,10 +226,18 @@ internal class SyntaxParser : ParseContext
     public TextSpan GetSpanOfPeekedToken()
     {
         var peekedToken = PeekToken();
-        var lastToken = GetFullSpanOfLastToken();
-        var fullEnd = lastToken.End;
-        fullEnd += peekedToken.LeadingTrivia.FullWidth;
-        return new TextSpan(fullEnd, peekedToken.Width);
+        try
+        {
+            var lastToken = GetFullSpanOfLastToken();
+            var fullEnd = lastToken.End;
+            fullEnd += peekedToken.LeadingTrivia.FullWidth;
+            return new TextSpan(fullEnd, peekedToken.Width);
+        }
+        catch (InvalidOperationException)
+        {
+            // No token has been consumed yet (e.g. invalid token at file start).
+            return new TextSpan(Math.Max(0, Position), peekedToken.Width);
+        }
     }
 
     internal bool TryConsumeTerminator(out SyntaxToken token)
@@ -378,9 +386,6 @@ internal class SyntaxParser : ParseContext
         while (true)
         {
             var current = ReadToken();
-
-            if (skippedTokens.Count == 0 && current.LeadingTrivia.Count > 0)
-                current = current.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
 
             skippedTokens.Add(current);
 

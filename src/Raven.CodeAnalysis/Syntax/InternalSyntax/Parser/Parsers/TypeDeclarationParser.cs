@@ -75,12 +75,22 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 var t = PeekToken();
 
-                if (t.IsKind(SyntaxKind.CloseBraceToken))
+                if (t.IsKind(SyntaxKind.CloseBraceToken) || t.IsKind(SyntaxKind.EndOfFileToken))
                     break;
 
+                var memberStart = Position;
                 var member = ParseMember();
 
-                memberList.Add(member);
+                if (Position == memberStart)
+                {
+                    var skippedToken = ParseIncompleteTypeMemberTokens();
+                    var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, Diagnostics);
+                    memberList.Add(incompleteMember);
+                }
+                else
+                {
+                    memberList.Add(member);
+                }
 
                 SetTreatNewlinesAsTokens(false);
 
@@ -103,6 +113,52 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+    }
+
+    private static bool IsPossibleTypeMemberStart(SyntaxToken token)
+    {
+        return token.Kind is
+            SyntaxKind.OpenBracketToken or
+            SyntaxKind.PublicKeyword or
+            SyntaxKind.PrivateKeyword or
+            SyntaxKind.InternalKeyword or
+            SyntaxKind.ProtectedKeyword or
+            SyntaxKind.StaticKeyword or
+            SyntaxKind.AbstractKeyword or
+            SyntaxKind.FinalKeyword or
+            SyntaxKind.SealedKeyword or
+            SyntaxKind.PartialKeyword or
+            SyntaxKind.VirtualKeyword or
+            SyntaxKind.AsyncKeyword or
+            SyntaxKind.OpenKeyword or
+            SyntaxKind.RecordKeyword or
+            SyntaxKind.OverrideKeyword or
+            SyntaxKind.ClassKeyword or
+            SyntaxKind.InterfaceKeyword or
+            SyntaxKind.EnumKeyword or
+            SyntaxKind.UnionKeyword or
+            SyntaxKind.DelegateKeyword or
+            SyntaxKind.OperatorKeyword or
+            SyntaxKind.ExplicitKeyword or
+            SyntaxKind.ImplicitKeyword or
+            SyntaxKind.EventKeyword or
+            SyntaxKind.LetKeyword or
+            SyntaxKind.ValKeyword or
+            SyntaxKind.VarKeyword or
+            SyntaxKind.ConstKeyword or
+            SyntaxKind.InitKeyword or
+            SyntaxKind.IdentifierToken;
+    }
+
+    private SyntaxToken ParseIncompleteTypeMemberTokens()
+    {
+        var span = GetSpanOfPeekedToken();
+
+        var skippedTokens = ConsumeSkippedTokensUntil(token =>
+            token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken or SyntaxKind.CommaToken ||
+            IsPossibleTypeMemberStart(token));
+
+        return CreateSkippedToken(skippedTokens, span);
     }
 
     internal TypeParameterListSyntax ParseTypeParameterList()
@@ -258,6 +314,12 @@ internal class TypeDeclarationParser : SyntaxParser
         var modifiers = ParseModifiers();
 
         var keywordOrIdentifier = PeekToken();
+
+        if (!IsPossibleTypeMemberStart(keywordOrIdentifier))
+        {
+            var skippedToken = ParseIncompleteTypeMemberTokens();
+            return IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, Diagnostics);
+        }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBracketToken))
         {
