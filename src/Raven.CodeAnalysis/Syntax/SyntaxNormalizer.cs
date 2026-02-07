@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -7,11 +8,13 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 {
     private readonly string _indent;
     private int _indentLevel;
+    private int _pendingLineBreaks;
+    private bool _isFirstToken = true;
+    private SyntaxToken _previousToken;
 
     public SyntaxNormalizer(int indentSize = 4)
     {
         _indent = new string(' ', indentSize);
-        _indentLevel = 0;
     }
 
     public TSyntax Visit<TSyntax>(TSyntax syntax)
@@ -27,398 +30,334 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return token;
         }
 
+        if (HasNonWhitespaceTrivia(token.LeadingTrivia) || HasNonWhitespaceTrivia(token.TrailingTrivia))
+        {
+            TrackTokenFlow(token);
+            return token;
+        }
+
+        var effectiveIndent = _indentLevel;
+        if (token.Kind == SyntaxKind.CloseBraceToken && effectiveIndent > 0)
+        {
+            effectiveIndent--;
+            _indentLevel = effectiveIndent;
+        }
+
+        var leading = CreateLeadingTrivia(token, effectiveIndent);
+        var trailing = SyntaxFactory.TriviaList();
+
+        token = token.WithLeadingTrivia(leading).WithTrailingTrivia(trailing);
+
+        TrackTokenFlow(token);
+
         return token;
     }
 
-    public override SyntaxNode? VisitStatement(StatementSyntax? node)
+    private void TrackTokenFlow(SyntaxToken token)
     {
-        if (node is null)
-            return null;
-
-        var statement = base.VisitStatement(node)!;
-
-        if (node is BlockStatementSyntax && node.Parent is IfStatementSyntax)
+        if (token.Kind == SyntaxKind.OpenBraceToken)
         {
-            return statement;
+            _indentLevel++;
         }
 
-        var leadingTrivia = statement.GetLeadingTrivia();
-        return statement.WithLeadingTrivia(FormatTrivia());
+        _pendingLineBreaks = GetPendingLineBreaksAfter(token);
+        _previousToken = token;
+        _isFirstToken = false;
     }
 
-    public override SyntaxNode? VisitIfExpression(IfExpressionSyntax node)
+    private SyntaxTriviaList CreateLeadingTrivia(SyntaxToken token, int effectiveIndent)
     {
-        // Ensure a single space after the `if` keyword.
-        var ifKeyword = node.IfKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-
-        // Visit the child nodes (condition and statement).
-        var condition = (ExpressionSyntax)VisitExpression(node.Condition)!;
-        var statement = (ExpressionSyntax)VisitExpression(node.Expression)!;
-
-        // Reconstruct the node with the updated `if` keyword.
-        return node.Update(ifKeyword, condition, statement,
-            node.ElseClause is null ? null : (ElseClauseSyntax?)VisitElseClause(node.ElseClause!));
-    }
-
-    public override SyntaxNode? VisitElseClause(ElseClauseSyntax node)
-    {
-        var elseKeyword = node.ElseKeyword
-            .WithLeadingTrivia(SyntaxFactory.Space);
-
-        ExpressionSyntax expression = null!;
-
-        if (node.Expression is not BlockSyntax)
+        if (_isFirstToken)
         {
-            IncreaseIdent();
-
-            elseKeyword = elseKeyword
-                .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
-
-            expression = (ExpressionSyntax)VisitExpression(node.Expression)!;
-
-            DecreaseIndent();
-        }
-        else
-        {
-            expression = (ExpressionSyntax)VisitExpression(node.Expression)!;
+            return SyntaxFactory.TriviaList();
         }
 
-        return node.Update(elseKeyword, expression);
-    }
-
-    public override SyntaxNode? VisitBlock(BlockSyntax node)
-    {
-        // Normalize open brace `{` with a trailing space.
-        var openBrace = node.OpenBraceToken.WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
-
-        IncreaseIdent();
-
-        // Visit child statements to normalize them recursively.
-        var statements = node.Statements.Select(VisitStatement).OfType<StatementSyntax>().ToList();
-
-        DecreaseIndent();
-
-        // Normalize close brace `}` with leading trivia to ensure proper spacing.
-        var closeBrace = node.CloseBraceToken
-            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, IndentationTrivia());
-
-        // Reconstruct the block with normalized components.
-        return node.Update(openBrace, SyntaxFactory.List(statements), closeBrace);
-    }
-
-    public override SyntaxNode? VisitBlockStatement(BlockStatementSyntax node)
-    {
-        var openBrace = node.OpenBraceToken.WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
-
-        IncreaseIdent();
-
-        var statements = node.Statements.Select(VisitStatement).OfType<StatementSyntax>().ToList();
-
-        DecreaseIndent();
-
-        var closeBrace = node.CloseBraceToken
-            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, IndentationTrivia());
-
-        return node.Update(openBrace, SyntaxFactory.List(statements), closeBrace);
-    }
-
-    private void IncreaseIdent()
-    {
-        _indentLevel++;
-    }
-
-    private void DecreaseIndent()
-    {
-        _indentLevel--;
-    }
-
-    public override SyntaxNode? VisitVariableDeclaration(VariableDeclarationSyntax node)
-    {
-
-        List<SyntaxNodeOrToken> newList = [];
-
-        foreach (var item in node.Declarators.GetWithSeparators())
+        if (token.Kind == SyntaxKind.EndOfFileToken)
         {
-            if (item.TryGetNode(out var node2))
+            return SyntaxFactory.TriviaList();
+        }
+
+        var lineBreaks = _pendingLineBreaks;
+        if (ShouldAttachToPreviousToken(token))
+        {
+            lineBreaks = 0;
+        }
+        else if (token.Kind == SyntaxKind.CloseBraceToken && _previousToken.Kind != SyntaxKind.OpenBraceToken)
+        {
+            lineBreaks = Math.Max(lineBreaks, 1);
+        }
+
+        if (lineBreaks > 0)
+        {
+            var trivias = new List<SyntaxTrivia>(lineBreaks + 1);
+            for (var i = 0; i < lineBreaks; i++)
             {
-                newList.Add(
-                    new SyntaxNodeOrToken(node2.Accept(this)!));
+                trivias.Add(SyntaxFactory.CarriageReturnLineFeed);
             }
-            else if (item.TryGetToken(out var token))
+
+            if (token.Kind != SyntaxKind.EndOfFileToken)
             {
-                newList.Add(token.WithTrailingTrivia(SyntaxFactory.Space));
+                var indentText = string.Concat(Enumerable.Repeat(_indent, effectiveIndent));
+                if (indentText.Length > 0)
+                {
+                    trivias.Add(SyntaxFactory.Whitespace(indentText));
+                }
+            }
+
+            return SyntaxFactory.TriviaList(trivias);
+        }
+
+        return NeedsSpace(_previousToken, token)
+            ? SyntaxFactory.TriviaList(SyntaxFactory.Space)
+            : SyntaxFactory.TriviaList();
+    }
+
+    private static bool HasNonWhitespaceTrivia(SyntaxTriviaList triviaList)
+    {
+        foreach (var trivia in triviaList)
+        {
+            if (!IsWhitespaceTrivia(trivia.Kind))
+            {
+                return true;
             }
         }
 
-        var declarators = SyntaxFactory.SeparatedList<VariableDeclaratorSyntax>(newList.ToArray());
-
-        return node.Update(node.BindingKeyword.WithTrailingTrivia(SyntaxFactory.Space), declarators!);
+        return false;
     }
 
-    public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
+    private static bool IsWhitespaceTrivia(SyntaxKind kind)
     {
-        return node.Update(node.Identifier
-            .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationClauseSyntax)VisitTypeAnnotationClause(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
+        return kind is SyntaxKind.WhitespaceTrivia
+            or SyntaxKind.TabTrivia
+            or SyntaxKind.LineFeedTrivia
+            or SyntaxKind.CarriageReturnTrivia
+            or SyntaxKind.CarriageReturnLineFeedTrivia
+            or SyntaxKind.EndOfLineTrivia;
     }
 
-    public override SyntaxNode? VisitEqualsValueClause(EqualsValueClauseSyntax node)
+    private bool ShouldAttachToPreviousToken(SyntaxToken token)
     {
-        return node.Update(node.EqualsToken
-            .WithLeadingTrivia(SyntaxFactory.Space)
-            .WithTrailingTrivia(SyntaxFactory.Space),
-            (ExpressionSyntax)VisitExpression(node.Value)!);
+        return _previousToken.Kind == SyntaxKind.CloseBraceToken
+            && token.Kind is SyntaxKind.ElseKeyword or SyntaxKind.CatchKeyword or SyntaxKind.FinallyKeyword;
     }
 
-    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+    private int GetPendingLineBreaksAfter(SyntaxToken token)
     {
-        var returnKeyword = node.ReturnKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-
-        var expression = Visit(node.Expression);
-
-        return node.Update(returnKeyword, expression, node.TerminatorToken);
-    }
-
-    public override SyntaxNode? VisitImportDirective(ImportDirectiveSyntax node)
-    {
-        var importKeyword = node.ImportKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-        var nameSyntax = (NameSyntax)VisitName(node.Name)!;
-        var terminatorToken = node.TerminatorToken
-            .WithTrailingTrivia(
-                SyntaxFactory.CarriageReturnLineFeed,
-                SyntaxFactory.CarriageReturnLineFeed);
-
-        return node.Update(importKeyword, nameSyntax, terminatorToken);
-    }
-
-    public override SyntaxNode? VisitAliasDirective(AliasDirectiveSyntax node)
-    {
-        var aliasKeyword = node.AliasKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-        var identifier = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
-        var equalsToken = node.EqualsToken.WithTrailingTrivia(SyntaxFactory.Space);
-        var target = (TypeSyntax)VisitType(node.Target)!;
-        var terminatorToken = node.TerminatorToken
-            .WithTrailingTrivia(
-                SyntaxFactory.CarriageReturnLineFeed,
-                SyntaxFactory.CarriageReturnLineFeed);
-
-        return node.Update(aliasKeyword, identifier, equalsToken, target, terminatorToken);
-    }
-
-    public override SyntaxNode? VisitFileScopedNamespaceDeclaration(FileScopedNamespaceDeclarationSyntax node)
-    {
-        var namespaceKeyword = node.NamespaceKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-
-        var name = (IdentifierNameSyntax)VisitName(node.Name)!;
-
-        var terminatorToken = node.TerminatorToken
-            .WithTrailingTrivia(
-                SyntaxFactory.CarriageReturnLineFeed,
-                SyntaxFactory.CarriageReturnLineFeed);
-
-        return node.Update(
-            node.AttributeLists,
-            node.Modifiers,
-            namespaceKeyword,
-            name,
-            terminatorToken,
-            VisitList(node.Imports)!,
-            VisitList(node.Aliases)!,
-            VisitList(node.Members)!);
-    }
-
-    public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
-    {
-        var operatorToken = node.OperatorToken.WithTrailingTrivia(SyntaxFactory.Space);
-
-        var left = Visit(node.Left)
-            .WithTrailingTrivia(SyntaxFactory.Space);
-
-        var right = Visit(node.Right);
-
-        return node.Update(node.Kind, left, operatorToken, right);
-    }
-
-    public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)
-    {
-        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier = null;
-        if (node.ExplicitInterfaceSpecifier is not null)
+        if (token.Kind == SyntaxKind.EndOfFileToken)
         {
-            var name = (TypeSyntax)Visit(node.ExplicitInterfaceSpecifier.Name)!;
-            var dotToken = VisitToken(node.ExplicitInterfaceSpecifier.DotToken)!;
-            var identifierToken = VisitToken(node.ExplicitInterfaceSpecifier.Identifier)!;
-            explicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier.Update(name, dotToken, identifierToken);
+            return 0;
         }
 
-        var identifier = VisitToken(node.Identifier)!;
-
-        TypeParameterListSyntax? typeParameterList = null;
-        if (node.TypeParameterList is not null)
+        if (token.Kind is SyntaxKind.NewLineToken
+            or SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken
+            or SyntaxKind.SemicolonToken)
         {
-            identifier = identifier.WithTrailingTrivia(SyntaxFactory.TriviaList());
-            typeParameterList = (TypeParameterListSyntax)Visit(node.TypeParameterList)!;
-            typeParameterList = typeParameterList.WithTrailingTrivia(SyntaxFactory.Space);
-        }
-        else
-        {
-            identifier = identifier.WithTrailingTrivia(SyntaxFactory.Space);
+            return 1;
         }
 
-        var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
-            .WithTrailingTrivia(SyntaxFactory.Space);
-
-        ArrowTypeClauseSyntax? returnType = null;
-        if (node.ReturnType is not null)
-            returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
-                .WithTrailingTrivia(SyntaxFactory.Space);
-
-        var constraintClauses = VisitList(node.ConstraintClauses);
-
-        return node.Update(
-                node.AttributeLists,
-                node.Modifiers,
-                explicitInterfaceSpecifier,
-                identifier,
-                typeParameterList,
-                parameterList,
-                returnType,
-                constraintClauses,
-                (BlockStatementSyntax?)VisitBlockStatement(node.Body),
-                null,
-                node.TerminatorToken)
-            .WithLeadingTrivia(SyntaxFactory.TriviaList(
-                SyntaxFactory.CarriageReturnLineFeed,
-                SyntaxFactory.CarriageReturnLineFeed
-        ));
-    }
-
-    public override SyntaxNode VisitOperatorDeclaration(OperatorDeclarationSyntax node)
-    {
-        var operatorKeyword = VisitToken(node.OperatorKeyword)!;
-        operatorKeyword = operatorKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-
-        var operatorToken = VisitToken(node.OperatorToken)!;
-        operatorToken = operatorToken.WithTrailingTrivia(SyntaxFactory.Space);
-
-        var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
-            .WithTrailingTrivia(SyntaxFactory.Space);
-
-        ArrowTypeClauseSyntax? returnType = null;
-        if (node.ReturnType is not null)
-            returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
-                .WithTrailingTrivia(SyntaxFactory.Space);
-
-        return node.Update(
-                node.AttributeLists,
-                node.Modifiers,
-                operatorKeyword,
-                operatorToken,
-                parameterList,
-                returnType,
-                (BlockStatementSyntax?)VisitBlockStatement(node.Body),
-                null,
-                node.TerminatorToken)
-            .WithLeadingTrivia(SyntaxFactory.TriviaList(
-                SyntaxFactory.CarriageReturnLineFeed,
-                SyntaxFactory.CarriageReturnLineFeed
-        ));
-    }
-
-    public override SyntaxNode VisitConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax node)
-    {
-        var conversionKindKeyword = VisitToken(node.ConversionKindKeyword)!;
-        conversionKindKeyword = conversionKindKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-
-        var operatorKeyword = VisitToken(node.OperatorKeyword)!;
-        operatorKeyword = operatorKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-
-        var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
-            .WithTrailingTrivia(SyntaxFactory.Space);
-
-        ArrowTypeClauseSyntax? returnType = null;
-        if (node.ReturnType is not null)
-            returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
-                .WithTrailingTrivia(SyntaxFactory.Space);
-
-        return node.Update(
-                node.AttributeLists,
-                node.Modifiers,
-                conversionKindKeyword,
-                operatorKeyword,
-                parameterList,
-                returnType,
-                (BlockStatementSyntax?)VisitBlockStatement(node.Body),
-                null,
-                node.TerminatorToken)
-            .WithLeadingTrivia(SyntaxFactory.TriviaList(
-                SyntaxFactory.CarriageReturnLineFeed,
-                SyntaxFactory.CarriageReturnLineFeed
-        ));
-    }
-
-    public override SyntaxNode? VisitParameterList(ParameterListSyntax node)
-    {
-        List<SyntaxNodeOrToken> newList = [];
-
-        foreach (var item in node.Parameters.GetWithSeparators())
+        if (token.Kind == SyntaxKind.OpenBraceToken)
         {
-            if (item.TryGetNode(out var node2))
+            return 1;
+        }
+
+        if (token.Kind == SyntaxKind.CloseBraceToken)
+        {
+            return 1;
+        }
+
+        if (IsImplicitLineBreakToken(token))
+        {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    private bool IsImplicitLineBreakToken(SyntaxToken token)
+    {
+        if (token.Parent is null)
+        {
+            return false;
+        }
+
+        if (token.Parent.GetLastToken(includeZeroWidth: true) != token)
+        {
+            return false;
+        }
+
+        // Keep directive/member forms and top-level statements line-oriented.
+        return token.Parent.Kind is SyntaxKind.ImportDirective
+            or SyntaxKind.AliasDirective
+            or SyntaxKind.GlobalStatement
+            or SyntaxKind.EnumMemberDeclaration
+            or SyntaxKind.UnionCaseClause;
+    }
+
+    private bool NeedsSpace(SyntaxToken previous, SyntaxToken current)
+    {
+        if (previous.Kind == SyntaxKind.None || current.Kind == SyntaxKind.None)
+        {
+            return false;
+        }
+
+        if (current.Kind == SyntaxKind.EndOfFileToken)
+        {
+            return false;
+        }
+
+        if (IsNoSpaceBefore(current.Kind) || IsNoSpaceAfter(previous.Kind))
+        {
+            return false;
+        }
+
+        if (IsDotPair(previous.Kind, current.Kind))
+        {
+            return false;
+        }
+
+        if (previous.Kind == SyntaxKind.CloseBraceToken
+            && current.Kind is SyntaxKind.ElseKeyword or SyntaxKind.CatchKeyword or SyntaxKind.FinallyKeyword)
+        {
+            return true;
+        }
+
+        if (IsOperator(previous) || IsOperator(current))
+        {
+            if (IsUnaryOperatorToken(previous) || IsUnaryOperatorToken(current))
             {
-                newList.Add(
-                    new SyntaxNodeOrToken(node2.Accept(this)!));
+                return false;
             }
-            else if (item.TryGetToken(out var token))
-            {
-                newList.Add(token.WithTrailingTrivia(SyntaxFactory.Space));
-            }
+
+            return true;
         }
 
-        var parameters = SyntaxFactory.SeparatedList<ParameterSyntax>(newList.ToArray());
-
-        return node.Update(node.OpenParenToken, parameters!, node.CloseParenToken);
-    }
-
-    public override SyntaxNode? VisitParameter(ParameterSyntax node)
-    {
-        var identifier = node.Identifier;
-
-        if (node.TypeAnnotation is not null || node.DefaultValue is not null)
+        if (previous.Kind == SyntaxKind.CommaToken)
         {
-            identifier = identifier.WithTrailingTrivia(SyntaxFactory.Space);
+            return true;
         }
 
-        var typeAnnotation = node.TypeAnnotation is not null
-            ? (TypeAnnotationClauseSyntax?)VisitTypeAnnotationClause(node.TypeAnnotation)
-            : null;
+        if (previous.Kind == SyntaxKind.ColonToken)
+        {
+            return true;
+        }
 
-        var defaultValue = node.DefaultValue is not null
-            ? (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.DefaultValue)
-            : null;
+        if (current.Kind == SyntaxKind.OpenParenToken)
+        {
+            return previous.Kind is SyntaxKind.IfKeyword
+                or SyntaxKind.ForKeyword
+                or SyntaxKind.WhileKeyword
+                or SyntaxKind.CatchKeyword
+                or SyntaxKind.MatchKeyword;
+        }
 
-        return node.Update(node.AttributeLists, node.RefKindKeyword, node.BindingKeyword, identifier, typeAnnotation, defaultValue);
+        if (current.Kind == SyntaxKind.OpenBraceToken)
+        {
+            return previous.Kind != SyntaxKind.DollarToken;
+        }
+
+        if (IsWord(previous.Kind) && IsWord(current.Kind))
+        {
+            return true;
+        }
+
+        return false;
     }
 
-    public override SyntaxNode? VisitTypeAnnotationClause(TypeAnnotationClauseSyntax node)
+    private static bool IsNoSpaceBefore(SyntaxKind kind)
     {
-        if (node is null)
-            return null;
-
-        var colonToken = node.ColonToken.WithTrailingTrivia(SyntaxFactory.Space);
-
-        return node.Update(colonToken, (TypeSyntax)VisitType(node.Type)!);
+        return kind is SyntaxKind.CommaToken
+            or SyntaxKind.SemicolonToken
+            or SyntaxKind.CloseParenToken
+            or SyntaxKind.CloseBracketToken
+            or SyntaxKind.CloseBraceToken
+            or SyntaxKind.DotToken
+            or SyntaxKind.ColonToken
+            or SyntaxKind.QuestionToken;
     }
 
-    private SyntaxTriviaList FormatTrivia()
+    private static bool IsNoSpaceAfter(SyntaxKind kind)
     {
-        return SyntaxFactory.TriviaList(IndentationTrivia());
+        return kind is SyntaxKind.OpenParenToken
+            or SyntaxKind.OpenBracketToken
+            or SyntaxKind.OpenBraceToken
+            or SyntaxKind.DotToken;
     }
 
-    private SyntaxTrivia IndentationTrivia()
+    private static bool IsDotPair(SyntaxKind previous, SyntaxKind current)
     {
-        return SyntaxFactory.Whitespace(GetIndentation());
+        return (previous == SyntaxKind.QuestionToken && current == SyntaxKind.DotToken)
+            || (previous == SyntaxKind.DotToken && current == SyntaxKind.DotToken);
     }
 
-    private string GetIndentation()
+    private bool IsOperator(SyntaxToken token)
     {
-        return string.Concat(Enumerable.Repeat(_indent, _indentLevel));
+        if (token.Kind is SyntaxKind.LessThanToken or SyntaxKind.GreaterThanToken)
+        {
+            return !IsTypeArgumentDelimiter(token);
+        }
+
+        return token.Kind is SyntaxKind.EqualsToken
+            or SyntaxKind.EqualsEqualsToken
+            or SyntaxKind.NotEqualsToken
+            or SyntaxKind.LessThanOrEqualsToken
+            or SyntaxKind.GreaterThanOrEqualsToken
+            or SyntaxKind.PlusToken
+            or SyntaxKind.MinusToken
+            or SyntaxKind.StarToken
+            or SyntaxKind.SlashToken
+            or SyntaxKind.PercentToken
+            or SyntaxKind.CaretToken
+            or SyntaxKind.AmpersandToken
+            or SyntaxKind.AmpersandAmpersandToken
+            or SyntaxKind.BarToken
+            or SyntaxKind.BarBarToken
+            or SyntaxKind.AndToken
+            or SyntaxKind.OrToken
+            or SyntaxKind.PipeToken
+            or SyntaxKind.QuestionQuestionToken
+            or SyntaxKind.QuestionQuestionEqualsToken
+            or SyntaxKind.PlusEqualsToken
+            or SyntaxKind.MinusEqualsToken
+            or SyntaxKind.StarEqualsToken
+            or SyntaxKind.SlashEqualsToken
+            or SyntaxKind.AmpersandEqualsToken
+            or SyntaxKind.BarEqualsToken
+            or SyntaxKind.ArrowToken
+            or SyntaxKind.FatArrowToken;
+    }
+
+    private static bool IsWord(SyntaxKind kind)
+    {
+        return kind == SyntaxKind.IdentifierToken
+            || kind == SyntaxKind.NumericLiteralToken
+            || kind == SyntaxKind.StringLiteralToken
+            || kind == SyntaxKind.MultiLineStringLiteralToken
+            || kind == SyntaxKind.CharacterLiteralToken
+            || SyntaxFacts.IsKeywordKind(kind);
+    }
+
+    private bool IsUnaryOperatorToken(SyntaxToken token)
+    {
+        if (!SyntaxFacts.IsUnaryOperatorToken(token.Kind) && token.Kind != SyntaxKind.NotKeyword)
+        {
+            return false;
+        }
+
+        return token.Parent?.Kind is SyntaxKind.UnaryExpression
+            or SyntaxKind.PostfixUnaryExpression
+            or SyntaxKind.PreIncrementExpression
+            or SyntaxKind.PreDecrementExpression
+            or SyntaxKind.PostIncrementExpression
+            or SyntaxKind.PostDecrementExpression
+            or SyntaxKind.UnaryPattern;
+    }
+
+    private static bool IsTypeArgumentDelimiter(SyntaxToken token)
+    {
+        return token.Parent?.Kind is SyntaxKind.TypeArgumentList
+            or SyntaxKind.TypeParameterList
+            or SyntaxKind.FunctionTypeParameterList;
     }
 }
