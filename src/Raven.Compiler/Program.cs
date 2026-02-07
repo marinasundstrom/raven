@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 using Raven;
 using Raven.CodeAnalysis;
@@ -34,6 +35,7 @@ var stopwatch = Stopwatch.StartNew();
 // --doc-tool [ravendoc|comments] - documentation generator
 // --doc-format [md|xml] - documentation format (comment emission only)
 // --no-emit         - skip emitting the output assembly
+// --fix             - apply supported code fixes before diagnostics/emission
 // --highlight       - display diagnostics with highlighted source
 // -h, --help        - display help
 // --run             - execute the produced assembly when compilation succeeds (console apps only)
@@ -62,6 +64,7 @@ var printParseSequence = false;
 var parseSequenceThrottleMilliseconds = 0;
 var showHelp = false;
 var noEmit = false;
+var fix = false;
 var hasInvalidOption = false;
 var highlightDiagnostics = false;
 var quote = false;
@@ -160,6 +163,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--no-emit":
             noEmit = true;
+            break;
+        case "--fix":
+            fix = true;
             break;
         case "--highlight":
             highlightDiagnostics = true;
@@ -514,6 +520,39 @@ project = project.AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBe
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
+
+if (fix)
+{
+    var applyResult = workspace.ApplyCodeFixes(
+        projectId,
+        BuiltInCodeFixProviders.CreateDefault());
+
+    if (applyResult.AppliedFixCount > 0)
+    {
+        workspace.TryApplyChanges(applyResult.Solution);
+        project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var document in project.Documents)
+        {
+            if (string.IsNullOrWhiteSpace(document.FilePath))
+                continue;
+
+            var text = document.GetTextAsync().GetAwaiter().GetResult();
+            var newText = text.ToString();
+            var existingText = File.Exists(document.FilePath) ? File.ReadAllText(document.FilePath) : null;
+            if (string.Equals(existingText, newText, StringComparison.Ordinal))
+                continue;
+
+            var encoding = text.Encoding ?? Encoding.UTF8;
+            if (encoding is UTF8Encoding)
+                encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
+            File.WriteAllText(document.FilePath, newText, encoding);
+        }
+
+        AnsiConsole.MarkupLine($"[green]Applied {applyResult.AppliedFixCount} code fix(es).[/]");
+    }
+}
 
 var compilation = workspace.GetCompilation(projectId);
 
@@ -876,6 +915,7 @@ static void PrintHelp()
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  -q                 Display AST as compilable C# code");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
+    Console.WriteLine("  --fix            Apply supported code fixes to source files before compiling");
     Console.WriteLine("  --doc-tool [ravendoc|comments]");
     Console.WriteLine("                    Documentation generator to use (default: ravendoc).");
     Console.WriteLine("  --doc-format [md|xml]");

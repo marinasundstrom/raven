@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Threading;
 
@@ -241,5 +242,151 @@ public class Workspace
         }
 
         return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+    }
+
+    /// <summary>
+    /// Gets code fixes for project diagnostics produced by the supplied providers.
+    /// </summary>
+    public ImmutableArray<CodeFix> GetCodeFixes(
+        ProjectId projectId,
+        IEnumerable<CodeFixProvider> providers,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (providers is null)
+            throw new ArgumentNullException(nameof(providers));
+
+        var providerList = providers.ToImmutableArray();
+        if (providerList.Length == 0)
+            return ImmutableArray<CodeFix>.Empty;
+
+        var providerMap = new Dictionary<string, List<CodeFixProvider>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var provider in providerList)
+        {
+            foreach (var id in provider.FixableDiagnosticIds)
+            {
+                if (!providerMap.TryGetValue(id, out var list))
+                {
+                    list = [];
+                    providerMap.Add(id, list);
+                }
+
+                list.Add(provider);
+            }
+        }
+
+        var project = CurrentSolution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var fixes = ImmutableArray.CreateBuilder<CodeFix>();
+        var diagnostics = GetDiagnostics(projectId, analyzerOptions, cancellationToken);
+
+        foreach (var diagnostic in diagnostics)
+        {
+            if (!providerMap.TryGetValue(diagnostic.Id, out var matchingProviders))
+                continue;
+
+            if (!TryGetDiagnosticDocument(project, diagnostic, out var document))
+                continue;
+
+            foreach (var provider in matchingProviders)
+            {
+                var actionBucket = new List<CodeAction>();
+                var context = new CodeFixContext(
+                    document,
+                    diagnostic,
+                    actionBucket.Add,
+                    cancellationToken);
+
+                provider.RegisterCodeFixes(context);
+
+                foreach (var action in actionBucket)
+                    fixes.Add(new CodeFix(document.Id, diagnostic, action, provider));
+            }
+        }
+
+        return fixes
+            .OrderBy(x => x.Diagnostic.Location)
+            .ThenBy(x => x.Action.Title, StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    /// <summary>
+    /// Applies code fixes one-at-a-time, reanalyzing between each application.
+    /// </summary>
+    public ApplyCodeFixesResult ApplyCodeFixes(
+        ProjectId projectId,
+        IEnumerable<CodeFixProvider> providers,
+        Func<CodeFix, bool>? predicate = null,
+        int maxIterations = 100,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (providers is null)
+            throw new ArgumentNullException(nameof(providers));
+        if (maxIterations < 1)
+            throw new ArgumentOutOfRangeException(nameof(maxIterations));
+
+        var applied = 0;
+        var solution = CurrentSolution;
+
+        for (var i = 0; i < maxIterations; i++)
+        {
+            TryApplyChanges(solution);
+
+            var fixes = GetCodeFixes(projectId, providers, analyzerOptions, cancellationToken);
+            if (predicate is not null)
+                fixes = fixes.Where(predicate).ToImmutableArray();
+
+            if (fixes.Length == 0)
+                break;
+
+            var selectedFix = fixes[0];
+            var updated = selectedFix.Action.GetChangedSolution(solution, cancellationToken);
+            if (updated.Version == solution.Version)
+                break;
+
+            solution = updated;
+            applied++;
+        }
+
+        return new ApplyCodeFixesResult(solution, applied);
+    }
+
+    private static bool TryGetDiagnosticDocument(Project project, Diagnostic diagnostic, out Document document)
+    {
+        var sourceTree = diagnostic.Location.SourceTree;
+        if (sourceTree is not null)
+        {
+            foreach (var candidate in project.Documents)
+            {
+                var candidateTree = candidate.GetSyntaxTreeAsync().GetAwaiter().GetResult();
+                if (ReferenceEquals(candidateTree, sourceTree))
+                {
+                    document = candidate;
+                    return true;
+                }
+            }
+        }
+
+        if (diagnostic.Location.GetLineSpan() is { Path: { Length: > 0 } path })
+        {
+            var normalizedDiagnosticPath = Path.GetFullPath(path);
+            foreach (var candidate in project.Documents)
+            {
+                if (string.IsNullOrWhiteSpace(candidate.FilePath))
+                    continue;
+
+                var normalizedCandidatePath = Path.GetFullPath(candidate.FilePath);
+                if (string.Equals(normalizedCandidatePath, normalizedDiagnosticPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    document = candidate;
+                    return true;
+                }
+            }
+        }
+
+        document = null!;
+        return false;
     }
 }
