@@ -1,0 +1,23 @@
+// This sample is meant to fail
+
+import System.*
+
+f("test")
+f(42)
+f(true)
+f(null)
+
+f<bool>(null)
+f<bool?>(null)
+
+f2<bool?>(null) 
+f2<bool>(null)
+
+func f<T>(t: T) -> () {
+    Console.WriteLine(t)
+}
+
+func f2<T>(t: T) -> ()
+    where T: notnull {
+    Console.WriteLine(t)
+}

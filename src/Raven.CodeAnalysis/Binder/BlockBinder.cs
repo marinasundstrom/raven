@@ -5396,12 +5396,20 @@ partial class BlockBinder : Binder
 
             if (!symbolCandidates.IsDefaultOrEmpty)
             {
+                var diagnosticCountBeforeInstantiation = _diagnostics.AsEnumerable().Count();
                 var instantiated = InstantiateMethodCandidates(symbolCandidates, boundTypeArguments.Value, generic, syntax.GetLocation());
                 if (!instantiated.IsDefaultOrEmpty)
                 {
                     var methodGroup = CreateMethodGroup(null, instantiated);
                     return BindInvocationOnMethodGroup(methodGroup, syntax);
                 }
+
+                var producedInstantiationDiagnostics = _diagnostics.AsEnumerable().Count() > diagnosticCountBeforeInstantiation;
+                if (producedInstantiationDiagnostics)
+                    return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+
+                _diagnostics.ReportNoOverloadForMethod("method", generic.Identifier.ValueText, syntax.ArgumentList.Arguments.Count, syntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
             }
 
             var typeExpr = BindTypeSyntax(generic);

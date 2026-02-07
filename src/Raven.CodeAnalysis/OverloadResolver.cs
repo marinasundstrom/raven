@@ -219,6 +219,15 @@ internal sealed class OverloadResolver
         if (!method.IsGenericMethod || method.TypeParameters.IsDefaultOrEmpty || method.TypeParameters.Length == 0)
             return method;
 
+        // Already-constructed generic methods (common for extension members on generic extension containers)
+        // should not go through method-level inference again.
+        if (!method.TypeArguments.IsDefaultOrEmpty &&
+            method.TypeArguments.Length == method.TypeParameters.Length &&
+            method.TypeArguments.All(static t => t is not ITypeParameterSymbol))
+        {
+            return method;
+        }
+
         var treatAsExtension = method.IsExtensionMethod && receiver is not null;
 
         // If explicit type args were provided, allow partial lists (Raven feature):
@@ -239,8 +248,7 @@ internal sealed class OverloadResolver
         }
 
         // Otherwise infer all method type parameters.
-        var inferred = TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation);
-        return inferred ?? method;
+        return TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation);
     }
 
     private static IMethodSymbol? TryConstructMethodWithExplicitAndInference(
@@ -710,6 +718,11 @@ internal sealed class OverloadResolver
         {
             typeParameter = GetCanonicalTypeParameter(typeParameter, inferenceMethod);
             argumentType = NormalizeType(argumentType);
+
+            // A null literal does not provide a concrete type for type-parameter inference.
+            // Keep existing substitutions (if any), but do not infer a new substitution from null.
+            if (argumentType.TypeKind == TypeKind.Null)
+                return true;
 
             if (substitutions.TryGetValue(typeParameter, out var existing))
             {

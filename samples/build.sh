@@ -11,14 +11,22 @@ cd "$SCRIPT_DIR"
 
 PROJECT_DIR="$REPO_ROOT/src/Raven.Compiler"
 
-
-RAVEN_CORE="${RAVEN_CORE:-$SCRIPT_DIR/Raven.Core.dll}"
-
-if [[ ! -f "$RAVEN_CORE" ]]; then
-  BUILD_RAVEN_CORE="$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"
-  if [[ -f "$BUILD_RAVEN_CORE" ]]; then
-    RAVEN_CORE="$BUILD_RAVEN_CORE"
-  fi
+# Prefer the freshly built Raven.Core from this workspace; fall back to the
+# local samples copy only when no build output is available.
+if [[ -z "${RAVEN_CORE:-}" ]]; then
+  for candidate in \
+    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/Raven.Core.dll" \
+    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/None.dll" \
+    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll" \
+    "$SCRIPT_DIR/Raven.Core.dll"
+  do
+    if [[ -f "$candidate" ]]; then
+      RAVEN_CORE="$candidate"
+      break
+    fi
+  done
+else
+  RAVEN_CORE="$RAVEN_CORE"
 fi
 
 # Resolve Raven.CodeAnalysis.dll

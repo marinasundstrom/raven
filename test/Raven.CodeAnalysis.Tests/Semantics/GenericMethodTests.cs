@@ -71,4 +71,53 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.Same(intType, method.Parameters[0].Type);
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void GenericMethodInvocation_NullArgument_DoesNotInferTypeArgument()
+    {
+        var source = """
+            class C
+            {
+                static f<T>(value: T) -> ()
+                {
+                }
+
+                static test() -> ()
+                {
+                    f(null);
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+    }
+
+    [Fact]
+    public void GenericMethodInvocation_ConstraintFailure_DoesNotReportNameMissing()
+    {
+        var source = """
+            import System.*
+
+            f2<bool?>(null)
+
+            func f2<T>(t: T) -> ()
+                where T: notnull {
+                Console.WriteLine(t)
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+    }
 }

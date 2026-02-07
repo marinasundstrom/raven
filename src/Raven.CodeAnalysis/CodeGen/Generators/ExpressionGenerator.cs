@@ -1026,23 +1026,7 @@ internal partial class ExpressionGenerator : Generator
         }
         else
         {
-            // Fall back to a dedicated ErrorValue property if available; otherwise Payload.
-            var errorValueProperty = operandClrType.GetProperty(
-                "ErrorValue",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-            if (errorValueProperty?.GetMethod is null)
-            {
-                errorValueProperty = operandClrType.GetProperty(
-                    "Payload",
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            }
-
-            if (errorValueProperty?.GetMethod is null)
-                throw new InvalidOperationException($"Missing ErrorValue/Payload getter on '{operandClrType}'.");
-
-            ILGenerator.Emit(OpCodes.Ldloc, tmp);
-            ILGenerator.Emit(OpCodes.Callvirt, errorValueProperty.GetMethod);
+            throw new InvalidOperationException($"Missing bound error unwrap method for '{expr.Operand.Type}'.");
         }
 
         // Convert payload to the parameter type of the enclosing Error constructor if needed.
