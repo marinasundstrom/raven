@@ -20,12 +20,14 @@ namespace Raven.Editor;
 /// </summary>
 public class CodeTextView : TextView
 {
+    private const int AnalysisDebounceMs = 120;
     private readonly RavenWorkspace _workspace;
     private readonly ProjectId _projectId;
     private readonly DocumentId _documentId;
 
     private readonly Dictionary<List<Rune>, LineInfo> _lineInfos = new();
     private readonly Dictionary<string, Queue<LineInfo>> _lineInfoCache = new();
+    private object? _analysisTimer;
 
     public CodeTextView(RavenWorkspace workspace, ProjectId projectId, DocumentId documentId)
     {
@@ -42,6 +44,33 @@ public class CodeTextView : TextView
     /// <inheritdoc />
     public override void OnContentsChanged()
     {
+        ScheduleAnalysis();
+
+        base.OnContentsChanged();
+    }
+
+    private void ScheduleAnalysis()
+    {
+        if (Application.MainLoop is null)
+        {
+            AnalyzeCurrentText();
+            return;
+        }
+
+        if (_analysisTimer is not null)
+            Application.MainLoop.RemoveTimeout(_analysisTimer);
+
+        _analysisTimer = Application.MainLoop.AddTimeout(TimeSpan.FromMilliseconds(AnalysisDebounceMs), _ =>
+        {
+            _analysisTimer = null;
+            AnalyzeCurrentText();
+            SetNeedsDisplay();
+            return false;
+        });
+    }
+
+    private void AnalyzeCurrentText()
+    {
         _lineInfos.Clear();
         _lineInfoCache.Clear();
 
@@ -50,11 +79,18 @@ public class CodeTextView : TextView
             var text = Text?.ToString() ?? string.Empty;
             var sourceText = SourceText.From(text);
             var solution = _workspace.CurrentSolution.WithDocumentText(_documentId, sourceText);
-            _workspace.TryApplyChanges(solution);
+            if (!_workspace.TryApplyChanges(solution))
+                return;
 
-            var project = solution.GetProject(_projectId)!;
-            var document = project.GetDocument(_documentId)!;
-            var tree = document.GetSyntaxTreeAsync().Result!;
+            var project = solution.GetProject(_projectId);
+            var document = project?.GetDocument(_documentId);
+            if (document is null)
+                return;
+
+            var tree = document.GetSyntaxTreeAsync().Result;
+            if (tree is null)
+                return;
+
             var compilation = _workspace.GetCompilation(_projectId);
             var model = compilation.GetSemanticModel(tree);
             var classification = SemanticClassifier.Classify(tree.GetRoot(), model);
@@ -102,8 +138,6 @@ public class CodeTextView : TextView
             if (Debugger.IsAttached)
                 throw;
         }
-
-        base.OnContentsChanged();
     }
 
     private static void AddTokenSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, TextSpan span,

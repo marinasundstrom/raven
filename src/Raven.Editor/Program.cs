@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
@@ -19,6 +21,8 @@ internal class Program
 {
     private static readonly RavenWorkspace Workspace = RavenWorkspace.Create();
     private static readonly CompletionService CompletionService = new();
+    private static readonly object WorkspaceGate = new();
+    private static CancellationTokenSource? _completionCts;
     private static ProjectId _projectId;
     private static DocumentId _documentId;
     private static readonly List<string> Output = new();
@@ -30,6 +34,7 @@ internal class Program
     private static CompletionItem[] _currentItems = Array.Empty<CompletionItem>();
     private static string[] _currentCompletions = Array.Empty<string>();
     private static CodeTextView? _editor;
+    private const int CompletionDebounceMs = 100;
 
     public static void Main(string[] args)
     {
@@ -179,11 +184,7 @@ internal class Program
             }
             else if (!e.KeyEvent.IsCtrl && !e.KeyEvent.IsAlt && e.KeyEvent.KeyValue >= 32 && e.KeyEvent.KeyValue <= 126)
             {
-                Application.MainLoop.AddIdle(() =>
-                {
-                    ShowCompletion(editor);
-                    return false;
-                });
+                ScheduleCompletion(editor);
             }
         };
 
@@ -199,144 +200,215 @@ internal class Program
 
     private static void ShowCompletion(CodeTextView editor)
     {
-        var text = editor.Text?.ToString() ?? string.Empty;
-        var lines = text.Split('\n');
-        if (editor.CurrentRow >= lines.Length)
+        try
+        {
+            var text = editor.Text?.ToString() ?? string.Empty;
+            var lines = text.Split('\n');
+            if (editor.CurrentRow >= lines.Length)
+            {
+                HideCompletion();
+                return;
+            }
+
+            var line = lines[editor.CurrentRow];
+            var col = Math.Min(editor.CurrentColumn, line.Length);
+            var position = 0;
+            for (var i = 0; i < editor.CurrentRow; i++)
+                position += lines[i].Length + 1;
+            position += col;
+
+            var start = col;
+            while (start > 0 && char.IsLetter(line[start - 1]))
+                start--;
+
+            if (!TryGetCompletionInputs(text, out var compilation, out var tree))
+            {
+                HideCompletion();
+                return;
+            }
+
+            _currentItems = CompletionService
+                .GetCompletions(compilation!, tree!, position)
+                .Where(i => !string.IsNullOrWhiteSpace(i.DisplayText))
+                .ToArray();
+            if (_currentItems.Length == 0)
+            {
+                HideCompletion();
+                return;
+            }
+
+            _currentCompletions = _currentItems.Select(i => i.DisplayText).ToArray();
+
+            var height = Math.Min(10, _currentCompletions.Length + 1);
+            var width = Math.Max(20, _currentCompletions.Max(s => s.Length) + 2);
+
+            if (_completionWin == null)
+            {
+                var completionScheme = new ColorScheme
+                {
+                    Normal = new Attribute(Color.Black, Color.Gray),
+                    Focus = new Attribute(Color.Black, Color.DarkGray),
+                    HotNormal = new Attribute(Color.Blue, Color.Gray),
+                    HotFocus = new Attribute(Color.Blue, Color.DarkGray),
+                    Disabled = new Attribute(Color.DarkGray, Color.Gray)
+                };
+
+                _completionList = new ListView(_currentCompletions)
+                {
+                    CanFocus = false,
+                    Width = Dim.Fill(),
+                    Height = Dim.Fill(),
+                    ColorScheme = completionScheme
+                };
+
+                _completionList.OpenSelectedItem += _ =>
+                {
+                    if (_currentItems.Length > 0)
+                    {
+                        var item = _currentItems[_completionList.SelectedItem];
+                        ApplyCompletion(editor, item);
+                        HideCompletion();
+                    }
+                };
+
+                _completionList.KeyPress += e =>
+                {
+                    if (_completionWin != null && e.KeyEvent.Key == Key.CursorDown)
+                    {
+                        _completionList!.SelectedItem =
+                            Math.Min(_completionList.SelectedItem + 1, _currentCompletions.Length - 1);
+                        _completionList.EnsureSelectedItemVisible();
+                        _completionList.SetNeedsDisplay();
+                        e.Handled = true;
+                    }
+                    else if (_completionWin != null && e.KeyEvent.Key == Key.CursorUp)
+                    {
+                        _completionList!.SelectedItem =
+                            Math.Max(_completionList.SelectedItem - 1, 0);
+                        _completionList.EnsureSelectedItemVisible();
+                        _completionList.SetNeedsDisplay();
+                        e.Handled = true;
+                    }
+                    else if (e.KeyEvent.Key == Key.Enter || e.KeyEvent.Key == Key.Tab)
+                    {
+                        var item = _currentItems[_completionList.SelectedItem];
+                        ApplyCompletion(editor, item);
+                        HideCompletion();
+                        e.Handled = true;
+                    }
+                    else if (e.KeyEvent.Key == Key.Esc)
+                    {
+                        HideCompletion();
+                        e.Handled = true;
+                    }
+                };
+
+                _completionWin = new Window
+                {
+                    Width = width,
+                    Height = height,
+                    ColorScheme = completionScheme
+                };
+
+                _completionWin.Add(_completionList);
+                Application.Top.Add(_completionWin);
+            }
+            else
+            {
+                _completionList!.SetSource(_currentCompletions);
+                _completionWin.Width = width;
+                _completionWin.Height = height;
+            }
+
+            _completionList.SelectedItem = 0;
+            _completionWin.X = editor.Frame.X + start;
+            _completionWin.Y = editor.Frame.Y + editor.CurrentRow + 1;
+            _completionWin.SetNeedsDisplay();
+        }
+        catch
         {
             HideCompletion();
-            return;
         }
+    }
 
-        var line = lines[editor.CurrentRow];
-        var col = Math.Min(editor.CurrentColumn, line.Length);
-        var position = 0;
-        for (var i = 0; i < editor.CurrentRow; i++)
-            position += lines[i].Length + 1;
-        position += col;
+    private static void ScheduleCompletion(CodeTextView editor)
+    {
+        _completionCts?.Cancel();
+        _completionCts?.Dispose();
 
-        var start = col;
-        while (start > 0 && char.IsLetter(line[start - 1]))
-            start--;
+        var cts = new CancellationTokenSource();
+        _completionCts = cts;
 
-        var sourceText = SourceText.From(text);
-        var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, sourceText);
-        Workspace.TryApplyChanges(solution);
-        var document = Workspace.CurrentSolution.GetDocument(_documentId)!;
-        var tree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult()!;
-        var compilation = Workspace.GetCompilation(_projectId);
-
-        _currentItems = CompletionService
-            .GetCompletions(compilation, tree, position)
-            .Where(i => !string.IsNullOrWhiteSpace(i.DisplayText))
-            .ToArray();
-        if (_currentItems.Length == 0)
+        _ = Task.Run(async () =>
         {
-            HideCompletion();
-            return;
-        }
+            try
+            {
+                await Task.Delay(CompletionDebounceMs, cts.Token);
+                if (cts.Token.IsCancellationRequested)
+                    return;
 
-        _currentCompletions = _currentItems.Select(i => i.DisplayText).ToArray();
+                Application.MainLoop?.Invoke(() =>
+                {
+                    if (!cts.Token.IsCancellationRequested)
+                        ShowCompletion(editor);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // Ignore canceled completion requests.
+            }
+        });
+    }
 
-        var height = Math.Min(10, _currentCompletions.Length + 1);
-        var width = Math.Max(20, _currentCompletions.Max(s => s.Length) + 2);
+    private static bool TryGetCompletionInputs(string text, out Compilation? compilation, out SyntaxTree? tree)
+    {
+        compilation = null;
+        tree = null;
 
-        if (_completionWin == null)
+        try
         {
-            var completionScheme = new ColorScheme
+            lock (WorkspaceGate)
             {
-                Normal = new Attribute(Color.Black, Color.Gray),
-                Focus = new Attribute(Color.Black, Color.DarkGray),
-                HotNormal = new Attribute(Color.Blue, Color.Gray),
-                HotFocus = new Attribute(Color.Blue, Color.DarkGray),
-                Disabled = new Attribute(Color.DarkGray, Color.Gray)
-            };
+                var solution = Workspace.CurrentSolution;
+                var project = solution.GetProject(_projectId);
+                if (project is null || project.GetDocument(_documentId) is null)
+                    return false;
 
-            _completionList = new ListView(_currentCompletions)
-            {
-                CanFocus = false,
-                Width = Dim.Fill(),              // <-- critical
-                Height = Dim.Fill(),             // <-- critical
-                ColorScheme = completionScheme
-            };
+                solution = solution.WithDocumentText(_documentId, SourceText.From(text));
+                if (!Workspace.TryApplyChanges(solution))
+                    return false;
 
-            _completionList.OpenSelectedItem += _ =>
-            {
-                if (_currentItems.Length > 0)
-                {
-                    var item = _currentItems[_completionList.SelectedItem];
-                    ApplyCompletion(editor, item);
-                    HideCompletion();
-                }
-            };
+                var document = Workspace.CurrentSolution.GetDocument(_documentId);
+                if (document is null)
+                    return false;
 
-            _completionList.KeyPress += e =>
-            {
-                if (_completionWin != null && e.KeyEvent.Key == Key.CursorDown)
-                {
-                    _completionList!.SelectedItem =
-                        Math.Min(_completionList.SelectedItem + 1, _currentCompletions.Length - 1);
+                tree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult();
+                if (tree is null)
+                    return false;
 
-                    _completionList.EnsureSelectedItemVisible();        // keep it in view
-                    _completionList.SetNeedsDisplay();                           // repaint
-                    e.Handled = true;
-                }
-                else if (_completionWin != null && e.KeyEvent.Key == Key.CursorUp)
-                {
-                    _completionList!.SelectedItem =
-                        Math.Max(_completionList.SelectedItem - 1, 0);
-
-                    _completionList.EnsureSelectedItemVisible();
-                    _completionList.SetNeedsDisplay();
-                    e.Handled = true;
-                }
-                else if (e.KeyEvent.Key == Key.Enter || e.KeyEvent.Key == Key.Tab)
-                {
-                    var item = _currentItems[_completionList.SelectedItem];
-                    ApplyCompletion(editor, item);
-                    HideCompletion();
-                    e.Handled = true;
-                }
-                else if (e.KeyEvent.Key == Key.Esc)
-                {
-                    HideCompletion();
-                    e.Handled = true;
-                }
-            };
-
-            _completionWin = new Window
-            {
-                Width = width,
-                Height = height,
-                ColorScheme = completionScheme
-            };
-
-            _completionWin.Add(_completionList);
-            Application.Top.Add(_completionWin);
+                compilation = Workspace.GetCompilation(_projectId);
+                return true;
+            }
         }
-        else
+        catch
         {
-            _completionList!.SetSource(_currentCompletions);
-            _completionWin.Width = width;
-            _completionWin.Height = height;
+            return false;
         }
-
-        // after creating/updating the popup:
-        _completionList.SelectedItem = 0;
-
-        _completionWin.X = editor.Frame.X + start;
-        _completionWin.Y = editor.Frame.Y + editor.CurrentRow + 1;
-        _completionWin.SetNeedsDisplay();
     }
 
     internal static void ApplyCompletion(CodeTextView editor, CompletionItem item)
     {
         var text = editor.Text?.ToString() ?? string.Empty;
+        if (item.ReplacementSpan.Start < 0 || item.ReplacementSpan.End < item.ReplacementSpan.Start || item.ReplacementSpan.End > text.Length)
+            return;
+
         var before = text[..item.ReplacementSpan.Start];
         var after = text[item.ReplacementSpan.End..];
         var newText = before + item.InsertionText + after;
         editor.Text = newText;
 
         var cursorPos = item.ReplacementSpan.Start + (item.CursorOffset ?? item.InsertionText.Length);
+        cursorPos = Math.Clamp(cursorPos, 0, newText.Length);
         var lines = newText.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
         var position = 0;
         for (var row = 0; row < lines.Length; row++)
@@ -353,6 +425,10 @@ internal class Program
 
     private static void HideCompletion()
     {
+        _completionCts?.Cancel();
+        _completionCts?.Dispose();
+        _completionCts = null;
+
         if (_completionWin != null)
         {
             Application.Top.Remove(_completionWin);
@@ -372,8 +448,12 @@ internal class Program
     {
         try
         {
-            var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, SourceText.From(source));
-            Workspace.TryApplyChanges(solution);
+            lock (WorkspaceGate)
+            {
+                var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, SourceText.From(source));
+                if (!Workspace.TryApplyChanges(solution))
+                    throw new InvalidOperationException("Unable to apply source changes to workspace.");
+            }
             var diagnostics = Workspace.GetDiagnostics(_projectId);
             Output.Clear();
             Problems.Clear();
