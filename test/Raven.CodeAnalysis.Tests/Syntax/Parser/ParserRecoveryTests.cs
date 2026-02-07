@@ -238,6 +238,18 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void AutoProperty_AccessorsSeparatedBySemicolonsOnSameLine_DoNotReportPreferNewLineDiagnostic()
+    {
+        var source = "class C { public required Name: string { get; init; } }";
+
+        var tree = SyntaxTree.ParseText(source);
+
+        Assert.DoesNotContain(
+            tree.GetDiagnostics(),
+            d => d.Descriptor == CompilerDiagnostics.PreferNewLineBetweenDeclarations);
+    }
+
+    [Fact]
     public void GlobalStatement_PreservesTerminatorToken()
     {
         var source = """

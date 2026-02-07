@@ -927,7 +927,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
             SetTreatNewlinesAsTokens(true);
 
-            var terminatorToken = ConsumeMemberTerminator();
+            var terminatorToken = ConsumeMemberTerminator(allowSemicolonSeparatedSameLineDeclarations: true);
 
             SetTreatNewlinesAsTokens(false);
 
@@ -1364,7 +1364,7 @@ internal class TypeDeclarationParser : SyntaxParser
         }
     }
 
-    private SyntaxToken ConsumeMemberTerminator()
+    private SyntaxToken ConsumeMemberTerminator(bool allowSemicolonSeparatedSameLineDeclarations = false)
     {
         TryConsumeTerminator(out var terminatorToken);
 
@@ -1372,7 +1372,9 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (terminatorToken.IsKind(SyntaxKind.SemicolonToken))
         {
-            if (IsPossibleTypeMemberStart(current) && !HasLeadingEndOfLineTrivia(current))
+            if (!allowSemicolonSeparatedSameLineDeclarations &&
+                IsPossibleTypeMemberStart(current) &&
+                !HasLeadingEndOfLineTrivia(current))
             {
                 AddDiagnostic(
                     DiagnosticInfo.Create(
