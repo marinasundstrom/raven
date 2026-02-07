@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
@@ -57,12 +58,14 @@ internal class SyntaxToken : GreenNode
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
-        return WithLeadingTrivia(trivias);
+        var triviaArray = trivias?.ToArray() ?? Array.Empty<SyntaxTrivia>();
+        return WithLeadingTrivia(SyntaxFactory.TriviaList(triviaArray));
     }
 
     public SyntaxToken WithTrailingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
-        return WithTrailingTrivia(trivias);
+        var triviaArray = trivias?.ToArray() ?? Array.Empty<SyntaxTrivia>();
+        return WithTrailingTrivia(SyntaxFactory.TriviaList(triviaArray));
     }
 
     public SyntaxToken WithLeadingTrivia(SyntaxTriviaList triviaList)

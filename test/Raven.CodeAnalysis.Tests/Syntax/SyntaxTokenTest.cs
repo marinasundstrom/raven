@@ -125,4 +125,43 @@ public class SyntaxTokenTest
         token.ToString().ShouldBe("return");
         token.ToFullString().ShouldBe(" return\n");
     }
+
+    [Fact]
+    public void WithLeadingTriviaList_PreservesTrailingTrivia()
+    {
+        var token = SyntaxFactory.ReturnKeyword
+            .WithTrailingTrivia(LineFeed);
+
+        var updated = token.WithLeadingTrivia(TriviaList(Space, Tab));
+
+        updated.HasLeadingTrivia.ShouldBeTrue();
+        updated.HasTrailingTrivia.ShouldBeTrue();
+        updated.ToFullString().ShouldBe(" \treturn\n");
+        updated.LeadingTrivia.Count.ShouldBe(2);
+        updated.TrailingTrivia.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void WithTrailingTriviaList_PreservesLeadingTrivia()
+    {
+        var token = SyntaxFactory.ReturnKeyword
+            .WithLeadingTrivia(TriviaList(Space));
+
+        var updated = token.WithTrailingTrivia(TriviaList(Space, LineFeed));
+
+        updated.HasLeadingTrivia.ShouldBeTrue();
+        updated.HasTrailingTrivia.ShouldBeTrue();
+        updated.ToFullString().ShouldBe(" return \n");
+        updated.LeadingTrivia.Count.ShouldBe(1);
+        updated.TrailingTrivia.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void GetLocation_WithoutSyntaxTree_ReturnsNone()
+    {
+        var token = SyntaxFactory.Identifier("standalone");
+        var location = token.GetLocation();
+
+        location.ShouldBe(Location.None);
+    }
 }
