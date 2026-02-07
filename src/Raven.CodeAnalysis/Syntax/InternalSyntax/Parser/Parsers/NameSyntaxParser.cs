@@ -464,11 +464,15 @@ internal class NameSyntaxParser : SyntaxParser
         return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
-    private TupleTypeSyntax ParseTupleType()
+    private TypeSyntax ParseTupleType()
     {
         var openParenToken = ReadToken();
 
         List<GreenNode> elements = new List<GreenNode>();
+        var tupleElementCount = 0;
+        var hasNamedElement = false;
+        var hasTrailingComma = false;
+        TypeSyntax? singleElementType = null;
 
         while (true)
         {
@@ -481,6 +485,7 @@ internal class NameSyntaxParser : SyntaxParser
 
             if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && CanTokenBeIdentifier(PeekToken()))
             {
+                hasNamedElement = true;
                 var name = ReadToken();
                 if (name.Kind != SyntaxKind.IdentifierToken)
                 {
@@ -497,18 +502,38 @@ internal class NameSyntaxParser : SyntaxParser
                 break;
 
             elements.Add(TupleElement(nameColon, type));
+            tupleElementCount++;
+            if (tupleElementCount == 1)
+            {
+                singleElementType = type;
+            }
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
             {
                 ReadToken();
                 elements.Add(commaToken);
+                hasTrailingComma = PeekToken().IsKind(SyntaxKind.CloseParenToken);
             }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return TupleType(openParenToken, List(elements.ToArray()), closeParenToken);
+        if (tupleElementCount == 1 && !hasNamedElement && !hasTrailingComma && singleElementType is not null)
+        {
+            // Single parenthesized types are grouping, e.g. (() -> ())?
+            return singleElementType;
+        }
+
+        if (tupleElementCount == 1)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.SingleElementTupleTypeNotAllowed,
+                    GetSpanOfLastToken()));
+        }
+
+        return TupleType(openParenToken, List(elements.ToArray()), closeParenToken, Diagnostics);
     }
 
     private bool LooksLikeTypeArgumentList()

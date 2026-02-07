@@ -4,6 +4,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -109,7 +110,7 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
         const string source = """
 class Sample {
     test() -> unit {
-        let number = 42;
+        val number = 42;
     }
 }
 """;
@@ -169,5 +170,43 @@ class Sample {
         var display = taskType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
         Assert.Equal("Task<TResult>", display);
+    }
+
+    [Fact]
+    public void TypeDisplay_NullableFunctionType_UsesGroupingParens()
+    {
+        const string source = """
+class Sample {
+    test() -> unit {
+        val groupedNullable: (() -> ())? = null
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("(() -> ())?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void TypeDisplay_FunctionWithNullableReturn_ShowsNullableOnReturnType()
+    {
+        const string source = """
+class Sample {
+    test() -> unit {
+        val nullableReturn: () -> ()? = () => ()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("() -> ()?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 }

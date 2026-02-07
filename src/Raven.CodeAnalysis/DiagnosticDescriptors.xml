@@ -560,6 +560,10 @@
     Title="Spread source must be enumerable"
     Message="Cannot spread expression of type '{typeName}' because it is not enumerable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2023" Identifier="SingleElementTupleTypeNotAllowed"
+    Title="Single-element tuple type is not allowed"
+    Message="Single-element tuple types are not supported; use parenthesized type syntax only for grouping"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2100" Identifier="MatchExpressionNotExhaustive"
     Title="Match expression is not exhaustive"
     Message="Match expression is not exhaustive; missing case for '{missingType}'"
