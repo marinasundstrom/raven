@@ -73,6 +73,7 @@ internal class Program
 
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()));
+        solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new NonNullDeclarationsAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new VarCanBeValAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
         solution = solution.AddAnalyzerReference(_projectId, new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));

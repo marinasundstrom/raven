@@ -110,4 +110,30 @@ public class DiagnosticOptionsTests
         var diagnostic = Assert.Single(diagnostics, d => d.Descriptor.Id == "RAV1010");
         Assert.True(diagnostic.IsSuppressed);
     }
+
+    [Fact]
+    public void SpecificDiagnosticOptions_RemapsNonNullDeclarationsSeverity()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithSpecificDiagnosticOption(NonNullDeclarationsAnalyzer.DiagnosticId, ReportDiagnostic.Error);
+        var projectId = workspace.AddProject("Test", compilationOptions: options);
+        var docId = DocumentId.CreateNew(projectId);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(
+            """
+func Test() {
+    var value: int? = null
+}
+""")));
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDiagnostics(projectId);
+        var diagnostic = Assert.Single(diagnostics, d => d.Descriptor.Id == NonNullDeclarationsAnalyzer.DiagnosticId);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
 }

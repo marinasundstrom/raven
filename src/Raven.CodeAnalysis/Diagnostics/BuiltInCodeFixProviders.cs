@@ -14,6 +14,7 @@ public static class BuiltInCodeFixProviders
             new PreferValInsteadOfLetCodeFixProvider(),
             new VarCanBeValCodeFixProvider(),
             new PreferNewLineBetweenDeclarationsCodeFixProvider(),
+            new NonNullDeclarationsCodeFixProvider(),
         ];
     }
 }
