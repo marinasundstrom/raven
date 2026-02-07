@@ -28,54 +28,74 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.RegisterSyntaxTreeAction(AnalyzeTree);
+        context.RegisterSyntaxNodeAction(
+            AnalyzeNode,
+            SyntaxKind.MethodDeclaration,
+            SyntaxKind.FunctionStatement);
     }
 
-    private static void AnalyzeTree(SyntaxTreeAnalysisContext context)
+    private static void AnalyzeNode(SyntaxNodeAnalysisContext context)
     {
-        var semanticModel = context.Compilation.GetSemanticModel(context.SyntaxTree);
-        var root = context.SyntaxTree.GetRoot();
-
-        void AnalyzeNode(SyntaxNode node, SyntaxToken identifier, SyntaxNode? returnType, SyntaxNode? body)
+        switch (context.Node)
         {
-            if (returnType is not null || body is null)
-                return;
+            case MethodDeclarationSyntax method:
+                AnalyzeDeclaration(
+                    context,
+                    method,
+                    method.Identifier,
+                    method.ReturnType,
+                    method.Body ?? (SyntaxNode?)method.ExpressionBody);
+                break;
 
-            var symbol = semanticModel.GetDeclaredSymbol(node) as IMethodSymbol;
-            if (symbol is null)
-                return;
+            case FunctionStatementSyntax function:
+                AnalyzeDeclaration(
+                    context,
+                    function,
+                    function.Identifier,
+                    function.ReturnType,
+                    function.Body ?? (SyntaxNode?)function.ExpressionBody);
+                break;
+        }
+    }
 
-            var boundBody = semanticModel.GetBoundNode(body);
-            var inferred = ReturnTypeCollector.Infer(boundBody);
+    private static void AnalyzeDeclaration(
+        SyntaxNodeAnalysisContext context,
+        SyntaxNode node,
+        SyntaxToken identifier,
+        SyntaxNode? returnType,
+        SyntaxNode? body)
+    {
+        if (returnType is not null || body is null)
+            return;
 
-            if (inferred is null ||
-                inferred.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
-                return;
+        var symbol = context.SemanticModel.GetDeclaredSymbol(node) as IMethodSymbol;
+        if (symbol is null)
+            return;
 
-            if (inferred is ITypeUnionSymbol union &&
-                union.Types.All(t => t.SpecialType != SpecialType.System_Unit && t.SpecialType != SpecialType.System_Void))
+        var boundBody = context.SemanticModel.GetBoundNode(body);
+        var inferred = ReturnTypeCollector.Infer(boundBody);
+
+        if (inferred is null ||
+            inferred.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+            return;
+
+        if (inferred is ITypeUnionSymbol union &&
+            union.Types.All(t => t.SpecialType != SpecialType.System_Unit && t.SpecialType != SpecialType.System_Void))
+        {
+            var commonBase = FindCommonBase(union.Types);
+            if (commonBase is not null &&
+                commonBase.SpecialType != SpecialType.None &&
+                commonBase.SpecialType != SpecialType.System_Object &&
+                commonBase.SpecialType != SpecialType.System_ValueType)
             {
-                var commonBase = FindCommonBase(union.Types);
-                if (commonBase is not null &&
-                    commonBase.SpecialType != SpecialType.None &&
-                    commonBase.SpecialType != SpecialType.System_Object &&
-                    commonBase.SpecialType != SpecialType.System_ValueType)
-                {
-                    inferred = commonBase;
-                }
+                inferred = commonBase;
             }
-
-            var typeDisplay = FormatType(inferred);
-            var location = identifier.GetLocation();
-            var diagnostic = Diagnostic.Create(Descriptor, location, symbol.Name, typeDisplay);
-            context.ReportDiagnostic(diagnostic);
         }
 
-        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
-            AnalyzeNode(method, method.Identifier, method.ReturnType, method.Body ?? (SyntaxNode?)method.ExpressionBody);
-
-        foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())
-            AnalyzeNode(function, function.Identifier, function.ReturnType, function.Body ?? (SyntaxNode?)function.ExpressionBody);
+        var typeDisplay = FormatType(inferred);
+        var location = identifier.GetLocation();
+        var diagnostic = Diagnostic.Create(Descriptor, location, symbol.Name, typeDisplay);
+        context.ReportDiagnostic(diagnostic);
     }
 
     private static string FormatType(ITypeSymbol type)

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -26,52 +25,36 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.RegisterSyntaxTreeAction(AnalyzeTree);
+        context.RegisterSyntaxNodeAction(
+            AnalyzeBodyOwner,
+            SyntaxKind.MethodDeclaration,
+            SyntaxKind.FunctionStatement);
     }
 
-    private static void AnalyzeTree(SyntaxTreeAnalysisContext context)
+    private static void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context)
     {
-        var semanticModel = context.Compilation.GetSemanticModel(context.SyntaxTree);
-        var root = context.SyntaxTree.GetRoot();
-
-        // Analyze each body separately so locals from different bodies don't mix.
-        foreach (var owner in root.DescendantNodes().Where(IsBodyOwner))
-        {
-            var body = GetBodySyntax(owner);
-            if (body is null)
-                continue;
-
-            var collector = new VarRebindingCollector(semanticModel);
-            collector.Visit(body);
-
-            foreach (var candidate in collector.GetVarThatCanBeVal())
-            {
-                var diagnostic = Diagnostic.Create(
-                    Descriptor,
-                    candidate.IdentifierToken.GetLocation(),
-                    candidate.Name);
-
-                context.ReportDiagnostic(diagnostic);
-            }
-        }
-    }
-
-    private static bool IsBodyOwner(SyntaxNode node)
-        => node is MethodDeclarationSyntax
-        || node is FunctionStatementSyntax
-        // Add other “body owners” as you introduce them:
-        // || node is AccessorDeclarationSyntax
-        // || node is LambdaExpressionSyntax
-        ;
-
-    private static SyntaxNode? GetBodySyntax(SyntaxNode owner)
-    {
-        return owner switch
+        var body = context.Node switch
         {
             MethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody,
             FunctionStatementSyntax f => (SyntaxNode?)f.Body ?? f.ExpressionBody,
             _ => null
         };
+
+        if (body is null)
+            return;
+
+        var collector = new VarRebindingCollector(context.SemanticModel);
+        collector.Visit(body);
+
+        foreach (var candidate in collector.GetVarThatCanBeVal())
+        {
+            var diagnostic = Diagnostic.Create(
+                Descriptor,
+                candidate.IdentifierToken.GetLocation(),
+                candidate.Name);
+
+            context.ReportDiagnostic(diagnostic);
+        }
     }
 
     private readonly struct VarCandidate

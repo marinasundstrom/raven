@@ -24,62 +24,61 @@ public sealed class AutoPropertyInitializationAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.RegisterSyntaxTreeAction(AnalyzeTree);
+        context.RegisterSyntaxNodeAction(AnalyzeClassDeclaration, SyntaxKind.ClassDeclaration);
     }
 
-    private static void AnalyzeTree(SyntaxTreeAnalysisContext context)
+    private static void AnalyzeClassDeclaration(SyntaxNodeAnalysisContext context)
     {
-        var semanticModel = context.Compilation.GetSemanticModel(context.SyntaxTree);
-        var root = context.SyntaxTree.GetRoot();
+        if (context.Node is not ClassDeclarationSyntax classDecl)
+            return;
 
-        foreach (var classDecl in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+        var semanticModel = context.SemanticModel;
+
+        var classSymbol = semanticModel.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
+        if (classSymbol is null || classSymbol.TypeKind != TypeKind.Class)
+            return;
+
+        var autoProperties = new Dictionary<IPropertySymbol, PropertyDeclarationSyntax>(SymbolEqualityComparer.Default);
+
+        foreach (var propertyDecl in classDecl.Members.OfType<PropertyDeclarationSyntax>())
         {
-            var classSymbol = semanticModel.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
-            if (classSymbol is null || classSymbol.TypeKind != TypeKind.Class)
+            var propertySymbol = semanticModel.GetDeclaredSymbol(propertyDecl) as SourcePropertySymbol;
+            if (propertySymbol is null || !propertySymbol.IsAutoProperty)
                 continue;
 
-            var autoProperties = new Dictionary<IPropertySymbol, PropertyDeclarationSyntax>(SymbolEqualityComparer.Default);
-
-            foreach (var propertyDecl in classDecl.Members.OfType<PropertyDeclarationSyntax>())
-            {
-                var propertySymbol = semanticModel.GetDeclaredSymbol(propertyDecl) as SourcePropertySymbol;
-                if (propertySymbol is null || !propertySymbol.IsAutoProperty)
-                    continue;
-
-                if (propertySymbol.IsRequired || propertySymbol.IsStatic)
-                    continue;
-
-                if (propertyDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword))
-                    continue;
-
-                if (propertyDecl.Initializer is not null)
-                    continue;
-
-                autoProperties[propertySymbol] = propertyDecl;
-            }
-
-            if (autoProperties.Count == 0)
+            if (propertySymbol.IsRequired || propertySymbol.IsStatic)
                 continue;
 
-            var assigned = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+            if (propertyDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword))
+                continue;
 
-            foreach (var ctor in classDecl.Members.OfType<BaseConstructorDeclarationSyntax>())
-            {
-                if (ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword))
-                    continue;
+            if (propertyDecl.Initializer is not null)
+                continue;
 
-                CollectAssignedProperties(semanticModel, ctor, autoProperties, assigned);
-            }
+            autoProperties[propertySymbol] = propertyDecl;
+        }
 
-            foreach (var (propertySymbol, propertyDecl) in autoProperties)
-            {
-                if (assigned.Contains(propertySymbol))
-                    continue;
+        if (autoProperties.Count == 0)
+            return;
 
-                var location = propertyDecl.Identifier.GetLocation();
-                var diagnostic = Diagnostic.Create(Descriptor, location, propertySymbol.Name);
-                context.ReportDiagnostic(diagnostic);
-            }
+        var assigned = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var ctor in classDecl.Members.OfType<BaseConstructorDeclarationSyntax>())
+        {
+            if (ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword))
+                continue;
+
+            CollectAssignedProperties(semanticModel, ctor, autoProperties, assigned);
+        }
+
+        foreach (var (propertySymbol, propertyDecl) in autoProperties)
+        {
+            if (assigned.Contains(propertySymbol))
+                continue;
+
+            var location = propertyDecl.Identifier.GetLocation();
+            var diagnostic = Diagnostic.Create(Descriptor, location, propertySymbol.Name);
+            context.ReportDiagnostic(diagnostic);
         }
     }
 

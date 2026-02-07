@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Tests.Workspaces;
@@ -44,6 +45,25 @@ public class AnalyzerInfrastructureTests
                 if (text is not null && text.Contains("TODO"))
                     ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, Location.None));
             });
+        }
+    }
+
+    private sealed class NodeKindAnalyzer : DiagnosticAnalyzer
+    {
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0002",
+            title: "Node match",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Node kind match",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterSyntaxNodeAction(
+                ctx => ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, ctx.Node.GetLocation())),
+                SyntaxKind.MethodDeclaration);
         }
     }
 
@@ -98,5 +118,37 @@ public class AnalyzerInfrastructureTests
 
         Should.Throw<InvalidOperationException>(() => workspace.GetDiagnostics(projectId))
             .Message.ShouldContain("reserved 'RAV' prefix");
+    }
+
+    [Fact]
+    public void GetDiagnostics_SyntaxNodeAction_OnlyRunsForRegisteredKinds()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+class C {
+    public M() -> unit { }
+}
+
+func F() -> unit { }
+""";
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new NodeKindAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDiagnostics(projectId)
+            .Where(d => d.Descriptor.Id == "AN0002")
+            .ToList();
+
+        diagnostics.Count.ShouldBe(1);
     }
 }

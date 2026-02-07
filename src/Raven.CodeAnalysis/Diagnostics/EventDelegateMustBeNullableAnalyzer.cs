@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -19,27 +20,18 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
         defaultSeverity: DiagnosticSeverity.Warning);
 
     public override void Initialize(AnalysisContext context)
-        => context.RegisterSyntaxTreeAction(AnalyzeTree);
+        => context.RegisterSyntaxNodeAction(AnalyzeEventDeclaration, SyntaxKind.EventDeclaration);
 
-    private static void AnalyzeTree(SyntaxTreeAnalysisContext context)
+    private static void AnalyzeEventDeclaration(SyntaxNodeAnalysisContext context)
     {
-        var semanticModel = context.Compilation.GetSemanticModel(context.SyntaxTree);
-        var root = context.SyntaxTree.GetRoot();
+        if (context.Node is not EventDeclarationSyntax ev)
+            return;
 
-        foreach (var ev in root.DescendantNodes().OfType<EventDeclarationSyntax>())
-            AnalyzeEventDeclaration(context, semanticModel, ev);
-    }
-
-    private static void AnalyzeEventDeclaration(
-        SyntaxTreeAnalysisContext context,
-        SemanticModel semanticModel,
-        EventDeclarationSyntax ev)
-    {
         // No type annotation => nothing actionable to suggest.
         if (ev.Type is not TypeAnnotationClauseSyntax annotation)
             return;
 
-        if (semanticModel.GetDeclaredSymbol(ev) is not IEventSymbol symbol)
+        if (context.SemanticModel.GetDeclaredSymbol(ev) is not IEventSymbol symbol)
             return;
 
         var type = symbol.Type;
@@ -52,11 +44,11 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
         if (type.IsEffectivelyNullable())
             return;
 
-        Report(context, symbol, annotation.Type, type);
+        Report(context.ReportDiagnostic, symbol, annotation.Type, type);
     }
 
     private static void Report(
-        SyntaxTreeAnalysisContext context,
+        Action<Diagnostic> reportDiagnostic,
         IEventSymbol symbol,
         SyntaxNode typeNode,
         ITypeSymbol type)
@@ -65,7 +57,7 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
         var nullableSuggestion = typeDisplay + "?";
         var location = typeNode.GetLocation();
 
-        context.ReportDiagnostic(Diagnostic.Create(
+        reportDiagnostic(Diagnostic.Create(
             Descriptor,
             location,
             symbol.Name,

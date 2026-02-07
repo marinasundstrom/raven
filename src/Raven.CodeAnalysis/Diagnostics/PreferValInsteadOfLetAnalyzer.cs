@@ -1,6 +1,3 @@
-using System.Collections.Immutable;
-using System.Linq;
-
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Diagnostics;
@@ -23,22 +20,20 @@ public sealed class PreferValInsteadOfLetAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.RegisterSyntaxTreeAction(AnalyzeTree);
+        context.RegisterSyntaxNodeAction(AnalyzeVariableDeclaration, SyntaxKind.VariableDeclaration);
     }
 
-    private static void AnalyzeTree(SyntaxTreeAnalysisContext context)
+    private static void AnalyzeVariableDeclaration(SyntaxNodeAnalysisContext context)
     {
-        var root = context.SyntaxTree.GetRoot();
+        if (context.Node is not VariableDeclarationSyntax variableDeclarationSyntax)
+            return;
 
-        foreach (var variableDeclarationSyntax in root.DescendantNodes().OfType<VariableDeclarationSyntax>())
-        {
-            var bindingKeyword = variableDeclarationSyntax.BindingKeyword;
-            if (bindingKeyword.IsKind(SyntaxKind.LetKeyword))
-            {
-                var location = bindingKeyword.GetLocation();
-                var diagnostic = Diagnostic.Create(PreferValInsteadOfLetDescriptor, location);
-                context.ReportDiagnostic(diagnostic);
-            }
-        }
+        var bindingKeyword = variableDeclarationSyntax.BindingKeyword;
+        if (!bindingKeyword.IsKind(SyntaxKind.LetKeyword))
+            return;
+
+        var location = bindingKeyword.GetLocation();
+        var diagnostic = Diagnostic.Create(PreferValInsteadOfLetDescriptor, location);
+        context.ReportDiagnostic(diagnostic);
     }
 }

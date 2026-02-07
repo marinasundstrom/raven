@@ -22,7 +22,7 @@ class C {
                     .WithSpan(2, 5, 2, 9)
                     .WithArguments("Test", "int")
             ],
-            disabledDiagnostics: ["RAV1503"]);
+            disabledDiagnostics: ["RAV1503", "RAV1014"]);
 
         verifier.Verify();
     }
@@ -42,7 +42,7 @@ func Test() {
                     .WithSpan(1, 6, 1, 10)
                     .WithArguments("Test", "int")
             ],
-            disabledDiagnostics: ["RAV1503"]);
+            disabledDiagnostics: ["RAV1503", "RAV1014"]);
 
         verifier.Verify();
     }
@@ -68,7 +68,7 @@ class C {
                     .WithSpan(2, 5, 2, 9)
                     .WithArguments("Test", "bool | int")
             ],
-            disabledDiagnostics: ["RAV1503"]);
+            disabledDiagnostics: ["RAV1503", "RAV1014"]);
 
         verifier.Verify();
     }
@@ -86,7 +86,7 @@ class C {
 
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1503"]);
+            disabledDiagnostics: ["RAV1503", "RAV1014"]);
 
         verifier.Verify();
     }
@@ -108,7 +108,7 @@ class C {
 
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [],
-            disabledDiagnostics: ["RAV1503"]);
+            disabledDiagnostics: ["RAV1503", "RAV1014"]);
 
         verifier.Verify();
     }
