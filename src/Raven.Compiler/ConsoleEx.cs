@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -33,15 +34,19 @@ static class ConsoleEx
     }
 
     public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics) =>
-        PrintDiagnostics(diagnostics, compilation: null, highlightDiagnostics: false);
+        PrintDiagnostics(diagnostics, compilation: null, highlightDiagnostics: false, includeSuggestions: false);
 
-    public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics, Compilation? compilation, bool highlightDiagnostics)
+    public static void PrintDiagnostics(
+        IEnumerable<Diagnostic> diagnostics,
+        Compilation? compilation,
+        bool highlightDiagnostics,
+        bool includeSuggestions)
     {
         var diagnosticArray = diagnostics.ToArray();
 
         if (!highlightDiagnostics || compilation is null)
         {
-            PrintDiagnosticList(diagnosticArray);
+            PrintDiagnosticList(diagnosticArray, includeSuggestions);
             return;
         }
 
@@ -76,7 +81,7 @@ static class ConsoleEx
                     var tree = group.Key;
                     var root = tree.GetRoot();
                     var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true,
-                        diagnostics: group);
+                        diagnostics: group, includeSuggestions: includeSuggestions);
 
                     if (string.IsNullOrWhiteSpace(text))
                     {
@@ -103,11 +108,11 @@ static class ConsoleEx
             if (highlightedSections.Count > 0)
                 Console.WriteLine();
 
-            PrintDiagnosticList(fallback);
+            PrintDiagnosticList(fallback, includeSuggestions);
         }
     }
 
-    private static void PrintDiagnosticList(IEnumerable<Diagnostic> diagnostics)
+    private static void PrintDiagnosticList(IEnumerable<Diagnostic> diagnostics, bool includeSuggestions)
     {
         foreach (var diagnostic in diagnostics)
         {
@@ -146,6 +151,15 @@ static class ConsoleEx
             };
 
             AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{diagnostic.Severity.ToString().ToLower()} {descriptor.Id}[/]: {Markup.Escape(diagnostic.GetMessage())}");
+
+            if (includeSuggestions &&
+                EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out var originalCode, out var rewrittenCode))
+            {
+                AnsiConsole.MarkupLine("  [grey]You wrote:[/]");
+                AnsiConsole.MarkupLine($"    [red]{Markup.Escape(originalCode)}[/]");
+                AnsiConsole.MarkupLine("  [grey]Write this instead:[/]");
+                AnsiConsole.MarkupLine($"    [green]{Markup.Escape(rewrittenCode)}[/]");
+            }
         }
     }
 }

@@ -90,7 +90,7 @@ public static class ConsoleSyntaxHighlighter
     public static ColorScheme ColorScheme { get; set; } = ColorScheme.Dark;
 
     public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false,
-        bool diagnosticsOnly = false, IEnumerable<Diagnostic>? diagnostics = null)
+        bool diagnosticsOnly = false, IEnumerable<Diagnostic>? diagnostics = null, bool includeSuggestions = false)
     {
         var syntaxTree = node.SyntaxTree ?? throw new InvalidOperationException("Node is not associated with a syntax tree.");
 
@@ -144,7 +144,7 @@ public static class ConsoleSyntaxHighlighter
 
         var sb = new StringBuilder();
         if (diagnosticsOnly)
-            return WriteDiagnosticsOnly(sb, diagnosticsForTree, lines, lineTokens, lineDiagnostics, syntaxTree.FilePath);
+            return WriteDiagnosticsOnly(sb, diagnosticsForTree, lines, lineTokens, lineDiagnostics, syntaxTree.FilePath, includeSuggestions);
 
         var lineOrder = Enumerable.Range(0, lines.Length).ToArray();
 
@@ -160,7 +160,8 @@ public static class ConsoleSyntaxHighlighter
     }
 
     private static string WriteDiagnosticsOnly(StringBuilder sb, IReadOnlyList<Diagnostic> diagnostics, string[] lines,
-        IReadOnlyList<List<TokenSpan>?> lineTokens, IReadOnlyList<List<DiagnosticSpan>?> lineDiagnostics, string? fallbackPath)
+        IReadOnlyList<List<TokenSpan>?> lineTokens, IReadOnlyList<List<DiagnosticSpan>?> lineDiagnostics, string? fallbackPath,
+        bool includeSuggestions)
     {
         if (diagnostics.Count == 0)
             return string.Empty;
@@ -230,6 +231,7 @@ public static class ConsoleSyntaxHighlighter
             sb.Append(':');
             sb.Append(' ');
             sb.AppendLine(diagnostic.GetMessage());
+
             sb.AppendLine();
 
             var end = span.EndLinePosition;
@@ -238,8 +240,18 @@ public static class ConsoleSyntaxHighlighter
 
             for (var lineIndex = startLine; lineIndex <= endLine && lineIndex < lines.Length; lineIndex++)
             {
+                sb.Append("    ");
                 AppendLine(sb, lines[lineIndex], lineTokens[lineIndex], lineDiagnostics[lineIndex]);
                 sb.AppendLine();
+            }
+
+            if (includeSuggestions &&
+                EducationalDiagnosticProperties.TryGetRewriteSuggestion(diagnostic, out _, out var rewrittenCode))
+            {
+                sb.AppendLine();
+                sb.AppendLine("Write this instead:");
+                sb.Append("    ");
+                sb.AppendLine(rewrittenCode);
             }
 
             if (i < diagnostics.Count - 1)

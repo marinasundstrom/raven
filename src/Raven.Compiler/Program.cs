@@ -37,6 +37,7 @@ var stopwatch = Stopwatch.StartNew();
 // --no-emit         - skip emitting the output assembly
 // --fix             - apply supported code fixes before diagnostics/emission
 // --highlight       - display diagnostics with highlighted source
+// --suggestions     - display instructional rewrite suggestions for diagnostics that provide them
 // -h, --help        - display help
 // --run             - execute the produced assembly when compilation succeeds (console apps only)
 
@@ -67,6 +68,7 @@ var noEmit = false;
 var fix = false;
 var hasInvalidOption = false;
 var highlightDiagnostics = false;
+var showSuggestions = false;
 var quote = false;
 var quoteWithNamedArgs = false;
 var runIlVerify = false;
@@ -169,6 +171,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--highlight":
             highlightDiagnostics = true;
+            break;
+        case "--suggestions":
+            showSuggestions = true;
             break;
         case "--quote":
         case "-q":
@@ -511,6 +516,8 @@ foreach (var r in additionalRefs)
 }
 
 project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
@@ -832,7 +839,7 @@ if (runIlVerify)
 
 if (diagnostics.Length > 0)
 {
-    PrintDiagnostics(diagnostics, compilation, highlightDiagnostics);
+    PrintDiagnostics(diagnostics, compilation, highlightDiagnostics, showSuggestions);
     Console.WriteLine();
 }
 
@@ -930,6 +937,7 @@ static void PrintHelp()
     Console.WriteLine("  --overload-log [path]");
     Console.WriteLine("                     Log overload resolution details to the console or the provided file.");
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
+    Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
     Console.WriteLine("  -q                 Display AST as compilable C# code");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  --fix            Apply supported code fixes to source files before compiling");
