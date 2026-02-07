@@ -11,14 +11,12 @@ cd "$SCRIPT_DIR"
 
 PROJECT_DIR="$REPO_ROOT/src/Raven.Compiler"
 
-# Prefer the freshly built Raven.Core from this workspace; fall back to the
-# local samples copy only when no build output is available.
+# Prefer the freshly built Raven.Core from this workspace.
+# Do not fall back to a local samples copy because it can go stale.
 if [[ -z "${RAVEN_CORE:-}" ]]; then
   for candidate in \
     "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/Raven.Core.dll" \
-    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/None.dll" \
-    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll" \
-    "$SCRIPT_DIR/Raven.Core.dll"
+    "$REPO_ROOT/src/Raven.Core/bin/Debug/net9.0/net9.0/Raven.Core.dll"
   do
     if [[ -f "$candidate" ]]; then
       RAVEN_CORE="$candidate"

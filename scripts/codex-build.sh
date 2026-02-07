@@ -21,9 +21,17 @@ dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CON
 echo "==> Emitting Raven.Core.dll via ravc"
 RAVEN_CORE_OUT="$ROOT_DIR/src/Raven.Core/bin/$BUILD_CONFIG/net9.0/Raven.Core.dll"
 mkdir -p "$(dirname "$RAVEN_CORE_OUT")"
+RAVEN_CORE_SOURCES=()
+while IFS= read -r source_file; do
+  RAVEN_CORE_SOURCES+=("$source_file")
+done < <(find "$ROOT_DIR/src/Raven.Core" -maxdepth 1 -name '*.rav' | sort)
+if [ "${#RAVEN_CORE_SOURCES[@]}" -eq 0 ]; then
+  echo "No Raven.Core sources found under src/Raven.Core"
+  exit 1
+fi
 dotnet run --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" --no-restore -p:UseRavenCoreReference=false \
   -- --emit-core-types-only --framework net9.0 --output-type classlib \
-  -o "$RAVEN_CORE_OUT" "$ROOT_DIR/src/Raven.Core/Option.rav" "$ROOT_DIR/src/Raven.Core/Result.rav"
+  -o "$RAVEN_CORE_OUT" "${RAVEN_CORE_SOURCES[@]}"
 
 echo "==> Building Raven.Compiler with Raven.Core"
 dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
