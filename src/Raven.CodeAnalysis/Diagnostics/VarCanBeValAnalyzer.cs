@@ -29,6 +29,9 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             AnalyzeBodyOwner,
             SyntaxKind.MethodDeclaration,
             SyntaxKind.FunctionStatement);
+        context.RegisterSyntaxNodeAction(
+            AnalyzeCompilationUnit,
+            SyntaxKind.CompilationUnit);
     }
 
     private static void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context)
@@ -43,14 +46,41 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         if (body is null)
             return;
 
-        var collector = new VarRebindingCollector(context.SemanticModel);
-        collector.Visit(body);
+        ReportCandidates(context, body);
+    }
 
+    private static void AnalyzeCompilationUnit(SyntaxNodeAnalysisContext context)
+    {
+        if (context.Node is not CompilationUnitSyntax compilationUnit)
+            return;
+
+        var collector = new VarRebindingCollector(context.SemanticModel);
+
+        foreach (var member in compilationUnit.Members)
+        {
+            if (member is not GlobalStatementSyntax globalStatement)
+                continue;
+
+            collector.Visit(globalStatement.Statement);
+        }
+
+        ReportCandidates(context, collector);
+    }
+
+    private static void ReportCandidates(SyntaxNodeAnalysisContext context, SyntaxNode node)
+    {
+        var collector = new VarRebindingCollector(context.SemanticModel);
+        collector.Visit(node);
+        ReportCandidates(context, collector);
+    }
+
+    private static void ReportCandidates(SyntaxNodeAnalysisContext context, VarRebindingCollector collector)
+    {
         foreach (var candidate in collector.GetVarThatCanBeVal())
         {
             var diagnostic = Diagnostic.Create(
                 Descriptor,
-                candidate.IdentifierToken.GetLocation(),
+                candidate.BindingKeywordToken.GetLocation(),
                 candidate.Name);
 
             context.ReportDiagnostic(diagnostic);
@@ -61,13 +91,13 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
     {
         public readonly ILocalSymbol Local;
         public readonly string Name;
-        public readonly SyntaxToken IdentifierToken;
+        public readonly SyntaxToken BindingKeywordToken;
 
-        public VarCandidate(ILocalSymbol local, string name, SyntaxToken identifierToken)
+        public VarCandidate(ILocalSymbol local, string name, SyntaxToken bindingKeywordToken)
         {
             Local = local;
             Name = name;
-            IdentifierToken = identifierToken;
+            BindingKeywordToken = bindingKeywordToken;
         }
     }
 
@@ -139,8 +169,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                     if (_semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
                     {
                         var name = local.Name;
-                        var idToken = declarator.Identifier;
-                        _varLocals[local] = new VarCandidate(local, name, idToken);
+                        _varLocals[local] = new VarCandidate(local, name, node.Declaration.BindingKeyword);
                     }
                 }
             }

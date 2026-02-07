@@ -21,7 +21,7 @@ class C {
             expectedDiagnostics:
             [
                 new DiagnosticResult(VarCanBeValAnalyzer.DiagnosticId)
-                    .WithLocation(3, 13)
+                    .WithLocation(3, 9)
                     .WithArguments("count")
             ],
             disabledDiagnostics: ["RAV1014"]);
@@ -39,6 +39,40 @@ class C {
         count = 1
     }
 }
+""";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: ["RAV1014"]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void VarGlobal_NotReassigned_ReportsDiagnostic()
+    {
+        const string code = "var count = 0";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(VarCanBeValAnalyzer.DiagnosticId)
+                    .WithLocation(1, 1)
+                    .WithArguments("count")
+            ],
+            disabledDiagnostics: ["RAV1014"]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void VarGlobal_Reassigned_NoDiagnostic()
+    {
+        const string code = """
+var count = 0
+count = 1
 """;
 
         var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(

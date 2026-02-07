@@ -1,7 +1,7 @@
 import System.*
 
-var a = Shape.Circle(2)
-var b: Shape = Shape.Circle(2)
+val a = Shape.Circle(2)
+val b: Shape = Shape.Circle(2)
 var c: Shape = .Circle(2)
 
 Foo(.Circle(2))

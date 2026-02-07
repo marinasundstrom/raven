@@ -27,8 +27,8 @@ public sealed class VarCanBeValCodeFixProvider : CodeFixProvider
 
         var span = diagnostic.Location.SourceSpan;
         var node = root.FindNode(span, getInnermostNodeForTie: true);
-        var declarator = node?.FirstAncestorOrSelf<VariableDeclaratorSyntax>();
-        var declaration = declarator?.FirstAncestorOrSelf<VariableDeclarationSyntax>();
+        var declaration = node?.FirstAncestorOrSelf<VariableDeclarationSyntax>()
+            ?? node?.FirstAncestorOrSelf<VariableDeclaratorSyntax>()?.FirstAncestorOrSelf<VariableDeclarationSyntax>();
         if (declaration is null)
             return;
 
