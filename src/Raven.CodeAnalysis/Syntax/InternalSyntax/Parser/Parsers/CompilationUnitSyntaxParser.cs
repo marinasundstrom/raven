@@ -65,7 +65,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         var attributeLists = List(compilationAttributeLists);
 
-        var cu = CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken, Diagnostics);
+        var cu = CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken);
 
         _stopwatch.Stop();
 
@@ -259,7 +259,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             {
                 var skippedToken = ParseIncompleteMemberTokens();
                 TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
+                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);
 
                 AddMemberDeclaration(memberDeclarations, incompleteMember);
                 order = MemberOrder.Members;
@@ -270,7 +270,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             {
                 var skippedToken = ParseIncompleteMemberTokens();
                 TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
+                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);
 
                 AddMemberDeclaration(memberDeclarations, incompleteMember);
                 order = MemberOrder.Members;
@@ -293,7 +293,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             {
                 var skippedToken = ParseIncompleteMemberTokens();
                 TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, terminatorToken, Diagnostics);
+                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, terminatorToken);
 
                 AddMemberDeclaration(memberDeclarations, incompleteMember);
                 order = MemberOrder.Members;
@@ -304,7 +304,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             {
                 var skippedToken = ParseIncompleteMemberTokens();
                 TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, terminatorToken, Diagnostics);
+                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, terminatorToken);
 
                 AddMemberDeclaration(memberDeclarations, incompleteMember);
                 order = MemberOrder.Members;
@@ -327,7 +327,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         SyntaxList modifiers,
         StatementSyntax statement)
     {
-        var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None), Diagnostics);
+        var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None));
 
         memberDeclarations.Add(globalStatement);
     }

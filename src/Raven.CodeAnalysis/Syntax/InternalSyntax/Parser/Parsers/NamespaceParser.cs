@@ -52,7 +52,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                         var statement = new StatementSyntaxParser(this).ParseStatement();
                         if (statement is not null && Position > start)
                         {
-                            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None), Diagnostics);
+                            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None));
                             memberDeclarations.Add(globalStatement);
                             order = MemberOrder.Members;
                         }
@@ -85,7 +85,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 modifiers,
                 namespaceKeyword, name, openBraceToken,
                 new SyntaxList(importDirectives.ToArray()), new SyntaxList(aliasDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
-                closeBraceToken, terminatorToken, Diagnostics);
+                closeBraceToken, terminatorToken);
         }
 
         return ParseFileScopedNamespaceDeclarationCore(attributeLists, modifiers, namespaceKeyword, name, importDirectives, aliasDirectives, memberDeclarations);
@@ -132,7 +132,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             attributeLists,
             modifiers,
             namespaceKeyword, name, terminatorToken,
-            List(importDirectives), List(aliasDirectives), List(memberDeclarations), Diagnostics);
+            List(importDirectives), List(aliasDirectives), List(memberDeclarations));
     }
 
     private void ParseNamespaceMemberDeclarations(
@@ -372,7 +372,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             {
                 var skippedToken = ParseIncompleteNamespaceMemberTokens();
                 TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
+                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);
                 AddMemberDeclarationWithSeparatorValidation(incompleteMember);
                 order = MemberOrder.Members;
                 return;
@@ -383,7 +383,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             if (statement is null)
                 return;
 
-            var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None), Diagnostics);
+            var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None));
 
             AddMemberDeclarationWithSeparatorValidation(globalStatement);
             order = MemberOrder.Members;
@@ -399,13 +399,13 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 {
                     var skippedTokenAfterDeclarations = ParseIncompleteNamespaceMemberTokens();
                     TryConsumeTerminator(out var terminatorToken);
-                    var incompleteMemberAfterDeclarations = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedTokenAfterDeclarations, terminatorToken, Diagnostics);
+                    var incompleteMemberAfterDeclarations = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedTokenAfterDeclarations, terminatorToken);
                     AddMemberDeclarationWithSeparatorValidation(incompleteMemberAfterDeclarations);
                     order = MemberOrder.Members;
                     return;
                 }
 
-                var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None), Diagnostics);
+                var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None));
                 AddMemberDeclarationWithSeparatorValidation(globalStatement);
                 order = MemberOrder.Members;
                 return;
@@ -413,7 +413,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             var skippedToken = ParseIncompleteNamespaceMemberTokens();
             TryConsumeTerminator(out var fallbackTerminatorToken);
-            var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, fallbackTerminatorToken, Diagnostics);
+            var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, fallbackTerminatorToken);
             AddMemberDeclarationWithSeparatorValidation(incompleteMember);
             order = MemberOrder.Members;
         }

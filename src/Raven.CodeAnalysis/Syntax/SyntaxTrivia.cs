@@ -1,4 +1,4 @@
-﻿namespace Raven.CodeAnalysis.Syntax;
+namespace Raven.CodeAnalysis.Syntax;
 
 public struct SyntaxTrivia
 {
@@ -6,8 +6,6 @@ public struct SyntaxTrivia
     private readonly SyntaxToken? _token;
     private readonly int _position;
     private SyntaxNode? _structure;
-    private List<Diagnostic>? _diagnostics;
-    private bool? _containsDiagnostics;
 
     public SyntaxKind Kind => Green.Kind;
 
@@ -67,28 +65,17 @@ public struct SyntaxTrivia
         return Text;
     }
 
-    public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
+    public bool ContainsDiagnostics => GetDiagnostics().Any();
 
     public IEnumerable<Diagnostic> GetDiagnostics()
     {
-        foreach (var diagnostic in Green.GetDiagnostics())
+        var syntaxTree = Token?.SyntaxTree;
+        if (syntaxTree is null)
         {
-            var location = Token?.SyntaxTree!.GetLocation(diagnostic.Span);
-            var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);
-            (_diagnostics ??= new List<Diagnostic>()).Add(d);
+            return Enumerable.Empty<Diagnostic>();
         }
 
-        if (HasStructure)
-        {
-            var structure = GetStructure()!;
-
-            foreach (var diagnostic in structure.GetDiagnostics())
-            {
-                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
-            }
-        }
-
-        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
+        return syntaxTree.GetDiagnostics(FullSpan);
     }
 
     public void Accept(SyntaxVisitor visitor)

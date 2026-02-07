@@ -10,6 +10,7 @@ public class SyntaxTree
     private CompilationUnitSyntax _compilationUnit;
     private SourceText _sourceText;
     private readonly ParseOptions _options;
+    private IReadOnlyList<Diagnostic>? _diagnostics;
 
     internal SyntaxTree(SourceText sourceText, string filePath, ParseOptions? options)
     {
@@ -37,7 +38,8 @@ public class SyntaxTree
     {
         var parser = new InternalSyntax.Parser.LanguageParser(path ?? "file", options ?? new ParseOptions());
 
-        var compilationUnit = (CompilationUnitSyntax)parser.Parse(sourceText).CreateRed();
+        var parseResult = parser.Parse(sourceText);
+        var compilationUnit = (CompilationUnitSyntax)parseResult.Root.CreateRed();
 
         var sourceTree = new SyntaxTree(sourceText, path, options);
 
@@ -45,29 +47,38 @@ public class SyntaxTree
             .WithSyntaxTree(sourceTree);
 
         sourceTree.AttachSyntaxRoot(compilationUnit);
+        sourceTree.AttachDiagnostics(parseResult.Diagnostics);
 
         return sourceTree;
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
-        return GetRoot(cancellationToken).GetDiagnostics();
+        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrToken)
     {
-        return syntaxNodeOrToken.IsNode
-            ? syntaxNodeOrToken.AsNode()!.GetDiagnostics()
-            : syntaxNodeOrToken.AsToken().GetDiagnostics();
+        if (_diagnostics is null)
+        {
+            return Enumerable.Empty<Diagnostic>();
+        }
+
+        var span = syntaxNodeOrToken.IsNode
+            ? syntaxNodeOrToken.AsNode()!.FullSpan
+            : syntaxNodeOrToken.AsToken().FullSpan;
+
+        return _diagnostics.Where(d => d.Location.SourceSpan.IntersectsWith(span));
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(TextSpan span)
     {
-        return GetRoot().DescendantNodesAndTokens()
-            .SelectMany(n => n.IsNode
-                ? n.AsNode()!.GetDiagnostics()
-                : n.AsToken().GetDiagnostics())
-            .Where(d => d.Location.SourceSpan.IntersectsWith(span));
+        if (_diagnostics is null)
+        {
+            return Enumerable.Empty<Diagnostic>();
+        }
+
+        return _diagnostics.Where(d => d.Location.SourceSpan.IntersectsWith(span));
     }
 
     public IEnumerable<TextChange> GetChanges(SyntaxTree oldTree)
@@ -85,6 +96,7 @@ public class SyntaxTree
             .WithSyntaxTree(syntaxTree);
 
         syntaxTree.AttachSyntaxRoot(compilationUnit);
+        syntaxTree.AttachDiagnostics(Array.Empty<InternalSyntax.DiagnosticInfo>());
 
         return syntaxTree;
     }
@@ -98,6 +110,7 @@ public class SyntaxTree
             .WithSyntaxTree(syntaxTree);
 
         syntaxTree.AttachSyntaxRoot(compilationUnit);
+        syntaxTree.AttachDiagnostics(Array.Empty<InternalSyntax.DiagnosticInfo>());
 
         return syntaxTree;
     }
@@ -105,6 +118,13 @@ public class SyntaxTree
     internal void AttachSyntaxRoot(CompilationUnitSyntax compilationUnit)
     {
         _compilationUnit = compilationUnit;
+    }
+
+    internal void AttachDiagnostics(IEnumerable<InternalSyntax.DiagnosticInfo> diagnostics)
+    {
+        _diagnostics = diagnostics
+            .Select(d => Diagnostic.Create(d.Descriptor, GetLocation(d.Span), d.Args))
+            .ToArray();
     }
 
     public Location GetLocation(TextSpan span)

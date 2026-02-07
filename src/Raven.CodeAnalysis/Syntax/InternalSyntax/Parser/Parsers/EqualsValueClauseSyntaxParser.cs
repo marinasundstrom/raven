@@ -28,6 +28,6 @@ internal class EqualsValueClauseSyntaxParser : SyntaxParser
                     GetEndOfLastToken()));
         }
 
-        return SyntaxFactory.EqualsValueClause(equalsToken, expr, Diagnostics);
+        return SyntaxFactory.EqualsValueClause(equalsToken, expr);
     }
 }

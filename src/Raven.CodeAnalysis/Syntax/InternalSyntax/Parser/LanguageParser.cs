@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 using Raven.CodeAnalysis.Text;
@@ -6,6 +6,8 @@ using Raven.CodeAnalysis.Text;
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
+
+internal readonly record struct ParseResult(SyntaxNode Root, IReadOnlyList<DiagnosticInfo> Diagnostics);
 
 internal class LanguageParser
 {
@@ -23,14 +25,15 @@ internal class LanguageParser
         Options = options ?? new ParseOptions();
     }
 
-    public SyntaxNode Parse(SourceText sourceText)
+    public ParseResult Parse(SourceText sourceText)
     {
         using var textReader = sourceText.GetTextReader();
 
         _lexer = new Lexer(textReader);
 
         var parseContext = new BaseParseContext(_lexer, Options);
-        return new CompilationUnitSyntaxParser(parseContext).Parse();
+        var root = new CompilationUnitSyntaxParser(parseContext).Parse();
+        return new ParseResult(root, parseContext.Diagnostics);
     }
 
     public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)

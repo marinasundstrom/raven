@@ -85,7 +85,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 {
                     var skippedToken = ParseIncompleteTypeMemberTokens();
                     TryConsumeTerminator(out var memberTerminatorToken);
-                    var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, memberTerminatorToken, Diagnostics);
+                    var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, memberTerminatorToken);
                     memberList.Add(incompleteMember);
                 }
                 else
@@ -296,7 +296,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     ">"));
         }
 
-        return TypeParameterList(lessThanToken, List(parameters), greaterThanToken, Diagnostics);
+        return TypeParameterList(lessThanToken, List(parameters), greaterThanToken);
     }
 
     private BaseListSyntax? ParseBaseList()
@@ -345,7 +345,7 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             var skippedToken = ParseIncompleteTypeMemberTokens();
             TryConsumeTerminator(out var terminatorToken);
-            return IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken, Diagnostics);
+            return IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBracketToken))
@@ -1026,7 +1026,7 @@ internal class TypeDeclarationParser : SyntaxParser
                                 CompilerDiagnostics.CharacterExpected,
                                 GetSpanOfLastToken(),
                                 ","));
-                        }
+                    }
                 }
 
                 var parameterStart = Position;
@@ -1098,7 +1098,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     ")"));
         }
 
-        return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken, Diagnostics);
+        return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken);
     }
 
     private FieldDeclarationSyntax ParseFieldDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
@@ -1109,7 +1109,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var terminatorToken = ConsumeMemberTerminator();
 
-        return FieldDeclaration(attributeLists, modifiers, declaration, terminatorToken, Diagnostics);
+        return FieldDeclaration(attributeLists, modifiers, declaration, terminatorToken);
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
@@ -1214,8 +1214,7 @@ internal class TypeDeclarationParser : SyntaxParser
             parameterList,
             returnType,
             constraintClauses,
-            terminatorToken,
-            Diagnostics);
+            terminatorToken);
     }
 
     public BracketedParameterListSyntax ParseBracketedParameterList()
@@ -1262,7 +1261,7 @@ internal class TypeDeclarationParser : SyntaxParser
                                 CompilerDiagnostics.CharacterExpected,
                                 GetSpanOfLastToken(),
                                 ","));
-                        }
+                    }
                 }
 
                 var parameterStart = Position;
@@ -1334,7 +1333,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     "]"));
         }
 
-        return BracketedParameterList(openBracketToken, List(parameterList.ToArray()), closeBracketToken, Diagnostics);
+        return BracketedParameterList(openBracketToken, List(parameterList.ToArray()), closeBracketToken);
     }
 
     private SyntaxToken ConsumeOptionalTypeTerminator()

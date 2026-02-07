@@ -79,8 +79,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             openBraceToken,
             List(members),
             closeBraceToken,
-            terminatorToken,
-            Diagnostics);
+            terminatorToken);
     }
 
     private MemberDeclarationSyntax ParseMember()

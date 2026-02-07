@@ -321,7 +321,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             var right = ParseExpressionCore(0);
 
-            return AssignmentExpression(GetAssignmentExpressionKind(assignToken), leftNode, assignToken, right, Diagnostics);
+            return AssignmentExpression(GetAssignmentExpressionKind(assignToken), leftNode, assignToken, right);
         }
 
         while (true)
@@ -841,7 +841,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     return expr;
                 var argumentList = ParseBracketedArgumentListSyntax();
 
-                expr = ElementAccessExpression(expr, argumentList, Diagnostics);
+                expr = ElementAccessExpression(expr, argumentList);
             }
             else if (token.IsKind(SyntaxKind.OpenBraceToken)) // Object initializer trailer (SwiftUI/Flutter-style)
             {
@@ -1105,7 +1105,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     ")"));
         }
 
-        return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken, Diagnostics);
+        return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
     }
 
     public ArgumentSyntax ParseArgument()
@@ -1271,7 +1271,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     "]"));
         }
 
-        return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken, Diagnostics);
+        return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken);
     }
 
     private static bool IsNewLineLike(SyntaxKind kind)
@@ -1536,7 +1536,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         else
         {
             // Just a parenthesized expression
-            return ParenthesizedExpression(openParenToken, (ExpressionSyntax)firstExpr.GetSlot(1), closeParenToken, Diagnostics);
+            return ParenthesizedExpression(openParenToken, (ExpressionSyntax)firstExpr.GetSlot(1), closeParenToken);
         }
     }
 
@@ -1744,7 +1744,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 )); ;
         }
 
-        return ParenthesizedExpression(openParenToken, expr, closeParenToken, Diagnostics);
+        return ParenthesizedExpression(openParenToken, expr, closeParenToken);
     }
 
     private ExpressionSyntax ParseNumericLiteralExpressionSyntax()
@@ -1914,7 +1914,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             elseClause = ParseElseClauseSyntax();
         }
 
-        return IfExpression(ifKeyword, condition!, expression!, elseClause, Diagnostics);
+        return IfExpression(ifKeyword, condition!, expression!, elseClause);
     }
 
     private ElseClauseSyntax ParseElseClauseSyntax()
@@ -1952,7 +1952,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         // We synthesize an empty, missing argument list so the tree remains structurally consistent.
         var openParen = MissingToken(SyntaxKind.OpenParenToken);
         var closeParen = MissingToken(SyntaxKind.CloseParenToken);
-        return ArgumentList(openParen, List(Array.Empty<GreenNode>()), closeParen, Diagnostics);
+        return ArgumentList(openParen, List(Array.Empty<GreenNode>()), closeParen);
     }
 
     private WithExpressionSyntax ParseWithExpression(ExpressionSyntax expression)

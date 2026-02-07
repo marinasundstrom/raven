@@ -340,7 +340,7 @@ internal class NameSyntaxParser : SyntaxParser
         {
             AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
             return IdentifierName(
-                MissingToken(SyntaxKind.IdentifierToken), Diagnostics);
+                MissingToken(SyntaxKind.IdentifierToken));
         }
 
         if (CanTokenBeIdentifier(name))
@@ -456,7 +456,7 @@ internal class NameSyntaxParser : SyntaxParser
                     ">"));
         }
 
-        return TypeArgumentList(lessThanToken, List(argumentList.ToArray()), greaterThanToken, Diagnostics);
+        return TypeArgumentList(lessThanToken, List(argumentList.ToArray()), greaterThanToken);
     }
 
     private static bool IsNewLineLike(SyntaxToken token)
@@ -533,7 +533,7 @@ internal class NameSyntaxParser : SyntaxParser
                     GetSpanOfLastToken()));
         }
 
-        return TupleType(openParenToken, List(elements.ToArray()), closeParenToken, Diagnostics);
+        return TupleType(openParenToken, List(elements.ToArray()), closeParenToken);
     }
 
     private bool LooksLikeTypeArgumentList()

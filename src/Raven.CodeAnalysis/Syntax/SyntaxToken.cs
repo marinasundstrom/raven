@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -9,8 +9,6 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 {
     internal readonly InternalSyntax.SyntaxToken Green;
     private readonly SyntaxNode _parent;
-    private List<Diagnostic>? _diagnostics;
-    private bool? _containsDiagnostics;
 
     public string Text => Green?.Text ?? string.Empty;
 
@@ -160,37 +158,11 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         return HashCode.Combine(Green, _parent);
     }
 
-    public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
+    public bool ContainsDiagnostics => GetDiagnostics().Any();
 
     public IEnumerable<Diagnostic> GetDiagnostics()
     {
-        if (_diagnostics is not null)
-            return _diagnostics;
-
-        foreach (var diagnostic in Green.GetDiagnostics())
-        {
-            var location = SyntaxTree.GetLocation(diagnostic.Span);
-            var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);
-            (_diagnostics ??= new List<Diagnostic>()).Add(d);
-        }
-
-        foreach (var trivia in LeadingTrivia)
-        {
-            foreach (var diagnostic in trivia.GetDiagnostics())
-            {
-                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
-            }
-        }
-
-        foreach (var trivia in TrailingTrivia)
-        {
-            foreach (var diagnostic in trivia.GetDiagnostics())
-            {
-                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
-            }
-        }
-
-        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
+        return SyntaxTree?.GetDiagnostics(FullSpan) ?? Enumerable.Empty<Diagnostic>();
     }
 
     internal SyntaxToken Accept(SyntaxRewriter syntaxRewriter)

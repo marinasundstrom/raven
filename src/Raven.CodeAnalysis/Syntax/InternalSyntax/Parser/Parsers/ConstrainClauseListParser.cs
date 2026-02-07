@@ -111,7 +111,7 @@ internal class ConstrainClauseListParser : SyntaxParser
 
         var constraints = List(constraintNodes);
 
-        return TypeParameterConstraintClause(whereKeyword, typeParameter, colonToken, constraints, Diagnostics);
+        return TypeParameterConstraintClause(whereKeyword, typeParameter, colonToken, constraints);
     }
 
     public TypeParameterConstraintSyntax ParseTypeParameterConstraint()

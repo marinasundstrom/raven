@@ -10,8 +10,6 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
     internal readonly GreenNode Green;
     private readonly SyntaxTree _syntaxTree;
     private readonly SyntaxNode _parent;
-    private List<Diagnostic>? _diagnostics;
-    private bool? _containsDiagnostics;
 
     public SyntaxNode Parent => _parent;
 
@@ -268,42 +266,16 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         return HashCode.Combine(Green, _parent);
     }
 
-    public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
+    public bool ContainsDiagnostics => GetDiagnostics().Any();
 
     public IEnumerable<Diagnostic> GetDiagnostics(bool traverse = true)
     {
-        if (_diagnostics is not null)
-            return _diagnostics;
-
-        foreach (var diagnostic in Green.GetDiagnostics())
+        if (!traverse)
         {
-            var location = SyntaxTree.GetLocation(diagnostic.Span);
-            var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);
-            (_diagnostics ??= new List<Diagnostic>()).Add(d);
+            return Enumerable.Empty<Diagnostic>();
         }
 
-        if (traverse)
-        {
-            foreach (var child in ChildNodesAndTokens())
-            {
-                if (child.IsNode)
-                {
-                    foreach (var diagnostic in child.AsNode()!.GetDiagnostics())
-                    {
-                        (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
-                    }
-                }
-                else if (child.IsToken)
-                {
-                    foreach (var diagnostic in child.AsToken()!.GetDiagnostics())
-                    {
-                        (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
-                    }
-                }
-            }
-        }
-
-        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
+        return SyntaxTree?.GetDiagnostics(FullSpan) ?? Enumerable.Empty<Diagnostic>();
     }
 
     public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)

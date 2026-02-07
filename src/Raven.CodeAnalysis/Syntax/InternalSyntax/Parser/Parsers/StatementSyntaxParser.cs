@@ -180,7 +180,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var skippedToken = CreateSkippedToken(skippedTokens, span);
 
-        return IncompleteStatement(skippedToken, Diagnostics);
+        return IncompleteStatement(skippedToken);
     }
 
     private GotoStatementSyntax ParseGotoStatementSyntax()
@@ -204,7 +204,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var terminatorToken = ConsumeTerminator();
 
-        return GotoStatement(gotoKeyword, identifier, terminatorToken, Diagnostics);
+        return GotoStatement(gotoKeyword, identifier, terminatorToken);
     }
 
     private BreakStatementSyntax ParseBreakStatementSyntax()
@@ -213,7 +213,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var terminatorToken = ConsumeTerminator();
 
-        return BreakStatement(breakKeyword, terminatorToken, Diagnostics);
+        return BreakStatement(breakKeyword, terminatorToken);
     }
 
     private ContinueStatementSyntax ParseContinueStatementSyntax()
@@ -222,7 +222,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var terminatorToken = ConsumeTerminator();
 
-        return ContinueStatement(continueKeyword, terminatorToken, Diagnostics);
+        return ContinueStatement(continueKeyword, terminatorToken);
     }
 
     private StatementSyntax ParseYieldStatementSyntax()
@@ -264,7 +264,7 @@ internal class StatementSyntaxParser : SyntaxParser
             terminatorToken = Token(SyntaxKind.None);
         }
 
-        return YieldReturnStatement(yieldKeyword, returnKeyword, expression, terminatorToken, Diagnostics);
+        return YieldReturnStatement(yieldKeyword, returnKeyword, expression, terminatorToken);
     }
 
     private YieldBreakStatementSyntax ParseYieldBreakStatementSyntax(SyntaxToken yieldKeyword)
@@ -273,7 +273,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var terminatorToken = ConsumeTerminator();
 
-        return YieldBreakStatement(yieldKeyword, breakKeyword, terminatorToken, Diagnostics);
+        return YieldBreakStatement(yieldKeyword, breakKeyword, terminatorToken);
     }
 
     private IfStatementSyntax ParseIfStatementSyntax()
@@ -370,8 +370,7 @@ internal class StatementSyntaxParser : SyntaxParser
             block,
             List(catchClauses.ToArray()),
             finallyClause,
-            terminatorToken,
-            Diagnostics);
+            terminatorToken);
     }
 
     private CatchClauseSyntax ParseCatchClauseSyntax()
@@ -693,7 +692,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     ")"));
         }
 
-        return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken, Diagnostics);
+        return ParameterList(openParenTokenValue, List(parameterList.ToArray()), closeParenToken);
     }
 
     private StatementSyntax? ParseReturnStatementSyntax()
@@ -725,7 +724,7 @@ internal class StatementSyntaxParser : SyntaxParser
             terminatorToken = Token(SyntaxKind.None);
         }
 
-        return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
+        return ReturnStatement(returnKeyword, expression, terminatorToken);
     }
 
     private StatementSyntax ParseThrowStatementSyntax()
@@ -740,7 +739,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var terminatorToken = ConsumeTerminator();
 
-        return ThrowStatement(throwKeyword, expression, terminatorToken, Diagnostics);
+        return ThrowStatement(throwKeyword, expression, terminatorToken);
     }
 
     private UsingDeclarationStatementSyntax ParseUsingDeclarationStatementSyntax()
@@ -749,7 +748,7 @@ internal class StatementSyntaxParser : SyntaxParser
         var declaration = ParseVariableDeclarationSyntax();
         var terminatorToken = ConsumeTerminator();
 
-        return UsingDeclarationStatement(usingKeyword, declaration, terminatorToken, Diagnostics);
+        return UsingDeclarationStatement(usingKeyword, declaration, terminatorToken);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
@@ -767,7 +766,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     var declaration = ParseVariableDeclarationSyntax();
                     var declarationTerminator = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
 
-                    return LocalDeclarationStatement(declaration, declarationTerminator, Diagnostics);
+                    return LocalDeclarationStatement(declaration, declarationTerminator);
                 }
                 break;
         }
@@ -789,10 +788,10 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             var kind = GetAssignmentStatementKind(assignment.Kind, assignment.Left);
 
-            return AssignmentStatement(kind, assignment.Left, assignment.OperatorToken, assignment.Right, terminatorToken, Diagnostics);
+            return AssignmentStatement(kind, assignment.Left, assignment.OperatorToken, assignment.Right, terminatorToken);
         }
 
-        return ExpressionStatement(expression, terminatorToken, Diagnostics);
+        return ExpressionStatement(expression, terminatorToken);
     }
 
     public StatementSyntax? LastStatement { get; set; }
@@ -822,7 +821,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
 
-        return LocalDeclarationStatement(declaration, terminatorToken, Diagnostics);
+        return LocalDeclarationStatement(declaration, terminatorToken);
     }
 
     private SyntaxToken ConsumeTerminatorWithSkippedTokens(bool addSemicolonDiagnostic)

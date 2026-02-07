@@ -43,11 +43,23 @@ internal abstract class ParseContext
         Parent = parent;
     }
 
-    public IReadOnlyList<DiagnosticInfo> Diagnostics => _diagnostics ?? [];
+    public IReadOnlyList<DiagnosticInfo> Diagnostics => GetRootContext()._diagnostics ?? [];
 
     public void AddDiagnostic(DiagnosticInfo diagnostic)
     {
-        (_diagnostics ??= new List<DiagnosticInfo>()).Add(diagnostic);
+        var root = GetRootContext();
+        (root._diagnostics ??= new List<DiagnosticInfo>()).Add(diagnostic);
+    }
+
+    private ParseContext GetRootContext()
+    {
+        var context = this;
+        while (context.Parent is not null)
+        {
+            context = context.Parent;
+        }
+
+        return context;
     }
 
     public virtual int BlockDepth => Parent?.BlockDepth ?? throw new InvalidOperationException("No base or parent set");
