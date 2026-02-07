@@ -510,6 +510,7 @@ project = project.AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnal
 project = project.AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
 project = project.AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
+project = project.AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()));
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;

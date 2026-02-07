@@ -220,36 +220,6 @@ public class ParserRecoveryTests
     }
 
     [Fact]
-    public void TypeDeclarations_SemicolonTerminatorOnSameLine_AreAcceptedWithoutMissingTerminatorDiagnostic()
-    {
-        var source = "class A {}; trait T for A {}";
-
-        var tree = SyntaxTree.ParseText(source);
-        var root = tree.GetRoot();
-        var diagnostic = Assert.Single(
-            tree.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.PreferNewLineBetweenDeclarations));
-
-        Assert.Equal(2, root.Members.Count);
-        Assert.DoesNotContain(
-            tree.GetDiagnostics(),
-            d => d.Descriptor == CompilerDiagnostics.ExpectedNewLineBetweenDeclarations);
-        Assert.Equal(source.IndexOf(';'), diagnostic.Location.SourceSpan.Start);
-        Assert.Equal(1, diagnostic.Location.SourceSpan.Length);
-    }
-
-    [Fact]
-    public void AutoProperty_AccessorsSeparatedBySemicolonsOnSameLine_DoNotReportPreferNewLineDiagnostic()
-    {
-        var source = "class C { public required Name: string { get; init; } }";
-
-        var tree = SyntaxTree.ParseText(source);
-
-        Assert.DoesNotContain(
-            tree.GetDiagnostics(),
-            d => d.Descriptor == CompilerDiagnostics.PreferNewLineBetweenDeclarations);
-    }
-
-    [Fact]
     public void GlobalStatement_PreservesTerminatorToken()
     {
         var source = """

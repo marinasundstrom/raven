@@ -204,15 +204,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
             if (!TryGetDeclarationTerminatorKind(member, out var terminatorKind))
                 return;
 
-            if (terminatorKind == SyntaxKind.SemicolonToken)
-            {
-                AddDiagnostic(
-                    DiagnosticInfo.Create(
-                        CompilerDiagnostics.PreferNewLineBetweenDeclarations,
-                        GetSpanOfLastToken()));
-                return;
-            }
-
             if (terminatorKind == SyntaxKind.None)
             {
                 AddDiagnostic(

@@ -36,8 +36,17 @@ internal static class AnalyzerDiagnosticIdValidator
 
         if (isInternalAnalyzer && CompilerDiagnostics.IsDiagnosticDefined(diagnosticId))
         {
+            if (IsAllowedInternalCompilerDiagnostic(analyzerName, diagnosticId))
+                return;
+
             throw new InvalidOperationException(
                 $"Internal analyzer '{analyzerName}' cannot report diagnostic '{diagnosticId}' because it is already defined by Raven compiler diagnostics.");
         }
+    }
+
+    private static bool IsAllowedInternalCompilerDiagnostic(string analyzerName, string diagnosticId)
+    {
+        return diagnosticId == "RAV1051" &&
+               analyzerName.EndsWith(".PreferNewLineBetweenDeclarationsAnalyzer", StringComparison.Ordinal);
     }
 }
