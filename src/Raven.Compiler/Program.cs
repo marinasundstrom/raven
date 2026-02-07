@@ -532,6 +532,23 @@ if (fix)
         workspace.TryApplyChanges(applyResult.Solution);
         project = workspace.CurrentSolution.GetProject(projectId)!;
 
+        foreach (var appliedFix in applyResult.AppliedFixes)
+        {
+            var document = workspace.CurrentSolution.GetDocument(appliedFix.DocumentId);
+            var path = document?.FilePath ?? document?.Name ?? "<unknown>";
+            var lineSpan = appliedFix.Diagnostic.Location.GetLineSpan();
+            var line = lineSpan.StartLinePosition.Line + 1;
+            var column = lineSpan.StartLinePosition.Character + 1;
+            var diagnosticId = appliedFix.Diagnostic.Id;
+            var displayPath = path;
+            if (!string.IsNullOrWhiteSpace(path) && Path.IsPathRooted(path))
+                displayPath = Path.GetRelativePath(Environment.CurrentDirectory, path);
+
+            var escapedPath = Markup.Escape(displayPath);
+
+            AnsiConsole.MarkupLine($"[grey]{escapedPath}({line},{column}):[/] [blue]{diagnosticId}[/] {appliedFix.Action.Title}");
+        }
+
         foreach (var document in project.Documents)
         {
             if (string.IsNullOrWhiteSpace(document.FilePath))

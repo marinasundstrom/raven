@@ -329,6 +329,7 @@ public class Workspace
 
         var applied = 0;
         var solution = CurrentSolution;
+        var appliedFixes = ImmutableArray.CreateBuilder<CodeFix>();
 
         for (var i = 0; i < maxIterations; i++)
         {
@@ -348,9 +349,10 @@ public class Workspace
 
             solution = updated;
             applied++;
+            appliedFixes.Add(selectedFix);
         }
 
-        return new ApplyCodeFixesResult(solution, applied);
+        return new ApplyCodeFixesResult(solution, applied, appliedFixes.ToImmutable());
     }
 
     private static bool TryGetDiagnosticDocument(Project project, Diagnostic diagnostic, out Document document)

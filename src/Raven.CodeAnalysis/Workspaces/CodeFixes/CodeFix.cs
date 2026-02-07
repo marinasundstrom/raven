@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Raven.CodeAnalysis;
 
 /// <summary>Represents a code action associated with a specific diagnostic.</summary>
@@ -8,4 +10,7 @@ public sealed record CodeFix(
     CodeFixProvider Provider);
 
 /// <summary>Result of applying code fixes in a workspace.</summary>
-public readonly record struct ApplyCodeFixesResult(Solution Solution, int AppliedFixCount);
+public readonly record struct ApplyCodeFixesResult(
+    Solution Solution,
+    int AppliedFixCount,
+    ImmutableArray<CodeFix> AppliedFixes);
