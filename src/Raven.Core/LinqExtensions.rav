@@ -15,7 +15,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Some(values[0])
         }
-        return .None
+        .None
     }
 
     public FirstOrNone(predicate: T -> bool) -> Option<T> {
@@ -23,7 +23,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Some(values[0])
         }
-        return .None
+        .None
     }
 
     public FirstOrError<E>(errorFactory: () -> E) -> Result<T, E> {
@@ -31,7 +31,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Ok(values[0])
         }
-        return .Error(errorFactory())
+        .Error(errorFactory())
     }
 
     public FirstOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
@@ -39,7 +39,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Ok(values[0])
         }
-        return .Error(errorFactory())
+        .Error(errorFactory())
     }
 
     // -------------------------
@@ -51,7 +51,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 0 {
             return .None
         }
-        return .Some(values[values.Count - 1])
+        .Some(values[values.Count - 1])
     }
 
     public LastOrNone(predicate: T -> bool) -> Option<T> {
@@ -59,7 +59,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 0 {
             return .None
         }
-        return .Some(values[values.Count - 1])
+        .Some(values[values.Count - 1])
     }
 
     public LastOrError<E>(errorFactory: () -> E) -> Result<T, E> {
@@ -67,7 +67,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 0 {
             return .Error(errorFactory())
         }
-        return .Ok(values[values.Count - 1])
+        .Ok(values[values.Count - 1])
     }
 
     public LastOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
@@ -75,7 +75,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 0 {
             return .Error(errorFactory())
         }
-        return .Ok(values[values.Count - 1])
+        .Ok(values[values.Count - 1])
     }
 
     // -------------------------
@@ -87,7 +87,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Some(values[0])
         }
-        return .None
+        .None
     }
 
     public SingleOrNone(predicate: T -> bool) -> Option<T> {
@@ -95,7 +95,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Some(values[0])
         }
-        return .None
+        .None
     }
 
     public SingleOrError<E>(errorFactory: () -> E) -> Result<T, E> {
@@ -103,7 +103,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Ok(values[0])
         }
-        return .Error(errorFactory())
+        .Error(errorFactory())
     }
 
     public SingleOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
@@ -111,7 +111,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 1 {
             return .Ok(values[0])
         }
-        return .Error(errorFactory())
+        .Error(errorFactory())
     }
 
     public SingleOrError<E>(errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
@@ -122,7 +122,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 0 {
             return .Error(errorIfNone())
         }
-        return .Error(errorIfMany())
+        .Error(errorIfMany())
     }
 
     public SingleOrError<E>(predicate: T -> bool, errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
@@ -133,7 +133,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         if values.Count == 0 {
             return .Error(errorIfNone())
         }
-        return .Error(errorIfMany())
+        .Error(errorIfMany())
     }
 
     // -------------------------
@@ -150,7 +150,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
             return .Some(values[0])
         }
 
-        return .None
+        .None
     }
 
     public ElementAtOrError<E>(index: int, errorFactory: () -> E) -> Result<T, E> {
