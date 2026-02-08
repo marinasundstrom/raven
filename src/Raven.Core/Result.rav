@@ -13,7 +13,7 @@ import System.Collections.Generic.*
 ///     if v > 3 {
 ///         return .Ok(42)
 ///     }
-///     return .Error("Wrong number")
+///     .Error("Wrong number")
 /// }
 /// ```
 /// 
@@ -49,22 +49,18 @@ public union Result<T, E> {
 public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Gets a value indicating whether the Result was Ok
-    public HasOk: bool {
-        get => self is .Ok(val message)
-    }
+    public HasOk: bool => self is .Ok(val message)
 
     /// Gets a value indicating whether the Result was Error
-    public HasError: bool {
-        get => self is .Error(val message)
-    }
+    public HasError: bool => self is .Error(val message)
 
     /// Converts the Result to an Option
     public IsOk: Option<T> {
         get {
-            if self is .Ok(val v) {
-                return .Some(v)
+            if self is .Ok(val value) {
+                return .Some(value)
             }
-            return .None
+            .None
         }
     }
 
@@ -74,13 +70,13 @@ public extension ResultExtensions<T, E> for Result<T, E> {
             if self is .Error(val e) {
                 return .Some(e)
             }
-            return .None
+            .None
         }
     }
 
     /// Projects the value inside `.Ok` using `mapper`. `.Error` stays `.Error`.
     public Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
-        return self match {
+        self match {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
         }
@@ -88,7 +84,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Monadic bind / flatMap: chains a `Result`-producing function.
     public Then<TResult>(binder: T -> Result<TResult, E>) -> Result<TResult, E> {
-        return self match {
+        self match {
             .Ok(val value) => binder(value)
             .Error(val error) => .Error(error)
         }
@@ -96,7 +92,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Maps the error channel.
     public MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
-        return self match {
+        self match {
             .Ok(val value) => .Ok(value)
             .Error(val error) => .Error(mapper(error))
         }
@@ -104,7 +100,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Matches the result and produces a value.
     public Match<TResult>(ok: T -> TResult, error: E -> TResult) -> TResult {
-        return self match {
+        self match {
             .Ok(val value) => ok(value)
             .Error(val e) => error(e)
         }
@@ -115,7 +111,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Ok(val value) {
             action(value)
         }
-        return self
+        self
     }
 
     /// Runs `action` if this is `.Error`, returning the original result.
@@ -123,12 +119,12 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Error(val e) {
             action(e)
         }
-        return self
+        self
     }
 
     /// Recovers from an error by mapping it to a new result.
     public OrElse(recover: E -> Result<T, E>) -> Result<T, E> {
-        return self match {
+        self match {
             .Ok(val value) => .Ok(value)
             .Error(val e) => recover(e)
         }
@@ -136,7 +132,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Unwrap the value if Ok, otherwise return the value from `factory()`.
     public UnwrapOrElse(factory: () -> T) -> T {
-        return self match {
+        self match {
             .Ok(val value) => value
             .Error(_) => factory()
         }
@@ -148,11 +144,11 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Ok(val value) {
             list.Add(value)
         }
-        return list
+        list
     }
 
     public GetEnumerator() -> IEnumerator<T> {
-        return self.ToEnumerable().GetEnumerator()
+        self.ToEnumerable().GetEnumerator()
     }
     
     /// Unwrap the value if Ok, otherwise return the default value
@@ -160,7 +156,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Ok(val value) {
             return value
         }
-        return default(T)
+        default
     }
 
     /// Unwrap the value if Ok, otherwise throw an exception
@@ -179,7 +175,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Ok(val value) {
             return value
         }
-        return defaultValue
+        defaultValue
     }
 
     /// Unwrap the Error, or throw an exception

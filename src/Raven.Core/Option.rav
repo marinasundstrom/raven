@@ -13,7 +13,7 @@ import System.Collections.Generic.*
 ///     if v > 3 {
 ///         return .Some(42)
 ///     }
-///     return .None
+///     .None
 /// }
 /// ```
 /// 
@@ -49,18 +49,14 @@ public union Option<T> {
 public extension OptionExtensions<T> for Option<T> {
 
     /// Gets a value indicating whether the Option has Some
-    public HasSome: bool {
-        get => self is .Some(val v)
-    }
+    public HasSome: bool => self is .Some(val v)
 
     /// Gets a value indicating whether the Option has None
-    public HasNone: bool {
-        get => self is .None
-    }
+    public HasNone: bool => self is .None
 
     /// Projects the value inside `.Some` using `mapper`. `.None` stays `.None`.
     public Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
-        return self match {
+        self match {
             .Some(val value) => .Some(mapper(value))
             .None => .None
         }
@@ -68,7 +64,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Monadic bind / flatMap: chains an `Option`-producing function.
     public Then<TResult>(binder: T -> Option<TResult>) -> Option<TResult> {
-        return self match {
+        self match {
             .Some(val value) => binder(value)
             .None => .None
         }
@@ -76,7 +72,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Keeps the value only if `predicate` returns true.
     public Where(predicate: T -> bool) -> Option<T> {
-        return self match {
+        self match {
             .Some(val value) => if predicate(value) { .Some(value) } else { .None }
             .None => .None
         }
@@ -84,12 +80,12 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Alias for `Where`.
     public Filter(predicate: T -> bool) -> Option<T> {
-        return self.Where(predicate)
+        self.Where(predicate)
     }
 
     /// Returns this option if it is `.Some`, otherwise returns `alternative()`.
     public OrElse(alternative: () -> Option<T>) -> Option<T> {
-        return self match {
+        self match {
             .Some(_) => self
             .None => alternative()
         }
@@ -97,7 +93,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Returns the contained value or evaluates `factory()`.
     public UnwrapOrElse(factory: () -> T) -> T {
-        return self match {
+        self match {
             .Some(val value) => value
             .None => factory()
         }
@@ -105,7 +101,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Matches the option and produces a value.
     public Match<TResult>(some: T -> TResult, none: () -> TResult) -> TResult {
-        return self match {
+        self match {
             .Some(val value) => some(value)
             .None => none()
         }
@@ -116,7 +112,7 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .Some(val value) {
             action(value)
         }
-        return self
+        self
     }
 
     /// Runs `action` if this is `.None`, returning the original option.
@@ -124,7 +120,7 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .None {
             action()
         }
-        return self
+        self
     }
 
     /// Converts `.Some(x)` to a single-item sequence and `.None` to an empty sequence.
@@ -133,17 +129,17 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .Some(val value) {
             list.Add(value)
         }
-        return list
+        list
     }
 
     public GetEnumerator() -> IEnumerator<T> {
-        return self.ToEnumerable().GetEnumerator()
+        self.ToEnumerable().GetEnumerator()
     }
 
     /// Bridges `Option` into a `Result`-producing pipeline.
     /// If this is `.None`, returns `.Error(noneError())`.
     public ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
-        return self match {
+        self match {
             .Some(val value) => binder(value)
             .None => .Error(noneError())
         }
@@ -151,7 +147,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Maps the contained value into a `Result`. If this is `.None`, returns `.Error(noneError())`.
     public MapResult<TResult, E>(mapper: T -> TResult, noneError: () -> E) -> Result<TResult, E> {
-        return self match {
+        self match {
             .Some(val value) => .Ok(mapper(value))
             .None => .Error(noneError())
         }
@@ -159,19 +155,18 @@ public extension OptionExtensions<T> for Option<T> {
 
     // Converts Option into a Result
     public IsOkOr<E>(error: E) -> Result<T, E> {
-        if self is .Some(val v2) {
-            return .Ok(v2)
+        if self is .Some(val value) {
+            return .Ok(value)
         }
-
-        return .Error(error)    
+        .Error(error)    
     }
 
     // Converts Option into a Result
     public IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
-        if self is .Some(val v2) {
-            return .Ok(v2)
+        if self is .Some(val value) {
+            return .Ok(value)
         }
-        return .Error(errorFactory())    
+        .Error(errorFactory())    
     }
 
     /// Unwrap the value if Some, otherwise return the default value
@@ -195,7 +190,7 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .Some(val value) {
             return value
         }
-        return defaultValue
+        defaultValue
     }
 }
 
@@ -203,7 +198,7 @@ public extension OptionExtensionsNested<T> for Option<Option<T>> {
 
     /// Flattens `Option<Option<T>>` into `Option<T>`.
     public Flatten() -> Option<T> {
-        return self match {
+        self match {
             .Some(val inner) => inner
             .None => .None
         }
@@ -216,14 +211,14 @@ public extension OptionExtensions1<T : class> for Option<T> {
         if opt is .Some(val value) {
             return value
         }
-        return null
+        null
     }
 
     public static implicit operator(value: T?) -> Option<T> {
         if value is not null {
             return .Some(value)
         }
-        return .None
+        .None
     }
 }
 
@@ -233,7 +228,7 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         if opt is .Some(val value) {
             return value
         }
-        return null
+        null
     }
 
     public static implicit operator(value: T?) -> Option<T> {
@@ -241,6 +236,6 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         if value is not null {
             return .Some(value)
         }
-        return .None
+        .None
     }
 }
