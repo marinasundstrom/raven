@@ -157,26 +157,32 @@ public interface ISymbolReferenceOperation<out TSymbol> : IOperation where TSymb
 
 public interface ILocalReferenceOperation : ISymbolReferenceOperation<ILocalSymbol>
 {
+    ILocalSymbol Local { get; }
 }
 
 public interface IVariableReferenceOperation : ISymbolReferenceOperation<ILocalSymbol>
 {
+    ILocalSymbol Variable { get; }
 }
 
 public interface IParameterReferenceOperation : ISymbolReferenceOperation<IParameterSymbol>
 {
+    IParameterSymbol Parameter { get; }
 }
 
 public interface IFieldReferenceOperation : ISymbolReferenceOperation<IFieldSymbol>
 {
+    IFieldSymbol Field { get; }
 }
 
 public interface IPropertyReferenceOperation : ISymbolReferenceOperation<IPropertySymbol>
 {
+    IPropertySymbol Property { get; }
 }
 
 public interface IMethodReferenceOperation : ISymbolReferenceOperation<IMethodSymbol>
 {
+    IMethodSymbol Method { get; }
 }
 
 public interface IMemberReferenceOperation : ISymbolReferenceOperation<ISymbol>
@@ -209,10 +215,18 @@ public interface IConversionOperation : IOperation
 
 public interface IConditionalOperation : IOperation
 {
+    IOperation? Condition { get; }
+
+    IOperation? WhenTrue { get; }
+
+    IOperation? WhenFalse { get; }
 }
 
 public interface IConditionalAccessOperation : IOperation
 {
+    IOperation? Receiver { get; }
+
+    IOperation? WhenNotNull { get; }
 }
 
 public interface IAwaitOperation : IOperation
@@ -313,6 +327,11 @@ public interface ITupleOperation : IOperation
 
 public interface ITryOperation : IOperation
 {
+    IOperation? Body { get; }
+
+    ImmutableArray<ICatchClauseOperation> Catches { get; }
+
+    IOperation? Finally { get; }
 }
 
 public interface ICatchClauseOperation : IOperation
@@ -320,10 +339,19 @@ public interface ICatchClauseOperation : IOperation
     ITypeSymbol ExceptionType { get; }
 
     ILocalSymbol? Local { get; }
+
+    IOperation? Body { get; }
 }
 
 public interface ITryExpressionOperation : IOperation
 {
+    IOperation? Operation { get; }
+
+    ITypeSymbol ExceptionType { get; }
+
+    IMethodSymbol OkConstructor { get; }
+
+    IMethodSymbol ErrorConstructor { get; }
 }
 
 public interface ILambdaOperation : IOperation
@@ -332,6 +360,13 @@ public interface ILambdaOperation : IOperation
 
 public interface ISwitchOperation : IOperation
 {
+    IOperation? Value { get; }
+
+    ImmutableArray<IOperation> Patterns { get; }
+
+    ImmutableArray<IOperation> Guards { get; }
+
+    ImmutableArray<IOperation> ArmValues { get; }
 }
 
 public interface IIsPatternOperation : IOperation
@@ -350,6 +385,8 @@ public interface ICasePatternOperation : IPatternOperation
     IDiscriminatedUnionCaseSymbol CaseSymbol { get; }
 
     IMethodSymbol TryGetMethod { get; }
+
+    ImmutableArray<IOperation> Arguments { get; }
 }
 
 public interface IDeclarationPatternOperation : IPatternOperation
@@ -362,10 +399,13 @@ public interface IDeclarationPatternOperation : IPatternOperation
 public interface IConstantPatternOperation : IPatternOperation
 {
     object ConstantValue { get; }
+
+    IOperation? Value { get; }
 }
 
 public interface IPositionalPatternOperation : IPatternOperation
 {
+    ImmutableArray<IOperation> Subpatterns { get; }
 }
 
 public interface IDiscardPatternOperation : IPatternOperation
@@ -374,14 +414,21 @@ public interface IDiscardPatternOperation : IPatternOperation
 
 public interface INotPatternOperation : IPatternOperation
 {
+    IOperation? Pattern { get; }
 }
 
 public interface IAndPatternOperation : IPatternOperation
 {
+    IOperation? Left { get; }
+
+    IOperation? Right { get; }
 }
 
 public interface IOrPatternOperation : IPatternOperation
 {
+    IOperation? Left { get; }
+
+    IOperation? Right { get; }
 }
 
 public interface IDesignatorOperation : IOperation
