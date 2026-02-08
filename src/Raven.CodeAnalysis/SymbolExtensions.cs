@@ -1,7 +1,10 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -205,7 +208,7 @@ public static partial class SymbolExtensions
     {
         return type switch
         {
-            SourceNamedTypeSymbol sourceType when sourceType.IsExtensionDeclaration => sourceType.ExtensionReceiverType,
+            SourceNamedTypeSymbol sourceType when sourceType.IsExtensionDeclaration => ResolveSourceExtensionReceiverType(sourceType),
             ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is SourceNamedTypeSymbol sourceType
                 => sourceType.ExtensionReceiverType is { } receiverType ? constructed.Substitute(receiverType) : null,
             PENamedTypeSymbol peType => peType.GetExtensionReceiverType(),
@@ -213,6 +216,47 @@ public static partial class SymbolExtensions
                 => peType.GetExtensionReceiverType() is { } receiverType ? constructed.Substitute(receiverType) : null,
             _ => null
         };
+    }
+
+    private static ITypeSymbol? ResolveSourceExtensionReceiverType(SourceNamedTypeSymbol sourceType)
+    {
+        var receiverType = sourceType.ExtensionReceiverType;
+        if (receiverType is not null && receiverType.TypeKind != TypeKind.Error)
+            return receiverType;
+
+        if (TryResolveExtensionReceiverTypeFromSyntax(sourceType, out var resolved))
+        {
+            sourceType.SetExtensionReceiverType(resolved);
+            return resolved;
+        }
+
+        return receiverType;
+    }
+
+    private static bool TryResolveExtensionReceiverTypeFromSyntax(
+        SourceNamedTypeSymbol sourceType,
+        [NotNullWhen(true)] out ITypeSymbol? receiverType)
+    {
+        receiverType = null;
+
+        if (sourceType.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return false;
+
+        var compilation = (sourceType.ContainingAssembly as SourceAssemblySymbol)?.Compilation;
+        if (compilation is null)
+            return false;
+
+        var syntaxReference = sourceType.DeclaringSyntaxReferences
+            .FirstOrDefault(static reference => reference.GetSyntax() is ExtensionDeclarationSyntax);
+
+        if (syntaxReference?.GetSyntax() is not ExtensionDeclarationSyntax extensionSyntax)
+            return false;
+
+        var semanticModel = compilation.GetSemanticModel(extensionSyntax.SyntaxTree);
+        var binder = semanticModel.GetBinder(extensionSyntax);
+        receiverType = binder.ResolveType(extensionSyntax.ReceiverType);
+
+        return receiverType is not null && receiverType.TypeKind != TypeKind.Error;
     }
 
     private static ITypeSymbol SubstituteTypeParameters(
