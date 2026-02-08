@@ -309,11 +309,13 @@ partial class BlockBinder
         }
 
         var boundStatements = new List<BoundStatement>(block.Statements.Count);
+        var hasDisallowedReturnInExpressionContext = false;
         foreach (var stmt in block.Statements)
         {
             BoundStatement bound;
             if (!allowReturn && stmt is ReturnStatementSyntax ret)
             {
+                hasDisallowedReturnInExpressionContext = true;
                 _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
                 var expr = ret.Expression is null
                     ? BoundFactory.UnitExpression()
@@ -325,6 +327,7 @@ partial class BlockBinder
                 bound = BindStatement(stmt);
                 if (!allowReturn && bound is BoundReturnStatement br)
                 {
+                    hasDisallowedReturnInExpressionContext = true;
                     _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
                     var expr = br.Expression ?? BoundFactory.UnitExpression();
                     bound = new BoundExpressionStatement(expr);
@@ -345,7 +348,8 @@ partial class BlockBinder
         var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType, localsAtDepth.ToImmutableArray());
         CacheBoundNode(block, blockExpr);
 
-        ReportUnreachableStatements(block);
+        if (allowReturn || !hasDisallowedReturnInExpressionContext)
+            ReportUnreachableStatements(block);
 
         ClearNonNullSymbolsAtDepth(depth);
 

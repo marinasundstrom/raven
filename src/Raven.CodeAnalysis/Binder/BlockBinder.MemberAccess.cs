@@ -90,8 +90,8 @@ partial class BlockBinder
 
     private BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
     {
-        var candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(methodGroup.Methods, syntax.ArgumentList.Arguments);
-        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgumentBinding, syntax.ArgumentList.Arguments, out var hasErrors);
+        var candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(methodGroup.Methods, syntax.ArgumentList.Arguments, methodGroup.Receiver);
+        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgumentBinding, syntax.ArgumentList.Arguments, out var hasErrors, methodGroup.Receiver);
 
         if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
         {
@@ -200,9 +200,10 @@ partial class BlockBinder
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 
-    private static ImmutableArray<IMethodSymbol> FilterInvocationCandidatesForArgumentBinding(
+    private ImmutableArray<IMethodSymbol> FilterInvocationCandidatesForArgumentBinding(
         ImmutableArray<IMethodSymbol> methods,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        BoundExpression? receiver = null)
     {
         if (methods.IsDefaultOrEmpty)
             return methods;
@@ -218,6 +219,16 @@ partial class BlockBinder
         {
             if (method is null)
                 continue;
+
+            if (method.IsExtensionMethod &&
+                receiver is not null &&
+                method.Parameters.Length > 0)
+            {
+                var extensionReceiverType = method.Parameters[0].Type;
+                var conversion = Compilation.ClassifyConversion(receiver.Type, extensionReceiverType);
+                if (!conversion.Exists || !conversion.IsImplicit)
+                    continue;
+            }
 
             var parameters = method.Parameters;
 
@@ -258,7 +269,8 @@ partial class BlockBinder
     private BoundArgument[] BindInvocationArgumentsWithCandidateTargetTypes(
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        out bool hasErrors)
+        out bool hasErrors,
+        BoundExpression? receiver = null)
     {
         // Bind invocation arguments while supplying a best-effort target type.
         // This is important for target-typed member bindings inside argument position,
@@ -279,13 +291,13 @@ partial class BlockBinder
 
             if (arg.NameColon is null)
             {
-                targetType = TryGetCommonPositionalParameterType(methods, i);
+                targetType = TryGetCommonPositionalParameterType(methods, i, receiver);
             }
             else
             {
                 var argName = arg.NameColon.Name.Identifier.ValueText;
                 if (!string.IsNullOrEmpty(argName))
-                    targetType = TryGetCommonNamedParameterType(methods, argName);
+                    targetType = TryGetCommonNamedParameterType(methods, argName, receiver);
             }
 
             var boundExpr = targetType is null
@@ -312,7 +324,7 @@ partial class BlockBinder
 
         return boundArguments;
 
-        static ITypeSymbol? TryGetCommonPositionalParameterType(ImmutableArray<IMethodSymbol> methods, int argumentIndex)
+        ITypeSymbol? TryGetCommonPositionalParameterType(ImmutableArray<IMethodSymbol> methods, int argumentIndex, BoundExpression? invocationReceiver)
         {
             if (methods.IsDefaultOrEmpty)
                 return null;
@@ -331,7 +343,7 @@ partial class BlockBinder
                 if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
                     return null;
 
-                var type = method.Parameters[parameterIndex].Type;
+                var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver);
 
                 if (!hasCommon)
                 {
@@ -347,7 +359,7 @@ partial class BlockBinder
             return hasCommon ? common : null;
         }
 
-        static ITypeSymbol? TryGetCommonNamedParameterType(ImmutableArray<IMethodSymbol> methods, string argumentName)
+        ITypeSymbol? TryGetCommonNamedParameterType(ImmutableArray<IMethodSymbol> methods, string argumentName, BoundExpression? invocationReceiver)
         {
             if (methods.IsDefaultOrEmpty)
                 return null;
@@ -365,7 +377,11 @@ partial class BlockBinder
                 if (parameter is null)
                     return null;
 
-                var type = parameter.Type;
+                var parameterIndex = method.Parameters.IndexOf(parameter);
+                if (parameterIndex < 0)
+                    return null;
+
+                var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver);
 
                 if (!hasCommon)
                 {
@@ -380,6 +396,256 @@ partial class BlockBinder
 
             return hasCommon ? common : null;
         }
+    }
+
+    private ITypeSymbol GetInvocationParameterTypeForArgumentBinding(
+        IMethodSymbol method,
+        int parameterIndex,
+        BoundExpression? receiver)
+    {
+        var parameterType = method.Parameters[parameterIndex].Type;
+
+        if (!method.IsExtensionMethod || receiver is null || method.Parameters.IsDefaultOrEmpty)
+            return parameterType;
+
+        var extensionReceiverType = method.GetExtensionReceiverType() ?? method.Parameters[0].Type;
+        if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
+            return parameterType;
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        if (!TryUnifyExtensionReceiverType(extensionReceiverType, receiver.Type, substitutions))
+            return parameterType;
+
+        return SubstituteTypeParameters(parameterType, substitutions);
+    }
+
+    private static bool TryUnifyExtensionReceiverType(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        parameterType = NormalizeTypeForExtensionInference(parameterType);
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (parameterType is ITypeParameterSymbol typeParameter)
+            return TryRecordExtensionSubstitution(typeParameter, argumentType, substitutions);
+
+        if (parameterType is INamedTypeSymbol paramNamed)
+        {
+            if (argumentType is INamedTypeSymbol argNamed)
+            {
+                if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
+                    return true;
+
+                foreach (var iface in argNamed.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                for (var baseType = argNamed.BaseType; baseType is not null; baseType = baseType.BaseType)
+                {
+                    if (TryUnifyNamedType(paramNamed, baseType, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (argumentType is IArrayTypeSymbol arrayArgument)
+            {
+                if (TryUnifyArrayLike(paramNamed, arrayArgument, substitutions))
+                    return true;
+
+                foreach (var iface in arrayArgument.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (Conversion.IsNullable(argumentType))
+            {
+                var plainArgument = argumentType.GetPlainType();
+                if (plainArgument is INamedTypeSymbol plainNamed && TryUnifyNamedType(paramNamed, plainNamed, substitutions))
+                    return true;
+
+                foreach (var iface in plainArgument.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
+        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+            return TryUnifyExtensionReceiverType(paramArray.ElementType, argArray.ElementType, substitutions);
+
+        if (Conversion.IsNullable(parameterType))
+        {
+            var plainParameter = parameterType.GetPlainType();
+
+            if (Conversion.IsNullable(argumentType))
+                return TryUnifyExtensionReceiverType(plainParameter, argumentType.GetPlainType(), substitutions);
+
+            if (!argumentType.IsValueType)
+                return TryUnifyExtensionReceiverType(plainParameter, argumentType, substitutions);
+
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(parameterType, argumentType);
+
+        static bool TryUnifyNamedType(
+            INamedTypeSymbol parameterNamed,
+            INamedTypeSymbol argumentNamed,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        {
+            var parameterDefinition = parameterNamed.OriginalDefinition ?? parameterNamed;
+            var argumentDefinition = argumentNamed.OriginalDefinition ?? argumentNamed;
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
+                return false;
+
+            var parameterArguments = parameterNamed.TypeArguments;
+            var argumentArguments = argumentNamed.TypeArguments;
+
+            if (parameterArguments.IsDefault || argumentArguments.IsDefault || parameterArguments.Length != argumentArguments.Length)
+                return false;
+
+            for (int i = 0; i < parameterArguments.Length; i++)
+            {
+                if (!TryUnifyExtensionReceiverType(parameterArguments[i], argumentArguments[i], map))
+                    return false;
+            }
+
+            return true;
+        }
+
+        static bool TryUnifyArrayLike(
+            INamedTypeSymbol parameterNamed,
+            IArrayTypeSymbol argumentArray,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        {
+            var constructedFrom = parameterNamed.ConstructedFrom ?? parameterNamed;
+
+            if (constructedFrom.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T or
+                SpecialType.System_Collections_Generic_ICollection_T or
+                SpecialType.System_Collections_Generic_IList_T ||
+                IsGenericCollectionInterface(parameterNamed, "IReadOnlyCollection") ||
+                IsGenericCollectionInterface(parameterNamed, "IReadOnlyList"))
+            {
+                return TryUnifyExtensionReceiverType(parameterNamed.TypeArguments[0], argumentArray.ElementType, map);
+            }
+
+            return false;
+        }
+
+        static bool IsGenericCollectionInterface(INamedTypeSymbol parameterNamed, string interfaceName)
+        {
+            var definition = parameterNamed.ConstructedFrom ?? parameterNamed;
+
+            if (!string.Equals(definition.Name, interfaceName, StringComparison.Ordinal))
+                return false;
+
+            var ns = definition.ContainingNamespace?.ToDisplayString();
+            return string.Equals(ns, "System.Collections.Generic", StringComparison.Ordinal);
+        }
+    }
+
+    private static bool TryRecordExtensionSubstitution(
+        ITypeParameterSymbol typeParameter,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (substitutions.TryGetValue(typeParameter, out var existing))
+        {
+            existing = NormalizeTypeForExtensionInference(existing);
+
+            if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
+                return true;
+
+            return false;
+        }
+
+        substitutions[typeParameter] = argumentType;
+        return true;
+    }
+
+    private static ITypeSymbol NormalizeTypeForExtensionInference(ITypeSymbol type)
+    {
+        return type switch
+        {
+            LiteralTypeSymbol literal => literal.UnderlyingType,
+            _ => type
+        };
+    }
+
+    private static ITypeSymbol SubstituteTypeParameters(
+        ITypeSymbol type,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        if (type is ITypeParameterSymbol parameter &&
+            substitutions.TryGetValue(parameter, out var replacement))
+        {
+            return replacement;
+        }
+
+        if (type is NullableTypeSymbol nullableType)
+        {
+            var substituted = SubstituteTypeParameters(nullableType.UnderlyingType, substitutions);
+            return SymbolEqualityComparer.Default.Equals(substituted, nullableType.UnderlyingType)
+                ? type
+                : substituted.MakeNullable();
+        }
+
+        if (type is ByRefTypeSymbol byRefType)
+        {
+            var substituted = SubstituteTypeParameters(byRefType.ElementType, substitutions);
+            return SymbolEqualityComparer.Default.Equals(substituted, byRefType.ElementType)
+                ? type
+                : new ByRefTypeSymbol(substituted);
+        }
+
+        if (type is IAddressTypeSymbol addressType)
+        {
+            var substituted = SubstituteTypeParameters(addressType.ReferencedType, substitutions);
+            return SymbolEqualityComparer.Default.Equals(substituted, addressType.ReferencedType)
+                ? type
+                : new AddressTypeSymbol(substituted);
+        }
+
+        if (type is IArrayTypeSymbol arrayType)
+        {
+            var substituted = SubstituteTypeParameters(arrayType.ElementType, substitutions);
+            return SymbolEqualityComparer.Default.Equals(substituted, arrayType.ElementType)
+                ? type
+                : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+        }
+
+        if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+        {
+            var typeArguments = namedType.TypeArguments;
+            var substituted = new ITypeSymbol[typeArguments.Length];
+            var changed = false;
+
+            for (int i = 0; i < typeArguments.Length; i++)
+            {
+                substituted[i] = SubstituteTypeParameters(typeArguments[i], substitutions);
+                changed |= !SymbolEqualityComparer.Default.Equals(substituted[i], typeArguments[i]);
+            }
+
+            if (changed)
+                return namedType.Construct(substituted);
+        }
+
+        return type;
     }
 
     private BoundExpression BindConstructorInvocation(

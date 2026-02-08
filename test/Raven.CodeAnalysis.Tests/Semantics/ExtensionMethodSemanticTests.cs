@@ -197,7 +197,8 @@ public static class Extensions {
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -236,7 +237,8 @@ public static class Extensions {
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -270,7 +272,8 @@ let numbers = [1, 2, 3]
 let result = numbers.Where(value => value == 2)
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -1689,5 +1692,178 @@ let result = value |> 5
         var diagnostics = compilation.GetDiagnostics();
         var diagnostic = Assert.Single(diagnostics);
         Assert.Equal("RAV2800", diagnostic.Descriptor.Id);
+    }
+
+    [Fact]
+    public void MemberAccess_WithCompetingGenericExtensionMaps_InfersLambdaFromReceiver()
+    {
+        const string source = """
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+public union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+extension OptionExtensions<T> for Option<T> {
+    Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+        return self match {
+            .Some(val value) => .Some(mapper(value))
+            .None => .None
+        }
+    }
+}
+
+extension ResultExtensions<T, E> for Result<T, E> {
+    Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+        return self match {
+            .Ok(val value) => .Ok(mapper(value))
+            .Error(val error) => .Error(error)
+        }
+    }
+}
+
+class Container {
+    Test() -> Option<int> {
+        let option: Option<int> = .Some(42)
+        return option.Map(x => x * 2)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Map");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.Equal("Map", boundInvocation.Method.Name);
+        Assert.Equal("OptionExtensions", boundInvocation.Method.ContainingType?.Name);
+        Assert.True(boundInvocation.Method.IsGenericMethod);
+        Assert.Contains(boundInvocation.Method.TypeArguments, t => t.SpecialType == SpecialType.System_Int32);
+    }
+
+    [Fact]
+    public void MemberAccess_WithCompetingGenericExtensionMaps_InfersLambdaReturnFromConstantBody()
+    {
+        const string source = """
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+public union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+extension OptionExtensions<T> for Option<T> {
+    Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+        return self match {
+            .Some(val value) => .Some(mapper(value))
+            .None => .None
+        }
+    }
+}
+
+extension ResultExtensions<T, E> for Result<T, E> {
+    Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+        return self match {
+            .Ok(val value) => .Ok(mapper(value))
+            .Error(val error) => .Error(error)
+        }
+    }
+}
+
+class Container {
+    Test() -> Option<int> {
+        let option: Option<int> = .Some(42)
+        return option.Map(x => 42)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Map");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.Equal("OptionExtensions", boundInvocation.Method.ContainingType?.Name);
+        Assert.Contains(boundInvocation.Method.TypeArguments, t => t.SpecialType == SpecialType.System_Int32);
+    }
+
+    [Fact]
+    public void MemberAccess_WithCompetingGenericExtensionMaps_AllowsExplicitLambdaParameterType()
+    {
+        const string source = """
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+public union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+extension OptionExtensions<T> for Option<T> {
+    Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+        return self match {
+            .Some(val value) => .Some(mapper(value))
+            .None => .None
+        }
+    }
+}
+
+extension ResultExtensions<T, E> for Result<T, E> {
+    Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+        return self match {
+            .Ok(val value) => .Ok(mapper(value))
+            .Error(val error) => .Error(error)
+        }
+    }
+}
+
+class Container {
+    Test() -> Option<int> {
+        let option: Option<int> = .Some(42)
+        return option.Map((x: int) -> int => x * 2)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Map");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.Equal("OptionExtensions", boundInvocation.Method.ContainingType?.Name);
+        Assert.Contains(boundInvocation.Method.TypeArguments, t => t.SpecialType == SpecialType.System_Int32);
     }
 }

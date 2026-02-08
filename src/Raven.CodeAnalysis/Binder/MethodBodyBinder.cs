@@ -85,7 +85,11 @@ class MethodBodyBinder : BlockBinder
         if (!skipTrailingExpressionCheck &&
             !SymbolEqualityComparer.Default.Equals(_methodSymbol.ReturnType, unit))
         {
-            if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol t && !IsAssignable(_methodSymbol.ReturnType, t, out _))
+            if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt &&
+                exprStmt.Expression.Type is ITypeSymbol t &&
+                !_methodSymbol.ReturnType.ContainsErrorType() &&
+                !t.ContainsErrorType() &&
+                !IsAssignable(_methodSymbol.ReturnType, t, out _))
             {
                 _diagnostics.ReportCannotConvertFromTypeToType(
                     t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),

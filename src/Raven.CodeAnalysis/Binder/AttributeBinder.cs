@@ -84,7 +84,10 @@ internal sealed class AttributeBinder : BlockBinder
             }
 
             var boundArgumentExpression = BindExpression(argumentSyntax.Expression);
-            if (boundArgumentExpression is BoundErrorExpression)
+            var hasArgumentErrors = boundArgumentExpression is BoundErrorExpression ||
+                boundArgumentExpression.Type?.ContainsErrorType() == true;
+
+            if (hasArgumentErrors)
             {
                 hasErrors = true;
             }
