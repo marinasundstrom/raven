@@ -157,6 +157,58 @@ public class ParserRecoveryTests
     }
 
     [Fact]
+    public void CompilationUnit_FunctionAfterUnion_ParsesAsGlobalStatement()
+    {
+        var source = """
+            WriteLine(1)
+            union Option<T> {
+                Some(value: T)
+                None
+            }
+            func tapIfPositive(opt: Option<int>) -> Option<int> {
+                return opt
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Equal(3, root.Members.Count);
+        Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        Assert.IsType<UnionDeclarationSyntax>(root.Members[1]);
+        var trailingGlobal = Assert.IsType<GlobalStatementSyntax>(root.Members[2]);
+        Assert.IsType<FunctionStatementSyntax>(trailingGlobal.Statement);
+        Assert.DoesNotContain(root.Members, member => member is IncompleteMemberDeclarationSyntax);
+    }
+
+    [Fact]
+    public void FileScopedNamespace_FunctionAfterUnion_ParsesAsGlobalStatement()
+    {
+        var source = """
+            namespace N;
+            WriteLine(1)
+            union Option<T> {
+                Some(value: T)
+                None
+            }
+            func tapIfPositive(opt: Option<int>) -> Option<int> {
+                return opt
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var fileScopedNamespace = Assert.IsType<FileScopedNamespaceDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.Equal(3, fileScopedNamespace.Members.Count);
+        Assert.IsType<GlobalStatementSyntax>(fileScopedNamespace.Members[0]);
+        Assert.IsType<UnionDeclarationSyntax>(fileScopedNamespace.Members[1]);
+        var trailingGlobal = Assert.IsType<GlobalStatementSyntax>(fileScopedNamespace.Members[2]);
+        Assert.IsType<FunctionStatementSyntax>(trailingGlobal.Statement);
+        Assert.DoesNotContain(fileScopedNamespace.Members, member => member is IncompleteMemberDeclarationSyntax);
+    }
+
+    [Fact]
     public void TypeMembers_OnSameLine_AreReportedAsMissingTerminator()
     {
         var source = """

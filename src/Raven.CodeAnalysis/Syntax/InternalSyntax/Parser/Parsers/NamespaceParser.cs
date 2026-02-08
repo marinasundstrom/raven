@@ -142,17 +142,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
         List<MemberDeclarationSyntax> memberDeclarations,
         ref MemberOrder order)
     {
-        static bool HasNonGlobalDeclarations(List<MemberDeclarationSyntax> members)
-        {
-            foreach (var member in members)
-            {
-                if (member is not GlobalStatementSyntax)
-                    return true;
-            }
-
-            return false;
-        }
-
         static bool IsLikelyNamespaceMemberStart(SyntaxToken token)
         {
             return token.Kind is
@@ -368,16 +357,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 return;
             }
 
-            if (HasNonGlobalDeclarations(memberDeclarations))
-            {
-                var skippedToken = ParseIncompleteNamespaceMemberTokens();
-                TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);
-                AddMemberDeclarationWithSeparatorValidation(incompleteMember);
-                order = MemberOrder.Members;
-                return;
-            }
-
             var statement = new StatementSyntaxParser(this).ParseStatement();
 
             if (statement is null)
@@ -395,16 +374,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (statement is not null && Position > statementStart)
             {
-                if (HasNonGlobalDeclarations(memberDeclarations))
-                {
-                    var skippedTokenAfterDeclarations = ParseIncompleteNamespaceMemberTokens();
-                    TryConsumeTerminator(out var terminatorToken);
-                    var incompleteMemberAfterDeclarations = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedTokenAfterDeclarations, terminatorToken);
-                    AddMemberDeclarationWithSeparatorValidation(incompleteMemberAfterDeclarations);
-                    order = MemberOrder.Members;
-                    return;
-                }
-
                 var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None));
                 AddMemberDeclarationWithSeparatorValidation(globalStatement);
                 order = MemberOrder.Members;

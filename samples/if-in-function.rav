@@ -5,11 +5,6 @@ WriteLine(tapIfPositive(.Some(42)))
 WriteLine(tapIfPositive(.None))
 WriteLine(classify(3))
 
-union Option<T> {
-    Some(value: T)
-    None
-}
-
 func tapIfPositive(opt: Option<int>) -> Option<int> {
     if opt is .Some(val value) {
         if value > 0 {
@@ -29,4 +24,9 @@ func classify(value: int) -> string {
     } else {
         "zero"
     }
+}
+
+union Option<T> {
+    Some(value: T)
+    None
 }

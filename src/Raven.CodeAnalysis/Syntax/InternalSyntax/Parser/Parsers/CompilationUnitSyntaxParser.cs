@@ -118,17 +118,6 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         List<MemberDeclarationSyntax> memberDeclarations,
         ref MemberOrder order)
     {
-        static bool HasNonGlobalDeclarations(List<MemberDeclarationSyntax> members)
-        {
-            foreach (var member in members)
-            {
-                if (member is not GlobalStatementSyntax)
-                    return true;
-            }
-
-            return false;
-        }
-
         if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
             var start = Position;
@@ -266,17 +255,6 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 return;
             }
 
-            if (HasNonGlobalDeclarations(memberDeclarations))
-            {
-                var skippedToken = ParseIncompleteMemberTokens();
-                TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(attributeLists, modifiers, skippedToken, terminatorToken);
-
-                AddMemberDeclaration(memberDeclarations, incompleteMember);
-                order = MemberOrder.Members;
-                return;
-            }
-
             var statement = new StatementSyntaxParser(this).ParseStatement();
 
             if (statement is null)
@@ -290,17 +268,6 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             var statementStart = StatementSyntaxParser.IsTokenPotentialStatementStart(nextToken);
 
             if (!statementStart)
-            {
-                var skippedToken = ParseIncompleteMemberTokens();
-                TryConsumeTerminator(out var terminatorToken);
-                var incompleteMember = IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, terminatorToken);
-
-                AddMemberDeclaration(memberDeclarations, incompleteMember);
-                order = MemberOrder.Members;
-                return;
-            }
-
-            if (HasNonGlobalDeclarations(memberDeclarations))
             {
                 var skippedToken = ParseIncompleteMemberTokens();
                 TryConsumeTerminator(out var terminatorToken);
