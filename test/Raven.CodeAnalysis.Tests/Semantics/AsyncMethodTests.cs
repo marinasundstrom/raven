@@ -262,6 +262,53 @@ return await Task.FromResult(1)
     }
 
     [Fact]
+    public void TopLevelReturnUnit_SynthesizesUnitMain()
+    {
+        const string source = "return ()";
+
+        var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        compilation.EnsureSetup();
+
+        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
+        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
+
+        Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
+        Assert.Empty(program.GetMembers("MainAsync"));
+    }
+
+    [Fact]
+    public void TopLevelAwait_WithReturnUnit_SynthesizesTaskMain()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+await Task.CompletedTask
+return ()
+""";
+
+        var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        compilation.EnsureSetup();
+
+        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
+        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
+        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+
+        Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task, asyncMain.ReturnType.SpecialType);
+    }
+
+    [Fact]
+    public void TopLevelReturnWithoutExpression_ReportsExpressionExpected()
+    {
+        const string source = "return";
+
+        var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.ExpressionExpected);
+    }
+
+    [Fact]
     public void AsyncFunction_WithExplicitNonTaskReturnType_ReportsDiagnostic()
     {
         const string source = """

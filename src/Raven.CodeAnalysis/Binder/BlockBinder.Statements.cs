@@ -688,6 +688,11 @@ partial class BlockBinder
     {
         BoundExpression? expr = null;
 
+        if (returnStatement.Expression is null && IsSynthesizedTopLevelEntryPointContext())
+        {
+            _diagnostics.ReportExpressionExpected(returnStatement.ReturnKeyword.GetLocation());
+        }
+
         if (returnStatement.Expression is not null)
         {
             ITypeSymbol? targetType = null;
@@ -774,6 +779,11 @@ partial class BlockBinder
         }
 
         return new BoundReturnStatement(expr);
+    }
+
+    private bool IsSynthesizedTopLevelEntryPointContext()
+    {
+        return _containingSymbol is SynthesizedMainMethodSymbol or SynthesizedMainAsyncMethodSymbol;
     }
 
     private BoundStatement BindYieldReturnStatement(YieldReturnStatementSyntax yieldReturn)

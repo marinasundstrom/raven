@@ -159,17 +159,24 @@ public partial class Compilation
 
     internal void EnsureSetup()
     {
-        if (setup)
+        if (setup || isSettingUp)
             return;
-
-        isSettingUp = true;
 
         lock (_setupLock)
         {
-            if (!setup)
+            if (setup || isSettingUp)
+                return;
+
+            isSettingUp = true;
+
+            try
             {
                 Setup();
                 setup = true;
+            }
+            finally
+            {
+                isSettingUp = false;
             }
         }
     }
@@ -252,24 +259,16 @@ public partial class Compilation
     {
         if (_topLevelProgramMembers.TryGetValue(compilationUnit.SyntaxTree, out var existing))
         {
-            if (existing.MainMethod is null)
-            {
-                SpinWait.SpinUntil(() => existing.MainMethod is not null);
-            }
-
             return (existing.ProgramClass, existing.MainMethod!, existing.AsyncMainMethod);
         }
 
-        var returnsInt = bindableGlobals.Any(static g => ContainsReturnWithExpressionOutsideNestedFunctions(g.Statement));
+        var returnsInt = bindableGlobals.Any(static g => ContainsNonUnitReturnOutsideNestedFunctions(g.Statement));
         var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
         var hasTopLevelMainFunction = bindableGlobals.Any(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" });
         var containsExecutableCode = !hasTopLevelMainFunction && (bindableGlobals.Count == 0
             || bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax));
 
         var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
-
-        var members = new TopLevelProgramMembers(programClass);
-        _topLevelProgramMembers[compilationUnit.SyntaxTree] = members;
 
         SynthesizedMainAsyncMethodSymbol? asyncImplementation = null;
         if (requiresAsync)
@@ -289,8 +288,10 @@ public partial class Compilation
             returnsInt,
             asyncImplementation);
 
+        var members = new TopLevelProgramMembers(programClass);
         members.MainMethod = mainMethod;
         members.AsyncMainMethod = asyncImplementation;
+        _topLevelProgramMembers[compilationUnit.SyntaxTree] = members;
 
         return (programClass, mainMethod, asyncImplementation);
     }
@@ -367,24 +368,33 @@ public partial class Compilation
         }
     }
 
-    internal static bool ContainsReturnWithExpressionOutsideNestedFunctions(StatementSyntax statement)
+    internal static bool ContainsNonUnitReturnOutsideNestedFunctions(StatementSyntax statement)
     {
-        return ContainsReturnWithExpressionOutsideNestedFunctions((SyntaxNode)statement);
+        return ContainsNonUnitReturnOutsideNestedFunctions((SyntaxNode)statement);
 
-        static bool ContainsReturnWithExpressionOutsideNestedFunctions(SyntaxNode node)
+        static bool ContainsNonUnitReturnOutsideNestedFunctions(SyntaxNode node)
         {
             if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
                 return false;
 
-            if (node is ReturnStatementSyntax { Expression: not null })
+            if (node is ReturnStatementSyntax returnStatement)
+            {
+                if (returnStatement.Expression is null)
+                    return false;
+
+                // Explicit `return ()` keeps synthesized main as unit-returning.
+                if (returnStatement.Expression is UnitExpressionSyntax)
+                    return false;
+
                 return true;
+            }
 
             foreach (var child in node.ChildNodes())
             {
                 if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
                     continue;
 
-                if (ContainsReturnWithExpressionOutsideNestedFunctions(child))
+                if (ContainsNonUnitReturnOutsideNestedFunctions(child))
                     return true;
             }
 
