@@ -1727,6 +1727,40 @@ Patterns let you inspect values using concise, algebraic syntax. They appear in 
 predicates and in `match` expressions and participate in Raven’s flow-sensitive
 type analysis.
 
+### `match` forms
+
+Raven supports both expression and statement-position `match` syntax:
+
+* **Expression form**: `scrutinee match { ... }`
+* **Statement form**: `match scrutinee { ... }`
+
+Both forms use the same pattern binder and diagnostics, including exhaustiveness
+checking and unreachable-arm detection.
+
+In expression form, the `match` result is the selected arm expression value. In
+statement form, the selected arm expression is evaluated and its resulting value
+is discarded.
+
+Arm bodies accept any expression, including block expressions:
+
+```raven
+val label = value match {
+    0 => { "zero" }
+    _ => {
+        val text = "other"
+        text
+    }
+}
+
+match value {
+    0 => { Console.WriteLine("zero") }
+    _ => {
+        Console.WriteLine("other")
+        ()
+    }
+}
+```
+
 ### Pattern forms
 
 Patterns compose from the following primitives.

@@ -63,7 +63,7 @@ if expr is { name as string n, age } {
 
 Nested bindings use the same `type name` layout. Use `as` to rename a field while binding its value.
 
-## `match` expression
+## `match` expression and statement
 
 The `match` expression evaluates an input value against a sequence of patterns and returns the result of the first matching arm:
 
@@ -74,6 +74,19 @@ let result = value match {
     _        => "other"
 }
 ```
+
+Raven also supports statement-position `match` as convenience syntax:
+
+```raven
+match value {
+    0     => Console.WriteLine("zero")
+    int x => Console.WriteLine("an int ${x}")
+    _     => Console.WriteLine("other")
+}
+```
+
+Both forms share binding and diagnostics (including exhaustiveness checks). In
+statement position, the selected arm expression value is ignored.
 
 Literal-value types from [literal-type unions](literal-types.md) may be used directly in patterns, enabling exhaustive checks over finite sets of values.
 
@@ -86,5 +99,27 @@ value match {
     0 or 1            => "zero or one"
     int x when x > 0  => "positive int"
     _                 => "other"
+}
+```
+
+### Block arm expressions
+
+Arm bodies can be block expressions in both forms:
+
+```raven
+val output = value match {
+    0 => { "zero" }
+    _ => {
+        val fallback = "other"
+        fallback
+    }
+}
+
+match value {
+    0 => { Console.WriteLine("zero") }
+    _ => {
+        Console.WriteLine("other")
+        ()
+    }
 }
 ```

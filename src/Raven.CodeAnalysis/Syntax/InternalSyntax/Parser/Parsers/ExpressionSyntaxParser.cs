@@ -1778,7 +1778,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax ParseMatchExpressionSuffixes(ExpressionSyntax expression)
     {
-        while (PeekToken().IsKind(SyntaxKind.MatchKeyword))
+        while (PeekToken().IsKind(SyntaxKind.MatchKeyword) && !HasLeadingNewLine(PeekToken()))
         {
             var disallowTryPropagationMatch = expression is TryExpressionSyntax tryExpression &&
                                              tryExpression.QuestionToken.Kind != SyntaxKind.None;
@@ -1788,10 +1788,28 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return expression;
     }
 
+    internal MatchExpressionSyntax ParseMatchExpressionStatementForm()
+    {
+        var matchKeyword = ExpectToken(SyntaxKind.MatchKeyword);
+        var scrutinee = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false, stopOnOpenBrace: true).ParseExpression();
+
+        var disallowTryPropagationMatch = scrutinee is TryExpressionSyntax tryExpression &&
+                                          tryExpression.QuestionToken.Kind != SyntaxKind.None;
+
+        return ParseMatchExpressionCore(scrutinee, matchKeyword, disallowTryPropagationMatch);
+    }
+
     private MatchExpressionSyntax ParseMatchExpressionSuffix(ExpressionSyntax scrutinee, bool disallowTryPropagationMatch)
     {
         var matchKeyword = ReadToken();
+        return ParseMatchExpressionCore(scrutinee, matchKeyword, disallowTryPropagationMatch);
+    }
 
+    private MatchExpressionSyntax ParseMatchExpressionCore(
+        ExpressionSyntax scrutinee,
+        SyntaxToken matchKeyword,
+        bool disallowTryPropagationMatch)
+    {
         if (disallowTryPropagationMatch)
         {
             AddDiagnostic(DiagnosticInfo.Create(

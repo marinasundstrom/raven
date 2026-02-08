@@ -91,6 +91,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseContinueStatementSyntax();
                     break;
 
+                case SyntaxKind.MatchKeyword:
+                    statement = ParseMatchStatementSyntax();
+                    break;
+
                 case SyntaxKind.SemicolonToken:
                     ReadToken();
                     statement = EmptyStatement(token);
@@ -791,6 +795,14 @@ internal class StatementSyntaxParser : SyntaxParser
             return AssignmentStatement(kind, assignment.Left, assignment.OperatorToken, assignment.Right, terminatorToken);
         }
 
+        return ExpressionStatement(expression, terminatorToken);
+    }
+
+    private StatementSyntax ParseMatchStatementSyntax()
+    {
+        SetTreatNewlinesAsTokens(false);
+        var expression = new ExpressionSyntaxParser(this).ParseMatchExpressionStatementForm();
+        var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
         return ExpressionStatement(expression, terminatorToken);
     }
 
