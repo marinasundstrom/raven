@@ -20,7 +20,21 @@ class MethodBodyBinder : BlockBinder
     public override BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
     {
         var bound = base.BindBlockStatement(block);
+        if (!IsMethodLikeBodyBlock(block))
+            return bound;
+
         return FinalizeMethodBody(block, bound, () => base.BindBlockStatement(block));
+    }
+
+    private static bool IsMethodLikeBodyBlock(BlockStatementSyntax block)
+    {
+        return block.Parent switch
+        {
+            BaseMethodDeclarationSyntax => true,
+            FunctionStatementSyntax => true,
+            AccessorDeclarationSyntax => true,
+            _ => false,
+        };
     }
 
     private BoundBlockStatement BindArrowExpressionClause(ArrowExpressionClauseSyntax clause)

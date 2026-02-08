@@ -115,7 +115,6 @@ public extension OptionExtensions<T> for Option<T> {
     public Tap(action: T -> ()) -> Option<T> {
         if self is .Some(val value) {
             action(value)
-            return self
         }
         return self
     }
@@ -124,7 +123,6 @@ public extension OptionExtensions<T> for Option<T> {
     public TapNone(action: () -> ()) -> Option<T> {
         if self is .None {
             action()
-            return self
         }
         return self
     }
@@ -134,7 +132,6 @@ public extension OptionExtensions<T> for Option<T> {
         var list = List<T>()
         if self is .Some(val value) {
             list.Add(value)
-            return list
         }
         return list
     }
@@ -174,7 +171,6 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .Some(val v2) {
             return .Ok(v2)
         }
-
         return .Error(errorFactory())    
     }
 
@@ -183,7 +179,6 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .Some(val value) {
             return value
         }
-
         return default(T)
     }
 
@@ -192,7 +187,6 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .Some(val value) {
             return value
         }
-
         throw new InvalidOperationException("Option is None")
     }
 
@@ -201,7 +195,6 @@ public extension OptionExtensions<T> for Option<T> {
         if self is .Some(val value) {
             return value
         }
-
         return defaultValue
     }
 }

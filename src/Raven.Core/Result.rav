@@ -64,7 +64,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
             if self is .Ok(val v) {
                 return .Some(v)
             }
-
             return .None
         }
     }
@@ -75,7 +74,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
             if self is .Error(val e) {
                 return .Some(e)
             }
-
             return .None
         }
     }
@@ -116,7 +114,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     public Tap(action: T -> ()) -> Result<T, E> {
         if self is .Ok(val value) {
             action(value)
-            return self
         }
         return self
     }
@@ -125,7 +122,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
     public TapError(action: E -> ()) -> Result<T, E> {
         if self is .Error(val e) {
             action(e)
-            return self
         }
         return self
     }
@@ -151,7 +147,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         var list = List<T>()
         if self is .Ok(val value) {
             list.Add(value)
-            return list
         }
         return list
     }
@@ -165,7 +160,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Ok(val value) {
             return value
         }
-
         return default(T)
     }
 
@@ -177,7 +171,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         } else if self is .Error(val error2) {
             error = error2
         }
-
         throw new InvalidOperationException(error.ToString())
     }
 
@@ -186,7 +179,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Ok(val value) {
             return value
         }
-
         return defaultValue
     }
 
@@ -195,7 +187,6 @@ public extension ResultExtensions<T, E> for Result<T, E> {
         if self is .Error(val message) {
             return message
         }
-
         throw new InvalidOperationException("Result is not Error")
     }
 }

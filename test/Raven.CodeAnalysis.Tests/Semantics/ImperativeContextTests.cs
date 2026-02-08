@@ -9,6 +9,48 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class ImperativeContextTests : CompilationTestBase
 {
     [Fact]
+    public void NestedStatementBlockExpressionStatement_DoesNotRequireMethodReturnType()
+    {
+        var code = """
+class C {
+    Test(flag: bool, action: () -> ()) -> int {
+        if flag {
+            action()
+        }
+        return 1
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV1503");
+    }
+
+    [Fact]
+    public void NestedStatementBlockInMethodReturningSequence_DoesNotRequireMethodReturnType()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class C {
+    Test(flag: bool, list: List<int>) -> IEnumerable<int> {
+        if flag {
+            list.Add(1)
+        }
+        return list
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV1503");
+    }
+
+    [Fact]
     public void IfStatement_BindsAsStatement()
     {
         var code = """
