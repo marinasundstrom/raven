@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -249,5 +250,33 @@ public class ParserRecoveryTests
         var incomplete = Assert.IsType<IncompleteMemberDeclarationSyntax>(declaration.Members[0]);
 
         Assert.Equal(SyntaxKind.NewLineToken, incomplete.TerminatorToken.Kind);
+    }
+
+    [Fact]
+    public void ExtensionMemberRecovery_MissingBlockClose_DoesNotHangOnFollowingForKeyword()
+    {
+        var source = """
+            extension OptionExtensions<T> for Option<T> {
+                public UnwrapOr(defaultValue: T) -> T {
+                    if self is .Some(val value) {
+                        return value
+                    return defaultValue
+                }
+            }
+
+            extension OptionExtensionsNested<T> for Option<Option<T>> {
+            }
+            """;
+
+        var parseTask = Task.Run(() => SyntaxTree.ParseText(source));
+        Assert.True(parseTask.Wait(TimeSpan.FromSeconds(5)));
+
+        var tree = parseTask.Result;
+        var root = tree.GetRoot();
+        Assert.NotEmpty(root.Members.OfType<ExtensionDeclarationSyntax>());
+        Assert.Contains(
+            tree.GetDiagnostics(),
+            d => d.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax &&
+                 string.Equals(d.GetMessageArgs().FirstOrDefault()?.ToString(), "for", StringComparison.Ordinal));
     }
 }

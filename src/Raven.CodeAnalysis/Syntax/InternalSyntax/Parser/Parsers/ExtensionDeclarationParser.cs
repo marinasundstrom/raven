@@ -1,5 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System;
 using System.Collections.Generic;
 
 using static SyntaxFactory;
@@ -50,6 +51,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             if (current.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
+            var memberStart = Position;
             var member = ParseMember();
             members.Add(member);
 
@@ -60,6 +62,11 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             {
                 ReadToken();
                 members.Add(separator);
+            }
+
+            if (Position == memberStart)
+            {
+                ReportUnexpectedTokenAndAdvance();
             }
         }
 
@@ -318,8 +325,17 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             if (token.IsKind(SyntaxKind.CloseBraceToken))
                 break;
 
+            if (token.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
+            var accessorStart = Position;
             var accessor = ParseAccessorDeclaration();
             accessors.Add(accessor);
+
+            if (Position == accessorStart)
+            {
+                ReportUnexpectedTokenAndAdvance();
+            }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
@@ -491,4 +507,21 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
 
     private static bool IsNewLineLike(SyntaxToken token)
         => token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
+
+    private void ReportUnexpectedTokenAndAdvance()
+    {
+        var token = PeekToken();
+        var tokenText = string.IsNullOrEmpty(token.Text)
+            ? token.Kind.ToString()
+            : token.Text;
+
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                GetSpanOfPeekedToken(),
+                tokenText));
+
+        if (!token.IsKind(SyntaxKind.EndOfFileToken))
+            ReadToken();
+    }
 }
