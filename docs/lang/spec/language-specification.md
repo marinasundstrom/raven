@@ -2701,6 +2701,10 @@ val alias = &value      // alias : &int
 val raw: *int = &value  // raw : *int
 ```
 
+By-reference returns must point to storage that outlives the callee. Returning
+`&local` or `&valueParameter` is rejected because those addresses become invalid
+after the function returns.
+
 ### `ref`/`out` arguments
 
 Parameters can also be declared by reference using `&Type`. When a

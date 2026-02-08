@@ -55,7 +55,7 @@ class MethodBodyBinder : BlockBinder
 
         BoundStatement statement = _methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
             ? new BoundExpressionStatement(expression)
-            : new BoundReturnStatement(expression);
+            : new BoundReturnStatement(ValidateByRefReturnExpression(_methodSymbol, expression, clause.Expression));
 
         return new BoundBlockStatement([statement]);
     }

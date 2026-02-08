@@ -3,6 +3,7 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -220,4 +221,42 @@ class C {
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
     }
+
+    [Fact]
+    public void Method_ByRefReturn_AddressOfLocal_ReportsDiagnostic()
+    {
+        var source = """
+class C {
+    static MakeRef() -> &int {
+        val x = 2
+        return &x
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Equal(CompilerDiagnostics.ByRefReturnCannotReferenceLocal.Id, diagnostic.Id);
+    }
+
+    [Fact]
+    public void Method_ByRefReturn_AddressOfValueParameter_ReportsDiagnostic()
+    {
+        var source = """
+class C {
+    static Forward(x: int) -> &int {
+        return &x
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Equal(CompilerDiagnostics.ByRefReturnCannotReferenceValueParameter.Id, diagnostic.Id);
+    }
+
 }

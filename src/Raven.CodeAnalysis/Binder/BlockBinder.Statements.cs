@@ -974,9 +974,73 @@ partial class BlockBinder
                     }
                 }
             }
+
+            if (expr is not null)
+                expr = ValidateByRefReturnExpression(
+                    method,
+                    expr,
+                    returnStatement.Expression as SyntaxNode ?? returnStatement);
         }
 
         return new BoundReturnStatement(expr);
+    }
+
+    protected BoundExpression ValidateByRefReturnExpression(
+        IMethodSymbol method,
+        BoundExpression expression,
+        SyntaxNode syntax)
+    {
+        if (method.ReturnType is not ByRefTypeSymbol byRefReturnType)
+            return expression;
+
+        if (!TryGetAddressOfStorage(expression, out var storage))
+            return expression;
+
+        if (storage is BoundLocalAccess localAccess)
+            return ReportInvalidByRefReturnStorage(
+                localAccess.Local.Name,
+                byRefReturnType,
+                syntax,
+                isValueParameter: false);
+
+        if (storage is BoundParameterAccess parameterAccess && parameterAccess.Parameter.RefKind == RefKind.None)
+            return ReportInvalidByRefReturnStorage(
+                parameterAccess.Parameter.Name,
+                byRefReturnType,
+                syntax,
+                isValueParameter: true);
+
+        return expression;
+    }
+
+    private BoundExpression ReportInvalidByRefReturnStorage(
+        string sourceName,
+        ByRefTypeSymbol targetType,
+        SyntaxNode syntax,
+        bool isValueParameter)
+    {
+        if (isValueParameter)
+            _diagnostics.ReportByRefReturnCannotReferenceValueParameter(sourceName, syntax.GetLocation());
+        else
+            _diagnostics.ReportByRefReturnCannotReferenceLocal(sourceName, syntax.GetLocation());
+
+        return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
+    }
+
+    private static bool TryGetAddressOfStorage(BoundExpression expression, out BoundExpression storage)
+    {
+        var current = expression;
+        while (current is BoundConversionExpression conversion)
+            current = conversion.Expression;
+
+        if (current is BoundAddressOfExpression { Storage: BoundExpression storageExpression })
+        {
+            storage = storageExpression;
+            return true;
+        }
+
+        storage = null!;
+        return false;
     }
 
     private bool IsSynthesizedTopLevelEntryPointContext()

@@ -7961,6 +7961,7 @@ partial class BlockBinder : Binder
                     }
                 }
 
+                converted = expressionBinder.ValidateByRefReturnExpression(symbol, converted, function.ExpressionBody.Expression);
                 statements.Add(new BoundReturnStatement(converted));
             }
 

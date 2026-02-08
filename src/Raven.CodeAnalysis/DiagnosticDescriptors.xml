@@ -527,6 +527,14 @@
     Title="Match expression not allowed"
     Message="Match expressions are not allowed after a try? expression"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1909" Identifier="ByRefReturnCannotReferenceLocal"
+    Title="By-reference return cannot reference local storage"
+    Message="Cannot return a by-reference value that points to local '{localName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1910" Identifier="ByRefReturnCannotReferenceValueParameter"
+    Title="By-reference return cannot reference value parameter storage"
+    Message="Cannot return a by-reference value that points to value parameter '{parameterName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
     Message="Non-invocable member '{memberName}' cannot be used like a method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
