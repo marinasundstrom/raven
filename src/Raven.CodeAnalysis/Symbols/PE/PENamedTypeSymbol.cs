@@ -11,6 +11,71 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
+    private static readonly Dictionary<string, SpecialType> s_specialTypeByFullName = new(StringComparer.Ordinal)
+    {
+        ["System.Object"] = SpecialType.System_Object,
+        ["System.Enum"] = SpecialType.System_Enum,
+        ["System.MulticastDelegate"] = SpecialType.System_MulticastDelegate,
+        ["System.Delegate"] = SpecialType.System_Delegate,
+        ["System.ValueType"] = SpecialType.System_ValueType,
+        ["System.Void"] = SpecialType.System_Void,
+        ["System.Boolean"] = SpecialType.System_Boolean,
+        ["System.Char"] = SpecialType.System_Char,
+        ["System.SByte"] = SpecialType.System_SByte,
+        ["System.Byte"] = SpecialType.System_Byte,
+        ["System.Int16"] = SpecialType.System_Int16,
+        ["System.UInt16"] = SpecialType.System_UInt16,
+        ["System.Int32"] = SpecialType.System_Int32,
+        ["System.UInt32"] = SpecialType.System_UInt32,
+        ["System.Int64"] = SpecialType.System_Int64,
+        ["System.UInt64"] = SpecialType.System_UInt64,
+        ["System.Decimal"] = SpecialType.System_Decimal,
+        ["System.Single"] = SpecialType.System_Single,
+        ["System.Double"] = SpecialType.System_Double,
+        ["System.String"] = SpecialType.System_String,
+        ["System.IntPtr"] = SpecialType.System_IntPtr,
+        ["System.UIntPtr"] = SpecialType.System_UIntPtr,
+        ["System.Array"] = SpecialType.System_Array,
+        ["System.Collections.IEnumerable"] = SpecialType.System_Collections_IEnumerable,
+        ["System.Collections.Generic.IEnumerable`1"] = SpecialType.System_Collections_Generic_IEnumerable_T,
+        ["System.Collections.Generic.IList`1"] = SpecialType.System_Collections_Generic_IList_T,
+        ["System.Collections.Generic.ICollection`1"] = SpecialType.System_Collections_Generic_ICollection_T,
+        ["System.Collections.IEnumerator"] = SpecialType.System_Collections_IEnumerator,
+        ["System.Collections.Generic.IEnumerator`1"] = SpecialType.System_Collections_Generic_IEnumerator_T,
+        ["System.Nullable`1"] = SpecialType.System_Nullable_T,
+        ["System.DateTime"] = SpecialType.System_DateTime,
+        ["System.Runtime.CompilerServices.IsVolatile"] = SpecialType.System_Runtime_CompilerServices_IsVolatile,
+        ["System.IDisposable"] = SpecialType.System_IDisposable,
+        ["System.TypedReference"] = SpecialType.System_TypedReference,
+        ["System.ArgIterator"] = SpecialType.System_ArgIterator,
+        ["System.RuntimeArgumentHandle"] = SpecialType.System_RuntimeArgumentHandle,
+        ["System.RuntimeFieldHandle"] = SpecialType.System_RuntimeFieldHandle,
+        ["System.RuntimeMethodHandle"] = SpecialType.System_RuntimeMethodHandle,
+        ["System.RuntimeTypeHandle"] = SpecialType.System_RuntimeTypeHandle,
+        ["System.IAsyncResult"] = SpecialType.System_IAsyncResult,
+        ["System.AsyncCallback"] = SpecialType.System_AsyncCallback,
+        ["System.Runtime.CompilerServices.AsyncVoidMethodBuilder"] = SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder,
+        ["System.Runtime.CompilerServices.AsyncTaskMethodBuilder"] = SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder,
+        ["System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1"] = SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
+        ["System.Runtime.CompilerServices.AsyncStateMachineAttribute"] = SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute,
+        ["System.Runtime.CompilerServices.IteratorStateMachineAttribute"] = SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute,
+        ["System.Threading.Tasks.Task"] = SpecialType.System_Threading_Tasks_Task,
+        ["System.Threading.Tasks.Task`1"] = SpecialType.System_Threading_Tasks_Task_T,
+        ["System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken"] = SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken,
+        ["System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1"] = SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T,
+        ["System.ValueTuple`1"] = SpecialType.System_ValueTuple_T1,
+        ["System.ValueTuple`2"] = SpecialType.System_ValueTuple_T2,
+        ["System.ValueTuple`3"] = SpecialType.System_ValueTuple_T3,
+        ["System.ValueTuple`4"] = SpecialType.System_ValueTuple_T4,
+        ["System.ValueTuple`5"] = SpecialType.System_ValueTuple_T5,
+        ["System.ValueTuple`6"] = SpecialType.System_ValueTuple_T6,
+        ["System.ValueTuple`7"] = SpecialType.System_ValueTuple_T7,
+        ["System.ValueTuple`8"] = SpecialType.System_ValueTuple_TRest,
+        ["System.Type"] = SpecialType.System_Type,
+        ["System.Exception"] = SpecialType.System_Exception,
+        ["System.Runtime.CompilerServices.IAsyncStateMachine"] = SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine,
+    };
+
     protected readonly ReflectionTypeLoader _reflectionTypeLoader;
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly bool _isValueType;
@@ -501,102 +566,14 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         get
         {
             var type = _typeInfo.AsType();
-
-            if (type.FullName == "System.Object")
-                return SpecialType.System_Object;
-            if (type.FullName == "System.ValueType")
-                return SpecialType.System_ValueType;
-            if (type.FullName == "System.Enum")
-                return SpecialType.System_Enum;
-            if (type.FullName == "System.MulticastDelegate")
-                return SpecialType.System_MulticastDelegate;
-            if (type.FullName == "System.Delegate")
-                return SpecialType.System_Delegate;
-            if (type.FullName == "System.String")
-                return SpecialType.System_String;
-            if (type.FullName == "System.Boolean")
-                return SpecialType.System_Boolean;
-            if (type.FullName == "System.Char")
-                return SpecialType.System_Char;
-            if (type.FullName == "System.SByte")
-                return SpecialType.System_SByte;
-            if (type.FullName == "System.Byte")
-                return SpecialType.System_Byte;
-            if (type.FullName == "System.Int16")
-                return SpecialType.System_Int16;
-            if (type.FullName == "System.UInt16")
-                return SpecialType.System_UInt16;
-            if (type.FullName == "System.Int32")
-                return SpecialType.System_Int32;
-            if (type.FullName == "System.UInt32")
-                return SpecialType.System_UInt32;
-            if (type.FullName == "System.Int64")
-                return SpecialType.System_Int64;
-            if (type.FullName == "System.UInt64")
-                return SpecialType.System_UInt64;
-            if (type.FullName == "System.Single")
-                return SpecialType.System_Single;
-            if (type.FullName == "System.Double")
-                return SpecialType.System_Double;
-            if (type.FullName == "System.Decimal")
-                return SpecialType.System_Decimal;
-            if (type.FullName == "System.Void")
-                return SpecialType.System_Void;
-            if (type.FullName == "System.DateTime")
-                return SpecialType.System_DateTime;
-            if (type.FullName == "System.IntPtr")
-                return SpecialType.System_IntPtr;
-            if (type.FullName == "System.UIntPtr")
-                return SpecialType.System_UIntPtr;
-            if (type.FullName == "System.Type")
-                return SpecialType.System_Type;
-
-            if (type.FullName == "System.Nullable`1")
-                return SpecialType.System_Nullable_T;
-
-            if (type.FullName == "System.Runtime.CompilerServices.AsyncVoidMethodBuilder")
-                return SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder;
-
-            if (type.FullName == "System.Runtime.CompilerServices.AsyncTaskMethodBuilder")
-                return SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder;
-
-            if (type.FullName == "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1")
-                return SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T;
-
-            if (type.FullName == "System.Runtime.CompilerServices.AsyncStateMachineAttribute")
-                return SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute;
-
-            if (type.FullName == "System.Runtime.CompilerServices.IteratorStateMachineAttribute")
-                return SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute;
-
-            if (type.FullName == "System.Runtime.CompilerServices.IAsyncStateMachine")
-                return SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine;
-
-            if (type.FullName == "System.Threading.Tasks.Task")
-                return SpecialType.System_Threading_Tasks_Task;
-
-            if (type.FullName == "System.Threading.Tasks.Task`1")
-                return SpecialType.System_Threading_Tasks_Task_T;
-
-            if (type.FullName == "System.Exception")
-                return SpecialType.System_Exception;
-
-            if (type.Namespace == "System" && type.Name.StartsWith("ValueTuple`"))
+            var fullName = type.FullName;
+            if (fullName is not null &&
+                s_specialTypeByFullName.TryGetValue(fullName, out var specialType))
             {
-                return type.GetGenericArguments().Length switch
-                {
-                    1 => SpecialType.System_ValueTuple_T1,
-                    2 => SpecialType.System_ValueTuple_T2,
-                    3 => SpecialType.System_ValueTuple_T3,
-                    4 => SpecialType.System_ValueTuple_T4,
-                    5 => SpecialType.System_ValueTuple_T5,
-                    6 => SpecialType.System_ValueTuple_T6,
-                    7 => SpecialType.System_ValueTuple_T7,
-                    _ => SpecialType.None
-                };
+                return specialType;
             }
 
-            if (type.FullName == "System.Array" || type.IsArray)
+            if (type.IsArray)
                 return SpecialType.System_Array;
 
             return SpecialType.None;
