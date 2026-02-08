@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -20,10 +21,38 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     public TSyntax Visit<TSyntax>(TSyntax syntax)
         where TSyntax : SyntaxNode
     {
-        return (TSyntax)base.Visit(syntax);
+        ResetState();
+
+        var tokens = syntax.DescendantTokens().ToArray();
+        if (tokens.Length == 0)
+        {
+            return syntax;
+        }
+
+        var replacements = new Dictionary<SyntaxToken, SyntaxToken>(tokens.Length);
+        foreach (var token in tokens)
+        {
+            replacements[token] = NormalizeToken(token);
+        }
+
+        return (TSyntax)syntax.ReplaceTokens(tokens, (original, _) =>
+            replacements.TryGetValue(original, out var replacement) ? replacement : original);
     }
 
     public override SyntaxToken VisitToken(SyntaxToken token)
+    {
+        return NormalizeToken(token);
+    }
+
+    private void ResetState()
+    {
+        _indentLevel = 0;
+        _pendingLineBreaks = 0;
+        _isFirstToken = true;
+        _previousToken = default;
+    }
+
+    private SyntaxToken NormalizeToken(SyntaxToken token)
     {
         if (token.Kind == SyntaxKind.None || token is { IsMissing: true, FullWidth: 0 })
         {
@@ -82,7 +111,9 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         {
             lineBreaks = 0;
         }
-        else if (token.Kind == SyntaxKind.CloseBraceToken && _previousToken.Kind != SyntaxKind.OpenBraceToken)
+        else if (token.Kind == SyntaxKind.CloseBraceToken
+            && _previousToken.Kind != SyntaxKind.OpenBraceToken
+            && !IsNewLineToken(_previousToken.Kind))
         {
             lineBreaks = Math.Max(lineBreaks, 1);
         }
@@ -148,11 +179,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return 0;
         }
 
-        if (token.Kind is SyntaxKind.NewLineToken
-            or SyntaxKind.LineFeedToken
-            or SyntaxKind.CarriageReturnToken
-            or SyntaxKind.CarriageReturnLineFeedToken
-            or SyntaxKind.SemicolonToken)
+        if (token.Kind == SyntaxKind.SemicolonToken)
         {
             return 1;
         }
@@ -289,6 +316,14 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         return (previous == SyntaxKind.QuestionToken && current == SyntaxKind.DotToken)
             || (previous == SyntaxKind.DotToken && current == SyntaxKind.DotToken);
+    }
+
+    private static bool IsNewLineToken(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.NewLineToken
+            or SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     private bool IsOperator(SyntaxToken token)

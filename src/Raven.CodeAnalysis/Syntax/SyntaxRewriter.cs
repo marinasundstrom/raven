@@ -56,6 +56,21 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return node?.Accept(this);
     }
 
+    public override SyntaxNode? VisitPattern(PatternSyntax? node)
+    {
+        return node?.Accept(this);
+    }
+
+    public override SyntaxNode? VisitVariableDesignation(VariableDesignationSyntax? node)
+    {
+        return node?.Accept(this);
+    }
+
+    public override SyntaxNode? VisitExpressionOrPattern(ExpressionOrPatternSyntax? node)
+    {
+        return node?.Accept(this);
+    }
+
     public virtual SyntaxNode? VisitType(TypeSyntax? node)
     {
         return node?.Accept(this);
