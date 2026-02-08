@@ -1,0 +1,13 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+val r: Option<int> = .Some(42)
+var w = r.Map(x => x * 2) 
+
+WriteLine(w)
+
+/*for z in x {
+    WriteLine(z)
+}*/

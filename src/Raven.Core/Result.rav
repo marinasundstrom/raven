@@ -1,6 +1,7 @@
 namespace System
 
 import System.*
+import System.Collections.Generic.*
 
 /// Represents either a result with a value, or an error. See also: [Result&lt;T&gt;](xref:T:System.Result`1).
 ///
@@ -66,6 +67,97 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
             return .None
         }
+    }
+
+    /// Converts the Result error channel to an Option
+    public IsError: Option<E> {
+        get {
+            if self is .Error(val e) {
+                return .Some(e)
+            }
+
+            return .None
+        }
+    }
+
+    /// Projects the value inside `.Ok` using `mapper`. `.Error` stays `.Error`.
+    public Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
+        return self match {
+            .Ok(val value) => .Ok(mapper(value))
+            .Error(val error) => .Error(error)
+        }
+    }
+
+    /// Monadic bind / flatMap: chains a `Result`-producing function.
+    public Then<TResult>(binder: T -> Result<TResult, E>) -> Result<TResult, E> {
+        return self match {
+            .Ok(val value) => binder(value)
+            .Error(val error) => .Error(error)
+        }
+    }
+
+    /// Maps the error channel.
+    public MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
+        return self match {
+            .Ok(val value) => .Ok(value)
+            .Error(val error) => .Error(mapper(error))
+        }
+    }
+
+    /// Matches the result and produces a value.
+    public Match<TResult>(ok: T -> TResult, error: E -> TResult) -> TResult {
+        return self match {
+            .Ok(val value) => ok(value)
+            .Error(val e) => error(e)
+        }
+    }
+
+    /// Runs `action` if this is `.Ok`, returning the original result.
+    public Tap(action: T -> ()) -> Result<T, E> {
+        if self is .Ok(val value) {
+            action(value)
+            return self
+        }
+        return self
+    }
+
+    /// Runs `action` if this is `.Error`, returning the original result.
+    public TapError(action: E -> ()) -> Result<T, E> {
+        if self is .Error(val e) {
+            action(e)
+            return self
+        }
+        return self
+    }
+
+    /// Recovers from an error by mapping it to a new result.
+    public OrElse(recover: E -> Result<T, E>) -> Result<T, E> {
+        return self match {
+            .Ok(val value) => .Ok(value)
+            .Error(val e) => recover(e)
+        }
+    }
+
+    /// Unwrap the value if Ok, otherwise return the value from `factory()`.
+    public UnwrapOrElse(factory: () -> T) -> T {
+        return self match {
+            .Ok(val value) => value
+            .Error(_) => factory()
+        }
+    }
+
+    /// Converts `.Ok(x)` to a single-item sequence and `.Error` to an empty sequence.
+    public ToEnumerable() -> IEnumerable<T> {
+        var list = List<T>()
+        if self is .Ok(val value) {
+            list.Add(value)
+            return list
+        }
+        return list
+    }
+
+    public GetEnumerator() -> IEnumerator<T> {
+        return self.ToEnumerable().GetEnumerator()
     }
     
     /// Unwrap the value if Ok, otherwise return the default value

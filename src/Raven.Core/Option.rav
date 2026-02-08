@@ -1,6 +1,7 @@
 namespace System
 
 import System.*
+import System.Collections.Generic.*
 
 /// Represents some value, or no value.
 ///
@@ -57,6 +58,109 @@ public extension OptionExtensions<T> for Option<T> {
         get => self is .None
     }
 
+    /// Projects the value inside `.Some` using `mapper`. `.None` stays `.None`.
+    public Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+        return self match {
+            .Some(val value) => .Some(mapper(value))
+            .None => .None
+        }
+    }
+
+    /// Monadic bind / flatMap: chains an `Option`-producing function.
+    public Then<TResult>(binder: T -> Option<TResult>) -> Option<TResult> {
+        return self match {
+            .Some(val value) => binder(value)
+            .None => .None
+        }
+    }
+
+    /// Keeps the value only if `predicate` returns true.
+    public Where(predicate: T -> bool) -> Option<T> {
+        return self match {
+            .Some(val value) => if predicate(value) { .Some(value) } else { .None }
+            .None => .None
+        }
+    }
+
+    /// Alias for `Where`.
+    public Filter(predicate: T -> bool) -> Option<T> {
+        return self.Where(predicate)
+    }
+
+    /// Returns this option if it is `.Some`, otherwise returns `alternative()`.
+    public OrElse(alternative: () -> Option<T>) -> Option<T> {
+        return self match {
+            .Some(_) => self
+            .None => alternative()
+        }
+    }
+
+    /// Returns the contained value or evaluates `factory()`.
+    public UnwrapOrElse(factory: () -> T) -> T {
+        return self match {
+            .Some(val value) => value
+            .None => factory()
+        }
+    }
+
+    /// Matches the option and produces a value.
+    public Match<TResult>(some: T -> TResult, none: () -> TResult) -> TResult {
+        return self match {
+            .Some(val value) => some(value)
+            .None => none()
+        }
+    }
+
+    /// Runs `action` if this is `.Some`, returning the original option.
+    public Tap(action: T -> ()) -> Option<T> {
+        if self is .Some(val value) {
+            action(value)
+            return self
+        }
+        return self
+    }
+
+    /// Runs `action` if this is `.None`, returning the original option.
+    public TapNone(action: () -> ()) -> Option<T> {
+        if self is .None {
+            action()
+            return self
+        }
+        return self
+    }
+
+    /// Converts `.Some(x)` to a single-item sequence and `.None` to an empty sequence.
+    public ToEnumerable() -> IEnumerable<T> {
+        var list = List<T>()
+        if self is .Some(val value) {
+            list.Add(value)
+            return list
+        }
+        return list
+    }
+
+    public GetEnumerator() -> IEnumerator<T> {
+        return self.ToEnumerable().GetEnumerator()
+    }
+
+    /// Bridges `Option` into a `Result`-producing pipeline.
+    /// If this is `.None`, returns `.Error(noneError())`.
+    public ThenResult<TResult, E>(binder: T -> Result<TResult, E>, noneError: () -> E) -> Result<TResult, E> {
+        return self match {
+            .Some(val value) => binder(value)
+            .None => .Error(noneError())
+        }
+    }
+
+    /// Maps the contained value into a `Result`. If this is `.None`, returns `.Error(noneError())`.
+    public MapResult<TResult, E>(mapper: T -> TResult, noneError: () -> E) -> Result<TResult, E> {
+        return self match {
+            .Some(val value) => .Ok(mapper(value))
+            .None => .Error(noneError())
+        }
+    }
+
+    // Converts Option into a Result
     public IsOkOr<E>(error: E) -> Result<T, E> {
         if self is .Some(val v2) {
             return .Ok(v2)
@@ -65,6 +169,7 @@ public extension OptionExtensions<T> for Option<T> {
         return .Error(error)    
     }
 
+    // Converts Option into a Result
     public IsOkOr<E>(errorFactory: () -> E) -> Result<T, E> {
         if self is .Some(val v2) {
             return .Ok(v2)
@@ -101,6 +206,17 @@ public extension OptionExtensions<T> for Option<T> {
     }
 }
 
+/*
+public extension OptionExtensionsNested<T> for Option<Option<T>> {
+
+    /// Flattens `Option<Option<T>>` into `Option<T>`.
+    public Flatten() -> Option<T> {
+        return self match {
+            .Some(val inner) => inner
+            .None => .None
+        }
+    }
+}*/
 
 public extension OptionExtensions1<T : class> for Option<T> {
 
@@ -128,7 +244,6 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         return null
     }
 
-    /*
     public static implicit operator(value: T?) -> Option<T> {
         // TODO: Handle so that value type in "value" gets unwrapped
         if value is not null {
@@ -136,5 +251,4 @@ public extension OptionExtensions2<T : struct> for Option<T> {
         }
         return .None
     }
-    */
 }

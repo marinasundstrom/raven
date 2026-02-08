@@ -79,8 +79,20 @@ val summary = match (positives, negatives) {
 
 val totalRevenue = orders
   .Where(order => order.isPaid)
-  .Select(x => Invoice(x)))
+  .Select(x => Invoice(x))
   .Sum(x => x.Total)
+```
+
+Raven leans on *extensions* to keep everyday code terse without baking every convenience into the core language. Pipelines stay readable because common “shape” operations live as extension members on familiar .NET abstractions.
+
+```raven
+import System.Linq.*
+
+val latePickup = requests.Where(r => !r.OnTime).FirstOrNone()
+val lateMessage = latePickup match {
+    .Some(val req) => "Late pickup: ${req.Id}"
+    .None => "No late pickups today"
+}
 ```
 
 Declarative-first does not forbid imperative code; it simply makes the declarative path the straightest line to clarity.
@@ -93,7 +105,7 @@ Raven is expression-oriented: almost every construct evaluates to a value, encou
 
 ```raven
 value match {
-    (0, _) -> "zero"
+    (0, val no) -> "zero and $no"
     (_, 0) -> "zero again"
     _ -> "non-zero"
 }
@@ -101,24 +113,60 @@ value match {
 val message = if user.isAnonymous
   "Welcome!"
 else
-  $"Welcome back, {user.displayName}!"
+  "Welcome back, ${user.displayName}!"
+```
+
+### 5. **Option/Result as a Core Control-Flow Shape**
+
+
+Raven treats absence and failure as *data*, not side channels. `Option<T>` and `Result<T, E>`—and their extension methods—are first-class shapes that show up everywhere — APIs return them, extensions compose them, and `match` makes branching explicit.
+
+Extensions are the glue that makes these shapes feel native in everyday code. Instead of forcing every “one-liner convenience” into the compiler, Raven encourages a small set of composable helpers — `Map`, `Then`, `UnwrapOr(...)`, `IsOkOr(...)`, and LINQ-style helpers like `FirstOrNone()` / `FirstOrError(...)` — so flow stays readable and discoverable in tooling.
+
+```raven
+val promo = promoCode
+  .Map(code => code.Trim().ToUpperInvariant())
+  .Then(code => ValidatePromo(code).IsOkOr(PromoError.Invalid))
+  .UnwrapOr(.None)
+
+val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
+```
+
+The `?` operator is the flow counterpart: it forwards `.None` / `.Error(...)` without forcing nested `match` blocks, keeping the “happy path” linear while still making early-exit behavior visible.
+
+```raven
+func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerable<RatePlan>) -> Result<QuoteSummary, QuoteError> {
+    val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
+    val quote = QuoteShipment(request, plans)?
+    val decision = DecideQuote(quote, request)
+    return .Ok(QuoteSummary(quote, decision))
+}
+```
+
+When you *do* want to branch, `match` keeps it honest and ergonomic:
+
+```raven
+val message = summaryResult match {
+    .Ok(val summary) => FormatSummary(summary)
+    .Error(val error) => "Quote failed: ${error.Message}"
+}
 ```
 
 ---
 
-### 5. **Contextual Precision and Modularity**
+### 6. **Contextual Precision and Modularity**
 
 Precision is not optional; it is the backbone of tooling. Every part of Raven's compiler is context-sensitive and modular. Parsers, binders, and code generators are composable and disposable — no global state, no implicit magic. This architecture makes Raven suitable for rich tooling, speculative parsing, and precise error recovery, whether in an IDE, a CLI build, or a future language service.
 
 ---
 
-### 6. **Syntax is Structure**
+### 7. **Syntax is Structure**
 
 Raven's syntax trees are not just parsing artifacts — they are designed objects. Nodes are generated from formal XML specifications, ensuring consistency, testability, and predictability. This emphasis on structural design reflects the language's belief that **syntax is architecture**. When the tree is precise, analyzers, refactorings, and code generators can be equally precise.
 
 ---
 
-### 7. **Minimalism with Purpose**
+### 8. **Minimalism with Purpose**
 
 Semicolons are optional. Newlines matter — but only when they should. Blocks, expressions, and types interleave naturally. The language does not aim to reduce all syntax, but only that which obstructs intent.
 
@@ -137,7 +185,7 @@ val x = 2; Console.WriteLine(x)
 
 ---
 
-### 8. **Target-Typed Member Access and Expression Completion**
+### 9. **Target-Typed Member Access and Expression Completion**
 
 Raven supports target-typed expressions, allowing constructs like:
 
@@ -147,9 +195,20 @@ val x: string = .Empty  // If type context implies a known receiver
 
 This enables more concise and predictive IntelliSense experiences and binds expression semantics to the type system, not just to the lexical scope.
 
+#### Target-typed union cases
+
+Target typing pairs naturally with union cases, especially for `Option<T>` and `Result<T, E>`. When the expected type is known, you can write the case directly and let the compiler fill in the receiver.
+
+```raven
+val promo: Option<string> = .Some("SAVE5")
+val missing: Option<string> = .None
+```
+
+This makes APIs feel fluent and keeps “what matters” (the case) in focus rather than the container type.
+
 ---
 
-### 9. **`val` vs `var`: Mutability by Design**
+### 10. **`val` vs `var`: Mutability by Design**
 
 Raven uses `val` and `var` to make **mutability an explicit decision**:
 
@@ -167,25 +226,25 @@ This distinction aligns with Raven’s declarative nature: it expresses *intent*
 
 ---
 
-### 10. **Progressive Disclosure of Power**
+### 11. **Progressive Disclosure of Power**
 
 Raven values approachability. Simple programs should look simple; advanced features should only surface when asked for. Features such as traits, extensions, and advanced pattern constructs build upon the same foundational syntax, enabling newcomers to explore the language in concentric circles of understanding.
 
 ---
 
-### 11. **Safety without Ceremony**
+### 12. **Safety without Ceremony**
 
 Raven pursues correctness through the type system, diagnostics, and analyzers. Safety features are designed to prevent sharp edges without introducing ritualistic syntax. Compiler errors prefer actionable guidance over cryptic jargon, and warnings are invitations to better patterns—not arbitrary punishments.
 
-Exception handling follows the same philosophy: `try` is an expression, and `match` offers structured recovery without imperative sprawl.
+Error handling follows the same philosophy: `try` is an expression, but Raven also embraces typed outcomes through `Result<T, E>` and absence through `Option<T>`. The propagation operator `?` keeps happy-path code clean by forwarding `.Error(...)`/`.None` automatically when the surrounding context expects it, while `match` makes recovery explicit when you choose to handle failures locally.
 
 ```raven
 val profile = try fetchProfile(for: userId)
 
-val theme = try loadSettings("prefs.json") match {
-  Settings(value) -> value.theme,
-  FileError.NotFound -> "light",
-  error -> throw error
+val theme = loadSettings("prefs.json")? match {
+  .Ok(val settings) => settings.theme,
+  .Error(FileError.NotFound) => "light",
+  .Error(val error) => throw error
 }
 ```
 
@@ -193,23 +252,35 @@ Declarative recovery paths make it clear when errors are intentionally absorbed 
 
 ---
 
-### 12. **Flow-Oriented Simplicity**
+### 13. **Flow-Oriented Simplicity**
 
-Raven code should feel like it moves. "Everything flows" means APIs, control structures, and data transformations connect without abrupt ceremony. Simplicity is not shorthand for "less powerful"—it is the discipline of surfacing only the concepts that matter to the moment.
+Raven code should feel like it moves. “Everything flows” means APIs, control structures, and data transformations connect without abrupt ceremony.
 
-The type system supports that flow. Types are inferred wherever intent is already obvious, and explicit annotations appear only when they disambiguate, document, or unlock new capabilities. Unions describe possible shapes of values succinctly, keeping branching logic declarative without drowning the reader in edge cases.
+A big part of that flow is that *absence and failure are values* you can pass along. `Option<T>` and `Result<T, E>` travel through pipelines, extension methods transform them, and `?` keeps early-exit behavior linear when that’s what you want.
+
+The type system supports that flow. Types are inferred wherever intent is already obvious, and explicit annotations appear only when they disambiguate, document, or unlock new capabilities.
+
+Raven’s core “flow types” make control paths readable without ceremony: `Option<T>` represents absence, `Result<T, E>` represents success-or-error. They compose naturally with `match`, with helpers like `UnwrapOr(...)`, and with `?` to keep early-exit behavior visible but lightweight.
 
 ```raven
 val items = fetchItems()
+val active = items.Where(item => item.isActive).FirstOrNone()
 val filtered = items.Where(item => item.isActive)
 val report: Report = .from(filtered)  // Explicit only when the story needs a cast
+```
+
+```raven
+val decisionText = QuoteShipment(request, plans)
+  .Map(q => DecideQuote(q, request))
+  .UnwrapOr(.ManualReview("No quote"))
+  .ToString()
 ```
 
 By default, specificity waits until the developer actually needs it. That restraint keeps the language lightweight, expressive, and ready to scale from scripts to systems without drowning the reader in redundant type names.
 
 ---
 
-### 13. **Interop and Tooling as First-Class Citizens**
+### 14. **Interop and Tooling as First-Class Citizens**
 
 Raven runs on .NET, and the language treats that runtime as an asset rather than an afterthought. Interop is expected, not exotic:
 importing BCL namespaces, consuming LINQ pipelines, and compiling to IL are all core experiences. Compiler services mirror Roslyn's
