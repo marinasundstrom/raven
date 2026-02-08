@@ -410,27 +410,22 @@ partial class BlockBinder
                 return rangeIteration;
         }
 
-        var elementType = InferForElementType(collectionType, out var enumerableInterface);
-
         if (collectionType is IArrayTypeSymbol arrayType)
             return ForIterationInfo.ForArray(arrayType);
 
-        if (enumerableInterface is { } &&
-            enumerableInterface.TypeArguments.Length == 1 &&
-            enumerableInterface.TypeArguments[0].TypeKind != TypeKind.Error)
+        if (collectionType is not null &&
+            TryClassifyForEnumerator(collectionType, out var iteration))
         {
-            var enumeratorDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
-                SpecialType.System_Collections_Generic_IEnumerator_T);
-
-            if (enumeratorDefinition.TypeKind != TypeKind.Error)
-            {
-                var enumeratorInterface = (INamedTypeSymbol)enumeratorDefinition.Construct(
-                    enumerableInterface.TypeArguments[0]);
-                return ForIterationInfo.ForGeneric(enumerableInterface, enumeratorInterface);
-            }
+            return iteration;
         }
 
-        return ForIterationInfo.ForNonGeneric(elementType);
+        var enumerableType = Compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
+        _diagnostics.ReportCannotConvertFromTypeToType(
+            collectionType ?? Compilation.ErrorTypeSymbol,
+            enumerableType,
+            iterationSyntax.GetLocation());
+
+        return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
     }
 
     private ForIterationInfo? ClassifyRangeIteration(BoundRangeExpression range, ExpressionSyntax iterationSyntax)
@@ -465,146 +460,270 @@ partial class BlockBinder
         return new BoundIndexExpression(zero, isFromEnd: false, GetIndexType());
     }
 
-    private ITypeSymbol InferForElementType(ITypeSymbol? collectionType, out INamedTypeSymbol? enumerableInterface)
+    private bool TryClassifyForEnumerator(ITypeSymbol collectionType, out ForIterationInfo iteration)
     {
-        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
-        enumerableInterface = null;
-
-        if (collectionType is null)
-            return objectType;
-
-        if (collectionType is IArrayTypeSymbol array)
-            return array.ElementType;
-
-        if (collectionType is INamedTypeSymbol named)
+        if (collectionType is INamedTypeSymbol namedType)
         {
-            if (TryGetGenericEnumerableElement(named, out var elementType, out enumerableInterface))
-                return elementType;
+            if (TryClassifyPatternGetEnumerator(namedType, includeExtensions: false, out iteration))
+                return true;
 
-            foreach (var iface in named.AllInterfaces)
-            {
-                if (TryGetGenericEnumerableElement(iface, out elementType, out enumerableInterface))
-                    return elementType;
-            }
+            if (TryClassifyPatternGetEnumerator(namedType, includeExtensions: true, out iteration))
+                return true;
 
-            if (TryGetEnumeratorElementType(named, out elementType))
-                return elementType;
+            if (TryClassifyEnumerableInterface(namedType, out iteration))
+                return true;
         }
 
         if (collectionType is ITypeParameterSymbol typeParameter)
         {
-            foreach (var constraint in typeParameter.ConstraintTypes)
+            foreach (var constraintType in typeParameter.ConstraintTypes)
             {
-                var inferred = InferForElementType(constraint, out var constraintEnumerable);
-                if (!SymbolEqualityComparer.Default.Equals(inferred, objectType))
-                {
-                    enumerableInterface ??= constraintEnumerable;
-                    return inferred;
-                }
+                if (TryClassifyForEnumerator(constraintType, out iteration))
+                    return true;
             }
         }
 
-        return objectType;
-    }
-
-    private bool TryGetGenericEnumerableElement(
-        ITypeSymbol type,
-        out ITypeSymbol elementType,
-        out INamedTypeSymbol? enumerableInterface)
-    {
-        if (type is INamedTypeSymbol named &&
-            named.TypeArguments.Length == 1)
-        {
-            var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
-                SpecialType.System_Collections_Generic_IEnumerable_T);
-
-            if (enumerableDefinition.TypeKind != TypeKind.Error &&
-                SymbolEqualityComparer.Default.Equals(GetEnumerableDefinition(named), enumerableDefinition))
-            {
-                elementType = named.TypeArguments[0];
-                enumerableInterface = (INamedTypeSymbol)enumerableDefinition.Construct(elementType);
-                return true;
-            }
-        }
-
-        elementType = null!;
-        enumerableInterface = null;
+        iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
         return false;
     }
 
-    private static INamedTypeSymbol GetEnumerableDefinition(INamedTypeSymbol symbol)
+    private bool TryClassifyPatternGetEnumerator(
+        INamedTypeSymbol receiverType,
+        bool includeExtensions,
+        out ForIterationInfo iteration)
     {
-        if (symbol.OriginalDefinition is INamedTypeSymbol original)
-            return original;
+        IEnumerable<IMethodSymbol> candidates = includeExtensions
+            ? LookupExtensionMethods("GetEnumerator", receiverType)
+            : receiverType
+                .GetMembers("GetEnumerator")
+                .OfType<IMethodSymbol>()
+                .Where(static method => !method.IsStatic);
 
-        if (symbol.ConstructedFrom is INamedTypeSymbol constructed)
-            return constructed;
-
-        return symbol;
-    }
-
-    private bool TryGetEnumeratorElementType(INamedTypeSymbol type, out ITypeSymbol elementType)
-    {
-        ITypeSymbol? nonGenericElementType = null;
-        var genericEnumeratorDefinition = GetGenericEnumeratorDefinition();
-        var nonGenericEnumeratorDefinition = GetNonGenericEnumeratorDefinition();
-
-        foreach (var member in type.GetMembers("GetEnumerator"))
+        foreach (var getEnumerator in candidates)
         {
-            if (member is not IMethodSymbol { Parameters.Length: 0 } getEnumerator)
+            if (!IsSymbolAccessible(getEnumerator))
                 continue;
 
-            var returnType = getEnumerator.ReturnType;
-
-            if (returnType is IArrayTypeSymbol array)
+            if (includeExtensions)
             {
-                elementType = array.ElementType;
-                return true;
+                if (!getEnumerator.IsExtensionMethod || getEnumerator.Parameters.Length != 1)
+                    continue;
+            }
+            else if (getEnumerator.Parameters.Length != 0)
+            {
+                continue;
             }
 
-            if (returnType is INamedTypeSymbol named)
-            {
-                if (named.TypeArguments.Length == 1 &&
-                    genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
-                    SymbolEqualityComparer.Default.Equals(
-                        GetEnumerableDefinition(named),
-                        genericEnumeratorDefinition))
-                {
-                    elementType = named.TypeArguments[0];
-                    return true;
-                }
+            if (!TryResolveEnumeratorMembers(getEnumerator.ReturnType, out var moveNextMethod, out var currentGetter))
+                continue;
 
-                foreach (var iface in named.AllInterfaces)
-                {
-                    if (iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator &&
-                        genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
-                        SymbolEqualityComparer.Default.Equals(
-                            GetEnumerableDefinition(genericEnumerator),
-                            genericEnumeratorDefinition))
-                    {
-                        elementType = genericEnumerator.TypeArguments[0];
-                        return true;
-                    }
-                }
-
-                if (nonGenericElementType is null &&
-                    nonGenericEnumeratorDefinition.TypeKind != TypeKind.Error &&
-                    SymbolEqualityComparer.Default.Equals(
-                        GetEnumerableDefinition(named),
-                        nonGenericEnumeratorDefinition))
-                {
-                    nonGenericElementType = Compilation.GetSpecialType(SpecialType.System_Object);
-                }
-            }
-        }
-
-        if (nonGenericElementType is not null)
-        {
-            elementType = nonGenericElementType;
+            iteration = CreatePatternIteration(getEnumerator, moveNextMethod, currentGetter);
             return true;
         }
 
-        elementType = null!;
+        iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        return false;
+    }
+
+    private bool TryClassifyEnumerableInterface(INamedTypeSymbol collectionType, out ForIterationInfo iteration)
+    {
+        if (TryGetGenericEnumerableInterface(collectionType, out var genericEnumerable) &&
+            TryResolveInterfaceEnumeratorPattern(genericEnumerable, out iteration))
+        {
+            return true;
+        }
+
+        var nonGenericEnumerable = Compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
+        if (nonGenericEnumerable is INamedTypeSymbol nonGenericEnumerableInterface &&
+            ImplementsInterface(collectionType, nonGenericEnumerableInterface) &&
+            TryResolveInterfaceEnumeratorPattern(nonGenericEnumerableInterface, out iteration))
+        {
+            return true;
+        }
+
+        iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        return false;
+    }
+
+    private bool TryResolveInterfaceEnumeratorPattern(
+        INamedTypeSymbol enumerableInterface,
+        out ForIterationInfo iteration)
+    {
+        var getEnumeratorMethod = enumerableInterface
+            .GetMembers("GetEnumerator")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 0);
+
+        if (getEnumeratorMethod is null ||
+            !TryResolveEnumeratorMembers(getEnumeratorMethod.ReturnType, out var moveNextMethod, out var currentGetter))
+        {
+            iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+            return false;
+        }
+
+        if (enumerableInterface.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+            enumerableInterface.TypeArguments.Length == 1 &&
+            enumerableInterface.TypeArguments[0].TypeKind != TypeKind.Error)
+        {
+            var enumeratorInterface = getEnumeratorMethod.ReturnType as INamedTypeSymbol;
+            if (enumeratorInterface is null)
+            {
+                iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+                return false;
+            }
+
+            iteration = ForIterationInfo.ForGeneric(
+                enumerableInterface,
+                enumeratorInterface,
+                getEnumeratorMethod,
+                moveNextMethod,
+                currentGetter);
+            return true;
+        }
+
+        iteration = ForIterationInfo.ForNonGeneric(
+            currentGetter.ReturnType,
+            getEnumeratorMethod,
+            moveNextMethod,
+            currentGetter);
+        return true;
+    }
+
+    private ForIterationInfo CreatePatternIteration(
+        IMethodSymbol getEnumeratorMethod,
+        IMethodSymbol moveNextMethod,
+        IMethodSymbol currentGetter)
+    {
+        if (currentGetter.ReturnType.SpecialType == SpecialType.System_Object)
+        {
+            return ForIterationInfo.ForNonGeneric(
+                currentGetter.ReturnType,
+                getEnumeratorMethod,
+                moveNextMethod,
+                currentGetter);
+        }
+
+        return new ForIterationInfo(
+            ForIterationKind.Generic,
+            currentGetter.ReturnType,
+            GetEnumeratorMethod: getEnumeratorMethod,
+            MoveNextMethod: moveNextMethod,
+            CurrentGetter: currentGetter);
+    }
+
+    private bool TryResolveEnumeratorMembers(
+        ITypeSymbol enumeratorType,
+        out IMethodSymbol moveNextMethod,
+        out IMethodSymbol currentGetter)
+    {
+        if (enumeratorType is not INamedTypeSymbol namedEnumerator)
+        {
+            moveNextMethod = null!;
+            currentGetter = null!;
+            return false;
+        }
+
+        foreach (var method in namedEnumerator.GetMembers("MoveNext").OfType<IMethodSymbol>())
+        {
+            if (method.IsStatic || method.Parameters.Length != 0)
+                continue;
+
+            if (method.ReturnType.SpecialType != SpecialType.System_Boolean)
+                continue;
+
+            if (!IsSymbolAccessible(method))
+                continue;
+
+            if (TryResolveEnumeratorCurrentGetter(namedEnumerator, out currentGetter))
+            {
+                moveNextMethod = method;
+                return true;
+            }
+        }
+
+        foreach (var interfaceType in namedEnumerator.AllInterfaces.OfType<INamedTypeSymbol>())
+        {
+            foreach (var method in interfaceType.GetMembers("MoveNext").OfType<IMethodSymbol>())
+            {
+                if (method.IsStatic || method.Parameters.Length != 0)
+                    continue;
+
+                if (method.ReturnType.SpecialType != SpecialType.System_Boolean)
+                    continue;
+
+                if (TryResolveEnumeratorCurrentGetter(interfaceType, out currentGetter))
+                {
+                    moveNextMethod = method;
+                    return true;
+                }
+            }
+        }
+
+        moveNextMethod = null!;
+        currentGetter = null!;
+        return false;
+    }
+
+    private bool TryResolveEnumeratorCurrentGetter(
+        INamedTypeSymbol enumeratorType,
+        out IMethodSymbol currentGetter)
+    {
+        foreach (var property in enumeratorType.GetMembers("Current").OfType<IPropertySymbol>())
+        {
+            if (property.IsStatic)
+                continue;
+
+            if (property.GetMethod is not IMethodSymbol getter)
+                continue;
+
+            if (getter.IsStatic || getter.Parameters.Length != 0)
+                continue;
+
+            if (!IsSymbolAccessible(getter))
+                continue;
+
+            currentGetter = getter;
+            return true;
+        }
+
+        currentGetter = null!;
+        return false;
+    }
+
+    private bool TryGetGenericEnumerableInterface(INamedTypeSymbol type, out INamedTypeSymbol enumerableInterface)
+    {
+        if (type.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+            type.TypeArguments.Length == 1)
+        {
+            enumerableInterface = type;
+            return true;
+        }
+
+        foreach (var interfaceType in type.AllInterfaces.OfType<INamedTypeSymbol>())
+        {
+            if (interfaceType.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+                interfaceType.TypeArguments.Length == 1)
+            {
+                enumerableInterface = interfaceType;
+                return true;
+            }
+        }
+
+        enumerableInterface = null!;
+        return false;
+    }
+
+    private static bool ImplementsInterface(INamedTypeSymbol type, INamedTypeSymbol interfaceType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(type, interfaceType))
+            return true;
+
+        foreach (var implementedInterface in type.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(implementedInterface, interfaceType))
+                return true;
+        }
+
         return false;
     }
 

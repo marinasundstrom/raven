@@ -8,6 +8,10 @@ val w = r.Map(x => x * 2)
 
 WriteLine(w)
 
-/*for z in x {
-    WriteLine(z)
-}*/
+for x in [1, 2, 3] {
+    WriteLine(x)
+}
+
+for x in r {
+    WriteLine(x)
+}
