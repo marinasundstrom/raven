@@ -4775,7 +4775,7 @@ partial class BlockBinder : Binder
             if (hasErrors)
                 return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
 
-            var target = BindPipelineTargetExpression(invocation.Expression);
+            var target = BindPipelineInvocationTargetExpression(invocation.Expression, left);
 
             if (target is BoundErrorExpression error)
                 return error;
@@ -4805,6 +4805,49 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
+    private BoundExpression BindPipelineInvocationTargetExpression(ExpressionSyntax expression, BoundExpression pipelineValue)
+    {
+        switch (expression)
+        {
+            case IdentifierNameSyntax identifier:
+            {
+                var methodName = identifier.Identifier.ValueText;
+                var hasRegularSymbols = LookupSymbol(methodName) is not null || LookupSymbols(methodName).Any();
+                var hasExtensionCandidates = TryBindPipelineExtensionMethodGroup(methodName, pipelineValue, identifier.Identifier.GetLocation(), out var extensionGroup);
+
+                if (!hasRegularSymbols)
+                    return hasExtensionCandidates
+                        ? extensionGroup!
+                        : BindIdentifierName(identifier);
+
+                var regularTarget = BindIdentifierName(identifier);
+                if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
+                    return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
+
+                return regularTarget;
+            }
+            case GenericNameSyntax generic:
+            {
+                var methodName = generic.Identifier.ValueText;
+                var hasRegularSymbols = LookupSymbols(methodName).Any();
+                var hasExtensionCandidates = TryBindPipelineExtensionMethodGroup(methodName, pipelineValue, generic.Identifier.GetLocation(), out var extensionGroup);
+
+                if (!hasRegularSymbols && hasExtensionCandidates)
+                    return extensionGroup!;
+
+                var regularTarget = BindGenericInvocationTarget(generic);
+                if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
+                {
+                    return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
+                }
+
+                return regularTarget;
+            }
+            default:
+                return BindPipelineTargetExpression(expression);
+        }
+    }
+
     private BoundExpression BindPipelineTargetExpression(ExpressionSyntax expression)
         => expression switch
         {
@@ -4814,6 +4857,55 @@ partial class BlockBinder : Binder
             IdentifierNameSyntax identifier => BindIdentifierName(identifier),
             _ => BindExpression(expression),
         };
+
+    private bool TryBindPipelineExtensionMethodGroup(
+        string methodName,
+        BoundExpression pipelineValue,
+        Location location,
+        out BoundMethodGroupExpression? methodGroup)
+    {
+        methodGroup = null;
+
+        if (!IsExtensionReceiver(pipelineValue))
+            return false;
+
+        var receiverType = pipelineValue.Type.UnwrapLiteralType() ?? pipelineValue.Type;
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        var extensionCandidates = LookupExtensionMethods(methodName, receiverType).ToImmutableArray();
+        if (extensionCandidates.IsDefaultOrEmpty)
+            return false;
+
+        var boundGroup = BindMethodGroup(null, extensionCandidates, location);
+        methodGroup = boundGroup as BoundMethodGroupExpression;
+        return methodGroup is not null;
+    }
+
+    private BoundMethodGroupExpression MergePipelineMethodGroupCandidates(
+        BoundMethodGroupExpression regularMethodGroup,
+        ImmutableArray<IMethodSymbol> extensionMethods)
+    {
+        if (extensionMethods.IsDefaultOrEmpty)
+            return regularMethodGroup;
+
+        var merged = ImmutableArray.CreateBuilder<IMethodSymbol>(regularMethodGroup.Methods.Length + extensionMethods.Length);
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var method in regularMethodGroup.Methods)
+        {
+            if (seen.Add(method))
+                merged.Add(method);
+        }
+
+        foreach (var method in extensionMethods)
+        {
+            if (seen.Add(method))
+                merged.Add(method);
+        }
+
+        return CreateMethodGroup(regularMethodGroup.Receiver, merged.ToImmutable());
+    }
 
     private BoundExpression BindPipelinePropertyAssignment(
         BoundExpression target,

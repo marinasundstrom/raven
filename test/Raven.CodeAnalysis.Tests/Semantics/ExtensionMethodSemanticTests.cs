@@ -1401,6 +1401,38 @@ public static class NumberExtensions {
     }
 
     [Fact]
+    public void PipeOperator_WithSourceExtensionDeclaration_UnqualifiedCall_BindsInvocation()
+    {
+        const string source = """
+extension IntExt for int {
+    public Inc(amount: int) -> int {
+        return self + amount
+    }
+}
+
+let result = 5 |> Inc(2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV0103" && d.GetMessage().Contains("'Inc'"));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.True(boundPipeline.Method.IsExtensionMethod);
+        Assert.NotNull(boundPipeline.ExtensionReceiver);
+        Assert.Single(boundPipeline.Arguments);
+        Assert.Equal("Inc", boundPipeline.Method.Name);
+    }
+
+    [Fact]
     public void PipeOperator_WithStaticMethod_PrependsArgument()
     {
         const string source = """
