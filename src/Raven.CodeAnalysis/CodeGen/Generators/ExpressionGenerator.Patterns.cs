@@ -552,6 +552,12 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundPositionalPattern tuplePattern)
         {
+            if (inputType is IArrayTypeSymbol arrayType)
+            {
+                EmitArrayCollectionPattern(tuplePattern, arrayType, scope);
+                return;
+            }
+
             EnsureObjectOnStack(ref inputType);
 
             var tupleInterfaceType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ITuple")
@@ -610,6 +616,44 @@ internal partial class ExpressionGenerator
         }
 
         throw new NotSupportedException($"Unsupported pattern");
+    }
+
+    private void EmitArrayCollectionPattern(BoundPositionalPattern pattern, IArrayTypeSymbol arrayType, Generator scope)
+    {
+        var arrayClrType = ResolveClrType(arrayType);
+        var arrayLocal = ILGenerator.DeclareLocal(arrayClrType);
+        var labelFail = ILGenerator.DefineLabel();
+        var labelDone = ILGenerator.DefineLabel();
+        var elementType = arrayType.ElementType;
+
+        ILGenerator.Emit(OpCodes.Stloc, arrayLocal);
+
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+
+        ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+        ILGenerator.Emit(OpCodes.Ldlen);
+        ILGenerator.Emit(OpCodes.Conv_I4);
+        ILGenerator.Emit(OpCodes.Ldc_I4, pattern.Elements.Length);
+        ILGenerator.Emit(OpCodes.Bne_Un, labelFail);
+
+        for (var i = 0; i < pattern.Elements.Length; i++)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4, i);
+            EmitLoadElement(elementType);
+
+            EmitPattern(pattern.Elements[i], elementType, scope);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Br, labelDone);
+
+        ILGenerator.MarkLabel(labelFail);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+        ILGenerator.MarkLabel(labelDone);
     }
 
     private void EmitPatternTestBranchFalse(

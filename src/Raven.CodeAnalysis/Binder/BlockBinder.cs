@@ -2347,6 +2347,21 @@ partial class BlockBinder : Binder
                 }
             case BoundPositionalPattern tuplePattern:
                 {
+                    if (patternSyntax is PositionalPatternSyntax collectionSyntax &&
+                        collectionSyntax.OpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
+                    {
+                        if (!TryGetCollectionPatternElementType(scrutineeType, out var elementType))
+                            return;
+
+                        var patternElements = tuplePattern.Elements;
+                        var elementCount = Math.Min(patternElements.Length, collectionSyntax.Elements.Count);
+
+                        for (var i = 0; i < elementCount; i++)
+                            EnsureMatchArmPatternValid(elementType, collectionSyntax.Elements[i].Pattern, patternElements[i]);
+
+                        return;
+                    }
+
                     var tuplePatternType = UnwrapAlias(tuplePattern.Type);
 
                     if (tuplePatternType.TypeKind == TypeKind.Error)

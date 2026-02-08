@@ -330,6 +330,7 @@ PrimaryPattern           ::= ParenthesizedPattern
                            | VariablePattern
                            | DeclarationPattern
                            | PositionalPattern
+                           | CollectionPattern
                            | DiscardPattern
                            | MemberPattern
                            | RecordPattern
@@ -358,6 +359,8 @@ DeclarationPattern       ::= Type [VariableDesignation] ;
 
 PositionalPattern        ::= '(' PatternElement ',' PatternElement {',' PatternElement} ')' ;
 PatternElement           ::= [PositionalPatternElementDesignation] Pattern ;
+
+CollectionPattern        ::= '[' PatternList? ']' ;
 
 (* Positional element designations introduce a new binding for the element.
    To avoid ambiguity with value/constant patterns, the binding keyword is required.

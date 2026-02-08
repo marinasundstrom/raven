@@ -651,6 +651,9 @@ internal partial class BlockBinder
 
     private BoundPattern BindPositionalPattern(PositionalPatternSyntax syntax, ITypeSymbol? inputType)
     {
+        if (syntax.OpenParenToken.IsKind(SyntaxKind.OpenBracketToken))
+            return BindCollectionPattern(syntax, inputType);
+
         if (inputType is not null)
         {
             var deconstructMethod = FindDeconstructMethod(inputType, syntax.Elements.Count);
@@ -696,6 +699,79 @@ internal partial class BlockBinder
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
 
         return new BoundPositionalPattern(tupleType, elementPatterns.ToImmutable());
+    }
+
+    private BoundPattern BindCollectionPattern(PositionalPatternSyntax syntax, ITypeSymbol? inputType)
+    {
+        inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
+        var patternType = inputType;
+        var reason = BoundExpressionReason.None;
+
+        if (!TryGetCollectionPatternElementType(inputType, out var elementType))
+        {
+            if (inputType.TypeKind != TypeKind.Error)
+            {
+                _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                    "for a collection pattern",
+                    inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.GetLocation());
+            }
+
+            elementType = Compilation.ErrorTypeSymbol;
+            reason = BoundExpressionReason.TypeMismatch;
+        }
+
+        for (var i = 0; i < syntax.Elements.Count; i++)
+        {
+            var elementSyntax = syntax.Elements[i];
+            var boundElement = BindPositionalPatternElement(elementSyntax.Pattern, elementType);
+            boundElement = BindPositionalPatternElementDesignation(elementSyntax, boundElement);
+            elementPatterns.Add(boundElement);
+        }
+
+        return new BoundPositionalPattern(patternType, elementPatterns.ToImmutable(), reason);
+    }
+
+    private bool TryGetCollectionPatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
+    {
+        elementType = Compilation.ErrorTypeSymbol;
+
+        if (inputType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (inputType is IArrayTypeSymbol arrayType)
+        {
+            elementType = arrayType.ElementType;
+            return true;
+        }
+
+        if (inputType is INamedTypeSymbol namedType)
+        {
+            var genericDefinition = namedType.OriginalDefinition ?? namedType;
+            if (genericDefinition.MetadataName == "IEnumerable`1" &&
+                genericDefinition.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
+                namedType.TypeArguments.Length == 1)
+            {
+                elementType = namedType.TypeArguments[0];
+                return true;
+            }
+
+            foreach (var iface in namedType.AllInterfaces)
+            {
+                var ifaceDefinition = iface.OriginalDefinition ?? iface;
+                if (ifaceDefinition.MetadataName == "IEnumerable`1" &&
+                    ifaceDefinition.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic" &&
+                    iface.TypeArguments.Length == 1)
+                {
+                    elementType = iface.TypeArguments[0];
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private BoundPattern BindPositionalPatternElement(PatternSyntax syntax, ITypeSymbol? expectedType)

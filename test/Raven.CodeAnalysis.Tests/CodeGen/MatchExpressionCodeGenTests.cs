@@ -139,6 +139,34 @@ class Describer {
     }
 
     [Fact]
+    public void MatchExpression_WithArrayCollectionPattern_EmitsAndRuns()
+    {
+        const string code = """
+class Formatter {
+    public Describe(values: int[]) -> string {
+        return values match {
+            [val first, val second] => (first + second).ToString()
+            _ => "none"
+        }
+    }
+}
+
+class Program {
+    static Main() {
+        let formatter = Formatter()
+        System.Console.WriteLine(formatter.Describe([2, 3]))
+    }
+}
+""";
+
+        var output = EmitAndRun(code, "match_array_collection_pattern");
+        if (output is null)
+            return;
+
+        Assert.Equal("5", output);
+    }
+
+    [Fact]
     public void MatchExpression_WithDiscriminatedUnion_UsesTryGetAndCaseProperties()
     {
         const string code = """

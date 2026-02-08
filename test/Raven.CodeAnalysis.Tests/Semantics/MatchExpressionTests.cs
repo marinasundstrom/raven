@@ -248,6 +248,50 @@ let result = x match {
     }
 
     [Fact]
+    public void MatchExpression_WithCollectionPatternOnArray_BindsElementDesignations()
+    {
+        const string code = """
+let items: int[] = [1, 2]
+
+let result = items match {
+    [val first, val second] => first + second
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "array_collection_match",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var collectionPattern = Assert.IsType<BoundPositionalPattern>(bound.Arms[0].Pattern);
+        Assert.Equal("int[]", collectionPattern.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        Assert.Collection(collectionPattern.Elements,
+            element =>
+            {
+                var declaration = Assert.IsType<BoundDeclarationPattern>(element);
+                var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+                Assert.Equal("first", designator.Local.Name);
+            },
+            element =>
+            {
+                var declaration = Assert.IsType<BoundDeclarationPattern>(element);
+                var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+                Assert.Equal("second", designator.Local.Name);
+            });
+    }
+
+    [Fact]
     public void MatchExpression_WithDiscardArmNotLast_ReportsDiagnostic()
     {
         const string code = """

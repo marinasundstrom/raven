@@ -72,6 +72,11 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParsePositionalPattern();
         }
 
+        if (PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        {
+            return ParseCollectionPattern();
+        }
+
         if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
         {
             if (TryParsePropertyPatternClause(out var clause))
@@ -330,6 +335,32 @@ internal class PatternSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         return PositionalPattern(openParenToken, List(elementList.ToArray()), closeParenToken);
+    }
+
+    private PositionalPatternSyntax ParseCollectionPattern()
+    {
+        var openBracketToken = ReadToken();
+
+        var elementList = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseBracketToken))
+        {
+            elementList.Add(ParsePositionalPatternElement());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                elementList.Add(commaToken);
+
+                if (PeekToken().IsKind(SyntaxKind.CloseBracketToken))
+                    break;
+
+                elementList.Add(ParsePositionalPatternElement());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+
+        return PositionalPattern(openBracketToken, List(elementList.ToArray()), closeBracketToken);
     }
 
     private MemberPatternSyntax ParseMemberPattern(TypeSyntax? qualifier, SyntaxToken dotToken)

@@ -1,0 +1,11 @@
+import System.Console.*
+
+val items: int[] = [1, 2]
+
+val result = items match {
+    [val first, val second] => first + second
+    _ => 0
+}
+
+WriteLine(items)
+WriteLine(result)

@@ -1831,6 +1831,16 @@ Patterns compose from the following primitives.
   An element may optionally include a name before the colon (`name: pattern`) to
   bind the element value while still applying a nested pattern.
 
+#### Collection patterns
+
+* `[pattern1, pattern2, …]` — **collection pattern**. Matches when the scrutinee
+  is an array with the same length and each element pattern matches the
+  corresponding array element.
+
+  * Collection patterns are currently supported for array scrutinees (`T[]`).
+  * Each element is a full pattern; bindings still require `val`/`var`.
+  * Length must match exactly.
+
 #### Property patterns
 
 * `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**.

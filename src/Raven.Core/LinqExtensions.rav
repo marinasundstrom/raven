@@ -11,33 +11,33 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // -------------------------
 
     public FirstOrNone() -> Option<T> {
-        for item in self {
-            return .Some(item)
+        val values = self.Take(1).ToList()
+        if values.Count == 1 {
+            return .Some(values[0])
         }
         return .None
     }
 
     public FirstOrNone(predicate: T -> bool) -> Option<T> {
-        for item in self {
-            if predicate(item) {
-                return .Some(item)
-            }
+        val values = self.Where(predicate).Take(1).ToList()
+        if values.Count == 1 {
+            return .Some(values[0])
         }
         return .None
     }
 
     public FirstOrError<E>(errorFactory: () -> E) -> Result<T, E> {
-        for item in self {
-            return .Ok(item)
+        val values = self.Take(1).ToList()
+        if values.Count == 1 {
+            return .Ok(values[0])
         }
         return .Error(errorFactory())
     }
 
     public FirstOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
-        for item in self {
-            if predicate(item) {
-                return .Ok(item)
-            }
+        val values = self.Where(predicate).Take(1).ToList()
+        if values.Count == 1 {
+            return .Ok(values[0])
         }
         return .Error(errorFactory())
     }
@@ -47,47 +47,35 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // -------------------------
 
     public LastOrNone() -> Option<T> {
-        var result: Option<T> = .None
-        for item in self {
-            result = .Some(item)
+        val values = self.ToList()
+        if values.Count == 0 {
+            return .None
         }
-        return result
+        return .Some(values[values.Count - 1])
     }
 
     public LastOrNone(predicate: T -> bool) -> Option<T> {
-        var result: Option<T> = .None
-        for item in self {
-            if predicate(item) {
-                result = .Some(item)
-            }
+        val values = self.Where(predicate).ToList()
+        if values.Count == 0 {
+            return .None
         }
-        return result
+        return .Some(values[values.Count - 1])
     }
 
     public LastOrError<E>(errorFactory: () -> E) -> Result<T, E> {
-        var result: Option<T> = .None
-        for item in self {
-            result = .Some(item)
+        val values = self.ToList()
+        if values.Count == 0 {
+            return .Error(errorFactory())
         }
-
-        return result match {
-            .Some(val value) => .Ok(value)
-            .None => .Error(errorFactory())
-        }
+        return .Ok(values[values.Count - 1])
     }
 
     public LastOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
-        var result: Option<T> = .None
-        for item in self {
-            if predicate(item) {
-                result = .Some(item)
-            }
+        val values = self.Where(predicate).ToList()
+        if values.Count == 0 {
+            return .Error(errorFactory())
         }
-
-        return result match {
-            .Some(val value) => .Ok(value)
-            .None => .Error(errorFactory())
-        }
+        return .Ok(values[values.Count - 1])
     }
 
     // -------------------------
@@ -95,111 +83,57 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // -------------------------
 
     public SingleOrNone() -> Option<T> {
-        var seen = false
-        var value: Option<T> = .None
-
-        for item in self {
-            if seen {
-                return .None
-            }
-            seen = true
-            value = .Some(item)
+        val values = self.Take(2).ToList()
+        if values.Count == 1 {
+            return .Some(values[0])
         }
-
-        return value
+        return .None
     }
 
     public SingleOrNone(predicate: T -> bool) -> Option<T> {
-        var seen = false
-        var value: Option<T> = .None
-
-        for item in self {
-            if predicate(item) {
-                if seen {
-                    return .None
-                }
-                seen = true
-                value = .Some(item)
-            }
+        val values = self.Where(predicate).Take(2).ToList()
+        if values.Count == 1 {
+            return .Some(values[0])
         }
-
-        return value
+        return .None
     }
 
     public SingleOrError<E>(errorFactory: () -> E) -> Result<T, E> {
-        var seen = false
-        var value: Option<T> = .None
-
-        for item in self {
-            if seen {
-                return .Error(errorFactory())
-            }
-            seen = true
-            value = .Some(item)
+        val values = self.Take(2).ToList()
+        if values.Count == 1 {
+            return .Ok(values[0])
         }
-
-        return value match {
-            .Some(val v) => .Ok(v)
-            .None => .Error(errorFactory())
-        }
+        return .Error(errorFactory())
     }
 
     public SingleOrError<E>(predicate: T -> bool, errorFactory: () -> E) -> Result<T, E> {
-        var seen = false
-        var value: Option<T> = .None
-
-        for item in self {
-            if predicate(item) {
-                if seen {
-                    return .Error(errorFactory())
-                }
-                seen = true
-                value = .Some(item)
-            }
+        val values = self.Where(predicate).Take(2).ToList()
+        if values.Count == 1 {
+            return .Ok(values[0])
         }
-
-        return value match {
-            .Some(val v) => .Ok(v)
-            .None => .Error(errorFactory())
-        }
+        return .Error(errorFactory())
     }
 
     public SingleOrError<E>(errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
-        var seen = false
-        var value: Option<T> = .None
-
-        for item in self {
-            if seen {
-                return .Error(errorIfMany())
-            }
-            seen = true
-            value = .Some(item)
+        val values = self.Take(2).ToList()
+        if values.Count == 1 {
+            return .Ok(values[0])
         }
-
-        return value match {
-            .Some(val v) => .Ok(v)
-            .None => .Error(errorIfNone())
+        if values.Count == 0 {
+            return .Error(errorIfNone())
         }
+        return .Error(errorIfMany())
     }
 
     public SingleOrError<E>(predicate: T -> bool, errorIfNone: () -> E, errorIfMany: () -> E) -> Result<T, E> {
-        var seen = false
-        var value: Option<T> = .None
-
-        for item in self {
-            if predicate(item) {
-                if seen {
-                    return .Error(errorIfMany())
-                }
-                seen = true
-                value = .Some(item)
-            }
+        val values = self.Where(predicate).Take(2).ToList()
+        if values.Count == 1 {
+            return .Ok(values[0])
         }
-
-        return value match {
-            .Some(val v) => .Ok(v)
-            .None => .Error(errorIfNone())
+        if values.Count == 0 {
+            return .Error(errorIfNone())
         }
+        return .Error(errorIfMany())
     }
 
     // -------------------------
@@ -211,12 +145,9 @@ public extension EnumerableOption<T> for IEnumerable<T> {
             return .None
         }
 
-        var i = 0
-        for item in self {
-            if i == index {
-                return .Some(item)
-            }
-            i = i + 1
+        val values = self.Skip(index).Take(1).ToList()
+        if values.Count == 1 {
+            return .Some(values[0])
         }
 
         return .None
