@@ -17,6 +17,14 @@ internal static class ReturnTypeCollector
     {
         var collector = new Collector();
         collector.Visit(node);
+
+        if (node is BoundBlockStatement block &&
+            block.Statements.LastOrDefault() is BoundExpressionStatement exprStmt &&
+            exprStmt.Expression.Type is ITypeSymbol tailType)
+        {
+            collector.AddInferredType(tailType);
+        }
+
         var collected = collector.GetResult();
 
         if (collected is null && node is BoundExpression expression &&
@@ -55,33 +63,6 @@ internal static class ReturnTypeCollector
             base.VisitReturnStatement(node);
         }
 
-        public override void VisitBlockExpression(BoundBlockExpression node)
-        {
-            BoundStatement? last = null;
-            foreach (var statement in node.Statements)
-            {
-                VisitStatement(statement);
-                last = statement;
-            }
-
-            if (last is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol type)
-                AddType(type);
-        }
-
-        public override void VisitBlockStatement(BoundBlockStatement node)
-        {
-            BoundStatement? last = null;
-            foreach (var statement in node.Statements)
-            {
-                VisitStatement(statement);
-                last = statement;
-            }
-
-            // Consider implicit final expression in statement blocks (e.g., function bodies)
-            if (last is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol type)
-                AddType(type);
-        }
-
         public override void VisitLambdaExpression(BoundLambdaExpression node)
         {
             // Don't traverse into nested lambdas
@@ -108,6 +89,11 @@ internal static class ReturnTypeCollector
             {
                 _types.Add(type);
             }
+        }
+
+        public void AddInferredType(ITypeSymbol type)
+        {
+            AddType(type);
         }
 
         public ITypeSymbol? GetResult()
