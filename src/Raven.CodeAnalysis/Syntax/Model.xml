@@ -152,6 +152,20 @@
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" DefaultToken="CloseBraceToken" />
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" IsOptionalToken="true" />
   </Node>
+  <Node Name="StructDeclaration" Inherits="TypeDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="Keyword" Type="Token" IsInherited="true" />
+    <Slot Name="Identifier" Type="Token" IsInherited="true" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="BaseList" Type="BaseList" IsNullable="true" />
+    <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" IsInherited="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
+    <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" DefaultToken="OpenBraceToken" />
+    <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
+    <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" DefaultToken="CloseBraceToken" />
+    <Slot Name="TerminatorToken" Type="Token" IsInherited="true" IsOptionalToken="true" />
+  </Node>
   <Node Name="BaseList" Inherits="Node">
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken" />
     <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
@@ -467,6 +481,10 @@
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
     <Slot Name="Statements" Type="List" ElementType="Statement" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+  </Node>
+  <Node Name="UnsafeStatement" Inherits="Statement">
+    <Slot Name="UnsafeKeyword" Type="Token" DefaultToken="UnsafeKeyword" />
+    <Slot Name="Block" Type="BlockStatement" />
   </Node>
   <Node Name="MemberDeclaration" Inherits="Node" IsAbstract="true">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsAbstract="true" />

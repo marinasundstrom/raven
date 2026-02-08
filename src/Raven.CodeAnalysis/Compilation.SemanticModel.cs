@@ -106,13 +106,17 @@ public partial class Compilation
             if (syntaxTree.GetRoot() is not CompilationUnitSyntax root)
                 continue;
 
-            foreach (var classDecl in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+            var typeDeclarations = root.DescendantNodes()
+                .OfType<TypeDeclarationSyntax>()
+                .Where(typeDecl => typeDecl is ClassDeclarationSyntax or StructDeclarationSyntax);
+
+            foreach (var classDecl in typeDeclarations)
             {
                 var symbol = model.GetDeclaredTypeSymbolForDeclaration(classDecl);
 
                 constructorFlags.TryGetValue(symbol, out var flags);
 
-                if (classDecl.ParameterList is not null)
+                if (classDecl is ClassDeclarationSyntax { ParameterList: not null })
                     flags.HasPrimaryConstructor = true;
 
                 if (classDecl.Members.OfType<ConstructorDeclarationSyntax>()

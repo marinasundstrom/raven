@@ -157,6 +157,17 @@ internal class StatementGenerator : Generator
             if (resultTemp is not null)
                 ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
 
+            if (expressionType is not null &&
+                !SymbolEqualityComparer.Default.Equals(expressionType, returnType))
+            {
+                var conversion = Compilation.ClassifyConversion(expressionType, returnType);
+                if (conversion.Exists && !conversion.IsIdentity)
+                {
+                    EmitConversion(expressionType, returnType, conversion);
+                    expressionType = returnType;
+                }
+            }
+
             if (expressionType?.IsValueType == true &&
                 (returnType.SpecialType is SpecialType.System_Object || returnType is ITypeUnionSymbol))
             {
@@ -208,6 +219,17 @@ internal class StatementGenerator : Generator
             var builderFieldInfo = (FieldInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder((SourceFieldSymbol)members.BuilderField);
             ILGenerator.Emit(OpCodes.Ldflda, builderFieldInfo);
             ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+
+            if (expressionType is not null &&
+                !SymbolEqualityComparer.Default.Equals(expressionType, MethodSymbol.ReturnType))
+            {
+                var conversion = Compilation.ClassifyConversion(expressionType, MethodSymbol.ReturnType);
+                if (conversion.Exists && !conversion.IsIdentity)
+                {
+                    EmitConversion(expressionType, MethodSymbol.ReturnType, conversion);
+                }
+            }
+
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(setResultMethod));
         }
 

@@ -11,15 +11,16 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PointerTypeSemanticTests : CompilationTestBase
 {
-    protected override CompilationOptions GetCompilationOptions()
-        => base.GetCompilationOptions().WithAllowUnsafe(true);
-
     [Fact]
     public void PointerTypeSyntax_BindsToPointerTypeSymbol()
     {
         const string source = """
-let value = 0
-let pointer: *int = &value
+class C {
+    unsafe static Test() {
+        let value = 0
+        let pointer: *int = &value
+    }
+}
 """;
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
@@ -58,7 +59,7 @@ class C {
     {
         const string source = """
 class C {
-    static Test() {
+    unsafe static Test() {
         var value = 0
         let alias: *int = &value
     }
@@ -164,5 +165,141 @@ let pointer: *int = &value
         Assert.Contains(
             diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error),
             d => d.Id == CompilerDiagnostics.PointerTypeRequiresUnsafe.Id);
+    }
+
+    [Fact]
+    public void PointerDereference_ReadAndWrite_BindsWithoutErrors()
+    {
+        const string source = """
+class Test {
+    unsafe static Run() -> int {
+        var value = 41
+        let pointer: *int = &value
+        *pointer = 42
+        return *pointer
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var dereference = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<UnaryExpressionSyntax>()
+            .First(u => u.Kind == SyntaxKind.DereferenceExpression);
+
+        var typeInfo = model.GetTypeInfo(dereference);
+        Assert.Equal(SpecialType.System_Int32, typeInfo.Type?.SpecialType);
+    }
+
+    [Fact]
+    public void PointerArrowMemberAccess_ResolvesMemberOnPointedType()
+    {
+        const string source = """
+struct Holder {
+    public var Value: int = 42
+}
+
+class Test {
+    unsafe static Run() -> int {
+        var holder = Holder()
+        let pointer: *Holder = &holder
+        return pointer->Value
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+    }
+
+    [Fact]
+    public void PointerDereference_WithoutUnsafe_ReportsDiagnostic()
+    {
+        const string source = """
+class Test {
+    static Run() -> int {
+        var value = 0
+        let pointer: *int = &value
+        return *pointer
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error),
+            d => d.Id == CompilerDiagnostics.PointerOperationRequiresUnsafe.Id);
+    }
+
+    [Fact]
+    public void PointerArrowMemberAccess_WithNonPointerReceiver_ReportsDiagnostic()
+    {
+        const string source = """
+class Holder {
+    var Value: int = 42
+}
+
+class Test {
+    unsafe static Run() -> int {
+        var holder = Holder()
+        return holder->Value
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error),
+            d => d.Id == CompilerDiagnostics.PointerMemberAccessRequiresPointer.Id);
+    }
+
+    [Fact]
+    public void PointerOperations_InsideUnsafeBlock_WorkWithoutGlobalUnsafeFlag()
+    {
+        const string source = """
+class Test {
+    static Run() -> int {
+        var value = 0
+        unsafe {
+            let pointer: *int = &value
+            *pointer = 7
+        }
+        return value
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+    }
+
+    [Fact]
+    public void PointerOperations_InsideUnsafeMethod_WorkWithoutGlobalUnsafeFlag()
+    {
+        const string source = """
+class Test {
+    unsafe static Run() -> int {
+        var value = 0
+        let pointer: *int = &value
+        *pointer = 9
+        return value
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
     }
 }

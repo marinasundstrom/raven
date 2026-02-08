@@ -30,12 +30,15 @@ partial class BlockBinder : Binder
     private int _tempCounter;
     private int _objectInitializerDepth;
     private int _withInitializerDepth;
+    private int _unsafeBlockDepth;
 
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
     private bool IsInWithInitializer => _withInitializerDepth > 0;
 
     private bool IsInInitOnlyAssignmentContext =>
         IsInObjectInitializer || IsInWithInitializer;
+
+    protected override bool IsInUnsafeContext => _unsafeBlockDepth > 0 || base.IsInUnsafeContext;
 
     private static bool IsInitOnly(IPropertySymbol property)
         => property.SetMethod?.MethodKind == MethodKind.InitOnly;
@@ -495,6 +498,7 @@ partial class BlockBinder : Binder
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             ThrowStatementSyntax throwStatement => BindThrowStatement(throwStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
+            UnsafeStatementSyntax unsafeStatement => BindUnsafeStatement(unsafeStatement),
             ForStatementSyntax forStmt => BindForStatement(forStmt),
             LabeledStatementSyntax labeledStatement => BindLabeledStatement(labeledStatement),
             GotoStatementSyntax gotoStatement => BindGotoStatement(gotoStatement),
@@ -516,6 +520,19 @@ partial class BlockBinder : Binder
     {
         var errorExpression = ErrorExpression(Compilation.ErrorTypeSymbol, reason: BoundExpressionReason.OtherError);
         return new BoundExpressionStatement(errorExpression);
+    }
+
+    private BoundStatement BindUnsafeStatement(UnsafeStatementSyntax unsafeStatement)
+    {
+        _unsafeBlockDepth++;
+        try
+        {
+            return BindBlockStatement(unsafeStatement.Block);
+        }
+        finally
+        {
+            _unsafeBlockDepth--;
+        }
     }
 
     private BoundStatement BindLocalDeclarationStatement(LocalDeclarationStatementSyntax localDeclaration)
@@ -879,6 +896,9 @@ partial class BlockBinder : Binder
         {
             case SyntaxKind.AddressOfExpression:
                 return BindAddressOfExpression(operand, unaryExpression);
+
+            case SyntaxKind.DereferenceExpression:
+                return BindDereferenceExpression(operand, unaryExpression);
 
             case SyntaxKind.LogicalNotExpression:
             case SyntaxKind.UnaryMinusExpression:
@@ -1365,6 +1385,37 @@ partial class BlockBinder : Binder
 
         //_diagnostics.ReportInvalidAddressOf(syntax.Expression.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed /*,.InvalidAddressOfTarget */);
+    }
+
+    private BoundExpression BindDereferenceExpression(BoundExpression operand, UnaryExpressionSyntax syntax)
+    {
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        if (!IsUnsafeEnabled)
+        {
+            _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.ToString(), syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var operandType = operand.Type ?? Compilation.ErrorTypeSymbol;
+        var elementType = operandType switch
+        {
+            IPointerTypeSymbol pointer => pointer.PointedAtType,
+            IAddressTypeSymbol address => address.ReferencedType,
+            ByRefTypeSymbol byRef => byRef.ElementType,
+            _ => null,
+        };
+
+        if (elementType is null)
+        {
+            _diagnostics.ReportDereferenceRequiresPointerOrByRef(
+                operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        return new BoundDereferenceExpression(operand, elementType);
     }
 
     private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)
@@ -3751,7 +3802,7 @@ partial class BlockBinder : Binder
 
         if (syntax is PointerTypeSyntax pointerTypeSyntax)
         {
-            if (!Compilation.Options.AllowUnsafe)
+            if (!IsUnsafeEnabled)
             {
                 _diagnostics.ReportPointerTypeRequiresUnsafe(pointerTypeSyntax.ToString(), pointerTypeSyntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);

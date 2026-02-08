@@ -127,6 +127,12 @@ public partial class SemanticModel
                         DeclareClassMemberTypes(classDecl, classSymbol);
                         break;
                     }
+                case StructDeclarationSyntax structDecl:
+                    {
+                        var structSymbol = DeclareClassSymbol(structDecl, parentNamespace, objectType);
+                        DeclareClassMemberTypes(structDecl, structSymbol);
+                        break;
+                    }
 
                 case DelegateDeclarationSyntax delegateDecl:
                     {
@@ -162,10 +168,17 @@ public partial class SemanticModel
     }
 
     private SourceNamedTypeSymbol DeclareClassSymbol(
-        ClassDeclarationSyntax classDecl,
+        TypeDeclarationSyntax classDecl,
         INamespaceSymbol parentNamespace,
         INamedTypeSymbol? objectType)
     {
+        var declaredTypeKind = classDecl.Keyword.Kind == SyntaxKind.StructKeyword
+            ? TypeKind.Struct
+            : TypeKind.Class;
+        var defaultBaseType = declaredTypeKind == TypeKind.Struct
+            ? Compilation.GetSpecialType(SpecialType.System_ValueType)
+            : objectType;
+
         var isStatic = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isSealed = isStatic || (!classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
@@ -185,13 +198,13 @@ public partial class SemanticModel
         ReportExternalTypeRedeclaration(
             parentNamespace,
             classDecl.Identifier,
-            classDecl.TypeParameterList?.Parameters.Count ?? 0,
+            GetTypeParameterList(classDecl)?.Parameters.Count ?? 0,
             _declarationDiagnostics);
 
         if (parentSourceNamespace is not null &&
             parentSourceNamespace.IsMemberDefined(classDecl.Identifier.ValueText, out var existingMember) &&
             existingMember is SourceNamedTypeSymbol existingType &&
-            existingType.TypeKind == TypeKind.Class)
+            existingType.TypeKind == declaredTypeKind)
         {
             var hadPartial = existingType.HasPartialModifier;
             var hadNonPartial = existingType.HasNonPartialDeclaration;
@@ -223,8 +236,8 @@ public partial class SemanticModel
         {
             classSymbol = new SourceNamedTypeSymbol(
                 classDecl.Identifier.ValueText,
-                objectType!,
-                TypeKind.Class,
+                defaultBaseType!,
+                declaredTypeKind,
                 parentNamespace.AsSourceNamespace(),
                 null,
                 parentNamespace.AsSourceNamespace(),
@@ -240,24 +253,29 @@ public partial class SemanticModel
         }
 
         if (isNewSymbol)
-            InitializeTypeParameters(classSymbol, classDecl.TypeParameterList, classDecl.ConstraintClauses);
+            InitializeTypeParameters(classSymbol, GetTypeParameterList(classDecl), GetConstraintClauses(classDecl));
 
         RegisterDeclaredTypeSymbol(classDecl, classSymbol);
 
         return classSymbol;
     }
 
-    private void DeclareClassMemberTypes(ClassDeclarationSyntax classDecl, SourceNamedTypeSymbol classSymbol)
+    private void DeclareClassMemberTypes(TypeDeclarationSyntax classDecl, SourceNamedTypeSymbol classSymbol)
     {
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var parentType = (INamedTypeSymbol)classSymbol;
 
         foreach (var member in classDecl.Members)
         {
             switch (member)
             {
-                case ClassDeclarationSyntax nestedClass:
+                case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax:
                     {
+                        var nestedTypeKind = nestedClass.Keyword.Kind == SyntaxKind.StructKeyword
+                            ? TypeKind.Struct
+                            : TypeKind.Class;
+                        var nestedBaseType = nestedTypeKind == TypeKind.Struct ? valueType : objectType;
                         var nestedStatic = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
                         var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                         var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
@@ -275,7 +293,7 @@ public partial class SemanticModel
 
                         var existingNested = parentType.GetMembers(nestedClass.Identifier.ValueText)
                             .OfType<SourceNamedTypeSymbol>()
-                            .FirstOrDefault(t => t.TypeKind == TypeKind.Class);
+                            .FirstOrDefault(t => t.TypeKind == nestedTypeKind);
 
                         if (existingNested is not null)
                         {
@@ -309,8 +327,8 @@ public partial class SemanticModel
                         {
                             nestedSymbol = new SourceNamedTypeSymbol(
                                 nestedClass.Identifier.ValueText,
-                                objectType!,
-                                TypeKind.Class,
+                                nestedBaseType!,
+                                nestedTypeKind,
                                 parentType,
                                 parentType,
                                 classSymbol.ContainingNamespace,
@@ -327,7 +345,7 @@ public partial class SemanticModel
                         }
 
                         if (isNewNestedSymbol)
-                            InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList, nestedClass.ConstraintClauses);
+                            InitializeTypeParameters(nestedSymbol, GetTypeParameterList(nestedClass), GetConstraintClauses(nestedClass));
 
                         RegisterDeclaredTypeSymbol(nestedClass, nestedSymbol);
                         DeclareClassMemberTypes(nestedClass, nestedSymbol);
@@ -1038,7 +1056,7 @@ public partial class SemanticModel
 
     private void BindNamespaceMembers(SyntaxNode containerNode, Binder parentBinder, INamespaceSymbol parentNamespace)
     {
-        var classBinders = new List<(ClassDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+        var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var interfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
         var extensionBinders = new List<(ExtensionDeclarationSyntax Syntax, ExtensionDeclarationBinder Binder)>();
         var unionBinders = new List<(UnionDeclarationSyntax Syntax, UnionDeclarationBinder Binder, SourceDiscriminatedUnionSymbol Symbol)>();
@@ -1135,6 +1153,63 @@ public partial class SemanticModel
                         }
 
                         classBinders.Add((classDecl, classBinder));
+                        break;
+                    }
+                case StructDeclarationSyntax structDecl:
+                    {
+                        var structSymbol = GetDeclaredTypeSymbol(structDecl);
+                        var baseTypeSymbol = objectType;
+                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+
+                        if (structDecl.BaseList is not null)
+                        {
+                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                            foreach (var t in structDecl.BaseList.Types)
+                            {
+                                var resolved = parentBinder.ResolveType(t) as INamedTypeSymbol;
+                                if (resolved is null)
+                                    continue;
+
+                                if (resolved.TypeKind == TypeKind.Interface)
+                                    builder.Add(resolved);
+                                else
+                                    baseTypeSymbol = resolved;
+                            }
+
+                            if (builder.Count > 0)
+                                interfaceList = builder.ToImmutable();
+                        }
+
+                        if (baseTypeSymbol is not null &&
+                            !SymbolEqualityComparer.Default.Equals(structSymbol.BaseType, baseTypeSymbol) &&
+                            SymbolEqualityComparer.Default.Equals(structSymbol.BaseType, objectType))
+                        {
+                            structSymbol.SetBaseType(baseTypeSymbol);
+                        }
+
+                        if (!interfaceList.IsDefaultOrEmpty)
+                        {
+                            structSymbol.SetInterfaces(MergeInterfaces(structSymbol.Interfaces, interfaceList));
+                        }
+
+                        var structBinder = new ClassDeclarationBinder(parentBinder, structSymbol, structDecl);
+                        structBinder.EnsureTypeParameterConstraintTypesResolved(structSymbol.TypeParameters);
+                        _binderCache[structDecl] = structBinder;
+                        RegisterClassSymbol(structDecl, structSymbol);
+                        if (structDecl.BaseList is not null && baseTypeSymbol?.IsStatic == true)
+                        {
+                            structBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
+                                baseTypeSymbol.Name,
+                                structDecl.BaseList.Types[0].GetLocation());
+                        }
+                        else if (structDecl.BaseList is not null && baseTypeSymbol?.IsSealed == true)
+                        {
+                            structBinder.Diagnostics.ReportCannotInheritFromSealedType(
+                                baseTypeSymbol.Name,
+                                structDecl.BaseList.Types[0].GetLocation());
+                        }
+
+                        classBinders.Add((structDecl, structBinder));
                         break;
                     }
 
@@ -1809,12 +1884,12 @@ public partial class SemanticModel
             .First(m => m.Parameters.Length == 0);
     }
 
-    private void RegisterClassMembers(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
+    private void RegisterClassMembers(TypeDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
     {
-        if (classDecl.ParameterList is not null)
-            RegisterPrimaryConstructor(classDecl, classBinder);
+        if (classDecl is ClassDeclarationSyntax concreteClass && concreteClass.ParameterList is not null)
+            RegisterPrimaryConstructor(concreteClass, classBinder);
 
-        var nestedClassBinders = new List<(ClassDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+        var nestedClassBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
         var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
 
@@ -1890,13 +1965,14 @@ public partial class SemanticModel
                     _binderCache[del] = delBinder;
                     break;
 
-                case ClassDeclarationSyntax nestedClass:
+                case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax:
                     var nestedBaseType = objectType;
                     ImmutableArray<INamedTypeSymbol> nestedInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-                    if (nestedClass.BaseList is not null)
+                    var nestedBaseList = GetBaseList(nestedClass);
+                    if (nestedBaseList is not null)
                     {
                         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                        foreach (var t in nestedClass.BaseList.Types)
+                        foreach (var t in nestedBaseList.Types)
                         {
                             var resolved = classBinder.ResolveType(t) as INamedTypeSymbol;
                             if (resolved is null)
@@ -1940,17 +2016,17 @@ public partial class SemanticModel
                     nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
                     _binderCache[nestedClass] = nestedBinder;
                     RegisterClassSymbol(nestedClass, nestedSymbol);
-                    if (nestedClass.BaseList is not null && nestedBaseType!.IsStatic)
+                    if (nestedBaseList is not null && nestedBaseType!.IsStatic)
                     {
                         nestedBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
                             nestedBaseType.Name,
-                            nestedClass.BaseList.Types[0].GetLocation());
+                            nestedBaseList.Types[0].GetLocation());
                     }
-                    else if (nestedClass.BaseList is not null && nestedBaseType!.IsSealed)
+                    else if (nestedBaseList is not null && nestedBaseType!.IsSealed)
                     {
                         nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(
                             nestedBaseType.Name,
-                            nestedClass.BaseList.Types[0].GetLocation());
+                            nestedBaseList.Types[0].GetLocation());
                     }
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
@@ -2022,7 +2098,8 @@ public partial class SemanticModel
             ReportMissingAbstractBaseMembers(nestedSymbol, nestedSyntax, nestedBinder.Diagnostics);
         }
 
-        RegisterRecordValueMembers(classDecl, classBinder);
+        if (classDecl is ClassDeclarationSyntax classSyntax)
+            RegisterRecordValueMembers(classSyntax, classBinder);
         classBinder.EnsureDefaultConstructor();
 
         static ImmutableArray<INamedTypeSymbol> MergeInterfaces(
@@ -3086,9 +3163,33 @@ public partial class SemanticModel
         return false;
     }
 
+    private static TypeParameterListSyntax? GetTypeParameterList(TypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.TypeParameterList,
+            StructDeclarationSyntax structDeclaration => structDeclaration.TypeParameterList,
+            _ => null
+        };
+
+    private static SyntaxList<TypeParameterConstraintClauseSyntax> GetConstraintClauses(TypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.ConstraintClauses,
+            StructDeclarationSyntax structDeclaration => structDeclaration.ConstraintClauses,
+            _ => SyntaxList<TypeParameterConstraintClauseSyntax>.Empty
+        };
+
+    private static BaseListSyntax? GetBaseList(TypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList,
+            StructDeclarationSyntax structDeclaration => structDeclaration.BaseList,
+            _ => null
+        };
+
     private void ReportMissingAbstractBaseMembers(
         INamedTypeSymbol typeSymbol,
-        ClassDeclarationSyntax declaration,
+        TypeDeclarationSyntax declaration,
         DiagnosticBag diagnostics)
     {
         if (typeSymbol.IsAbstract)
@@ -3187,8 +3288,8 @@ public partial class SemanticModel
     {
         _declaredTypeSymbols[node] = symbol;
 
-        if (node is ClassDeclarationSyntax classDecl)
-            RegisterClassSymbol(classDecl, symbol);
+        if (node is TypeDeclarationSyntax typeDecl)
+            RegisterClassSymbol(typeDecl, symbol);
         else if (node is UnionDeclarationSyntax unionDecl && symbol is SourceDiscriminatedUnionSymbol unionSymbol)
             RegisterUnionSymbol(unionDecl, unionSymbol);
     }
@@ -3204,12 +3305,12 @@ public partial class SemanticModel
     internal SourceNamedTypeSymbol GetDeclaredTypeSymbolForDeclaration(SyntaxNode node)
         => GetDeclaredTypeSymbol(node);
 
-    private readonly Dictionary<ClassDeclarationSyntax, SourceNamedTypeSymbol> _classSymbols = new();
+    private readonly Dictionary<TypeDeclarationSyntax, SourceNamedTypeSymbol> _classSymbols = new();
 
-    internal void RegisterClassSymbol(ClassDeclarationSyntax node, SourceNamedTypeSymbol symbol)
+    internal void RegisterClassSymbol(TypeDeclarationSyntax node, SourceNamedTypeSymbol symbol)
         => _classSymbols[node] = symbol;
 
-    internal SourceNamedTypeSymbol GetClassSymbol(ClassDeclarationSyntax node)
+    internal SourceNamedTypeSymbol GetClassSymbol(TypeDeclarationSyntax node)
         => _classSymbols[node];
 
     private readonly Dictionary<UnionDeclarationSyntax, SourceDiscriminatedUnionSymbol> _unionSymbols = new();

@@ -1,0 +1,16 @@
+import System.Console.*
+
+func Main() -> () {
+    val value = Run()
+    WriteLine(value)
+}
+
+unsafe func Run() -> int {
+    val holder = Holder()
+    val pointer: *Holder = &holder
+    return pointer->Value
+}
+
+struct Holder {
+    public var Value: int = 42
+}

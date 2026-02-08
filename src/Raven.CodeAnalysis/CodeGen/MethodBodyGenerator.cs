@@ -272,7 +272,7 @@ internal class MethodBodyGenerator
             MethodSymbol.ReturnType.TryGetDiscriminatedUnion() is not null &&
             MethodSymbol.Parameters.Length == 1 &&
             MethodSymbol.Parameters[0].Type.TryGetDiscriminatedUnionCase() is not null &&
-            MethodSymbol.ContainingType is SourceDiscriminatedUnionSymbol conversionUnion)
+            TryGetSourceDiscriminatedUnionDefinition(MethodSymbol.ContainingType) is { } conversionUnion)
         {
             EmitDiscriminatedUnionConversion(conversionUnion);
             return;
@@ -589,6 +589,7 @@ internal class MethodBodyGenerator
                 }
 
             case ClassDeclarationSyntax:
+            case StructDeclarationSyntax:
                 if (!MethodSymbol.IsStatic)
                 {
                     EmitConstructorInitializer();
@@ -1527,6 +1528,19 @@ internal class MethodBodyGenerator
             return sourceDefinition;
 
         return null;
+    }
+
+    private static SourceDiscriminatedUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
+    {
+        switch (typeSymbol)
+        {
+            case SourceDiscriminatedUnionSymbol sourceUnion:
+                return sourceUnion;
+            case ConstructedNamedTypeSymbol { OriginalDefinition: SourceDiscriminatedUnionSymbol sourceUnion }:
+                return sourceUnion;
+            default:
+                return null;
+        }
     }
 
     private void EmitDiscriminatedUnionTryGetMethod(

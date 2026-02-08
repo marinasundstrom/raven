@@ -16,18 +16,21 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private readonly bool _allowMatchExpressionSuffixes;
     private readonly bool _stopOnOpenBrace;
     private readonly bool _allowLambdaExpressions;
+    private readonly bool _stopOnLeadingNewlineBinaryOperator;
     private const int RangeOperatorPrecedence = 4;
 
     public ExpressionSyntaxParser(
         ParseContext parent,
         bool allowMatchExpressionSuffixes = true,
         bool stopOnOpenBrace = false,
-        bool allowLambdaExpressions = true)
+        bool allowLambdaExpressions = true,
+        bool stopOnLeadingNewlineBinaryOperator = false)
         : base(parent)
     {
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
         _stopOnOpenBrace = stopOnOpenBrace;
         _allowLambdaExpressions = allowLambdaExpressions;
+        _stopOnLeadingNewlineBinaryOperator = stopOnLeadingNewlineBinaryOperator;
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -310,7 +313,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     and not MemberAccessExpressionSyntax
                     and not MemberBindingExpressionSyntax
                     and not ElementAccessExpressionSyntax
-                    and not ConditionalAccessExpressionSyntax)
+                    and not ConditionalAccessExpressionSyntax
+                    and not UnaryExpressionSyntax { Kind: SyntaxKind.DereferenceExpression })
                 {
                     AddDiagnostic(
                         DiagnosticInfo.Create(
@@ -345,6 +349,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             int prec;
             if (!TryResolveOperatorPrecedence(operatorCandidate, out prec))
+                return expr ?? new ExpressionSyntax.Missing();
+
+            if (_stopOnLeadingNewlineBinaryOperator && HasLeadingNewLine(operatorCandidate))
                 return expr ?? new ExpressionSyntax.Missing();
 
             if (prec >= precedence)
@@ -546,6 +553,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 ReadToken();
                 expr = ParseFactorExpression();
                 expr = UnaryExpression(SyntaxKind.AddressOfExpression, token, expr);
+                break;
+
+            case SyntaxKind.StarToken:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = UnaryExpression(SyntaxKind.DereferenceExpression, token, expr);
                 break;
 
             case SyntaxKind.CaretToken:
@@ -821,9 +834,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 expr = InvocationExpression(expr, argumentList, initializer);
             }
-            else if (token.IsKind(SyntaxKind.DotToken)) // Member Access
+            else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) // Member Access
             {
-                var dotToken = ReadToken();
+                var operatorToken = ReadToken();
                 SimpleNameSyntax memberName;
                 if (CanTokenBeIdentifier(PeekToken()))
                 {
@@ -838,7 +851,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                             GetEndOfLastToken()));
                     memberName = IdentifierName(identifier);
                 }
-                expr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, dotToken, memberName);
+                var memberAccessKind = operatorToken.Kind == SyntaxKind.ArrowToken
+                    ? SyntaxKind.PointerMemberAccessExpression
+                    : SyntaxKind.SimpleMemberAccessExpression;
+                expr = MemberAccessExpression(memberAccessKind, expr, operatorToken, memberName);
             }
             else if (token.IsKind(SyntaxKind.OpenBracketToken)) // Element access
             {

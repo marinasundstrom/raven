@@ -142,6 +142,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitAddressOfExpression(addressOfExpression);
                 break;
 
+            case BoundDereferenceExpression dereferenceExpression:
+                EmitDereferenceExpression(dereferenceExpression);
+                break;
+
             case BoundParameterAccess parameterAccess:
                 info = EmitParameterAccess(parameterAccess);
                 break;
@@ -1558,6 +1562,12 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
+    private void EmitDereferenceExpression(BoundDereferenceExpression dereference)
+    {
+        EmitExpression(dereference.Reference);
+        EmitLoadIndirect(dereference.ElementType);
+    }
+
     private void EmitCollectionExpression(BoundCollectionExpression collectionExpression)
     {
         var target = collectionExpression.Type;
@@ -2458,6 +2468,53 @@ internal partial class ExpressionGenerator : Generator
 
             if (needsBox && tempStorageType is not null)
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(tempStorageType));
+        }
+    }
+
+    private void EmitLoadIndirect(ITypeSymbol elementType)
+    {
+        switch (elementType.SpecialType)
+        {
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Ldind_I1);
+                break;
+            case SpecialType.System_Byte:
+            case SpecialType.System_Boolean:
+                ILGenerator.Emit(OpCodes.Ldind_U1);
+                break;
+            case SpecialType.System_Int16:
+                ILGenerator.Emit(OpCodes.Ldind_I2);
+                break;
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Ldind_U2);
+                break;
+            case SpecialType.System_Int32:
+                ILGenerator.Emit(OpCodes.Ldind_I4);
+                break;
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Ldind_U4);
+                break;
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Ldind_I8);
+                break;
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Ldind_R4);
+                break;
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Ldind_R8);
+                break;
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+                ILGenerator.Emit(OpCodes.Ldind_I);
+                break;
+            default:
+                if (elementType.IsReferenceType || elementType.TypeKind == TypeKind.Pointer)
+                    ILGenerator.Emit(OpCodes.Ldind_Ref);
+                else
+                    ILGenerator.Emit(OpCodes.Ldobj, ResolveClrType(elementType));
+                break;
         }
     }
 

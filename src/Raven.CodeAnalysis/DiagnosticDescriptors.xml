@@ -539,6 +539,18 @@
     Title="Pointer types require unsafe mode"
     Message="Pointer type '{typeSyntax}' requires unsafe mode. Enable '--unsafe' to allow pointer declarations and usage."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1912" Identifier="PointerOperationRequiresUnsafe"
+    Title="Pointer operation requires unsafe mode"
+    Message="Pointer operation '{operationSyntax}' requires unsafe mode. Enable '--unsafe' to allow pointer usage."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1913" Identifier="DereferenceRequiresPointerOrByRef"
+    Title="Dereference requires pointer or by-reference operand"
+    Message="Cannot dereference expression of type '{operandType}'. The '*' operator requires a pointer or by-reference value."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1914" Identifier="PointerMemberAccessRequiresPointer"
+    Title="Pointer member access requires pointer receiver"
+    Message="Cannot use '->' with expression of type '{receiverType}'. The receiver must be a pointer."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
     Message="Non-invocable member '{memberName}' cannot be used like a method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

@@ -37,6 +37,7 @@ class BinderFactory
             FunctionStatementSyntax localFunc => new FunctionBinder(parentBinder!, localFunc),
             // Type declaration binders are created and cached by SemanticModel
             ClassDeclarationSyntax => parentBinder,
+            StructDeclarationSyntax => parentBinder,
             InterfaceDeclarationSyntax => parentBinder,
             UnionDeclarationSyntax => parentBinder,
             //FieldDeclarationSyntax => parent, // Fields are handled during symbol declaration

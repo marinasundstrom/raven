@@ -121,6 +121,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundAddressOfExpression addressOf:
                 VisitAddressOfExpression(addressOf);
                 break;
+            case BoundDereferenceExpression dereference:
+                VisitDereferenceExpression(dereference);
+                break;
             // Add others as needed
             default:
                 break;

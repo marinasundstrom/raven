@@ -43,6 +43,7 @@ internal class SyntaxParser : ParseContext
                      SyntaxKind.RecordKeyword or
                      SyntaxKind.VirtualKeyword or
                      SyntaxKind.AsyncKeyword or
+                     SyntaxKind.UnsafeKeyword or
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.OverrideKeyword or
                      SyntaxKind.NewKeyword or

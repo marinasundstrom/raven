@@ -182,6 +182,12 @@ public static class TypeSymbolExtensionsForCodeGen
             return elementClrType.MakeByRefType();
         }
 
+        if (typeSymbol is IAddressTypeSymbol addressType)
+        {
+            var elementClrType = GetClrTypeInternal(addressType.ReferencedType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+            return elementClrType.MakeByRefType();
+        }
+
         if (typeSymbol is IPointerTypeSymbol pointerType)
         {
             var elementClrType = GetClrTypeInternal(pointerType.PointedAtType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);

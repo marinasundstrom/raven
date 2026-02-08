@@ -30,6 +30,7 @@
   <NodeKind Name="UnaryMinusExpression" Type="UnaryExpression" />
   <NodeKind Name="LogicalNotExpression" Type="UnaryExpression" />
   <NodeKind Name="AddressOfExpression" Type="UnaryExpression" />
+  <NodeKind Name="DereferenceExpression" Type="UnaryExpression" />
   <NodeKind Name="PreIncrementExpression" Type="UnaryExpression" />
   <NodeKind Name="PreDecrementExpression" Type="UnaryExpression" />
   <NodeKind Name="PostIncrementExpression" Type="PostfixUnaryExpression" />
@@ -76,6 +77,7 @@
   <NodeKind Name="ConcatenateAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="NullCoalesceAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="SimpleMemberAccessExpression" Type="MemberAccessExpression" />
+  <NodeKind Name="PointerMemberAccessExpression" Type="MemberAccessExpression" />
   <NodeKind Name="DiscardPattern" Type="DiscardPattern" />
   <NodeKind Name="NotPattern" Type="UnaryPattern" />
   <NodeKind Name="AndPattern" Type="BinaryPattern" />

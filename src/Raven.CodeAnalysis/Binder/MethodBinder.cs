@@ -65,4 +65,28 @@ class MethodBinder : TypeMemberBinder
     }
 
     public IMethodSymbol GetMethodSymbol() => _methodSymbol;
+
+    protected override bool IsInUnsafeContext
+    {
+        get
+        {
+            foreach (var reference in _methodSymbol.DeclaringSyntaxReferences)
+            {
+                var syntax = reference.GetSyntax();
+                var hasUnsafeModifier = syntax switch
+                {
+                    MethodDeclarationSyntax methodDeclaration => methodDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
+                    ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
+                    NamedConstructorDeclarationSyntax namedConstructorDeclaration => namedConstructorDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
+                    FunctionStatementSyntax functionStatement => functionStatement.Modifiers.Any(m => m.Kind == SyntaxKind.UnsafeKeyword),
+                    _ => false,
+                };
+
+                if (hasUnsafeModifier)
+                    return true;
+            }
+
+            return base.IsInUnsafeContext;
+        }
+    }
 }

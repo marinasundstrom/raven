@@ -545,7 +545,8 @@ public partial class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
             }
         }
-        else if (memberDeclaration is ClassDeclarationSyntax classDeclaration)
+        else if (memberDeclaration is TypeDeclarationSyntax classDeclaration &&
+                 classDeclaration is ClassDeclarationSyntax or StructDeclarationSyntax)
         {
             Location[] locations = [syntaxTree.GetLocation(classDeclaration.EffectiveSpan)];
 
@@ -559,13 +560,37 @@ public partial class Compilation
                 _ => null
             };
 
-            INamedTypeSymbol baseTypeSymbol = GetSpecialType(SpecialType.System_Object);
-            ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+            var declaredTypeKind = classDeclaration.Keyword.Kind == SyntaxKind.StructKeyword
+                ? TypeKind.Struct
+                : TypeKind.Class;
 
-            if (classDeclaration.BaseList is not null)
+            INamedTypeSymbol baseTypeSymbol = declaredTypeKind == TypeKind.Struct
+                ? GetSpecialType(SpecialType.System_ValueType)
+                : GetSpecialType(SpecialType.System_Object);
+            ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+            var baseList = classDeclaration switch
+            {
+                ClassDeclarationSyntax concreteClass => concreteClass.BaseList,
+                StructDeclarationSyntax concreteStruct => concreteStruct.BaseList,
+                _ => null
+            };
+            var typeParameterList = classDeclaration switch
+            {
+                ClassDeclarationSyntax concreteClass => concreteClass.TypeParameterList,
+                StructDeclarationSyntax concreteStruct => concreteStruct.TypeParameterList,
+                _ => null
+            };
+            var constraintClauses = classDeclaration switch
+            {
+                ClassDeclarationSyntax concreteClass => concreteClass.ConstraintClauses,
+                StructDeclarationSyntax concreteStruct => concreteStruct.ConstraintClauses,
+                _ => SyntaxList<TypeParameterConstraintClauseSyntax>.Empty
+            };
+
+            if (baseList is not null)
             {
                 var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                foreach (var t in classDeclaration.BaseList.Types)
+                foreach (var t in baseList.Types)
                 {
                     if (ResolveSimpleType(t, declaringSymbol) is INamedTypeSymbol resolved)
                     {
@@ -590,7 +615,7 @@ public partial class Compilation
             var symbol = new SourceNamedTypeSymbol(
                 classDeclaration.Identifier.ValueText,
                 baseTypeSymbol,
-                TypeKind.Class,
+                declaredTypeKind,
                 declaringSymbol,
                 containingType,
                 containingNamespace,
@@ -601,7 +626,7 @@ public partial class Compilation
                 isStatic,
                 declaredAccessibility: typeAccessibility);
 
-            InitializeTypeParameters(symbol, classDeclaration.TypeParameterList, classDeclaration.ConstraintClauses, syntaxTree);
+            InitializeTypeParameters(symbol, typeParameterList, constraintClauses, syntaxTree);
 
             if (!interfaceList.IsDefaultOrEmpty)
                 symbol.SetInterfaces(interfaceList);

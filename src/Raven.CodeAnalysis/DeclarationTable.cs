@@ -38,6 +38,9 @@ internal sealed class DeclarationTable
             case ClassDeclarationSyntax cls:
                 key = CreateKey(SymbolKind.Type, cls.Identifier.ValueText, 0, cls);
                 return true;
+            case StructDeclarationSyntax st:
+                key = CreateKey(SymbolKind.Type, st.Identifier.ValueText, 0, st);
+                return true;
             case UnionDeclarationSyntax union:
                 key = CreateKey(SymbolKind.Type, union.Identifier.ValueText, union.TypeParameterList?.Parameters.Count ?? 0, union);
                 return true;

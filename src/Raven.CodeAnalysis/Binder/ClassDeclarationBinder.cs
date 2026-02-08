@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
 {
-    public ClassDeclarationBinder(Binder parent, INamedTypeSymbol containingType, ClassDeclarationSyntax syntax)
+    public ClassDeclarationBinder(Binder parent, INamedTypeSymbol containingType, TypeDeclarationSyntax syntax)
         : base(parent, containingType, syntax)
     {
     }
@@ -17,16 +17,16 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
     {
         if (ContainingSymbol is INamedTypeSymbol named)
         {
-            var classSyntax = (ClassDeclarationSyntax)Syntax;
+            var typeSyntax = (TypeDeclarationSyntax)Syntax;
 
             if (named.IsStatic)
             {
-                EnsureStaticConstructorIfNeeded(named, classSyntax);
+                EnsureStaticConstructorIfNeeded(named, typeSyntax);
                 return;
             }
 
-            var hasPrimaryConstructor = classSyntax.ParameterList is not null;
-            var hasExplicitInstanceConstructor = classSyntax.Members
+            var hasPrimaryConstructor = typeSyntax is ClassDeclarationSyntax { ParameterList: not null };
+            var hasExplicitInstanceConstructor = typeSyntax.Members
                 .OfType<ConstructorDeclarationSyntax>()
                 .Any(ctor => !ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));
             var hasNamedConstructor = named.GetMembers()
@@ -50,8 +50,8 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                     ContainingSymbol,
                     ContainingSymbol,
                     CurrentNamespace!.AsSourceNamespace(),
-                    [classSyntax.GetLocation()],
-                    [classSyntax.GetReference()],
+                    [typeSyntax.GetLocation()],
+                    [typeSyntax.GetReference()],
                     isStatic: false,
                     methodKind: MethodKind.Constructor,
                     declaredAccessibility: Accessibility.Public);
@@ -68,8 +68,8 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                     ContainingSymbol,
                     ContainingSymbol,
                     CurrentNamespace!.AsSourceNamespace(),
-                    [classSyntax.GetLocation()],
-                    [classSyntax.GetReference()],
+                    [typeSyntax.GetLocation()],
+                    [typeSyntax.GetReference()],
                     isStatic: false,
                     methodKind: MethodKind.Constructor,
                     declaredAccessibility: Accessibility.Private);
@@ -81,12 +81,12 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
 
             if (!hasStaticCtor)
             {
-                EnsureStaticConstructorIfNeeded(named, classSyntax);
+                EnsureStaticConstructorIfNeeded(named, typeSyntax);
             }
         }
     }
 
-    private void EnsureStaticConstructorIfNeeded(INamedTypeSymbol named, ClassDeclarationSyntax classSyntax)
+    private void EnsureStaticConstructorIfNeeded(INamedTypeSymbol named, TypeDeclarationSyntax typeSyntax)
     {
         bool needsStaticCtor = named.GetMembers()
             .OfType<SourceFieldSymbol>()
@@ -102,8 +102,8 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
             ContainingSymbol,
             ContainingSymbol,
             CurrentNamespace!.AsSourceNamespace(),
-            [classSyntax.GetLocation()],
-            [classSyntax.GetReference()],
+            [typeSyntax.GetLocation()],
+            [typeSyntax.GetReference()],
             isStatic: true,
             methodKind: MethodKind.Constructor,
             declaredAccessibility: Accessibility.Private);

@@ -115,6 +115,11 @@ internal class TypeDeclarationParser : SyntaxParser
             return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, null, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
+        if (typeKeyword.IsKind(SyntaxKind.StructKeyword))
+        {
+            return StructDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        }
+
         return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
@@ -354,7 +359,7 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             var typeKeywordKind = PeekTypeKeyword(this);
 
-            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword)
+            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.StructKeyword or SyntaxKind.InterfaceKeyword)
             {
                 memberDeclarationCheckpoint.Rewind();
                 return new TypeDeclarationParser(this).Parse();
@@ -379,7 +384,7 @@ internal class TypeDeclarationParser : SyntaxParser
             }
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.StructKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
         {
             memberDeclarationCheckpoint.Rewind();
             return new TypeDeclarationParser(this).Parse();

@@ -12,11 +12,11 @@ internal class EqualsValueClauseSyntaxParser : SyntaxParser
         var equalsToken = ReadToken();
 
         // Ensure that newlines terminate the initializer so subsequent statements
-        // (such as tuple assignments) aren't consumed as part of the expression.
+        // aren't consumed as part of the expression.
         var previous = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
-        var expr = new ExpressionSyntaxParser(this).ParseExpression();
+        var expr = new ExpressionSyntaxParser(this, stopOnLeadingNewlineBinaryOperator: true).ParseExpression();
 
         SetTreatNewlinesAsTokens(previous);
 

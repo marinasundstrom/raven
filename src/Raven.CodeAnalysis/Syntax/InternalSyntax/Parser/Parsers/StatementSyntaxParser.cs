@@ -79,6 +79,18 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseBlockStatementSyntax();
                     break;
 
+                case SyntaxKind.UnsafeKeyword:
+                    if (PeekToken(1).Kind == SyntaxKind.FuncKeyword ||
+                        (PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword))
+                    {
+                        statement = ParseFunctionSyntax();
+                    }
+                    else
+                    {
+                        statement = ParseUnsafeStatementSyntax();
+                    }
+                    break;
+
                 case SyntaxKind.GotoKeyword:
                     statement = ParseGotoStatementSyntax();
                     break;
@@ -518,7 +530,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             var kind = PeekToken().Kind;
 
-            if (kind is SyntaxKind.AsyncKeyword)
+            if (kind is SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());
             }
@@ -529,6 +541,13 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return modifiers;
+    }
+
+    private UnsafeStatementSyntax ParseUnsafeStatementSyntax()
+    {
+        var unsafeKeyword = ReadToken();
+        var block = ParseBlockStatementSyntax();
+        return UnsafeStatement(unsafeKeyword, block);
     }
 
     public BlockStatementSyntax ParseBlockStatementSyntax()

@@ -92,6 +92,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundMatchExpression matchExpression => (BoundExpression)VisitMatchExpression(matchExpression)!,
             BoundTryExpression tryExpression => (BoundExpression)VisitTryExpression(tryExpression)!,
             BoundWithExpression withExpression => (BoundExpression)VisitWithExpression(withExpression)!,
+            BoundDereferenceExpression dereference => (BoundExpression)VisitDereferenceExpression(dereference)!,
             _ => node,
         };
     }

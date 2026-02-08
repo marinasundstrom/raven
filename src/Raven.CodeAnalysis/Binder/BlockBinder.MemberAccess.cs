@@ -1506,6 +1506,20 @@ partial class BlockBinder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
+        if (left is BoundDereferenceExpression dereference)
+        {
+            var right2 = BindExpressionWithTargetType(rightSyntax, dereference.ElementType);
+
+            if (IsErrorExpression(right2))
+                return AsErrorExpression(right2);
+
+            var converted = ConvertValueForAssignment(right2, dereference.ElementType, rightSyntax);
+            if (converted is BoundErrorExpression)
+                return converted;
+
+            return BoundFactory.CreateByRefAssignmentExpression(dereference.Reference, dereference.ElementType, converted);
+        }
+
         if (left is BoundLocalAccess localAccess)
         {
             var localSymbol = localAccess.Local;
@@ -1814,6 +1828,33 @@ partial class BlockBinder
 
         if (receiver.Type is { } boundReceiverType && boundReceiverType.ContainsErrorType())
             return new BoundErrorExpression(boundReceiverType, receiver.Symbol, BoundExpressionReason.OtherError);
+
+        if (memberAccess.OperatorToken.Kind == SyntaxKind.ArrowToken)
+        {
+            if (!IsUnsafeEnabled)
+            {
+                _diagnostics.ReportPointerOperationRequiresUnsafe(memberAccess.ToString(), memberAccess.OperatorToken.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+            }
+
+            if (receiver.Type is not IPointerTypeSymbol pointerReceiver)
+            {
+                var receiverTypeText = (receiver.Type ?? Compilation.ErrorTypeSymbol)
+                    .ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                _diagnostics.ReportPointerMemberAccessRequiresPointer(receiverTypeText, memberAccess.OperatorToken.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            }
+
+            var dereferencedReceiver = new BoundDereferenceExpression(receiver, pointerReceiver.PointedAtType);
+            return BindMemberAccessOnReceiver(
+                dereferencedReceiver,
+                memberAccess.Name,
+                preferMethods,
+                allowEventAccess,
+                suppressNullWarning: true,
+                receiverTypeForLookup: pointerReceiver.PointedAtType,
+                forceExtensionReceiver: false);
+        }
 
         ReportPossibleNullReferenceAccess(receiver, memberAccess.Expression);
 

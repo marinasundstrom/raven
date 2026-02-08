@@ -1019,6 +1019,51 @@ class Container {
     }
 
     [Fact]
+    public void ImplicitTailReturn_ConvertsUnionCaseToUnion()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(data: E)
+}
+
+class Container {
+    public static Create(items: IEnumerable<int>) -> Result<int, string> {
+        val values = items.Take(1).ToList()
+        if values.Count == 1 {
+            return .Ok(values[0])
+        }
+        .Error("oops")
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "implicit-tail-return-union",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+        var create = containerType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
+        var empty = Array.Empty<int>();
+        var value = create.Invoke(null, [empty])!;
+
+        Assert.Equal("Result<Int32, String>.Error(\"oops\")", value.ToString());
+    }
+
+    [Fact]
     public void ExtensionAccessibility_IsPreservedInMetadata()
     {
         const string code = """

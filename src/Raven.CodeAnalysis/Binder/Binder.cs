@@ -42,6 +42,10 @@ internal abstract partial class Binder
 
     protected BoundNodeFactory BoundFactory => Compilation.BoundNodeFactory;
 
+    protected virtual bool IsInUnsafeContext => ParentBinder?.IsInUnsafeContext ?? false;
+
+    protected bool IsUnsafeEnabled => Compilation.Options.AllowUnsafe || IsInUnsafeContext;
+
     protected BoundErrorExpression ErrorExpression(
         ITypeSymbol? type = null,
         ISymbol? symbol = null,
@@ -1148,7 +1152,7 @@ internal abstract partial class Binder
 
         if (typeSyntax is PointerTypeSyntax pointer)
         {
-            if (!Compilation.Options.AllowUnsafe)
+            if (!IsUnsafeEnabled)
             {
                 _diagnostics.ReportPointerTypeRequiresUnsafe(pointer.ToString(), pointer.GetLocation());
                 return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);

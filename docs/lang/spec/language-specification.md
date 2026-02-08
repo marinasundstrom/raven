@@ -2672,9 +2672,32 @@ Pointer declarations and pointer-type usage require unsafe mode. Enable
 unsafe mode with the compiler's `--unsafe` option; otherwise pointer type
 syntax is rejected.
 
+Unsafe context can be enabled either globally (compiler option `--unsafe`)
+or locally with `unsafe` contexts:
+
+* `unsafe func Name(...) { ... }` for function/method scope
+* `unsafe { ... }` for block scope
+
 ```raven
 val value = 42
 val pointer: *int = &value
+```
+
+### Pointer operations
+
+Pointer operations are also gated by unsafe mode. In unsafe mode:
+
+* `*ptr` dereferences a pointer (or by-reference value) and reads the pointed value.
+* `*ptr = value` writes through the pointer.
+* `ptr->Member` accesses a member on the pointed-at type and is equivalent to
+  `(*ptr).Member`.
+
+```raven
+var value = 41
+let pointer: *int = &value
+
+*pointer = 42
+val result = *pointer // 42
 ```
 
 ### Pass by reference
