@@ -14,6 +14,30 @@ public class SyntaxFactsTests
         kind.ShouldBe(expected);
     }
 
+    [Theory]
+    [InlineData("bool", SyntaxKind.BoolKeyword)]
+    [InlineData("char", SyntaxKind.CharKeyword)]
+    [InlineData("sbyte", SyntaxKind.SByteKeyword)]
+    [InlineData("byte", SyntaxKind.ByteKeyword)]
+    [InlineData("short", SyntaxKind.ShortKeyword)]
+    [InlineData("ushort", SyntaxKind.UShortKeyword)]
+    [InlineData("int", SyntaxKind.IntKeyword)]
+    [InlineData("uint", SyntaxKind.UIntKeyword)]
+    [InlineData("long", SyntaxKind.LongKeyword)]
+    [InlineData("ulong", SyntaxKind.ULongKeyword)]
+    [InlineData("nint", SyntaxKind.NIntKeyword)]
+    [InlineData("nuint", SyntaxKind.NUIntKeyword)]
+    [InlineData("float", SyntaxKind.FloatKeyword)]
+    [InlineData("double", SyntaxKind.DoubleKeyword)]
+    [InlineData("decimal", SyntaxKind.DecimalKeyword)]
+    [InlineData("string", SyntaxKind.StringKeyword)]
+    [InlineData("object", SyntaxKind.ObjectKeyword)]
+    public void TryParseKeyword_RecognizesPrimitiveKeywords(string text, SyntaxKind expected)
+    {
+        SyntaxFacts.TryParseKeyword(text, out var kind).ShouldBeTrue();
+        kind.ShouldBe(expected);
+    }
+
     [Fact]
     public void TryParseKeyword_ReturnsFalse_ForNonKeyword()
     {

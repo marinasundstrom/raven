@@ -6,10 +6,19 @@ Raven is a statically typed language whose types correspond directly to CLR type
 
 | Raven keyword | .NET type | Notes |
 | --- | --- | --- |
+| `sbyte` | `System.SByte` | 8-bit signed integer |
+| `byte` | `System.Byte` | 8-bit unsigned integer |
+| `short` | `System.Int16` | 16-bit signed integer |
+| `ushort` | `System.UInt16` | 16-bit unsigned integer |
 | `int` | `System.Int32` | 32-bit signed integer |
+| `uint` | `System.UInt32` | 32-bit unsigned integer |
 | `long` | `System.Int64` | 64-bit signed integer |
+| `ulong` | `System.UInt64` | 64-bit unsigned integer |
+| `nint` | `System.IntPtr` | native-sized signed integer |
+| `nuint` | `System.UIntPtr` | native-sized unsigned integer |
 | `float` | `System.Single` | 32-bit floating point |
 | `double` | `System.Double` | 64-bit floating point |
+| `decimal` | `System.Decimal` | 128-bit decimal floating point |
 | `string` | `System.String` | UTF-16 sequence of characters |
 | `object` | `System.Object` | base type of all .NET reference types |
 | `bool` | `System.Boolean` | logical true/false |
@@ -66,8 +75,9 @@ Literal types implicitly convert to their underlying type and then follow the
 normal conversion rules of that type. This allows `1` to widen to `double` or
 `"hi"` to be used wherever a `string` is expected.
 
-`long`, `float`, and `double` are built-in keywords that map to `System.Int64`,
-`System.Single`, and `System.Double` respectively.
+Numeric primitive keywords map directly to CLR numeric types, including `sbyte`,
+`byte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint`,
+`float`, `double`, and `decimal`.
 
 When a literal is assigned to a target whose type is inferred—such as a
 variable declaration without an explicit type annotation—the literal widens to

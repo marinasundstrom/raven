@@ -560,10 +560,19 @@ internal class NameSyntaxParser : SyntaxParser
             case SyntaxKind.StringKeyword:
             case SyntaxKind.BoolKeyword:
             case SyntaxKind.CharKeyword:
+            case SyntaxKind.SByteKeyword:
+            case SyntaxKind.ShortKeyword:
+            case SyntaxKind.UShortKeyword:
             case SyntaxKind.IntKeyword:
+            case SyntaxKind.UIntKeyword:
+            case SyntaxKind.LongKeyword:
+            case SyntaxKind.ULongKeyword:
             case SyntaxKind.ByteKeyword:
+            case SyntaxKind.FloatKeyword:
             case SyntaxKind.DoubleKeyword:
             case SyntaxKind.DecimalKeyword:
+            case SyntaxKind.NIntKeyword:
+            case SyntaxKind.NUIntKeyword:
             case SyntaxKind.ObjectKeyword:
             case SyntaxKind.UnitKeyword:
                 return true;

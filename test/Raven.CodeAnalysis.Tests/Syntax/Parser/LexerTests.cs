@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 using Raven.CodeAnalysis.Text;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -41,6 +43,23 @@ public class LexerTests
 
     [Theory]
     [InlineData("unit", SyntaxKind.UnitKeyword)]
+    [InlineData("bool", SyntaxKind.BoolKeyword)]
+    [InlineData("char", SyntaxKind.CharKeyword)]
+    [InlineData("sbyte", SyntaxKind.SByteKeyword)]
+    [InlineData("byte", SyntaxKind.ByteKeyword)]
+    [InlineData("short", SyntaxKind.ShortKeyword)]
+    [InlineData("ushort", SyntaxKind.UShortKeyword)]
+    [InlineData("int", SyntaxKind.IntKeyword)]
+    [InlineData("uint", SyntaxKind.UIntKeyword)]
+    [InlineData("long", SyntaxKind.LongKeyword)]
+    [InlineData("ulong", SyntaxKind.ULongKeyword)]
+    [InlineData("nint", SyntaxKind.NIntKeyword)]
+    [InlineData("nuint", SyntaxKind.NUIntKeyword)]
+    [InlineData("float", SyntaxKind.FloatKeyword)]
+    [InlineData("double", SyntaxKind.DoubleKeyword)]
+    [InlineData("decimal", SyntaxKind.DecimalKeyword)]
+    [InlineData("string", SyntaxKind.StringKeyword)]
+    [InlineData("object", SyntaxKind.ObjectKeyword)]
     [InlineData("and", SyntaxKind.AndToken)]
     [InlineData("as", SyntaxKind.AsKeyword)]
     public void Keyword_IsParsedAsKeywordToken(string text, SyntaxKind expected)

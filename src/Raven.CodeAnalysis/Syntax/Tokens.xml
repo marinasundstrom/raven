@@ -3,10 +3,19 @@
   <!-- Keywords -->
   <TokenKind Name="UnitKeyword" Text="unit" IsReservedWord="false" />
   <TokenKind Name="NullKeyword" Text="null" IsReservedWord="true" />
+  <TokenKind Name="SByteKeyword" Text="sbyte" IsReservedWord="true" />
+  <TokenKind Name="ShortKeyword" Text="short" IsReservedWord="true" />
+  <TokenKind Name="UShortKeyword" Text="ushort" IsReservedWord="true" />
   <TokenKind Name="IntKeyword" Text="int" IsReservedWord="true" />
+  <TokenKind Name="UIntKeyword" Text="uint" IsReservedWord="true" />
+  <TokenKind Name="LongKeyword" Text="long" IsReservedWord="true" />
+  <TokenKind Name="ULongKeyword" Text="ulong" IsReservedWord="true" />
   <TokenKind Name="ByteKeyword" Text="byte" IsReservedWord="true" />
+  <TokenKind Name="FloatKeyword" Text="float" IsReservedWord="true" />
   <TokenKind Name="DoubleKeyword" Text="double" IsReservedWord="true" />
   <TokenKind Name="DecimalKeyword" Text="decimal" IsReservedWord="true" />
+  <TokenKind Name="NIntKeyword" Text="nint" IsReservedWord="true" />
+  <TokenKind Name="NUIntKeyword" Text="nuint" IsReservedWord="true" />
   <TokenKind Name="StringKeyword" Text="string" IsReservedWord="true" />
   <TokenKind Name="BoolKeyword" Text="bool" IsReservedWord="true" />
   <TokenKind Name="CharKeyword" Text="char" IsReservedWord="true" />

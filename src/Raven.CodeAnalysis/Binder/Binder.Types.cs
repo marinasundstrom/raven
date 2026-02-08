@@ -302,12 +302,21 @@ internal abstract partial class Binder
         string[]? parts = p.Keyword.Kind switch
         {
             SyntaxKind.IntKeyword => new[] { "System", "Int32" },
+            SyntaxKind.UIntKeyword => new[] { "System", "UInt32" },
+            SyntaxKind.LongKeyword => new[] { "System", "Int64" },
+            SyntaxKind.ULongKeyword => new[] { "System", "UInt64" },
+            SyntaxKind.ShortKeyword => new[] { "System", "Int16" },
+            SyntaxKind.UShortKeyword => new[] { "System", "UInt16" },
+            SyntaxKind.SByteKeyword => new[] { "System", "SByte" },
             SyntaxKind.BoolKeyword => new[] { "System", "Boolean" },
             SyntaxKind.StringKeyword => new[] { "System", "String" },
             SyntaxKind.CharKeyword => new[] { "System", "Char" },
+            SyntaxKind.FloatKeyword => new[] { "System", "Single" },
             SyntaxKind.DoubleKeyword => new[] { "System", "Double" },
             SyntaxKind.ByteKeyword => new[] { "System", "Byte" },
             SyntaxKind.ObjectKeyword => new[] { "System", "Object" },
+            SyntaxKind.NIntKeyword => new[] { "System", "IntPtr" },
+            SyntaxKind.NUIntKeyword => new[] { "System", "UIntPtr" },
             SyntaxKind.UnitKeyword => new[] { "System", "Unit" },
             _ => null
         };

@@ -6,7 +6,7 @@
 CompilationUnit          ::= {ImportDirective} {AliasDirective} {Declaration | Statement} EOF ;
 
 ImportDirective          ::= 'import' QualifiedName ('.' '*')? ; (* Namespace imports require '.*'; applying '.*' to a type imports its static members and nested types *)
-AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fully qualified name, type expression, literal type, or predefined type: bool | char | int | string | unit | '()' *)
+AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fully qualified name, type expression, literal type, or predefined type: bool | byte | char | decimal | double | float | int | long | nint | nuint | object | sbyte | short | string | uint | ulong | unit | ushort | '()' *)
 
 (* ---------- Modifiers ---------- *)
 
@@ -569,7 +569,25 @@ PrimaryType              ::= TupleType
 NullType                 ::= 'null' ;
 
 SimpleType               ::= BuiltinType | QualifiedName ;
-BuiltinType              ::= 'int' | 'long' | 'float' | 'double' | 'decimal' | 'string' | 'bool' | 'unit' | 'char' | '(' ')' ;
+BuiltinType              ::= 'bool'
+                           | 'char'
+                           | 'sbyte'
+                           | 'byte'
+                           | 'short'
+                           | 'ushort'
+                           | 'int'
+                           | 'uint'
+                           | 'long'
+                           | 'ulong'
+                           | 'nint'
+                           | 'nuint'
+                           | 'float'
+                           | 'double'
+                           | 'decimal'
+                           | 'string'
+                           | 'object'
+                           | 'unit'
+                           | '(' ')' ;
 
 GenericType              ::= QualifiedName '<' TypeList '>' ;
 TypeList                 ::= Type {',' Type} ;
