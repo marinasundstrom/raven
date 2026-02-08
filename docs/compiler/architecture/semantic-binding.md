@@ -61,11 +61,12 @@ tree.
 
 `ReturnTypeCollector` is a specialized `BoundTreeWalker` used by the binder to infer
 return types for blocks and lambdas when no explicit return type is declared. It
-collects the types from all `return` statements and, if a block ends with a final
-expression, includes that expression's type as an implicit return. The collected
-types are normalized before inference completes: nested unions flatten, literal
-members collapse into their underlying type when a broader branch is present, and a
-`null` branch paired with a single non-nullable type becomes that type's nullable
-form. When multiple distinct types remain, the collector produces a union; otherwise
-the single type is returned. The inferred (and normalized) result is used as the
+collects the types from all explicit `return` statements and the outer body tail
+expression (when present). Expression statements inside nested statement blocks do
+not contribute implicit return types for the enclosing member. The collected types
+are normalized before inference completes: nested unions flatten, literal members
+collapse into their underlying type when a broader branch is present, and a `null`
+branch paired with a single non-nullable type becomes that type's nullable form.
+When multiple distinct types remain, the collector produces a union; otherwise the
+single type is returned. The inferred (and normalized) result is used as the
 default type when assigning the result to a declaration without an explicit annotation.

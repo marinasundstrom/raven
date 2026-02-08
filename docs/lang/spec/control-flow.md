@@ -130,6 +130,9 @@ position to the corresponding statement node when the value is discarded.
 `ExpressionStatement` covers the remaining expressions that may appear on their
 own line and always evaluates to `unit`.
 
+Values produced by expression statements are discarded and do not become implicit
+function return values.
+
 ## Return statements
 
 The `return` keyword exits a function, lambda, or property accessor. Because
@@ -153,6 +156,10 @@ return type of that body. A `return` without an expression is treated as
 returning `unit`. If the returned expression's type is not assignable to the
 declared return type, the compiler emits a conversion diagnostic.
 
+Implicit return inference for methods/functions/lambdas uses explicit `return`
+statements and the outer body tail expression only. Tail expressions inside nested
+statement blocks are not treated as implicit returns for the enclosing member.
+
 ```raven
 func DoOperation(a: int, b: int) -> int {
     if a > b {
@@ -174,10 +181,10 @@ value compatible with the property's declared type.
 
 ```raven
 func choose(flag: bool) -> int | () {
-    if flag {
-        42            // implicit return
+    return if flag {
+        42
     } else {
-        ()             // implicit return
+        ()
     }
 }
 

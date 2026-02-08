@@ -101,7 +101,7 @@ Declarative-first does not forbid imperative code; it simply makes the declarati
 
 ### 4. **Expression-First Design**
 
-Raven is expression-oriented: almost every construct evaluates to a value, encouraging composition and reducing the distinction between statements and expressions. Statements remain where they aid readability, but the language nudges you toward value-oriented composition by default.
+Raven is expression-oriented, but it preserves a clear boundary between value and effect contexts. Expression forms compose and yield values; statement forms focus on control flow and side effects. This keeps composition strong while avoiding ambiguity in imperative code.
 
 ```raven
 value match {
@@ -116,12 +116,20 @@ else
   "Welcome back, ${user.displayName}!"
 ```
 
+In practical terms: expression-context `if`/`match`/block forms produce values, while statement-context `if`/`while`/`for` discard expression results unless values are explicitly returned.
+
 ### 5. **Option/Result as a Core Control-Flow Shape**
 
 
 Raven treats absence and failure as *data*, not side channels. `Option<T>` and `Result<T, E>`—and their extension methods—are first-class shapes that show up everywhere — APIs return them, extensions compose them, and `match` makes branching explicit.
 
 Extensions are the glue that makes these shapes feel native in everyday code. Instead of forcing every “one-liner convenience” into the compiler, Raven encourages a small set of composable helpers — `Map`, `Then`, `UnwrapOr(...)`, `IsOkOr(...)`, and LINQ-style helpers like `FirstOrNone()` / `FirstOrError(...)` — so flow stays readable and discoverable in tooling.
+
+This is intentional language identity, not just library style:
+
+- Domain APIs should prefer `Option<T>` / `Result<T, E>` at boundaries.
+- LINQ-style operators should compose over those carriers, not bypass them.
+- `?` should keep early-exit semantics visible while pipelines stay linear.
 
 ```raven
 val promo = promoCode
@@ -131,6 +139,10 @@ val promo = promoCode
 
 val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
 ```
+
+The same pattern applies to collection pipelines: query with LINQ, convert to
+`Option`/`Result` at the decision point, then continue with carrier-aware
+transforms.
 
 The `?` operator is the flow counterpart: it forwards `.None` / `.Error(...)` without forcing nested `match` blocks, keeping the “happy path” linear while still making early-exit behavior visible.
 

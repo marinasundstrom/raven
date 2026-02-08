@@ -1,12 +1,32 @@
 import System.*
 import System.Console.*
 
-WriteLine(test())
+WriteLine(tapIfPositive(.Some(42)))
+WriteLine(tapIfPositive(.None))
+WriteLine(classify(3))
 
-func test() -> int {
-    if true {
-        //throw new Exception()
-        return 1
+union Option<T> {
+    Some(value: T)
+    None
+}
+
+func tapIfPositive(opt: Option<int>) -> Option<int> {
+    if opt is .Some(val value) {
+        if value > 0 {
+            WriteLine(value)
+        }
+        // expression statement result is discarded in statement context
     }
-    return 0
+    return opt
+}
+
+func classify(value: int) -> string {
+    // if expression in value context
+    return if value > 0 {
+        "positive"
+    } else if value < 0 {
+        "negative"
+    } else {
+        "zero"
+    }
 }

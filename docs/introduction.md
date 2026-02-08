@@ -10,6 +10,7 @@ Raven is built around a few simple ideas:
 - **Pattern matching** — matching is a first-class way to test and extract structure.  
 - **Explicit failure** — recoverable errors are modeled as data.  
 - **Propagation** — unwrap `Result` and `Option` with `?` to short-circuit on failure.
+- **Carrier-first pipelines** — LINQ-style helpers over `Option`/`Result` keep flows linear.
 
 Raven encourages you to make mutability, flow, and error handling explicit. The compiler helps keep code honest with built-in diagnostics and analyzers.
 
@@ -91,7 +92,10 @@ Raven code tends to read like a pipeline of intent rather than nested control st
 
 ## Expressions
 
-In Raven, blocks are expressions: they evaluate to the value of their last expression.
+Raven supports both block expressions and block statements.
+
+- A **block expression** evaluates to the value of its last expression.
+- A **block statement** is effect-only; any expression values inside it are discarded.
 
 ```raven
 val x = {
@@ -121,11 +125,22 @@ count = count + 1
 
 ### `if` as an expression
 
-`if` returns a value.
+`if` returns a value in expression position.
 
 ```raven
 val pet = if flag { Dog() } else { Cat() }
 // pet : Dog | Cat
+```
+
+When used as a statement, `if` is effect-only:
+
+```raven
+func tap<T>(opt: Option<T>, action: T -> ()) -> Option<T> {
+    if opt is .Some(val value) {
+        action(value)   // value discarded in statement context
+    }
+    return opt
+}
 ```
 
 When branches yield different types, Raven infers a **union** instead of collapsing to a base type.
@@ -256,7 +271,9 @@ if result is .Ok(val value) {
 
 ## Result and Option
 
-Raven models recoverable failure as data.
+Raven models recoverable failure as data. In practice, `Option<T>` and
+`Result<T, E>` are not isolated features; they are the primary carriers for
+flow-oriented APIs and extension-method pipelines.
 
 ### Result
 
@@ -280,6 +297,28 @@ func FindFirstEven(values: int[]) -> Option<int> { ... }
 ```
 
 `?` also propagates `.None`.
+
+### LINQ-style helpers on flow carriers
+
+Raven encourages extension methods that make `Option`/`Result` feel like native
+pipeline types. Typical helpers include `Map`, `Then`, `OrElse`, `UnwrapOr`,
+`FirstOrNone`, and `FirstOrError`.
+
+```raven
+import System.Linq.*
+
+func ResolvePrimaryEmail(users: User[]) -> Result<string, string> {
+    return users
+        .Where(u => u.IsActive)
+        .Select(u => u.Email)
+        .FirstOrError(() => "No active users")?
+        .Trim()
+        .ToLowerInvariant()
+}
+```
+
+This style keeps success and failure paths explicit while avoiding nested
+control flow.
 
 ---
 

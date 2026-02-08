@@ -378,8 +378,14 @@ underlying type when selecting among method overloads. For example,
 exists, and `Console.WriteLine("test")` chooses `Console.WriteLine(string)`.
 
 Functions and lambdas without an annotated return type infer their result by
-collecting the types of all explicit `return` statements and the final expression
-of the body. If no value-returning path exists, the type defaults to `unit`.
+collecting:
+
+1. the types of all explicit `return` statements, and
+2. the final expression of the outer body when that body has a value-producing tail expression.
+
+Expression statements in nested statement blocks (for example, inside `if`/`while`/`for`
+statement bodies) do not participate in return-type inference. If no value-returning
+path exists, the type defaults to `unit`.
 
 ```raven
 func example(x: int) -> {
@@ -1513,6 +1519,10 @@ A block is an expression; its value is the value of its last expression
     x + 1
 }
 ```
+
+When the same brace form appears in statement position (for example, as the body
+of an `if` statement or loop), it is bound as a block statement and its expression
+results are discarded.
 
 ### `if` expression
 

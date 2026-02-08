@@ -7,6 +7,8 @@ val r: Option<int> = .Some(42)
 val w = r.Map(x => x * 2) 
 
 WriteLine(w)
+WriteLine(tap(r))
+WriteLine(inferLabel(1))
 
 for x in [1, 2, 3] {
     WriteLine(x)
@@ -14,4 +16,16 @@ for x in [1, 2, 3] {
 
 for x in r {
     WriteLine(x)
+}
+
+func tap(value: Option<int>) -> Option<int> {
+    if value is .Some(val x) {
+        WriteLine(x)
+    }
+    return value
+}
+
+func inferLabel(x: int) -> {
+    if x > 0 { return "gt0" }
+    "le0"
 }
