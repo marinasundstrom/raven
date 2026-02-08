@@ -188,4 +188,24 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         Assert.NotNull(declaration);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void MethodDeclaration_WithArrowAndMissingReturnType_ReportsIdentifierExpected()
+    {
+        var source = """
+            class Foo {
+                public M() -> {}
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        Assert.NotNull(method.ReturnType);
+        var typeSyntax = Assert.IsType<IdentifierNameSyntax>(method.ReturnType!.Type);
+        Assert.True(typeSyntax.Identifier.IsMissing);
+
+        var diagnostic = Assert.Single(tree.GetDiagnostics());
+        Assert.Equal("RAV1001", diagnostic.Descriptor.Id);
+    }
 }

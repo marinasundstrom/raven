@@ -25,6 +25,13 @@ internal class TypeAnnotationClauseSyntaxParser : SyntaxParser
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
 
             TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
+            if (type.IsMissing)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.IdentifierExpected,
+                        GetSpanOfPeekedToken()));
+            }
 
             return SyntaxFactory.ArrowTypeClause(attributeLists, arrowToken, type);
         }
