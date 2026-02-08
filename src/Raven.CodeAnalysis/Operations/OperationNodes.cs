@@ -1019,12 +1019,70 @@ internal sealed class AddressOfOperation : Operation, IAddressOfOperation
 
 internal sealed class ElementAccessOperation : Operation, IElementAccessOperation
 {
+    private readonly BoundExpression _bound;
+    private IOperation? _instance;
+    private ImmutableArray<IOperation>? _arguments;
+
     internal ElementAccessOperation(SemanticModel semanticModel, BoundExpression bound, OperationKind kind, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, kind, syntax, bound.Type, isImplicit)
     {
+        _bound = bound;
     }
 
-    protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+    public IOperation? Instance
+    {
+        get
+        {
+            if (_instance is not null)
+                return _instance;
+
+            if (Syntax is ElementAccessExpressionSyntax elementAccess)
+            {
+                _instance = SemanticModel.GetOperation(elementAccess.Expression);
+            }
+            else if (_bound is BoundArrayAccessExpression arrayAccess)
+            {
+                var receiverSyntax = SemanticModel.GetSyntax(arrayAccess.Receiver);
+                if (receiverSyntax is not null)
+                    _instance = SemanticModel.GetOperation(receiverSyntax);
+            }
+            else if (_bound is BoundIndexerAccessExpression indexerAccess)
+            {
+                var receiverSyntax = SemanticModel.GetSyntax(indexerAccess.Receiver);
+                if (receiverSyntax is not null)
+                    _instance = SemanticModel.GetOperation(receiverSyntax);
+            }
+
+            return _instance;
+        }
+    }
+
+    public ImmutableArray<IOperation> Arguments
+    {
+        get
+        {
+            if (_arguments.HasValue)
+                return _arguments.Value;
+
+            _arguments = Syntax is ElementAccessExpressionSyntax elementAccess
+                ? OperationUtilities.CreateChildOperations(SemanticModel, elementAccess.ArgumentList.Arguments)
+                : ImmutableArray<IOperation>.Empty;
+
+            return _arguments.Value;
+        }
+    }
+
+    public IPropertySymbol? Indexer => _bound is BoundIndexerAccessExpression indexerAccess
+        ? indexerAccess.Indexer
+        : null;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+        builder.AddIfNotNull(Instance);
+        builder.AddRange(Arguments);
+        return builder.ToImmutable();
+    }
 }
 
 internal sealed class IndexOperation : Operation, IIndexOperation
@@ -1237,6 +1295,8 @@ internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
 
 internal sealed class TupleOperation : Operation, ITupleOperation
 {
+    private ImmutableArray<IOperation>? _elements;
+
     internal TupleOperation(
         SemanticModel semanticModel,
         BoundTupleExpression bound,
@@ -1246,10 +1306,22 @@ internal sealed class TupleOperation : Operation, ITupleOperation
     {
     }
 
-    protected override ImmutableArray<IOperation> GetChildrenCore()
+    public ImmutableArray<IOperation> Elements
     {
-        return OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+        get
+        {
+            if (_elements.HasValue)
+                return _elements.Value;
+
+            _elements = Syntax is TupleExpressionSyntax tuple
+                ? OperationUtilities.CreateChildOperations(SemanticModel, tuple.Arguments)
+                : ImmutableArray<IOperation>.Empty;
+
+            return _elements.Value;
+        }
     }
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => Elements;
 }
 
 internal sealed class TryOperation : Operation, ITryOperation
@@ -1355,6 +1427,11 @@ internal sealed class TryExpressionOperation : Operation, ITryExpressionOperatio
 
 internal sealed class LambdaOperation : Operation, ILambdaOperation
 {
+    private readonly BoundLambdaExpression _bound;
+    private IOperation? _body;
+    private ImmutableArray<IParameterSymbol>? _parameters;
+    private ImmutableArray<ISymbol>? _capturedVariables;
+
     internal LambdaOperation(
         SemanticModel semanticModel,
         BoundLambdaExpression bound,
@@ -1362,11 +1439,36 @@ internal sealed class LambdaOperation : Operation, ILambdaOperation
         bool isImplicit)
         : base(semanticModel, OperationKind.Lambda, syntax, bound.Type, isImplicit)
     {
+        _bound = bound;
     }
+
+    public ImmutableArray<IParameterSymbol> Parameters => _parameters ??= _bound.Parameters.ToImmutableArray();
+
+    public ITypeSymbol ReturnType => _bound.ReturnType;
+
+    public IOperation? Body
+    {
+        get
+        {
+            if (_body is not null)
+                return _body;
+
+            if (Syntax is LambdaExpressionSyntax lambda)
+                _body = SemanticModel.GetOperation(lambda.ExpressionBody);
+
+            return _body;
+        }
+    }
+
+    public ImmutableArray<INamedTypeSymbol> CandidateDelegates => _bound.CandidateDelegates;
+
+    public ImmutableArray<ISymbol> CapturedVariables => _capturedVariables ??= _bound.CapturedVariables.ToImmutableArray();
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
-        return OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
+        return Body is null
+            ? ImmutableArray<IOperation>.Empty
+            : ImmutableArray.Create(Body);
     }
 }
 

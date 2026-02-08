@@ -1570,13 +1570,17 @@ val c = 5 |> Inc(2)
         Assert.Equal("Inc", boundB.Method.Name);
         Assert.Equal("Inc", boundC.Method.Name);
 
-        Assert.Equal(2, boundA.Arguments.Length);
-        Assert.Equal(2, boundB.Arguments.Length);
-        Assert.Equal(2, boundC.Arguments.Length);
+        var argsA = boundA.Arguments.ToArray();
+        var argsB = boundB.Arguments.ToArray();
+        var argsC = boundC.Arguments.ToArray();
 
-        var defaultArgA = Assert.IsType<BoundLiteralExpression>(boundA.Arguments[1]);
-        var defaultArgB = Assert.IsType<BoundLiteralExpression>(boundB.Arguments[1]);
-        var explicitArgC = Assert.IsType<BoundLiteralExpression>(boundC.Arguments[1]);
+        Assert.Equal(2, argsA.Length);
+        Assert.Equal(2, argsB.Length);
+        Assert.Equal(2, argsC.Length);
+
+        var defaultArgA = Assert.IsType<BoundLiteralExpression>(argsA[1]);
+        var defaultArgB = Assert.IsType<BoundLiteralExpression>(argsB[1]);
+        var explicitArgC = Assert.IsType<BoundLiteralExpression>(argsC[1]);
 
         Assert.Equal(1, defaultArgA.Value);
         Assert.Equal(1, defaultArgB.Value);

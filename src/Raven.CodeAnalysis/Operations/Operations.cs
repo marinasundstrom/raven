@@ -268,6 +268,11 @@ public interface IAddressOfOperation : IOperation
 
 public interface IElementAccessOperation : IOperation
 {
+    IOperation? Instance { get; }
+
+    ImmutableArray<IOperation> Arguments { get; }
+
+    IPropertySymbol? Indexer { get; }
 }
 
 public interface IIndexOperation : IOperation
@@ -323,6 +328,7 @@ public interface IForLoopOperation : ILoopOperation
 
 public interface ITupleOperation : IOperation
 {
+    ImmutableArray<IOperation> Elements { get; }
 }
 
 public interface ITryOperation : IOperation
@@ -356,6 +362,15 @@ public interface ITryExpressionOperation : IOperation
 
 public interface ILambdaOperation : IOperation
 {
+    ImmutableArray<IParameterSymbol> Parameters { get; }
+
+    ITypeSymbol ReturnType { get; }
+
+    IOperation? Body { get; }
+
+    ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
+
+    ImmutableArray<ISymbol> CapturedVariables { get; }
 }
 
 public interface ISwitchOperation : IOperation

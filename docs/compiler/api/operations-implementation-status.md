@@ -92,3 +92,30 @@ None currently tracked.
 
 - `OperationKind.None` is used as a fallback when no semantic shape is available.
 - The status above is based on `OperationFactory` and `OperationKind` as of this snapshot.
+
+## Recent API surface additions
+
+The following operation interfaces were expanded with typed accessors in the
+latest slices:
+
+- `IConditionalOperation`: `Condition`, `WhenTrue`, `WhenFalse`
+- `IConditionalAccessOperation`: `Receiver`, `WhenNotNull`
+- `ILocalReferenceOperation`: `Local`
+- `IVariableReferenceOperation`: `Variable`
+- `IParameterReferenceOperation`: `Parameter`
+- `IFieldReferenceOperation`: `Field`
+- `IPropertyReferenceOperation`: `Property`
+- `IMethodReferenceOperation`: `Method`
+- `ISwitchOperation`: `Value`, `Patterns`, `Guards`, `ArmValues`
+- `ICasePatternOperation`: `Arguments`
+- `IConstantPatternOperation`: `Value`
+- `IPositionalPatternOperation`: `Subpatterns`
+- `INotPatternOperation`: `Pattern`
+- `IAndPatternOperation`: `Left`, `Right`
+- `IOrPatternOperation`: `Left`, `Right`
+- `ITryOperation`: `Body`, `Catches`, `Finally`
+- `ICatchClauseOperation`: `Body`
+- `ITryExpressionOperation`: `Operation`, `ExceptionType`, `OkConstructor`, `ErrorConstructor`
+- `IElementAccessOperation`: `Instance`, `Arguments`, `Indexer`
+- `ITupleOperation`: `Elements`
+- `ILambdaOperation`: `Parameters`, `ReturnType`, `Body`, `CandidateDelegates`, `CapturedVariables`

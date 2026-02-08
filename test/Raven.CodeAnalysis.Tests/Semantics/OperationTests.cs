@@ -189,6 +189,78 @@ var result = tuple match {
     }
 
     [Fact]
+    public void GetOperation_ArrayElementAccess_ExposesInstanceAndArguments()
+    {
+        const string source = """
+var numbers: int[] = [1, 2, 3]
+var value = numbers[0]
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var elementAccessSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ElementAccessExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IElementAccessOperation>(model.GetOperation(elementAccessSyntax));
+
+        operation.Kind.ShouldBe(OperationKind.ArrayElement);
+        operation.Instance.ShouldNotBeNull();
+        operation.Arguments.Length.ShouldBe(1);
+        operation.Arguments[0].Kind.ShouldBe(OperationKind.Argument);
+        operation.Indexer.ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetOperation_TupleExpression_ExposesElements()
+    {
+        const string source = """
+var tuple = (1, 2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var tupleSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<TupleExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<ITupleOperation>(model.GetOperation(tupleSyntax));
+
+        operation.Elements.Length.ShouldBe(2);
+        operation.Elements[0].Kind.ShouldBe(OperationKind.Argument);
+        operation.Elements[1].Kind.ShouldBe(OperationKind.Argument);
+    }
+
+    [Fact]
+    public void GetOperation_LambdaExpression_ExposesBodyAndParameters()
+    {
+        const string source = """
+func Apply(value: int, projector: int -> int) -> int {
+    return projector(value)
+}
+
+var result = Apply(1, v => v + 1)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<ILambdaOperation>(model.GetOperation(lambdaSyntax));
+
+        operation.Parameters.Length.ShouldBe(1);
+        operation.Parameters[0].Name.ShouldBe("v");
+        operation.Body.ShouldNotBeNull();
+        operation.Body!.Kind.ShouldBe(OperationKind.Binary);
+        operation.ReturnType.Name.ShouldBe("Int32");
+    }
+
+    [Fact]
     public void GetOperation_TryStatement_ExposesBodyCatchesAndFinally()
     {
         const string source = """
