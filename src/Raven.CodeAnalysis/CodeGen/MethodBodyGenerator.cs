@@ -614,23 +614,23 @@ internal class MethodBodyGenerator
             throw new NotSupportedException("Async entry point return type is not awaitable.");
 
         var codeGen = MethodGenerator.TypeGenerator.CodeGen;
-        var asyncMethodInfo = asyncImplementation.GetClrMethodInfo(codeGen);
+        var asyncMethodInfo = codeGen.RuntimeSymbolResolver.GetMethodInfo(asyncImplementation);
 
         if (bridgeMethod.Parameters.Length == 1)
             ILGenerator.Emit(OpCodes.Ldarg_0);
 
         ILGenerator.Emit(GetCallOpCode(asyncImplementation, asyncMethodInfo), asyncMethodInfo);
 
-        var getAwaiter = awaitable.GetAwaiterMethod.GetClrMethodInfo(codeGen);
+        var getAwaiter = codeGen.RuntimeSymbolResolver.GetMethodInfo(awaitable.GetAwaiterMethod);
         ILGenerator.Emit(GetCallOpCode(awaitable.GetAwaiterMethod, getAwaiter), getAwaiter);
 
-        var awaiterType = awaitable.AwaiterType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var awaiterType = codeGen.RuntimeSymbolResolver.GetType(awaitable.AwaiterType, treatUnitAsVoid: true);
         var awaiterLocal = ILGenerator.DeclareLocal(awaiterType);
         awaiterLocal.SetLocalSymInfo("awaiter");
         ILGenerator.Emit(OpCodes.Stloc, awaiterLocal);
         ILGenerator.Emit(OpCodes.Ldloca, awaiterLocal);
 
-        var getResult = awaitable.GetResultMethod.GetClrMethodInfo(codeGen);
+        var getResult = codeGen.RuntimeSymbolResolver.GetMethodInfo(awaitable.GetResultMethod);
         ILGenerator.Emit(GetCallOpCode(awaitable.GetResultMethod, getResult), getResult);
 
         if (bridgeMethod.ReturnType.SpecialType == SpecialType.System_Unit)
@@ -2559,12 +2559,12 @@ internal class MethodBodyGenerator
         var ctorSymbol = baseType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0)
             ?? throw new NotSupportedException("Base type requires a parameterless constructor");
 
-        return ctorSymbol.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
+        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(ctorSymbol);
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.GetClrType(MethodGenerator.TypeGenerator.CodeGen);
+        return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, MethodGenerator.TypeGenerator.CodeGen);
     }
 
     private static IEnumerable<StatementSyntax> GetTopLevelStatements(CompilationUnitSyntax compilationUnit)

@@ -39,12 +39,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (typeParameters.Length != typeArguments.Length)
             throw new ArgumentException($"Method '{definition.Name}' expects {typeParameters.Length} type arguments, but got {typeArguments.Length}.", nameof(typeArguments));
 
-        _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(typeParameters.Length, SymbolEqualityComparer.Default);
+        _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(
+            typeParameters.Length,
+            TypeParameterSubstitutionComparer.Instance);
         for (int i = 0; i < typeParameters.Length; i++)
         {
             var canonical = CanonicalizeTypeParameter(typeParameters[i]);
             _substitutionMap[canonical] = typeArguments[i];
         }
+
+        // When the method is obtained from a constructed containing type, include the containing
+        // type substitutions as well so nested return/parameter types can re-anchor correctly.
+        TypeSubstitution.AddContainingTypeSubstitutions(_containingType, _substitutionMap);
     }
 
     public IMethodSymbol Definition => _definition;
@@ -173,7 +179,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return new ConstructedMethodSymbol(_definition, typeArguments.ToImmutableArray(), _containingType);
     }
 
-    // Helper methods for chain-aware substitution of nested types (matches ConstructedNamedTypeSymbol behavior)
+    // Helper methods for chain-aware substitution of nested types.
     private INamedTypeSymbol? SubstituteContainingType(INamedTypeSymbol? containing)
     {
         if (containing is null)
@@ -194,74 +200,158 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (substitutedContaining is null)
             return false;
 
-        if (!SymbolEqualityComparer.Default.Equals(substitutedContaining, containing))
+        if (!AreNamedTypesEquivalentShallow(substitutedContaining, containing))
         {
             containingOverride = substitutedContaining;
             return true;
         }
 
+        if (_containingType is not null)
+        {
+            var containingDefinition = TypeSubstitution.GetDefinitionForSubstitution(containing);
+            var methodContainingDefinition = TypeSubstitution.GetDefinitionForSubstitution(_containingType);
+            if (ReferenceEquals(containingDefinition, methodContainingDefinition))
+            {
+                containingOverride = _containingType;
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private static bool AreNamedTypesEquivalentShallow(INamedTypeSymbol left, INamedTypeSymbol right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        var leftDefinition = TypeSubstitution.GetDefinitionForSubstitution(left);
+        var rightDefinition = TypeSubstitution.GetDefinitionForSubstitution(right);
+
+        if (!ReferenceEquals(leftDefinition, rightDefinition))
+            return false;
+
+        if (left.Arity != right.Arity)
+            return false;
+
+        var leftArgs = TypeSubstitution.GetShallowTypeArguments(left);
+        var rightArgs = TypeSubstitution.GetShallowTypeArguments(right);
+
+        if (leftArgs.IsDefaultOrEmpty || rightArgs.IsDefaultOrEmpty)
+            return leftArgs.Length == rightArgs.Length;
+
+        if (leftArgs.Length != rightArgs.Length)
+            return false;
+
+        for (var i = 0; i < leftArgs.Length; i++)
+        {
+            if (!ReferenceEquals(leftArgs[i], rightArgs[i]))
+                return false;
+        }
+
+        return true;
     }
 
     private ITypeSymbol Substitute(ITypeSymbol type)
     {
+        var visiting = new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance);
+        var cache = new Dictionary<ITypeSymbol, ITypeSymbol>(ReferenceEqualityComparer.Instance);
+        return Substitute(type, visiting, cache);
+    }
+
+    private ITypeSymbol Substitute(
+        ITypeSymbol type,
+        HashSet<ITypeSymbol> visiting,
+        Dictionary<ITypeSymbol, ITypeSymbol> cache)
+    {
+        if (cache.TryGetValue(type, out var cached))
+            return cached;
+
+        if (!visiting.Add(type))
+            return type;
+
+        try
+        {
         if (type is ITypeParameterSymbol tp)
         {
             tp = CanonicalizeTypeParameter(tp);
             if (_substitutionMap.TryGetValue(tp, out var replacement))
+            {
+                cache[type] = replacement;
                 return replacement;
+            }
         }
 
         if (type is NullableTypeSymbol nullableTypeSymbol)
         {
-            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType);
+            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, visiting, cache);
 
             if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
-                return underlyingType.MakeNullable();
+            {
+                var result = underlyingType.MakeNullable();
+                cache[type] = result;
+                return result;
+            }
 
+            cache[type] = type;
             return type;
         }
 
         if (type is ByRefTypeSymbol byRef)
         {
-            var substitutedElement = Substitute(byRef.ElementType);
+            var substitutedElement = Substitute(byRef.ElementType, visiting, cache);
 
             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                return new ByRefTypeSymbol(substitutedElement);
+            {
+                var result = new ByRefTypeSymbol(substitutedElement);
+                cache[type] = result;
+                return result;
+            }
 
+            cache[type] = type;
             return type;
         }
 
         if (type is IAddressTypeSymbol address)
         {
-            var substitutedElement = Substitute(address.ReferencedType);
+            var substitutedElement = Substitute(address.ReferencedType, visiting, cache);
 
             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
-                return new AddressTypeSymbol(substitutedElement);
+            {
+                var result = new AddressTypeSymbol(substitutedElement);
+                cache[type] = result;
+                return result;
+            }
 
+            cache[type] = type;
             return type;
         }
 
         if (type is IArrayTypeSymbol arrayType)
         {
-            var substitutedElement = Substitute(arrayType.ElementType);
+            var substitutedElement = Substitute(arrayType.ElementType, visiting, cache);
 
             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
-                return new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+            {
+                var result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+                cache[type] = result;
+                return result;
+            }
 
+            cache[type] = type;
             return type;
         }
 
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
-            var typeArguments = named.TypeArguments;
+            var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
             var substitutedArgs = new ITypeSymbol[typeArguments.Length];
             var changed = false;
 
             for (int i = 0; i < typeArguments.Length; i++)
             {
                 var originalArg = typeArguments[i];
-                var substitutedArg = Substitute(originalArg);
+                var substitutedArg = Substitute(originalArg, visiting, cache);
 
                 substitutedArgs[i] = substitutedArg;
 
@@ -275,31 +365,37 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 // under a substituted containing type.
                 if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
                 {
-                    var constructedFromSame = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
-                    return ConstructedNamedTypeSymbol.ReanchorNested(
+                    var constructedFromSame = TypeSubstitution.GetDefinitionForSubstitution(named);
+                    return TypeSubstitution.ReanchorNested(
                         constructedFromSame,
                         containingOverride,
                         inheritedSubstitution: null,
-                        typeArguments: named.TypeArguments);
+                        typeArguments: typeArguments);
                 }
 
                 return named;
             }
 
             // Avoid reusing a possibly already-constructed named
-            var constructedFrom = (INamedTypeSymbol?)named.ConstructedFrom ?? named;
+            var constructedFrom = TypeSubstitution.GetDefinitionForSubstitution(named);
 
-            if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
+            if (named.ContainingType is INamedTypeSymbol namedContaining)
             {
                 var immutableArguments = ImmutableArray.Create(substitutedArgs);
-                return ConstructedNamedTypeSymbol.ReanchorNested(
+                var containingForNested = namedContaining;
+                if (TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
+                    containingForNested = overrideContaining;
+
+                return TypeSubstitution.ReanchorNested(
                     constructedFrom,
-                    overrideContaining,
+                    containingForNested,
                     inheritedSubstitution: null,
                     typeArguments: immutableArguments);
             }
 
-            return constructedFrom.Construct(substitutedArgs);
+            var constructedResult = constructedFrom.Construct(substitutedArgs);
+            cache[type] = constructedResult;
+            return constructedResult;
         }
 
         // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
@@ -307,7 +403,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         {
             if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
             {
-                return ConstructedNamedTypeSymbol.ReanchorNested(
+                return TypeSubstitution.ReanchorNested(
                     nestedNamed,
                     containingOverride,
                     inheritedSubstitution: null,
@@ -315,19 +411,28 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             }
         }
 
+        cache[type] = type;
         return type;
+        }
+        finally
+        {
+            visiting.Remove(type);
+        }
     }
 
     private ITypeParameterSymbol CanonicalizeTypeParameter(ITypeParameterSymbol typeParameter)
     {
-        if (typeParameter.ContainingSymbol is IMethodSymbol &&
+        if (typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
             typeParameter.Ordinal >= 0 &&
             typeParameter.Ordinal < _definition.TypeParameters.Length)
         {
             return _definition.TypeParameters[typeParameter.Ordinal];
         }
 
-        return typeParameter;
+        if (typeParameter.OwnerKind == TypeParameterOwnerKind.Type)
+            return (ITypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
+
+        return (ITypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
     }
 
     [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
@@ -414,7 +519,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var containingType = _containingType ?? _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
-        var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var containingClrType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(containingType, codeGen);
         var isTypeBuilderInstantiation = string.Equals(
             containingClrType.GetType().FullName,
             "System.Reflection.Emit.TypeBuilderInstantiation",
@@ -429,6 +534,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var runtimeTypeArguments = typeArguments
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
+        runtimeTypeArguments = NormalizeStateMachineRuntimeTypes(runtimeTypeArguments, codeGen);
 
         if (methodSearchType is TypeBuilder && _definition is SourceMethodSymbol sourceMethod)
         {
@@ -445,7 +551,20 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 if (type is null)
                     return "<null>";
 
-                var formatted = $"{type} (gp={type.IsGenericParameter})";
+                var owner = "n/a";
+                if (type.IsGenericParameter)
+                {
+                    try
+                    {
+                        owner = type.DeclaringMethod is null ? "type" : "method";
+                    }
+                    catch (NotSupportedException)
+                    {
+                        owner = "signature";
+                    }
+                }
+                var position = type.IsGenericParameter ? type.GenericParameterPosition : -1;
+                var formatted = $"{type} (gp={type.IsGenericParameter}, owner={owner}, pos={position})";
 
                 if (!type.IsGenericType)
                     return formatted;
@@ -468,7 +587,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         for (var i = 0; i < TypeArguments.Length && i < runtimeTypeArguments.Length; i++)
         {
-            if (TypeArguments[i] is ITypeParameterSymbol { ContainingSymbol: IMethodSymbol methodSymbol } methodTypeParameter &&
+            if (TypeArguments[i] is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
+                methodTypeParameter.DeclaringMethodParameterOwner is IMethodSymbol methodSymbol &&
                 runtimeTypeArguments[i] is Type runtimeArgument &&
                 runtimeArgument.IsGenericParameter &&
                 runtimeArgument.DeclaringMethod is null &&
@@ -477,8 +597,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 runtimeTypeArguments[i] = remapped;
             }
         }
-
-        runtimeTypeArguments = NormalizeStateMachineRuntimeTypes(runtimeTypeArguments, codeGen);
 
         if (TryResolveFromCachedDefinition(
                 codeGen,
@@ -494,6 +612,10 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var peDefinitionMethod = _definition as PEMethodSymbol;
+        var peMetadataMethodInfo = peDefinitionMethod?.GetMethodBase() as MethodInfo;
+        var usePeDefinitionSignatureMatch = peMetadataMethodInfo is not null;
+
         foreach (var method in methodSearchType.GetMethods(Flags))
         {
             MethodInfo candidate = method;
@@ -542,6 +664,24 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 ? candidate.DeclaringType.GetGenericArguments()
                 : Array.Empty<Type>();
 
+            if (usePeDefinitionSignatureMatch)
+            {
+                var candidateDefinition = candidate.IsGenericMethod && !candidate.IsGenericMethodDefinition
+                    ? candidate.GetGenericMethodDefinition()
+                    : candidate;
+
+                if (!MethodDefinitionSignatureMatches(candidateDefinition, peMetadataMethodInfo!))
+                {
+                    if (debug)
+                    {
+                        Console.Error.WriteLine($"  Rejected candidate {candidate} due to definition-signature mismatch.");
+                    }
+                    continue;
+                }
+
+                return candidate;
+            }
+
             var parametersMatch = ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen, debug);
             if (!parametersMatch)
             {
@@ -554,7 +694,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             }
 
             var normalizedReturnType = SubstituteRuntimeType(candidate.ReturnType, methodRuntimeArguments, typeRuntimeArguments);
-            if (!MethodSymbolExtensionsForCodeGen.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
+            if (!MethodSymbolCodeGenResolver.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
             {
                 if (debug)
                 {
@@ -574,7 +714,113 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             Console.Error.WriteLine($"  Runtime type arguments: {string.Join(", ", runtimeTypeArguments.Select(t => t?.FullName ?? t?.ToString() ?? "<null>"))}");
         }
 
+        if (runtimeTypeArguments.Length > 0)
+        {
+            const BindingFlags relaxedFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+
+            foreach (var method in methodSearchType.GetMethods(relaxedFlags))
+            {
+                if (!string.Equals(method.Name, _definition.Name, StringComparison.Ordinal))
+                    continue;
+
+                if (!method.IsGenericMethodDefinition)
+                    continue;
+
+                if (method.GetGenericArguments().Length != runtimeTypeArguments.Length)
+                    continue;
+
+                if (method.GetParameters().Length != parameterSymbols.Length)
+                    continue;
+
+                try
+                {
+                    var relaxed = method.MakeGenericMethod(runtimeTypeArguments);
+                    if (debug)
+                    {
+                        Console.Error.WriteLine($"[ConstructedMethodSymbol] Relaxed generic match for '{_definition}' -> {relaxed}");
+                    }
+                    return relaxed;
+                }
+                catch (ArgumentException)
+                {
+                    continue;
+                }
+            }
+        }
+
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+    }
+
+    private static bool MethodDefinitionSignatureMatches(MethodInfo runtimeDefinition, MethodInfo metadataDefinition)
+    {
+        if (!string.Equals(runtimeDefinition.Name, metadataDefinition.Name, StringComparison.Ordinal))
+            return false;
+
+        if (runtimeDefinition.IsStatic != metadataDefinition.IsStatic)
+            return false;
+
+        if (runtimeDefinition.IsGenericMethod != metadataDefinition.IsGenericMethod)
+            return false;
+
+        if (runtimeDefinition.IsGenericMethod &&
+            runtimeDefinition.GetGenericArguments().Length != metadataDefinition.GetGenericArguments().Length)
+            return false;
+
+        if (!ParameterSignatureMatches(runtimeDefinition.GetParameters(), metadataDefinition.GetParameters()))
+            return false;
+
+        return TypeSignatureEquals(runtimeDefinition.ReturnType, metadataDefinition.ReturnType);
+    }
+
+    private static bool ParameterSignatureMatches(ParameterInfo[] runtimeParameters, ParameterInfo[] metadataParameters)
+    {
+        if (runtimeParameters.Length != metadataParameters.Length)
+            return false;
+
+        for (var i = 0; i < runtimeParameters.Length; i++)
+        {
+            if (runtimeParameters[i].IsOut != metadataParameters[i].IsOut)
+                return false;
+
+            if (!TypeSignatureEquals(runtimeParameters[i].ParameterType, metadataParameters[i].ParameterType))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool TypeSignatureEquals(Type runtimeType, Type metadataType)
+        => string.Equals(GetTypeSignature(runtimeType), GetTypeSignature(metadataType), StringComparison.Ordinal);
+
+    private static string GetTypeSignature(Type type)
+    {
+        if (type.IsByRef)
+            return $"{GetTypeSignature(type.GetElementType()!)}&";
+
+        if (type.IsPointer)
+            return $"{GetTypeSignature(type.GetElementType()!)}*";
+
+        if (type.IsArray)
+        {
+            var rank = type.GetArrayRank();
+            var suffix = rank == 1 ? "[]" : $"[{new string(',', rank - 1)}]";
+            return $"{GetTypeSignature(type.GetElementType()!)}{suffix}";
+        }
+
+        if (type.IsGenericParameter)
+        {
+            var kind = type.DeclaringMethod is null ? "!" : "!!";
+            return $"{kind}{type.GenericParameterPosition}";
+        }
+
+        if (type.IsGenericType)
+        {
+            var definition = type.IsGenericTypeDefinition ? type : type.GetGenericTypeDefinition();
+            var args = type.GetGenericArguments();
+            return $"{definition.FullName}<{string.Join(",", args.Select(GetTypeSignature))}>";
+        }
+
+        return type.FullName ?? type.Name;
     }
 
     private bool TryResolveFromCachedDefinition(
@@ -654,7 +900,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             return false;
 
         var normalizedReturnType = SubstituteRuntimeType(candidate.ReturnType, methodRuntimeArguments, typeRuntimeArguments);
-        if (!MethodSymbolExtensionsForCodeGen.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
+        if (!MethodSymbolCodeGenResolver.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
             return false;
 
         methodInfo = candidate;
@@ -747,8 +993,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (runtimeArgument is null)
             return runtimeArgument;
 
-        if (symbolArgument is ConstructedNamedTypeSymbol constructed &&
-            constructed.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+        if (symbolArgument is INamedTypeSymbol namedArgument &&
+            namedArgument.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
             runtimeArgument.IsGenericType)
         {
             var asyncRuntimeParameters = new Type[stateMachine.TypeParameters.Length];
@@ -924,7 +1170,15 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 if (debug)
                 {
                     var normalized = SubstituteRuntimeType(runtimeParameters[i].ParameterType, methodRuntimeArguments, typeRuntimeArguments);
-                    var expected = parameterSymbols[i].Type.GetClrTypeTreatingUnitAsVoid(codeGen);
+                    Type expected;
+                    try
+                    {
+                        expected = GetProjectedRuntimeType(parameterSymbols[i].Type, codeGen, treatUnitAsVoid: true, isTopLevel: false);
+                    }
+                    catch
+                    {
+                        expected = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(parameterSymbols[i].Type, codeGen);
+                    }
                     Console.Error.WriteLine($"    Parameter mismatch at {i}: runtime={normalized} expected={expected} symbol={parameterSymbols[i].Type}");
                 }
 
@@ -952,16 +1206,149 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             return false;
 
         var normalizedRuntimeType = SubstituteRuntimeType(runtimeParameter.ParameterType, methodRuntimeArguments, typeRuntimeArguments);
-        var equivalent = MethodSymbolExtensionsForCodeGen.TypesEquivalent(normalizedRuntimeType, symbolParameter.Type, codeGen);
+        var equivalent = MethodSymbolCodeGenResolver.TypesEquivalent(normalizedRuntimeType, symbolParameter.Type, codeGen);
 
         if (!equivalent)
         {
-            var symbolClrType = symbolParameter.Type.GetClrType(codeGen);
+            try
+            {
+                var projectedSymbolType = GetProjectedRuntimeType(symbolParameter.Type, codeGen, treatUnitAsVoid: true, isTopLevel: false);
+                var normalizedKey = GetRuntimeTypeKey(normalizedRuntimeType);
+                var projectedKey = GetRuntimeTypeKey(projectedSymbolType);
+                if (TypeSignatureEquals(normalizedRuntimeType, projectedSymbolType) ||
+                    string.Equals(normalizedRuntimeType.ToString(), projectedSymbolType.ToString(), StringComparison.Ordinal) ||
+                    string.Equals(normalizedKey, projectedKey, StringComparison.Ordinal) ||
+                    RuntimeTypesEquivalentLoosely(normalizedRuntimeType, projectedSymbolType))
+                    equivalent = true;
+            }
+            catch
+            {
+                // Keep existing fallback checks below.
+            }
+
+            if (equivalent)
+                return true;
+
+            var symbolClrType = TypeSymbolExtensionsForCodeGen.GetClrType(symbolParameter.Type, codeGen);
             if (string.Equals(normalizedRuntimeType.ToString(), symbolClrType.ToString(), StringComparison.Ordinal))
                 equivalent = true;
         }
 
         return equivalent;
+    }
+
+    private static string GetRuntimeTypeKey(Type type)
+    {
+        if (type.IsByRef)
+            return $"{GetRuntimeTypeKey(type.GetElementType()!)}&";
+
+        if (type.IsPointer)
+            return $"{GetRuntimeTypeKey(type.GetElementType()!)}*";
+
+        if (type.IsArray)
+        {
+            var rank = type.GetArrayRank();
+            var suffix = rank == 1 ? "[]" : $"[{new string(',', rank - 1)}]";
+            return $"{GetRuntimeTypeKey(type.GetElementType()!)}{suffix}";
+        }
+
+        if (type.IsGenericParameter)
+        {
+            string ownerPrefix;
+            try
+            {
+                ownerPrefix = type.DeclaringMethod is null ? "!" : "!!";
+            }
+            catch (NotSupportedException)
+            {
+                ownerPrefix = type.IsGenericTypeParameter ? "!" : "!!";
+            }
+
+            return $"{ownerPrefix}{type.GenericParameterPosition}";
+        }
+
+        if (type.IsGenericType)
+        {
+            var definition = type.IsGenericTypeDefinition ? type : type.GetGenericTypeDefinition();
+            var args = type.GetGenericArguments();
+            return $"{definition.FullName ?? definition.Name}<{string.Join(",", args.Select(GetRuntimeTypeKey))}>";
+        }
+
+        return type.FullName ?? type.Name;
+    }
+
+    private static bool RuntimeTypesEquivalentLoosely(Type left, Type right)
+    {
+        if (ReferenceEquals(left, right) || left == right)
+            return true;
+
+        if (left.IsByRef || right.IsByRef)
+        {
+            if (left.IsByRef != right.IsByRef)
+                return false;
+
+            return RuntimeTypesEquivalentLoosely(left.GetElementType()!, right.GetElementType()!);
+        }
+
+        if (left.IsPointer || right.IsPointer)
+        {
+            if (left.IsPointer != right.IsPointer)
+                return false;
+
+            return RuntimeTypesEquivalentLoosely(left.GetElementType()!, right.GetElementType()!);
+        }
+
+        if (left.IsArray || right.IsArray)
+        {
+            if (left.IsArray != right.IsArray || left.GetArrayRank() != right.GetArrayRank())
+                return false;
+
+            return RuntimeTypesEquivalentLoosely(left.GetElementType()!, right.GetElementType()!);
+        }
+
+        if (left.IsGenericParameter || right.IsGenericParameter)
+        {
+            if (left.IsGenericParameter != right.IsGenericParameter)
+                return false;
+
+            if (left.GenericParameterPosition != right.GenericParameterPosition)
+                return false;
+
+            if (left.IsGenericMethodParameter != right.IsGenericMethodParameter)
+                return false;
+
+            if (left.IsGenericTypeParameter != right.IsGenericTypeParameter)
+                return false;
+
+            return true;
+        }
+
+        if (left.IsGenericType || right.IsGenericType)
+        {
+            if (left.IsGenericType != right.IsGenericType)
+                return false;
+
+            var leftDef = left.IsGenericTypeDefinition ? left : left.GetGenericTypeDefinition();
+            var rightDef = right.IsGenericTypeDefinition ? right : right.GetGenericTypeDefinition();
+            if (leftDef != rightDef && !string.Equals(leftDef.FullName, rightDef.FullName, StringComparison.Ordinal))
+                return false;
+
+            var leftArgs = left.GetGenericArguments();
+            var rightArgs = right.GetGenericArguments();
+            if (leftArgs.Length != rightArgs.Length)
+                return false;
+
+            for (var i = 0; i < leftArgs.Length; i++)
+            {
+                if (!RuntimeTypesEquivalentLoosely(leftArgs[i], rightArgs[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        return string.Equals(left.FullName, right.FullName, StringComparison.Ordinal) ||
+               string.Equals(left.Name, right.Name, StringComparison.Ordinal);
     }
 
     private static Type SubstituteRuntimeType(Type runtimeType, Type[] methodRuntimeArguments, Type[]? typeRuntimeArguments)
@@ -1055,94 +1442,164 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         ITypeSymbol symbol,
         CodeGen.CodeGenerator codeGen,
         bool treatUnitAsVoid,
-        bool isTopLevel = true)
+        bool isTopLevel = true,
+        HashSet<ITypeSymbol>? visiting = null)
     {
         if (symbol is null)
             throw new ArgumentNullException(nameof(symbol));
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        visiting ??= new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance);
+        if (!visiting.Add(symbol))
+        {
+            if (symbol is ITypeParameterSymbol cyclicTypeParameter &&
+                codeGen.TryGetRuntimeTypeForTypeParameter(cyclicTypeParameter, out var cyclicRuntimeType))
+            {
+                return cyclicRuntimeType;
+            }
+
+            throw new InvalidOperationException($"Detected cyclic type substitution while projecting runtime type for '{symbol}'.");
+        }
+
+        try
+        {
         if (symbol is ITypeParameterSymbol typeParameter)
         {
             if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
-                return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel);
+            {
+                if (!ReferenceEquals(substitution, typeParameter))
+                    return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel, visiting);
+            }
 
-            if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
+            if (typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
+                typeParameter.DeclaringMethodParameterOwner is IMethodSymbol declaringMethod &&
+                TryGetMethodGenericParameter(declaringMethod, typeParameter.Ordinal, codeGen, out var methodGenericParameter))
+            {
+                return methodGenericParameter;
+            }
+
+            if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, CodeGen.RuntimeTypeUsage.MethodBody, out var runtimeType))
                 return runtimeType;
 
-            if (typeParameter.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
-                stateMachine.TryMapToAsyncMethodTypeParameter(typeParameter, out var asyncParameter) &&
-                codeGen.TryGetRuntimeTypeForTypeParameter(asyncParameter, out var asyncRuntimeType))
-            {
-                return asyncRuntimeType;
+                throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
             }
 
-            throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
-        }
-
-        if (symbol is ByRefTypeSymbol byRef)
-        {
-            var elementType = GetProjectedRuntimeType(byRef.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
-            return elementType.MakeByRefType();
-        }
-
-        if (symbol is IArrayTypeSymbol array)
-        {
-            var elementType = GetProjectedRuntimeType(array.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
-            return array.Rank == 1
-                ? elementType.MakeArrayType()
-                : elementType.MakeArrayType(array.Rank);
-        }
-
-        if (symbol is NullableTypeSymbol nullable)
-        {
-            var underlying = GetProjectedRuntimeType(nullable.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
-            return nullable.UnderlyingType.IsValueType
-                ? typeof(Nullable<>).MakeGenericType(underlying)
-                : underlying;
-        }
-
-        if (symbol is LiteralTypeSymbol literal)
-            return GetProjectedRuntimeType(literal.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
-
-        if (symbol is ITupleTypeSymbol tuple)
-        {
-            var elementClrTypes = tuple.TupleElements
-                .Select(element => GetProjectedRuntimeType(element.Type, codeGen, treatUnitAsVoid, isTopLevel: false))
-                .ToArray();
-
-            return TypeSymbolExtensionsForCodeGen.GetValueTupleClrType(elementClrTypes, codeGen.Compilation);
-        }
-
-        if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
-        {
-            var definition = named.ConstructedFrom as INamedTypeSymbol;
-            Type runtimeDefinition;
-
-            if (definition is not null && !SymbolEqualityComparer.Default.Equals(definition, named))
+            if (symbol is ByRefTypeSymbol byRef)
             {
-                runtimeDefinition = GetProjectedRuntimeType(definition, codeGen, treatUnitAsVoid, isTopLevel: false);
-            }
-            else
-            {
-                runtimeDefinition = treatUnitAsVoid && isTopLevel
-                    ? named.GetClrTypeTreatingUnitAsVoid(codeGen)
-                    : named.GetClrType(codeGen);
+                var elementType = GetProjectedRuntimeType(byRef.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false, visiting);
+                return elementType.MakeByRefType();
             }
 
-            if (!runtimeDefinition.IsGenericTypeDefinition && !runtimeDefinition.ContainsGenericParameters)
-                return runtimeDefinition;
+            if (symbol is IArrayTypeSymbol array)
+            {
+                var elementType = GetProjectedRuntimeType(array.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false, visiting);
+                return array.Rank == 1
+                    ? elementType.MakeArrayType()
+                    : elementType.MakeArrayType(array.Rank);
+            }
 
-            var runtimeArguments = named.TypeArguments
-                .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid, isTopLevel: false))
-                .ToArray();
+            if (symbol is NullableTypeSymbol nullable)
+            {
+                var underlying = GetProjectedRuntimeType(nullable.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false, visiting);
+                return nullable.UnderlyingType.IsValueType
+                    ? typeof(Nullable<>).MakeGenericType(underlying)
+                    : underlying;
+            }
 
-            return runtimeDefinition.MakeGenericType(runtimeArguments);
+            if (symbol is LiteralTypeSymbol literal)
+                return GetProjectedRuntimeType(literal.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false, visiting);
+
+            if (symbol is ITupleTypeSymbol tuple)
+            {
+                var elementClrTypes = tuple.TupleElements
+                    .Select(element => GetProjectedRuntimeType(element.Type, codeGen, treatUnitAsVoid, isTopLevel: false, visiting))
+                    .ToArray();
+
+                return TypeSymbolExtensionsForCodeGen.GetValueTupleClrType(elementClrTypes, codeGen.Compilation);
+            }
+
+            if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            {
+                var definition = named.ConstructedFrom as INamedTypeSymbol;
+                Type runtimeDefinition;
+
+                if (definition is not null && !SymbolEqualityComparer.Default.Equals(definition, named))
+                {
+                    runtimeDefinition = GetProjectedRuntimeType(definition, codeGen, treatUnitAsVoid, isTopLevel: false, visiting);
+                }
+                else
+                {
+                    runtimeDefinition = treatUnitAsVoid && isTopLevel
+                        ? TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(named, codeGen)
+                        : TypeSymbolExtensionsForCodeGen.GetClrType(named, codeGen);
+                }
+
+                if (!runtimeDefinition.IsGenericTypeDefinition && !runtimeDefinition.ContainsGenericParameters)
+                    return runtimeDefinition;
+
+                if (!runtimeDefinition.IsGenericTypeDefinition)
+                    return runtimeDefinition;
+
+                var runtimeArguments = named.TypeArguments
+                    .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid, isTopLevel: false, visiting))
+                    .ToArray();
+
+                return runtimeDefinition.MakeGenericType(runtimeArguments);
+            }
+
+            return treatUnitAsVoid && isTopLevel
+                ? TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(symbol, codeGen)
+                : TypeSymbolExtensionsForCodeGen.GetClrType(symbol, codeGen);
+        }
+        finally
+        {
+            visiting.Remove(symbol);
+        }
+    }
+
+    private static bool TryMapStateMachineTypeParameter(
+        ITypeParameterSymbol typeParameter,
+        out ITypeParameterSymbol asyncMethodTypeParameter)
+    {
+        asyncMethodTypeParameter = null!;
+
+        if (typeParameter.ContainingType is SynthesizedAsyncStateMachineTypeSymbol directStateMachine &&
+            directStateMachine.TryMapToAsyncMethodTypeParameter(typeParameter, out asyncMethodTypeParameter))
+        {
+            return true;
         }
 
-        return treatUnitAsVoid && isTopLevel
-            ? symbol.GetClrTypeTreatingUnitAsVoid(codeGen)
-            : symbol.GetClrType(codeGen);
+        if (typeParameter.ContainingType is SynthesizedAsyncStateMachineTypeSymbol directByOrdinal)
+        {
+            var ordinal = typeParameter.Ordinal;
+            if ((uint)ordinal < (uint)directByOrdinal.TypeParameters.Length &&
+                directByOrdinal.TypeParameters[ordinal] is ITypeParameterSymbol stateTypeParameter &&
+                directByOrdinal.TryMapToAsyncMethodTypeParameter(stateTypeParameter, out asyncMethodTypeParameter))
+            {
+                return true;
+            }
+        }
+
+        if (typeParameter.ContainingType is ConstructedNamedTypeSymbol constructedStateMachine &&
+            constructedStateMachine.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol synthesizedStateMachine)
+        {
+            var ordinal = typeParameter.Ordinal;
+            if ((uint)ordinal < (uint)synthesizedStateMachine.TypeParameters.Length &&
+                synthesizedStateMachine.TypeParameters[ordinal] is ITypeParameterSymbol synthesizedTypeParameter &&
+                synthesizedStateMachine.TryMapToAsyncMethodTypeParameter(synthesizedTypeParameter, out asyncMethodTypeParameter))
+            {
+                return true;
+            }
+        }
+
+        if (typeParameter.OriginalDefinition is ITypeParameterSymbol original &&
+            !ReferenceEquals(original, typeParameter))
+        {
+            return TryMapStateMachineTypeParameter(original, out asyncMethodTypeParameter);
+        }
+
+        return false;
     }
 }
 

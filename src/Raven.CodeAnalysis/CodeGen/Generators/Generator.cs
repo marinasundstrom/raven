@@ -156,7 +156,7 @@ internal abstract class Generator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.GetClrType(MethodGenerator.TypeGenerator.CodeGen);
+        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetType(typeSymbol);
     }
 
     public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);
@@ -720,7 +720,12 @@ internal abstract class Generator
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
-        return methodSymbol.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetMethodInfo(methodSymbol);
+    }
+
+    public ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol)
+    {
+        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(constructorSymbol);
     }
 
     private static bool IsDynamicBuilderType(Type type)

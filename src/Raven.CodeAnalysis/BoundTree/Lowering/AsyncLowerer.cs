@@ -1191,18 +1191,12 @@ internal static class AsyncLowerer
             if (type is null)
                 return type;
 
-            if (IsBuilderType(type))
-                return type;
-
             return _stateMachine.SubstituteStateMachineTypeParameters(type);
         }
 
         public override IMethodSymbol VisitMethod(IMethodSymbol method)
         {
             if (method is null)
-                return method;
-
-            if (IsBuilderMethod(method))
                 return method;
 
             return _stateMachine.SubstituteStateMachineTypeParameters(method);
@@ -1213,10 +1207,6 @@ internal static class AsyncLowerer
             if (type is null)
                 return null;
 
-            // Builder members must remain on the original builder type; everything else is substituted.
-            if (IsBuilderType(type))
-                return type;
-
             return _stateMachine.SubstituteStateMachineTypeParameters(type);
         }
 
@@ -1224,10 +1214,6 @@ internal static class AsyncLowerer
         {
             if (method is null)
                 return null;
-
-            // Builder members must remain on the original builder type; everything else is substituted.
-            if (IsBuilderMethod(method))
-                return method;
 
             return _stateMachine.SubstituteStateMachineTypeParameters(method);
         }
@@ -1237,13 +1223,7 @@ internal static class AsyncLowerer
             if (property is null)
                 return null;
 
-            // Properties on the builder type must not be substituted.
-            if (property.ContainingType is not null && IsBuilderType(property.ContainingType))
-                return property;
-
-            // Property substitution is handled by substituting its containing type.
-            // (Member substitution will occur when lowering/codegen resolves CLR members.)
-            return property;
+            return _stateMachine.SubstituteStateMachineTypeParameters(property);
         }
 
         public override BoundNode? VisitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression node)
@@ -3761,25 +3741,13 @@ internal static class AsyncLowerer
         if (startMethod is null)
             return null;
 
-        var methodTypeParameters = stateMachine.AsyncMethod.TypeParameters;
-        INamedTypeSymbol substitutedStateMachineType;
-
-        if (!methodTypeParameters.IsDefaultOrEmpty && methodTypeParameters.Length == stateMachine.TypeParameters.Length)
-        {
-            var methodArguments = TryCreateMethodTypeArguments(stateMachine)
-                ?? methodTypeParameters.Select(static parameter => (ITypeSymbol)parameter).ToImmutableArray();
-            var methodViewStateMachine = new ConstructedNamedTypeSymbol(stateMachine, methodArguments);
-            substitutedStateMachineType = stateMachine.SubstituteStateMachineTypeParameters(methodViewStateMachine) as INamedTypeSymbol
-                ?? methodViewStateMachine;
-        }
-        else
-        {
-            substitutedStateMachineType = stateMachine.SubstituteStateMachineTypeParameters(stateMachineType) as INamedTypeSymbol
-                ?? stateMachineType;
-        }
+        // Generic async kickoff currently routes through runtime generic method projection that can
+        // produce invalid member references. Emit direct MoveNext fallback for generic async methods.
+        if (stateMachine.AsyncMethod.IsGenericMethod)
+            return null;
 
         var constructedStart = startMethod.IsGenericMethod
-            ? startMethod.Construct(substitutedStateMachineType)
+            ? startMethod.Construct(stateMachineType)
             : startMethod;
 
         var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), builderMembers.BuilderField);
@@ -3792,46 +3760,6 @@ internal static class AsyncLowerer
             requiresReceiverAddress: true);
 
         return new BoundExpressionStatement(invocation);
-
-        static ImmutableArray<ITypeSymbol>? TryCreateMethodTypeArguments(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
-        {
-            var mappings = stateMachine.TypeParameterMappings;
-            if (mappings.IsDefaultOrEmpty || mappings.Length == 0)
-                return null;
-
-            var stateMachineParameters = stateMachine.TypeParameters;
-            if (stateMachineParameters.IsDefaultOrEmpty || stateMachineParameters.Length == 0)
-                return null;
-
-            var mappedArguments = new ITypeSymbol[stateMachineParameters.Length];
-            var asyncParameters = stateMachine.AsyncMethod.TypeParameters;
-            var mappedCount = 0;
-
-            foreach (var mapping in mappings)
-            {
-                var ordinal = mapping.StateMachineParameter.Ordinal;
-                if ((uint)ordinal >= (uint)mappedArguments.Length)
-                    continue;
-
-                var asyncOrdinal = mapping.AsyncParameter.Ordinal;
-                if ((uint)asyncOrdinal >= (uint)asyncParameters.Length)
-                    continue;
-
-                mappedArguments[ordinal] = asyncParameters[asyncOrdinal];
-                mappedCount++;
-            }
-
-            if (mappedCount != mappedArguments.Length)
-                return null;
-
-            for (var i = 0; i < mappedArguments.Length; i++)
-            {
-                if (mappedArguments[i] is null)
-                    return null;
-            }
-
-            return ImmutableArray.Create(mappedArguments);
-        }
     }
 
     private static BoundBlockStatement? CreateSetStateMachineBody(SynthesizedAsyncStateMachineTypeSymbol stateMachine)

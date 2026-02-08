@@ -706,11 +706,19 @@ internal abstract partial class Binder
             if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
                 return false;
 
-            var parameterArguments = parameterNamed.TypeArguments;
-            var argumentArguments = argumentNamed.TypeArguments;
+            var parameterArguments = parameterNamed is ConstructedNamedTypeSymbol constructedParameter
+                ? constructedParameter.GetExplicitTypeArgumentsForInference()
+                : parameterNamed.TypeArguments;
 
-            if (parameterArguments.IsDefault || argumentArguments.IsDefault)
-                return false;
+            var argumentArguments = argumentNamed is ConstructedNamedTypeSymbol constructedArgument
+                ? constructedArgument.GetExplicitTypeArgumentsForInference()
+                : argumentNamed.TypeArguments;
+
+            if (parameterArguments.IsDefault)
+                parameterArguments = ImmutableArray<ITypeSymbol>.Empty;
+
+            if (argumentArguments.IsDefault)
+                argumentArguments = ImmutableArray<ITypeSymbol>.Empty;
 
             if (parameterArguments.Length != argumentArguments.Length)
                 return false;
@@ -1032,27 +1040,41 @@ internal abstract partial class Binder
     }
 
     private static bool ContainsTypeParameters(ITypeSymbol type)
+        => ContainsTypeParameters(type, new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+
+    private static bool ContainsTypeParameters(ITypeSymbol type, HashSet<ITypeSymbol> visited)
     {
+        if (!visited.Add(type))
+            return false;
+
         switch (type)
         {
             case ITypeParameterSymbol:
                 return true;
+            case ConstructedNamedTypeSymbol constructed:
+                foreach (var argument in constructed.GetExplicitTypeArgumentsForInference())
+                {
+                    if (ContainsTypeParameters(argument, visited))
+                        return true;
+                }
+
+                return false;
             case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
                 foreach (var argument in named.TypeArguments)
                 {
-                    if (ContainsTypeParameters(argument))
+                    if (ContainsTypeParameters(argument, visited))
                         return true;
                 }
 
                 return false;
             case IArrayTypeSymbol array:
-                return ContainsTypeParameters(array.ElementType);
+                return ContainsTypeParameters(array.ElementType, visited);
             case NullableTypeSymbol nullable:
-                return ContainsTypeParameters(nullable.UnderlyingType);
+                return ContainsTypeParameters(nullable.UnderlyingType, visited);
             case ITypeUnionSymbol union:
                 foreach (var member in union.Types)
                 {
-                    if (ContainsTypeParameters(member))
+                    if (ContainsTypeParameters(member, visited))
                         return true;
                 }
 

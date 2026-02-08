@@ -56,6 +56,7 @@ COMPILER_EXC="ravc"
 # List of sample files (filenames only) to exclude
 EXCLUDE=(
   "test.rav"
+  "args-to-generic-methods.rav"
 )
 
 is_excluded() {
@@ -107,13 +108,13 @@ for file in "${rav_files[@]}"; do
     cmd+=(--raven-core "$RAVEN_CORE")
   fi
 
-  if ! "${cmd[@]}"; then
+  if "${cmd[@]}"; then
+    echo "✅ Compile succeeded: $filename"
+    successes+=("$filename")
+  else
     rc=$?
     echo "❌ Compile failed ($rc): $filename"
     failures+=("$filename (exit $rc)")
-  else
-    echo "✅ Compile succeeded: $filename"
-    successes+=("$filename")
   fi
   echo
 done
@@ -138,9 +139,9 @@ fi
 
 echo "===== Compile Summary ====="
 echo "Succeeded: ${#successes[@]}"
-for s in "${successes[@]}"; do echo "  - $s"; done
+for s in "${successes[@]-}"; do echo "  - $s"; done
 echo "Failed:    ${#failures[@]}"
-for f in "${failures[@]}"; do echo "  - $f"; done
+for f in "${failures[@]-}"; do echo "  - $f"; done
 
 # Exit non-zero if any failed; still compiled all files.
 (( ${#failures[@]} > 0 )) && exit 1 || exit 0

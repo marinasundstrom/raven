@@ -32,6 +32,9 @@ public sealed class GenericMethodTests : CompilationTestBase
         Assert.True(methodSymbol.IsGenericMethod);
         Assert.Single(methodSymbol.TypeParameters);
         Assert.Equal("T", methodSymbol.TypeParameters[0].Name);
+        Assert.Equal(TypeParameterOwnerKind.Method, methodSymbol.TypeParameters[0].OwnerKind);
+        Assert.Same(methodSymbol, methodSymbol.TypeParameters[0].DeclaringMethodParameterOwner);
+        Assert.Null(methodSymbol.TypeParameters[0].DeclaringTypeParameterOwner);
         Assert.Same(methodSymbol.TypeParameters[0], methodSymbol.TypeArguments[0]);
         Assert.Same(methodSymbol.TypeParameters[0], methodSymbol.ReturnType);
         Assert.Same(methodSymbol.TypeParameters[0], methodSymbol.Parameters[0].Type);

@@ -24,11 +24,13 @@ internal class CodeGenerator
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
-    readonly Dictionary<ITypeParameterSymbol, Stack<Type>> _genericParameterMap = new(SymbolEqualityComparer.Default);
-    readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(SymbolEqualityComparer.Default);
-    readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(SymbolEqualityComparer.Default);
+    readonly Dictionary<RuntimeTypeParameterKey, Stack<Type>> _genericParameterMap = new();
+    readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
+    internal RuntimeTypeMap RuntimeTypeMap { get; }
+    internal IRuntimeSymbolResolver RuntimeSymbolResolver { get; }
 
     internal IMethodSymbol? CurrentEmittingMethod { get; set; }
 
@@ -110,6 +112,7 @@ internal class CodeGenerator
         var stack = GetOrCreateGenericParameterStack(symbol);
         stack.Clear();
         stack.Push(type);
+        PrintDebug($"[CodeGen:TypeParam] Cache runtime type parameter {symbol.Name} (ordinal={symbol.Ordinal}) => {type}");
         return type;
     }
 
@@ -127,20 +130,9 @@ internal class CodeGenerator
             var stack = GetOrCreateGenericParameterStack(parameter);
             if (stack.Count == 0 || !ReferenceEquals(stack.Peek(), builder))
                 stack.Push(builder);
-        }
 
-        if (count > 0 && parameters[0].ContainingSymbol is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
-        {
-            foreach (var mapping in stateMachine.TypeParameterMappings)
-            {
-                if (!_genericParameterMap.TryGetValue(mapping.StateMachineParameter, out var synthesizedStack) || synthesizedStack.Count == 0)
-                    continue;
-
-                var mapped = synthesizedStack.Peek();
-                var asyncStack = GetOrCreateGenericParameterStack(mapping.AsyncParameter);
-                if (asyncStack.Count == 0)
-                    asyncStack.Push(mapped);
-            }
+            var owner = builder.DeclaringMethod is null ? "type" : "method";
+            PrintDebug($"[CodeGen:TypeParam] Register generic parameter {parameter.Name} (ordinal={parameter.Ordinal}, symbolOwner={parameter.OwnerKind}) => {builder} (owner={owner}, isMethodParam={builder.IsGenericMethodParameter}, isTypeParam={builder.IsGenericTypeParameter})");
         }
 
         for (var i = 0; i < count; i++)
@@ -156,20 +148,30 @@ internal class CodeGenerator
 
         foreach (var parameter in parameters)
         {
-            if (_genericParameterMap.TryGetValue(parameter, out var stack) && stack.Count > 0)
+            if (TryGetGenericParameterStack(parameter, out var stack) && stack.Count > 0)
+            {
+                PrintDebug($"[CodeGen:TypeParam] Unregister generic parameter {parameter.Name} (ordinal={parameter.Ordinal})");
                 stack.Pop();
+            }
         }
     }
 
     private Stack<Type> GetOrCreateGenericParameterStack(ITypeParameterSymbol parameter)
     {
-        if (!_genericParameterMap.TryGetValue(parameter, out var stack))
+        var key = RuntimeTypeParameterKey.Create(parameter);
+        if (!_genericParameterMap.TryGetValue(key, out var stack))
         {
             stack = new Stack<Type>();
-            _genericParameterMap[parameter] = stack;
+            _genericParameterMap[key] = stack;
         }
 
         return stack;
+    }
+
+    private bool TryGetGenericParameterStack(ITypeParameterSymbol parameter, out Stack<Type> stack)
+    {
+        var key = RuntimeTypeParameterKey.Create(parameter);
+        return _genericParameterMap.TryGetValue(key, out stack!);
     }
 
     private void ApplyGenericParameterConstraints(ITypeParameterSymbol parameter, GenericTypeParameterBuilder builder)
@@ -198,7 +200,7 @@ internal class CodeGenerator
 
         foreach (var constraintType in parameter.ConstraintTypes)
         {
-            var constraintClrType = constraintType.GetClrType(this);
+            var constraintClrType = TypeSymbolExtensionsForCodeGen.GetClrType(constraintType, this);
 
             if (constraintClrType.IsInterface)
             {
@@ -275,11 +277,11 @@ internal class CodeGenerator
         for (var i = 0; i < attribute.ConstructorArguments.Length; i++)
         {
             var parameterType = i < parameters.Length ? parameters[i].Type : null;
-            var parameterClrType = parameterType is not null ? parameterType.GetClrType(this) : null;
+            var parameterClrType = parameterType is not null ? TypeSymbolExtensionsForCodeGen.GetClrType(parameterType, this) : null;
             args[i] = GetAttributeValue(attribute.ConstructorArguments[i], parameterClrType, parameterType);
         }
 
-        var attributeType = constructor.DeclaringType ?? attribute.AttributeClass.GetClrType(this);
+        var attributeType = constructor.DeclaringType ?? TypeSymbolExtensionsForCodeGen.GetClrType(attribute.AttributeClass, this);
 
         List<PropertyInfo>? properties = null;
         List<object?>? propertyValues = null;
@@ -327,9 +329,9 @@ internal class CodeGenerator
                 return sourceCtorInfo;
         }
 
-        var attributeType = attribute.AttributeClass.GetClrType(this);
+        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(attribute.AttributeClass, this);
         var parameterTypes = constructorSymbol.Parameters
-            .Select(p => p.Type.GetClrType(this))
+            .Select(p => TypeSymbolExtensionsForCodeGen.GetClrType(p.Type, this))
             .ToArray();
 
         return attributeType.GetConstructor(parameterTypes);
@@ -344,7 +346,7 @@ internal class CodeGenerator
             case TypedConstantKind.Type:
                 return constant.Value switch
                 {
-                    ITypeSymbol typeSymbol => typeSymbol.GetClrType(this),
+                    ITypeSymbol typeSymbol => TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, this),
                     Type type => type,
                     _ => null
                 };
@@ -357,7 +359,7 @@ internal class CodeGenerator
                     var arraySymbol = targetSymbol as IArrayTypeSymbol ?? constant.Type as IArrayTypeSymbol;
                     var elementSymbol = arraySymbol?.ElementType;
                     var elementClrType = targetClrType?.GetElementType()
-                        ?? (elementSymbol is not null ? elementSymbol.GetClrType(this) : typeof(object));
+                        ?? (elementSymbol is not null ? TypeSymbolExtensionsForCodeGen.GetClrType(elementSymbol, this) : typeof(object));
 
                     var array = Array.CreateInstance(elementClrType, values.Length);
                     for (var i = 0; i < values.Length; i++)
@@ -372,7 +374,7 @@ internal class CodeGenerator
                     if (constant.Value is null)
                         return null;
 
-                    var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol)?.GetClrType(this);
+                    var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol is INamedTypeSymbol enumSymbol ? TypeSymbolExtensionsForCodeGen.GetClrType(enumSymbol, this) : null);
                     if (enumType is not null && enumType.IsEnum)
                         return Enum.ToObject(enumType, constant.Value);
 
@@ -505,7 +507,7 @@ internal class CodeGenerator
                 return;
         }
 
-        var attributeType = Compilation.GetTypeByMetadataName("System.Attribute").GetClrType(this);
+        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Attribute"), this);
 
         var attrBuilder = ModuleBuilder.DefineType(
             "System.Runtime.CompilerServices.DiscriminatedUnionAttribute",
@@ -547,8 +549,8 @@ internal class CodeGenerator
                 return;
         }
 
-        var attributeType = Compilation.GetTypeByMetadataName("System.Attribute").GetClrType(this);
-        var typeType = Compilation.GetSpecialType(SpecialType.System_Type).GetClrType(this);
+        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Attribute"), this);
+        var typeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Type), this);
 
         var attrBuilder = ModuleBuilder.DefineType(
             "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute",
@@ -607,59 +609,80 @@ internal class CodeGenerator
 
     bool TryCollectTupleElementNames(ITypeSymbol type, List<string?> transformNames)
     {
+        var visiting = new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance);
+        return TryCollectTupleElementNames(type, transformNames, visiting);
+    }
+
+    bool TryCollectTupleElementNames(ITypeSymbol type, List<string?> transformNames, HashSet<ITypeSymbol> visiting)
+    {
         if (type is null)
+            return false;
+
+        if (!visiting.Add(type))
             return false;
 
         var start = transformNames.Count;
         var hasAnyNames = false;
 
-        switch (type)
+        try
         {
-            case INamedTypeSymbol named when named.TypeKind == TypeKind.Tuple:
-                {
-                    var tupleElements = named.TupleElements;
-                    if (tupleElements.IsDefaultOrEmpty)
-                        break;
-
-                    for (var i = 0; i < tupleElements.Length; i++)
+            switch (type)
+            {
+                case INamedTypeSymbol named when named.TypeKind == TypeKind.Tuple:
                     {
-                        var element = tupleElements[i];
-                        var elementName = element.Name;
-                        var isExplicit = !string.IsNullOrEmpty(elementName) && elementName != $"Item{i + 1}";
-                        transformNames.Add(isExplicit ? elementName : null);
+                        var tupleElements = named.TupleElements;
+                        if (tupleElements.IsDefaultOrEmpty)
+                            break;
 
-                        if (isExplicit)
-                            hasAnyNames = true;
+                        for (var i = 0; i < tupleElements.Length; i++)
+                        {
+                            var element = tupleElements[i];
+                            var elementName = element.Name;
+                            var isExplicit = !string.IsNullOrEmpty(elementName) && elementName != $"Item{i + 1}";
+                            transformNames.Add(isExplicit ? elementName : null);
 
-                        if (TryCollectTupleElementNames(element.Type, transformNames))
-                            hasAnyNames = true;
+                            if (isExplicit)
+                                hasAnyNames = true;
+
+                            if (TryCollectTupleElementNames(element.Type, transformNames, visiting))
+                                hasAnyNames = true;
+                        }
+
+                        break;
+                    }
+                case NullableTypeSymbol nullableType:
+                    hasAnyNames |= TryCollectTupleElementNames(nullableType.UnderlyingType, transformNames, visiting);
+                    break;
+                case IArrayTypeSymbol arrayType:
+                    hasAnyNames |= TryCollectTupleElementNames(arrayType.ElementType, transformNames, visiting);
+                    break;
+                case IPointerTypeSymbol pointerType:
+                    hasAnyNames |= TryCollectTupleElementNames(pointerType.PointedAtType, transformNames, visiting);
+                    break;
+                case IAddressTypeSymbol addressType:
+                    hasAnyNames |= TryCollectTupleElementNames(addressType.ReferencedType, transformNames, visiting);
+                    break;
+                case ITypeUnionSymbol unionType:
+                    foreach (var member in unionType.Types)
+                        hasAnyNames |= TryCollectTupleElementNames(member, transformNames, visiting);
+                    break;
+                case INamedTypeSymbol namedType:
+                    var typeArguments = namedType is ConstructedNamedTypeSymbol constructed
+                        ? constructed.GetExplicitTypeArgumentsForInference()
+                        : namedType.TypeArguments;
+
+                    if (!typeArguments.IsDefaultOrEmpty)
+                    {
+                        foreach (var typeArgument in typeArguments)
+                            hasAnyNames |= TryCollectTupleElementNames(typeArgument, transformNames, visiting);
                     }
 
                     break;
-                }
-            case NullableTypeSymbol nullableType:
-                hasAnyNames |= TryCollectTupleElementNames(nullableType.UnderlyingType, transformNames);
-                break;
-            case IArrayTypeSymbol arrayType:
-                hasAnyNames |= TryCollectTupleElementNames(arrayType.ElementType, transformNames);
-                break;
-            case IPointerTypeSymbol pointerType:
-                hasAnyNames |= TryCollectTupleElementNames(pointerType.PointedAtType, transformNames);
-                break;
-            case IAddressTypeSymbol addressType:
-                hasAnyNames |= TryCollectTupleElementNames(addressType.ReferencedType, transformNames);
-                break;
-            case ITypeUnionSymbol unionType:
-                foreach (var member in unionType.Types)
-                    hasAnyNames |= TryCollectTupleElementNames(member, transformNames);
-                break;
-            case INamedTypeSymbol namedType:
-                if (!namedType.TypeArguments.IsDefaultOrEmpty)
-                {
-                    foreach (var typeArgument in namedType.TypeArguments)
-                        hasAnyNames |= TryCollectTupleElementNames(typeArgument, transformNames);
-                }
-                break;
+            }
+        }
+        finally
+        {
+            visiting.Remove(type);
         }
 
         if (!hasAnyNames)
@@ -675,6 +698,8 @@ internal class CodeGenerator
     public CodeGenerator(Compilation compilation)
     {
         _compilation = compilation;
+        RuntimeTypeMap = new RuntimeTypeMap(this);
+        RuntimeSymbolResolver = new RuntimeSymbolResolver(this);
     }
 
     public Type? GetTypeBuilder(INamedTypeSymbol namedTypeSymbol)
@@ -856,77 +881,9 @@ internal class CodeGenerator
         _emitExtensionMarkerNameAttribute = Compilation.SyntaxTrees
             .SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>())
             .Any();
-
-        var types = Compilation.Module.GlobalNamespace
-            .GetAllMembersRecursive()
-            .OfType<ITypeSymbol>()
-            .Where(t => t.DeclaringSyntaxReferences.Length > 0);
-
-        foreach (var type in types)
-        {
-            foreach (var member in type.GetMembers())
-            {
-                switch (member)
-                {
-                    case IMethodSymbol method:
-                        CheckType(method.ReturnType);
-                        foreach (var p in method.Parameters)
-                            CheckType(p.Type);
-                        break;
-                    case IPropertySymbol prop:
-                        if (prop.IsExtensionProperty)
-                            break;
-                        CheckType(prop.Type);
-                        break;
-                    case IFieldSymbol field:
-                        CheckType(field.Type);
-                        break;
-                }
-            }
-        }
-
-        static void CheckType(ITypeSymbol typeSymbol)
-        {
-            if (typeSymbol is null)
-                return;
-
-            if (typeSymbol is LiteralTypeSymbol literal)
-            {
-                CheckType(literal.UnderlyingType);
-                return;
-            }
-
-
-            /*
-                            if (typeSymbol.IsTypeUnion && typeSymbol is ITypeUnionSymbol union)
-                            {
-                                _emitTypeUnionAttribute = true;
-                                foreach (var t in union.Types)
-                                {
-                                    if (t.TypeKind == TypeKind.Null)
-                                        _emitNullType = true;
-                                    CheckType(t);
-                                }
-                                return;
-                            }
-
-                            if (typeSymbol.TypeKind == TypeKind.Null)
-                            {
-                                _emitNullType = true;
-                                return;
-                            }
-            */
-
-            if (typeSymbol is INamedTypeSymbol named && named.IsGenericType)
-            {
-                foreach (var arg in named.TypeArguments)
-                    CheckType(arg);
-            }
-            else if (typeSymbol is IArrayTypeSymbol array)
-            {
-                CheckType(array.ElementType);
-            }
-        }
+        // Intentionally avoid recursive type walks here. On recursive constructed
+        // generic graphs (e.g. nested option extensions), forcing TypeArguments can
+        // recurse indefinitely during core emission.
     }
 
     private void TryBindRuntimeCoreTypes()
@@ -952,7 +909,7 @@ internal class CodeGenerator
             DiscriminatedUnionCaseAttributeType = Compilation.ResolveRuntimeType(
                 "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
 
-            var typeType = Compilation.GetSpecialType(SpecialType.System_Type).GetClrType(this);
+            var typeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Type), this);
 
             _discriminatedUnionCaseCtor = DiscriminatedUnionCaseAttributeType?.GetConstructor(new[] { typeType });
         }
@@ -1143,7 +1100,7 @@ internal class CodeGenerator
         var unitBuilder = ModuleBuilder.DefineType(
             "System.Unit",
             TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
-            Compilation.GetTypeByMetadataName("System.ValueType").GetClrType(this));
+            TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.ValueType"), this));
 
         var valueField = unitBuilder.DefineField(
             "Value",
@@ -1153,7 +1110,7 @@ internal class CodeGenerator
         var equalsMethod = unitBuilder.DefineMethod(
             "Equals",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual | MethodAttributes.Final,
-            Compilation.GetTypeByMetadataName("System.Boolean").GetClrType(this),
+            TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Boolean"), this),
             new[] { unitBuilder });
         var ilEquals = equalsMethod.GetILGenerator();
         ilEquals.Emit(OpCodes.Ldc_I4_1);
@@ -1162,8 +1119,8 @@ internal class CodeGenerator
         var equalsObjMethod = unitBuilder.DefineMethod(
             "Equals",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual | MethodAttributes.Final,
-            Compilation.GetTypeByMetadataName("System.Boolean").GetClrType(this),
-            new[] { Compilation.GetTypeByMetadataName("System.Object").GetClrType(this) });
+            TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Boolean"), this),
+            new[] { TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Object"), this) });
         var ilEqualsObj = equalsObjMethod.GetILGenerator();
         ilEqualsObj.Emit(OpCodes.Ldarg_1);
         ilEqualsObj.Emit(OpCodes.Isinst, unitBuilder);
@@ -1174,7 +1131,7 @@ internal class CodeGenerator
         var getHashCodeMethod = unitBuilder.DefineMethod(
             "GetHashCode",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
-            Compilation.GetTypeByMetadataName("System.Int32").GetClrType(this),
+            TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Int32"), this),
             Type.EmptyTypes);
         var ilHash = getHashCodeMethod.GetILGenerator();
         ilHash.Emit(OpCodes.Ldc_I4_0);
@@ -1183,7 +1140,7 @@ internal class CodeGenerator
         var toStringMethod = unitBuilder.DefineMethod(
             "ToString",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
-            Compilation.GetTypeByMetadataName("System.String").GetClrType(this),
+            TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.String"), this),
             Type.EmptyTypes);
         var ilToString = toStringMethod.GetILGenerator();
         ilToString.Emit(OpCodes.Ldstr, "()");
@@ -1920,10 +1877,72 @@ internal class CodeGenerator
     }
 
     internal bool TryGetRuntimeTypeForTypeParameter(ITypeParameterSymbol symbol, out Type type)
+        => RuntimeTypeMap.TryResolveTypeParameter(symbol, RuntimeTypeUsage.Signature, out type);
+
+    internal bool TryResolveRuntimeTypeParameter(ITypeParameterSymbol symbol, RuntimeTypeUsage usage, out Type type)
     {
-        if (_genericParameterMap.TryGetValue(symbol, out var stack) && stack.Count > 0)
+        var normalized = (ITypeParameterSymbol)(symbol.OriginalDefinition ?? symbol);
+
+        if (CodeGenFlags.PrintDebug)
         {
+            var ownerIdentity = normalized.OwnerKind switch
+            {
+                TypeParameterOwnerKind.Method => RuntimeTypeParameterKey.GetMethodOwnerIdentity(
+                    RuntimeTypeParameterKey.NormalizeMethodOwner(normalized.DeclaringMethodParameterOwner)),
+                TypeParameterOwnerKind.Type => RuntimeTypeParameterKey.GetTypeOwnerIdentity(
+                    RuntimeTypeParameterKey.NormalizeTypeOwner(normalized.DeclaringTypeParameterOwner)),
+                _ => null
+            };
+
+            PrintDebug(
+                $"[CodeGen:TypeParam] Lookup {symbol.Name} (ordinal={symbol.Ordinal}, owner={symbol.OwnerKind}, ownerId={ownerIdentity ?? "<null>"})");
+        }
+
+        if (TryGetGenericParameterStack(symbol, out var stack) && stack.Count > 0)
+        {
+            if (symbol.OwnerKind == TypeParameterOwnerKind.Method && usage == RuntimeTypeUsage.MethodBody)
+            {
+                foreach (var candidate in stack)
+                {
+                    if (!candidate.IsGenericParameter || !candidate.IsGenericMethodParameter || candidate.IsGenericTypeParameter)
+                        continue;
+
+                    if (!IsSignaturePlaceholderType(candidate))
+                        continue;
+
+                    if (CodeGenFlags.PrintDebug)
+                    {
+                        PrintDebug(
+                            $"[CodeGen:TypeParam] Lookup preferred signature placeholder {symbol.Name} -> {candidate} (depth={stack.Count})");
+                    }
+
+                    type = candidate;
+                    return true;
+                }
+            }
+
+            if (CodeGenFlags.PrintDebug)
+            {
+                var candidate = stack.Peek();
+                PrintDebug(
+                    $"[CodeGen:TypeParam] Lookup hit {symbol.Name} -> {candidate} (isMethodParam={candidate.IsGenericMethodParameter}, isTypeParam={candidate.IsGenericTypeParameter}, depth={stack.Count})");
+            }
+
             type = stack.Peek();
+            return true;
+        }
+
+        if (normalized.OwnerKind == TypeParameterOwnerKind.Method &&
+            TryResolveFromCurrentEmittingMethod(normalized, usage, out var currentMethodType))
+        {
+            type = CacheRuntimeTypeParameter(symbol, currentMethodType);
+            return true;
+        }
+
+        if (normalized is PETypeParameterSymbol normalizedPeTypeParameter &&
+            TryResolveMetadataTypeParameter(normalizedPeTypeParameter, out var normalizedResolved))
+        {
+            type = CacheRuntimeTypeParameter(symbol, normalizedResolved);
             return true;
         }
 
@@ -1933,15 +1952,183 @@ internal class CodeGenerator
             return true;
         }
 
+        if (normalized.Ordinal >= 0)
+        {
+            if (normalized.OwnerKind == TypeParameterOwnerKind.Method)
+            {
+                type = CacheRuntimeTypeParameter(symbol, Type.MakeGenericMethodParameter(normalized.Ordinal));
+                return true;
+            }
+        }
+
         type = null!;
+        if (CodeGenFlags.PrintDebug)
+            PrintDebug($"[CodeGen:TypeParam] Lookup miss {symbol.Name}");
         return false;
+    }
+
+    private bool TryResolveFromCurrentEmittingMethod(
+        ITypeParameterSymbol normalizedMethodParameter,
+        RuntimeTypeUsage usage,
+        out Type type)
+    {
+        type = null!;
+
+        var currentMethod = CurrentEmittingMethod;
+        if (currentMethod is null || currentMethod.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        var ordinal = normalizedMethodParameter.Ordinal;
+        if ((uint)ordinal >= (uint)currentMethod.TypeParameters.Length)
+            return false;
+
+        var currentTypeParameter = currentMethod.TypeParameters[ordinal];
+        if (!TryGetGenericParameterStack(currentTypeParameter, out var currentStack) || currentStack.Count == 0)
+            return false;
+
+        if (usage == RuntimeTypeUsage.MethodBody)
+        {
+            foreach (var candidate in currentStack)
+            {
+                if (!candidate.IsGenericParameter || !candidate.IsGenericMethodParameter || candidate.IsGenericTypeParameter)
+                    continue;
+
+                if (!IsSignaturePlaceholderType(candidate))
+                    continue;
+
+                type = candidate;
+                return true;
+            }
+        }
+
+        type = currentStack.Peek();
+        return true;
+    }
+
+    private static bool IsSignaturePlaceholderType(Type type)
+    {
+        try
+        {
+            _ = type.Assembly;
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return true;
+        }
+    }
+
+    private readonly struct RuntimeTypeParameterKey : IEquatable<RuntimeTypeParameterKey>
+    {
+        private RuntimeTypeParameterKey(
+            TypeParameterOwnerKind ownerKind,
+            int ordinal,
+            string? methodOwnerIdentity,
+            string? typeOwnerIdentity)
+        {
+            OwnerKind = ownerKind;
+            Ordinal = ordinal;
+            MethodOwnerIdentity = methodOwnerIdentity;
+            TypeOwnerIdentity = typeOwnerIdentity;
+        }
+
+        public TypeParameterOwnerKind OwnerKind { get; }
+        public int Ordinal { get; }
+        public string? MethodOwnerIdentity { get; }
+        public string? TypeOwnerIdentity { get; }
+
+        public static RuntimeTypeParameterKey Create(ITypeParameterSymbol parameter)
+        {
+            var normalized = (ITypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
+            return normalized.OwnerKind switch
+            {
+                TypeParameterOwnerKind.Method => new RuntimeTypeParameterKey(
+                    normalized.OwnerKind,
+                    normalized.Ordinal,
+                    GetMethodOwnerIdentity(NormalizeMethodOwner(normalized.DeclaringMethodParameterOwner)),
+                    null),
+                TypeParameterOwnerKind.Type => new RuntimeTypeParameterKey(
+                    normalized.OwnerKind,
+                    normalized.Ordinal,
+                    null,
+                    GetTypeOwnerIdentity(NormalizeTypeOwner(normalized.DeclaringTypeParameterOwner))),
+                _ => new RuntimeTypeParameterKey(normalized.OwnerKind, normalized.Ordinal, null, null),
+            };
+        }
+
+        public bool Equals(RuntimeTypeParameterKey other)
+        {
+            return OwnerKind == other.OwnerKind &&
+                   Ordinal == other.Ordinal &&
+                   string.Equals(MethodOwnerIdentity, other.MethodOwnerIdentity, StringComparison.Ordinal) &&
+                   string.Equals(TypeOwnerIdentity, other.TypeOwnerIdentity, StringComparison.Ordinal);
+        }
+
+        public override bool Equals(object? obj)
+            => obj is RuntimeTypeParameterKey other && Equals(other);
+
+        public override int GetHashCode()
+            => HashCode.Combine(
+                (int)OwnerKind,
+                Ordinal,
+                MethodOwnerIdentity is null ? 0 : StringComparer.Ordinal.GetHashCode(MethodOwnerIdentity),
+                TypeOwnerIdentity is null ? 0 : StringComparer.Ordinal.GetHashCode(TypeOwnerIdentity));
+
+        internal static IMethodSymbol? NormalizeMethodOwner(IMethodSymbol? method)
+        {
+            if (method is null)
+                return null;
+
+            while (method.UnderlyingSymbol is IMethodSymbol underlying &&
+                   !ReferenceEquals(underlying, method))
+            {
+                method = underlying;
+            }
+
+            if (method is ConstructedMethodSymbol constructed)
+                method = constructed.Definition;
+
+            return (IMethodSymbol?)(method.OriginalDefinition ?? method);
+        }
+
+        internal static string? GetMethodOwnerIdentity(IMethodSymbol? method)
+        {
+            if (method is null)
+                return null;
+
+            var containingType = method.ContainingType?.ToFullyQualifiedMetadataName() ?? "<global>";
+            return $"{containingType}::{method.MetadataName}/{method.Arity}/{method.Parameters.Length}";
+        }
+
+        internal static INamedTypeSymbol? NormalizeTypeOwner(INamedTypeSymbol? type)
+        {
+            if (type is null)
+                return null;
+
+            while (type.UnderlyingSymbol is INamedTypeSymbol underlying &&
+                   !ReferenceEquals(underlying, type))
+            {
+                type = underlying;
+            }
+
+            if (type is IConstructedTypeSubstitutionInfo constructed)
+                return constructed.DefinitionForSubstitution;
+
+            return (INamedTypeSymbol?)(type.OriginalDefinition ?? type);
+        }
+
+        internal static string? GetTypeOwnerIdentity(INamedTypeSymbol? type)
+        {
+            return type?.ToFullyQualifiedMetadataName();
+        }
     }
 
     private bool TryResolveMetadataTypeParameter(PETypeParameterSymbol symbol, out Type type)
     {
-        if (symbol.ContainingSymbol is INamedTypeSymbol containingType)
+        if (symbol.OwnerKind == TypeParameterOwnerKind.Type &&
+            symbol.DeclaringTypeParameterOwner is INamedTypeSymbol containingType)
         {
-            var runtimeType = containingType.GetClrTypeTreatingUnitAsVoid(this);
+            var runtimeType = RuntimeSymbolResolver.GetType(containingType, treatUnitAsVoid: true);
             var parameters = runtimeType.IsGenericTypeDefinition
                 ? runtimeType.GetTypeInfo().GenericTypeParameters
                 : runtimeType.GetGenericTypeDefinition().GetTypeInfo().GenericTypeParameters;
@@ -1953,7 +2140,8 @@ internal class CodeGenerator
                 return true;
             }
         }
-        else if (symbol.ContainingSymbol is IMethodSymbol containingMethod)
+        else if (symbol.OwnerKind == TypeParameterOwnerKind.Method &&
+                 symbol.DeclaringMethodParameterOwner is IMethodSymbol containingMethod)
         {
             if (TryGetRuntimeMethod(containingMethod, out var methodInfo))
             {
@@ -1967,6 +2155,23 @@ internal class CodeGenerator
                     type = parameters[ordinal];
                     return true;
                 }
+            }
+
+            try
+            {
+                var resolvedMethod = RuntimeSymbolResolver.GetMethodInfo(containingMethod);
+                var parameters = resolvedMethod.IsGenericMethodDefinition
+                    ? resolvedMethod.GetGenericArguments()
+                    : resolvedMethod.GetGenericMethodDefinition().GetGenericArguments();
+
+                if ((uint)symbol.Ordinal < (uint)parameters.Length)
+                {
+                    type = parameters[symbol.Ordinal];
+                    return true;
+                }
+            }
+            catch (InvalidOperationException)
+            {
             }
         }
 

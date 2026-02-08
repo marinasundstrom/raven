@@ -763,7 +763,27 @@ public static partial class SymbolExtensions
             var declaredArity = typeSymbol.Arity;
             IEnumerable<string> arguments;
 
-            if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
+            if (typeSymbol is ConstructedNamedTypeSymbol constructedNamed)
+            {
+                var explicitArguments = constructedNamed.GetExplicitTypeArgumentsForInference();
+                if (!explicitArguments.IsDefaultOrEmpty &&
+                    explicitArguments.Length == typeSymbol.TypeParameters.Length)
+                {
+                    var offset = explicitArguments.Length - declaredArity;
+                    arguments = explicitArguments
+                        .Skip(offset)
+                        .Take(declaredArity)
+                        .Select(a => FormatType(a, format));
+                }
+                else
+                {
+                    var declaringType = typeSymbol.OriginalDefinition;
+                    arguments = typeSymbol.TypeParameters
+                        .Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, declaringType))
+                        .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+                }
+            }
+            else if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
                 typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length)
             {
                 // Constructed type: use actual type arguments

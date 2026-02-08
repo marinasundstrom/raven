@@ -28,8 +28,12 @@ class Outer<T>
                 TestMetadataReferences.Default,
                 new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Outer"));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var outerSyntax = root.DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single(c => c.Identifier.Text == "Outer");
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -53,7 +57,7 @@ class Outer<T>
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type)));
 
         var display = constructedWrap.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal("Outer<string>.Wrap<int>(string, int) -> string", display);
+        Assert.Equal("Outer<string>.Wrap<int>(string, int) → string", display);
     }
 
     [Fact]
@@ -75,8 +79,12 @@ class Outer<T>
                 TestMetadataReferences.Default,
                 new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            compilation.GetTypeByMetadataName("Outer"));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var outerSyntax = root.DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single(c => c.Identifier.Text == "Outer");
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -116,11 +124,11 @@ class Outer<T>
         var find = Assert.Single(listOfString.GetMembers("Find").OfType<IMethodSymbol>());
 
         var errorDisplay = find.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
-        Assert.Equal("List<string>.Find(Predicate<string>) -> string", errorDisplay);
+        Assert.Equal("List<string>.Find(Predicate<string>) → string", errorDisplay);
         Assert.Equal(errorDisplay, find.ToString());
 
         var fullyQualified = find.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        Assert.Equal("public System.Collections.Generic.List<string>.Find(match: System.Predicate<string>) -> string", fullyQualified);
+        Assert.Equal("public System.Collections.Generic.List<string>.Find(match: System.Predicate<string>) → string", fullyQualified);
     }
 
     [Fact]
@@ -229,4 +237,60 @@ class Factory {
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type)),
             parameter => Assert.True(SymbolEqualityComparer.Default.Equals(stringType, parameter.Type)));
     }
+
+    [Fact]
+    public void ConstructedMethod_CombinedWithConstructedNamedType_PreservesNestedSubstitution()
+    {
+        var source = """
+class Outer<T> {
+    public class Node<U> {
+        public init(value: T, other: U) { }
+    }
+
+    public static Make<U>(value: T, other: U) -> Outer<T>.Node<U> {
+        return Outer<T>.Node<U>(value, other)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "constructed-method-combined-nested-substitution",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var outerSyntax = root.DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single(c => c.Identifier.Text == "Outer");
+        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var outerInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
+        var makeDefinition = Assert.Single(outerInt.GetMembers("Make").OfType<IMethodSymbol>());
+        var makeDefinitionReturnNode = Assert.IsAssignableFrom<INamedTypeSymbol>(makeDefinition.ReturnType);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(outerInt, makeDefinitionReturnNode.ContainingType),
+            $"Definition return type should already be anchored to containing type. Expected '{outerInt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}' but got '{makeDefinitionReturnNode.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'. Return type: '{makeDefinitionReturnNode.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'");
+        var makeIntString = Assert.IsAssignableFrom<IMethodSymbol>(makeDefinition.Construct(stringType));
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, makeIntString.ContainingType));
+
+        var returnNode = Assert.IsAssignableFrom<INamedTypeSymbol>(makeIntString.ReturnType);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(outerInt, returnNode.ContainingType),
+            $"Expected containing type '{outerInt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}' but got '{returnNode.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'. Return type: '{returnNode.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'");
+        Assert.Collection(
+            returnNode.TypeArguments,
+            argument => Assert.True(SymbolEqualityComparer.Default.Equals(stringType, argument)));
+
+        Assert.Collection(
+            makeIntString.Parameters,
+            parameter => Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type)),
+            parameter => Assert.True(SymbolEqualityComparer.Default.Equals(stringType, parameter.Type)));
+    }
+
 }

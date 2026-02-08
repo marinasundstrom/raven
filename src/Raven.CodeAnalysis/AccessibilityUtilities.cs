@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -227,8 +228,8 @@ internal static class AccessibilityUtilities
 
     private static Accessibility GetEffectiveAccessibility(ITypeSymbol type)
     {
-        var cache = new Dictionary<ITypeSymbol, Accessibility>(SymbolEqualityComparer.Default);
-        var visiting = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var cache = new Dictionary<ITypeSymbol, Accessibility>(TypeSymbolReferenceComparer.Instance);
+        var visiting = new HashSet<ITypeSymbol>(TypeSymbolReferenceComparer.Instance);
 
         return GetEffectiveAccessibility(type, cache, visiting);
     }
@@ -246,11 +247,9 @@ internal static class AccessibilityUtilities
         if (!visiting.Add(type))
             return accessibility;
 
-        if (type is INamedTypeSymbol { IsGenericType: true } namedType)
-        {
-            foreach (var argument in namedType.TypeArguments)
-                accessibility = Min(accessibility, GetEffectiveAccessibility(argument, cache, visiting));
-        }
+        // Avoid forcing constructed type-argument expansion here. Certain recursive
+        // generic substitutions (e.g. nested option extensions) can synthesize
+        // self-referential argument graphs during early binding.
 
         if (type is IArrayTypeSymbol arrayType)
             accessibility = Min(accessibility, GetEffectiveAccessibility(arrayType.ElementType, cache, visiting));
@@ -270,6 +269,15 @@ internal static class AccessibilityUtilities
         visiting.Remove(type);
         cache[type] = accessibility;
         return accessibility;
+    }
+
+    private sealed class TypeSymbolReferenceComparer : IEqualityComparer<ITypeSymbol>
+    {
+        public static TypeSymbolReferenceComparer Instance { get; } = new();
+
+        public bool Equals(ITypeSymbol? x, ITypeSymbol? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(ITypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     private static Accessibility Min(Accessibility first, Accessibility second)

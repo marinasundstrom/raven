@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 using Raven.CodeAnalysis.Symbols;
@@ -2290,7 +2291,7 @@ partial class BlockBinder : Binder
 
                     var caseUnion = UnwrapAlias(casePattern.CaseSymbol.Union);
 
-                    if (scrutineeUnion is null || !SymbolEqualityComparer.Default.Equals(UnwrapAlias(scrutineeUnion), caseUnion))
+                    if (scrutineeUnion is null || !AreSameUnionPatternTarget(UnwrapAlias(scrutineeUnion), caseUnion))
                     {
                         var patternDisplay = $"for case '{casePattern.CaseSymbol.Name}'";
                         _diagnostics.ReportMatchExpressionArmPatternInvalid(
@@ -2386,6 +2387,58 @@ partial class BlockBinder : Binder
         }
     }
 
+    private static bool AreSameUnionPatternTarget(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+            return false;
+
+        leftNamed = leftNamed.OriginalDefinition as INamedTypeSymbol ?? leftNamed;
+        rightNamed = rightNamed.OriginalDefinition as INamedTypeSymbol ?? rightNamed;
+
+        if (!string.Equals(leftNamed.Name, rightNamed.Name, StringComparison.Ordinal))
+            return false;
+
+        if (leftNamed.TypeParameters.Length != rightNamed.TypeParameters.Length)
+            return false;
+
+        var leftNs = leftNamed.ContainingNamespace?.ToDisplayString();
+        var rightNs = rightNamed.ContainingNamespace?.ToDisplayString();
+        return string.Equals(leftNs, rightNs, StringComparison.Ordinal);
+    }
+
+    private static bool ArePatternTypesEquivalent(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        left = UnwrapAlias(left);
+        right = UnwrapAlias(right);
+
+        if (left.SpecialType != SpecialType.None && left.SpecialType == right.SpecialType)
+            return true;
+
+        if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed)
+        {
+            leftNamed = leftNamed.OriginalDefinition as INamedTypeSymbol ?? leftNamed;
+            rightNamed = rightNamed.OriginalDefinition as INamedTypeSymbol ?? rightNamed;
+
+            if (!string.Equals(leftNamed.Name, rightNamed.Name, StringComparison.Ordinal))
+                return false;
+
+            if (leftNamed.TypeParameters.Length != rightNamed.TypeParameters.Length)
+                return false;
+
+            var leftNs = leftNamed.ContainingNamespace?.ToDisplayString();
+            var rightNs = rightNamed.ContainingNamespace?.ToDisplayString();
+            return string.Equals(leftNs, rightNs, StringComparison.Ordinal);
+        }
+
+        return false;
+    }
+
     private static string GetMatchPatternDisplay(ITypeSymbol patternType)
         => patternType switch
         {
@@ -2432,7 +2485,7 @@ partial class BlockBinder : Binder
                 ?? scrutineeType.TryGetDiscriminatedUnionCase()?.Union;
 
             if (targetUnion is not null &&
-                SymbolEqualityComparer.Default.Equals(UnwrapAlias(targetUnion), UnwrapAlias(caseType.Union)))
+                AreSameUnionPatternTarget(UnwrapAlias(targetUnion), UnwrapAlias(caseType.Union)))
             {
                 return true;
             }
@@ -2593,7 +2646,7 @@ partial class BlockBinder : Binder
                         var declared = UnwrapAlias(decl.DeclaredType);
 
                         if (declared.TypeKind != TypeKind.Error && underlying.TypeKind != TypeKind.Error &&
-                            SymbolEqualityComparer.Default.Equals(declared, underlying))
+                            ArePatternTypesEquivalent(declared, underlying))
                         {
                             hasUnderlyingArm = true;
                         }
@@ -2615,7 +2668,7 @@ partial class BlockBinder : Binder
 
         var remaining = new HashSet<ITypeSymbol>(
             GetUnionMembers(union),
-            SymbolEqualityComparer.Default);
+            TypeSymbolReferenceComparer.Instance);
 
         var literalCoverage = CreateLiteralCoverage(remaining);
 
@@ -2623,7 +2676,7 @@ partial class BlockBinder : Binder
         Dictionary<ITypeSymbol, HashSet<object?>>? guaranteedLiteralCoverage = null;
         if (catchAllIndex >= 0)
         {
-            guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, SymbolEqualityComparer.Default);
+            guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
             guaranteedLiteralCoverage = CloneLiteralCoverage(literalCoverage);
         }
 
@@ -2786,11 +2839,11 @@ partial class BlockBinder : Binder
         IDiscriminatedUnionSymbol union,
         int catchAllIndex)
     {
-        var remaining = new HashSet<IDiscriminatedUnionCaseSymbol>(union.Cases, SymbolEqualityComparer.Default);
+        var remaining = new HashSet<IDiscriminatedUnionCaseSymbol>(union.Cases, SymbolReferenceComparer<IDiscriminatedUnionCaseSymbol>.Instance);
 
         HashSet<IDiscriminatedUnionCaseSymbol>? guaranteedRemaining = null;
         if (catchAllIndex >= 0)
-            guaranteedRemaining = new HashSet<IDiscriminatedUnionCaseSymbol>(remaining, SymbolEqualityComparer.Default);
+            guaranteedRemaining = new HashSet<IDiscriminatedUnionCaseSymbol>(remaining, SymbolReferenceComparer<IDiscriminatedUnionCaseSymbol>.Instance);
 
         var reportedRedundantCatchAll = false;
 
@@ -2850,7 +2903,7 @@ partial class BlockBinder : Binder
         INamedTypeSymbol enumType,
         int catchAllIndex)
     {
-        var remaining = new HashSet<IFieldSymbol>(GetEnumMembers(enumType), SymbolEqualityComparer.Default);
+        var remaining = new HashSet<IFieldSymbol>(GetEnumMembers(enumType), SymbolReferenceComparer<IFieldSymbol>.Instance);
 
         if (remaining.Count == 0)
             return;
@@ -3071,7 +3124,7 @@ partial class BlockBinder : Binder
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
                     if (declaredType.SpecialType == SpecialType.System_Object ||
-                        SymbolEqualityComparer.Default.Equals(declaredType, UnwrapAlias((ITypeSymbol)union)))
+                        ArePatternTypesEquivalent(declaredType, UnwrapAlias((ITypeSymbol)union)))
                     {
                         remaining.Clear();
                         break;
@@ -3081,7 +3134,7 @@ partial class BlockBinder : Binder
                         ?? declaredType.TryGetDiscriminatedUnionCase()?.Union;
 
                     if (declarationUnion is not null &&
-                        SymbolEqualityComparer.Default.Equals(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
+                        AreSameUnionPatternTarget(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
                     {
                         remaining.Clear();
                     }
@@ -3089,7 +3142,7 @@ partial class BlockBinder : Binder
                     break;
                 }
             case BoundCasePattern casePattern:
-                if (SymbolEqualityComparer.Default.Equals(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
+                if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
                     CasePatternCoversAllArguments(casePattern))
                 {
                     remaining.Remove(casePattern.CaseSymbol);
@@ -3111,7 +3164,7 @@ partial class BlockBinder : Binder
             .OfType<IFieldSymbol>()
             .Where(field =>
                 field.IsConst &&
-                SymbolEqualityComparer.Default.Equals(UnwrapAlias(field.Type), normalizedEnum));
+                ArePatternTypesEquivalent(UnwrapAlias(field.Type), normalizedEnum));
     }
 
     private void RemoveCoveredEnumMembers(
@@ -3316,7 +3369,7 @@ partial class BlockBinder : Binder
 
             if (TypeCoverageHelper.RequiresLiteralCoverage(type))
             {
-                coverage ??= new Dictionary<ITypeSymbol, HashSet<object?>>(SymbolEqualityComparer.Default);
+                coverage ??= new Dictionary<ITypeSymbol, HashSet<object?>>(TypeSymbolReferenceComparer.Instance);
                 coverage[member] = new HashSet<object?>();
             }
         }
@@ -3329,7 +3382,7 @@ partial class BlockBinder : Binder
         if (coverage is null)
             return null;
 
-        var clone = new Dictionary<ITypeSymbol, HashSet<object?>>(SymbolEqualityComparer.Default);
+        var clone = new Dictionary<ITypeSymbol, HashSet<object?>>(TypeSymbolReferenceComparer.Instance);
 
         foreach (var (type, constants) in coverage)
             clone[type] = new HashSet<object?>(constants);
@@ -8610,5 +8663,24 @@ partial class BlockBinder : Binder
         }
 
         return null;
+    }
+
+    private sealed class TypeSymbolReferenceComparer : IEqualityComparer<ITypeSymbol>
+    {
+        public static TypeSymbolReferenceComparer Instance { get; } = new();
+
+        public bool Equals(ITypeSymbol? x, ITypeSymbol? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(ITypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
+    }
+
+    private sealed class SymbolReferenceComparer<TSymbol> : IEqualityComparer<TSymbol>
+        where TSymbol : class, ISymbol
+    {
+        public static SymbolReferenceComparer<TSymbol> Instance { get; } = new();
+
+        public bool Equals(TSymbol? x, TSymbol? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(TSymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 }

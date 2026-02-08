@@ -171,6 +171,13 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             return this;
 
         var typeArguments = method.TypeArguments;
+        if ((typeArguments.IsDefaultOrEmpty || typeArguments.Length == 0) &&
+            !method.TypeParameters.IsDefaultOrEmpty &&
+            method.TypeParameters.Length == TypeParameters.Length)
+        {
+            typeArguments = method.TypeParameters.Cast<ITypeSymbol>().ToImmutableArray();
+        }
+
         if (typeArguments.Length != TypeParameters.Length)
             return this;
 
@@ -410,6 +417,21 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 return candidate;
         }
 
+        // Fall back to a shape match when symbols differ by source/PE wrappers.
+        foreach (var candidate in asyncBuilderType.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            if (candidate.Arity != method.Arity)
+                continue;
+
+            if (candidate.Parameters.Length != method.Parameters.Length)
+                continue;
+
+            if (candidate.IsStatic != method.IsStatic)
+                continue;
+
+            return candidate;
+        }
+
         return method;
     }
 
@@ -529,7 +551,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         ITypeSymbol Substitute(ITypeSymbol symbol)
         {
             if (symbol is ITypeParameterSymbol typeParameter &&
-                map.TryGetValue(typeParameter, out var replacement))
+                TryMapTypeParameter(map, typeParameter, out var replacement))
             {
                 return replacement;
             }
@@ -594,6 +616,64 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
             return symbol;
         }
+    }
+
+    private static bool TryMapTypeParameter(
+        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> map,
+        ITypeParameterSymbol typeParameter,
+        out ITypeParameterSymbol replacement)
+    {
+        static IMethodSymbol? NormalizeMethodOwner(IMethodSymbol? method)
+            => method is null ? null : (IMethodSymbol)(method.OriginalDefinition ?? method);
+
+        static INamedTypeSymbol? NormalizeTypeOwner(INamedTypeSymbol? type)
+            => type is null ? null : (INamedTypeSymbol)(type.OriginalDefinition ?? type);
+
+        if (map.TryGetValue(typeParameter, out replacement!))
+            return true;
+
+        var normalized = (ITypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
+        if (!ReferenceEquals(normalized, typeParameter) && map.TryGetValue(normalized, out replacement!))
+            return true;
+
+        foreach (var entry in map)
+        {
+            var key = entry.Key;
+            var normalizedKey = (ITypeParameterSymbol)(key.OriginalDefinition ?? key);
+
+            if (normalized.OwnerKind != normalizedKey.OwnerKind)
+                continue;
+
+            if (normalized.Ordinal != normalizedKey.Ordinal)
+                continue;
+
+            if (normalized.OwnerKind == TypeParameterOwnerKind.Method)
+            {
+                var normalizedMethodOwner = NormalizeMethodOwner(normalized.DeclaringMethodParameterOwner);
+                var normalizedKeyMethodOwner = NormalizeMethodOwner(normalizedKey.DeclaringMethodParameterOwner);
+
+                if (!SymbolEqualityComparer.Default.Equals(normalizedMethodOwner, normalizedKeyMethodOwner))
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                var normalizedTypeOwner = NormalizeTypeOwner(normalized.DeclaringTypeParameterOwner);
+                var normalizedKeyTypeOwner = NormalizeTypeOwner(normalizedKey.DeclaringTypeParameterOwner);
+
+                if (!SymbolEqualityComparer.Default.Equals(normalizedTypeOwner, normalizedKeyTypeOwner))
+                {
+                    continue;
+                }
+            }
+
+            replacement = entry.Value;
+            return true;
+        }
+
+        replacement = null!;
+        return false;
     }
 
     internal ITypeSymbol SubstituteStateMachineTypeParameters(ITypeSymbol type)
@@ -1034,7 +1114,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             if (_asyncMethodCache.TryGetValue(builderField, out var members))
                 return members;
 
-            members = _owner.CreateAsyncMethodBuilderMembers(builderField, StateMachineMembers);
+            members = _owner.CreateAsyncMethodBuilderMembers(builderField, GetStateMachineMembers(builderField));
             _asyncMethodCache.Add(builderField, members);
             return members;
         }
@@ -1429,4 +1509,3 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         public ITypeParameterSymbol StateMachineParameter { get; }
     }
 }
-

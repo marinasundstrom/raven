@@ -64,7 +64,10 @@ internal partial class ExpressionGenerator
         var payloadClrType = Generator.InstantiateType(ResolveClrType(expr.PayloadType));
 
         var tryGetOkMI = GetMethodInfo(expr.ResultTryGetOkMethod!);
-        var okCaseClrType = Generator.InstantiateType(ResolveClrType(expr.ReceiverResultOkCaseType!));
+        var okCaseClrType = CloseNestedCarrierCaseType(
+            TryGetOutLocalElementType(tryGetOkMI)
+                ?? Generator.InstantiateType(ResolveClrType(expr.ReceiverResultOkCaseType!)),
+            tryGetOkMI.DeclaringType ?? receiverClrType);
         var okOutLocal = ILGenerator.DeclareLocal(okCaseClrType);
 
         var okLabel = ILGenerator.DefineLabel();
@@ -128,7 +131,10 @@ internal partial class ExpressionGenerator
         }
 
         var tryGetErrMI = GetMethodInfo(expr.ResultTryGetErrorMethod);
-        var errCaseClrType = Generator.InstantiateType(ResolveClrType(expr.ReceiverResultErrorCaseType));
+        var errCaseClrType = CloseNestedCarrierCaseType(
+            TryGetOutLocalElementType(tryGetErrMI)
+                ?? Generator.InstantiateType(ResolveClrType(expr.ReceiverResultErrorCaseType)),
+            tryGetErrMI.DeclaringType ?? resultClrType);
         var errOutLocal = ILGenerator.DeclareLocal(errCaseClrType);
 
         var gotErrLabel = ILGenerator.DefineLabel();
@@ -187,6 +193,111 @@ internal partial class ExpressionGenerator
 
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(expr.ResultErrorCtor)!);
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(expr.ResultImplicitFromError));
+    }
+
+    private static Type? TryGetOutLocalElementType(MethodInfo methodInfo)
+    {
+        var parameters = methodInfo.GetParameters();
+        if (parameters.Length != 1)
+            return null;
+
+        var parameterType = parameters[0].ParameterType;
+        if (!parameterType.IsByRef)
+            return null;
+
+        var elementType = parameterType.GetElementType();
+        if (elementType is null)
+            return null;
+
+        return CloseTypeFromMethodContext(elementType, methodInfo.DeclaringType);
+    }
+
+    private static Type CloseTypeFromMethodContext(Type type, Type? declaringType)
+    {
+        if (type.IsByRef)
+            return CloseTypeFromMethodContext(type.GetElementType()!, declaringType).MakeByRefType();
+
+        if (type.IsPointer)
+            return CloseTypeFromMethodContext(type.GetElementType()!, declaringType).MakePointerType();
+
+        if (type.IsArray)
+        {
+            var closedElement = CloseTypeFromMethodContext(type.GetElementType()!, declaringType);
+            return type.GetArrayRank() == 1
+                ? closedElement.MakeArrayType()
+                : closedElement.MakeArrayType(type.GetArrayRank());
+        }
+
+        if (type.IsGenericParameter)
+        {
+            if (type.DeclaringMethod is not null)
+                return type;
+
+            if (declaringType is { IsGenericType: true, ContainsGenericParameters: false })
+            {
+                var typeArguments = declaringType.GetGenericArguments();
+                var ordinal = type.GenericParameterPosition;
+                if ((uint)ordinal < (uint)typeArguments.Length)
+                    return typeArguments[ordinal];
+            }
+
+            return type;
+        }
+
+        if (!type.IsGenericType)
+            return type;
+
+        var definition = type.IsGenericTypeDefinition ? type : type.GetGenericTypeDefinition();
+        var arguments = type.GetGenericArguments();
+        var substituted = new Type[arguments.Length];
+        var changed = false;
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var updated = CloseTypeFromMethodContext(arguments[i], declaringType);
+            substituted[i] = updated;
+            if (!ReferenceEquals(updated, arguments[i]))
+                changed = true;
+        }
+
+        if (!changed)
+            return type;
+
+        return definition.MakeGenericType(substituted);
+    }
+
+    private static Type CloseNestedCarrierCaseType(Type caseType, Type carrierType)
+    {
+        if (!caseType.ContainsGenericParameters)
+            return caseType;
+
+        if (!carrierType.IsGenericType || carrierType.ContainsGenericParameters)
+            return caseType;
+
+        var flags = BindingFlags.Public | BindingFlags.NonPublic;
+        var nestedType = carrierType.GetNestedType(caseType.Name, flags);
+        if (nestedType is null)
+        {
+            var caseBaseName = caseType.Name.Split('`')[0];
+            nestedType = carrierType.GetNestedTypes(flags)
+                .FirstOrDefault(type =>
+                    string.Equals(type.Name, caseType.Name, StringComparison.Ordinal) ||
+                    string.Equals(type.Name.Split('`')[0], caseBaseName, StringComparison.Ordinal));
+        }
+
+        if (nestedType is not null && nestedType.ContainsGenericParameters)
+        {
+            var nestedDefinition = nestedType.IsGenericTypeDefinition
+                ? nestedType
+                : nestedType.GetGenericTypeDefinition();
+            var carrierArguments = carrierType.GetGenericArguments();
+            if (nestedDefinition.GetGenericArguments().Length == carrierArguments.Length)
+            {
+                nestedType = nestedDefinition.MakeGenericType(carrierArguments);
+            }
+        }
+
+        return nestedType ?? caseType;
     }
 
     private void EmitResultOkWrap(Type resultClrType)
@@ -385,23 +496,6 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(implSomeSym));
 
         ILGenerator.MarkLabel(endLabel);
-    }
-
-    private ConstructorInfo GetConstructorInfo(IMethodSymbol ctor)
-    {
-        var mi = TryGetConstructorInfo(ctor);
-        if (mi is ConstructorInfo ci)
-            return ci;
-
-        // Some implementations may return MethodInfo for ctors; fall back to reflection lookup on declaring type.
-        var declType = mi.DeclaringType ?? throw new InvalidOperationException("Missing declaring type for ctor");
-        var parms = mi.GetParameters().Select(p => p.ParameterType).ToArray();
-        return declType.GetConstructor(
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: parms,
-                modifiers: null)
-            ?? throw new InvalidOperationException("Failed to resolve constructor info");
     }
 
     private void EmitOptionSomeWrap(Type optionClrType)

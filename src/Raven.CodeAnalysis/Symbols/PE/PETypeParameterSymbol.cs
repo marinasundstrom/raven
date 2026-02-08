@@ -43,6 +43,15 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
 
     public int Ordinal => _type.GenericParameterPosition;
 
+    public TypeParameterOwnerKind OwnerKind =>
+        _type.DeclaringMethod is null ? TypeParameterOwnerKind.Type : TypeParameterOwnerKind.Method;
+
+    public INamedTypeSymbol? DeclaringTypeParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.Type ? (ContainingSymbol as INamedTypeSymbol) : null;
+
+    public IMethodSymbol? DeclaringMethodParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as IMethodSymbol) : null;
+
     public TypeParameterConstraintKind ConstraintKind
     {
         get

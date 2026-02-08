@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -81,7 +82,7 @@ internal sealed class MatchExhaustivenessEvaluator
                 {
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
-                    if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
+                    if (ArePatternTypesEquivalent(declaredType, scrutineeType))
                         return true;
 
                     return declaredType.SpecialType == SpecialType.System_Object;
@@ -154,7 +155,7 @@ internal sealed class MatchExhaustivenessEvaluator
         IDiscriminatedUnionSymbol union,
         MatchExhaustivenessOptions options)
     {
-        var remaining = new HashSet<IDiscriminatedUnionCaseSymbol>(union.Cases, SymbolEqualityComparer.Default);
+        var remaining = new HashSet<IDiscriminatedUnionCaseSymbol>(union.Cases, SymbolReferenceComparer<IDiscriminatedUnionCaseSymbol>.Instance);
 
         foreach (var arm in arms)
         {
@@ -182,7 +183,7 @@ internal sealed class MatchExhaustivenessEvaluator
         INamedTypeSymbol enumType,
         MatchExhaustivenessOptions options)
     {
-        var remaining = new HashSet<IFieldSymbol>(GetEnumMembers(enumType), SymbolEqualityComparer.Default);
+        var remaining = new HashSet<IFieldSymbol>(GetEnumMembers(enumType), SymbolReferenceComparer<IFieldSymbol>.Instance);
 
         if (remaining.Count == 0)
             return ImmutableArray<string>.Empty;
@@ -213,7 +214,7 @@ internal sealed class MatchExhaustivenessEvaluator
         ITypeUnionSymbol union,
         MatchExhaustivenessOptions options)
     {
-        var remaining = new HashSet<ITypeSymbol>(GetUnionMembers(union), SymbolEqualityComparer.Default);
+        var remaining = new HashSet<ITypeSymbol>(GetUnionMembers(union), TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
 
         foreach (var arm in arms)
@@ -448,7 +449,7 @@ internal sealed class MatchExhaustivenessEvaluator
                     {
                         var candidateType = UnwrapAlias(candidate);
 
-                        if (SymbolEqualityComparer.Default.Equals(candidateType, literalType))
+                        if (ArePatternTypesEquivalent(candidateType, literalType))
                         {
                             remaining.Remove(candidate);
                             literalCoverage?.Remove(candidate);
@@ -482,7 +483,7 @@ internal sealed class MatchExhaustivenessEvaluator
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
                     if (declaredType.SpecialType == SpecialType.System_Object ||
-                        SymbolEqualityComparer.Default.Equals(declaredType, UnwrapAlias((ITypeSymbol)union)))
+                        ArePatternTypesEquivalent(declaredType, UnwrapAlias((ITypeSymbol)union)))
                     {
                         remaining.Clear();
                         break;
@@ -492,7 +493,7 @@ internal sealed class MatchExhaustivenessEvaluator
                         ?? declaredType.TryGetDiscriminatedUnionCase()?.Union;
 
                     if (declarationUnion is not null &&
-                        SymbolEqualityComparer.Default.Equals(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
+                        AreSameUnionPatternTarget(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
                     {
                         remaining.Clear();
                     }
@@ -500,7 +501,7 @@ internal sealed class MatchExhaustivenessEvaluator
                     break;
                 }
             case BoundCasePattern casePattern:
-                if (SymbolEqualityComparer.Default.Equals(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
+                if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
                     CasePatternCoversAllArguments(casePattern))
                 {
                     remaining.Remove(casePattern.CaseSymbol);
@@ -523,7 +524,7 @@ internal sealed class MatchExhaustivenessEvaluator
             .OfType<IFieldSymbol>()
             .Where(field =>
                 field.IsConst &&
-                SymbolEqualityComparer.Default.Equals(UnwrapAlias(field.Type), normalizedEnum));
+                ArePatternTypesEquivalent(UnwrapAlias(field.Type), normalizedEnum));
     }
 
     private void RemoveCoveredEnumMembers(HashSet<IFieldSymbol> remaining, INamedTypeSymbol enumType, BoundPattern pattern)
@@ -541,7 +542,7 @@ internal sealed class MatchExhaustivenessEvaluator
             case BoundConstantPattern constant:
                 if (constant.Expression is BoundFieldAccess fieldAccess &&
                     fieldAccess.Field.IsConst &&
-                    SymbolEqualityComparer.Default.Equals(UnwrapAlias(fieldAccess.Field.Type), enumType))
+                    ArePatternTypesEquivalent(UnwrapAlias(fieldAccess.Field.Type), enumType))
                 {
                     remaining.Remove(fieldAccess.Field);
                 }
@@ -645,7 +646,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
             if (TypeCoverageHelper.RequiresLiteralCoverage(type))
             {
-                coverage ??= new Dictionary<ITypeSymbol, HashSet<object?>>(SymbolEqualityComparer.Default);
+                coverage ??= new Dictionary<ITypeSymbol, HashSet<object?>>(TypeSymbolReferenceComparer.Instance);
                 coverage[member] = new HashSet<object?>();
             }
         }
@@ -744,6 +745,77 @@ internal sealed class MatchExhaustivenessEvaluator
         }
 
         return ImmutableArray<ITypeSymbol>.Empty;
+    }
+
+    private static bool AreSameUnionPatternTarget(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+            return false;
+
+        leftNamed = leftNamed.OriginalDefinition as INamedTypeSymbol ?? leftNamed;
+        rightNamed = rightNamed.OriginalDefinition as INamedTypeSymbol ?? rightNamed;
+
+        if (!string.Equals(leftNamed.Name, rightNamed.Name, StringComparison.Ordinal))
+            return false;
+
+        if (leftNamed.TypeParameters.Length != rightNamed.TypeParameters.Length)
+            return false;
+
+        var leftNs = leftNamed.ContainingNamespace?.ToDisplayString();
+        var rightNs = rightNamed.ContainingNamespace?.ToDisplayString();
+        return string.Equals(leftNs, rightNs, StringComparison.Ordinal);
+    }
+
+    private static bool ArePatternTypesEquivalent(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        left = UnwrapAlias(left);
+        right = UnwrapAlias(right);
+
+        if (left.SpecialType != SpecialType.None && left.SpecialType == right.SpecialType)
+            return true;
+
+        if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed)
+        {
+            leftNamed = leftNamed.OriginalDefinition as INamedTypeSymbol ?? leftNamed;
+            rightNamed = rightNamed.OriginalDefinition as INamedTypeSymbol ?? rightNamed;
+
+            if (!string.Equals(leftNamed.Name, rightNamed.Name, StringComparison.Ordinal))
+                return false;
+
+            if (leftNamed.TypeParameters.Length != rightNamed.TypeParameters.Length)
+                return false;
+
+            var leftNs = leftNamed.ContainingNamespace?.ToDisplayString();
+            var rightNs = rightNamed.ContainingNamespace?.ToDisplayString();
+            return string.Equals(leftNs, rightNs, StringComparison.Ordinal);
+        }
+
+        return false;
+    }
+
+    private sealed class TypeSymbolReferenceComparer : IEqualityComparer<ITypeSymbol>
+    {
+        public static TypeSymbolReferenceComparer Instance { get; } = new();
+
+        public bool Equals(ITypeSymbol? x, ITypeSymbol? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(ITypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
+    }
+
+    private sealed class SymbolReferenceComparer<TSymbol> : IEqualityComparer<TSymbol>
+        where TSymbol : class, ISymbol
+    {
+        public static SymbolReferenceComparer<TSymbol> Instance { get; } = new();
+
+        public bool Equals(TSymbol? x, TSymbol? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(TSymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     private static ITypeSymbol UnwrapAlias(ITypeSymbol type)

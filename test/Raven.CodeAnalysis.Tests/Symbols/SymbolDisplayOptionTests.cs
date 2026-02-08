@@ -209,4 +209,52 @@ class Sample {
 
         Assert.Equal("() -> ()?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
+
+    [Fact]
+    public void TypeDisplay_ConstructedMetadataType_UsesConcreteTypeArguments()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class Sample {
+    test() -> unit {
+        val value: Task<int> = Task.FromResult(1)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("Task<int>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        var fullyQualified = local.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        Assert.Contains("System.Threading.Tasks.Task<int>", fullyQualified);
+        Assert.DoesNotContain("Task<TResult>", fullyQualified);
+    }
+
+    [Fact]
+    public void TypeDisplay_ConstructedNestedGenericType_UsesConcreteNestedArguments()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class Sample {
+    test() -> unit {
+        val value: Task<Task<int>> = Task.FromResult(Task.FromResult(42))
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("Task<Task<int>>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        var fullyQualified = local.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        Assert.Contains("Task<int>", fullyQualified);
+        Assert.DoesNotContain("Task<TResult>", fullyQualified);
+    }
 }

@@ -69,6 +69,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
+        if (x is ITypeParameterSymbol xTypeParameter && y is ITypeParameterSymbol yTypeParameter)
+        {
+            if (xTypeParameter.OwnerKind != yTypeParameter.OwnerKind)
+                return false;
+        }
+
         visited ??= new HashSet<SymbolPair>();
         var pair = new SymbolPair(x, y);
         if (!visited.Add(pair))
@@ -80,6 +86,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             x is ITypeParameterSymbol tpx &&
             y is ITypeParameterSymbol tpy)
         {
+            if (tpx.OwnerKind != tpy.OwnerKind)
+                return false;
+
             if (!string.Equals(tpx.Name, tpy.Name, StringComparison.Ordinal))
                 return false;
 
@@ -90,6 +99,17 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             // Optional but usually a good idea:
             if (tpx.Variance != tpy.Variance)
                 return false;
+
+            if (tpx.OwnerKind == TypeParameterOwnerKind.Method)
+            {
+                if (!EqualsCore(tpx.DeclaringMethodParameterOwner, tpy.DeclaringMethodParameterOwner, visited))
+                    return false;
+            }
+            else
+            {
+                if (!EqualsCore(tpx.DeclaringTypeParameterOwner, tpy.DeclaringTypeParameterOwner, visited))
+                    return false;
+            }
 
             /*
             if (tpx.HasReferenceTypeConstraint != tpy.HasReferenceTypeConstraint ||
@@ -151,13 +171,14 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (!string.Equals(x.MetadataName, y.MetadataName, StringComparison.Ordinal))
             return false;
 
-        var namespaceX = x.ContainingNamespace?.ToDisplayString();
-        var namespaceY = y.ContainingNamespace?.ToDisplayString();
-        if (!string.Equals(namespaceX, namespaceY, StringComparison.Ordinal))
-            return false;
+        if (!_ignoreContainingNamespaceOrType)
+        {
+            if (!EqualsCore(x.ContainingNamespace, y.ContainingNamespace, visited))
+                return false;
 
-        if (!EqualsCore(x.ContainingSymbol, y.ContainingSymbol, visited))
-            return false;
+            if (!EqualsCore(x.ContainingSymbol, y.ContainingSymbol, visited))
+                return false;
+        }
 
         if (x is INamedTypeSymbol namedTypeX && y is INamedTypeSymbol namedTypeY)
         {
@@ -339,14 +360,21 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             hash.Add(tp.Name, StringComparer.Ordinal);
             hash.Add(tp.Ordinal);
             hash.Add((int)tp.Variance);
+            hash.Add((int)tp.OwnerKind);
+
+            if (tp.OwnerKind == TypeParameterOwnerKind.Method)
+            {
+                if (tp.DeclaringMethodParameterOwner is { } methodOwner)
+                    hash.Add(GetHashCodeCore(methodOwner, visited));
+            }
+            else
+            {
+                if (tp.DeclaringTypeParameterOwner is { } typeOwner)
+                    hash.Add(GetHashCodeCore(typeOwner, visited));
+            }
             /*hash.Add(tp.HasReferenceTypeConstraint);
             hash.Add(tp.HasValueTypeConstraint);
             hash.Add(tp.HasConstructorConstraint); */
-
-            var constraints = tp.ConstraintTypes;
-            hash.Add(constraints.Length);
-            foreach (var c in constraints)
-                hash.Add(GetHashCodeCore(c, visited));
 
             return hash.ToHashCode();
         }
@@ -355,73 +383,45 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         hash.Add(obj.Name, StringComparer.Ordinal);
         hash.Add(obj.MetadataName, StringComparer.Ordinal);
 
-        var containingNamespace = obj.ContainingNamespace?.ToDisplayString();
-        if (containingNamespace is not null)
-            hash.Add(containingNamespace, StringComparer.Ordinal);
+        if (!_ignoreContainingNamespaceOrType && obj.ContainingNamespace is { } containingNamespace)
+            hash.Add(containingNamespace.Name, StringComparer.Ordinal);
 
         if (obj is IParameterSymbol parameterSymbol)
         {
             hash.Add(parameterSymbol.RefKind);
-            hash.Add(GetHashCodeCore(parameterSymbol.Type, visited));
             return hash.ToHashCode();
         }
 
         if (obj is IMethodSymbol method)
         {
-            hash.Add(GetHashCodeCore(method.ReturnType, visited));
             hash.Add(method.Parameters.Length);
-
-            foreach (var param in method.Parameters)
-            {
-                hash.Add(param.RefKind);
-                hash.Add(GetHashCodeCore(param.Type, visited));
-            }
 
             var typeArguments = method.TypeArguments;
             if (typeArguments.IsDefault)
                 typeArguments = ImmutableArray<ITypeSymbol>.Empty;
 
             hash.Add(typeArguments.Length);
-            foreach (var typeArgument in typeArguments)
-                hash.Add(GetHashCodeCore(typeArgument, visited));
         }
 
         if (obj is INamedTypeSymbol namedType)
         {
             var typeArguments = GetTypeArgumentsOrParameters(namedType);
+            hash.Add(namedType.Arity);
             hash.Add(typeArguments.Length);
-            foreach (var typeArgument in typeArguments)
-                hash.Add(GetHashCodeCore(typeArgument, visited));
+            hash.Add(namedType.TypeKind);
         }
 
         if (obj is IArrayTypeSymbol arrayType)
-        {
             hash.Add(arrayType.Rank);
-            hash.Add(GetHashCodeCore(arrayType.ElementType, visited));
-        }
-
-        if (obj is IPointerTypeSymbol pointerType)
-        {
-            hash.Add(GetHashCodeCore(pointerType.PointedAtType, visited));
-        }
 
         if (obj is IFieldSymbol field)
-        {
-            hash.Add(GetHashCodeCore(field.Type, visited));
             hash.Add(field.IsConst);
-        }
 
         if (obj is IPropertySymbol property)
         {
-            hash.Add(GetHashCodeCore(property.Type, visited));
             hash.Add(property.IsIndexer);
             hash.Add(property.GetMethod is not null);
             hash.Add(property.SetMethod is not null);
-        }
-
-        if (obj.ContainingSymbol is { } containingSymbol && obj is not ITypeParameterSymbol)
-        {
-            hash.Add(GetHashCodeCore(containingSymbol, visited));
         }
 
         return hash.ToHashCode();
@@ -456,6 +456,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
     private static ImmutableArray<ITypeSymbol> GetTypeArgumentsOrParameters(INamedTypeSymbol symbol)
     {
+        if (symbol is ConstructedNamedTypeSymbol constructed)
+            return constructed.GetExplicitTypeArgumentsForInference();
+
         var typeArguments = symbol.TypeArguments;
         if (!typeArguments.IsDefault)
             return typeArguments;

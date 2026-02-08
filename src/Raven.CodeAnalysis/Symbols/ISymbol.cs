@@ -550,6 +550,12 @@ public enum VarianceKind
     In
 }
 
+public enum TypeParameterOwnerKind
+{
+    Type,
+    Method
+}
+
 public interface INamedTypeSymbol : ITypeSymbol
 {
     int Arity { get; }
@@ -628,6 +634,12 @@ public interface IDiscriminatedUnionCaseSymbol : INamedTypeSymbol
 public interface ITypeParameterSymbol : ITypeSymbol
 {
     int Ordinal { get; }
+
+    TypeParameterOwnerKind OwnerKind { get; }
+
+    INamedTypeSymbol? DeclaringTypeParameterOwner { get; }
+
+    IMethodSymbol? DeclaringMethodParameterOwner { get; }
 
     TypeParameterConstraintKind ConstraintKind { get; }
 

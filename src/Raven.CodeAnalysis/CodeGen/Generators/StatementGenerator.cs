@@ -208,7 +208,7 @@ internal class StatementGenerator : Generator
             var builderFieldInfo = (FieldInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder((SourceFieldSymbol)members.BuilderField);
             ILGenerator.Emit(OpCodes.Ldflda, builderFieldInfo);
             ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
-            ILGenerator.Emit(OpCodes.Call, setResultMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(setResultMethod));
         }
 
         if (TryGetExceptionExitLabel(out _))
@@ -496,7 +496,7 @@ internal class StatementGenerator : Generator
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.Parameters.Length == 0)
             ?? throw new InvalidOperationException("Missing IEnumerable<T>.GetEnumerator method.");
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
         var enumeratorType = getEnumerator.ReturnType as INamedTypeSymbol
             ?? throw new InvalidOperationException("Generic enumerator must return a named type.");
@@ -525,7 +525,7 @@ internal class StatementGenerator : Generator
                 .FirstOrDefault(m => m.Parameters.Length == 0)
             ?? throw new InvalidOperationException("Missing IEnumerator.MoveNext method.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, endLabel);
 
         var currentProperty = enumeratorInterface
@@ -536,7 +536,7 @@ internal class StatementGenerator : Generator
         var currentGetter = currentProperty.GetMethod
             ?? throw new InvalidOperationException("Missing IEnumerator<T>.Current getter.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentGetter.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentGetter));
         if (elementLocal is not null)
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
         else
@@ -564,7 +564,7 @@ internal class StatementGenerator : Generator
             .GetMembers(nameof(IEnumerable.GetEnumerator))
             .OfType<IMethodSymbol>()
             .First();
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorClrType = ResolveClrType(enumeratorType);
@@ -584,7 +584,7 @@ internal class StatementGenerator : Generator
 
         var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, endLabel);
 
         var currentProp = enumeratorType
@@ -593,7 +593,7 @@ internal class StatementGenerator : Generator
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentProp));
 
         var localClr = ResolveClrType(elementType);
         if (localClr.IsValueType)

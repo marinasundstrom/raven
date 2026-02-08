@@ -23,7 +23,15 @@ public static class LexerFlags
 
 public static class CodeGenFlags
 {
-    public static bool PrintDebug { get; set; } = false;
+    public static bool PrintDebug { get; set; } =
+        IsEnabled("RAVEN_CODEGEN_DEBUG") || IsEnabled("RAVEN_DEBUG_CONSTRUCTED_METHOD");
 
     public static bool PrintEmittedBoundNodes { get; set; } = false;
+
+    private static bool IsEnabled(string variableName)
+    {
+        var value = Environment.GetEnvironmentVariable(variableName);
+        return string.Equals(value, "1", StringComparison.Ordinal)
+            || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
 }

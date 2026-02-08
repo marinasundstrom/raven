@@ -28,6 +28,9 @@ public class GenericTypeTests : CompilationTestBase
         Assert.True(classSymbol.IsGenericType);
         Assert.Equal(1, classSymbol.Arity);
         Assert.Equal("T", classSymbol.TypeParameters[0].Name);
+        Assert.Equal(TypeParameterOwnerKind.Type, classSymbol.TypeParameters[0].OwnerKind);
+        Assert.Same(classSymbol, classSymbol.TypeParameters[0].DeclaringTypeParameterOwner);
+        Assert.Null(classSymbol.TypeParameters[0].DeclaringMethodParameterOwner);
         Assert.Same(classSymbol.TypeParameters[0], classSymbol.TypeArguments[0]);
 
         var propertySyntax = classDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single();
@@ -58,6 +61,9 @@ public class GenericTypeTests : CompilationTestBase
         Assert.True(classSymbol.IsGenericType);
         Assert.Equal(1, classSymbol.Arity);
         Assert.Equal("T", classSymbol.TypeParameters[0].Name);
+        Assert.Equal(TypeParameterOwnerKind.Type, classSymbol.TypeParameters[0].OwnerKind);
+        Assert.Same(classSymbol, classSymbol.TypeParameters[0].DeclaringTypeParameterOwner);
+        Assert.Null(classSymbol.TypeParameters[0].DeclaringMethodParameterOwner);
         Assert.Same(classSymbol.TypeParameters[0], classSymbol.TypeArguments[0]);
         Assert.Empty(compilation.GetDiagnostics());
     }
@@ -142,4 +148,3 @@ public class GenericTypeTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 }
-

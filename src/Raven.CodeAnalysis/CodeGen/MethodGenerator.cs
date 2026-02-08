@@ -21,6 +21,8 @@ internal class MethodGenerator
     private TypeGenerator.LambdaClosure? _lambdaClosure;
     private ImmutableArray<ITypeParameterSymbol> _liftedExtensionParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     private GenericTypeParameterBuilder[]? _liftedExtensionBuilders;
+    private ImmutableArray<ITypeParameterSymbol> _methodTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private GenericTypeParameterBuilder[]? _methodTypeBuilders;
 
     public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol, IILBuilderFactory? ilBuilderFactory = null)
     {
@@ -158,6 +160,8 @@ internal class MethodGenerator
                 if (!methodTypeParameters.IsDefaultOrEmpty)
                 {
                     var methodBuilders = genericBuilders.Skip(liftedTypeParameters.Length).ToArray();
+                    _methodTypeParameters = methodTypeParameters;
+                    _methodTypeBuilders = methodBuilders;
                     TypeGenerator.CodeGen.RegisterGenericParameters(methodTypeParameters, methodBuilders);
                 }
             }
@@ -165,7 +169,7 @@ internal class MethodGenerator
             try
             {
                 var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-                    ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
+                    ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
                     : ResolveClrType(MethodSymbol.ReturnType);
 
                 parameterTypes = BuildParameterTypes();
@@ -187,6 +191,8 @@ internal class MethodGenerator
             {
                 if (!_liftedExtensionParameters.IsDefaultOrEmpty)
                     TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
+                if (!_methodTypeParameters.IsDefaultOrEmpty)
+                    TypeGenerator.CodeGen.UnregisterGenericParameters(_methodTypeParameters);
             }
         }
 
@@ -303,12 +309,12 @@ internal class MethodGenerator
         if (systemTypeSymbol is IErrorTypeSymbol)
             return;
 
-        var systemType = systemTypeSymbol.GetClrType(codeGen);
+        var systemType = codeGen.RuntimeSymbolResolver.GetType(systemTypeSymbol);
 
         var stateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute);
         if (stateMachineAttributeSymbol is not IErrorTypeSymbol)
         {
-            var attributeType = stateMachineAttributeSymbol.GetClrType(codeGen);
+            var attributeType = codeGen.RuntimeSymbolResolver.GetType(stateMachineAttributeSymbol);
             var stateMachineCtor = attributeType.GetConstructor(new[] { systemType });
             if (stateMachineCtor is not null)
             {
@@ -320,14 +326,61 @@ internal class MethodGenerator
         var builderAttributeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncMethodBuilderAttribute");
         if (builderAttributeSymbol is not null && builderAttributeSymbol.TypeKind != TypeKind.Error)
         {
-            var attributeType = builderAttributeSymbol.GetClrType(codeGen);
+            var attributeType = codeGen.RuntimeSymbolResolver.GetType(builderAttributeSymbol);
             var builderCtor = attributeType.GetConstructor(new[] { systemType });
             if (builderCtor is not null)
             {
                 var builderTypeSymbol = stateMachine.SubstituteStateMachineTypeParameters(stateMachine.BuilderField.Type);
+                if (ContainsMethodOwnedTypeParameters(builderTypeSymbol))
+                    return;
+
                 var builderTypeName = GetAssemblyQualifiedMetadataName(builderTypeSymbol);
                 ApplyMethodCustomAttribute(builderCtor, builderTypeName);
             }
+        }
+    }
+
+    private static bool ContainsMethodOwnedTypeParameters(ITypeSymbol type)
+    {
+        return ContainsMethodOwnedTypeParameters(type, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
+    }
+
+    private static bool ContainsMethodOwnedTypeParameters(ITypeSymbol type, HashSet<ITypeSymbol> visiting)
+    {
+        if (type is null)
+            return false;
+
+        if (!visiting.Add(type))
+            return false;
+
+        try
+        {
+            if (type is ITypeParameterSymbol typeParameter)
+                return typeParameter.OwnerKind == TypeParameterOwnerKind.Method;
+
+            if (type is INamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty)
+            {
+                foreach (var argument in named.TypeArguments)
+                {
+                    if (ContainsMethodOwnedTypeParameters(argument, visiting))
+                        return true;
+                }
+            }
+
+            if (type is IArrayTypeSymbol array)
+                return ContainsMethodOwnedTypeParameters(array.ElementType, visiting);
+
+            if (type is IPointerTypeSymbol pointer)
+                return ContainsMethodOwnedTypeParameters(pointer.PointedAtType, visiting);
+
+            if (type is IAddressTypeSymbol address)
+                return ContainsMethodOwnedTypeParameters(address.ReferencedType, visiting);
+
+            return false;
+        }
+        finally
+        {
+            visiting.Remove(type);
         }
     }
 
@@ -352,7 +405,7 @@ internal class MethodGenerator
     {
         try
         {
-            var runtimeType = typeSymbol.GetClrType(TypeGenerator.CodeGen);
+            var runtimeType = TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, TypeGenerator.CodeGen);
             if (runtimeType.AssemblyQualifiedName is string qualified && (!runtimeType.IsGenericType || !runtimeType.IsGenericTypeDefinition))
                 return qualified;
         }
@@ -517,6 +570,8 @@ internal class MethodGenerator
 
         if (!_liftedExtensionParameters.IsDefaultOrEmpty && _liftedExtensionBuilders is not null)
             TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
+        if (!_methodTypeParameters.IsDefaultOrEmpty && _methodTypeBuilders is not null)
+            TypeGenerator.CodeGen.RegisterGenericParameters(_methodTypeParameters, _methodTypeBuilders);
 
         try
         {
@@ -527,6 +582,8 @@ internal class MethodGenerator
         {
             if (!_liftedExtensionParameters.IsDefaultOrEmpty)
                 TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
+            if (!_methodTypeParameters.IsDefaultOrEmpty)
+                TypeGenerator.CodeGen.UnregisterGenericParameters(_methodTypeParameters);
         }
         _bodyEmitted = true;
     }
@@ -538,6 +595,8 @@ internal class MethodGenerator
 
         if (!_liftedExtensionParameters.IsDefaultOrEmpty && _liftedExtensionBuilders is not null)
             TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
+        if (!_methodTypeParameters.IsDefaultOrEmpty && _methodTypeBuilders is not null)
+            TypeGenerator.CodeGen.RegisterGenericParameters(_methodTypeParameters, _methodTypeBuilders);
 
         var bodyGenerator = new MethodBodyGenerator(this);
 
@@ -588,6 +647,8 @@ internal class MethodGenerator
         {
             if (!_liftedExtensionParameters.IsDefaultOrEmpty)
                 TypeGenerator.CodeGen.UnregisterGenericParameters(_liftedExtensionParameters);
+            if (!_methodTypeParameters.IsDefaultOrEmpty)
+                TypeGenerator.CodeGen.UnregisterGenericParameters(_methodTypeParameters);
         }
     }
 
@@ -604,7 +665,7 @@ internal class MethodGenerator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.GetClrType(TypeGenerator.CodeGen);
+        return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, TypeGenerator.CodeGen);
     }
 
     public override string ToString() => this.MethodSymbol.ToDisplayString();

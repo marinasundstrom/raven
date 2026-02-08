@@ -135,6 +135,22 @@ WriteLine(value)
 return value
 """;
 
+    private const string AsyncGenericComputeSampleCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Compute<T>(value: T) -> Task<T> {
+    WriteLine("Before delay")
+    await Task.Delay(1)
+    WriteLine("After delay")
+    return value
+}
+
+let value = await Compute(42)
+WriteLine(value)
+return value
+""";
+
     private const string AsyncGenericInstanceMethodCode = """
 import System.Threading.Tasks.*
 
@@ -925,6 +941,61 @@ WriteLine(result)
     }
 
     [Fact]
+    public void AsyncGenericKickoffSample_ExecutesSuccessfully()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericComputeSampleCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_generic_compute", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+        var assembly = Assembly.Load(peStream.ToArray());
+
+        var programType = assembly.GetType("Program", throwOnError: true, ignoreCase: false);
+        Assert.NotNull(programType);
+
+        var main = programType!.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(main);
+
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+
+            var returnValue = main!.Invoke(null, new object?[] { Array.Empty<string>() });
+            var awaitedResult = Assert.IsType<int>(returnValue);
+            Assert.Equal(42, awaitedResult);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString().Replace("\r\n", "\n").Trim();
+        Assert.Equal("Before delay\nAfter delay\n42", output);
+    }
+
+    [Fact]
     public void AsyncGenericInstanceMethod_ExecutesSuccessfully()
     {
         var syntaxTree = SyntaxTree.ParseText(AsyncGenericInstanceMethodCode);
@@ -962,6 +1033,52 @@ WriteLine(result)
         var returnValue = main!.Invoke(null, new object?[] { Array.Empty<string>() });
         var awaitedResult = Assert.IsType<int>(returnValue);
         Assert.Equal(123, awaitedResult);
+    }
+
+    [Fact]
+    public void AsyncGenericBuilderCreate_ResolvesMethodOwnedTypeParameter()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncGenericTaskEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_generic_builder_resolution", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var testFunction = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(node => node.Identifier.ValueText == "Test");
+
+        var testSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(testFunction));
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(testSymbol.AsyncStateMachine);
+        var members = stateMachine.GetConstructedMembers(testSymbol);
+
+        var create = members.AsyncMethodBuilderMembers.Create;
+        Assert.NotNull(create);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        var methodInfo = codeGenerator.RuntimeSymbolResolver.GetMethodInfo(create!);
+        var declaringType = methodInfo.DeclaringType;
+        Assert.NotNull(declaringType);
+        var builderTypeArgument = Assert.Single(declaringType.GetGenericArguments());
+
+        Assert.True(builderTypeArgument.IsGenericParameter);
+        Assert.True(builderTypeArgument.IsGenericMethodParameter);
+        Assert.False(builderTypeArgument.IsGenericTypeParameter);
     }
 
     [Fact]
@@ -1738,6 +1855,36 @@ WriteLine(result)
     }
 
     [Fact]
+    public void AsyncGenericKickoff_BuilderCalls_UseMethodTypeParameters()
+    {
+        var (capturedMethod, instructions) = CaptureAsyncInstructions(AsyncGenericComputeSampleCode, static generator =>
+            generator.MethodSymbol.Name == "Compute" &&
+            generator.MethodSymbol.IsGenericMethod &&
+            generator.MethodSymbol.ContainingType?.Name == "Program");
+
+        var methodCalls = instructions
+            .Select(instruction => instruction.Operand.Value as MethodInfo)
+            .Where(method => method is not null && method.DeclaringType is not null)
+            .ToArray();
+
+        Assert.True(
+            methodCalls.Length > 0,
+            $"No generic async carrier calls were captured for '{capturedMethod}'. Calls: {string.Join(", ", instructions.Select(i => i.Operand.Value).OfType<MethodInfo>().Select(m => m.Name))}");
+
+        Assert.DoesNotContain(
+            methodCalls,
+            method => method is not null &&
+                      method.DeclaringType is not null &&
+                      method.DeclaringType.Name.Contains("AsyncTaskMethodBuilder", StringComparison.Ordinal) &&
+                      string.Equals(method.Name, "Start", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(
+            instructions,
+            instruction => instruction.Opcode == OpCodes.Call &&
+                           FormatOperand(instruction.Operand).Contains("Start", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void MoveNext_StampsTerminalStateBeforeCompletion()
     {
         var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
@@ -2294,7 +2441,7 @@ class C {
                 ProbeInvoked = true;
 
                 var constructed = methodGenerator.MethodSymbol.Construct(Array.Empty<ITypeSymbol>());
-                var methodInfo = constructed.GetClrMethodInfo(methodGenerator.TypeGenerator.CodeGen);
+                var methodInfo = methodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetMethodInfo(constructed);
                 ProbeSucceeded = methodInfo is MethodBuilder;
             }
 

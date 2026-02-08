@@ -1695,6 +1695,50 @@ let result = value |> 5
     }
 
     [Fact]
+    public void MemberAccess_WithNestedOptionExtension_Flatten_BindsWithoutComparerRecursion()
+    {
+        const string source = """
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+public extension OptionExtensionsNested<T> for Option<Option<T>> {
+    public Flatten() -> Option<T> {
+        return self match {
+            .Some(val inner) => inner
+            .None => .None
+        }
+    }
+}
+
+class Container {
+    Test() -> Option<int> {
+        let nested: Option<Option<int>> = .Some(.Some(42))
+        return nested.Flatten()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Flatten");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.Equal("Flatten", boundInvocation.Method.Name);
+        Assert.Equal("OptionExtensionsNested", boundInvocation.Method.ContainingType?.Name);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+    }
+
+    [Fact]
     public void MemberAccess_WithCompetingGenericExtensionMaps_InfersLambdaFromReceiver()
     {
         const string source = """

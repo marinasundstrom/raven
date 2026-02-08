@@ -260,7 +260,7 @@ internal class TypeGenerator
         }
         else if (TypeSymbol is SourceDiscriminatedUnionCaseTypeSymbol caseSymbol)
         {
-            var unionType = caseSymbol.Union.GetClrType(CodeGen);
+            var unionType = TypeSymbolExtensionsForCodeGen.GetClrType(caseSymbol.Union, CodeGen);
             var discriminatedUnionCaseAttribute = CodeGen.CreateDiscriminatedUnionCaseAttribute(unionType);
             TypeBuilder!.SetCustomAttribute(discriminatedUnionCaseAttribute);
         }
@@ -1073,24 +1073,44 @@ internal class TypeGenerator
         => ExtensionMarkerTypePrefix + $"{TypeSymbol.Name}_for_{GetExtensionReceiverSuffix(receiverType)}";
 
     private string GetExtensionReceiverSuffix(ITypeSymbol receiverType)
-    {
-        switch (receiverType)
-        {
-            case INamedTypeSymbol named:
-                {
-                    var baseName = named.Name;
-                    if (named.TypeArguments.IsDefaultOrEmpty)
-                        return baseName;
+        => GetExtensionReceiverSuffix(receiverType, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
 
-                    var args = named.TypeArguments.Select(GetExtensionReceiverSuffix);
-                    return $"{baseName}_{string.Join("_", args)}";
-                }
-            case IArrayTypeSymbol arrayType:
-                return $"{GetExtensionReceiverSuffix(arrayType.ElementType)}_Array";
-            case ITypeParameterSymbol typeParameter:
-                return typeParameter.Name;
-            default:
-                return receiverType.Name;
+    private string GetExtensionReceiverSuffix(ITypeSymbol receiverType, HashSet<ITypeSymbol> visiting)
+    {
+        if (!visiting.Add(receiverType))
+            return receiverType.Name;
+
+        try
+        {
+            switch (receiverType)
+            {
+                case INamedTypeSymbol named:
+                    {
+                        var baseName = named.Name;
+                        var typeArguments = named is ConstructedNamedTypeSymbol constructed
+                            ? constructed.GetExplicitTypeArgumentsForInference()
+                            : named.TypeArguments;
+
+                        if (typeArguments.IsDefaultOrEmpty)
+                            return baseName;
+
+                        var args = new string[typeArguments.Length];
+                        for (int i = 0; i < typeArguments.Length; i++)
+                            args[i] = GetExtensionReceiverSuffix(typeArguments[i], visiting);
+
+                        return $"{baseName}_{string.Join("_", args)}";
+                    }
+                case IArrayTypeSymbol arrayType:
+                    return $"{GetExtensionReceiverSuffix(arrayType.ElementType, visiting)}_Array";
+                case ITypeParameterSymbol typeParameter:
+                    return typeParameter.Name;
+                default:
+                    return receiverType.Name;
+            }
+        }
+        finally
+        {
+            visiting.Remove(receiverType);
         }
     }
 
@@ -1459,7 +1479,7 @@ internal class TypeGenerator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.GetClrType(CodeGen);
+        return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, CodeGen);
     }
 
     private Type ResolveCapturedSymbolType(ISymbol symbol)
@@ -1782,7 +1802,7 @@ internal class TypeGenerator
                     break;
                 }
             case PEMethodSymbol peMethod:
-                methodInfo = peMethod.GetClrMethodInfo(CodeGen);
+                methodInfo = CodeGen.RuntimeSymbolResolver.GetMethodInfo(peMethod);
                 return true;
             case SubstitutedMethodSymbol substitutedMethod:
                 methodInfo = substitutedMethod.GetMethodInfo(CodeGen);

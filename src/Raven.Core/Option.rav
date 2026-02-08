@@ -206,7 +206,6 @@ public extension OptionExtensions<T> for Option<T> {
     }
 }
 
-/*
 public extension OptionExtensionsNested<T> for Option<Option<T>> {
 
     /// Flattens `Option<Option<T>>` into `Option<T>`.
@@ -216,7 +215,7 @@ public extension OptionExtensionsNested<T> for Option<Option<T>> {
             .None => .None
         }
     }
-}*/
+}
 
 public extension OptionExtensions1<T : class> for Option<T> {
 

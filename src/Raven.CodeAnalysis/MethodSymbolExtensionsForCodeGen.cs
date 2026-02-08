@@ -7,33 +7,27 @@ using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
+using static Raven.CodeAnalysis.CodeGen.DebugUtils;
 
 namespace Raven.CodeAnalysis;
 
-internal static class MethodSymbolExtensionsForCodeGen
+internal static class MethodSymbolCodeGenResolver
 {
-    internal static MethodInfo GetClrMethodInfo(this IMethodSymbol methodSymbol, CodeGenerator codeGen)
+    internal static MethodInfo GetClrMethodInfo(IMethodSymbol methodSymbol, CodeGenerator codeGen)
     {
         if (methodSymbol is null)
             throw new ArgumentNullException(nameof(methodSymbol));
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
-        if (codeGen.TryGetRuntimeMethod(methodSymbol, out var cached))
+        var useStableCache = CanUseStableMethodCache(methodSymbol);
+        if (useStableCache && codeGen.TryGetRuntimeMethod(methodSymbol, out var cached))
             return cached;
-
-        // Preserve wrapper/alias caching semantics.
-        if (methodSymbol is IMethodSymbol wrapper &&
-            wrapper.UnderlyingSymbol is IMethodSymbol underlying &&
-            !ReferenceEquals(underlying, wrapper))
-        {
-            return codeGen.CacheRuntimeMethod(methodSymbol, underlying.GetClrMethodInfo(codeGen));
-        }
 
         if (methodSymbol is IAliasSymbol aliasSymbol &&
             aliasSymbol.UnderlyingSymbol is IMethodSymbol underlyingMethod)
         {
-            return codeGen.CacheRuntimeMethod(methodSymbol, underlyingMethod.GetClrMethodInfo(codeGen));
+            return codeGen.CacheRuntimeMethod(methodSymbol, GetClrMethodInfo(underlyingMethod, codeGen));
         }
 
         MethodInfo resolved = methodSymbol switch
@@ -46,16 +40,213 @@ internal static class MethodSymbolExtensionsForCodeGen
                 => constructedMethod.GetMethodInfo(codeGen),
             PEMethodSymbol peMethod
                 => ResolveRuntimeMethodInfo(peMethod, codeGen),
+            _ when methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+                   !ReferenceEquals(underlying, methodSymbol)
+                => ResolveWrappedMethodInfo(methodSymbol, underlying, codeGen),
             _ => throw new InvalidOperationException($"Unsupported method symbol type '{methodSymbol.GetType()}'.")
         };
+
+        var shouldSkipClosureFix =
+            methodSymbol.UnderlyingSymbol is IMethodSymbol &&
+            methodSymbol.ContainingType is INamedTypeSymbol wrapperContainingType &&
+            ContainsMethodOwnedTypeParameters(wrapperContainingType);
 
         // IMPORTANT: Reflection over TypeBuilderInstantiation can produce MethodInfo signatures
         // that still reference open generic parameters (!0/!1) in nested out/byref types.
         // That yields invalid IL when emitted (InvalidProgramException). Fix by mapping the
         // method from the generic type definition onto the constructed runtime type.
-        resolved = EnsureClosedConstructedMethodInfo(methodSymbol, resolved, codeGen);
+        if (!shouldSkipClosureFix)
+            resolved = EnsureClosedConstructedMethodInfo(methodSymbol, resolved, codeGen);
+        if (CodeGenFlags.PrintDebug)
+        {
+            PrintDebug(
+                $"[CodeGen:Method] Resolved {methodSymbol} -> {resolved.DeclaringType?.FullName}::{resolved.Name} " +
+                $"(containsGenericParameters={resolved.ContainsGenericParameters})");
 
-        return codeGen.CacheRuntimeMethod(methodSymbol, resolved);
+            if (resolved.DeclaringType is { IsGenericType: true } declaringType)
+            {
+                var genericOwnerInfo = string.Join(
+                    ", ",
+                    declaringType.GetGenericArguments().Select(argument =>
+                    {
+                        if (!argument.IsGenericParameter)
+                            return $"{argument} [owner=n/a]";
+
+                        var owner = argument.DeclaringMethod is null ? "type" : "method";
+                        return $"{argument} [owner={owner}, pos={argument.GenericParameterPosition}]";
+                    }));
+
+                PrintDebug(
+                    $"[CodeGen:Method] DeclaringTypeArgs {resolved.DeclaringType.FullName}::{resolved.Name} => {genericOwnerInfo}");
+            }
+        }
+
+        if (useStableCache)
+            return codeGen.CacheRuntimeMethod(methodSymbol, resolved);
+
+        return resolved;
+    }
+
+    private static bool CanUseStableMethodCache(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol is ConstructedMethodSymbol or SubstitutedMethodSymbol)
+            return false;
+
+        if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+            !ReferenceEquals(underlying, methodSymbol))
+        {
+            return false;
+        }
+
+        return methodSymbol.ContainingType is not INamedTypeSymbol containingType ||
+               !ContainsMethodOwnedTypeParameters(containingType);
+    }
+
+    private static MethodInfo ResolveWrappedMethodInfo(
+        IMethodSymbol wrapper,
+        IMethodSymbol underlying,
+        CodeGenerator codeGen)
+    {
+        var resolvedUnderlying = GetClrMethodInfo(underlying, codeGen);
+
+        var containingType = wrapper.ContainingType;
+        if (containingType is null)
+            return resolvedUnderlying;
+
+        var containingClrType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(containingType, codeGen);
+        if (CodeGenFlags.PrintDebug && containingType.IsGenericType)
+        {
+            var args = string.Join(
+                ", ",
+                containingType.TypeArguments.Select(argument =>
+                {
+                    if (argument is ITypeParameterSymbol typeParameter)
+                        return $"{typeParameter.Name}[owner={typeParameter.OwnerKind}]";
+                    return argument.ToDisplayString();
+                }));
+            PrintDebug($"[CodeGen:Method] Wrapper containing type {containingType} args=[{args}]");
+        }
+
+        if (ContainsMethodOwnedTypeParameters(containingType))
+        {
+            try
+            {
+                var definitionMethod = resolvedUnderlying;
+                if (definitionMethod.DeclaringType is not null &&
+                    definitionMethod.DeclaringType.IsGenericType &&
+                    !definitionMethod.DeclaringType.IsGenericTypeDefinition)
+                {
+                    var definitionType = definitionMethod.DeclaringType.GetGenericTypeDefinition();
+                    definitionMethod = definitionType
+                        .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                        .FirstOrDefault(candidate => MethodShapeEquals(candidate, resolvedUnderlying))
+                        ?? definitionMethod;
+                }
+
+                var projectedDeclaringType = containingClrType;
+                if (definitionMethod.DeclaringType is { IsGenericType: true } declaringType)
+                {
+                    var declaringTypeDefinition = declaringType.IsGenericTypeDefinition
+                        ? declaringType
+                        : declaringType.GetGenericTypeDefinition();
+
+                    var projectedArguments = containingType.TypeArguments
+                        .Select(argument =>
+                        {
+                            if (argument is ITypeParameterSymbol typeParameter &&
+                                typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
+                                typeParameter.Ordinal >= 0)
+                            {
+                                if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, RuntimeTypeUsage.MethodBody, out var resolvedType))
+                                    return resolvedType;
+
+                                return Type.MakeGenericMethodParameter(typeParameter.Ordinal);
+                            }
+
+                            return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(argument, codeGen);
+                        })
+                        .ToArray();
+
+                    if (declaringTypeDefinition.GetGenericArguments().Length == projectedArguments.Length)
+                        projectedDeclaringType = declaringTypeDefinition.MakeGenericType(projectedArguments);
+                }
+
+                var directMatch = projectedDeclaringType
+                    .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                    .FirstOrDefault(candidate => MethodShapeEquals(candidate, definitionMethod));
+                if (directMatch is not null)
+                    return directMatch;
+
+                var methodProjectedToWrapperType = TypeBuilder.GetMethod(projectedDeclaringType, definitionMethod);
+                if (methodProjectedToWrapperType is not null)
+                    return methodProjectedToWrapperType;
+            }
+            catch (NotSupportedException)
+            {
+            }
+            catch (ArgumentException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
+        var mapped = TryMapToConstructedDeclaringType(containingClrType, resolvedUnderlying)
+            ?? TryMapByGenericDefinitionSearch(containingClrType, resolvedUnderlying)
+            ?? resolvedUnderlying;
+
+        if (wrapper.IsGenericMethod && wrapper.TypeArguments.Length > 0 && mapped.IsGenericMethodDefinition)
+        {
+            var methodArguments = wrapper.TypeArguments
+                .Select(arg => TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(arg, codeGen))
+                .ToArray();
+
+            mapped = mapped.MakeGenericMethod(methodArguments);
+        }
+
+        return mapped;
+    }
+
+    private static bool ContainsMethodOwnedTypeParameters(INamedTypeSymbol type)
+        => ContainsMethodOwnedTypeParameters(type, new HashSet<INamedTypeSymbol>(ReferenceEqualityComparer.Instance));
+
+    private static bool ContainsMethodOwnedTypeParameters(
+        INamedTypeSymbol type,
+        HashSet<INamedTypeSymbol> visiting)
+    {
+        if (type is null)
+            return false;
+        if (!visiting.Add(type))
+            return false;
+
+        try
+        {
+            var typeArguments = TypeSubstitution.GetShallowTypeArguments(type);
+            if (typeArguments.IsDefaultOrEmpty)
+                return false;
+
+            foreach (var argument in typeArguments)
+            {
+                if (argument is ITypeParameterSymbol typeParameter &&
+                    typeParameter.OwnerKind == TypeParameterOwnerKind.Method)
+                {
+                    return true;
+                }
+
+                if (argument is INamedTypeSymbol namedArgument &&
+                    ContainsMethodOwnedTypeParameters(namedArgument, visiting))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            visiting.Remove(type);
+        }
     }
     // --- Helper for fixing up open generic params in MethodInfo signatures (see GetClrMethodInfo) ---
     private static MethodInfo EnsureClosedConstructedMethodInfo(IMethodSymbol methodSymbol, MethodInfo resolved, CodeGenerator codeGen)
@@ -63,45 +254,106 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (!NeedsGenericClosureFix(resolved))
             return resolved;
 
+        if (CodeGenFlags.PrintDebug)
+        {
+            PrintDebug(
+                $"[CodeGen:Method] Generic closure fix needed for {methodSymbol} from " +
+                $"{resolved.DeclaringType?.FullName}::{resolved.Name}");
+        }
+
         // Prefer mapping onto the actual constructed runtime declaring type for the symbol.
-        var constructedDeclaringType = methodSymbol.ContainingType?.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var constructedDeclaringType = methodSymbol.ContainingType is null
+            ? null
+            : TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(methodSymbol.ContainingType, codeGen);
 
         var mapped = TryMapToConstructedDeclaringType(constructedDeclaringType, resolved)
             ?? TryMapByGenericDefinitionSearch(constructedDeclaringType, resolved);
 
         if (mapped is not null && !NeedsGenericClosureFix(mapped))
+        {
+            if (CodeGenFlags.PrintDebug)
+            {
+                PrintDebug(
+                    $"[CodeGen:Method] Generic closure fix mapped to {mapped.DeclaringType?.FullName}::{mapped.Name} " +
+                    $"(containsGenericParameters={mapped.ContainsGenericParameters})");
+            }
             return mapped;
+        }
+
+        if (CodeGenFlags.PrintDebug)
+            PrintDebug($"[CodeGen:Method] Generic closure fix failed for {methodSymbol}, using original MethodInfo");
 
         return resolved;
     }
 
     private static bool NeedsGenericClosureFix(MethodInfo mi)
     {
-        if (mi.ContainsGenericParameters)
+        if (HasMethodScopedGenericLeak(mi))
             return true;
 
         foreach (var p in mi.GetParameters())
         {
             var pt = p.ParameterType;
-            if (pt.ContainsGenericParameters)
+            if (HasInvalidGenericScopeInType(pt, allowMethodGeneric: mi.IsGenericMethod))
                 return true;
 
             if (pt.IsByRef)
             {
                 var et = pt.GetElementType();
-                if (et is not null && et.ContainsGenericParameters)
+                if (et is not null && HasInvalidGenericScopeInType(et, allowMethodGeneric: mi.IsGenericMethod))
                     return true;
             }
         }
 
         var rt = mi.ReturnType;
-        if (rt.ContainsGenericParameters)
+        if (HasInvalidGenericScopeInType(rt, allowMethodGeneric: mi.IsGenericMethod))
             return true;
 
         if (rt.IsByRef)
         {
             var et = rt.GetElementType();
-            if (et is not null && et.ContainsGenericParameters)
+            if (et is not null && HasInvalidGenericScopeInType(et, allowMethodGeneric: mi.IsGenericMethod))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasMethodScopedGenericLeak(MethodInfo mi)
+    {
+        var declaringType = mi.DeclaringType;
+        if (declaringType is null)
+            return false;
+
+        if (!declaringType.IsGenericType)
+            return false;
+
+        foreach (var argument in declaringType.GetGenericArguments())
+        {
+            if (argument.IsGenericParameter && argument.DeclaringMethod is not null)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasInvalidGenericScopeInType(Type type, bool allowMethodGeneric)
+    {
+        if (type.IsByRef || type.IsPointer || type.IsArray)
+        {
+            var elementType = type.GetElementType();
+            return elementType is not null && HasInvalidGenericScopeInType(elementType, allowMethodGeneric);
+        }
+
+        if (type.IsGenericParameter)
+            return !allowMethodGeneric && type.DeclaringMethod is not null;
+
+        if (!type.IsGenericType)
+            return false;
+
+        foreach (var argument in type.GetGenericArguments())
+        {
+            if (HasInvalidGenericScopeInType(argument, allowMethodGeneric))
                 return true;
         }
 
@@ -120,7 +372,21 @@ internal static class MethodSymbolExtensionsForCodeGen
         // The problematic cases are typically TypeBuilderInstantiation (constructed generic types
         // in a dynamic module). Prefer mapping the method from the generic type definition onto
         // the constructed runtime type.
-        if (constructedDeclaringType.Assembly.IsDynamic)
+        static bool IsDynamicAssembly(Type type)
+        {
+            try
+            {
+                return type.Assembly.IsDynamic;
+            }
+            catch (NotSupportedException)
+            {
+                // Signature placeholder types (e.g., Type.MakeGenericMethodParameter)
+                // do not expose Assembly metadata.
+                return false;
+            }
+        }
+
+        if (IsDynamicAssembly(constructedDeclaringType))
         {
             try
             {
@@ -139,6 +405,46 @@ internal static class MethodSymbolExtensionsForCodeGen
                 }
 
                 // IMPORTANT: Use the overload that takes `Type` (works for TypeBuilderInstantiation).
+                var mapped = TypeBuilder.GetMethod(constructedDeclaringType, def);
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:Method] TryMapToConstructedDeclaringType(dynamic) {resolved.DeclaringType?.FullName}::{resolved.Name} -> " +
+                        $"{mapped?.DeclaringType?.FullName}::{mapped?.Name} (null={mapped is null})");
+                }
+                return mapped;
+            }
+            catch
+            {
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:Method] TryMapToConstructedDeclaringType(dynamic) threw for {resolved.DeclaringType?.FullName}::{resolved.Name}");
+                }
+                return null;
+            }
+        }
+
+        // Runtime generic types that still contain generic parameters (e.g. framework generic types
+        // constructed with GenericTypeParameterBuilder arguments) can surface method signatures that
+        // incorrectly use method-scoped generic slots. TypeBuilder.GetMethod can still project the
+        // definition method onto the constructed runtime type in these cases.
+        if (constructedDeclaringType.IsGenericType && constructedDeclaringType.ContainsGenericParameters)
+        {
+            try
+            {
+                var def = resolved;
+                if (def.DeclaringType is not null &&
+                    def.DeclaringType.IsGenericType &&
+                    !def.DeclaringType.IsGenericTypeDefinition)
+                {
+                    var defType = def.DeclaringType.GetGenericTypeDefinition();
+                    def = defType
+                        .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                        .FirstOrDefault(m => MethodShapeEquals(m, resolved))
+                        ?? def;
+                }
+
                 return TypeBuilder.GetMethod(constructedDeclaringType, def);
             }
             catch
@@ -154,10 +460,22 @@ internal static class MethodSymbolExtensionsForCodeGen
             {
                 var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
                 var candidates = constructedDeclaringType.GetMethods(flags).Where(m => MethodShapeEquals(m, resolved));
-                return candidates.FirstOrDefault();
+                var mapped = candidates.FirstOrDefault();
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:Method] TryMapToConstructedDeclaringType(runtime-closed) {resolved.DeclaringType?.FullName}::{resolved.Name} -> " +
+                        $"{mapped?.DeclaringType?.FullName}::{mapped?.Name} (null={mapped is null})");
+                }
+                return mapped;
             }
             catch
             {
+                if (CodeGenFlags.PrintDebug)
+                {
+                    PrintDebug(
+                        $"[CodeGen:Method] TryMapToConstructedDeclaringType(runtime-closed) threw for {resolved.DeclaringType?.FullName}::{resolved.Name}");
+                }
                 return null;
             }
         }
@@ -201,7 +519,19 @@ internal static class MethodSymbolExtensionsForCodeGen
             return null;
 
         // Map definition method onto constructed type.
-        if (constructedDeclaringType.Assembly.IsDynamic)
+        static bool IsDynamicAssembly(Type type)
+        {
+            try
+            {
+                return type.Assembly.IsDynamic;
+            }
+            catch (NotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        if (IsDynamicAssembly(constructedDeclaringType))
         {
             try { return TypeBuilder.GetMethod(constructedDeclaringType, defMethod); }
             catch { return null; }
@@ -261,7 +591,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return true;
     }
 
-    internal static ConstructorInfo GetClrConstructorInfo(this IMethodSymbol constructorSymbol, CodeGenerator codeGen)
+    internal static ConstructorInfo GetClrConstructorInfo(IMethodSymbol constructorSymbol, CodeGenerator codeGen)
     {
         if (constructorSymbol is null)
             throw new ArgumentNullException(nameof(constructorSymbol));
@@ -276,9 +606,9 @@ internal static class MethodSymbolExtensionsForCodeGen
         return constructorSymbol switch
         {
             IMethodSymbol wrapper when wrapper.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, wrapper)
-                => codeGen.CacheRuntimeConstructor(constructorSymbol, underlying.GetClrConstructorInfo(codeGen)),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, GetClrConstructorInfo(underlying, codeGen)),
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlying
-                => codeGen.CacheRuntimeConstructor(constructorSymbol, underlying.GetClrConstructorInfo(codeGen)),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, GetClrConstructorInfo(underlying, codeGen)),
             SourceMethodSymbol sourceConstructor
                 => codeGen.CacheRuntimeConstructor(constructorSymbol, (ConstructorInfo)codeGen.GetMemberBuilder(sourceConstructor)),
             SubstitutedMethodSymbol substitutedConstructor
@@ -308,10 +638,11 @@ internal static class MethodSymbolExtensionsForCodeGen
     {
         var runtimeType = GetContainingRuntimeType(methodSymbol, codeGen);
         var bindingFlags = GetBindingFlags(methodSymbol);
+        var metadataMethod = methodSymbol.GetMethodBase() as MethodInfo;
 
         foreach (var candidate in GetCandidateRuntimeMethods(runtimeType, methodSymbol, bindingFlags))
         {
-            if (!RuntimeMethodMatchesSymbol(candidate, methodSymbol, codeGen))
+            if (!RuntimeMethodMatchesSymbol(candidate, methodSymbol, metadataMethod, codeGen))
                 continue;
 
             return candidate;
@@ -342,10 +673,11 @@ internal static class MethodSymbolExtensionsForCodeGen
 
         var runtimeType = GetContainingRuntimeType(constructorSymbol, codeGen);
         var bindingFlags = GetBindingFlags(constructorSymbol);
+        var metadataCtor = constructorSymbol.GetMethodBase() as ConstructorInfo;
 
         foreach (var candidate in runtimeType.GetConstructors(bindingFlags))
         {
-            if (!RuntimeConstructorMatchesSymbol(candidate, constructorSymbol, codeGen))
+            if (!RuntimeConstructorMatchesSymbol(candidate, constructorSymbol, metadataCtor, codeGen))
                 continue;
 
             return candidate;
@@ -359,7 +691,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (methodSymbol.ContainingType is null)
             throw new InvalidOperationException($"Method symbol '{methodSymbol}' is missing a containing type.");
 
-        return methodSymbol.ContainingType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(methodSymbol.ContainingType, codeGen);
     }
 
     private static BindingFlags GetBindingFlags(IMethodSymbol methodSymbol)
@@ -370,7 +702,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return flags;
     }
 
-    private static bool RuntimeMethodMatchesSymbol(MethodInfo candidate, PEMethodSymbol methodSymbol, CodeGenerator codeGen)
+    private static bool RuntimeMethodMatchesSymbol(MethodInfo candidate, PEMethodSymbol methodSymbol, MethodInfo? metadataMethod, CodeGenerator codeGen)
     {
         if (!string.Equals(candidate.Name, methodSymbol.MetadataName, StringComparison.Ordinal))
             return false;
@@ -378,18 +710,8 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (!RuntimeTypeMatches(candidate.DeclaringType, methodSymbol.ContainingType, codeGen))
             return false;
 
-        if (candidate.IsGenericMethodDefinition)
-        {
-            if (!methodSymbol.IsGenericMethod)
-                return false;
-
-            if (candidate.GetGenericArguments().Length != methodSymbol.TypeParameters.Length)
-                return false;
-        }
-        else if (methodSymbol.IsGenericMethod)
-        {
-            return false;
-        }
+        if (metadataMethod is not null)
+            return RuntimeMethodMatchesMetadataSignature(candidate, metadataMethod);
 
         if (!ParametersMatch(candidate.GetParameters(), methodSymbol.Parameters, codeGen))
             return false;
@@ -397,7 +719,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return ReturnTypesMatch(candidate.ReturnType, methodSymbol.ReturnType, codeGen);
     }
 
-    private static bool RuntimeConstructorMatchesSymbol(ConstructorInfo candidate, PEMethodSymbol constructorSymbol, CodeGenerator codeGen)
+    private static bool RuntimeConstructorMatchesSymbol(ConstructorInfo candidate, PEMethodSymbol constructorSymbol, ConstructorInfo? metadataCtor, CodeGenerator codeGen)
     {
         if (!string.Equals(candidate.Name, constructorSymbol.MetadataName, StringComparison.Ordinal))
             return false;
@@ -405,7 +727,87 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (!RuntimeTypeMatches(candidate.DeclaringType, constructorSymbol.ContainingType, codeGen))
             return false;
 
+        if (metadataCtor is not null)
+            return RuntimeConstructorMatchesMetadataSignature(candidate, metadataCtor);
+
         return ParametersMatch(candidate.GetParameters(), constructorSymbol.Parameters, codeGen);
+    }
+
+    private static bool RuntimeMethodMatchesMetadataSignature(MethodInfo candidate, MethodInfo metadataMethod)
+    {
+        if (candidate.IsStatic != metadataMethod.IsStatic)
+            return false;
+
+        if (candidate.IsGenericMethod != metadataMethod.IsGenericMethod)
+            return false;
+
+        if (candidate.IsGenericMethod &&
+            candidate.GetGenericArguments().Length != metadataMethod.GetGenericArguments().Length)
+            return false;
+
+        if (!ParameterSignaturesMatch(candidate.GetParameters(), metadataMethod.GetParameters()))
+            return false;
+
+        return TypeSignatureEquals(candidate.ReturnType, metadataMethod.ReturnType);
+    }
+
+    private static bool RuntimeConstructorMatchesMetadataSignature(ConstructorInfo candidate, ConstructorInfo metadataCtor)
+    {
+        if (candidate.IsStatic != metadataCtor.IsStatic)
+            return false;
+
+        return ParameterSignaturesMatch(candidate.GetParameters(), metadataCtor.GetParameters());
+    }
+
+    private static bool ParameterSignaturesMatch(ParameterInfo[] runtimeParameters, ParameterInfo[] metadataParameters)
+    {
+        if (runtimeParameters.Length != metadataParameters.Length)
+            return false;
+
+        for (var i = 0; i < runtimeParameters.Length; i++)
+        {
+            if (runtimeParameters[i].IsOut != metadataParameters[i].IsOut)
+                return false;
+
+            if (!TypeSignatureEquals(runtimeParameters[i].ParameterType, metadataParameters[i].ParameterType))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool TypeSignatureEquals(Type runtimeType, Type metadataType)
+        => string.Equals(GetTypeSignature(runtimeType), GetTypeSignature(metadataType), StringComparison.Ordinal);
+
+    private static string GetTypeSignature(Type type)
+    {
+        if (type.IsByRef)
+            return $"{GetTypeSignature(type.GetElementType()!)}&";
+
+        if (type.IsPointer)
+            return $"{GetTypeSignature(type.GetElementType()!)}*";
+
+        if (type.IsArray)
+        {
+            var rank = type.GetArrayRank();
+            var suffix = rank == 1 ? "[]" : $"[{new string(',', rank - 1)}]";
+            return $"{GetTypeSignature(type.GetElementType()!)}{suffix}";
+        }
+
+        if (type.IsGenericParameter)
+        {
+            var kind = type.DeclaringMethod is null ? "!" : "!!";
+            return $"{kind}{type.GenericParameterPosition}";
+        }
+
+        if (type.IsGenericType)
+        {
+            var definition = type.IsGenericTypeDefinition ? type : type.GetGenericTypeDefinition();
+            var args = type.GetGenericArguments();
+            return $"{definition.FullName}<{string.Join(",", args.Select(GetTypeSignature))}>";
+        }
+
+        return type.FullName ?? type.Name;
     }
 
     private static bool RuntimeTypeMatches(Type? runtimeType, ITypeSymbol? symbolType, CodeGenerator codeGen)
@@ -413,7 +815,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (runtimeType is null || symbolType is null)
             return false;
 
-        var expected = symbolType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var expected = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(symbolType, codeGen);
 
         if (runtimeType == expected)
             return true;
@@ -493,7 +895,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (symbolType is INamedTypeSymbol namedTuple && !namedTuple.TupleElements.IsDefaultOrEmpty && namedTuple.TupleElements.Length > 0)
             return RuntimeTupleMatchesSymbol(runtimeType, namedTuple.TupleElements, codeGen);
 
-        var expectedType = symbolType.GetClrType(codeGen);
+        var expectedType = TypeSymbolExtensionsForCodeGen.GetClrType(symbolType, codeGen);
         return TypesEquivalentCore(runtimeType, expectedType);
     }
 
@@ -502,21 +904,14 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (!runtimeType.IsGenericParameter)
             return false;
 
-        bool isMethodParameter = typeParameter.ContainingSymbol is IMethodSymbol;
+        bool isMethodParameter = typeParameter.OwnerKind == TypeParameterOwnerKind.Method;
         if (isMethodParameter && runtimeType.DeclaringMethod is null)
             return false;
 
         if (!isMethodParameter && runtimeType.DeclaringMethod is not null)
             return false;
 
-        int? ordinal = typeParameter switch
-        {
-            PETypeParameterSymbol pe => pe.Ordinal,
-            SourceTypeParameterSymbol source => source.Ordinal,
-            _ => null
-        };
-
-        if (ordinal.HasValue && runtimeType.GenericParameterPosition != ordinal.Value)
+        if (runtimeType.GenericParameterPosition != typeParameter.Ordinal)
             return false;
 
         return string.Equals(runtimeType.Name, typeParameter.Name, StringComparison.Ordinal);
@@ -534,7 +929,7 @@ internal static class MethodSymbolExtensionsForCodeGen
             return cachedConstructor;
         }
 
-        var definitionInfo = constructedConstructor.Definition.GetClrConstructorInfo(codeGen);
+        var definitionInfo = GetClrConstructorInfo(constructedConstructor.Definition, codeGen);
         var declaringType = definitionInfo.DeclaringType;
 
         if (declaringType is null)
@@ -547,7 +942,7 @@ internal static class MethodSymbolExtensionsForCodeGen
             return definitionInfo;
 
         var runtimeArguments = constructedConstructor.TypeArguments
-            .Select(arg => arg.GetClrType(codeGen))
+            .Select(arg => TypeSymbolExtensionsForCodeGen.GetClrType(arg, codeGen))
             .ToArray();
 
         var constructedRuntimeType = declaringType.IsGenericTypeDefinition
@@ -566,7 +961,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         }
 
         var parameterTypes = constructedConstructor.Parameters
-            .Select(p => p.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
+            .Select(p => TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(p.Type, codeGen))
             .ToArray();
 
         var resolved = constructedRuntimeType.GetConstructor(

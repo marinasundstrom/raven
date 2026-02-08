@@ -664,6 +664,7 @@ internal partial class ExpressionGenerator : Generator
         var delegateTypeSymbol = lambdaExpression.DelegateType
             ?? throw new InvalidOperationException("Lambda delegate type missing.");
         var delegateType = ResolveClrType(delegateTypeSymbol);
+        delegateType = CloseOpenDelegateType(delegateType, methodInfo);
 
         if (hasCaptures)
         {
@@ -679,6 +680,46 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldnull);
         ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
         ILGenerator.Emit(OpCodes.Newobj, ctor);
+    }
+
+    private static Type CloseOpenDelegateType(Type delegateType, MethodInfo lambdaMethod)
+    {
+        if (!delegateType.ContainsGenericParameters)
+            return delegateType;
+
+        var parameterTypes = lambdaMethod.GetParameters().Select(p => p.ParameterType).ToArray();
+        if (parameterTypes.Any(p => p.IsByRef))
+            return delegateType;
+
+        if (lambdaMethod.ReturnType == typeof(void))
+        {
+            if (parameterTypes.Length == 0)
+                return typeof(Action);
+
+            if (parameterTypes.Length > 16)
+                return delegateType;
+
+            var actionDefinition = Type.GetType($"System.Action`{parameterTypes.Length}", throwOnError: false);
+            if (actionDefinition is null)
+                return delegateType;
+
+            return actionDefinition.MakeGenericType(parameterTypes);
+        }
+
+        if (parameterTypes.Length > 15)
+            return delegateType;
+
+        var funcArity = parameterTypes.Length + 1;
+        var funcDefinition = Type.GetType($"System.Func`{funcArity}", throwOnError: false);
+        if (funcDefinition is null)
+            return delegateType;
+
+        var typeArguments = new Type[funcArity];
+        for (var i = 0; i < parameterTypes.Length; i++)
+            typeArguments[i] = parameterTypes[i];
+        typeArguments[funcArity - 1] = lambdaMethod.ReturnType;
+
+        return funcDefinition.MakeGenericType(typeArguments);
     }
 
     private ConstructorInfo GetDelegateConstructor(ITypeSymbol delegateType, Type delegateClrType)
@@ -701,16 +742,98 @@ internal partial class ExpressionGenerator : Generator
                 ResolveClrType(Compilation.GetSpecialType(SpecialType.System_IntPtr))
             ];
 
-            ctor = delegateClrType.GetConstructor(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                    binder: null,
-                    types: _delegateConstructorSignature,
-                    modifiers: null)
+            ctor = ResolveDelegateConstructorOnType(delegateClrType)
                 ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
         }
 
+        ctor = NormalizeDelegateConstructor(ctor, delegateClrType);
+
         _delegateConstructorCache[cacheKey] = ctor;
         return ctor;
+    }
+
+    private ConstructorInfo NormalizeDelegateConstructor(ConstructorInfo constructor, Type delegateClrType)
+    {
+        if (constructor.DeclaringType == delegateClrType &&
+            !constructor.ContainsGenericParameters &&
+            !(constructor.DeclaringType?.ContainsGenericParameters ?? false))
+        {
+            return constructor;
+        }
+
+        _delegateConstructorSignature ??=
+        [
+            ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object)),
+            ResolveClrType(Compilation.GetSpecialType(SpecialType.System_IntPtr))
+        ];
+
+        if (delegateClrType.Assembly.IsDynamic &&
+            constructor.DeclaringType is { IsGenericTypeDefinition: true })
+        {
+            try
+            {
+                var projected = TypeBuilder.GetConstructor(delegateClrType, constructor);
+                if (projected is not null)
+                    return projected;
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+
+        return ResolveDelegateConstructorOnType(delegateClrType)
+               ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
+    }
+
+    private ConstructorInfo? ResolveDelegateConstructorOnType(Type delegateClrType)
+    {
+        _delegateConstructorSignature ??=
+        [
+            ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object)),
+            ResolveClrType(Compilation.GetSpecialType(SpecialType.System_IntPtr))
+        ];
+
+        try
+        {
+            var direct = delegateClrType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                types: _delegateConstructorSignature,
+                modifiers: null);
+            if (direct is not null)
+                return direct;
+        }
+        catch (NotSupportedException)
+        {
+            // TypeBuilderInstantiation cannot be queried directly; resolve via definition below.
+        }
+
+        if (delegateClrType.IsGenericType)
+        {
+            var definition = delegateClrType.IsGenericTypeDefinition
+                ? delegateClrType
+                : delegateClrType.GetGenericTypeDefinition();
+
+            var definitionCtor = definition.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                types: _delegateConstructorSignature,
+                modifiers: null);
+
+            if (definitionCtor is not null)
+            {
+                try
+                {
+                    return TypeBuilder.GetConstructor(delegateClrType, definitionCtor);
+                }
+                catch (ArgumentException)
+                {
+                    return null;
+                }
+            }
+        }
+
+        return null;
     }
 
     private DelegateConstructorCacheKey CreateDelegateConstructorCacheKey(ITypeSymbol delegateType, Type delegateClrType)
@@ -786,7 +909,7 @@ internal partial class ExpressionGenerator : Generator
     {
         try
         {
-            return constructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+            return GetConstructorInfo(constructor);
         }
         catch (InvalidOperationException)
         {
@@ -859,9 +982,6 @@ internal partial class ExpressionGenerator : Generator
 
         if (expr.OkCaseType is not null)
         {
-            var okCaseClrType = ResolveClrType(expr.OkCaseType);
-            var okCaseLocal = ILGenerator.DeclareLocal(okCaseClrType);
-
             // --- Begin semantic-symbol-based method lookup for TryGetOk(out OkCaseType) ---
             if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
                 throw new InvalidOperationException("Propagate operand must be a named type.");
@@ -881,6 +1001,14 @@ internal partial class ExpressionGenerator : Generator
             var tryGetOkOkCase = GetMethodInfo(tryGetOkSymbol);
             // --- End semantic-symbol-based method lookup ---
 
+            var okCaseClrType = tryGetOkOkCase.GetParameters() is [{ ParameterType: var okOutType }] &&
+                                okOutType.IsByRef &&
+                                okOutType.GetElementType() is Type okElementType
+                ? CloseTypeFromMethodContext(okElementType, tryGetOkOkCase.DeclaringType)
+                : ResolveClrType(expr.OkCaseType);
+            okCaseClrType = CloseNestedCarrierCaseType(okCaseClrType, tryGetOkOkCase.DeclaringType ?? operandClrType);
+            var okCaseLocal = ILGenerator.DeclareLocal(okCaseClrType);
+
             // if (tmp.TryGetOk(out okCaseLocal)) goto okLabel;
             // Call value-type instance method on the managed address to avoid copies
             // and to keep decompilers from producing unsafe pointer casts.
@@ -897,7 +1025,7 @@ internal partial class ExpressionGenerator : Generator
 
             if (expr.OkValueProperty?.GetMethod is not null)
             {
-                var valueGetter = expr.OkValueProperty.GetMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+                var valueGetter = GetMethodInfo(expr.OkValueProperty.GetMethod);
                 // Ok-case is a value type; call the getter on the managed address to avoid copies
                 // and to prevent decompilers from emitting unsafe pointer casts.
                 ILGenerator.Emit(OpCodes.Ldloca_S, okCaseLocal);
@@ -997,7 +1125,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (enclosingErrorCtor.Parameters.Length == 0)
         {
-            var errorCtorInfo = enclosingErrorCtor.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var errorCtorInfo = GetConstructorInfo(enclosingErrorCtor);
             ILGenerator.Emit(OpCodes.Newobj, errorCtorInfo);
 
             // Updated: Use symbol-based EmitPropagateErrorCaseConversion
@@ -1052,7 +1180,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         // Construct the enclosing Error case.
-        var ctorInfo = enclosingErrorCtor.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var ctorInfo = GetConstructorInfo(enclosingErrorCtor);
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
 
         // Updated: Use symbol-based EmitPropagateErrorCaseConversion
@@ -1497,14 +1625,14 @@ internal partial class ExpressionGenerator : Generator
                 var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
 
                 var ctor2 = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
-                var ctorInfo2 = ctor2.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+                var ctorInfo2 = GetConstructorInfo(ctor2);
 
                 ILGenerator.Emit(OpCodes.Newobj, ctorInfo2);
                 var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
                 ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
                 var addMethod2 = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
-                var addMethodInfo = addMethod2.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+                var addMethodInfo = GetMethodInfo(addMethod2);
 
                 foreach (var element in collectionExpression.Elements)
                 {
@@ -1528,7 +1656,7 @@ internal partial class ExpressionGenerator : Generator
 
                 ILGenerator.Emit(OpCodes.Ldloc, listLocal);
                 var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
-                var toArrayInfo = toArrayMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+                var toArrayInfo = GetMethodInfo(toArrayMethod);
                 ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
 
                 return;
@@ -1538,7 +1666,7 @@ internal partial class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+            var ctorInfo = GetConstructorInfo(ctor);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
             var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(namedType));
@@ -1586,14 +1714,14 @@ internal partial class ExpressionGenerator : Generator
         var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
 
         var ctor = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
-        var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        var ctorInfo = GetConstructorInfo(ctor);
 
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
         ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
         var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
-        var addMethodInfo = addMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var addMethodInfo = GetMethodInfo(addMethod);
 
         foreach (var element in collectionExpression.Elements)
         {
@@ -1617,7 +1745,7 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
         var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
-        var toArrayInfo = toArrayMethod.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var toArrayInfo = GetMethodInfo(toArrayMethod);
         ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
     }
 
@@ -1631,7 +1759,7 @@ internal partial class ExpressionGenerator : Generator
             .GetMembers(nameof(IEnumerable.GetEnumerator))
             .OfType<IMethodSymbol>()
             .First();
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
@@ -1642,7 +1770,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopStart);
         var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
@@ -1652,7 +1780,7 @@ internal partial class ExpressionGenerator : Generator
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentProp));
 
         var clrElement = ResolveClrType(elementType);
         if (elementType.IsValueType)
@@ -1685,7 +1813,7 @@ internal partial class ExpressionGenerator : Generator
             .GetMembers(nameof(IEnumerable.GetEnumerator))
             .OfType<IMethodSymbol>()
             .First();
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
@@ -1696,7 +1824,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopStart);
         var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
@@ -1706,7 +1834,7 @@ internal partial class ExpressionGenerator : Generator
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(currentProp));
 
         var clrElement = ResolveClrType(elementType);
         if (elementType.IsValueType)
@@ -1747,7 +1875,7 @@ internal partial class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+            var ctorInfo = GetConstructorInfo(ctor);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         }
@@ -1955,7 +2083,7 @@ internal partial class ExpressionGenerator : Generator
             }
         }
 
-        var constructorInfo = constructorSymbol.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        var constructorInfo = GetConstructorInfo(constructorSymbol);
 
         if (objectCreationExpression.Receiver is not null)
         {
@@ -4431,7 +4559,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Pop);
         }
 
-        var okConstructorInfo = okConstructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        var okConstructorInfo = GetConstructorInfo(okConstructor);
         ILGenerator.Emit(OpCodes.Newobj, okConstructorInfo);
 
         if (!SymbolEqualityComparer.Default.Equals(okCaseType, resultType))
@@ -4460,7 +4588,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Pop);
         }
 
-        var errorConstructorInfo = errorConstructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        var errorConstructorInfo = GetConstructorInfo(errorConstructor);
         ILGenerator.Emit(OpCodes.Newobj, errorConstructorInfo);
 
         if (!SymbolEqualityComparer.Default.Equals(errorCaseType, resultType))

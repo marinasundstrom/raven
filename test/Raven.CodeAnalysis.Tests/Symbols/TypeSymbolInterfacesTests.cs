@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -18,6 +20,29 @@ public class TypeSymbolInterfacesTests
 
         Assert.Contains(list.AllInterfaces, i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1);
         Assert.NotEmpty(list.Interfaces);
+    }
+
+    [Fact]
+    public void MetadataTypeAndMethodTypeParameters_ReportOwnerKind()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDef = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listTypeParameter = Assert.Single(listDef.TypeParameters);
+
+        Assert.Equal(TypeParameterOwnerKind.Type, listTypeParameter.OwnerKind);
+        Assert.Same(listDef, listTypeParameter.DeclaringTypeParameterOwner);
+        Assert.Null(listTypeParameter.DeclaringMethodParameterOwner);
+
+        var convertAll = listDef.GetMembers("ConvertAll")
+            .OfType<IMethodSymbol>()
+            .Single(method => method.TypeParameters.Length == 1);
+        var methodTypeParameter = Assert.Single(convertAll.TypeParameters);
+
+        Assert.Equal(TypeParameterOwnerKind.Method, methodTypeParameter.OwnerKind);
+        Assert.Same(convertAll, methodTypeParameter.DeclaringMethodParameterOwner);
+        Assert.Null(methodTypeParameter.DeclaringTypeParameterOwner);
     }
 
     [Fact]

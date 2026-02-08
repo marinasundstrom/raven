@@ -230,4 +230,123 @@ class Program {
         Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, wrapperArgument));
     }
 
+    [Fact]
+    public void SourceNestedTypeArgument_SubstitutesInnerConstructedArguments()
+    {
+        const string source = """
+class Box<T> {
+}
+
+class Holder<T> {
+    val value: T
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var boxType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Box`1"));
+        var holderType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Holder`1"));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var boxInt = Assert.IsAssignableFrom<INamedTypeSymbol>(boxType.Construct(intType));
+        var holderOfBoxInt = Assert.IsAssignableFrom<INamedTypeSymbol>(holderType.Construct(boxInt));
+        var valueField = Assert.Single(holderOfBoxInt.GetMembers("value").OfType<IFieldSymbol>());
+
+        var valueType = Assert.IsAssignableFrom<INamedTypeSymbol>(valueField.Type);
+        var nestedArgument = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(valueType.TypeArguments));
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, nestedArgument));
+    }
+
+    [Fact]
+    public void SourceNestedTypeArgument_SymbolEqualityComparerHashCode_DoesNotRecurse()
+    {
+        const string source = """
+class Box<T> {
+}
+
+class Holder<T> {
+    val value: T
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var boxType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Box`1"));
+        var holderType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Holder`1"));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var boxInt = Assert.IsAssignableFrom<INamedTypeSymbol>(boxType.Construct(intType));
+        var holderInt = Assert.IsAssignableFrom<INamedTypeSymbol>(holderType.Construct(boxInt));
+        var valueType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            Assert.Single(holderInt.GetMembers("value").OfType<IFieldSymbol>()).Type);
+
+        var exception = Record.Exception(() =>
+        {
+            for (var i = 0; i < 32; i++)
+                _ = SymbolEqualityComparer.Default.GetHashCode(valueType);
+        });
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void ConstructedNamedType_CombinedWithConstructedMethod_KeepsMethodOwnerTypeParameters()
+    {
+        const string source = """
+class Outer<T> {
+    public class Node<U> {
+        val value: T
+        val other: U
+    }
+}
+
+class Factory {
+    public static Create<T, U>(value: T, other: U) -> Outer<T>.Node<U> {
+        return Outer<T>.Node<U>()
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var factory = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Factory"));
+        var create = Assert.Single(factory.GetMembers("Create").OfType<IMethodSymbol>());
+        var methodTypeParameters = create.TypeParameters;
+
+        Assert.Equal(2, methodTypeParameters.Length);
+        Assert.Equal(TypeParameterOwnerKind.Method, methodTypeParameters[0].OwnerKind);
+        Assert.Equal(TypeParameterOwnerKind.Method, methodTypeParameters[1].OwnerKind);
+
+        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(create.ReturnType);
+        var containingOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(returnType.ContainingType);
+
+        var outerArgument = Assert.Single(containingOuter.TypeArguments);
+        var nodeArgument = Assert.Single(returnType.TypeArguments);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameters[0], outerArgument));
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameters[1], nodeArgument));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var createIntString = Assert.IsAssignableFrom<IMethodSymbol>(create.Construct(intType, stringType));
+        var constructedReturnType = Assert.IsAssignableFrom<INamedTypeSymbol>(createIntString.ReturnType);
+        var constructedOuterType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedReturnType.ContainingType);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(constructedOuterType.TypeArguments)));
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, Assert.Single(constructedReturnType.TypeArguments)));
+    }
 }

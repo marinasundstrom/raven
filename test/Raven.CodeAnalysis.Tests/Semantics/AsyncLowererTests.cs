@@ -267,6 +267,100 @@ async func Fetch(url: string) -> Task<string> {
     }
 
     [Fact]
+    public void Rewrite_GenericAsyncMethod_ConstructedStateMachineBuilderField_UsesStateMachineOwnedTypeParameter()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Compute<T>(value: T) -> Task<T> {
+        await Task.Delay(1)
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        var rewritten = AsyncLowerer.RewriteMethod(methodSymbol, boundBody);
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(rewritten.StateMachine);
+
+        var constructedStateMachine = stateMachine.GetConstructedStateMachine(methodSymbol);
+        Assert.False(ReferenceEquals(stateMachine, constructedStateMachine));
+        var constructedStateArg = Assert.Single(constructedStateMachine.TypeArguments);
+        var constructedStateArgTypeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(constructedStateArg);
+        Assert.Equal(TypeParameterOwnerKind.Method, constructedStateArgTypeParameter.OwnerKind);
+        var builderField = constructedStateMachine.GetMembers("_builder").OfType<IFieldSymbol>().Single();
+
+        var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(builderField.Type);
+        var builderTypeArgument = Assert.Single(builderType.TypeArguments);
+        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(builderTypeArgument);
+
+        Assert.Equal(TypeParameterOwnerKind.Type, typeParameter.OwnerKind);
+        Assert.NotNull(typeParameter.DeclaringTypeParameterOwner);
+    }
+
+    [Fact]
+    public void Rewrite_GenericAsyncMethod_AsyncBuilderMembers_UseMethodOwnedTypeParameter()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Compute<T>(value: T) -> Task<T> {
+        await Task.Delay(1)
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        var rewritten = AsyncLowerer.RewriteMethod(methodSymbol, boundBody);
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(rewritten.StateMachine);
+
+        var members = stateMachine.GetConstructedMembers(methodSymbol);
+        var createMethod = members.AsyncMethodBuilderMembers.Create;
+        Assert.NotNull(createMethod);
+        var taskProperty = members.AsyncMethodBuilderMembers.TaskProperty;
+        Assert.NotNull(taskProperty);
+
+        var createReturnType = Assert.IsAssignableFrom<INamedTypeSymbol>(createMethod.ReturnType);
+        var createReturnArgument = Assert.Single(createReturnType.TypeArguments);
+        var createReturnTypeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(createReturnArgument);
+
+        Assert.Equal(TypeParameterOwnerKind.Method, createReturnTypeParameter.OwnerKind);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol, createReturnTypeParameter.DeclaringMethodParameterOwner));
+
+        var taskType = Assert.IsAssignableFrom<INamedTypeSymbol>(taskProperty.Type);
+        var taskTypeArgument = Assert.Single(taskType.TypeArguments);
+        var taskTypeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(taskTypeArgument);
+
+        Assert.Equal(TypeParameterOwnerKind.Method, taskTypeParameter.OwnerKind);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol, taskTypeParameter.DeclaringMethodParameterOwner));
+    }
+
+    [Fact]
     public void Analyze_TopLevelAsyncFunctionWithAwaitAndUnionMatch_FindsAwait()
     {
         const string source = """
@@ -1148,26 +1242,28 @@ class C {
         var stateMachineTypeParameter = Assert.Single(stateMachine.TypeParameters);
 
         var constructedType = constructed.StateMachineType;
-        Assert.Same(stateMachine, constructedType);
+        var constructedStateMachine = Assert.IsType<ConstructedNamedTypeSymbol>(constructedType);
+        Assert.Same(stateMachine, constructedStateMachine.ConstructedFrom);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, Assert.Single(constructedStateMachine.TypeArguments)));
 
         var builderField = constructed.BuilderField;
-        Assert.Same(stateMachine.BuilderField, builderField);
+        Assert.NotSame(stateMachine.BuilderField, builderField);
         Assert.Same(builderField, constructed.StateMachineBuilderMembers.BuilderField);
 
         var builderType = Assert.IsAssignableFrom<INamedTypeSymbol>(builderField.Type);
-        Assert.True(SymbolEqualityComparer.Default.Equals(stateMachineTypeParameter, builderType.TypeArguments[0]));
-        Assert.False(SymbolEqualityComparer.Default.Equals(methodTypeParameter, builderType.TypeArguments[0]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, builderType.TypeArguments[0]));
+        Assert.False(SymbolEqualityComparer.Default.Equals(stateMachineTypeParameter, builderType.TypeArguments[0]));
 
         var parameter = Assert.Single(methodSymbol.Parameters);
         Assert.True(constructed.ParameterFields.TryGetValue(parameter, out var parameterField));
         Assert.NotNull(parameterField);
 
-        Assert.Same(stateMachine.ParameterFieldMap[parameter], parameterField);
-        Assert.True(SymbolEqualityComparer.Default.Equals(stateMachineTypeParameter, parameterField!.Type));
-        Assert.False(SymbolEqualityComparer.Default.Equals(methodTypeParameter, parameterField.Type));
+        Assert.NotSame(stateMachine.ParameterFieldMap[parameter], parameterField);
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodTypeParameter, parameterField!.Type));
+        Assert.False(SymbolEqualityComparer.Default.Equals(stateMachineTypeParameter, parameterField.Type));
 
-        Assert.Same(stateMachine.Constructor, constructed.Constructor);
-        Assert.Same(stateMachine.MoveNextMethod, constructed.MoveNext);
+        Assert.NotSame(stateMachine.Constructor, constructed.Constructor);
+        Assert.NotSame(stateMachine.MoveNextMethod, constructed.MoveNext);
     }
 
     [Fact]
@@ -1258,6 +1354,14 @@ class C {
         var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
         var methodParameter = Assert.Single(methodSymbol.TypeParameters);
         var stateMachineParameter = Assert.Single(stateMachine.TypeParameters);
+
+        Assert.Equal(TypeParameterOwnerKind.Method, methodParameter.OwnerKind);
+        Assert.Same(methodSymbol, methodParameter.DeclaringMethodParameterOwner);
+        Assert.Null(methodParameter.DeclaringTypeParameterOwner);
+
+        Assert.Equal(TypeParameterOwnerKind.Type, stateMachineParameter.OwnerKind);
+        Assert.Same(stateMachine, stateMachineParameter.DeclaringTypeParameterOwner);
+        Assert.Null(stateMachineParameter.DeclaringMethodParameterOwner);
 
         var mapping = Assert.Single(stateMachine.TypeParameterMappings);
         Assert.Same(methodParameter, mapping.AsyncParameter);

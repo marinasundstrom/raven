@@ -57,22 +57,22 @@ for dll in "${dlls[@]}"; do
   fi
 
   echo "Running: dotnet \"$dll\""
-  if ! dotnet "$dll"; then
+  if dotnet "$dll"; then
+    echo "✅ Success: $filename"
+    successes+=("$filename")
+  else
     rc=$?
     echo "❌ Failed ($rc): $filename"
     failures+=("$filename (exit $rc)")
-  else
-    echo "✅ Success: $filename"
-    successes+=("$filename")
   fi
   echo
 done
 
 echo "===== Summary ====="
 echo "Succeeded: ${#successes[@]}"
-for s in "${successes[@]}"; do echo "  - $s"; done
+for s in "${successes[@]-}"; do echo "  - $s"; done
 echo "Failed:    ${#failures[@]}"
-for f in "${failures[@]}"; do echo "  - $f"; done
+for f in "${failures[@]-}"; do echo "  - $f"; done
 
 # Exit non-zero if any failed; still ran all of them.
 (( ${#failures[@]} > 0 )) && exit 1 || exit 0
