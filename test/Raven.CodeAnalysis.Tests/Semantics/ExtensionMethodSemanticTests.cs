@@ -1433,6 +1433,38 @@ let result = 5 |> Inc(2)
     }
 
     [Fact]
+    public void PipeOperator_WithSourceExtensionDeclaration_ImplicitInvocation_BindsInvocation()
+    {
+        const string source = """
+extension IntExt for int {
+    public Inc() -> int {
+        return self + 1
+    }
+}
+
+let result = 5 |> Inc
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV0103" && d.GetMessage().Contains("'Inc'"));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.True(boundPipeline.Method.IsExtensionMethod);
+        Assert.NotNull(boundPipeline.ExtensionReceiver);
+        Assert.Empty(boundPipeline.Arguments);
+        Assert.Equal("Inc", boundPipeline.Method.Name);
+    }
+
+    [Fact]
     public void PipeOperator_WithStaticMethod_PrependsArgument()
     {
         const string source = """
@@ -1466,6 +1498,89 @@ public static class MathHelpers {
         Assert.Equal(2, arguments.Length);
         Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
         Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithStaticMethod_ImplicitInvocation_PrependsArgument()
+    {
+        const string source = """
+let start = 3
+let result = start |> MathHelpers.Increment
+
+public static class MathHelpers {
+    public static Increment(x: int) -> int {
+        return x + 1
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV0103" && d.GetMessage().Contains("'Increment'"));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Increment", boundPipeline.Method.Name);
+        Assert.Single(boundPipeline.Arguments);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithOptionalParameter_SupportsImplicitAndExplicitInvocationForms()
+    {
+        const string source = """
+func Inc(x: int, n: int = 1) -> int {
+    return x + n
+}
+
+val a = 5 |> Inc
+val b = 5 |> Inc()
+val c = 5 |> Inc(2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV0103" && d.GetMessage().Contains("'Inc'"));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipelines = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Where(node => node.OperatorToken.Kind == SyntaxKind.PipeToken)
+            .ToArray();
+
+        Assert.Equal(3, pipelines.Length);
+
+        var boundA = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipelines[0]));
+        var boundB = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipelines[1]));
+        var boundC = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipelines[2]));
+
+        Assert.Equal("Inc", boundA.Method.Name);
+        Assert.Equal("Inc", boundB.Method.Name);
+        Assert.Equal("Inc", boundC.Method.Name);
+
+        Assert.Equal(2, boundA.Arguments.Length);
+        Assert.Equal(2, boundB.Arguments.Length);
+        Assert.Equal(2, boundC.Arguments.Length);
+
+        var defaultArgA = Assert.IsType<BoundLiteralExpression>(boundA.Arguments[1]);
+        var defaultArgB = Assert.IsType<BoundLiteralExpression>(boundB.Arguments[1]);
+        var explicitArgC = Assert.IsType<BoundLiteralExpression>(boundC.Arguments[1]);
+
+        Assert.Equal(1, defaultArgA.Value);
+        Assert.Equal(1, defaultArgB.Value);
+        Assert.Equal(2, explicitArgC.Value);
     }
 
     [Fact]

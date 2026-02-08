@@ -1387,7 +1387,26 @@ public static class MathHelpers {
 }
 ```
 
-The pipe operator accepts either an invocation or a property access with a setter on the right-hand side. If the syntax does not form either shape, diagnostic `RAV2800` is issued.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2690-L2766】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L19-L23】
+Pipe chains also allow an implicit invocation form for method targets with no
+explicit argument list. In that form, `value |> Method` is treated as
+`value |> Method()`:
+
+```raven
+func Inc(x: int, n: int = 1) -> int {
+    return x + n
+}
+
+val a = 5 |> Inc
+val b = 5 |> Inc()
+val c = 5 |> Inc(2)
+```
+
+All three bindings above call `Inc`; `a` and `b` use the default value for `n`,
+while `c` supplies `n` explicitly.
+
+The pipe operator accepts an invocation target (explicit or implicit) or a
+property access with a setter on the right-hand side. If the syntax does not
+form either shape, diagnostic `RAV2800` is issued.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2690-L2766】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L19-L23】
 
 If the pipeline targets a property, Raven assigns the left expression to that property through its setter before producing the property's type as the result of the pipe expression. Both instance and static properties are supported:
 

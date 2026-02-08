@@ -4793,10 +4793,13 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        var propertyTarget = BindPipelineTargetExpression(syntax.Right);
+        var propertyTarget = BindPipelineInvocationTargetExpression(syntax.Right, left);
 
         if (propertyTarget is BoundErrorExpression propertyError)
             return propertyError;
+
+        if (TryBindPipelineImplicitInvocation(propertyTarget, syntax.Left, left, syntax.Right, out var implicitInvocation))
+            return implicitInvocation;
 
         if (propertyTarget is BoundMemberAccessExpression { Member: IPropertySymbol } or BoundPropertyAccess)
             return BindPipelinePropertyAssignment(propertyTarget, syntax.Left, left, syntax.Right);
@@ -4810,39 +4813,39 @@ partial class BlockBinder : Binder
         switch (expression)
         {
             case IdentifierNameSyntax identifier:
-            {
-                var methodName = identifier.Identifier.ValueText;
-                var hasRegularSymbols = LookupSymbol(methodName) is not null || LookupSymbols(methodName).Any();
-                var hasExtensionCandidates = TryBindPipelineExtensionMethodGroup(methodName, pipelineValue, identifier.Identifier.GetLocation(), out var extensionGroup);
-
-                if (!hasRegularSymbols)
-                    return hasExtensionCandidates
-                        ? extensionGroup!
-                        : BindIdentifierName(identifier);
-
-                var regularTarget = BindIdentifierName(identifier);
-                if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
-                    return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
-
-                return regularTarget;
-            }
-            case GenericNameSyntax generic:
-            {
-                var methodName = generic.Identifier.ValueText;
-                var hasRegularSymbols = LookupSymbols(methodName).Any();
-                var hasExtensionCandidates = TryBindPipelineExtensionMethodGroup(methodName, pipelineValue, generic.Identifier.GetLocation(), out var extensionGroup);
-
-                if (!hasRegularSymbols && hasExtensionCandidates)
-                    return extensionGroup!;
-
-                var regularTarget = BindGenericInvocationTarget(generic);
-                if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
                 {
-                    return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
-                }
+                    var methodName = identifier.Identifier.ValueText;
+                    var hasRegularSymbols = LookupSymbol(methodName) is not null || LookupSymbols(methodName).Any();
+                    var hasExtensionCandidates = TryBindPipelineExtensionMethodGroup(methodName, pipelineValue, identifier.Identifier.GetLocation(), out var extensionGroup);
 
-                return regularTarget;
-            }
+                    if (!hasRegularSymbols)
+                        return hasExtensionCandidates
+                            ? extensionGroup!
+                            : BindIdentifierName(identifier);
+
+                    var regularTarget = BindIdentifierName(identifier);
+                    if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
+                        return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
+
+                    return regularTarget;
+                }
+            case GenericNameSyntax generic:
+                {
+                    var methodName = generic.Identifier.ValueText;
+                    var hasRegularSymbols = LookupSymbols(methodName).Any();
+                    var hasExtensionCandidates = TryBindPipelineExtensionMethodGroup(methodName, pipelineValue, generic.Identifier.GetLocation(), out var extensionGroup);
+
+                    if (!hasRegularSymbols && hasExtensionCandidates)
+                        return extensionGroup!;
+
+                    var regularTarget = BindGenericInvocationTarget(generic);
+                    if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
+                    {
+                        return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
+                    }
+
+                    return regularTarget;
+                }
             default:
                 return BindPipelineTargetExpression(expression);
         }
@@ -4986,7 +4989,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindPipelineInvocationOnMethodGroup(
         BoundMethodGroupExpression methodGroup,
-        InvocationExpressionSyntax invocation,
+        SyntaxNode callSyntax,
         ExpressionSyntax pipelineSyntax,
         BoundExpression pipelineValue,
         BoundArgument[] boundArguments)
@@ -5001,7 +5004,7 @@ partial class BlockBinder : Binder
 
         if (!extensionCandidates.IsDefaultOrEmpty && IsExtensionReceiver(pipelineValue))
         {
-            var resolution = OverloadResolver.ResolveOverload(extensionCandidates, boundArguments, Compilation, pipelineValue, EnsureLambdaCompatible, invocation);
+            var resolution = OverloadResolver.ResolveOverload(extensionCandidates, boundArguments, Compilation, pipelineValue, EnsureLambdaCompatible, callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -5016,7 +5019,7 @@ partial class BlockBinder : Binder
 
             if (resolution.IsAmbiguous)
             {
-                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, callSyntax.GetLocation());
                 return ErrorExpression(
                     reason: BoundExpressionReason.Ambiguous,
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
@@ -5029,42 +5032,42 @@ partial class BlockBinder : Binder
             totalArguments[0] = new BoundArgument(pipelineValue, RefKind.None, name: null, pipelineSyntax);
             Array.Copy(boundArguments, 0, totalArguments, 1, boundArguments.Length);
 
-            var resolution = OverloadResolver.ResolveOverload(staticCandidates, totalArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: invocation);
+            var resolution = OverloadResolver.ResolveOverload(staticCandidates, totalArguments, Compilation, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
-                var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, invocation);
+                var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArguments, methodGroup.Receiver);
             }
 
             if (resolution.IsAmbiguous)
             {
-                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, callSyntax.GetLocation());
                 return ErrorExpression(
                     reason: BoundExpressionReason.Ambiguous,
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
             ReportSuppressedLambdaDiagnostics(totalArguments);
-            _diagnostics.ReportNoOverloadForMethod("method", methodName, totalArguments.Length, invocation.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", methodName, totalArguments.Length, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
         ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
-        _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length + 1, invocation.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length + 1, callSyntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
     }
 
     private BoundExpression BindPipelineInvocationOnBoundMethod(
         BoundMemberAccessExpression memberExpr,
-        InvocationExpressionSyntax invocation,
+        SyntaxNode callSyntax,
         ExpressionSyntax pipelineSyntax,
         BoundExpression pipelineValue,
         BoundArgument[] boundArguments)
     {
         if (memberExpr.Member is not IMethodSymbol method)
         {
-            _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
+            _diagnostics.ReportInvalidInvocation(callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
@@ -5081,7 +5084,7 @@ partial class BlockBinder : Binder
 
         if (!method.IsStatic)
         {
-            _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
+            _diagnostics.ReportInvalidInvocation(callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
@@ -5089,17 +5092,17 @@ partial class BlockBinder : Binder
         if (!SupportsArgumentCount(method.Parameters, totalCount))
         {
             ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
-            _diagnostics.ReportNoOverloadForMethod("method", method.Name, totalCount, invocation.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", method.Name, totalCount, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, invocation);
+        var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, callSyntax);
         return new BoundInvocationExpression(method, convertedArguments, memberExpr.Receiver);
     }
 
     private BoundExpression? BindPipelineInvocationOnDelegate(
         BoundExpression target,
-        InvocationExpressionSyntax invocation,
+        SyntaxNode callSyntax,
         ExpressionSyntax pipelineSyntax,
         BoundExpression pipelineValue,
         BoundArgument[] boundArguments)
@@ -5113,22 +5116,22 @@ partial class BlockBinder : Binder
         var invokeMethod = delegateType.GetDelegateInvokeMethod();
         if (invokeMethod is null)
         {
-            _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
+            _diagnostics.ReportInvalidInvocation(callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        if (!EnsureMemberAccessible(invokeMethod, invocation.Expression.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
+        if (!EnsureMemberAccessible(invokeMethod, callSyntax.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
         var totalCount = boundArguments.Length + 1;
         if (!SupportsArgumentCount(invokeMethod.Parameters, totalCount))
         {
             ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
-            _diagnostics.ReportNoOverloadForMethod("method", invokeMethod.Name, totalCount, invocation.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod("method", invokeMethod.Name, totalCount, callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        var convertedArguments = ConvertPipelineStaticInvocationArguments(invokeMethod, pipelineValue, pipelineSyntax, boundArguments, invocation);
+        var convertedArguments = ConvertPipelineStaticInvocationArguments(invokeMethod, pipelineValue, pipelineSyntax, boundArguments, callSyntax);
         return new BoundInvocationExpression(invokeMethod, convertedArguments, target);
     }
 
@@ -5137,7 +5140,7 @@ partial class BlockBinder : Binder
         BoundExpression pipelineValue,
         ExpressionSyntax pipelineSyntax,
         BoundArgument[] remainingArguments,
-        InvocationExpressionSyntax invocation)
+        SyntaxNode callSyntax)
     {
         var parameters = method.Parameters;
         var converted = new BoundExpression[parameters.Length];
@@ -5156,6 +5159,38 @@ partial class BlockBinder : Binder
             converted[i] = CreateOptionalArgument(parameters[i]);
 
         return converted;
+    }
+
+    private bool TryBindPipelineImplicitInvocation(
+        BoundExpression target,
+        ExpressionSyntax pipelineSyntax,
+        BoundExpression pipelineValue,
+        ExpressionSyntax targetSyntax,
+        out BoundExpression result)
+    {
+        var emptyArguments = Array.Empty<BoundArgument>();
+
+        if (target is BoundMethodGroupExpression methodGroup)
+        {
+            result = BindPipelineInvocationOnMethodGroup(methodGroup, targetSyntax, pipelineSyntax, pipelineValue, emptyArguments);
+            return true;
+        }
+
+        if (target is BoundMemberAccessExpression { Member: IMethodSymbol } memberExpr)
+        {
+            result = BindPipelineInvocationOnBoundMethod(memberExpr, targetSyntax, pipelineSyntax, pipelineValue, emptyArguments);
+            return true;
+        }
+
+        var delegateInvocation = BindPipelineInvocationOnDelegate(target, targetSyntax, pipelineSyntax, pipelineValue, emptyArguments);
+        if (delegateInvocation is not null)
+        {
+            result = delegateInvocation;
+            return true;
+        }
+
+        result = null!;
+        return false;
     }
 
     private static IEnumerable<BoundArgument> PrependPipelineArgument(
