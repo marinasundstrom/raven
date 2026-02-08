@@ -2668,6 +2668,10 @@ distinct from by-reference types but interoperate with address-of
 expressions: taking the address of a local or field produces an address
 handle that implicitly converts to the matching pointer type.
 
+Pointer declarations and pointer-type usage require unsafe mode. Enable
+unsafe mode with the compiler's `--unsafe` option; otherwise pointer type
+syntax is rejected.
+
 ```raven
 val value = 42
 val pointer: *int = &value

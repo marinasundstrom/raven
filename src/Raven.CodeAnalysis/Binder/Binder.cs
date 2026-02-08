@@ -1148,6 +1148,12 @@ internal abstract partial class Binder
 
         if (typeSyntax is PointerTypeSyntax pointer)
         {
+            if (!Compilation.Options.AllowUnsafe)
+            {
+                _diagnostics.ReportPointerTypeRequiresUnsafe(pointer.ToString(), pointer.GetLocation());
+                return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
+            }
+
             var elementType = ResolveTypeInternal(pointer.ElementType, refKindHint: null);
             var pointerType = Compilation.CreatePointerTypeSymbol(elementType);
             return ApplyRefKindHint(pointerType, refKindHint);

@@ -11,6 +11,9 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PointerTypeSemanticTests : CompilationTestBase
 {
+    protected override CompilationOptions GetCompilationOptions()
+        => base.GetCompilationOptions().WithAllowUnsafe(true);
+
     [Fact]
     public void PointerTypeSyntax_BindsToPointerTypeSymbol()
     {
@@ -145,5 +148,21 @@ class Data {
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
         var byRef = Assert.IsType<ByRefTypeSymbol>(local.Type);
         Assert.Equal(SpecialType.System_Int32, byRef.ElementType.SpecialType);
+    }
+
+    [Fact]
+    public void PointerTypeSyntax_WithoutUnsafe_ReportsDiagnostic()
+    {
+        const string source = """
+let value = 0
+let pointer: *int = &value
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error),
+            d => d.Id == CompilerDiagnostics.PointerTypeRequiresUnsafe.Id);
     }
 }

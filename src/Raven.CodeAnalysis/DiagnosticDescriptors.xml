@@ -535,6 +535,10 @@
     Title="By-reference return cannot reference value parameter storage"
     Message="Cannot return a by-reference value that points to value parameter '{parameterName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1911" Identifier="PointerTypeRequiresUnsafe"
+    Title="Pointer types require unsafe mode"
+    Message="Pointer type '{typeSyntax}' requires unsafe mode. Enable '--unsafe' to allow pointer declarations and usage."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
     Message="Non-invocable member '{memberName}' cannot be used like a method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

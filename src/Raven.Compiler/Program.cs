@@ -24,6 +24,7 @@ var stopwatch = Stopwatch.StartNew();
 // --raven-core <path> - path to a prebuilt Raven.Core.dll (skips embedded core types)
 // --emit-core-types-only - embed the Raven.Core shims instead of referencing Raven.Core.dll
 // --output-type <console|classlib> - output kind
+// --unsafe           - enable unsafe mode (required for pointer declarations/usages)
 // -o <path>         - output assembly path
 // -s [flat|group]   - display the syntax tree (single file only)
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
@@ -50,6 +51,7 @@ string? ravenCorePath = null;
 var ravenCoreExplicitlyProvided = false;
 var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
+var allowUnsafe = false;
 
 var printSyntaxTree = false;
 var printSyntaxTreeInternal = false;
@@ -275,6 +277,9 @@ for (int i = 0; i < args.Length; i++)
             else
                 outputKind = kind;
             break;
+        case "--unsafe":
+            allowUnsafe = true;
+            break;
         case "--framework":
             if (i + 1 < args.Length)
                 targetFrameworkTfm = args[++i];
@@ -438,6 +443,7 @@ var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramewo
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 
 var options = new CompilationOptions(outputKind);
+options = options.WithAllowUnsafe(allowUnsafe);
 if (enableAsyncInvestigation)
     options = options.WithAsyncInvestigation(
         AsyncInvestigationOptions.Enable(asyncInvestigationLabel, asyncInvestigationScope));
@@ -922,6 +928,7 @@ static void PrintHelp()
     Console.WriteLine("  --emit-docs       Emit documentation from comments");
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
+    Console.WriteLine("  --unsafe         Enable unsafe mode (required for pointer declarations/usages)");
     Console.WriteLine("  -o <path>          Output assembly path");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");

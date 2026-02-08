@@ -41,6 +41,7 @@ internal static class ProjectFile
         if (project.CompilationOptions is { } opts)
         {
             projectElement.Add(new XAttribute("OutputKind", opts.OutputKind));
+            projectElement.Add(new XAttribute("AllowUnsafe", opts.AllowUnsafe));
         }
 
         foreach (var projRef in project.ProjectReferences)
@@ -65,11 +66,15 @@ internal static class ProjectFile
         var targetFramework = (string?)root.Attribute("TargetFramework");
         var output = (string?)root.Attribute("Output");
         var outputKindAttr = (string?)root.Attribute("OutputKind");
+        var allowUnsafeAttr = (string?)root.Attribute("AllowUnsafe");
         CompilationOptions? options = null;
         if (outputKindAttr is string ok && Enum.TryParse<OutputKind>(ok, out var kind))
             options = new CompilationOptions(kind);
         else
             options = new CompilationOptions(OutputKind.ConsoleApplication);
+
+        if (allowUnsafeAttr is string au && bool.TryParse(au, out var allowUnsafe))
+            options = options.WithAllowUnsafe(allowUnsafe);
         var tempSolutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(tempSolutionId);
         var projectDir = Path.GetDirectoryName(filePath)!;

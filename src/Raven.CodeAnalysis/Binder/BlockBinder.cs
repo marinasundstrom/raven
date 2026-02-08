@@ -3751,6 +3751,12 @@ partial class BlockBinder : Binder
 
         if (syntax is PointerTypeSyntax pointerTypeSyntax)
         {
+            if (!Compilation.Options.AllowUnsafe)
+            {
+                _diagnostics.ReportPointerTypeRequiresUnsafe(pointerTypeSyntax.ToString(), pointerTypeSyntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            }
+
             if (BindTypeSyntax(pointerTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
