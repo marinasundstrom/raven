@@ -218,6 +218,11 @@ internal partial class TypeMemberBinder : Binder
 
     public void BindFieldDeclaration(FieldDeclarationSyntax fieldDecl)
     {
+        var firstDeclaratorName = fieldDecl.Declaration.Declarators.Count > 0
+            ? fieldDecl.Declaration.Declarators[0].Identifier.ValueText
+            : "<field>";
+        ReportPartialModifierNotSupported(fieldDecl.Modifiers, "field", firstDeclaratorName);
+
         var bindingKeyword = fieldDecl.Declaration.BindingKeyword;
         var isConstDeclaration = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
         var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
@@ -340,6 +345,7 @@ internal partial class TypeMemberBinder : Binder
         var explicitInterfaceSpecifier = methodDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(methodDecl.Identifier, explicitInterfaceSpecifier);
         var name = identifierToken.Kind == SyntaxKind.SelfKeyword ? "Invoke" : identifierToken.ValueText;
+        ReportPartialModifierNotSupported(methodDecl.Modifiers, "method", name);
         INamedTypeSymbol? explicitInterfaceType = null;
         IMethodSymbol? explicitInterfaceMember = null;
 
@@ -791,6 +797,7 @@ internal partial class TypeMemberBinder : Binder
     public MethodBinder BindOperatorDeclaration(OperatorDeclarationSyntax operatorDecl)
     {
         var operatorText = OperatorFacts.GetDisplayText(operatorDecl.OperatorToken.Kind);
+        ReportPartialModifierNotSupported(operatorDecl.Modifiers, "operator", operatorText);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var operatorAccessibility = AccessibilityUtilities.DetermineAccessibility(operatorDecl.Modifiers, defaultAccessibility);
         var hasStaticModifier = operatorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
@@ -929,6 +936,7 @@ internal partial class TypeMemberBinder : Binder
     public MethodBinder BindConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax conversionDecl)
     {
         var operatorText = OperatorFacts.GetConversionOperatorDisplayText(conversionDecl.ConversionKindKeyword.Kind);
+        ReportPartialModifierNotSupported(conversionDecl.Modifiers, "operator", operatorText);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var operatorAccessibility = AccessibilityUtilities.DetermineAccessibility(conversionDecl.Modifiers, defaultAccessibility);
         var hasStaticModifier = conversionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
@@ -1163,6 +1171,7 @@ internal partial class TypeMemberBinder : Binder
 
     public MethodBinder BindConstructorDeclaration(ConstructorDeclarationSyntax ctorDecl)
     {
+        ReportPartialModifierNotSupported(ctorDecl.Modifiers, "constructor", _containingType.Name);
         var isStatic = ctorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var ctorAccessibility = AccessibilityUtilities.DetermineAccessibility(ctorDecl.Modifiers, defaultAccessibility);
@@ -1284,6 +1293,7 @@ internal partial class TypeMemberBinder : Binder
 
     public MethodBinder BindNamedConstructorDeclaration(NamedConstructorDeclarationSyntax ctorDecl)
     {
+        ReportPartialModifierNotSupported(ctorDecl.Modifiers, "constructor", ctorDecl.Identifier.ValueText);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var ctorAccessibility = AccessibilityUtilities.DetermineAccessibility(ctorDecl.Modifiers, defaultAccessibility);
 
@@ -1379,6 +1389,7 @@ internal partial class TypeMemberBinder : Binder
 
     public DelegateDeclarationBinder BindDelegateDeclaration(DelegateDeclarationSyntax delegateDecl)
     {
+        ReportPartialModifierNotSupported(delegateDecl.Modifiers, "delegate", delegateDecl.Identifier.ValueText);
         var declared = BindDelegateSymbol(delegateDecl);
         var delegateSymbol = declared as SourceNamedTypeSymbol;
 
@@ -1576,6 +1587,7 @@ internal partial class TypeMemberBinder : Binder
 
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindEventDeclaration(EventDeclarationSyntax eventDecl)
     {
+        ReportPartialModifierNotSupported(eventDecl.Modifiers, "event", eventDecl.Identifier.ValueText);
         var eventType = ResolveType(eventDecl.Type.Type);
         var modifiers = eventDecl.Modifiers;
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
@@ -2080,6 +2092,7 @@ internal partial class TypeMemberBinder : Binder
 
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)
     {
+        ReportPartialModifierNotSupported(indexerDecl.Modifiers, "indexer", "Item");
         var propertyType = ResolveType(indexerDecl.Type.Type);
         var modifiers = indexerDecl.Modifiers;
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
@@ -2918,6 +2931,20 @@ internal partial class TypeMemberBinder : Binder
             _containingType.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat),
             memberName,
             location);
+    }
+
+    private void ReportPartialModifierNotSupported(
+        SyntaxTokenList modifiers,
+        string memberKind,
+        string memberName)
+    {
+        foreach (var modifier in modifiers)
+        {
+            if (!modifier.IsKind(SyntaxKind.PartialKeyword))
+                continue;
+
+            _diagnostics.ReportModifierNotValidOnMember("partial", memberKind, memberName, modifier.GetLocation());
+        }
     }
 
     private void ValidateInheritanceModifiers(

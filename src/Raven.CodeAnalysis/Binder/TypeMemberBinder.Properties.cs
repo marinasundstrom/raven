@@ -13,6 +13,8 @@ internal partial class TypeMemberBinder : Binder
 {
     public Dictionary<SyntaxNode, Binder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
     {
+        ReportPartialModifierNotSupported(propertyDecl.Modifiers, "property", propertyDecl.Identifier.ValueText);
+
         // NOTE: For extension properties, the container type parameters (e.g. <T, E>) are lowered onto the
         // accessor methods as *method-owned* type parameters. We must bind the declared property type (e.g. Option<T>)
         // against that lowered identity, otherwise the property type will leak Option<T> at use sites.

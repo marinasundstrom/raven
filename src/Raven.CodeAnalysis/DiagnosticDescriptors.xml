@@ -189,6 +189,10 @@
     Title="Member hides inherited member"
     Message="Member '{memberName}' hides inherited member '{hiddenMemberName}'. Add the 'new' modifier if hiding was intended."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0332" Identifier="ModifierNotValidOnMember"
+    Title="Modifier not valid on member"
+    Message="Modifier '{modifier}' is not valid on {memberKind} '{memberName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0608" Identifier="AbstractMemberCannotHaveBody"
     Title="Abstract member cannot have a body"
     Message="'{memberName}' cannot declare a body because it is marked abstract"
