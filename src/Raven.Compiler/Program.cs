@@ -37,6 +37,7 @@ var stopwatch = Stopwatch.StartNew();
 // --doc-format [md|xml] - documentation format (comment emission only)
 // --no-emit         - skip emitting the output assembly
 // --fix             - apply supported code fixes before diagnostics/emission
+// --format          - normalize whitespace and indentation in source files
 // --highlight       - display diagnostics with highlighted source
 // --suggestions     - display instructional rewrite suggestions for diagnostics that provide them
 // -h, --help        - display help
@@ -68,6 +69,7 @@ var parseSequenceThrottleMilliseconds = 0;
 var showHelp = false;
 var noEmit = false;
 var fix = false;
+var format = false;
 var hasInvalidOption = false;
 var highlightDiagnostics = false;
 var showSuggestions = false;
@@ -170,6 +172,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--fix":
             fix = true;
+            break;
+        case "--format":
+            format = true;
             break;
         case "--highlight":
             highlightDiagnostics = true;
@@ -537,6 +542,32 @@ project = project.AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExt
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
 
+int WriteProjectDocumentsToDisk()
+{
+    var updatedDocumentCount = 0;
+
+    foreach (var document in project.Documents)
+    {
+        if (string.IsNullOrWhiteSpace(document.FilePath))
+            continue;
+
+        var text = document.GetTextAsync().GetAwaiter().GetResult();
+        var newText = text.ToString();
+        var existingText = File.Exists(document.FilePath) ? File.ReadAllText(document.FilePath) : null;
+        if (string.Equals(existingText, newText, StringComparison.Ordinal))
+            continue;
+
+        var encoding = text.Encoding ?? Encoding.UTF8;
+        if (encoding is UTF8Encoding)
+            encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
+        File.WriteAllText(document.FilePath, newText, encoding);
+        updatedDocumentCount++;
+    }
+
+    return updatedDocumentCount;
+}
+
 if (fix)
 {
     var applyResult = workspace.ApplyCodeFixes(
@@ -565,25 +596,47 @@ if (fix)
             AnsiConsole.MarkupLine($"[grey]{escapedPath}({line},{column}):[/] [blue]{diagnosticId}[/] {appliedFix.Action.Title}");
         }
 
-        foreach (var document in project.Documents)
-        {
-            if (string.IsNullOrWhiteSpace(document.FilePath))
-                continue;
-
-            var text = document.GetTextAsync().GetAwaiter().GetResult();
-            var newText = text.ToString();
-            var existingText = File.Exists(document.FilePath) ? File.ReadAllText(document.FilePath) : null;
-            if (string.Equals(existingText, newText, StringComparison.Ordinal))
-                continue;
-
-            var encoding = text.Encoding ?? Encoding.UTF8;
-            if (encoding is UTF8Encoding)
-                encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-
-            File.WriteAllText(document.FilePath, newText, encoding);
-        }
+        WriteProjectDocumentsToDisk();
 
         AnsiConsole.MarkupLine($"[green]Applied {applyResult.AppliedFixCount} code fix(es).[/]");
+    }
+}
+
+if (format)
+{
+    var formattedDocumentCount = 0;
+    var formattedSolution = project.Solution;
+
+    foreach (var document in project.Documents)
+    {
+        var currentDocument = formattedSolution.GetDocument(document.Id);
+        if (currentDocument is null)
+            continue;
+
+        var syntaxTree = currentDocument.GetSyntaxTreeAsync().GetAwaiter().GetResult();
+        if (syntaxTree is null)
+            continue;
+
+        var root = syntaxTree.GetRoot();
+        var normalizedRoot = root.NormalizeWhitespace();
+        if (string.Equals(root.ToFullString(), normalizedRoot.ToFullString(), StringComparison.Ordinal))
+            continue;
+
+        formattedSolution = currentDocument.WithSyntaxRoot(normalizedRoot).Project.Solution;
+        formattedDocumentCount++;
+    }
+
+    if (formattedDocumentCount > 0)
+    {
+        workspace.TryApplyChanges(formattedSolution);
+        project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        var updatedDocumentCount = WriteProjectDocumentsToDisk();
+        AnsiConsole.MarkupLine($"[green]Formatted {updatedDocumentCount} file(s).[/]");
+    }
+    else
+    {
+        AnsiConsole.MarkupLine("[green]All files are already formatted.[/]");
     }
 }
 
@@ -951,6 +1004,7 @@ static void PrintHelp()
     Console.WriteLine("  -q                 Display AST as compilable C# code");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  --fix            Apply supported code fixes to source files before compiling");
+    Console.WriteLine("  --format         Normalize whitespace and indentation in source files before compiling");
     Console.WriteLine("  --doc-tool [ravendoc|comments]");
     Console.WriteLine("                    Documentation generator to use (default: ravendoc).");
     Console.WriteLine("  --doc-format [md|xml]");
