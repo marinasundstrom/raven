@@ -16,7 +16,7 @@ public sealed class PreferTargetTypedUnionCaseAnalyzer : DiagnosticAnalyzer
         title: "Variable infers union case type",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "This declaration infers '{0}' (a case type), not '{1}' (the discriminated union type).",
+        messageFormat: "This binds to '{0}' (a case). If you meant the union, use '{1}'.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Warning);
 

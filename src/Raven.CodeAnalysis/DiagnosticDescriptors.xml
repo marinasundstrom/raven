@@ -1,154 +1,134 @@
-<?xml version="1.0"?>
+<?xml version='1.0' encoding='utf-8'?>
 <Diagnostics>
   <Descriptor Id="RAV0021" Identifier="CannotApplyIndexingWithToAnExpressionOfType"
-    Title="Cannot apply indexing with [] to an expression of type '{typeName}'"
-    Message="Cannot apply indexing with [] to an expression of type '{typeName}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Not indexable" Message="Not indexable" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0023" Identifier="OperatorCannotBeAppliedToOperandOfType"
-    Title="Operator cannot be applied to operand of specific type"
-    Message="Operator '{operatorToken}' cannot be applied to operand of type '{operandType}'"
+    Title="Operator not supported" Message="'{operatorToken}' is not supported for '{operandType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0024" Identifier="OperatorCannotBeAppliedToOperandsOfTypes"
-    Title="Operator cannot be applied to operanda of specific typea"
-    Message="Operator '{operatorToken}' cannot be applied to operands of type '{operandType1}' and '{operandType2}'"
+    Title="Operator not supported"
+    Message="'{operatorToken}' is not supported for '{operandType1}' and '{operandType2}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0027" Identifier="ThisValueIsNotMutable" Title="This value is not mutable"
-    Message="This value is not mutable" Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0030" Identifier="InvalidInvocation" Title="Invalid invocation"
+  <Descriptor Id="RAV0027" Identifier="ThisValueIsNotMutable" Title="Value is read-only"
+    Message="Value is read-only" Category="compiler" Severity="Error" EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0030" Identifier="InvalidInvocation" Title="Not callable"
     Message="Invalid invocation expression." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2800" Identifier="PipeRequiresInvocation" Title="Pipe target must be invocable"
     Message="The pipe operator requires an invocation or settable property access on the right-hand side"
-    Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0103" Identifier="TheNameDoesNotExistInTheCurrentContext"
-    Title="The name does not exist in the current context"
-    Message="The name '{name}' does not exist in the current context" Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Name not found" Message="'{name}' is not in scope." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0111" Identifier="TypeAlreadyDefinesMember" Title="Member already defined"
     Message="Type '{typeName}' already defines a member called '{memberName}' with the same parameter types"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0112" Identifier="FunctionAlreadyDefined" Title="Function already defined"
     Message="A function named '{name}' is already defined with the same parameter types"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0117" Identifier="MemberDoesNotContainDefinition"
-    Title="Member does not contain definition"
-    Message="'{container}' does not contain a definition for '{member}'" Category="compiler"
+  <Descriptor Id="RAV0117" Identifier="MemberDoesNotContainDefinition" Title="Member not found"
+    Message="'{container}' has no member '{member}'." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0119" Identifier="NamespaceUsedLikeAType" Title="Namespace used as a type"
+    Message="'{name}' is a namespace, not a type." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0118" Identifier="VariableUsedLikeAType" Title="Value used as a type"
+    Message="'{name}' is a value, not a type." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0121" Identifier="CallIsAmbiguous" Title="Ambiguous call"
+    Message="This call matches both '{method1}' and '{method2}'." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0119" Identifier="NamespaceUsedLikeAType" Title="Namespace used like a type"
-    Message="'{name}' is a namespace but is used like a type" Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0118" Identifier="VariableUsedLikeAType" Title="Variable used like a type"
-    Message="'{name}' is a variable but is used like a type" Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0121" Identifier="CallIsAmbiguous" Title="Call is ambiguous"
-    Message="The call is ambiguous between the following methods or properties: '{method1}' and '{method2}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0131" Identifier="LeftOfAssignmentMustBeAVariablePropertyOrIndexer"
-    Title="The left-hand side of an assignment must be a variable, property or indexer"
-    Message="The left-hand side of an assignment must be a variable, property or indexer"
+    Title="Assignment target must be settable" Message="Assignment target must be settable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0132" Identifier="PositionalDeconstructionRequiresDeconstructableType"
-    Title="Cannot deconstruct non-deconstructable type"
-    Message="Cannot deconstruct type '{typeName}' because it does not support positional deconstruction"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Type cannot be deconstructed"
+    Message="'{typeName}' does not support positional deconstruction." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0133" Identifier="PositionalDeconstructionElementCountMismatch"
-    Title="Positional deconstruction element count mismatch"
-    Message="Positional deconstruction expects {expectedCount} element(s) but the target provides {actualCount}"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Deconstruction count mismatch"
+    Message="Expected {expectedCount} element(s) but found {actualCount}." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0134" Identifier="DiscardExpressionNotAllowed" Title="Discard is not a value"
-    Message="The discard '_' cannot be used as a value" Category="compiler" Severity="Error"
+    Message="'_' cannot be used as a value." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0135" Identifier="AssignmentExpressionMustBeStatement"
-    Title="Assignment expression requires a statement"
-    Message="Assignment expressions are only allowed as statements" Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Assignment is statement-only" Message="Assignments can only appear as statements."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0149" Identifier="MethodNameExpected" Title="Method name expected"
     Message="Method name expected" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0165" Identifier="UseOfUnassignedVariable"
-    Title="Use of unassigned local variable" Message="Use of unassigned local variable '{name}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0162" Identifier="UnreachableCodeDetected"
-    Title="Unreachable code detected"
-    Message="Unreachable code detected" Category="compiler" Severity="Warning"
+  <Descriptor Id="RAV0165" Identifier="UseOfUnassignedVariable" Title="Use before assignment"
+    Message="'{name}' is used before it is assigned." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0166" Identifier="LocalVariableMustBeInitialized"
-    Title="Local variable must be initialized"
-    Message="Local variable '{name}' must be initialized" Category="compiler" Severity="Error"
+  <Descriptor Id="RAV0162" Identifier="UnreachableCodeDetected" Title="Unreachable code"
+    Message="Unreachable code" Category="compiler" Severity="Warning" EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0166" Identifier="LocalVariableMustBeInitialized" Title="Missing initializer"
+    Message="'{name}' must be initialized." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0167" Identifier="VariableAlreadyDefined" Title="Variable already defined"
-    Message="A variable named '{name}' is already defined in this scope" Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="'{name}' is already defined in this scope." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0168" Identifier="VariableShadowsPreviousDeclaration"
-    Title="Variable shadows previous declaration"
-    Message="Variable '{name}' shadows a previously declared variable"
+    Title="Variable shadows earlier name" Message="'{name}' shadows a previous declaration."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0169" Identifier="ConstLocalMustBeConstant"
-    Title="Const local requires a constant initializer"
-    Message="Const local '{name}' must be initialized with a compile-time constant"
-    Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Const needs a constant value"
+    Message="'{name}' must be initialized with a compile-time constant." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0170" Identifier="ConstLocalCannotConvert"
     Title="Const local initializer cannot be converted"
-    Message="The initializer for const local '{name}' cannot be converted to '{typeName}'"
-    Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="The value for '{name}' cannot be converted to '{typeName}'." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0171" Identifier="ConstFieldMustBeConstant"
     Title="Const field requires a constant initializer"
-    Message="Const field '{name}' must be initialized with a compile-time constant"
-    Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="'{name}' must be initialized with a compile-time constant." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0172" Identifier="ConstFieldCannotConvert"
     Title="Const field initializer cannot be converted"
-    Message="The initializer for const field '{name}' cannot be converted to '{typeName}'"
-    Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="The value for '{name}' cannot be converted to '{typeName}'." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0173" Identifier="ConstFieldRequiresInitializer"
-    Title="Const field requires an initializer"
-    Message="Const field '{name}' must have an initializer" Category="compiler" Severity="Error"
-    EnabledByDefault="true"
-    Description="" HelpLinkUri="" />
+    Title="Const field requires an initializer" Message="'{name}' must have an initializer."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0191" Identifier="ReadOnlyFieldCannotBeAssignedTo"
     Title="A readonly field cannot be assigned to (except in a constructor or a variable initializer)"
     Message="A readonly field cannot be assigned to (except in a constructor or a variable initializer)"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0200" Identifier="PropertyOrIndexerCannotBeAssignedIsReadOnly"
-    Title="Property or indexer '{name}' cannot be assigned to -- it is read only"
-    Message="Property or indexer '{name}' cannot be assigned to -- it is read only"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="'{name}' is read-only and cannot be assigned to."
+    Message="'{name}' is read-only and cannot be assigned to." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0201" Identifier="EventCanOnlyBeUsedWithPlusOrMinus"
     Title="Event can only be used with '+=' or '-='"
     Message="The event '{name}' can only appear on the left hand side of '+=' or '-='"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0202" Identifier="EventCannotBeInvoked"
-    Title="Event cannot be invoked"
+  <Descriptor Id="RAV0202" Identifier="EventCannotBeInvoked" Title="Event cannot be invoked"
     Message="The event '{name}' cannot be invoked because it does not declare a backing field"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0240" Identifier="TypeDoesNotSupportWithExpression"
     Title="Type does not support with-expressions"
-    Message="The type '{typeName}' does not support 'with' expressions"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="The type '{typeName}' does not support 'with' expressions" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0241" Identifier="WithExpressionMemberAssignedMultipleTimes"
     Title="With-expression assigns a member multiple times"
     Message="The member '{memberName}' is assigned more than once in the with-expression"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2700" Identifier="AwaitExpressionRequiresAsyncContext"
-    Title="Await requires async context"
+    Title="await needs async"
     Message="The 'await' operator can only be used within an async method or function"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV2701" Identifier="ExpressionIsNotAwaitable"
-    Title="Expression is not awaitable"
-    Message="The type '{typeName}' is not awaitable"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2701" Identifier="ExpressionIsNotAwaitable" Title="Not awaitable"
+    Message="The type '{typeName}' is not awaitable" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2702" Identifier="AwaiterMissingIsCompleted"
     Title="Awaiter is missing IsCompleted"
     Message="The awaiter type '{awaiterType}' must have an accessible instance property 'IsCompleted' returning 'bool'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV2703" Identifier="AwaiterMissingGetResult"
-    Title="Awaiter is missing GetResult"
+  <Descriptor Id="RAV2703" Identifier="AwaiterMissingGetResult" Title="Awaiter is missing GetResult"
     Message="The awaiter type '{awaiterType}' must have an accessible parameterless 'GetResult' method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2704" Identifier="AsyncReturnTypeMustBeTaskLike"
@@ -157,22 +137,22 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2705" Identifier="AsyncTaskReturnCannotHaveExpression"
     Title="Async Task return cannot include a value"
-    Message="Since '{methodName}' is an async method that returns 'Task', a return keyword must not be followed by an object expression"
+    Message="Since '{methodName}' is an async method that returns 'Task', a return keyword cannot include a value"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV2706" Identifier="AsyncLacksAwait"
-    Title="Async body lacks await"
-    Message="This async {memberDescription} lacks 'await' operators and will run synchronously"
+  <Descriptor Id="RAV2706" Identifier="AsyncLacksAwait" Title="Async body lacks await"
+    Message="This async {memberDescription} has no 'await' and will run synchronously."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0234" Identifier="TypeOrNamespaceNameDoesNotExistInTheNamespace"
     Title="Type or namespace does not exist in namespace"
-    Message="The type or namespace name '{typeOrNs}' does not exist in the namespace '{container}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="'{typeOrNs}' was not found in '{container}'." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0235" Identifier="TypeExpectedWithoutWildcard"
-    Title="Type expected without wildcard" Message="Type is expected without wildcard"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0269" Identifier="UnassignedOutParameter" Title="Unassigned out parameter"
-    Message="Use of unassigned out parameter '{parameterName}'" Category="compiler"
+    Title="Type expected without wildcard"
+    Message="Expected a type name (wildcards are not allowed here)." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0269" Identifier="UnassignedOutParameter" Title="Unassigned out parameter"
+    Message="Use of unassigned out parameter '{parameterName}'" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0305" Identifier="TypeRequiresTypeArguments"
     Title="Type requires type arguments"
     Message="The type '{name}' requires {arity} type argument(s)" Category="compiler"
@@ -181,28 +161,26 @@
     Title="Cannot inherit from sealed type"
     Message="Type '{typeName}' is sealed and cannot be inherited" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0307" Identifier="OverrideMemberNotFound"
-    Title="No virtual member to override"
-    Message="\'{memberName}': no suitable {memberType} found to override"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0307" Identifier="OverrideMemberNotFound" Title="No virtual member to override"
+    Message="\'{memberName}': no suitable {memberType} found to override" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0331" Identifier="MemberHidesInheritedMember"
     Title="Member hides inherited member"
     Message="Member '{memberName}' hides inherited member '{hiddenMemberName}'. Add the 'new' modifier if hiding was intended."
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0332" Identifier="ModifierNotValidOnMember"
     Title="Modifier not valid on member"
-    Message="Modifier '{modifier}' is not valid on {memberKind} '{memberName}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Modifier '{modifier}' is not valid on {memberKind} '{memberName}'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0608" Identifier="AbstractMemberCannotHaveBody"
     Title="Abstract member cannot have a body"
-    Message="'{memberName}' cannot declare a body because it is marked abstract"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="'{memberName}' cannot declare a body because it is marked abstract" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0610" Identifier="AbstractMemberInNonAbstractType"
     Title="Abstract member declared in non-abstract type"
     Message="'{memberName}' is abstract but is contained in non-abstract type '{typeName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true"
-    Description="Abstract members are only permitted in abstract classes."
-    HelpLinkUri="" />
+    Description="Abstract members are only permitted in abstract classes." HelpLinkUri="" />
   <Descriptor Id="RAV0308" Identifier="VirtualMemberInSealedType"
     Title="Virtual member in sealed type"
     Message="Member '{memberName}' cannot be virtual because the containing type '{typeName}' is sealed"
@@ -217,8 +195,8 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0311" Identifier="StaticMemberCannotBeVirtualOrOverride"
     Title="Static members cannot be virtual or override"
-    Message="Static member '{memberName}' cannot be marked '{modifier}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Static member '{memberName}' cannot be marked '{modifier}'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0326" Identifier="InvalidMemberModifierCombination"
     Title="Invalid modifier combination"
     Message="Member '{memberName}' cannot be marked both '{modifier1}' and '{modifier2}'"
@@ -229,12 +207,12 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0328" Identifier="StaticTypeCannotBeInherited"
     Title="Static type cannot be inherited"
-    Message="Type '{typeName}' is static and cannot be inherited"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Type '{typeName}' is static and cannot be inherited" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0329" Identifier="StaticTypeCannotBeInstantiated"
     Title="Static type cannot be instantiated"
-    Message="Type '{typeName}' is static and cannot be instantiated"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Type '{typeName}' is static and cannot be instantiated" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0316" Identifier="OptionalParameterDefaultValueCannotConvert"
     Title="Optional parameter default value cannot be converted"
     Message="The default value for optional parameter '{parameterName}' cannot be converted to type '{parameterType}'"
@@ -246,31 +224,27 @@
     HelpLinkUri="" />
   <Descriptor Id="RAV4001" Identifier="DocumentationCommentInvalidXml"
     Title="Documentation comment is not valid XML"
-    Message="Documentation comment is not well-formed XML: {message}"
-    Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
-    HelpLinkUri="" />
+    Message="Documentation comment is not well-formed XML: {message}" Category="documentation"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV4002" Identifier="DocumentationCommentInvalidMarkdown"
     Title="Documentation comment is not valid Markdown"
-    Message="Documentation comment is not well-formed Markdown: {message}"
-    Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
-    HelpLinkUri="" />
+    Message="Documentation comment is not well-formed Markdown: {message}" Category="documentation"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV4003" Identifier="DocumentationCommentInconsistentIndentation"
     Title="Documentation comment indentation is inconsistent"
-    Message="Documentation comment lines must have consistent indentation"
-    Category="documentation" Severity="Warning" EnabledByDefault="true" Description=""
-    HelpLinkUri="" />
+    Message="Documentation comment lines must have consistent indentation" Category="documentation"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0600" Identifier="TypeAlreadyDefined" Title="Type already defined"
     Message="A type named '{name}' is already defined in this scope" Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0601" Identifier="PartialTypeDeclarationMissingPartial"
     Title="'partial' modifier missing"
     Message="Type '{name}' has multiple declarations; all declarations must include the 'partial' modifier"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0312" Identifier="ConstructorInitializerNotAllowedOnStaticConstructor"
     Title="Static constructors cannot specify a base initializer"
-    Message="Static constructors cannot specify a base constructor initializer"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Static constructors cannot specify a base constructor initializer" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0313" Identifier="ExplicitInterfaceSpecifierMustBeInterface"
     Title="Explicit interface specifier must name an interface"
     Message="Explicit interface specifier must name an interface type" Category="compiler"
@@ -278,18 +252,15 @@
   <Descriptor Id="RAV0317" Identifier="OptionalParameterMustBeTrailing"
     Title="Optional parameters must be trailing"
     Message="Optional parameter '{parameterName}' must be the last parameter in the list"
-    Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0318" Identifier="ParameterDefaultValueMustBeConstant"
     Title="Default value must be a compile-time constant"
     Message="Default value for parameter '{parameterName}' must be a compile-time constant"
-    Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0319" Identifier="ParameterDefaultValueCannotConvert"
     Title="Default value cannot convert to parameter type"
     Message="Default value for parameter '{parameterName}' cannot be converted to '{parameterType}'"
-    Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0314" Identifier="ContainingTypeDoesNotImplementInterface"
     Title="Type does not implement interface"
     Message="Type '{typeName}' does not implement interface '{interfaceName}'" Category="compiler"
@@ -306,14 +277,12 @@
     Title="Type argument does not satisfy constraint"
     Message="The type '{typeArgument}' must satisfy the '{constraint}' constraint for type parameter '{typeParameter}' of '{genericName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0321" Identifier="OperatorMustBeStatic"
-    Title="Operator must be static"
-    Message="Operator '{operatorToken}' must be declared static"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0322" Identifier="OperatorMustBePublic"
-    Title="Operator must be public"
-    Message="Operator '{operatorToken}' must be declared public"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0321" Identifier="OperatorMustBeStatic" Title="Operator must be static"
+    Message="Operator '{operatorToken}' must be declared static" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0322" Identifier="OperatorMustBePublic" Title="Operator must be public"
+    Message="Operator '{operatorToken}' must be declared public" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0323" Identifier="OperatorParameterCountInvalid"
     Title="Operator parameter count is invalid"
     Message="Operator '{operatorToken}' requires {expectedParameterDescription} parameter(s)"
@@ -335,13 +304,12 @@
     Message="Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0402" Identifier="PossibleNullReferenceAccess"
-    Title="Possible null reference access"
-    Message="Possible null reference access"
+    Title="Possible null reference access" Message="Possible null reference access"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0410" Identifier="EnumUnderlyingTypeMustBeSingle"
     Title="Enum underlying type list must be a single type"
-    Message="Enum declarations may specify only one underlying type"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Enum declarations may specify only one underlying type" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0411" Identifier="EnumUnderlyingTypeMustBeIntegral"
     Title="Enum underlying type must be integral"
     Message="Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid"
@@ -352,16 +320,15 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0413" Identifier="EnumMemberValueCannotConvert"
     Title="Enum member value cannot be converted"
-    Message="Enum member '{name}' value cannot be converted to '{typeName}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Enum member '{name}' value cannot be converted to '{typeName}'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0426" Identifier="TypeNameDoesNotExistInType"
     Title="Type name does not exist in type"
-    Message="The type name '{name}' does not exist in the type '{container}'"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0500" Identifier="SymbolIsInaccessible"
-    Title="Symbol is inaccessible"
-    Message="The {symbolKind} '{name}' is inaccessible due to its protection level"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="The type name '{name}' does not exist in the type '{container}'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0500" Identifier="SymbolIsInaccessible" Title="Symbol is inaccessible"
+    Message="The {symbolKind} '{name}' is inaccessible due to its visibility" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0501" Identifier="TypeIsLessAccessibleThanMember"
     Title="Type is less accessible than member"
     Message="The {typeRole} type '{typeName}' is less accessible than {memberKind} '{memberName}'"
@@ -376,8 +343,8 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0504" Identifier="AttributeArgumentMustBeConstant"
     Title="Attribute argument must be constant"
-    Message="Attribute argument must be a constant expression"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Attribute argument must be a constant expression" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0815" Identifier="CannotAssignVoidToAnImplicitlyTypedVariable"
     Title="Cannot assign void to an implicitly-typed variable"
     Message="Cannot assign void to an implicitly-typed variable" Category="compiler"
@@ -392,27 +359,25 @@
     Message="';' expected" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1019" Identifier="ConsecutiveStatementsMustBeSeparatedBySemicolon"
-    Title="Expected newline or ';' to terminate the statement."
-    Message="Expected newline or ';' to terminate the statement." Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1023" Identifier="ExpectedNewLineBetweenDeclarations"
-    Title="Expected newline between declarations"
-    Message="Expected newline between declarations." Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1051" Identifier="PreferNewLineBetweenDeclarations"
-    Title="Prefer newline between declarations"
-    Message="Prefer newline between declarations." Category="compiler"
-    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1003" Identifier="CharacterExpected" Title="Character expected"
-    Message="'{character}' expected" Category="compiler" Severity="Error"
+    Title="End the statement with a newline or ';'."
+    Message="End the statement with a newline or ';'." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1023" Identifier="ExpectedNewLineBetweenDeclarations"
+    Title="Expected newline between declarations" Message="Expected newline between declarations."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1051" Identifier="PreferNewLineBetweenDeclarations"
+    Title="Prefer newline between declarations" Message="Prefer newline between declarations."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1003" Identifier="CharacterExpected" Title="Character expected"
+    Message="'{character}' expected" Category="compiler" Severity="Error" EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1004" Identifier="DuplicateModifier" Title="Duplicate modifier"
     Message="Duplicate '{modifier}' modifier" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1005" Identifier="ImportDirectiveOutOfOrder"
-    Title="Import directive out of order"
-    Message="Import directives must appear before alias directives and member declarations"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Import directives must come first"
+    Message="'import' directives must appear before 'alias' and declarations." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1006" Identifier="AliasDirectiveOutOfOrder"
     Title="Alias directive out of order"
     Message="Alias directives must appear before member declarations" Category="compiler"
@@ -425,8 +390,8 @@
     Message="Named argument '{name}' specified multiple times" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1009" Identifier="UnrecognizedEscapeSequence"
-    Title="Unrecognized escape sequence" Message="Unrecognized escape sequence"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Unrecognized escape sequence" Message="Unrecognized escape sequence" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1010" Identifier="NewlineInConstant" Title="Newline in constant"
     Message="Newline in constant" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
@@ -443,9 +408,8 @@
     Message="File-scope code may only appear in one file" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1014" Identifier="ConsoleApplicationRequiresEntryPoint"
-    Title="Console application requires entry point"
-    Message="Entry point 'Main' not found" Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Console application requires entry point" Message="Entry point 'Main' not found"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1017" Identifier="EntryPointIsAmbiguous"
     Title="Program has more than one entry point defined"
     Message="Program has more than one entry point defined" Category="compiler" Severity="Error"
@@ -457,16 +421,15 @@
   <Descriptor Id="RAV1021" Identifier="TopLevelStatementsDisallowedWithMainFunction"
     Title="Top-level statements not allowed with top-level Main"
     Message="Top-level statements are not allowed when 'Main' is declared as a top-level function"
-    Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1015" Identifier="TryStatementRequiresCatchOrFinally"
     Title="try statement requires catch or finally"
     Message="A try statement must include at least one catch clause or a finally clause"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1016" Identifier="CatchTypeMustDeriveFromSystemException"
     Title="Catch type must derive from System.Exception"
-    Message="Type '{typeName}' is not derived from System.Exception"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Type '{typeName}' is not derived from System.Exception" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1020" Identifier="ThrowExpressionMustBeException"
     Title="Thrown expression must be an exception type"
     Message="Expression of type '{typeName}' cannot be thrown because it does not derive from System.Exception"
@@ -474,24 +437,22 @@
   <Descriptor Id="RAV1018" Identifier="FileScopedNamespaceOutOfOrder"
     Title="File-scoped namespace out of order"
     Message="File-scoped namespace declarations must appear before any other members"
-    Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1501" Identifier="NoOverloadForMethod"
     Title="No overload for method taking argument"
     Message="No overload for {type} '{name}' takes {count} arguments" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1503" Identifier="CannotConvertFromTypeToType"
     Title="Cannot convert from type to type"
-    Message="Cannot convert from '{fromType}' to '{toType}'" Category="compiler"
-    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Cannot convert from '{fromType}' to '{toType}'" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1504" Identifier="CannotAssignFromTypeToType" Title="Cannot assign to type"
     Message="Cannot assign {fromType} to {toType}" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1505" Identifier="MultipleContentEntriesNotAllowed"
     Title="Multiple content entries not allowed"
     Message="Type '{typeName}' has a settable 'Content' property; only one content entry is allowed in an initializer"
-    Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1525" Identifier="InvalidExpressionTerm" Title="Invalid expression term"
     Message="Invalid expression term '{tokenText}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
@@ -501,8 +462,8 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1901" Identifier="IfExpressionRequiresElse"
     Title="If expression requires an else clause"
-    Message="If expressions used as values must include an else clause"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="If expressions used as values must include an else clause" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1902" Identifier="BreakStatementInExpression"
     Title="Break statement not allowed here"
     Message="Break statements are not valid in expressions; use a statement block instead"
@@ -515,22 +476,20 @@
     Title="Goto statement not allowed here"
     Message="Goto statements are not valid in expressions; use a statement block instead"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1905" Identifier="LabelInExpression"
-    Title="Label not allowed here"
-    Message="Labels are not valid in expressions; use a statement block instead"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1905" Identifier="LabelInExpression" Title="Label not allowed here"
+    Message="Labels are not valid in expressions; use a statement block instead" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1907" Identifier="ThrowStatementInExpression"
     Title="Throw statement not allowed here"
     Message="Throw statements are not valid in expressions; use a statement block instead"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV1906" Identifier="TryExpressionCannotBeNested"
-    Title="Nested try expression"
-    Message="Nested try expressions are not allowed"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1906" Identifier="TryExpressionCannotBeNested" Title="Nested try expression"
+    Message="Nested try expressions are not allowed" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1908" Identifier="TryPropagationCannotUseMatch"
     Title="Match expression not allowed"
-    Message="Match expressions are not allowed after a try? expression"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Match expressions are not allowed after a try? expression" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1909" Identifier="ByRefReturnCannotReferenceLocal"
     Title="By-reference return cannot reference local storage"
     Message="Cannot return a by-reference value that points to local '{localName}'"
@@ -540,20 +499,19 @@
     Message="Cannot return a by-reference value that points to value parameter '{parameterName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1911" Identifier="PointerTypeRequiresUnsafe"
-    Title="Pointer types require unsafe mode"
-    Message="Pointer type '{typeSyntax}' requires unsafe mode. Enable '--unsafe' to allow pointer declarations and usage."
+    Title="Pointer type requires unsafe" Message="Pointer types require unsafe mode ('--unsafe')."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1912" Identifier="PointerOperationRequiresUnsafe"
-    Title="Pointer operation requires unsafe mode"
-    Message="Pointer operation '{operationSyntax}' requires unsafe mode. Enable '--unsafe' to allow pointer usage."
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Pointer operation requires unsafe"
+    Message="Pointer operations require unsafe mode ('--unsafe')." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1913" Identifier="DereferenceRequiresPointerOrByRef"
     Title="Dereference requires pointer or by-reference operand"
-    Message="Cannot dereference expression of type '{operandType}'. The '*' operator requires a pointer or by-reference value."
+    Message="Cannot dereference '{operandType}'. '*' requires a pointer or by-reference value."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1914" Identifier="PointerMemberAccessRequiresPointer"
     Title="Pointer member access requires pointer receiver"
-    Message="Cannot use '->' with expression of type '{receiverType}'. The receiver must be a pointer."
+    Message="You can only use '-&gt;' on a pointer; '{receiverType}' is not a pointer."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1915" Identifier="ExternMemberMustBeStatic"
     Title="Extern members must be static"
@@ -561,11 +519,11 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1916" Identifier="ExternMemberCannotHaveBody"
     Title="Extern member cannot have a body"
-    Message="'{memberName}' cannot declare a body because it is marked extern"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="'{memberName}' cannot declare a body because it is marked extern" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
-    Message="Non-invocable member '{memberName}' cannot be used like a method"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Non-invocable member '{memberName}' cannot be used like a method" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2001" Identifier="NumericLiteralOutOfRange"
     Title="Numeric literal out of range"
     Message="The numeric literal is out of range for its target type" Category="compiler"
@@ -578,20 +536,20 @@
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2010" Identifier="MemberAccessRequiresTargetType"
     Title="Target-typed member access requires a known type"
-    Message="Cannot resolve member '.{memberName}' without a known target type"
-    Category="compiler" Severity="Error" EnabledByDefault="true"
+    Message="Cannot resolve member '.{memberName}' without a known target type" Category="compiler"
+    Severity="Error" EnabledByDefault="true"
     Description="Target-typed member access (like '.Test') requires a type context to resolve the member."
     HelpLinkUri="" />
   <Descriptor Id="RAV2011" Identifier="DefaultLiteralRequiresTargetType"
     Title="'default' requires a target type"
-    Message="The 'default' literal can only be used when a target type is known"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="The 'default' literal can only be used when a target type is known" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2020" Identifier="InvalidAliasType" Title="Invalid alias target"
     Message="Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, long, float, double, string, and unit."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV2021" Identifier="InvalidImportTarget" Title="Invalid import target"
-    Message="Invalid import target. Only namespaces and types can be imported"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2021" Identifier="InvalidImportTarget" Title="Invalid use target"
+    Message="You can only 'use' namespaces and types." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2022" Identifier="SpreadSourceMustBeEnumerable"
     Title="Spread source must be enumerable"
     Message="Cannot spread expression of type '{typeName}' because it is not enumerable"
@@ -601,25 +559,23 @@
     Message="Single-element tuple types are not supported; use parenthesized type syntax only for grouping"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2100" Identifier="MatchExpressionNotExhaustive"
-    Title="Match expression is not exhaustive"
-    Message="Match expression is not exhaustive; missing case for '{missingType}'"
+    Title="Match must cover all cases" Message="Missing match case: '{missingType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2101" Identifier="MatchExpressionArmUnreachable"
     Title="Match arm is unreachable"
-    Message="Match expression arm is unreachable because a previous arm matches all cases"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="This match arm can never run (a previous arm matches first)." Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2102" Identifier="MatchExpressionArmPatternInvalid"
     Title="Match arm pattern is not valid"
     Message="Pattern {patternType} is not valid for scrutinee of type '{scrutineeType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2103" Identifier="MatchExpressionCatchAllRedundant"
-    Title="Match catch-all is redundant"
-    Message="Match expression catch-all is redundant; all cases are already handled"
-    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Match catch-all is redundant" Message="This catch-all never matches." Category="compiler"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2104" Identifier="CasePatternRequiresDiscriminatedUnion"
     Title="Case pattern requires discriminated union"
-    Message="Case pattern '{caseName}' requires a discriminated union target"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Case pattern '{caseName}' requires a discriminated union target" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2105" Identifier="CasePatternCaseNotFound"
     Title="Case not found on discriminated union"
     Message="Discriminated union '{unionName}' does not contain a case named '{caseName}'"
@@ -630,52 +586,28 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1602" Identifier="PropertyPatternMemberNotFound"
     Title="Property not found in property pattern"
-    Message="Property '{name}' does not exist on type '{type}'"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Message="Property '{name}' does not exist on type '{type}'" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1603" Identifier="PropertyPatternTypeMismatch"
     Title="Property pattern type mismatch"
     Message="Type '{inputType}' cannot be matched against property pattern type '{patternType}'"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1604" Identifier="PropertyPatternRequiresType"
     Title="Property pattern requires a type"
     Message="Property pattern requires an explicit type here because it cannot be inferred from the input"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1610" Identifier="RecordPatternRequiresRecordType"
     Title="Record pattern requires a record type"
-    Message="Record pattern requires a record type; '{type}' is not a record"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Message="Record pattern requires a record type; '{type}' is not a record" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1611" Identifier="RecordPatternTypeMismatch"
     Title="Record pattern type mismatch"
     Message="Type '{inputType}' cannot be matched against record pattern type '{patternType}'"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1612" Identifier="RecordPatternArgumentCountMismatch"
     Title="Record pattern argument count mismatch"
     Message="Record '{recordType}' expects {expected} argument(s) but received {actual}"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred"
     Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"
@@ -694,87 +626,61 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2500" Identifier="LabelAlreadyDefined" Title="Label already defined"
     Message="A label named '{name}' is already defined in this scope" Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2501" Identifier="LabelNotFound" Title="Label not found"
-    Message="The label '{name}' does not exist in the current context" Category="compiler"
-    Severity="Error"
+    Message="The label '{name}' is not in scope" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2502" Identifier="ReservedWordCannotBeLabel"
     Title="Reserved word cannot be used as a label"
     Message="The identifier '{name}' is a reserved word and cannot be used as a label"
-    Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2600" Identifier="BreakStatementNotWithinLoop"
-    Title="Break statement not within loop"
-    Message="Break statements are only valid inside loops" Category="compiler" Severity="Error"
-    EnabledByDefault="true"
-    Description="" HelpLinkUri="" />
+    Title="Break statement not within loop" Message="Break statements are only valid inside loops"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2601" Identifier="ContinueStatementNotWithinLoop"
     Title="Continue statement not within loop"
     Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error"
-    EnabledByDefault="true"
-    Description="" HelpLinkUri="" />
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2602" Identifier="RangeForLoopRequiresEnd"
     Title="Range for-loop requires an end value"
     Message="Ranges in for loops must specify an end value" Category="compiler" Severity="Error"
-    EnabledByDefault="true"
-    Description="" HelpLinkUri="" />
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2603" Identifier="RangeForLoopFromEndNotSupported"
     Title="Range for-loop does not support from-end indices"
     Message="Range boundaries in for loops must count from the start" Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV3600" Identifier="UnexpectedTokenInIncompleteSyntax"
-    Title="Unexpected token"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV3600" Identifier="UnexpectedTokenInIncompleteSyntax" Title="Unexpected token"
     Message="Unexpected token '{token}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV3601" Identifier="UnmatchedCharacter"
-    Title="Unmatched character"
-    Message="Unmatched '{character}'" Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV3601" Identifier="UnmatchedCharacter" Title="Unmatched character"
+    Message="Unmatched '{character}'" Category="compiler" Severity="Error" EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1605" Identifier="RelationalPatternNotSupported"
     Title="Relational pattern not supported for type"
     Message="Relational pattern operator '{operatorToken}' is not supported for type '{typeName}'"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1606" Identifier="RelationalPatternCannotConvert"
     Title="Relational pattern value cannot be converted"
     Message="Relational pattern value of type '{valueType}' cannot be converted to '{inputType}'"
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1607" Identifier="PatternTypedBindingRequiresKeyword"
     Title="Pattern binding requires a binding keyword"
     Message="Pattern binding '{name}: {typeName}' requires an explicit binding keyword ('val', 'var', or 'let')."
-    Category="compiler"
-    Severity="Error"
-    EnabledByDefault="true"
-    Description=""
-    HelpLinkUri="" />
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1608" Identifier="UndeclaredConstantPatternHint"
     Title="Bind a new value using 'val' or 'var'"
     Message="If you meant to bind a new value in this pattern, use 'val {name}' (or 'var {name}')."
-    Category="compiler" Severity="Info"
-    EnabledByDefault="true"
+    Category="compiler" Severity="Info" EnabledByDefault="true"
     Description="Hint shown when a bare identifier is used in a constant pattern position; use a binding keyword to introduce a new pattern variable."
     HelpLinkUri="" />
   <Descriptor Id="RAV1050" Identifier="PublicExtensionRequiresIdentifier"
     Title="Public extension requires an identifier"
-    Message="Public extension declarations must have an explicit identifier"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0905" Identifier="RequiredMemberMustBeSet"
-    Title="Required member must be set"
-    Message="Required member '{memberName}' must be set"
-    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Message="Public extension declarations must have an explicit identifier" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0905" Identifier="RequiredMemberMustBeSet" Title="Required member must be set"
+    Message="Required member '{memberName}' must be set" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0906" Identifier="RequiredFieldMustBeMutable"
-    Title="Required field must be mutable"
-    Message="Required field '{fieldName}' must be mutable"
+    Title="Required field must be mutable" Message="Required field '{fieldName}' must be mutable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

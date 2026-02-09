@@ -16,7 +16,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         title: "Prefer target-typed union case syntax",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Target type '{0}' is already known in this context.",
+        messageFormat: "Target type is already '{0}' here — you can use a case directly.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Info);
 

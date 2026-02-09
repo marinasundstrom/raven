@@ -1393,7 +1393,7 @@ partial class BlockBinder : Binder
 
         if (!IsUnsafeEnabled)
         {
-            _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.ToString(), syntax.GetLocation());
+            _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
@@ -3803,7 +3803,7 @@ partial class BlockBinder : Binder
         {
             if (!IsUnsafeEnabled)
             {
-                _diagnostics.ReportPointerTypeRequiresUnsafe(pointerTypeSyntax.ToString(), pointerTypeSyntax.GetLocation());
+                _diagnostics.ReportPointerTypeRequiresUnsafe(pointerTypeSyntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
             }
 

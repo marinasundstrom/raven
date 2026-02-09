@@ -18,7 +18,7 @@ public sealed class AutoPropertyInitializationAnalyzer : DiagnosticAnalyzer
         title: "Auto-property is not initialized",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Auto-property '{0}' is not initialized; assign it in a constructor or with an initializer",
+        messageFormat: "'{0}' needs an initial value. Set it in an initializer or in a constructor.",
         category: "Initialization",
         defaultSeverity: DiagnosticSeverity.Warning);
 

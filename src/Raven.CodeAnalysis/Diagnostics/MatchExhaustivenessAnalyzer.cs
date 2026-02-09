@@ -18,7 +18,7 @@ public sealed class MatchExhaustivenessAnalyzer : DiagnosticAnalyzer
         title: "Match expression can be exhaustive",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Match expression can be exhaustive by adding case for '{0}'",
+        messageFormat: "Match is missing a case for '{0}'.",
         category: "Match",
         defaultSeverity: DiagnosticSeverity.Info);
 
@@ -27,7 +27,7 @@ public sealed class MatchExhaustivenessAnalyzer : DiagnosticAnalyzer
         title: "Discard pattern can be more specific",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Discard pattern can be replaced with '{0}' to make the match exhaustive",
+        messageFormat: "Replace '_' with '{0}' to cover the remaining case.",
         category: "Match",
         defaultSeverity: DiagnosticSeverity.Info);
 

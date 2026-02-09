@@ -1377,7 +1377,6 @@ partial class BlockBinder
         if (indexer is null)
         {
             _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
-                receiverType.Name,
                 syntax.GetLocation());
             return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
         }
@@ -1833,7 +1832,7 @@ partial class BlockBinder
         {
             if (!IsUnsafeEnabled)
             {
-                _diagnostics.ReportPointerOperationRequiresUnsafe(memberAccess.ToString(), memberAccess.OperatorToken.GetLocation());
+                _diagnostics.ReportPointerOperationRequiresUnsafe(memberAccess.OperatorToken.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
             }
 

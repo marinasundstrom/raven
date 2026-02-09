@@ -14,7 +14,7 @@ public sealed class PreferValInsteadOfLetAnalyzer : DiagnosticAnalyzer
         title: "Prefer binding keyword 'val' instead of 'let'",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Prefer 'val' instead of 'let'",
+        messageFormat: "Prefer 'val' here.",
         category: "Match",
         defaultSeverity: DiagnosticSeverity.Info);
 

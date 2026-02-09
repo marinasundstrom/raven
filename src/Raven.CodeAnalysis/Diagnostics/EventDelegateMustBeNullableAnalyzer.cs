@@ -15,7 +15,7 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
         title: "Event delegate type must be nullable",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Event '{0}' has non-nullable delegate type '{1}'; consider '{2}'",
+        messageFormat: "Event '{0}' uses '{1}', which can't be null. Use '{2}' if the event can be empty.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Warning);
 

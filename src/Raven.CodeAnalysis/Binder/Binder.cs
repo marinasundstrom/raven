@@ -1154,7 +1154,7 @@ internal abstract partial class Binder
         {
             if (!IsUnsafeEnabled)
             {
-                _diagnostics.ReportPointerTypeRequiresUnsafe(pointer.ToString(), pointer.GetLocation());
+                _diagnostics.ReportPointerTypeRequiresUnsafe(pointer.GetLocation());
                 return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
             }
 

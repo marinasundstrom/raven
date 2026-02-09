@@ -19,7 +19,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         title: "Variable can be immutable",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Variable '{0}' is never reassigned; consider 'val {0}'",
+        messageFormat: "'{0}' is never reassigned. Use val {0}.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Warning);
 

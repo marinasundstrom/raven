@@ -29,7 +29,7 @@ public sealed class PreferDuLinqExtensionsAnalyzer : DiagnosticAnalyzer
         title: "Prefer DU LINQ extensions",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Prefer '{1}' over '{0}'",
+        messageFormat: "Prefer '{0}' here.",
         category: "ErrorHandling",
         defaultSeverity: DiagnosticSeverity.Warning);
 
@@ -71,7 +71,7 @@ public sealed class PreferDuLinqExtensionsAnalyzer : DiagnosticAnalyzer
             _ => invocation.Expression.GetLocation()
         };
 
-        var diagnostic = Diagnostic.Create(Descriptor, location, method.Name, preferredName);
+        var diagnostic = Diagnostic.Create(Descriptor, location, /* method.Name, */ preferredName);
         context.ReportDiagnostic(diagnostic);
     }
 

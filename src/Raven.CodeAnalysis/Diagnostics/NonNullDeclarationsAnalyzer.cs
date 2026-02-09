@@ -8,24 +8,14 @@ namespace Raven.CodeAnalysis.Diagnostics;
 
 public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
 {
-    public const string DiagnosticId = "RAV9008";
-    public const string OptionSuggestionDiagnosticId = "RAV9012";
+    public const string DiagnosticId = "RAV9012";
 
-    private static readonly DiagnosticDescriptor NullableDeclarationDescriptor = DiagnosticDescriptor.Create(
+    private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
-        title: "Nullable declaration type is not allowed",
-        description: null,
+        title: "Prefer Option/Result over nullable types",
+        description: "Nullable types are allowed, but Option/Result usually makes absence and failure clearer.",
         helpLinkUri: string.Empty,
-        messageFormat: "Declaring nullable type '{0}' is not recommended",
-        category: "Typing",
-        defaultSeverity: DiagnosticSeverity.Warning);
-
-    private static readonly DiagnosticDescriptor OptionSuggestionDescriptor = DiagnosticDescriptor.Create(
-        id: OptionSuggestionDiagnosticId,
-        title: "Prefer Option<T> over nullable declaration types",
-        description: null,
-        helpLinkUri: string.Empty,
-        messageFormat: "Use '{0}' instead of a nullable declaration type",
+        messageFormat: "Use '{0}' instead of '{1}'.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Info);
 
@@ -83,15 +73,19 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         if (!IsNullableDeclarationType(type))
             return;
 
-        var typeDisplay = FormatType(type);
-        var nullableDiagnostic = Diagnostic.Create(NullableDeclarationDescriptor, typeSyntax.GetLocation(), typeDisplay);
-        context.ReportDiagnostic(nullableDiagnostic);
+        var fromDisplay = FormatType(type);
 
+        // Prefer reporting only when we can produce a concrete replacement.
         if (!TryBuildOptionSuggestion(type, out var optionSuggestion))
             return;
 
-        var suggestionDiagnostic = Diagnostic.Create(OptionSuggestionDescriptor, typeSyntax.GetLocation(), optionSuggestion);
-        context.ReportDiagnostic(suggestionDiagnostic);
+        var diagnostic = Diagnostic.Create(
+            Descriptor,
+            typeSyntax.GetLocation(),
+            optionSuggestion,
+            fromDisplay);
+
+        context.ReportDiagnostic(diagnostic);
     }
 
     private static bool IsDeclarationTypeAnnotation(SyntaxNode? parent)

@@ -22,7 +22,7 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         title: "Return type annotation missing",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Method '{0}' has no return type annotation; consider '{1}'",
+        messageFormat: "Add a return type to '{0}': '{1}'.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Info);
 

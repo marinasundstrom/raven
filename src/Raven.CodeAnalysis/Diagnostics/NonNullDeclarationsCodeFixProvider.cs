@@ -6,14 +6,14 @@ namespace Raven.CodeAnalysis.Diagnostics;
 
 public sealed class NonNullDeclarationsCodeFixProvider : CodeFixProvider
 {
-    private static readonly ImmutableArray<string> FixableIds = [NonNullDeclarationsAnalyzer.OptionSuggestionDiagnosticId];
+    private static readonly ImmutableArray<string> FixableIds = [NonNullDeclarationsAnalyzer.DiagnosticId];
 
     public override IEnumerable<string> FixableDiagnosticIds => FixableIds;
 
     public override void RegisterCodeFixes(CodeFixContext context)
     {
         var diagnostic = context.Diagnostic;
-        if (!string.Equals(diagnostic.Id, NonNullDeclarationsAnalyzer.OptionSuggestionDiagnosticId, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(diagnostic.Id, NonNullDeclarationsAnalyzer.DiagnosticId, StringComparison.OrdinalIgnoreCase))
             return;
 
         if (!diagnostic.Location.IsInSource)

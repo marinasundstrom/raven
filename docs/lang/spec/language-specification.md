@@ -2889,6 +2889,7 @@ use stream = System.IO.File.OpenRead(path)
 use reader = System.IO.StreamReader(stream)
 
 val text = reader.ReadToEnd()
+
 // reader.Dispose() and stream.Dispose() run automatically when the scope ends
 ````
 
