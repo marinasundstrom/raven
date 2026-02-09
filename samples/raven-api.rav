@@ -20,11 +20,13 @@ val result = root.DescendantNodes()
     .FirstOrNone()
 
 if result is .Some(val variableDeclarator) {
+    val newIdentifier = Identifier("foo") with {
+        LeadingTrivia = variableDeclarator.Identifier.LeadingTrivia
+        TrailingTrivia = variableDeclarator.Identifier.TrailingTrivia
+    }
+
     val newVariableDeclarator = variableDeclarator with {
-        Identifier = Identifier("foo") with {
-            LeadingTrivia = variableDeclarator.Identifier.LeadingTrivia
-            TrailingTrivia = variableDeclarator.Identifier.TrailingTrivia
-        }
+        Identifier = newIdentifier
     }
 
     // Create a new root in which variableDeclarator has been replaced by newVariableDeclarator
@@ -36,18 +38,16 @@ if result is .Some(val variableDeclarator) {
     // Wrap the root in a syntax tree
     val newTree = SyntaxTree.Create(newRoot)
 
-    Console.Print(newTree.GetRoot())
+    PrintTree(newTree.GetRoot())
 }
 
-extension for Console {
-    public static Print(node: SyntaxNode) -> () {
-        return node.PrintSyntaxTree(PrinterOptions {
-            IncludeTokens = true,
-            IncludeTrivia = true,
-            IncludeSpans = true,
-            IncludeLocations = true,
-            IncludeNames = true,
-            Colorize = true
-        })
-    }
+func PrintTree(node: SyntaxNode) -> () {
+    node.PrintSyntaxTree(PrinterOptions {
+        IncludeTokens = true,
+        IncludeTrivia = true,
+        IncludeSpans = true,
+        IncludeLocations = true,
+        IncludeNames = true,
+        Colorize = true
+    })
 }
