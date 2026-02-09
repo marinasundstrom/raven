@@ -125,7 +125,7 @@ public extension OptionExtensions<T> for Option<T> {
 
     /// Converts `.Some(x)` to a single-item sequence and `.None` to an empty sequence.
     public ToEnumerable() -> IEnumerable<T> {
-        var list = List<T>()
+        val list = List<T>()
         if self is .Some(val value) {
             list.Add(value)
         }

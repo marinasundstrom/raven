@@ -140,7 +140,7 @@ public extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Converts `.Ok(x)` to a single-item sequence and `.Error` to an empty sequence.
     public ToEnumerable() -> IEnumerable<T> {
-        var list = List<T>()
+        val list = List<T>()
         if self is .Ok(val value) {
             list.Add(value)
         }
