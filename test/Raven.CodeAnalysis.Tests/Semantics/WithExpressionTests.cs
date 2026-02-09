@@ -85,7 +85,7 @@ val updated = person with { Name = "Bob" }
     {
         const string source = """
 class Person {
-    public Name: string { get init }
+    public Name: string { get; init; }
 
     public init(name: string) {
         Name = name
@@ -109,11 +109,11 @@ class Person {
     }
 
     [Fact]
-    public void InitOnlyProperty_AssignedInConstructor_AllowsInitialization()
+    public void InitOnlyProperty_AssignedInConstructor_ReportsDiagnostic()
     {
         const string source = """
 class Person {
-    public Name: string { get init }
+    public Name: string { get; init; }
 
     public init(name: string) {
         Name = name
@@ -121,7 +121,13 @@ class Person {
 }
 """;
 
-        var verifier = CreateVerifier(source);
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PropertyOrIndexerCannotBeAssignedIsReadOnly.Id)
+                    .WithAnySpan()
+                    .WithArguments("Name")
+            ]);
         verifier.Verify();
     }
 

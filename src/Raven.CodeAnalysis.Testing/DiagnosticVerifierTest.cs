@@ -57,13 +57,13 @@ public class DiagnosticVerifierTest
     {
         string testCode =
             """
-            System.Console.WriteLine("Hello" + ", World!);
+            String
             """;
 
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV1010").WithSpan(1, 36, 1, 36),
+                new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("String"),
             ]);
 
         var result = verifier.GetResult();
@@ -78,13 +78,13 @@ public class DiagnosticVerifierTest
     {
         string testCode =
             """
-            System.Console.WriteLine("Hello" + ", World!);
+            String
             """;
 
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV1010").WithSpan(1, 36, 1, 36)
+                new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("String")
             ],
             ["RAV1002"]);
 

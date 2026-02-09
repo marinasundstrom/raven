@@ -3,8 +3,8 @@ using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
 
 using Xunit;
@@ -26,7 +26,7 @@ let instance = Container();
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0500").WithSpan(5, 16, 5, 25).WithArguments("constructor", ".ctor")],
+            [new DiagnosticResult("RAV0500").WithSpan(5, 16, 5, 25).WithArguments("constructor", "init() → ()")],
             disabledDiagnostics: ["RAV1014"]);
 
         verifier.Verify();

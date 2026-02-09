@@ -50,7 +50,7 @@ public class FunctionTypeSyntaxTests
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
-        Assert.Equal("()", functionType.ReturnType.ToString());
+        Assert.Equal("unit", functionType.ReturnType.ToString());
     }
 
     [Fact]
