@@ -2579,7 +2579,7 @@ When no delegate context is available, diagnostic `RAV2201` is reported and the
 method must either be invoked directly or annotated with a delegate type.
 
 ```raven
-val writeLine: System.Action<string> = Console.WriteLine
+val writeLine: (string) -> () = Console.WriteLine
 writeLine("Hello from Raven!")
 ```
 
@@ -2594,11 +2594,11 @@ type.
 
 ```raven
 val writeLine = Console.WriteLine             // error: overloaded method group
-val writeLine: System.Action<string> = Console.WriteLine // ok
+val writeLine: (string) -> () = Console.WriteLine // ok
 ```
 
-Passing `Console.WriteLine` as an argument to a parameter of type
-`System.Action<string>` likewise selects the `string` overload without requiring
+Passing `Console.WriteLine` as an argument to a parameter of function type `(string) -> ()`
+(equivalent to `System.Action<string>`) likewise selects the `string` overload without requiring
 an explicit annotation at the call site. If no overload matches the target
 delegate's signature, diagnostic `RAV2203` is produced.
 
