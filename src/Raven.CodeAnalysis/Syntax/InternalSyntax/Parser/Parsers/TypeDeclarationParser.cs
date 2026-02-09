@@ -138,6 +138,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.PartialKeyword or
             SyntaxKind.VirtualKeyword or
             SyntaxKind.AsyncKeyword or
+            SyntaxKind.ExternKeyword or
             SyntaxKind.OpenKeyword or
             SyntaxKind.RecordKeyword or
             SyntaxKind.OverrideKeyword or

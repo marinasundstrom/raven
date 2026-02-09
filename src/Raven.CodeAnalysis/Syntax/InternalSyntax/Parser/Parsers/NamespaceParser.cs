@@ -169,7 +169,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 SyntaxKind.RecordKeyword or
                 SyntaxKind.PartialKeyword or
                 SyntaxKind.OverrideKeyword or
-                SyntaxKind.AsyncKeyword;
+                SyntaxKind.AsyncKeyword or
+                SyntaxKind.ExternKeyword;
         }
 
         void AddMemberDeclarationWithSeparatorValidation(MemberDeclarationSyntax member)
@@ -283,6 +284,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) || nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
+                 nextToken.IsKind(SyntaxKind.ExternKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken))
         {
             var checkpoint = CreateCheckpoint();

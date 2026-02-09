@@ -108,7 +108,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or
             SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
             SyntaxKind.OpenKeyword or SyntaxKind.RecordKeyword or
-            SyntaxKind.PartialKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword;
+            SyntaxKind.PartialKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.ExternKeyword;
     }
 
     private void ParseNamespaceMemberDeclarations(
@@ -168,6 +168,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
                  nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
+                 nextToken.IsKind(SyntaxKind.ExternKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken))
         {
             var checkpoint = CreateCheckpoint();

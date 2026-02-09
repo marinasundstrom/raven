@@ -51,6 +51,7 @@ class FunctionBinder : Binder
         }
 
         var isAsync = _syntax.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
+        var isExtern = _syntax.Modifiers.Any(m => m.Kind == SyntaxKind.ExternKeyword);
 
         var inferredReturnType = isAsync
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
@@ -67,6 +68,7 @@ class FunctionBinder : Binder
             [_syntax.GetReference()],
             isStatic: true,
             isAsync: isAsync,
+            isExtern: isExtern,
             declaredAccessibility: Accessibility.Internal);
 
         TypeParameterInitializer.InitializeMethodTypeParameters(
@@ -104,6 +106,11 @@ class FunctionBinder : Binder
 
         if (isAsync && _syntax.ReturnType is null)
             _methodSymbol.RequireAsyncReturnTypeInference();
+
+        if (isExtern && (_syntax.Body is not null || _syntax.ExpressionBody is not null))
+        {
+            _diagnostics.ReportExternMemberCannotHaveBody(_syntax.Identifier.ValueText, _syntax.Identifier.GetLocation());
+        }
 
         var parameters = new List<SourceParameterSymbol>();
         var seenOptionalParameter = false;

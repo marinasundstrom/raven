@@ -551,6 +551,14 @@
     Title="Pointer member access requires pointer receiver"
     Message="Cannot use '->' with expression of type '{receiverType}'. The receiver must be a pointer."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1915" Identifier="ExternMemberMustBeStatic"
+    Title="Extern members must be static"
+    Message="Member '{memberName}' cannot be marked 'extern' unless it is static"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1916" Identifier="ExternMemberCannotHaveBody"
+    Title="Extern member cannot have a body"
+    Message="'{memberName}' cannot declare a body because it is marked extern"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
     Message="Non-invocable member '{memberName}' cannot be used like a method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

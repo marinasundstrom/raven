@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using System.Text;
 
 using Raven.CodeAnalysis.Symbols;
@@ -118,11 +120,42 @@ internal class MethodGenerator
         }
         else
         {
-            var methodBuilder = targetTypeBuilder
-                .DefineMethod(MethodSymbol.Name,
-                    attributes, CallingConventions.Standard);
+            var methodAttributes = MethodSymbol.GetAttributes();
+            var dllImportData = default(DllImportData);
+            var hasPInvokeSignature = MethodSymbol.IsExtern
+                && !MethodSymbol.IsGenericMethod
+                && TryGetDllImportData(methodAttributes, out dllImportData);
 
-            MethodBase = methodBuilder;
+            MethodBuilder methodBuilder;
+            if (hasPInvokeSignature)
+            {
+                var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+                    ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
+                    : ResolveClrType(MethodSymbol.ReturnType);
+
+                parameterTypes = BuildParameterTypes();
+
+                methodBuilder = targetTypeBuilder.DefinePInvokeMethod(
+                    MethodSymbol.Name,
+                    dllImportData.LibraryName,
+                    dllImportData.EntryPoint,
+                    attributes,
+                    CallingConventions.Standard,
+                    returnType,
+                    parameterTypes,
+                    dllImportData.CallingConvention,
+                    dllImportData.CharSet);
+
+                MethodBase = methodBuilder;
+            }
+            else
+            {
+                methodBuilder = targetTypeBuilder
+                    .DefineMethod(MethodSymbol.Name,
+                        attributes, CallingConventions.Standard);
+
+                MethodBase = methodBuilder;
+            }
 
             var liftedTypeParameters = TypeGenerator.GetExtensionTypeParameters();
             var methodTypeParameters = MethodSymbol.TypeParameters;
@@ -168,24 +201,32 @@ internal class MethodGenerator
 
             try
             {
-                var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-                    ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
-                    : ResolveClrType(MethodSymbol.ReturnType);
+                if (!hasPInvokeSignature)
+                {
+                    var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+                        ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)
+                        : ResolveClrType(MethodSymbol.ReturnType);
 
-                parameterTypes = BuildParameterTypes();
+                    parameterTypes = BuildParameterTypes();
 
-                Type[]? requiredReturnMods =
-                    MethodSymbol.MethodKind == MethodKind.InitOnly
-                        ? new[] { typeof(System.Runtime.CompilerServices.IsExternalInit) }
-                        : null;
+                    Type[]? requiredReturnMods =
+                        MethodSymbol.MethodKind == MethodKind.InitOnly
+                            ? new[] { typeof(System.Runtime.CompilerServices.IsExternalInit) }
+                            : null;
 
-                methodBuilder.SetSignature(
-                    returnType,
-                    requiredReturnMods,
-                    null,
-                    parameterTypes,
-                    null,
-                    null);
+                    methodBuilder.SetSignature(
+                        returnType,
+                        requiredReturnMods,
+                        null,
+                        parameterTypes,
+                        null,
+                        null);
+                }
+
+                if (MethodSymbol.IsExtern && !hasPInvokeSignature)
+                {
+                    methodBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+                }
             }
             finally
             {
@@ -261,7 +302,15 @@ internal class MethodGenerator
             _ => throw new InvalidOperationException("Unexpected method base type for attribute emission.")
         };
 
-        TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetAttributes(), applyMethodAttribute);
+        var methodAttributesToEmit = MethodSymbol.GetAttributes();
+        if (MethodSymbol.IsExtern)
+        {
+            methodAttributesToEmit = methodAttributesToEmit
+                .Where(static attribute => !IsDllImportAttribute(attribute))
+                .ToImmutableArray();
+        }
+
+        TypeGenerator.CodeGen.ApplyCustomAttributes(methodAttributesToEmit, applyMethodAttribute);
         TypeGenerator.ApplyExtensionMarkerNameAttribute(MethodSymbol, applyMethodAttribute);
 
         ApplyAsyncStateMachineMetadata(applyMethodAttribute);
@@ -568,6 +617,12 @@ internal class MethodGenerator
             return;
         }
 
+        if (MethodSymbol.IsExtern)
+        {
+            _bodyEmitted = true;
+            return;
+        }
+
         if (!_liftedExtensionParameters.IsDefaultOrEmpty && _liftedExtensionBuilders is not null)
             TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
         if (!_methodTypeParameters.IsDefaultOrEmpty && _methodTypeBuilders is not null)
@@ -690,4 +745,83 @@ internal class MethodGenerator
 
         return false;
     }
+
+    private static bool IsDllImportAttribute(AttributeData attribute)
+    {
+        var metadataName = attribute.AttributeClass?.ToDisplayString() ?? string.Empty;
+        if (string.Equals(metadataName, typeof(DllImportAttribute).FullName, StringComparison.Ordinal))
+            return true;
+
+        return string.Equals(attribute.AttributeClass?.Name, nameof(DllImportAttribute), StringComparison.Ordinal);
+    }
+
+    private static bool TryGetDllImportData(ImmutableArray<AttributeData> attributes, out DllImportData data)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (!IsDllImportAttribute(attribute))
+                continue;
+
+            if (attribute.ConstructorArguments.IsDefaultOrEmpty ||
+                attribute.ConstructorArguments[0].Value is not string libraryName ||
+                string.IsNullOrWhiteSpace(libraryName))
+            {
+                continue;
+            }
+
+            var entryPoint = default(string);
+            var charSet = CharSet.None;
+            var callingConvention = CallingConvention.Winapi;
+
+            foreach (var named in attribute.NamedArguments)
+            {
+                if (named.Key.Equals(nameof(DllImportAttribute.EntryPoint), StringComparison.Ordinal) &&
+                    named.Value.Value is string configuredEntryPoint &&
+                    !string.IsNullOrWhiteSpace(configuredEntryPoint))
+                {
+                    entryPoint = configuredEntryPoint;
+                }
+                else if (named.Key.Equals(nameof(DllImportAttribute.CharSet), StringComparison.Ordinal))
+                {
+                    charSet = CoerceEnumValue(named.Value, CharSet.None);
+                }
+                else if (named.Key.Equals(nameof(DllImportAttribute.CallingConvention), StringComparison.Ordinal))
+                {
+                    callingConvention = CoerceEnumValue(named.Value, CallingConvention.Winapi);
+                }
+            }
+
+            data = new DllImportData(libraryName, entryPoint, callingConvention, charSet);
+            return true;
+        }
+
+        data = default;
+        return false;
+    }
+
+    private static TEnum CoerceEnumValue<TEnum>(TypedConstant constant, TEnum fallback)
+        where TEnum : struct, Enum
+    {
+        if (constant.Value is TEnum enumValue)
+            return enumValue;
+
+        if (constant.Value is null)
+            return fallback;
+
+        try
+        {
+            var converted = Convert.ToInt32(constant.Value);
+            return (TEnum)Enum.ToObject(typeof(TEnum), converted);
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    private readonly record struct DllImportData(
+        string LibraryName,
+        string? EntryPoint,
+        CallingConvention CallingConvention,
+        CharSet CharSet);
 }

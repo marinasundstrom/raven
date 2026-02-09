@@ -54,6 +54,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         bool isOverride = false,
         bool isSealed = false,
         bool isAbstract = false,
+        bool isExtern = false,
         Accessibility declaredAccessibility = Accessibility.NotApplicable)
             : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
@@ -69,6 +70,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _isAbstract = isAbstract;
         _isVirtual = isVirtual || isOverride || isAbstract;
         _isSealed = isSealed;
+        IsExtern = isExtern;
     }
 
     /// <summary>

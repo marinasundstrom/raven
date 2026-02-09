@@ -2,6 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
@@ -35,6 +36,13 @@ internal class StatementSyntaxParser : SyntaxParser
             {
                 case SyntaxKind.FuncKeyword:
                 case SyntaxKind.AsyncKeyword when PeekToken(1).Kind == SyntaxKind.FuncKeyword:
+                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.FuncKeyword:
+                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
+                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.UnsafeKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
+                case SyntaxKind.ExternKeyword when PeekToken(1).Kind == SyntaxKind.UnsafeKeyword && PeekToken(2).Kind == SyntaxKind.AsyncKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword:
+                case SyntaxKind.AsyncKeyword when PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
+                case SyntaxKind.UnsafeKeyword when PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
+                case SyntaxKind.UnsafeKeyword when PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.ExternKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword:
                     statement = ParseFunctionSyntax();
                     break;
 
@@ -81,7 +89,9 @@ internal class StatementSyntaxParser : SyntaxParser
 
                 case SyntaxKind.UnsafeKeyword:
                     if (PeekToken(1).Kind == SyntaxKind.FuncKeyword ||
-                        (PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword))
+                        (PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword) ||
+                        (PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword) ||
+                        (PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.AsyncKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword))
                     {
                         statement = ParseFunctionSyntax();
                     }
@@ -466,6 +476,7 @@ internal class StatementSyntaxParser : SyntaxParser
     private StatementSyntax? ParseFunctionSyntax()
     {
         var modifiers = ParseFunctionModifiers();
+        var isExtern = modifiers.GetChildren().Any(child => child.IsKind(SyntaxKind.ExternKeyword));
 
         var funcKeyword = ExpectToken(SyntaxKind.FuncKeyword);
         SyntaxToken identifier;
@@ -502,7 +513,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
-        else
+        else if (!isExtern)
         {
             block = ParseBlockStatementSyntax();
         }
@@ -530,7 +541,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             var kind = PeekToken().Kind;
 
-            if (kind is SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword)
+            if (kind is SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword or SyntaxKind.ExternKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());
             }

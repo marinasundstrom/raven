@@ -404,6 +404,7 @@ internal partial class TypeMemberBinder : Binder
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+        var isExtern = modifiers.Any(m => m.Kind == SyntaxKind.ExternKeyword);
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
@@ -455,6 +456,17 @@ internal partial class TypeMemberBinder : Binder
             _diagnostics.ReportAbstractMemberCannotHaveBody(name, identifierToken.GetLocation());
         }
 
+        if (isExtern && !isStatic)
+        {
+            _diagnostics.ReportExternMemberMustBeStatic(name, identifierToken.GetLocation());
+            isStatic = true;
+        }
+
+        if (isExtern && (methodDecl.Body is not null || methodDecl.ExpressionBody is not null))
+        {
+            _diagnostics.ReportExternMemberCannotHaveBody(name, identifierToken.GetLocation());
+        }
+
         ValidateAbstractMemberInNonAbstractType(
             isAbstract,
             GetMemberDisplayName(displayName),
@@ -503,6 +515,7 @@ internal partial class TypeMemberBinder : Binder
             isOverride: isOverride,
             isSealed: isSealed,
             isAbstract: isAbstract,
+            isExtern: isExtern,
             declaredAccessibility: methodAccessibility);
 
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;

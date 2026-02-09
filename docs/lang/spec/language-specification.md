@@ -2700,6 +2700,27 @@ let pointer: *int = &value
 val result = *pointer // 42
 ```
 
+### Extern declarations
+
+Methods and function statements can be marked `extern` to declare that their
+implementation is provided externally (for example via P/Invoke). Extern
+declarations do not include a body.
+
+Rules:
+
+* Type members marked `extern` must also be `static`.
+* `extern` members/functions cannot declare a block body or expression body.
+* P/Invoke declarations are expressed with `[DllImport(...)]` on static extern methods.
+
+```raven
+import System.Runtime.InteropServices.*
+
+class Native {
+    [DllImport("kernel32", EntryPoint: "GetTickCount")]
+    public extern static GetTickCount() -> uint;
+}
+```
+
 ### Pass by reference
 
 By-reference types can annotate locals and return values. A local
