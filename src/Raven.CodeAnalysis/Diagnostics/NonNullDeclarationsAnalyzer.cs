@@ -16,7 +16,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         title: "Nullable declaration type is not allowed",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Declaration type '{0}' is nullable and not recommended",
+        messageFormat: "Declaring nullable type '{0}' is not recommended",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Warning);
 

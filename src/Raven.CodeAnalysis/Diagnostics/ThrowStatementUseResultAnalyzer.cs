@@ -11,7 +11,7 @@ public sealed class ThrowStatementUseResultAnalyzer : DiagnosticAnalyzer
         title: "Prefer Result over throw",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Throw statements are discouraged; prefer returning a Result instead",
+        messageFormat: "Throwing exceptions are discouraged; prefer returning a Result instead",
         category: "ErrorHandling",
         defaultSeverity: DiagnosticSeverity.Warning);
 
