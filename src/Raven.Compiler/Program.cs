@@ -82,7 +82,6 @@ string asyncInvestigationLabel = "Step14";
 var asyncInvestigationScope = AsyncInvestigationPointerLabelScope.FieldOnly;
 var enableOverloadLog = false;
 string? overloadLogPath = null;
-var overloadLogOwnsWriter = false;
 OverloadResolutionLog? overloadResolutionLog = null;
 var run = false;
 var emitDocs = false;
@@ -447,29 +446,18 @@ var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
 var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 
-var options = new CompilationOptions(outputKind);
-options = options.WithAllowUnsafe(allowUnsafe);
-if (enableAsyncInvestigation)
-    options = options.WithAsyncInvestigation(
-        AsyncInvestigationOptions.Enable(asyncInvestigationLabel, asyncInvestigationScope));
-options = options.WithEmbedCoreTypes(embedCoreTypes);
-if (enableOverloadLog)
-{
-    TextWriter writer;
-    if (!string.IsNullOrWhiteSpace(overloadLogPath))
-    {
-        writer = new StreamWriter(File.Open(overloadLogPath, FileMode.Create, FileAccess.Write, FileShare.Read));
-        overloadLogOwnsWriter = true;
-    }
-    else
-    {
-        writer = Console.Out;
-        overloadLogOwnsWriter = false;
-    }
-
-    overloadResolutionLog = new OverloadResolutionLog(writer, overloadLogOwnsWriter);
-    options = options.WithOverloadResolutionLogger(overloadResolutionLog);
-}
+var executionOptions = new CompilerExecutionOptions(
+    outputKind,
+    allowUnsafe,
+    enableAsyncInvestigation,
+    asyncInvestigationLabel,
+    asyncInvestigationScope,
+    embedCoreTypes,
+    enableOverloadLog,
+    overloadLogPath);
+var optionsResult = CreateCompilationOptions(executionOptions);
+var options = optionsResult.Options;
+overloadResolutionLog = optionsResult.OverloadResolutionLog;
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
@@ -526,119 +514,13 @@ foreach (var r in additionalRefs)
     project = project.AddMetadataReference(MetadataReference.CreateFromFile(full));
 }
 
-project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()));
-project = project.AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
+project = AddDefaultAnalyzers(project);
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
 
-int WriteProjectDocumentsToDisk()
-{
-    var updatedDocumentCount = 0;
-
-    foreach (var document in project.Documents)
-    {
-        if (string.IsNullOrWhiteSpace(document.FilePath))
-            continue;
-
-        var text = document.GetTextAsync().GetAwaiter().GetResult();
-        var newText = text.ToString();
-        var existingText = File.Exists(document.FilePath) ? File.ReadAllText(document.FilePath) : null;
-        if (string.Equals(existingText, newText, StringComparison.Ordinal))
-            continue;
-
-        var encoding = text.Encoding ?? Encoding.UTF8;
-        if (encoding is UTF8Encoding)
-            encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-
-        File.WriteAllText(document.FilePath, newText, encoding);
-        updatedDocumentCount++;
-    }
-
-    return updatedDocumentCount;
-}
-
-if (fix)
-{
-    var applyResult = workspace.ApplyCodeFixes(
-        projectId,
-        BuiltInCodeFixProviders.CreateDefault());
-
-    if (applyResult.AppliedFixCount > 0)
-    {
-        workspace.TryApplyChanges(applyResult.Solution);
-        project = workspace.CurrentSolution.GetProject(projectId)!;
-
-        foreach (var appliedFix in applyResult.AppliedFixes)
-        {
-            var document = workspace.CurrentSolution.GetDocument(appliedFix.DocumentId);
-            var path = document?.FilePath ?? document?.Name ?? "<unknown>";
-            var lineSpan = appliedFix.Diagnostic.Location.GetLineSpan();
-            var line = lineSpan.StartLinePosition.Line + 1;
-            var column = lineSpan.StartLinePosition.Character + 1;
-            var diagnosticId = appliedFix.Diagnostic.Id;
-            var displayPath = path;
-            if (!string.IsNullOrWhiteSpace(path) && Path.IsPathRooted(path))
-                displayPath = Path.GetRelativePath(Environment.CurrentDirectory, path);
-
-            var escapedPath = Markup.Escape(displayPath);
-
-            AnsiConsole.MarkupLine($"[grey]{escapedPath}({line},{column}):[/] [blue]{diagnosticId}[/] {appliedFix.Action.Title}");
-        }
-
-        WriteProjectDocumentsToDisk();
-
-        AnsiConsole.MarkupLine($"[green]Applied {applyResult.AppliedFixCount} code fix(es).[/]");
-    }
-}
-
-if (format)
-{
-    var formattedDocumentCount = 0;
-    var formattedSolution = project.Solution;
-
-    foreach (var document in project.Documents)
-    {
-        var currentDocument = formattedSolution.GetDocument(document.Id);
-        if (currentDocument is null)
-            continue;
-
-        var syntaxTree = currentDocument.GetSyntaxTreeAsync().GetAwaiter().GetResult();
-        if (syntaxTree is null)
-            continue;
-
-        var root = syntaxTree.GetRoot();
-        var normalizedRoot = root.NormalizeWhitespace();
-        if (string.Equals(root.ToFullString(), normalizedRoot.ToFullString(), StringComparison.Ordinal))
-            continue;
-
-        formattedSolution = currentDocument.WithSyntaxRoot(normalizedRoot).Project.Solution;
-        formattedDocumentCount++;
-    }
-
-    if (formattedDocumentCount > 0)
-    {
-        workspace.TryApplyChanges(formattedSolution);
-        project = workspace.CurrentSolution.GetProject(projectId)!;
-
-        var updatedDocumentCount = WriteProjectDocumentsToDisk();
-        AnsiConsole.MarkupLine($"[green]Formatted {updatedDocumentCount} file(s).[/]");
-    }
-    else
-    {
-        AnsiConsole.MarkupLine("[green]All files are already formatted.[/]");
-    }
-}
+project = ApplyCodeFixesIfRequested(workspace, projectId, project, fix);
+project = ApplyFormattingIfRequested(workspace, projectId, project, format);
 
 var compilation = workspace.GetCompilation(projectId);
 
@@ -953,6 +835,157 @@ else
 }
 
 overloadResolutionLog?.Dispose();
+
+static Project AddDefaultAnalyzers(Project project)
+{
+    return project
+        .AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new EventDelegateMustBeNullableAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new VarCanBeValAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new MatchExhaustivenessAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new PreferValInsteadOfLetAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new AutoPropertyInitializationAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new PreferNewLineBetweenDeclarationsAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()))
+        .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
+}
+
+static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog) CreateCompilationOptions(
+    CompilerExecutionOptions executionOptions)
+{
+    var options = new CompilationOptions(executionOptions.OutputKind)
+        .WithAllowUnsafe(executionOptions.AllowUnsafe)
+        .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes);
+
+    if (executionOptions.EnableAsyncInvestigation)
+    {
+        options = options.WithAsyncInvestigation(
+            AsyncInvestigationOptions.Enable(
+                executionOptions.AsyncInvestigationLabel,
+                executionOptions.AsyncInvestigationScope));
+    }
+
+    OverloadResolutionLog? overloadResolutionLog = null;
+    if (executionOptions.EnableOverloadLog)
+    {
+        var ownsWriter = !string.IsNullOrWhiteSpace(executionOptions.OverloadLogPath);
+        var writer = ownsWriter
+            ? new StreamWriter(File.Open(executionOptions.OverloadLogPath!, FileMode.Create, FileAccess.Write, FileShare.Read))
+            : Console.Out;
+
+        overloadResolutionLog = new OverloadResolutionLog(writer, ownsWriter);
+        options = options.WithOverloadResolutionLogger(overloadResolutionLog);
+    }
+
+    return (options, overloadResolutionLog);
+}
+
+static Project ApplyCodeFixesIfRequested(RavenWorkspace workspace, ProjectId projectId, Project project, bool fix)
+{
+    if (!fix)
+        return project;
+
+    var applyResult = workspace.ApplyCodeFixes(
+        projectId,
+        BuiltInCodeFixProviders.CreateDefault());
+
+    if (applyResult.AppliedFixCount == 0)
+        return project;
+
+    workspace.TryApplyChanges(applyResult.Solution);
+    project = workspace.CurrentSolution.GetProject(projectId)!;
+
+    foreach (var appliedFix in applyResult.AppliedFixes)
+    {
+        var document = workspace.CurrentSolution.GetDocument(appliedFix.DocumentId);
+        var path = document?.FilePath ?? document?.Name ?? "<unknown>";
+        var lineSpan = appliedFix.Diagnostic.Location.GetLineSpan();
+        var line = lineSpan.StartLinePosition.Line + 1;
+        var column = lineSpan.StartLinePosition.Character + 1;
+        var diagnosticId = appliedFix.Diagnostic.Id;
+        var displayPath = path;
+        if (!string.IsNullOrWhiteSpace(path) && Path.IsPathRooted(path))
+            displayPath = Path.GetRelativePath(Environment.CurrentDirectory, path);
+
+        var escapedPath = Markup.Escape(displayPath);
+        AnsiConsole.MarkupLine(
+            $"[grey]{escapedPath}({line},{column}):[/] [blue]{diagnosticId}[/] {appliedFix.Action.Title}");
+    }
+
+    WriteProjectDocumentsToDisk(project);
+    AnsiConsole.MarkupLine($"[green]Applied {applyResult.AppliedFixCount} code fix(es).[/]");
+    return project;
+}
+
+static Project ApplyFormattingIfRequested(RavenWorkspace workspace, ProjectId projectId, Project project, bool format)
+{
+    if (!format)
+        return project;
+
+    var formattedDocumentCount = 0;
+    var formattedSolution = project.Solution;
+
+    foreach (var document in project.Documents)
+    {
+        var currentDocument = formattedSolution.GetDocument(document.Id);
+        if (currentDocument is null)
+            continue;
+
+        var syntaxTree = currentDocument.GetSyntaxTreeAsync().GetAwaiter().GetResult();
+        if (syntaxTree is null)
+            continue;
+
+        var root = syntaxTree.GetRoot();
+        var normalizedRoot = root.NormalizeWhitespace();
+        if (string.Equals(root.ToFullString(), normalizedRoot.ToFullString(), StringComparison.Ordinal))
+            continue;
+
+        formattedSolution = currentDocument.WithSyntaxRoot(normalizedRoot).Project.Solution;
+        formattedDocumentCount++;
+    }
+
+    if (formattedDocumentCount == 0)
+    {
+        AnsiConsole.MarkupLine("[green]All files are already formatted.[/]");
+        return project;
+    }
+
+    workspace.TryApplyChanges(formattedSolution);
+    project = workspace.CurrentSolution.GetProject(projectId)!;
+
+    var updatedDocumentCount = WriteProjectDocumentsToDisk(project);
+    AnsiConsole.MarkupLine($"[green]Formatted {updatedDocumentCount} file(s).[/]");
+    return project;
+}
+
+static int WriteProjectDocumentsToDisk(Project project)
+{
+    var updatedDocumentCount = 0;
+
+    foreach (var document in project.Documents)
+    {
+        if (string.IsNullOrWhiteSpace(document.FilePath))
+            continue;
+
+        var text = document.GetTextAsync().GetAwaiter().GetResult();
+        var newText = text.ToString();
+        var existingText = File.Exists(document.FilePath) ? File.ReadAllText(document.FilePath) : null;
+        if (string.Equals(existingText, newText, StringComparison.Ordinal))
+            continue;
+
+        var encoding = text.Encoding ?? Encoding.UTF8;
+        if (encoding is UTF8Encoding)
+            encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
+        File.WriteAllText(document.FilePath, newText, encoding);
+        updatedDocumentCount++;
+    }
+
+    return updatedDocumentCount;
+}
 
 static string? FindDebugDirectory()
 {
@@ -1284,3 +1317,13 @@ enum DocumentationTool
     RavenDoc,
     CommentEmitter
 }
+
+readonly record struct CompilerExecutionOptions(
+    OutputKind OutputKind,
+    bool AllowUnsafe,
+    bool EnableAsyncInvestigation,
+    string AsyncInvestigationLabel,
+    AsyncInvestigationPointerLabelScope AsyncInvestigationScope,
+    bool EmbedCoreTypes,
+    bool EnableOverloadLog,
+    string? OverloadLogPath);
