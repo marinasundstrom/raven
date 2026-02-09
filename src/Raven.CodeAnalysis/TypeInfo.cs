@@ -2,13 +2,16 @@ namespace Raven.CodeAnalysis;
 
 public class TypeInfo
 {
-    internal TypeInfo(ITypeSymbol? type, ITypeSymbol? convertedType)
+    internal TypeInfo(ITypeSymbol? type, ITypeSymbol? convertedType, Conversion conversion = default)
     {
         Type = type;
         ConvertedType = convertedType;
+        Conversion = conversion;
         Nullability = CreateNullabilityInfo(type);
         ConvertedNullability = CreateNullabilityInfo(convertedType);
     }
+
+    public Conversion Conversion { get; }
 
     public NullabilityInfo ConvertedNullability { get; }
 

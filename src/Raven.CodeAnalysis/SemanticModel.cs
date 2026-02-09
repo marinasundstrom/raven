@@ -172,13 +172,23 @@ public partial class SemanticModel
         if (boundExpr is null)
             return new TypeInfo(null, null);
 
-        ITypeSymbol? naturalType = boundExpr is BoundConversionExpression cast
-            ? cast.Expression.Type
-            : boundExpr.Type;
+        ITypeSymbol? naturalType = boundExpr switch
+        {
+            BoundConversionExpression cast => cast.Expression.Type,
+            BoundAsExpression asExpression => asExpression.Expression.Type,
+            _ => boundExpr.Type
+        };
 
-        ITypeSymbol? convertedType = boundExpr.Type;
+        ITypeSymbol? convertedType = boundExpr.GetConvertedType() ?? boundExpr.Type;
 
-        return new TypeInfo(naturalType, convertedType);
+        var conversion = boundExpr switch
+        {
+            BoundConversionExpression cast => cast.Conversion,
+            BoundAsExpression asExpression => asExpression.Conversion,
+            _ => ComputeConversion(naturalType, convertedType)
+        };
+
+        return new TypeInfo(naturalType, convertedType, conversion);
     }
 
     /// <summary>
@@ -191,12 +201,29 @@ public partial class SemanticModel
         try
         {
             var type = binder.ResolveType(typeSyntax);
-            return new TypeInfo(type, type);
+            return new TypeInfo(type, type, ComputeConversion(type, type));
         }
         catch
         {
             return new TypeInfo(null, null);
         }
+    }
+
+    private Conversion ComputeConversion(ITypeSymbol? naturalType, ITypeSymbol? convertedType)
+    {
+        if (naturalType is null || convertedType is null)
+            return Conversion.None;
+
+        var conversion = Compilation.ClassifyConversion(naturalType, convertedType, includeUserDefined: true);
+        if (conversion.Exists)
+            return conversion;
+
+        // Synthesize identity when classifier cannot represent the mapping but
+        // symbols are identical (e.g. some pseudo-types in semantic model).
+        if (SymbolEqualityComparer.Default.Equals(naturalType, convertedType))
+            return new Conversion(isImplicit: true, isIdentity: true);
+
+        return Conversion.None;
     }
 
     /// <summary>
