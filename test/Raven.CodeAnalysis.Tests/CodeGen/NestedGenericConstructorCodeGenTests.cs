@@ -14,19 +14,19 @@ public sealed class NestedGenericConstructorCodeGenTests
     private const string Source = """
 class Foo<T> {
     public class Bar {
-        let value: T
+        val value: T
     }
 }
 
 class Outer<A> {
     public class Inner<B> {
-        let value: A
-        let b: B
+        val value: A
+        val b: B
     }
 }
 
-let a = Foo<int>.Bar()
-let b = Outer<int>.Inner<string>()
+val a = Foo<int>.Bar()
+val b = Outer<int>.Inner<string>()
 """;
 
     [Fact]

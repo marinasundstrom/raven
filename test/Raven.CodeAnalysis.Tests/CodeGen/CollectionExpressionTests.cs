@@ -53,9 +53,9 @@ class Foo {
         var code = """
 class Foo {
     public static GetCount() -> int {
-        let marvel = ["Tony Stark", "Spiderman", "Thor"]
-        let dc = ["Superman", "Batman", "Flash"]
-        let characters = [..marvel, "Black Widow", ..dc]
+        val marvel = ["Tony Stark", "Spiderman", "Thor"]
+        val dc = ["Superman", "Batman", "Flash"]
+        val characters = [..marvel, "Black Widow", ..dc]
         return characters.Length
     }
 }
@@ -91,8 +91,8 @@ class Item() { }
 
 class Foo {
     public static GetCount() -> int {
-        let items: List<Item> = [Item()]
-        let more: List<Item> = [..items]
+        val items: List<Item> = [Item()]
+        val more: List<Item> = [..items]
         return more.Count
     }
 }

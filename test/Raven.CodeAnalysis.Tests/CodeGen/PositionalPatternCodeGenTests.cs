@@ -26,7 +26,7 @@ func describe(value: object) -> string {
 }
 
 func Main() {
-    let value: object = (1, 2)
+    val value: object = (1, 2)
     Console.WriteLine(describe(value))
 }
 """;
@@ -50,7 +50,7 @@ func Main() {
 import System.*
 
 func Main() {
-    let (first, second) = (1, 2)
+    val (first, second) = (1, 2)
     Console.WriteLine(first)
     Console.WriteLine(second)
 }
@@ -125,7 +125,7 @@ func Main() {
 import System.*
 
 func Main() {
-    let (first, _) = (1, 2)
+    val (first, _) = (1, 2)
     var (second, _) = (3, 4)
     Console.WriteLine(first)
     Console.WriteLine(second)

@@ -69,10 +69,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var source = """
             record class Person(Name: string, Age: int);
 
-            let value: object = new Person("Ada", 42);
+            val value: object = new Person("Ada", 42);
 
-            let result = value match {
-                Person(let name, let age) => name
+            val result = value match {
+                Person(val name, val age) => name
                 _ => ""
             };
             """;
@@ -95,10 +95,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var source = """
             record class Pair(Left: int, Right: int);
 
-            let value: Pair = new Pair(1, 2);
+            val value: Pair = new Pair(1, 2);
 
-            let result = value match {
-                (let left, let right) => left
+            val result = value match {
+                (val left, val right) => left
                 _ => 0
             };
             """;

@@ -33,7 +33,7 @@ class Exception {
     public init() {}
 }
 
-let local: Exception = Exception()
+val local: Exception = Exception()
 """;
 
         var verifier = CreateVerifier(

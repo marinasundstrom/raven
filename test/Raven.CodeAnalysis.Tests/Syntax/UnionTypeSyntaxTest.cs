@@ -8,7 +8,7 @@ public class UnionTypeSyntaxTest
     [Fact]
     public void UnionType_WithNullElement_UsesNullTypeSyntax()
     {
-        var code = "let x: string | null = null";
+        var code = "val x: string | null = null";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -21,7 +21,7 @@ public class UnionTypeSyntaxTest
     [Fact]
     public void UnionType_WithLiteralElements_UsesLiteralTypeSyntax()
     {
-        var code = "let flag: true | false = true";
+        var code = "val flag: true | false = true";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;

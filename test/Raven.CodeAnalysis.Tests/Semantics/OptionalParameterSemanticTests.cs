@@ -26,7 +26,7 @@ class Calculator {
     }
 }
 
-let result = Calculator.Add()
+val result = Calculator.Add()
 """;
 
         var (compilation, tree) = CreateCompilation(source);

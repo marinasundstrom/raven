@@ -74,9 +74,9 @@ end:
 import System.*
 
 func Main() {
-    using let outer = Foo("outer")
+    using val outer = Foo("outer")
     {
-        using let inner = Foo("inner")
+        using val inner = Foo("inner")
         goto exit
     }
 exit:

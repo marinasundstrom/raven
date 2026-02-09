@@ -42,7 +42,7 @@ public class ImportResolutionTest : DiagnosticTestBase
         string testCode =
             """
             class C {
-                let field: String
+                val field: String
             }
             """;
 
@@ -197,7 +197,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Math.*
 
-            let pi = PI
+            val pi = PI
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -247,7 +247,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import MathHelpers.*
 
-            let value = Increment(1, 2)
+            val value = Increment(1, 2)
 
             public static class MathHelpers {
                 public static Increment(x: int, amount: int) -> int {

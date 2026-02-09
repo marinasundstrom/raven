@@ -55,7 +55,7 @@ class C
         const string source = """
 import System.Threading.Tasks.*
 
-let projector = async () => 42
+val projector = async () => 42
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -145,7 +145,7 @@ class C
 import System.*
 import System.Threading.Tasks.*
 
-let projector = async () -> int => {
+val projector = async () -> int => {
     return 1
 }
 """;
@@ -162,8 +162,8 @@ let projector = async () -> int => {
 import System.*
 import System.Threading.Tasks.*
 
-let handler = async () => await Task.FromResult(2)
-let result = await handler()
+val handler = async () => await Task.FromResult(2)
+val result = await handler()
 """;
 
         var (compilation, tree) = CreateCompilation(source);

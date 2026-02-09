@@ -171,7 +171,7 @@ await Task.CompletedTask
         const string source = """
 import System.Threading.Tasks.*
 
-let value = await Task.FromResult(1)
+val value = await Task.FromResult(1)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -201,7 +201,7 @@ func Use(value: Int32) -> Int32 {
     return value
 }
 
-let result = Use(await Task.FromResult(1))
+val result = Use(await Task.FromResult(1))
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -223,7 +223,7 @@ let result = Use(await Task.FromResult(1))
     [Fact]
     public void TopLevelWithoutAwait_DoesNotProduceAsyncImplementation()
     {
-        const string source = "let x = 0";
+        const string source = "val x = 0";
 
         var (compilation, _) = CreateCompilation(source);
         compilation.EnsureSetup();

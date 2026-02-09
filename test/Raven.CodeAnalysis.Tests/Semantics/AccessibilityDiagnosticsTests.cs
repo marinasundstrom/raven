@@ -21,7 +21,7 @@ class Container {
     private init() {}
 }
 
-let instance = Container();
+val instance = Container();
 """;
 
         var verifier = CreateVerifier(
@@ -44,13 +44,13 @@ class Container {
     }
 }
 
-let instance = Container();
-let value = instance.secret;
+val instance = Container();
+val value = instance.secret;
 """;
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0500").WithSpan(10, 22, 10, 28).WithArguments("field", "secret")],
+            [new DiagnosticResult("RAV0500").WithSpan(10, 22, 10, 28).WithArguments("field", "var secret: int")],
             disabledDiagnostics: ["RAV1014"]);
 
         verifier.Verify();
@@ -60,21 +60,21 @@ let value = instance.secret;
     public void PublicMethodReturningInternalType_ReportsRAV0501()
     {
         const string source = """
+union Result<T, E> {
+    Ok(value: T)
+    Error(message: E)
+}
+
 public class Container {
     public static ParseNumber(str: string) -> Result<int, string> {
         return .Ok(0);
     }
 }
-
-union Result<T> {
-    Ok(value: T)
-    Error(message: string)
-}
 """;
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0501").WithSpan(2, 47, 2, 58).WithArguments("return", "Result<int, string>", "method", "Container.ParseNumber")],
+            [new DiagnosticResult("RAV0501").WithSpan(7, 47, 7, 66).WithArguments("return", "Result<int, string>", "method", "Container.ParseNumber")],
             disabledDiagnostics: ["RAV1014"]);
 
         verifier.Verify();
@@ -115,7 +115,7 @@ internal class Hidden {}
         const string source = """
 import Lib.*
 
-let value: Hidden = default(Hidden)
+val value: Hidden = default(Hidden)
 """;
 
         var tree = SyntaxTree.ParseText(source);

@@ -69,7 +69,7 @@ public class NamespaceDirectiveTests
         const string source = """
         namespace Samples
 
-        let person = Person()
+        val person = Person()
 
         class Person
         {
@@ -96,7 +96,7 @@ public class NamespaceDirectiveTests
 
         alias PrintLine = System.Console.WriteLine
 
-        let person = Person()
+        val person = Person()
         PrintLine("hi")
 
         open class Base {}

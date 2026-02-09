@@ -13,7 +13,7 @@ public class BlockExpressionTests
         var code = """
 class Foo {
     Run(flag: bool, w: int) -> object {
-        let y = if flag { 40 + w; } else { true }
+        val y = if flag { 40 + w; } else { true }
         return y
     }
 }

@@ -12,7 +12,7 @@ public class DefaultExpressionTests : CompilationTestBase
     public void DefaultExpression_WithExplicitType_UsesType()
     {
         const string code = """
-        let value: int = default(int)
+        val value: int = default(int)
         """;
 
         var (compilation, tree) = CreateCompilation(code);
@@ -27,7 +27,7 @@ public class DefaultExpressionTests : CompilationTestBase
     public void DefaultLiteral_TargetTyped_UsesContextualType()
     {
         const string code = """
-        let text: string = default
+        val text: string = default
         """;
 
         var (compilation, tree) = CreateCompilation(code);
@@ -45,7 +45,7 @@ public class DefaultExpressionDiagnosticTests : DiagnosticTestBase
     public void DefaultLiteral_WithoutTargetType_ReportsDiagnostic()
     {
         const string code = """
-        let value = default
+        val value = default
         """;
 
         var verifier = CreateVerifier(code, [

@@ -9,7 +9,7 @@ public class SemanticModelMappingTests : CompilationTestBase
     [Fact]
     public void GetSyntax_ReturnsSyntaxForBoundExpression()
     {
-        var (compilation, tree) = CreateCompilation("func Main() { let x = 1 + 2; }");
+        var (compilation, tree) = CreateCompilation("func Main() { val x = 1 + 2; }");
         var model = compilation.GetSemanticModel(tree);
 
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
@@ -25,7 +25,7 @@ public class SemanticModelMappingTests : CompilationTestBase
     [Fact]
     public void GetSyntax_ReturnsSyntaxForBoundStatement()
     {
-        var (compilation, tree) = CreateCompilation("func Main() { if true { let x = 0; } }");
+        var (compilation, tree) = CreateCompilation("func Main() { if true { val x = 0; } }");
         var model = compilation.GetSemanticModel(tree);
 
         var ifStatement = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().Single();

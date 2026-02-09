@@ -17,8 +17,8 @@ public class DiscriminatedUnionGenericsTests
     private const string GenericUnionSample = """
 import System.*
 
-let ok : Result<int, string> = .Ok(99)
-let err = Result<int, string>.Error("boom")
+val ok : Result<int, string> = .Ok(99)
+val err = Result<int, string>.Error("boom")
 
 Console.WriteLine(format(ok))
 Console.WriteLine(format(err))

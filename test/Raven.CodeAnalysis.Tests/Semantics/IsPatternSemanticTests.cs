@@ -15,8 +15,8 @@ public class IsPatternSemanticTests : DiagnosticTestBase
     public void IsPattern_WithQualifiedMetadataType_BindsDeclaredType()
     {
         const string source = """
-let member: object = 0
-let result = member is System.Reflection.MethodInfo method
+val member: object = 0
+val result = member is System.Reflection.MethodInfo method
 """;
 
         var verifier = CreateVerifier(source);

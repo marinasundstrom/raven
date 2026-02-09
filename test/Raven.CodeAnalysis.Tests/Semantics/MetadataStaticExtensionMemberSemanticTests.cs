@@ -17,7 +17,7 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
         const string source = """
 import Raven.MetadataFixtures.StaticExtensions.*
 
-let created = Widget.Create(42)
+val created = Widget.Create(42)
 """;
 
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithExtensionMethods);

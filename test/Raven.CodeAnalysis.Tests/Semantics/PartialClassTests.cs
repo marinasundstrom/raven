@@ -15,11 +15,11 @@ public class PartialClassTests : CompilationTestBase
     {
         const string source = """
 partial class Container {
-    let x: int = 0;
+    val x: int = 0;
 };
 
 partial class Container {
-    let y: int = 0;
+    val y: int = 0;
 };
 """;
 
@@ -48,13 +48,13 @@ partial class Container {
     {
         const string sourceA = """
 partial class Container {
-    let x: int = 0;
+    val x: int = 0;
 };
 """;
 
         const string sourceB = """
 partial class Container {
-    let y: int = 0;
+    val y: int = 0;
 };
 """;
 
@@ -91,7 +91,7 @@ partial class Container {
 namespace System;
 
 partial class Container {
-    let x: int = 0;
+    val x: int = 0;
 };
 """;
 
@@ -99,7 +99,7 @@ partial class Container {
 namespace System;
 
 partial class Container {
-    let y: int = 0;
+    val y: int = 0;
 };
 """;
 

@@ -276,7 +276,7 @@ class Helper {
     public void Emit_ShouldAlwaysIncludeUnitType()
     {
         var code = """
-let x = if true {
+val x = if true {
     42
 } else {
     ()
@@ -657,7 +657,7 @@ class Person {
 
     public init WithName(name: string) {
         storedName = name;
-        let snapshot = storedName;
+        val snapshot = storedName;
         Normalize();
     }
 

@@ -46,8 +46,8 @@ public class MatchExpressionCodeGenTests
     public void MatchExpression_WithValueTypeArm_EmitsAndRuns()
     {
         const string code = """
-let value = 42
-let result = value match {
+val value = 42
+val result = value match {
     int i => i.ToString()
     _ => "None"
 }
@@ -65,9 +65,9 @@ System.Console.WriteLine(result)
     public void MatchExpression_AsReturnValue_EmitsAndRuns()
     {
         const string code = """
-let describer = Describer()
-let zero = describer.Describe(0)
-let two = describer.Describe(2)
+val describer = Describer()
+val zero = describer.Describe(0)
+val two = describer.Describe(2)
 
 System.Console.WriteLine(zero + "," + two)
 
@@ -91,12 +91,12 @@ class Describer {
     public void MatchExpression_WithStringLiteralPattern_MatchesExactValue()
     {
         const string code = """
-let foo = "foo" match {
+val foo = "foo" match {
     "foo" => "str"
     _ => "None"
 }
 
-let empty = "" match {
+val empty = "" match {
     "foo" => "str"
     _ => "None"
 }
@@ -114,10 +114,10 @@ System.Console.WriteLine(foo + "," + empty)
     public void MatchExpression_WithUnionTupleArm_EmitsAndRuns()
     {
         const string code = """
-let describer = Describer()
-let tuple: bool | (flag: bool, text: string) = (false, "tuple")
-let boolResult = describer.Describe(false)
-let tupleResult = describer.Describe(tuple)
+val describer = Describer()
+val tuple: bool | (flag: bool, text: string) = (false, "tuple")
+val boolResult = describer.Describe(false)
+val tupleResult = describer.Describe(tuple)
 
 System.Console.WriteLine(boolResult + "," + tupleResult)
 
@@ -153,7 +153,7 @@ class Formatter {
 
 class Program {
     static Main() {
-        let formatter = Formatter()
+        val formatter = Formatter()
         System.Console.WriteLine(formatter.Describe([2, 3]))
     }
 }
@@ -226,9 +226,9 @@ class Formatter {
     }
 }
 
-let formatter = Formatter()
-let something = Test.Something("hello")
-let nothing = Test.Nothing
+val formatter = Formatter()
+val something = Test.Something("hello")
+val nothing = Test.Nothing
 
 System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describe(nothing))
 """;
@@ -246,8 +246,8 @@ System.Console.WriteLine(formatter.Describe(something) + "," + formatter.Describ
         const string code = """
 import System.*
 
-let ok: Result<int, string> = .Ok(99)
-let err = Result<int, string>.Error("boom")
+val ok: Result<int, string> = .Ok(99)
+val err = Result<int, string>.Error("boom")
 
 System.Console.WriteLine(format(ok))
 System.Console.WriteLine(format((Result<int, string>)err))
@@ -278,8 +278,8 @@ union Result<T> {
         const string code = """
 import System.Console.*
 
-let a = Test.Something("foo")
-let b = Test.Nothing
+val a = Test.Something("foo")
+val b = Test.Nothing
 
 WriteLine(describe(a) + "," + describe(b))
 
@@ -307,13 +307,13 @@ union Test {
     public void MatchExpression_WithUnionTupleFallback_EmitsAndRuns()
     {
         const string code = """
-let tuple = (42, 2)
-let foo = tuple.Item1
-let tuple2 = (42, "Bar")
-let name = tuple2.Item2
-let x: bool | (flag: bool, text: string) = false
+val tuple = (42, 2)
+val foo = tuple.Item1
+val tuple2 = (42, "Bar")
+val name = tuple2.Item2
+val x: bool | (flag: bool, text: string) = false
 
-let r = x match {
+val r = x match {
     (flag: bool, text: string) => "tuple"
     _ => "none"
 }
@@ -332,10 +332,10 @@ System.Console.WriteLine(r)
     public void MatchExpression_WithMixedPrimitiveAndTupleArms_EmitsAndRuns()
     {
         const string code = """
-let describer = Describer()
-let boolResult = describer.Describe(false)
-let tupleValue: bool | (flag: bool, text: string) = (false, "tuple")
-let tupleResult = describer.Describe(tupleValue)
+val describer = Describer()
+val boolResult = describer.Describe(false)
+val tupleValue: bool | (flag: bool, text: string) = (false, "tuple")
+val tupleResult = describer.Describe(tupleValue)
 
 System.Console.WriteLine(boolResult + "," + tupleResult)
 

@@ -25,9 +25,9 @@ public class ConversionOperatorBindingTests : CompilationTestBase
         func takesString(value: string) -> () { }
 
         func test() -> () {
-            let box: Box = default
+            val box: Box = default
             takesString(box)
-            let number: int = (int)box
+            val number: int = (int)box
         }
         """;
 
@@ -68,8 +68,8 @@ public class ConversionOperatorBindingTests : CompilationTestBase
             const string source = """
 import System.*
 
-let value = Option<int>.None
-let result: int? = value
+val value = Option<int>.None
+val result: int? = value
 """;
 
             var (compilation, tree) = CreateCompilation(

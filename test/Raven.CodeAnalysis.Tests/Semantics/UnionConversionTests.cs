@@ -41,7 +41,7 @@ class Bar {}
 
 class Baz {
     Test(flag: bool) {
-        let value = if flag {
+        val value = if flag {
             Foo()
         } else {
             Bar()
@@ -73,7 +73,7 @@ class Cat : Animal {}
 
 class Zoo {
     Test(flag: bool) {
-        let pet = if flag {
+        val pet = if flag {
             Dog()
         } else {
             Cat()
@@ -115,7 +115,7 @@ class Baz {
     [Fact]
     public void BooleanLiteral_UsesKeywordInDiagnostic()
     {
-        var code = "let x: \"true\" | 1 = true";
+        var code = "val x: \"true\" | 1 = true";
         var verifier = CreateVerifier(code, [
             new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("true", "\"true\" | 1")
         ]);
@@ -127,7 +127,7 @@ class Baz {
     {
         var code = """
 func test(flag: bool) {
-    let value: int = if flag {
+    val value: int = if flag {
         ()
     } else {
         1
@@ -144,7 +144,7 @@ func test(flag: bool) {
     [Fact]
     public void NumericLiteralNotInUnion_ProducesDiagnostic()
     {
-        var code = "let x: \"true\" | 1 = 2";
+        var code = "val x: \"true\" | 1 = 2";
         var verifier = CreateVerifier(code, [
             new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("2", "\"true\" | 1")
         ]);

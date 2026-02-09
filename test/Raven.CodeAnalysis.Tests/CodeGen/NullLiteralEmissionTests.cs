@@ -85,7 +85,7 @@ class C {
         const string code = """
 class C {
     Run() -> int? {
-        let value: int? = null
+        val value: int? = null
         return value
     }
 }

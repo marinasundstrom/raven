@@ -24,8 +24,8 @@ class Helper {
         var tree2 = SyntaxTree.ParseText("""
 class Program {
     static Main() -> unit {
-        let helper = Helper();
-        let value = helper.GetValue();
+        val helper = Helper();
+        val value = helper.GetValue();
         return;
     }
 }

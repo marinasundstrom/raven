@@ -79,7 +79,7 @@ async func Test<T>(value: T) -> Task<T> {
 }
 
 async func Outer() -> Task<int> {
-    let result = await Test(42)
+    val result = await Test(42)
     return result
 }
 """;

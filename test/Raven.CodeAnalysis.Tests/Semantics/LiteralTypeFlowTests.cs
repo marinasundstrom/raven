@@ -30,7 +30,7 @@ public class LiteralTypeFlowTests : DiagnosticTestBase
     [Fact]
     public void LetDeclaration_WithLiteral_InferredUnderlyingType()
     {
-        var code = "let i = 0";
+        var code = "val i = 0";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -94,7 +94,7 @@ public class LiteralTypeFlowTests : DiagnosticTestBase
     [Fact]
     public void Literal_ImplicitlyConvertsToUnderlyingType()
     {
-        var code = "let x: bool = true";
+        var code = "val x: bool = true";
         var verifier = CreateVerifier(code);
         verifier.Verify();
     }
@@ -105,8 +105,8 @@ public class LiteralTypeFlowTests : DiagnosticTestBase
         var code = """
 import System.*;
 
-let literal: "foo" = "foo";
-let length = literal.Length;
+val literal: "foo" = "foo";
+val length = literal.Length;
 """;
 
         var verifier = CreateVerifier(code);
@@ -119,7 +119,7 @@ let length = literal.Length;
         var code = """
 import System.*;
 
-let length = 10.ToString().Length;
+val length = 10.ToString().Length;
 """;
 
         var verifier = CreateVerifier(code);
@@ -132,7 +132,7 @@ let length = 10.ToString().Length;
         var code = """
 import System.*;
 
-let length = 10.ToString().Length;
+val length = 10.ToString().Length;
 """;
 
         var tree = SyntaxTree.ParseText(code);
@@ -171,7 +171,7 @@ let length = 10.ToString().Length;
     [Fact]
     public void LiteralType_Long_UsesUnderlyingInt64()
     {
-        var code = "let x: 4_000_000_000 = 4_000_000_000";
+        var code = "val x: 4_000_000_000 = 4_000_000_000";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -189,7 +189,7 @@ let length = 10.ToString().Length;
     [Fact]
     public void LiteralType_Float_UsesUnderlyingSingle()
     {
-        var code = "let x: 3.14f = 3.14f";
+        var code = "val x: 3.14f = 3.14f";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -207,7 +207,7 @@ let length = 10.ToString().Length;
     [Fact]
     public void LiteralType_Double_UsesUnderlyingDouble()
     {
-        var code = "let x: 3.14 = 3.14";
+        var code = "val x: 3.14 = 3.14";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -225,7 +225,7 @@ let length = 10.ToString().Length;
     [Fact]
     public void LiteralType_Bool_UsesUnderlyingBoolean()
     {
-        var code = "let x: true = true";
+        var code = "val x: true = true";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -243,7 +243,7 @@ let length = 10.ToString().Length;
     [Fact]
     public void LiteralType_Char_UsesUnderlyingChar()
     {
-        var code = "let x: 'a' = 'a'";
+        var code = "val x: 'a' = 'a'";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -262,7 +262,7 @@ let length = 10.ToString().Length;
     public void IfExpression_InferredLiteralUnion()
     {
         var code = """
-let x = if true { "true" } else { 1 }
+val x = if true { "true" } else { 1 }
 """;
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -282,8 +282,8 @@ let x = if true { "true" } else { 1 }
     public void IfExpression_WithMixedNumericBranches_InferredUnderlyingType()
     {
         var code = """
-let other = 0
-let value = if true { other } else { 42 }
+val other = 0
+val value = if true { other } else { 42 }
 """;
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -301,8 +301,8 @@ let value = if true { other } else { 42 }
     public void IfExpression_WithNullBranch_InferredNullableValueType()
     {
         var code = """
-let other = 0
-let value = if true { other } else { null }
+val other = 0
+val value = if true { other } else { null }
 """;
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -321,8 +321,8 @@ let value = if true { other } else { null }
     public void IfExpression_WithNullReferenceBranch_InferredNullableReferenceType()
     {
         var code = """
-let other = "hi"
-let value = if true { other } else { null }
+val other = "hi"
+val value = if true { other } else { null }
 """;
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -340,7 +340,7 @@ let value = if true { other } else { null }
     [Fact]
     public void BinaryExpression_StringLiteralConcatenation_ReturnsLiteralType()
     {
-        var code = "let greeting: \"Hello, World!\" = \"Hello\" + \", World!\"";
+        var code = "val greeting: \"Hello, World!\" = \"Hello\" + \", World!\"";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -356,7 +356,7 @@ let value = if true { other } else { null }
     [Fact]
     public void BinaryExpression_StringLiteralAndNumericLiteralConcatenation_ReturnsLiteralType()
     {
-        var code = "let result: \"Hello1\" = \"Hello\" + 1";
+        var code = "val result: \"Hello1\" = \"Hello\" + 1";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)
@@ -372,7 +372,7 @@ let value = if true { other } else { null }
     [Fact]
     public void BinaryExpression_NumericLiteralAndStringLiteralConcatenation_ReturnsLiteralType()
     {
-        var code = "let result: \"1Hello\" = 1 + \"Hello\"";
+        var code = "val result: \"1Hello\" = 1 + \"Hello\"";
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(tree)

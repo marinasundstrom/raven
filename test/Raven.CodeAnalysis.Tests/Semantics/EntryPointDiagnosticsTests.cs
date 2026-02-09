@@ -49,7 +49,7 @@ class Helper {
     [Fact]
     public void TopLevelStatements_WithUserDefinedMain_ProducesAmbiguousDiagnostic()
     {
-        var topLevel = SyntaxTree.ParseText("let x = 0");
+        var topLevel = SyntaxTree.ParseText("val x = 0");
         var mainClass = SyntaxTree.ParseText("""
 class App {
     static Main() -> unit {
@@ -207,7 +207,7 @@ class Program {
     [Fact]
     public void TopLevelStatements_SynthesizeImplicitEntryPoint()
     {
-        var tree = SyntaxTree.ParseText("let x = 0");
+        var tree = SyntaxTree.ParseText("val x = 0");
         var compilation = Compilation.Create(
             "app",
             [tree],

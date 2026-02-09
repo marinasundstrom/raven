@@ -14,8 +14,8 @@ public class BinderAndLowererTests : CompilationTestBase
     public void IfExpression_WithElse_BindsToBoundIfExpression()
     {
         const string source = """
-let flag = true
-let value = if flag 1 else 2
+val flag = true
+val value = if flag 1 else 2
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -39,7 +39,7 @@ let value = if flag 1 else 2
     public void MatchExpression_WithWildcard_BindsToBoundMatchExpression()
     {
         const string source = """
-let value = 0 match {
+val value = 0 match {
     0 => 1
     _ => 2
 }
@@ -163,7 +163,7 @@ class C {
         const string source = """
 class C {
     Test(flag: bool) {
-        let lambda = () => {
+        val lambda = () => {
             while flag {
                 ()
             }

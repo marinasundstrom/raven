@@ -14,9 +14,9 @@ public class MatchExpressionTests : DiagnosticTestBase
     public void MatchExpression_WithTypeArms_MissingDefaultReportsDiagnostic()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     string text => text
     object obj => obj.ToString()
 }
@@ -33,9 +33,9 @@ let result = value match {
     public void MatchExpression_WithDefaultArm_AllowsAssignment()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     string text => text
     object => value.ToString()
 }
@@ -50,9 +50,9 @@ let result = value match {
     public void MatchExpression_WithBooleanLiteralArms_IsExhaustive()
     {
         const string code = """
-let value: bool = true
+val value: bool = true
 
-let result = value match {
+val result = value match {
     true => "true"
     false => "false"
 }
@@ -67,9 +67,9 @@ let result = value match {
     public void MatchExpression_WithBooleanLiteralArmsOnUnion_IsExhaustive()
     {
         const string code = """
-let value: bool | (flag: bool, text: string) = false
+val value: bool | (flag: bool, text: string) = false
 
-let result = value match {
+val result = value match {
     true => "true"
     false => "false"
     (flag: bool, text: string) => "tuple ${text}"
@@ -85,9 +85,9 @@ let result = value match {
     public void MatchExpression_WithNegativeNumericPattern_AllowsConstantArm()
     {
         const string code = """
-let value: int = -1
+val value: int = -1
 
-let result = value match {
+val result = value match {
     -1 => "minus one"
     _ => "other"
 }
@@ -102,9 +102,9 @@ let result = value match {
     public void MatchExpression_WithDiscardArm_BindsDesignation()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     string text => text
     object obj => obj.ToString()
     _ => ""
@@ -120,7 +120,7 @@ let result = value match {
     public void MatchExpression_WithDiscardArmOnNewLine_DoesNotInsertEmptyArm()
     {
         const string code = """
-let result = false match {
+val result = false match {
     _ => "none"
 }
 """;
@@ -147,9 +147,9 @@ class Character(name: string, species: Species, age: int) {
     public Age: int => age
 }
 
-let character = new Character("Rex", .Dog, 4)
+val character = new Character("Rex", .Dog, 4)
 
-let result = character match {
+val result = character match {
     { Age: not > 34, Species: .Dog } => true
     _ => false
 }
@@ -194,7 +194,7 @@ match 1 {
     public void MatchStatement_PrefixFormWithBlockArms_AfterPreviousStatement_BindsWithoutDiagnostics()
     {
         const string code = """
-let value: bool = true
+val value: bool = true
 
 match value {
     true => { 1 }
@@ -216,9 +216,9 @@ enum Color {
     Blue
 }
 
-let value: Color = .Red
+val value: Color = .Red
 
-let result = value match {
+val result = value match {
     .Red => 1
     .Green => 2
 }
@@ -235,9 +235,9 @@ let result = value match {
     public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     string text => text
     object _ => value.ToString()
 }
@@ -252,9 +252,9 @@ let result = value match {
     public void MatchExpression_WithPositionalPatternOnUnion_BindsElementDesignations()
     {
         const string code = """
-let x: bool | (a: int, b: string) = false
+val x: bool | (a: int, b: string) = false
 
-let result = x match {
+val result = x match {
     true => "hej"
     (a: int, b: string) => "tuple ${a} ${b}"
     _ => "none"
@@ -297,9 +297,9 @@ let result = x match {
     public void MatchExpression_WithCollectionPatternOnArray_BindsElementDesignations()
     {
         const string code = """
-let items: int[] = [1, 2]
+val items: int[] = [1, 2]
 
-let result = items match {
+val result = items match {
     [val first, val second] => first + second
     _ => 0
 }
@@ -341,9 +341,9 @@ let result = items match {
     public void MatchExpression_WithDiscardArmNotLast_ReportsDiagnostic()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     _ => ""
     string text => text
 }
@@ -360,9 +360,9 @@ let result = value match {
     public void MatchExpression_WithTypedDiscardArmNotLast_ReportsDiagnostic()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     object _ => value.ToString()
     string text => text
 }
@@ -379,9 +379,9 @@ let result = value match {
     public void MatchExpression_DiscardArm_BindsToDiscardPattern()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     string text => text
     object obj => obj.ToString()
     _ => "None"
@@ -405,10 +405,10 @@ let result = value match {
     public void MatchExpression_WithVariablePattern_BindsDesignation()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
-    let text => text
+val result = value match {
+    val text => text
     _ => ""
 }
 """;
@@ -437,9 +437,9 @@ let result = value match {
     public void MatchExpression_WithVarPattern_BindsMutableDesignation()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
+val result = value match {
     var text => text
     _ => ""
 }
@@ -469,10 +469,10 @@ let result = value match {
     public void MatchExpression_WithTypedVariablePattern_UsesAnnotation()
     {
         const string code = """
-let value: object = "hello"
+val value: object = "hello"
 
-let result = value match {
-    let text: string => text
+val result = value match {
+    val text: string => text
     _ => ""
 }
 """;
@@ -501,9 +501,9 @@ let result = value match {
     public void MatchExpression_WithArrayTypePattern_BindsArrayType()
     {
         const string code = """
-let value: object = [1, 2, 3]
+val value: object = [1, 2, 3]
 
-let result = value match {
+val result = value match {
     int[] numbers => numbers.Length
     _ => 0
 }
@@ -554,9 +554,9 @@ func describe(value: object) -> string? {
     public void MatchExpression_WithUnionScrutinee_AllCasesCovered()
     {
         const string code = """
-let state: "on" | "off" = "on"
+val state: "on" | "off" = "on"
 
-let result = state match {
+val result = state match {
     "on" => 1
     "off" => 0
 }
@@ -571,9 +571,9 @@ let result = state match {
     public void MatchExpression_WithNullArm_BindsToConstantPattern()
     {
         const string code = """
-let value: string | null = null
+val value: string | null = null
 
-let result = value match {
+val result = value match {
     null => "empty"
     string text => text
 }
@@ -619,9 +619,9 @@ func describe(input: bool) -> string {
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnostic()
     {
         const string code = """
-let state: "on" | "off" = "on"
+val state: "on" | "off" = "on"
 
-let result = state match {
+val result = state match {
     "on" => 1
 }
 """;
@@ -637,9 +637,9 @@ let result = state match {
     public void MatchExpression_WithUnionScrutinee_MultipleMissingArmsReportDiagnostics()
     {
         const string code = """
-let state: "on" | "off" | "unknown" = "on"
+val state: "on" | "off" | "unknown" = "on"
 
-let result = state match {
+val result = state match {
     "on" => 1
 }
 """;
@@ -658,9 +658,9 @@ let result = state match {
     public void MatchExpression_WithUnionScrutinee_RedundantCatchAllReportsDiagnostic()
     {
         const string code = """
-let state: "on" | "off" = "on"
+val state: "on" | "off" = "on"
 
-let result = state match {
+val result = state match {
     "on" => 1
     "off" => 0
     _ => -1
@@ -678,9 +678,9 @@ let result = state match {
     public void MatchExpression_WithUnionScrutinee_CatchAllWithGuardDoesNotReportDiagnostic()
     {
         const string code = """
-let state: "on" | "off" = "on"
+val state: "on" | "off" = "on"
 
-let result = state match {
+val result = state match {
     "on" => 1
     "off" when false => 0
     _ => -1
@@ -696,9 +696,9 @@ let result = state match {
     public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll()
     {
         const string code = """
-let input: string | int | null = ""
+val input: string | int | null = ""
 
-let result = input match {
+val result = input match {
     null => "Nothing to report."
     string text when text.Length > 0 => "Saw \"${text}\""
     int number => "Counted ${number}"
@@ -716,9 +716,9 @@ let result = input match {
     public void MatchExpression_WithUnionScrutineeIncludingNull_DoesNotReportMissingNull()
     {
         const string code = """
-let input: string | null = null
+val input: string | null = null
 
-let result = input match {
+val result = input match {
     null => "Nothing to report."
     string text => text
 }
@@ -733,9 +733,9 @@ let result = input match {
     public void MatchExpression_WithPositionalPattern_BindsTupleElements()
     {
         const string code = """
-let pair: object = (1, "two")
+val pair: object = (1, "two")
 
-let result = pair match {
+val result = pair match {
     (first: int, second: string) => second
     _ => ""
 }
@@ -773,9 +773,9 @@ let result = pair match {
     public void MatchExpression_WithPositionalPatternLengthMismatch_ReportsDiagnostic()
     {
         const string code = """
-let pair: (int, int) = (1, 2)
+val pair: (int, int) = (1, 2)
 
-let result = pair match {
+val result = pair match {
     (int a, int b, int c) => c
 }
 """;
@@ -791,9 +791,9 @@ let result = pair match {
     public void MatchExpression_WithIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
-let value: int = 0
+val value: int = 0
 
-let result = value match {
+val result = value match {
     string text => text
     _ => ""
 }
@@ -810,9 +810,9 @@ let result = value match {
     public void MatchExpression_WithUnionScrutineeAndIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
-let value: "on" | "off" = "on"
+val value: "on" | "off" = "on"
 
-let result = value match {
+val result = value match {
     bool flag => 1
     _ => 0
 }
@@ -829,9 +829,9 @@ let result = value match {
     public void MatchExpression_WithIncompatibleLiteralPattern_ReportsDiagnostic()
     {
         const string code = """
-let value: int = 0
+val value: int = 0
 
-let result = value match {
+val result = value match {
     "foo" => 1
     _ => 0
 }

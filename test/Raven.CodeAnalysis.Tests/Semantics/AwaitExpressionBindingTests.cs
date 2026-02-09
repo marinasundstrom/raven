@@ -14,7 +14,7 @@ public class AwaitExpressionBindingTests : CompilationTestBase
 import System.Threading.Tasks.*
 
 async func outer() {
-    let value = await Task.FromResult(42);
+    val value = await Task.FromResult(42);
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -34,7 +34,7 @@ async func outer() {
 import System.Threading.Tasks.*
 
 async func outer() {
-    let value = await Task.CompletedTask;
+    val value = await Task.CompletedTask;
 }
 """;
         var tree = SyntaxTree.ParseText(source);

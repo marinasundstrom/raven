@@ -12,8 +12,8 @@ public class GlobalStatementDataFlowTests
     {
         var code = """
 import System.Console.*
-let numbers = [1, 2, 3]
-let total = 0
+val numbers = [1, 2, 3]
+val total = 0
 for each number in numbers {
     total = total + number
 }

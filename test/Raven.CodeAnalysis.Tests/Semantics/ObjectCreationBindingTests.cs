@@ -23,7 +23,7 @@ class Foo<T>
     }
 }
 
-let value = Foo<int>.Bar();
+val value = Foo<int>.Bar();
 """;
 
         VerifyConstructorBinding(source, creationIndex: 0);
@@ -41,7 +41,7 @@ class Outer<T>
     }
 }
 
-let value = Outer<int>.Inner<string>();
+val value = Outer<int>.Inner<string>();
 """;
 
         VerifyConstructorBinding(source, creationIndex: 0);
@@ -59,7 +59,7 @@ class Outer<T>
     }
 }
 
-let value = Outer<int>.Inner<string>();
+val value = Outer<int>.Inner<string>();
 """;
 
         var syntaxTree = SyntaxTree.ParseText(source);

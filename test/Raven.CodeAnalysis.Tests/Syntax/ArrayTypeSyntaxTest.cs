@@ -8,7 +8,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithQualifiedElementType_Parses()
     {
-        const string code = "let names: System.String[] = []";
+        const string code = "val names: System.String[] = []";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -23,7 +23,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithMultiDimensionalRank_Parses()
     {
-        const string code = "let matrix: int[,]";
+        const string code = "val matrix: int[,]";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -37,7 +37,7 @@ public class ArrayTypeSyntaxTest
     [Fact]
     public void ArrayType_WithJaggedAndMultiDimensionalRanks_Parses()
     {
-        const string code = "let values: int[][,]";
+        const string code = "val values: int[][,]";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;

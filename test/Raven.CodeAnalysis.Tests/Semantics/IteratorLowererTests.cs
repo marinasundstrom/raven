@@ -286,7 +286,7 @@ class C {
         const string source = """
 class C {
     Test() {
-        let value = 1
+        val value = 1
         value
     }
 }
@@ -324,7 +324,7 @@ class C {
             yield return 1
         }
 
-        let enumerator = nested()
+        val enumerator = nested()
         ()
     }
 }
@@ -440,7 +440,7 @@ class C {
         try {
             yield return count
         } finally {
-            let disposed = count
+            val disposed = count
         }
     }
 }
@@ -497,7 +497,7 @@ class C {
         try {
             yield return count
         } finally {
-            let disposed = count
+            val disposed = count
         }
     }
 }

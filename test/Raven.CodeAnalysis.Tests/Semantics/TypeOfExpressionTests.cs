@@ -11,8 +11,8 @@ public class TypeOfExpressionTests : DiagnosticTestBase
     public void TypeOf_WithMissingType_ReportsSingleDiagnostic()
     {
         const string testCode = """
-let t = typeof(System.DoesNotExist)
-let members = t.GetMembers()
+val t = typeof(System.DoesNotExist)
+val members = t.GetMembers()
 """;
 
         var verifier = CreateVerifier(testCode, expectedDiagnostics: new[]
@@ -32,10 +32,10 @@ let members = t.GetMembers()
         const string testCode = """
 import System.Console.*
 
-let t = typeof(System.DoesNotExist)
+val t = typeof(System.DoesNotExist)
 WriteLine(t)
 
-let members = t.GetMembers()
+val members = t.GetMembers()
 for member in members {
     WriteLine(member.Name)
 }
@@ -58,8 +58,8 @@ for member in members {
         const string testCode = """
 import System.*
 
-let t = typeof(System.String)
-let members = t.GetMembers(.Public)
+val t = typeof(System.String)
+val members = t.GetMembers(.Public)
 """;
 
         var verifier = CreateVerifier(testCode);

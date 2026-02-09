@@ -41,11 +41,11 @@ class Derived : Base {
     {
         const string source = """
 open class Base {
-    public let Value: int = 1;
+    public val Value: int = 1;
 }
 
 class Derived : Base {
-    public let Value: int = 2;
+    public val Value: int = 2;
 }
 """;
 

@@ -352,7 +352,7 @@ extension WidgetExtensions for Widget {
     }
 }
 
-let widget = Widget()
+val widget = Widget()
 val (first, second) = widget
 """;
 

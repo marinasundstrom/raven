@@ -12,9 +12,9 @@ public class PositionalPatternSyntaxTests
     public void MatchArm_WithPositionalPattern_Parses()
     {
         const string code = """
-let value: object = (1, "two")
+val value: object = (1, "two")
 
-let result = value match {
+val result = value match {
     (first: int, second: string) => second
     _ => ""
 }

@@ -77,7 +77,7 @@ public class AttributeParsingTests : DiagnosticTestBase
         const string code = """
             class Widget {
                 [Field]
-                let value: int = 0
+                val value: int = 0
             }
             """;
 
@@ -173,7 +173,7 @@ public class AttributeParsingTests : DiagnosticTestBase
     {
         const string code = """
             [Entry]
-            let value: int = 0
+            val value: int = 0
             """;
 
         var tree = SyntaxTree.ParseText(code);
@@ -213,7 +213,7 @@ public class AttributeParsingTests : DiagnosticTestBase
         const string code = """
             [MyNamespace]
             namespace Samples;
-            let value: int = 0
+            val value: int = 0
             """;
 
         var tree = SyntaxTree.ParseText(code);

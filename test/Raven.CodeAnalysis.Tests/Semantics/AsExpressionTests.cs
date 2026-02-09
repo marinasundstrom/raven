@@ -13,8 +13,8 @@ public class AsExpressionTests : CompilationTestBase
     public void AsCast_ReferenceType_ProducesNullableType()
     {
         var code = """
-        let obj: object = ""
-        let s = obj as string
+        val obj: object = ""
+        val s = obj as string
         """;
 
         var (compilation, tree) = CreateCompilation(code);
@@ -32,7 +32,7 @@ public class AsExpressionDiagnosticTests : DiagnosticTestBase
     public void AsCast_Invalid_ProducesDiagnostic()
     {
         string code = """
-        let s = 1 as string
+        val s = 1 as string
         """;
 
         var verifier = CreateVerifier(code, [

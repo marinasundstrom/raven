@@ -9,7 +9,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            let foo = Foo();
+            val foo = Foo();
 
             class Foo {
                 init () {}
@@ -26,7 +26,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            let i = Foo(3);
+            val i = Foo(3);
 
             class Foo {
                 init () {}
@@ -47,7 +47,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            let i = Foo(1);
+            val i = Foo(1);
 
             func Foo() -> unit {}
 
@@ -68,8 +68,8 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            let p = Person.WithName("John");
-            let n = p.GetName();
+            val p = Person.WithName("John");
+            val n = p.GetName();
 
             class Person {
                 var name: string;
@@ -92,14 +92,14 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            let p = Person.WithName("John");
-            let n = p.GetName();
+            val p = Person.WithName("John");
+            val n = p.GetName();
 
             class Person {
                 var name: string;
 
                 public init WithName(name: string) {
-                    let temp = name;
+                    val temp = name;
                     self.name = temp;
                 }
 
@@ -117,7 +117,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            let f = Foo();
+            val f = Foo();
 
             class Foo {
                 var x: int;
@@ -136,7 +136,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             """
             import System.Collections.Generic.List<>
 
-            let list = List<int>()
+            val list = List<int>()
             list.Add(1)
             """;
 
@@ -152,7 +152,7 @@ public class ObjectCreationTests : DiagnosticTestBase
             """
             import System.Collections.Generic.*
 
-            let list = List<int>()
+            val list = List<int>()
             list.Add(1)
             """;
 
@@ -166,8 +166,8 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            let person = Person("John")
-            let name = person.GetName()
+            val person = Person("John")
+            val name = person.GetName()
 
             class Person(name: string)
             {

@@ -33,7 +33,7 @@ public class PropertyBindingTests : DiagnosticTestBase
                     get => 0
                 }
             }
-            let f = Foo()
+            val f = Foo()
             f.Bar;
             """;
 

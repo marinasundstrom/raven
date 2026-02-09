@@ -80,7 +80,7 @@ class Foo {
         var code = """
 class Foo {
     Run() -> unit {
-        let _ = System.Console.WriteLine("discard")
+        val _ = System.Console.WriteLine("discard")
         return ()
     }
 }
@@ -113,7 +113,7 @@ class Foo {
         var code = """
 class Foo {
     Run() -> unit {
-        let _ = 42
+        val _ = 42
         return ()
     }
 }

@@ -15,7 +15,7 @@ class Logger {
     static Log(value: int) -> unit {}
 }
 
-let callback = Logger.Log
+val callback = Logger.Log
 """;
 
         var verifier = CreateVerifier(
@@ -36,7 +36,7 @@ class Logger {
     static Log(value: double) -> unit {}
 }
 
-let callback: System.Action<int> = Logger.Log
+val callback: System.Action<int> = Logger.Log
 """;
 
         var verifier = CreateVerifier(source);
@@ -54,7 +54,7 @@ class Logger {
     static Log(value: int) -> unit {}
 }
 
-let callback: System.Action<string> = Logger.Log
+val callback: System.Action<string> = Logger.Log
 """;
 
         var verifier = CreateVerifier(source);

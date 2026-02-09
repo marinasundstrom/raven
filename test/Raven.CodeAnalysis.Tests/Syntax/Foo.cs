@@ -12,13 +12,13 @@ public class Foo(ITestOutputHelper testOutputHelper)
         import System.*;
         import System.Text.*;
 
-        let list = [1, 42, 3];
+        val list = [1, 42, 3];
         var i = 0; 
 
-        let stringBuilder = new StringBuilder();
+        val stringBuilder = new StringBuilder();
 
         while i < list.Length {
-            let x = list[i];
+            val x = list[i];
             stringBuilder.AppendLine(x.ToString());
             if x > 3 {
                 Console.WriteLine("Hello, World!");   

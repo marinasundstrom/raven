@@ -15,7 +15,7 @@ public class ByRefCodeGenTests
 class C {
     static WriteThrough() -> int {
         var value = 1
-        let handle: &int = &value
+        val handle: &int = &value
         handle = 5
         value
     }

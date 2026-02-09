@@ -33,7 +33,7 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
             {
                 static @int(@return: int) -> int
                 {
-                    let @class = @return;
+                    val @class = @return;
                     return @class;
                 }
             }

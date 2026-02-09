@@ -14,7 +14,7 @@ public class ExplicitReturnInIfExpressionTests : DiagnosticTestBase
         var code = """
 class Foo {
     Test(flag: bool) -> int | () {
-        let x = if flag {
+        val x = if flag {
             return 42
         } else {
             return ()
@@ -45,7 +45,7 @@ class Foo {
     public void ExplicitReturnInIfExpression_GlobalInitializer_ProducesDiagnostics()
     {
         var code = """
-let x = if true {
+val x = if true {
     return 42
 } else {
     return ()

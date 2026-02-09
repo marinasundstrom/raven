@@ -21,7 +21,7 @@ public sealed class AsyncLambdaStateMachineTests
             import System.Console.*
             import System.Threading.Tasks.*
 
-            let value = await Task.Run(async () => {
+            val value = await Task.Run(async () => {
                 await Task.Delay(1)
                 return 42
             })
@@ -41,9 +41,9 @@ public sealed class AsyncLambdaStateMachineTests
             import System.Console.*
             import System.Threading.Tasks.*
 
-            let offset = 2
-            let run = async () => {
-                let inner = async () => {
+            val offset = 2
+            val run = async () => {
+                val inner = async () => {
                     await Task.Delay(1)
                     return 40 + offset
                 }
@@ -51,7 +51,7 @@ public sealed class AsyncLambdaStateMachineTests
                 return await inner()
             }
 
-            let result = await Task.Run(run)
+            val result = await Task.Run(run)
             WriteLine(result)
             """
         );

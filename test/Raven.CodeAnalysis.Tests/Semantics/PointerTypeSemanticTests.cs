@@ -17,8 +17,8 @@ public class PointerTypeSemanticTests : CompilationTestBase
         const string source = """
 class C {
     unsafe static Test() {
-        let value = 0
-        let pointer: *int = &value
+        val value = 0
+        val pointer: *int = &value
     }
 }
 """;
@@ -38,7 +38,7 @@ class C {
 class C {
     static Test() {
         var value = 0
-        let alias = &value
+        val alias = &value
     }
 }
 """;
@@ -61,7 +61,7 @@ class C {
 class C {
     unsafe static Test() {
         var value = 0
-        let alias: *int = &value
+        val alias: *int = &value
     }
 }
 """;
@@ -155,8 +155,8 @@ class Data {
     public void PointerTypeSyntax_WithoutUnsafe_ReportsDiagnostic()
     {
         const string source = """
-let value = 0
-let pointer: *int = &value
+val value = 0
+val pointer: *int = &value
 """;
 
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
@@ -174,7 +174,7 @@ let pointer: *int = &value
 class Test {
     unsafe static Run() -> int {
         var value = 41
-        let pointer: *int = &value
+        val pointer: *int = &value
         *pointer = 42
         return *pointer
     }
@@ -206,7 +206,7 @@ struct Holder {
 class Test {
     unsafe static Run() -> int {
         var holder = Holder()
-        let pointer: *Holder = &holder
+        val pointer: *Holder = &holder
         return pointer->Value
     }
 }
@@ -224,7 +224,7 @@ class Test {
 class Test {
     static Run() -> int {
         var value = 0
-        let pointer: *int = &value
+        val pointer: *int = &value
         return *pointer
     }
 }
@@ -269,7 +269,7 @@ class Test {
     static Run() -> int {
         var value = 0
         unsafe {
-            let pointer: *int = &value
+            val pointer: *int = &value
             *pointer = 7
         }
         return value
@@ -290,7 +290,7 @@ class Test {
 class Test {
     unsafe static Run() -> int {
         var value = 0
-        let pointer: *int = &value
+        val pointer: *int = &value
         *pointer = 9
         return value
     }

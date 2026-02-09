@@ -16,9 +16,9 @@ public sealed class TopLevelGlobalStatementTests : CompilationTestBase
     public void GlobalStatements_CanReferenceTopLevelTypes()
     {
         const string source = """
-let greeter: IGreeter = Greeter();
+val greeter: IGreeter = Greeter();
 greeter.Greet();
-let shade = Shade.Green;
+val shade = Shade.Green;
 
 interface IGreeter {
     public Greet() -> unit;
@@ -147,7 +147,7 @@ namespace Utility
         const string source = """
 import System.Console.*
 
-let x = 2
+val x = 2
 
 func Main() -> unit {
     WriteLine("Hello World");

@@ -123,8 +123,8 @@ public class GenericTypeTests : CompilationTestBase
             {
                 class Inner<B>
                 {
-                    let value: A
-                    let b: B
+                    val value: A
+                    val b: B
                 }
             }
             """;

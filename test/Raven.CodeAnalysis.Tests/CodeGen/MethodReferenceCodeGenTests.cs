@@ -16,7 +16,7 @@ class Calculator {
     static Add(x: int, y: int) -> int { x + y }
 
     static Compute() -> int {
-        let add = Calculator.Add
+        val add = Calculator.Add
         add(2, 3)
     }
 }
@@ -52,7 +52,7 @@ class Counter {
     Increment(delta: int) -> int { self.value + delta }
 
     Run() -> int {
-        let increment = self.Increment
+        val increment = self.Increment
         increment(7)
     }
 }
@@ -91,11 +91,11 @@ class Accumulator {
     }
 
     static Execute(value: int) -> int {
-        let callback = Accumulator.TryAccumulate
+        val callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0
 
-        let result = callback(&current, &doubled)
+        val result = callback(&current, &doubled)
         if !result {
             return -1
         }

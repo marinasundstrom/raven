@@ -23,7 +23,7 @@ public class BoundBinaryOperatorTests : CompilationTestBase
     [Fact]
     public void Bind_InvalidOperator_ReportsDiagnostic()
     {
-        var source = "let x = 1 + true";
+        var source = "val x = 1 + true";
         var (compilation, _) = CreateCompilation(source);
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes, diagnostic.Descriptor);
@@ -32,7 +32,7 @@ public class BoundBinaryOperatorTests : CompilationTestBase
     [Fact]
     public void Bind_InvalidOperator_UsesOperatorText()
     {
-        var source = "let x = true < 1";
+        var source = "val x = true < 1";
         var (compilation, _) = CreateCompilation(source);
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics());

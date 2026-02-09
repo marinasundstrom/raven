@@ -10,7 +10,7 @@ public class PointerTypeSyntaxTests
     [Fact]
     public void PointerType_InVariableDeclaration_Parses()
     {
-        var code = "let ptr: *int = 0";
+        var code = "val ptr: *int = 0";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -21,7 +21,7 @@ public class PointerTypeSyntaxTests
     [Fact]
     public void PointerDereference_ParsesAsUnaryDereferenceExpression()
     {
-        var code = "let value = *ptr";
+        var code = "val value = *ptr";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -35,7 +35,7 @@ public class PointerTypeSyntaxTests
     [Fact]
     public void PointerArrowMemberAccess_ParsesOperatorToken()
     {
-        var code = "let value = ptr->Field";
+        var code = "val value = ptr->Field";
         var tree = SyntaxTree.ParseText(code);
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
@@ -53,7 +53,7 @@ public class PointerTypeSyntaxTests
 class Test {
     static Run() {
         var value = 41
-        let pointer: *int = &value
+        val pointer: *int = &value
         *pointer = 42
     }
 }
@@ -75,7 +75,7 @@ class Test {
 func test() -> int {
     var value = 0
     unsafe {
-        let pointer: *int = &value
+        val pointer: *int = &value
         *pointer = 1
     }
     return value

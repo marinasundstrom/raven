@@ -20,10 +20,10 @@ public sealed class ForStatementSemanticTests : CompilationTestBase
         const string source = """
 import System.Collections.Generic.*
 
-let numbers = List<System.Int32>()
+val numbers = List<System.Int32>()
 
 for each _ in numbers {
-    let value = 0
+    val value = 0
 }
 """;
 
@@ -47,10 +47,10 @@ for each _ in numbers {
         const string source = """
 import System.Collections.Generic.*
 
-let numbers = List<System.Int32>()
+val numbers = List<System.Int32>()
 
 for each in numbers {
-    let value = 0
+    val value = 0
 }
 """;
 
@@ -152,12 +152,12 @@ class Counter {
 
 class Runner {
     Run() {
-        let counter = Counter()
+        val counter = Counter()
         counter.Add(1)
         counter.Add(2)
 
         for each item in counter {
-            let value = item
+            val value = item
         }
     }
 }
@@ -205,12 +205,12 @@ extension CounterExt for Counter {
 
 class Runner {
     Run() {
-        let counter = Counter()
+        val counter = Counter()
         counter.Add(1)
         counter.Add(2)
 
         for each item in counter {
-            let value = item
+            val value = item
         }
     }
 }
@@ -235,7 +235,7 @@ class Runner {
     public void ForEach_WithNonEnumerableCollection_ReportsDiagnostic()
     {
         const string source = """
-let number = 42
+val number = 42
 
 for each item in number {
 }

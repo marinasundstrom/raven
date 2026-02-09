@@ -26,7 +26,7 @@ public class ExpressionSemanticTest : DiagnosticTestBase
             """
             import System.*
 
-            let test = Console.WriteLine()
+            val test = Console.WriteLine()
             Console.WriteLine(test)
             """;
 

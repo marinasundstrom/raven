@@ -16,7 +16,7 @@ public class ParserTriviaCheckpointTests
     [Fact]
     public void SingleLineCommentTrivia_PreservedAcrossCheckpoint()
     {
-        const string code = "let x = 1; // trailing";
+        const string code = "val x = 1; // trailing";
         var context = CreateContextAndReadToToken(code, SyntaxKind.SemicolonToken);
 
         var positionBeforeCheckpoint = context.Position;
@@ -51,7 +51,7 @@ public class ParserTriviaCheckpointTests
     [Fact]
     public void MultiLineCommentTrivia_PreservedAcrossCheckpoint()
     {
-        const string code = "let x = 1; /* trailing */";
+        const string code = "val x = 1; /* trailing */";
         var context = CreateContextAndReadToToken(code, SyntaxKind.SemicolonToken);
 
         var positionBeforeCheckpoint = context.Position;

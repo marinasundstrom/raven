@@ -10,8 +10,8 @@ public class MemberAccessMissingIdentifierTests : DiagnosticTestBase
         const string code = """
         class C {
             Test() -> unit {
-                let a = 1
-                let b = a.
+                val a = 1
+                val b = a.
             }
         }
         """;

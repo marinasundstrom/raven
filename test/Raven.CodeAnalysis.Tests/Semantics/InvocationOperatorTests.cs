@@ -19,8 +19,8 @@ class Test {
         return no + 1;
     }
 }
-let t = Test()
-let x = t(2)
+val t = Test()
+val x = t(2)
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -45,8 +45,8 @@ class Callable : ICallable {
     }
 }
 
-let callable: ICallable = Callable()
-let result = callable(2)
+val callable: ICallable = Callable()
+val result = callable(2)
 """;
 
         var tree = SyntaxTree.ParseText(source);

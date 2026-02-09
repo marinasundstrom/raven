@@ -55,7 +55,7 @@ class Logger {
     static Log(value: int) -> unit {}
 }
 
-let callback: System.Action<string> = Logger.Log
+val callback: System.Action<string> = Logger.Log
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -91,7 +91,7 @@ class Calculator {
     static Add(x: int, y: int) -> int { x + y }
 }
 
-let add = Calculator.Add
+val add = Calculator.Add
 """;
 
         var (compilation, tree) = CreateCompilation(source);

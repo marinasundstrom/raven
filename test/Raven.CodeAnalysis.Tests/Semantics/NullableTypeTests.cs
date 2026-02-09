@@ -52,8 +52,8 @@ public class NullableTypeTests : CompilationTestBase
     public void NullableSyntax_BindsToNullableTypeSymbol()
     {
         var source = """
-        let s: string? = null
-        let i: int? = null
+        val s: string? = null
+        val i: int? = null
         """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -71,9 +71,9 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("class Box<T : struct> { let value: T? = null }", TypeParameterConstraintKind.ValueType)]
-    [InlineData("class Box<T : class> { let value: T? = null }", TypeParameterConstraintKind.ReferenceType)]
-    [InlineData("class Box<T> { let value: T? = null }", TypeParameterConstraintKind.None)]
+    [InlineData("class Box<T : struct> { val value: T? = null }", TypeParameterConstraintKind.ValueType)]
+    [InlineData("class Box<T : class> { val value: T? = null }", TypeParameterConstraintKind.ReferenceType)]
+    [InlineData("class Box<T> { val value: T? = null }", TypeParameterConstraintKind.None)]
     public void NullableTypeSyntax_WrapsTypeParameters_WithConstraints(string source, TypeParameterConstraintKind expectedConstraint)
     {
         var (compilation, tree) = CreateCompilation(source);
@@ -91,7 +91,7 @@ public class NullableTypeTests : CompilationTestBase
     [Fact]
     public void NullableTypeSyntax_NotNullTypeParameter_ReportsDiagnostic()
     {
-        var source = "class Box<T : notnull> { let value: T? = null }";
+        var source = "class Box<T : notnull> { val value: T? = null }";
 
         var (compilation, _) = CreateCompilation(source);
 
@@ -118,7 +118,7 @@ public class NullableTypeTests : CompilationTestBase
     [Fact]
     public void NullableQualifiedName_ReportsMissingType()
     {
-        var (compilation, _) = CreateCompilation("let x: string?.Nested = null");
+        var (compilation, _) = CreateCompilation("val x: string?.Nested = null");
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
@@ -374,7 +374,7 @@ class Foo {
     [Fact]
     public void ObjectVariable_AssignedNull_RequiresNullable()
     {
-        var (compilation, _) = CreateCompilation("let x: object = null");
+        var (compilation, _) = CreateCompilation("val x: object = null");
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.CannotAssignFromTypeToType, diagnostic.Descriptor);
@@ -387,11 +387,11 @@ class Foo {
         var source = """
         func f(x: string) -> int { 0 }
         func f2(x: string?) -> int { 1 }
-        let s: string = ""
-        let n: string? = null
-        let a = f(s)
-        let b = f2(n)
-        let c = f2(null)
+        val s: string = ""
+        val n: string? = null
+        val a = f(s)
+        val b = f2(n)
+        val c = f2(null)
         """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -441,7 +441,7 @@ class Foo {
     public void ConsoleWriteLine_WithNullableLocal_Chooses_StringOverload()
     {
         const string source = """
-            let value: string? = null
+            val value: string? = null
             System.Console.WriteLine(value)
             """;
 
@@ -471,7 +471,7 @@ class Foo {
     [Fact]
     public void NullableType_In_Union_ReportsDiagnostic()
     {
-        var (compilation, _) = CreateCompilation("let x: string? | int = null");
+        var (compilation, _) = CreateCompilation("val x: string? | int = null");
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.NullableTypeInUnion, diagnostic.Descriptor);
     }

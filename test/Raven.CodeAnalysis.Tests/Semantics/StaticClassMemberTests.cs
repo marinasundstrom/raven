@@ -9,7 +9,7 @@ public class StaticClassMemberTests : DiagnosticTestBase
     {
         const string source = """
 static class Foo {
-    public let Value: int = 0;
+    public val Value: int = 0;
     public Test() -> unit {}
     public init() {}
 }

@@ -37,7 +37,7 @@ union Option {
     {
         const string source = """
 func create() {
-    let option = Option.Some(value: 42)
+    val option = Option.Some(value: 42)
 }
 
 union Option {
@@ -63,7 +63,7 @@ union Option {
     {
         const string source = """
 func build() {
-    let option : Option = .Some(value: 42)
+    val option : Option = .Some(value: 42)
 }
 
 union Option {
@@ -304,8 +304,8 @@ class Container {
         const string source = """
 func format(result: Result<int, string>) -> string {
     return result match {
-        .Ok(let payload) => payload.ToString()
-        .Error(let message) => message
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
     }
 }
 
@@ -482,8 +482,8 @@ union Result<T> {
         const string source = """
 func format(result: Result<int, string>) -> string {
     return result match {
-        .Ok(let payload) => "ok ${payload}" when payload > 1
-        .Error(let message) => "error ${message}"
+        .Ok(val payload) => "ok ${payload}" when payload > 1
+        .Error(val message) => "error ${message}"
     }
 }
 
@@ -506,8 +506,8 @@ union Result<T> {
         const string source = """
 func area(shape: Shape) -> int {
     return shape match {
-        .Circle(let r) => r * r * 3
-        .Rectangle(4, let h) => 42
+        .Circle(val r) => r * r * 3
+        .Rectangle(4, val h) => 42
     }
 }
 

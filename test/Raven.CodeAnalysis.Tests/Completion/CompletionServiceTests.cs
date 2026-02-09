@@ -52,7 +52,7 @@ string.
         var code = """
 import System.*;
 
-let text = "";
+val text = "";
 text.
 """;
 
@@ -85,7 +85,7 @@ text.
         var code = """
 import System.*;
 
-let literal: "foo" = "foo";
+val literal: "foo" = "foo";
 literal.
 """;
 
@@ -150,7 +150,7 @@ Console.Out.
 import System.Collections.Generic.*;
 import System.Linq.*;
 
-let numbers = new List<int>();
+val numbers = new List<int>();
 numbers.
 """;
 
@@ -514,7 +514,7 @@ ST.
     [Fact]
     public void GetCompletions_OnLiteralUnionLocal_SuggestsAllMembers()
     {
-        var code = "let response: \"כן\" | \"לא\" = ";
+        var code = "val response: \"כן\" | \"לא\" = ";
         var syntaxTree = SyntaxTree.ParseText(code);
 
         var compilation = Compilation.Create(
@@ -538,7 +538,7 @@ ST.
     [Fact]
     public void GetCompletions_OnLiteralUnionAssignment_SuggestsAllMembers()
     {
-        var code = "let response: \"כן\" | \"לא\" = \"כן\";\nresponse = ";
+        var code = "val response: \"כן\" | \"לא\" = \"כן\";\nresponse = ";
         var syntaxTree = SyntaxTree.ParseText(code);
 
         var compilation = Compilation.Create(
@@ -559,7 +559,7 @@ ST.
     [Fact]
     public void GetCompletions_OnNumericLiteralUnionLocal_SuggestsAllMembers()
     {
-        var code = "let flags: 0 | 1 | 2 = ";
+        var code = "val flags: 0 | 1 | 2 = ";
         var syntaxTree = SyntaxTree.ParseText(code);
 
         var compilation = Compilation.Create(
@@ -581,7 +581,7 @@ ST.
     [Fact]
     public void GetCompletions_OnNumericLiteralUnionAssignment_SuggestsAllMembers()
     {
-        var code = "let flags: 0 | 1 | 2 = 0;\nflags = ";
+        var code = "val flags: 0 | 1 | 2 = 0;\nflags = ";
         var syntaxTree = SyntaxTree.ParseText(code);
 
         var compilation = Compilation.Create(
@@ -629,7 +629,7 @@ label:
     public void GetCompletions_ForEscapedIdentifier_UsesEscapedInsertion()
     {
         var code = """
-let @if = 0;
+val @if = 0;
 @i
 """;
 

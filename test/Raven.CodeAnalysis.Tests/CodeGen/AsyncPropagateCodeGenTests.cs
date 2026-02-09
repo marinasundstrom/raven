@@ -46,14 +46,14 @@ class C {
     }
 
     public async RunFail() -> Task<Result<int, string>> {
-        using let d = Disposable()
-        let value = try? await Task.FromResult(Fail())
+        using val d = Disposable()
+        val value = try? await Task.FromResult(Fail())
         return .Ok(value)
     }
 
     public async RunSuccess() -> Task<Result<int, string>> {
-        using let d = Disposable()
-        let value = try? await Task.FromResult(Succeed())
+        using val d = Disposable()
+        val value = try? await Task.FromResult(Succeed())
         return .Ok(value)
     }
 }

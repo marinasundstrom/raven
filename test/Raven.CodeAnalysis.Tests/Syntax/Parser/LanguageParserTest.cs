@@ -79,7 +79,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForInExpression()
     {
         var code = """
-                   let arr = [1, 2, 3];
+                   val arr = [1, 2, 3];
                    for x in arr {
                        x
                    }
@@ -98,7 +98,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForEachInExpression()
     {
         var code = """
-                   let arr = [1, 2, 3];
+                   val arr = [1, 2, 3];
                    for each x in arr {
                        x
                    }
@@ -117,7 +117,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForEachWithDiscardIdentifier()
     {
         var code = """
-                   let arr = [1, 2, 3];
+                   val arr = [1, 2, 3];
                    for each _ in arr {
                        0
                    }
@@ -135,7 +135,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
     public void ParseForEachWithoutIdentifier()
     {
         var code = """
-                   let arr = [1, 2, 3];
+                   val arr = [1, 2, 3];
                    for each in arr {
                        0
                    }

@@ -13,7 +13,7 @@ public class TupleTypeSemanticTests
     public void TupleTypeSyntax_BindsToTupleTypeSymbol_WithNames()
     {
         var source = """
-        let t: (id: int, name: string) = (1, "")
+        val t: (id: int, name: string) = (1, "")
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -34,7 +34,7 @@ public class TupleTypeSemanticTests
     public void TupleExpression_TargetTyped_UsesDeclaredType_IgnoringNames()
     {
         var source = """
-        let pair: (id: int, name: string) = (no: 42, identifier: "answer")
+        val pair: (id: int, name: string) = (no: 42, identifier: "answer")
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -55,7 +55,7 @@ public class TupleTypeSemanticTests
     public void TupleExpression_TargetTyped_WithoutNames_Succeeds()
     {
         var source = """
-        let pair: (int, string) = (42, "Bar")
+        val pair: (int, string) = (42, "Bar")
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -75,7 +75,7 @@ public class TupleTypeSemanticTests
     [Fact]
     public void TupleExpression_TargetTypedMismatch_ReportsDiagnostic()
     {
-        var source = "let t: (int, string) = (1, 2)";
+        var source = "val t: (int, string) = (1, 2)";
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);

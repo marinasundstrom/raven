@@ -102,7 +102,7 @@ async func Test(value: int) -> Task<Int32> {
     return value
 }
 
-let result = await Test(42)
+val result = await Test(42)
 """;
 
     private const string AsyncTaskOfIntEntryPointCode = """
@@ -114,7 +114,7 @@ async func Test(value: int) -> Task<int> {
     return value
 }
 
-let value = await Test(42)
+val value = await Test(42)
 
 WriteLine(value)
 return value
@@ -129,7 +129,7 @@ async func Test<T>(value: T) -> Task<T> {
     return value
 }
 
-let value = await Test(42)
+val value = await Test(42)
 
 WriteLine(value)
 return value
@@ -146,7 +146,7 @@ async func Compute<T>(value: T) -> Task<T> {
     return value
 }
 
-let value = await Compute(42)
+val value = await Compute(42)
 WriteLine(value)
 return value
 """;
@@ -162,11 +162,11 @@ class Container {
 }
 
 async func Run() -> Task<int> {
-    let instance = Container()
+    val instance = Container()
     return await instance.Identity(123)
 }
 
-let result = await Run()
+val result = await Run()
 return result
 """;
 
@@ -179,10 +179,10 @@ async func WaitAndReturn(value: int, delay: int) -> Task<int> {
     return value
 }
 
-let first = await WaitAndReturn(21, 5)
-let second = await WaitAndReturn(21, 10)
+val first = await WaitAndReturn(21, 5)
+val second = await WaitAndReturn(21, 10)
 
-let result = first + second
+val result = first + second
 
 WriteLine(result)
 return result
@@ -239,7 +239,7 @@ class C {
     }
 }
 
-let instance = C()
+val instance = C()
 await instance.Work()
 """;
 
@@ -257,9 +257,9 @@ class Disposable : IDisposable {
 class Worker {
     async Work() -> Task {
         try {
-            using let outer = Disposable()
+            using val outer = Disposable()
             await Task.Delay(1)
-            using let inner = Disposable()
+            using val inner = Disposable()
             await Task.Delay(1)
             WriteLine("work done")
         } catch (Exception e) {
@@ -268,7 +268,7 @@ class Worker {
     }
 }
 
-let worker = Worker()
+val worker = Worker()
 await worker.Work()
 """;
 
@@ -282,7 +282,7 @@ async func Foo() -> Task<int> {
     throw new Exception("boom")
 }
 
-let result = try await Foo() match {
+val result = try await Foo() match {
     int value => value.ToString()
     Exception ex => ex.Message
 }

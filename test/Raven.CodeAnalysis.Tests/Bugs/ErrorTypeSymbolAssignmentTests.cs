@@ -10,7 +10,7 @@ public class ErrorTypeSymbolAssignmentTests : DiagnosticTestBase
         const string code = """
         class Foo {
             Test() -> unit {
-                let x: string = y;
+                val x: string = y;
             }
         }
         """;

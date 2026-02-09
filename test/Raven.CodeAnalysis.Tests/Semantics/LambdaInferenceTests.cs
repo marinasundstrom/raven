@@ -148,7 +148,7 @@ class Container {
 import System.*
 class Container {
     Provide() -> unit {
-        let lambda = (value: int) => value + 1
+        val lambda = (value: int) => value + 1
         lambda(1)
     }
 }
@@ -179,8 +179,8 @@ class Container {
 import System.*
 class Container {
     Provide() -> unit {
-        let projector = (value: int) => value + 2
-        let result = projector(1)
+        val projector = (value: int) => value + 2
+        val result = projector(1)
     }
 }
 """;
@@ -231,8 +231,8 @@ class Container {
         const string code = """
 import System.*
 
-let projector = (value: int) => value + 2
-let result = projector(1)
+val projector = (value: int) => value + 2
+val result = projector(1)
 """;
 
         var (compilation, tree) = CreateCompilation(code);
@@ -330,7 +330,7 @@ class Container {
 import System.*
 class Calculator {
     Compute() -> int {
-        let add = (left: int, right: int) -> int => left + right
+        val add = (left: int, right: int) -> int => left + right
         return add(2, 3)
     }
 }
@@ -363,7 +363,7 @@ class Calculator {
 import System.*
 import System.Console.*
 
-let makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a
+val makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a
 """;
 
         var (compilation, _) = CreateCompilation(code);
@@ -453,9 +453,9 @@ func apply(value: int, transform: int -> int) -> int {
     transform(value)
 }
 
-let doubled = x => x * 2
+val doubled = x => x * 2
 
-let result = apply(5, doubled)
+val result = apply(5, doubled)
 """;
 
         var verifier = CreateVerifier(

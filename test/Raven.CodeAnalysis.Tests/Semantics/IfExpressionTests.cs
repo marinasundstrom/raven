@@ -8,7 +8,7 @@ public class IfExpressionTests : DiagnosticTestBase
     public void IfExpressionWithoutElse_ReportsDiagnostic()
     {
         const string code = """
-let value = if true {
+val value = if true {
     42
 }
 """;
@@ -23,7 +23,7 @@ let value = if true {
     public void IfExpressionWithElse_AllowsAssignment()
     {
         const string code = """
-let value = if true {
+val value = if true {
     42
 } else {
     0

@@ -31,7 +31,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    let value = {
+    val value = {
         break;
         ()
     };
@@ -74,7 +74,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    let value = {
+    val value = {
         continue;
         ()
     };

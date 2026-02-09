@@ -46,7 +46,7 @@ catch (int ex) {
     public void TryExpression_InferredTypeIncludesException()
     {
         var code = """
-let value = try int.Parse("foo")
+val value = try int.Parse("foo")
 """;
 
         var verifier = CreateVerifier(code);
@@ -70,7 +70,7 @@ let value = try int.Parse("foo")
     [Fact]
     public void TryExpression_NestedTryReportsDiagnostic()
     {
-        var code = "let value = try try 1";
+        var code = "val value = try try 1";
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
@@ -85,7 +85,7 @@ let value = try int.Parse("foo")
     {
         var code = """
 func ParseFlag(text: string) -> Result<bool, string> {
-    let flag = try? bool.Parse(text)
+    val flag = try? bool.Parse(text)
     return .Ok(flag)
 }
 """;
@@ -111,7 +111,7 @@ func ParseFlag(text: string) -> Result<bool, string> {
     {
         var code = """
 func ParseFlag(text: string) -> Result<bool, string> {
-    let flag = try? bool.Parse(text) match {
+    val flag = try? bool.Parse(text) match {
         true => true
         false => false
     }
@@ -136,7 +136,7 @@ import System.Threading.Tasks.*
 
 class C {
     async Work() {
-        let attempt = try await Task.FromResult(1)
+        val attempt = try await Task.FromResult(1)
     }
 }
 """;
@@ -231,7 +231,7 @@ import System.Threading.Tasks.*
 
 class C {
     async Work() -> Task<Result<int, Exception>> {
-        let value = try? await Task.FromResult(1)
+        val value = try? await Task.FromResult(1)
         return .Ok(value)
     }
 }

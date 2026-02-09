@@ -27,7 +27,7 @@ class Dog : Animal {
 
 class Program {
     Run() -> string {
-        let animal: Animal = Dog()
+        val animal: Animal = Dog()
         return animal.Speak()
     }
 

@@ -85,7 +85,7 @@ public class DocumentTests
     [Fact]
     public async Task GetSemanticModelAsync_ShouldReturnModel()
     {
-        var source = SourceText.From("let x = 1");
+        var source = SourceText.From("val x = 1");
         var solution = new Solution(HostServices.Default);
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(projectId, "P");

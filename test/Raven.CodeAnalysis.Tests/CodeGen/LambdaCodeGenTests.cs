@@ -13,7 +13,7 @@ public class LambdaCodeGenTests
         var code = """
 class Calculator {
     Add() -> int {
-        let add = (x: int, y: int) -> int => x + y
+        val add = (x: int, y: int) -> int => x + y
         return add(2, 3)
     }
 }
@@ -46,7 +46,7 @@ class Calculator {
         var code = """
 class Checker {
     AreEqual(left: int, right: int) -> bool {
-        let equals = (x: int, y: int) -> bool => x == y
+        val equals = (x: int, y: int) -> bool => x == y
         return equals(left, right)
     }
 }
@@ -82,8 +82,8 @@ class Checker {
         var code = """
 class Calculator {
     Sum() -> int {
-        let make = (x: int, y: int) -> int => {
-            let total = x + y
+        val make = (x: int, y: int) -> int => {
+            val total = x + y
             total
         }
 
@@ -119,7 +119,7 @@ class Calculator {
         var code = """
 class Calculator {
     Sum() -> int {
-        let make = (x: int, y: int) -> int => {
+        val make = (x: int, y: int) -> int => {
             return x + y;
         }
 
@@ -155,7 +155,7 @@ class Calculator {
         var code = """
 class Calculator {
     Combine(x: int) -> int {
-        let add = (y: int) -> int => x + y
+        val add = (y: int) -> int => x + y
         return add(4)
     }
 }
@@ -188,8 +188,8 @@ class Calculator {
         var code = """
 class Counter {
     Multiply() -> int {
-        let factor = 5
-        let multiply = (value: int) -> int => factor * value
+        val factor = 5
+        val multiply = (value: int) -> int => factor * value
         return multiply(3)
     }
 }
@@ -224,7 +224,7 @@ class Holder {
     value: int = 8
 
     Compute() -> int {
-        let add = (offset: int) -> int => self.value + offset
+        val add = (offset: int) -> int => self.value + offset
         return add(7)
     }
 }

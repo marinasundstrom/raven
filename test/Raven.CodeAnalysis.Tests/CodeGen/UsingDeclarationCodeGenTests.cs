@@ -16,7 +16,7 @@ public class UsingDeclarationCodeGenTests
         var code = """
 import System.*
 
-using let foo = Foo()
+using val foo = Foo()
 foo.Do()
 
 class Foo : IDisposable {

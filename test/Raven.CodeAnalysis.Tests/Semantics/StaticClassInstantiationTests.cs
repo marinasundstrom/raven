@@ -12,7 +12,7 @@ static class Foo {
     static Test() -> unit {}
 }
 
-let value = Foo();
+val value = Foo();
 """;
 
         var verifier = CreateVerifier(

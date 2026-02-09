@@ -17,7 +17,7 @@ class Foo : IDisposable {
     public Dispose() -> unit {}
 }
 
-using let foo = Foo()
+using val foo = Foo()
 """;
 
         var verifier = CreateVerifier(source);
@@ -32,7 +32,7 @@ class Foo {
     public init() {}
 }
 
-using let foo = Foo()
+using val foo = Foo()
 """;
 
         var verifier = CreateVerifier(
@@ -57,7 +57,7 @@ class Foo : IDisposable {
     public Dispose() -> unit {}
 }
 
-using let foo: object = Foo()
+using val foo: object = Foo()
 """;
 
         var verifier = CreateVerifier(

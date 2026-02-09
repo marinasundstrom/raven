@@ -29,7 +29,7 @@ var y = (x = 1)
     {
         const string source = """
 class C {
-    let value: int
+    val value: int
     public init() {
         value = 1
     }
@@ -55,7 +55,7 @@ class C {
     {
         const string source = """
 class C {
-    let value: int
+    val value: int
 
     public init() {
         value = 1
@@ -73,7 +73,7 @@ class C {
     {
         const string source = """
 class C {
-    public static let count: int
+    public static val count: int
 
     static init() {
         count = 1
@@ -91,7 +91,7 @@ class C {
     {
         const string source = """
 class C {
-    public static let count: int
+    public static val count: int
 
     static init() {
         count = 1

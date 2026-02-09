@@ -12,7 +12,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
     [Fact]
     public void SingleDimensionalArrayTypeSyntax_BindsToArrayTypeSymbol()
     {
-        const string source = "let values: System.String[] = []";
+        const string source = "val values: System.String[] = []";
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();

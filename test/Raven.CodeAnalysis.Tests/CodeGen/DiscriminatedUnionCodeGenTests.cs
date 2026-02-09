@@ -465,9 +465,9 @@ union Option {
 
 class Container {
     public static Measure() -> long {
-        let before = GC.GetAllocatedBytesForCurrentThread()
-        let opt: Option = .Some(123)
-        let after = GC.GetAllocatedBytesForCurrentThread()
+        val before = GC.GetAllocatedBytesForCurrentThread()
+        val opt: Option = .Some(123)
+        val after = GC.GetAllocatedBytesForCurrentThread()
         return after - before
     }
 }

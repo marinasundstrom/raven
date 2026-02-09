@@ -77,7 +77,7 @@ public class ConversionsTests : CompilationTestBase
         var source = """
         alias Text = System.String
 
-        let value: Text = ""
+        val value: Text = ""
         """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -102,7 +102,7 @@ public class ConversionsTests : CompilationTestBase
         var source = """
         alias Text = System.String
 
-        let value: Text = ""
+        val value: Text = ""
         """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -180,7 +180,7 @@ public class ConversionsTests : CompilationTestBase
         const string source = """
         alias Text = System.String
 
-        let value: Text = ""
+        val value: Text = ""
         """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -206,7 +206,7 @@ public class ConversionsTests : CompilationTestBase
         const string source = """
         alias Text = System.String
 
-        let value: Text = ""
+        val value: Text = ""
         """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -250,10 +250,10 @@ public class ConversionsTests : CompilationTestBase
         const string source = """
         import System.Reflection.*
 
-        let type = typeof(System.Object)
-        let members = type.GetMembers()
-        let member = members[0]
-        let method = (System.Reflection.MethodInfo)member
+        val type = typeof(System.Object)
+        val members = type.GetMembers()
+        val member = members[0]
+        val method = (System.Reflection.MethodInfo)member
         """;
 
         var (compilation, tree) = CreateCompilation(source);

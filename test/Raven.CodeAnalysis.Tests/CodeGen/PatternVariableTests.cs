@@ -12,7 +12,7 @@ public class PatternVariableTests
         var code = """
 import System.*
 
-let v = if true { 1; } else { true; }
+val v = if true { 1; } else { true; }
 if v is int a {
     Console.WriteLine(a)
 }

@@ -85,9 +85,9 @@ namespace Sample {
         public static operator +(left: Number, right: Number) -> Number { return left }
     }
 
-    let a = Number()
-    let b = Number()
-    let c = a + b
+    val a = Number()
+    val b = Number()
+    val c = a + b
 }
 """;
 
@@ -112,9 +112,9 @@ class Number
     public static operator +(left: Number, right: Number) -> Number { return left }
 }
 
-let a = Number()
-let b = Number()
-let c = a + b
+val a = Number()
+val b = Number()
+val c = a + b
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -137,8 +137,8 @@ class Number
     public static operator -(value: Number) -> Number { return value }
 }
 
-let a = Number()
-let b = -a
+val a = Number()
+val b = -a
 """;
 
         var tree = SyntaxTree.ParseText(source);

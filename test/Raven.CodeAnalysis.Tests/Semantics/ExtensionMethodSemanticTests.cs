@@ -16,8 +16,8 @@ public sealed class ExtensionMethodSemanticTests : CompilationTestBase
     {
         const string source = """
 func Main() {
-    let widget = Widget()
-    let total = widget.Count()
+    val widget = Widget()
+    val total = widget.Count()
 }
 
 class Widget {
@@ -58,8 +58,8 @@ extension WidgetExtensions for Widget {
         const string mainSource = """
 import Sample.Extensions.*
 
-let value = 5
-let result = value.Double()
+val value = 5
+val result = value.Double()
 """;
 
         const string extensionSource = """
@@ -124,8 +124,8 @@ namespace Sample.Extensions {
         const string mainSource = """
 import Sample.Extensions.NumberExtensions
 
-let value = 10
-let doubled = value.Double()
+val value = 10
+val doubled = value.Double()
 """;
 
         const string extensionSource = """
@@ -186,8 +186,8 @@ namespace Sample.Extensions {
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let x = "test"
-let result = x.Test()
+val x = "test"
+val result = x.Test()
 
 public static class Extensions {
     [ExtensionAttribute]
@@ -226,8 +226,8 @@ public static class Extensions {
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let x = "test"
-let result = x.Test()
+val x = "test"
+val result = x.Test()
 
 public static class Extensions {
     [ExtensionAttribute]
@@ -268,8 +268,8 @@ import System.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-let numbers = [1, 2, 3]
-let result = numbers.Where(value => value == 2)
+val numbers = [1, 2, 3]
+val result = numbers.Where(value => value == 2)
 """;
 
         var options = new CompilationOptions(OutputKind.ConsoleApplication);
@@ -300,8 +300,8 @@ import System.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-let numbers = [1, 2, 3]
-let result = numbers.Where(value => value == 2)
+val numbers = [1, 2, 3]
+val result = numbers.Where(value => value == 2)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -347,8 +347,8 @@ import System.*
 import System.Collections.Generic.*
 import System.Linq.*
 
-let numbers = [1, 2, 3]
-let result = numbers.Where((value: int) -> bool => value == 2)
+val numbers = [1, 2, 3]
+val result = numbers.Where((value: int) -> bool => value == 2)
 """;
 
         var (compilation, _) = CreateCompilation(source);
@@ -365,10 +365,10 @@ let result = numbers.Where((value: int) -> bool => value == 2)
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let text = "value"
-let suffix = "!"
-let count = 3
-let result = text.AddSuffix(suffix, count)
+val text = "value"
+val suffix = "!"
+val count = 3
+val result = text.AddSuffix(suffix, count)
 
 public static class Extensions {
     [ExtensionAttribute]
@@ -415,8 +415,8 @@ public static class Extensions {
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let box = Box<int>()
-let result = box.Test(2)
+val box = Box<int>()
+val result = box.Test(2)
 
 class Box<T>
 {
@@ -475,11 +475,11 @@ public static class Extensions
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let text = "value"
-let number = 5
+val text = "value"
+val number = 5
 
-let textResult = text.Describe()
-let numberResult = number.Describe()
+val textResult = text.Describe()
+val numberResult = number.Describe()
 
 public static class TextExtensions {
     [ExtensionAttribute]
@@ -541,11 +541,11 @@ public static class NumberExtensions {
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let text = "value"
-let textAsObject: object = text
+val text = "value"
+val textAsObject: object = text
 
-let stringResult = text.Describe()
-let objectResult = textAsObject.Describe()
+val stringResult = text.Describe()
+val objectResult = textAsObject.Describe()
 
 public static class DescribeExtensions {
     [ExtensionAttribute]
@@ -605,11 +605,11 @@ public static class DescribeExtensions {
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let text = "value"
-let number = 42
+val text = "value"
+val number = 42
 
-let textResult = text.Identity()
-let numberResult = number.Identity()
+val textResult = text.Identity()
+val numberResult = number.Identity()
 
 public static class GenericExtensions {
     [ExtensionAttribute]
@@ -680,7 +680,7 @@ import Sample.Extensions.NumberExtensions
 
 class Query {
     Run() -> int {
-        let value = 3
+        val value = 3
         return value.Double()
     }
 }
@@ -750,7 +750,7 @@ import System.Runtime.CompilerServices.*
 
 class Query {
     Run() -> int {
-        let value = 3
+        val value = 3
         return value.Double()
     }
 }
@@ -800,7 +800,7 @@ import System.Runtime.CompilerServices.*
 
 class Query {
     Run() -> object {
-        let value = 3
+        val value = 3
         return value.ToObject()
     }
 }
@@ -858,7 +858,7 @@ import Raven.MetadataFixtures.Linq.*
 
 class Query {
     Run() -> IEnumerable<int> {
-        let numbers = [1, 2, 3, 4]
+        val numbers = [1, 2, 3, 4]
         return numbers
             .Where(value => value > 1)
             .ProjectSquares(value => value * value)
@@ -965,7 +965,7 @@ import System.Runtime.CompilerServices.*
 
 class Query {
     Run() -> IEnumerable<int> {
-        let numbers = [1, 2, 3, 4]
+        val numbers = [1, 2, 3, 4]
         return numbers
             .Where(value => value > 1)
             .ProjectSquaresAndFilter(value => value * value)
@@ -1089,7 +1089,7 @@ import System.Runtime.CompilerServices.*
 
 class Query {
     Run() -> int {
-        let value: int? = null
+        val value: int? = null
         return value.Double()
     }
 }
@@ -1127,8 +1127,8 @@ public static class Extensions {
     }
 }
 
-let receiver = NonComparable()
-let result = receiver.RequiresComparison()
+val receiver = NonComparable()
+val result = receiver.RequiresComparison()
 """;
 
         var (compilation, _) = CreateCompilation(source);
@@ -1144,8 +1144,8 @@ let result = receiver.RequiresComparison()
     public void SourceExtension_InSeparateNamespace_RequiresImport()
     {
         const string mainSource = """
-let number = 4
-let doubled = number.Double()
+val number = 4
+val doubled = number.Double()
 """;
 
         const string extensionSource = """
@@ -1179,8 +1179,8 @@ namespace Sample.Extensions {
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let holder = Container()
-let description = holder.Describe()
+val holder = Container()
+val description = holder.Describe()
 
 class Container {
     Describe() -> string {
@@ -1244,8 +1244,8 @@ namespace Sample.Extensions {
     }
 }
 
-let number = 42
-let result = number.Apply(value => value > 0)
+val number = 42
+val result = number.Apply(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1301,8 +1301,8 @@ namespace Sample.Extensions {
     }
 }
 
-let number = 42
-let result = number.Apply(value => value > 0)
+val number = 42
+val result = number.Apply(value => value > 0)
 """;
 
         var instrumentation = new PerformanceInstrumentation();
@@ -1336,8 +1336,8 @@ let result = number.Apply(value => value > 0)
 import System.Runtime.CompilerServices.*
 import System.Threading.Tasks.*
 
-let value = 3
-let doubled = await value.DoubleAsync()
+val value = 3
+val doubled = await value.DoubleAsync()
 
 public static class Extensions {
     [ExtensionAttribute]
@@ -1371,8 +1371,8 @@ public static class Extensions {
         const string source = """
 import System.Runtime.CompilerServices.*
 
-let value = 10
-let doubled = value |> Double()
+val value = 10
+val doubled = value |> Double()
 
 public static class NumberExtensions {
     [ExtensionAttribute]
@@ -1410,7 +1410,7 @@ extension IntExt for int {
     }
 }
 
-let result = 5 |> Inc(2)
+val result = 5 |> Inc(2)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1442,7 +1442,7 @@ extension IntExt for int {
     }
 }
 
-let result = 5 |> Inc
+val result = 5 |> Inc
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1468,8 +1468,8 @@ let result = 5 |> Inc
     public void PipeOperator_WithStaticMethod_PrependsArgument()
     {
         const string source = """
-let start = 3
-let result = start |> MathHelpers.Increment(2)
+val start = 3
+val result = start |> MathHelpers.Increment(2)
 
 public static class MathHelpers {
     public static Increment(x: int, amount: int) -> int {
@@ -1504,8 +1504,8 @@ public static class MathHelpers {
     public void PipeOperator_WithStaticMethod_ImplicitInvocation_PrependsArgument()
     {
         const string source = """
-let start = 3
-let result = start |> MathHelpers.Increment
+val start = 3
+val result = start |> MathHelpers.Increment
 
 public static class MathHelpers {
     public static Increment(x: int) -> int {
@@ -1593,8 +1593,8 @@ val c = 5 |> Inc(2)
         const string source = """
 import System.Math.*
 
-let value = -5
-let result = value |> Abs()
+val value = -5
+val result = value |> Abs()
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1626,8 +1626,8 @@ let result = value |> Abs()
         const string source = """
 import MathHelpers.*
 
-let value = 5
-let result = value |> Increment(2)
+val value = 5
+val result = value |> Increment(2)
 
 public static class MathHelpers {
     public static Increment(x: int, amount: int) -> int {
@@ -1663,8 +1663,8 @@ public static class MathHelpers {
     public void PipeOperator_WithFunction_ResolvesTopLevelFunction()
     {
         const string source = """
-let start = 5
-let result = start |> Increment(2)
+val start = 5
+val result = start |> Increment(2)
 
 func Increment(x: int, amount: int) -> int {
     return x + amount
@@ -1699,8 +1699,8 @@ func Increment(x: int, amount: int) -> int {
     public void PipeOperator_WithLambdaLocal_InvokesDelegate()
     {
         const string source = """
-let increment = (x: int, amount: int) -> int => x + amount
-let result = 5 |> increment(2)
+val increment = (x: int, amount: int) -> int => x + amount
+val result = 5 |> increment(2)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -1728,7 +1728,7 @@ let result = 5 |> increment(2)
     public void PipeOperator_WithGenericStaticMethod_InfersTypeArgumentFromPipeline()
     {
         const string source = """
-let result = 5 |> MathHelpers.Increment(2)
+val result = 5 |> MathHelpers.Increment(2)
 
 public static class MathHelpers {
     public static Increment<T>(x: T, amount: int) -> int {
@@ -1768,8 +1768,8 @@ public static class MathHelpers {
     public void PipeOperator_WithInstanceProperty_AssignsThroughSetter()
     {
         const string source = """
-let holder = Container()
-let assigned = 5 |> holder.Value
+val holder = Container()
+val assigned = 5 |> holder.Value
 
 public class Container {
     public Value: int { get; set; }
@@ -1801,7 +1801,7 @@ public class Container {
     public void PipeOperator_WithStaticProperty_AssignsThroughSetter()
     {
         const string source = """
-let assigned = 5 |> Container.Count
+val assigned = 5 |> Container.Count
 
 public class Container {
     public static Count: int { get; set; }
@@ -1833,8 +1833,8 @@ public class Container {
     public void PipeOperator_WithNonInvocationTarget_ReportsDiagnostic()
     {
         const string source = """
-let value = 10
-let result = value |> 5
+val value = 10
+val result = value |> 5
 """;
 
         var (compilation, _) = CreateCompilation(source);
@@ -1865,7 +1865,7 @@ public extension OptionExtensionsNested<T> for Option<Option<T>> {
 
 class Container {
     Test() -> Option<int> {
-        let nested: Option<Option<int>> = .Some(.Some(42))
+        val nested: Option<Option<int>> = .Some(.Some(42))
         return nested.Flatten()
     }
 }
@@ -1923,7 +1923,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 
 class Container {
     Test() -> Option<int> {
-        let option: Option<int> = .Some(42)
+        val option: Option<int> = .Some(42)
         return option.Map(x => x * 2)
     }
 }
@@ -1982,7 +1982,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 
 class Container {
     Test() -> Option<int> {
-        let option: Option<int> = .Some(42)
+        val option: Option<int> = .Some(42)
         return option.Map(x => 42)
     }
 }
@@ -2039,7 +2039,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
 
 class Container {
     Test() -> Option<int> {
-        let option: Option<int> = .Some(42)
+        val option: Option<int> = .Some(42)
         return option.Map((x: int) -> int => x * 2)
     }
 }

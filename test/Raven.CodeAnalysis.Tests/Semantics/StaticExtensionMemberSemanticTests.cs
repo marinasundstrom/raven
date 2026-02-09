@@ -23,7 +23,7 @@ extension WidgetExtensions for Widget {
     }
 }
 
-let created = Widget.Build(1)
+val created = Widget.Build(1)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -59,7 +59,7 @@ extension WidgetExtensions for Widget {
     }
 }
 
-let created = Build(1)
+val created = Build(1)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -91,7 +91,7 @@ extension WidgetExtensions for Widget {
     }
 }
 
-let created = Widget.Build(1)
+val created = Widget.Build(1)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -119,7 +119,7 @@ extension BoxExtensions<T> for Box<T> {
     }
 }
 
-let boxed = Box<int>.Wrap(1)
+val boxed = Box<int>.Wrap(1)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -152,7 +152,7 @@ extension CounterExtensions for Counter {
     }
 }
 
-let total = Counter.Total
+val total = Counter.Total
 """;
 
         var (compilation, tree) = CreateCompilation(source);

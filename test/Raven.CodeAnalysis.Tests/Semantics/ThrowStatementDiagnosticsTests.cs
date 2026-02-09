@@ -29,7 +29,7 @@ func Main() {
     {
         var code = """
 func Main() {
-    let value = {
+    val value = {
         throw System.InvalidOperationException("fail")
         ()
     };

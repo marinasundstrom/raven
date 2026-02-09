@@ -17,7 +17,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     [Fact]
     public void IndexExpression_HasIndexTypeAndFromEndFlag()
     {
-        const string source = "let value = ^2";
+        const string source = "val value = ^2";
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -37,7 +37,7 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     [Fact]
     public void RangeExpression_TracksEndpoints()
     {
-        const string source = "let range = ^2..^0";
+        const string source = "val range = ^2..^0";
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -64,8 +64,8 @@ public sealed class RangeAndIndexSemanticTests : CompilationTestBase
     public void ArrayAccess_UsesIndexExpression()
     {
         const string source = """
-let values = [1, 2, 3]
-let last = values[^1]
+val values = [1, 2, 3]
+val last = values[^1]
 """;
 
         var (compilation, tree) = CreateCompilation(source);

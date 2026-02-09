@@ -74,7 +74,7 @@ import System.*
 
 func Main() {
     try {
-        using let resource = Logger("inner")
+        using val resource = Logger("inner")
         throw System.InvalidOperationException("fail")
     } catch (System.Exception ex) {
         Console.WriteLine("caught:" + ex.Message)

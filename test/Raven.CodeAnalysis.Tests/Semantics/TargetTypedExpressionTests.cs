@@ -34,7 +34,7 @@ class Program {
         string testCode = """
 class Program {
     static Run() -> unit {
-        let number: int = .Parse("42")
+        val number: int = .Parse("42")
     }
 }
 """;
@@ -68,7 +68,7 @@ import System.Reflection.*
 
 class Program {
     static Run() -> unit {
-        let members = typeof(System.Object).GetMembers(.NonPublic)
+        val members = typeof(System.Object).GetMembers(.NonPublic)
     }
 }
 """;
@@ -86,7 +86,7 @@ class Program {
     static Use(flags: BindingFlags) -> unit {}
 
     static Run() -> unit {
-        let flags: BindingFlags = .NonPublic | .Static
+        val flags: BindingFlags = .NonPublic | .Static
         Use(.Public & .Static)
     }
 }
@@ -107,7 +107,7 @@ class Item {
 
 class Program {
     static Run() -> unit {
-        let item = Item(.A)
+        val item = Item(.A)
     }
 }
 """;

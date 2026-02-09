@@ -31,11 +31,11 @@ public class SymbolQueryTests : DiagnosticTestBase
             {
                 public class Bar
                 {
-                    let value: T
+                    val value: T
                 }
             }
 
-            let bar = Foo<int>.Bar();
+            val bar = Foo<int>.Bar();
             """;
 
         var verifier = CreateVerifier(testCode);

@@ -47,7 +47,7 @@ class Test {
         var code = """
 class Test {
     Format(name: string) -> string {
-        let city = "東京";
+        val city = "東京";
         return "こんにちは、${name}さん。${city}へようこそ";
     }
 }
@@ -81,7 +81,7 @@ class Test {
         var code = """
 class Test {
     Format(name: string, city: string) -> string {
-        let greeting = "\u200Fمرحبا ${name}! أهلا بك في ${city}";
+        val greeting = "\u200Fمرحبا ${name}! أهلا بك في ${city}";
         return greeting;
     }
 }

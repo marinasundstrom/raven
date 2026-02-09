@@ -8,7 +8,7 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_Numeric_NoDiagnostic()
     {
         string code = """
-        let x = (double)1
+        val x = (double)1
         """;
 
         var verifier = CreateVerifier(code);
@@ -19,7 +19,7 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_Invalid_ProducesDiagnostic()
     {
         string code = """
-        let s = (string)1
+        val s = (string)1
         """;
 
         var verifier = CreateVerifier(code, [
@@ -34,10 +34,10 @@ public class CastExpressionTests : DiagnosticTestBase
         string code = """
         import System.Reflection.*
 
-        let type = typeof(System.String)
-        let members = type.GetMembers()
-        let first = members[0]
-        let method = (MethodInfo)first
+        val type = typeof(System.String)
+        val members = type.GetMembers()
+        val first = members[0]
+        val method = (MethodInfo)first
         """;
 
         var verifier = CreateVerifier(code);
@@ -48,10 +48,10 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_DowncastReferenceType_FullyQualified_NoDiagnostic()
     {
         string code = """
-        let type = typeof(System.String)
-        let members = type.GetMembers()
-        let first = members[0]
-        let method = (System.Reflection.MethodInfo)first
+        val type = typeof(System.String)
+        val members = type.GetMembers()
+        val first = members[0]
+        val method = (System.Reflection.MethodInfo)first
         """;
 
         var verifier = CreateVerifier(code);
@@ -62,7 +62,7 @@ public class CastExpressionTests : DiagnosticTestBase
     public void ExplicitCast_WithAdditionalParentheses_NoDiagnostic()
     {
         string code = """
-        let value = ((double)1)
+        val value = ((double)1)
         """;
 
         var verifier = CreateVerifier(code);
