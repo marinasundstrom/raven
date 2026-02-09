@@ -599,7 +599,13 @@ public static class CompletionProvider
 
                     if (instanceTypeForExtensions is not null)
                     {
-                        foreach (var method in binder.LookupExtensionMethods(null, instanceTypeForExtensions, includePartialMatches: true))
+                        var extensionMembers = ExtensionMemberLookup.Lookup(
+                            binder,
+                            instanceTypeForExtensions,
+                            includePartialMatches: true,
+                            kinds: ExtensionMemberKinds.InstanceMethods);
+
+                        foreach (var method in extensionMembers.InstanceMethods)
                         {
                             if (!IsAccessible(method))
                                 continue;

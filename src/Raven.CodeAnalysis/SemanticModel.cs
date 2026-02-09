@@ -200,6 +200,36 @@ public partial class SemanticModel
     }
 
     /// <summary>
+    /// Looks up extension members that apply to the specified receiver type.
+    /// </summary>
+    /// <param name="receiverType">The type that receives extension members.</param>
+    /// <param name="contextNode">Optional lookup context. Use this to include local imports in scope.</param>
+    /// <param name="name">Optional member name filter.</param>
+    /// <param name="includePartialMatches">Whether prefix-matching should be used for the name filter.</param>
+    /// <param name="kinds">The extension member kinds to return.</param>
+    public ExtensionMemberLookupResult LookupApplicableExtensionMembers(
+        ITypeSymbol receiverType,
+        SyntaxNode? contextNode = null,
+        string? name = null,
+        bool includePartialMatches = false,
+        ExtensionMemberKinds kinds = ExtensionMemberKinds.All)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return ExtensionMemberLookupResult.Empty;
+
+        var binder = contextNode is null
+            ? GetBinder(SyntaxTree.GetRoot())
+            : GetBinder(contextNode);
+
+        return ExtensionMemberLookup.Lookup(
+            binder,
+            receiverType,
+            name,
+            includePartialMatches,
+            kinds);
+    }
+
+    /// <summary>
     /// Get the bound node for a specific syntax node.
     /// </summary>
     /// <param name="node">The syntax node</param>
