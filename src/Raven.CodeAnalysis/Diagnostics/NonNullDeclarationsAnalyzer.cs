@@ -12,7 +12,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
-        title: "Prefer Option/Result over nullable types",
+        title: "Option/Result over nullable types",
         description: "Nullable types are allowed, but Option/Result usually makes absence and failure clearer.",
         helpLinkUri: string.Empty,
         messageFormat: "Use '{0}' instead of '{1}'.",
