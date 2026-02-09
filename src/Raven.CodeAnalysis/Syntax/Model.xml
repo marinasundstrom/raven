@@ -210,8 +210,8 @@
     <Slot Name="Statement" Type="Statement" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
-  <Node Name="UsingDeclarationStatement" Inherits="Statement">
-    <Slot Name="UsingKeyword" Type="Token" DefaultToken="UsingKeyword" />
+  <Node Name="UseDeclarationStatement" Inherits="Statement">
+    <Slot Name="UseKeyword" Type="Token" DefaultToken="UseKeyword" />
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>

@@ -687,7 +687,7 @@ public static class ConsoleSyntaxHighlighter
     private static bool IsLocalIdentifier(SyntaxToken token)
         => token.Parent?.Kind == SyntaxKind.VariableDeclarator
             && (HasAncestorKind(token.Parent, SyntaxKind.LocalDeclarationStatement)
-                || HasAncestorKind(token.Parent, SyntaxKind.UsingDeclarationStatement));
+                || HasAncestorKind(token.Parent, SyntaxKind.UseDeclarationStatement));
 
     private static bool HasAncestorKind(SyntaxNode? node, SyntaxKind kind)
     {

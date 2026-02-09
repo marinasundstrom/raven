@@ -126,7 +126,7 @@ partial class BlockBinder : Binder
         var name = variableDeclarator.Identifier.ValueText;
         var decl = (VariableDeclarationSyntax)variableDeclarator.Parent!;
         var bindingKeyword = decl.BindingKeyword;
-        var isUsingDeclaration = decl.Parent is UsingDeclarationStatementSyntax;
+        var isUseDeclaration = decl.Parent is UseDeclarationStatementSyntax;
         var initializer = variableDeclarator.Initializer;
 
         var isShadowingExistingInScope = false;
@@ -150,7 +150,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportVariableShadowsPreviousDeclaration(name, variableDeclarator.Identifier.GetLocation());
         var isConst = bindingKeyword.IsKind(SyntaxKind.ConstKeyword);
         var isMutable = bindingKeyword.IsKind(SyntaxKind.VarKeyword);
-        var shouldDispose = isUsingDeclaration;
+        var shouldDispose = isUseDeclaration;
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
         BoundExpression? boundInitializer = null;
@@ -272,7 +272,7 @@ partial class BlockBinder : Binder
         if (initializer is not null && boundInitializer is not null)
             CacheBoundNode(initializer.Value, boundInitializer);
 
-        if (isUsingDeclaration)
+        if (isUseDeclaration)
         {
             var disposableType = Compilation.GetSpecialType(SpecialType.System_IDisposable);
             if (disposableType.TypeKind != TypeKind.Error)
@@ -488,7 +488,7 @@ partial class BlockBinder : Binder
         BoundStatement boundNode = statement switch
         {
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclarationStatement(localDeclaration),
-            UsingDeclarationStatementSyntax usingDeclaration => BindUsingDeclarationStatement(usingDeclaration),
+            UseDeclarationStatementSyntax useDeclaration => BindUseDeclarationStatement(useDeclaration),
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
@@ -543,7 +543,7 @@ partial class BlockBinder : Binder
             declaration.Declarators.Count > 0 &&
             IsDiscardDeclarator(declaration.Declarators[0]))
         {
-            return BindDiscardDeclarator(declaration.Declarators[0], isUsingDeclaration: false);
+            return BindDiscardDeclarator(declaration.Declarators[0], isUseDeclaration: false);
         }
 
         var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Count);
@@ -556,15 +556,14 @@ partial class BlockBinder : Binder
         return new BoundLocalDeclarationStatement(boundDeclarators.ToImmutable(), isUsing: false);
     }
 
-    private BoundStatement BindUsingDeclarationStatement(UsingDeclarationStatementSyntax usingDeclaration)
+    private BoundStatement BindUseDeclarationStatement(UseDeclarationStatementSyntax useDeclaration)
     {
-        var declaration = usingDeclaration.Declaration;
+        var declaration = useDeclaration.Declaration;
 
-        if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
-            declaration.Declarators.Count > 0 &&
+        if (declaration.Declarators.Count > 0 &&
             IsDiscardDeclarator(declaration.Declarators[0]))
         {
-            return BindDiscardDeclarator(declaration.Declarators[0], isUsingDeclaration: true);
+            return BindDiscardDeclarator(declaration.Declarators[0], isUseDeclaration: true);
         }
 
         var boundDeclarators = ImmutableArray.CreateBuilder<BoundVariableDeclarator>(declaration.Declarators.Count);
@@ -585,7 +584,7 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindDiscardDeclarator(
         VariableDeclaratorSyntax variableDeclarator,
-        bool isUsingDeclaration)
+        bool isUseDeclaration)
     {
         var initializer = variableDeclarator.Initializer;
 
@@ -621,7 +620,7 @@ partial class BlockBinder : Binder
 
         CacheBoundNode(initializer.Value, boundInitializer);
 
-        if (isUsingDeclaration)
+        if (isUseDeclaration)
         {
             _diagnostics.ReportDiscardExpressionNotAllowed(variableDeclarator.Identifier.GetLocation());
         }

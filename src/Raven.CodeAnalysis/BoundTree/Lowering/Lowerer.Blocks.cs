@@ -42,7 +42,7 @@ internal sealed partial class Lowerer
 
         var loweredStatements = statements.ToImmutableArray();
         var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
-        var rewritten = RewriteUsingDeclarations(loweredStatements, handledUsingLocals);
+        var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
         if (handledUsingLocals.Count == 0)
             return new BoundBlockStatement(rewritten, node.LocalsToDispose);
@@ -111,7 +111,7 @@ internal sealed partial class Lowerer
         return true;
     }
 
-    private ImmutableArray<BoundStatement> RewriteUsingDeclarations(
+    private ImmutableArray<BoundStatement> RewriteUseDeclarations(
         ImmutableArray<BoundStatement> statements,
         HashSet<ILocalSymbol> handledUsingLocals)
     {
@@ -124,9 +124,9 @@ internal sealed partial class Lowerer
         {
             var statement = statements[i];
 
-            if (statement is BoundLocalDeclarationStatement { IsUsing: true } usingDeclaration)
+            if (statement is BoundLocalDeclarationStatement { IsUsing: true } useDeclaration)
             {
-                var declarators = usingDeclaration.Declarators.ToArray();
+                var declarators = useDeclaration.Declarators.ToArray();
 
                 foreach (var declarator in declarators)
                     handledUsingLocals.Add(declarator.Local);
@@ -134,7 +134,7 @@ internal sealed partial class Lowerer
                 var loweredUsing = new BoundLocalDeclarationStatement(declarators);
 
                 var remaining = statements.RemoveRange(0, i + 1);
-                var tryBlockStatements = RewriteUsingDeclarations(remaining, handledUsingLocals);
+                var tryBlockStatements = RewriteUseDeclarations(remaining, handledUsingLocals);
                 var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<ILocalSymbol>.Empty);
 
                 var finallyStatements = CreateDisposeStatements(declarators);

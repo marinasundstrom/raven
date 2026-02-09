@@ -257,9 +257,9 @@ class Disposable : IDisposable {
 class Worker {
     async Work() -> Task {
         try {
-            using val outer = Disposable()
+            use outer = Disposable()
             await Task.Delay(1)
-            using val inner = Disposable()
+            use inner = Disposable()
             await Task.Delay(1)
             WriteLine("work done")
         } catch (Exception e) {

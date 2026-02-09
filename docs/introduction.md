@@ -341,7 +341,7 @@ val value = try int.Parse(text) match {
 
 ```raven
 async func DownloadLength(url: string) -> Task<int> {
-    using val http = HttpClient()
+    use http = HttpClient()
     val text = await http.GetStringAsync(url)
     return text.Length
 }

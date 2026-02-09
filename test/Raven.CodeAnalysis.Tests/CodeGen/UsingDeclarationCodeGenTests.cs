@@ -4,19 +4,20 @@ using System.IO;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class UsingDeclarationCodeGenTests
+public class UseDeclarationCodeGenTests
 {
     [Fact]
-    public void TopLevelUsingDeclaration_DisposesAtEndOfScript()
+    public void TopLevelUseDeclaration_DisposesAtEndOfScript()
     {
         var code = """
 import System.*
 
-using val foo = Foo()
+use foo = Foo()
 foo.Do()
 
 class Foo : IDisposable {

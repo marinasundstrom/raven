@@ -66,8 +66,8 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseWhileStatementSyntax();
                     break;
 
-                case SyntaxKind.UsingKeyword:
-                    statement = ParseUsingDeclarationStatementSyntax();
+                case SyntaxKind.UseKeyword:
+                    statement = ParseUseDeclarationStatementSyntax();
                     break;
 
                 case SyntaxKind.TryKeyword:
@@ -776,13 +776,21 @@ internal class StatementSyntaxParser : SyntaxParser
         return ThrowStatement(throwKeyword, expression, terminatorToken);
     }
 
-    private UsingDeclarationStatementSyntax ParseUsingDeclarationStatementSyntax()
+    private UseDeclarationStatementSyntax ParseUseDeclarationStatementSyntax()
     {
-        var usingKeyword = ReadToken();
-        var declaration = ParseVariableDeclarationSyntax();
+        var useKeyword = ReadToken();
+        var declaration = ParseVariableDeclarationSyntax(isBindingKeywordOptional: true);
+        if (!(declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword) || declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword))
+            && !declaration.BindingKeyword.IsKind(SyntaxKind.None))
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                CompilerDiagnostics.IdentifierExpected,
+                GetEndOfLastToken()));
+        }
         var terminatorToken = ConsumeTerminator();
 
-        return UsingDeclarationStatement(usingKeyword, declaration, terminatorToken);
+        return UseDeclarationStatement(useKeyword, declaration, terminatorToken);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
@@ -976,10 +984,30 @@ internal class StatementSyntaxParser : SyntaxParser
         return terminatorToken;
     }
 
-    private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
+    private VariableDeclarationSyntax? ParseVariableDeclarationSyntax(bool isBindingKeywordOptional = false)
     {
-        var bindingKeyword = ReadToken();
+        var t0 = PeekToken();
 
+        // Explicit binding keyword
+        if (t0.IsKind(SyntaxKind.ValKeyword) ||
+            t0.IsKind(SyntaxKind.VarKeyword) ||
+            t0.IsKind(SyntaxKind.LetKeyword))
+        {
+            var bindingKeyword = ReadToken();
+            return FinishParseVariableDeclarationSyntax(bindingKeyword);
+        }
+
+        // No explicit keyword
+        if (!isBindingKeywordOptional)
+            return null;
+
+        var syntheticBindingKeyword = Token(SyntaxKind.None);
+
+        return FinishParseVariableDeclarationSyntax(syntheticBindingKeyword);
+    }
+
+    private VariableDeclarationSyntax FinishParseVariableDeclarationSyntax(SyntaxToken bindingKeyword)
+    {
         SyntaxToken identifier = MissingToken(SyntaxKind.IdentifierToken);
 
         var next = PeekToken();

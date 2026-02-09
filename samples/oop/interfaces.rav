@@ -1,6 +1,6 @@
 import System.*
 
-using val foo = Foo()
+use foo = Foo()
 foo.Do()
 
 class Foo : IDisposable {

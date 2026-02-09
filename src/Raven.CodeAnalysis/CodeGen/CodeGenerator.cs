@@ -1385,9 +1385,9 @@ internal class CodeGenerator
         var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
         foreach (var global in globalStatements)
         {
-            if (global.Statement is UsingDeclarationStatementSyntax usingDeclaration)
+            if (global.Statement is UseDeclarationStatementSyntax useDeclaration)
             {
-                foreach (var declarator in usingDeclaration.Declaration.Declarators)
+                foreach (var declarator in useDeclaration.Declaration.Declarators)
                 {
                     if (semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
                         localsToDispose.Add(local);

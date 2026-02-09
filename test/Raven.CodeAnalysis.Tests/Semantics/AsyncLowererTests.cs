@@ -196,7 +196,7 @@ val result = await Test(42)
     }
 
     [Fact]
-    public void Analyze_AsyncMethodWithAwaitInUsingDeclaration_FindsAwait()
+    public void Analyze_AsyncMethodWithAwaitInUseDeclaration_FindsAwait()
     {
         const string source = """
 import System.Net.Http.*
@@ -204,8 +204,8 @@ import System.Threading.Tasks.*
 
 class C {
     async Fetch(url: string) -> Task<string> {
-        using val client = HttpClient()
-        using val response = await client.GetAsync(url)
+        use client = HttpClient()
+        use response = await client.GetAsync(url)
         return await response.Content.ReadAsStringAsync()
     }
 }
@@ -237,10 +237,10 @@ import System.Net.Http.*
 import System.Threading.Tasks.*
 
 async func Fetch(url: string) -> Task<string> {
-    using val client = HttpClient()
+    use client = HttpClient()
 
     try {
-        using val response = await client.GetAsync(url)
+        use response = await client.GetAsync(url)
         return await response.Content.ReadAsStringAsync()
     } catch (HttpRequestException e) {
         return e.Message
@@ -378,10 +378,10 @@ val str = res match {
 WriteLine(str)
 
 async func fetch(url: string) -> Task<Result<string, string>> {
-    using val client = HttpClient()
+    use client = HttpClient()
 
     try {
-        using val response = await client.GetAsync(url)
+        use response = await client.GetAsync(url)
         response.EnsureSuccessStatusCode()
         val responseBody = await response.Content.ReadAsStringAsync()
         return .Ok(responseBody)
@@ -1169,12 +1169,12 @@ class C {
         Assert.Empty(stateMachine.HoistedLocalsToDispose);
 
         var originalBody = Assert.IsType<BoundBlockStatement>(stateMachine.OriginalBody);
-        var hasUsingDeclaration = false;
+        var hasUseDeclaration = false;
         var hasTryFinally = false;
 
         ScanStatements(originalBody.Statements);
 
-        Assert.False(hasUsingDeclaration);
+        Assert.False(hasUseDeclaration);
         Assert.True(hasTryFinally);
 
         void ScanStatements(IEnumerable<BoundStatement> statements)
@@ -1184,7 +1184,7 @@ class C {
                 switch (statement)
                 {
                     case BoundLocalDeclarationStatement localDeclaration when localDeclaration.IsUsing:
-                        hasUsingDeclaration = true;
+                        hasUseDeclaration = true;
                         break;
                     case BoundTryStatement tryStatement:
                         if (tryStatement.FinallyBlock is not null)

@@ -4,10 +4,10 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-using val client = HttpClient()
+use client = HttpClient()
 
 try {
-    using val response = await client.GetAsync("http://www.contoso.com/")
+    use response = await client.GetAsync("http://www.contoso.com/")
     response.EnsureSuccessStatusCode()
     val responseBody = await response.Content.ReadAsStringAsync()
     // Above three lines can be replaced with new helper method below

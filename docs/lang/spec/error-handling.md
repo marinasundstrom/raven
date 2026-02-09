@@ -13,7 +13,7 @@ statements, `throw` may only appear in statement positions. When it occurs insid
 an expression context—such as within the branches of an `if` expression—the
 compiler reports diagnostic `RAV1907`.
 
-Throwing an exception unwinds the stack just like returning early: `using`
+Throwing an exception unwinds the stack just like returning early: `use`
 declarations in the current scope are disposed before the exception escapes.
 Because exceptions are expensive and intended for unexpected situations, prefer
 returning a dedicated result object (for example, a union or struct that carries
@@ -34,7 +34,7 @@ func parseInt(text: string) -> int | ParseError {
 }
 
 func readConfig(path: string) {
-    using val stream = File.OpenRead(path)
+    use stream = File.OpenRead(path)
     if stream is null {
         throw System.IO.FileNotFoundException(path)
     }

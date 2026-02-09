@@ -193,15 +193,15 @@ internal static class AsyncLowerer
         // Normalize using declarations into try/finally before await/state-machine
         // rewriting so dispatch guards are computed against final protected regions.
         var compilation = GetCompilation(symbol);
-        var lowerer = new AsyncUsingDeclarationLowerer(compilation);
+        var lowerer = new AsyncUseDeclarationLowerer(compilation);
         return lowerer.Rewrite(body);
     }
 
-    private sealed class AsyncUsingDeclarationLowerer : BoundTreeRewriter
+    private sealed class AsyncUseDeclarationLowerer : BoundTreeRewriter
     {
         private readonly Compilation _compilation;
 
-        public AsyncUsingDeclarationLowerer(Compilation compilation)
+        public AsyncUseDeclarationLowerer(Compilation compilation)
         {
             _compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
         }
@@ -227,7 +227,7 @@ internal static class AsyncLowerer
 
             var loweredStatements = statements.ToImmutableArray();
             var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
-            var rewritten = RewriteUsingDeclarations(loweredStatements, handledUsingLocals);
+            var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
             if (handledUsingLocals.Count == 0)
                 return new BoundBlockStatement(rewritten, node.LocalsToDispose);
@@ -253,7 +253,7 @@ internal static class AsyncLowerer
 
             var loweredStatements = statements.ToImmutableArray();
             var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
-            var rewritten = RewriteUsingDeclarations(loweredStatements, handledUsingLocals);
+            var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
             if (handledUsingLocals.Count == 0)
                 return new BoundBlockExpression(rewritten, node.UnitType, node.LocalsToDispose);
@@ -268,7 +268,7 @@ internal static class AsyncLowerer
             return new BoundBlockExpression(rewritten, node.UnitType, localsBuilder.ToImmutable());
         }
 
-        private ImmutableArray<BoundStatement> RewriteUsingDeclarations(
+        private ImmutableArray<BoundStatement> RewriteUseDeclarations(
             ImmutableArray<BoundStatement> statements,
             HashSet<ILocalSymbol> handledUsingLocals)
         {
@@ -281,15 +281,15 @@ internal static class AsyncLowerer
             {
                 var statement = statements[i];
 
-                if (statement is BoundLocalDeclarationStatement { IsUsing: true } usingDeclaration)
+                if (statement is BoundLocalDeclarationStatement { IsUsing: true } useDeclaration)
                 {
-                    var declarators = usingDeclaration.Declarators.ToArray();
+                    var declarators = useDeclaration.Declarators.ToArray();
                     foreach (var declarator in declarators)
                         handledUsingLocals.Add(declarator.Local);
 
                     var loweredUsing = new BoundLocalDeclarationStatement(declarators);
                     var remaining = statements.RemoveRange(0, i + 1);
-                    var tryBlockStatements = RewriteUsingDeclarations(remaining, handledUsingLocals);
+                    var tryBlockStatements = RewriteUseDeclarations(remaining, handledUsingLocals);
                     var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<ILocalSymbol>.Empty);
 
                     var finallyStatements = CreateDisposeStatements(declarators);

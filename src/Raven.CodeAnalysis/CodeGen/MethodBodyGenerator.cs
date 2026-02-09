@@ -398,7 +398,7 @@ internal class MethodBodyGenerator
                 var topLevelDisposables = ImmutableArray.CreateBuilder<ILocalSymbol>();
 
                 foreach (var usingDeclStmt in syntax.DescendantNodes()
-                    .OfType<UsingDeclarationStatementSyntax>())
+                    .OfType<UseDeclarationStatementSyntax>())
                 {
                     foreach (var localDeclarator in usingDeclStmt.Declaration.Declarators)
                     {

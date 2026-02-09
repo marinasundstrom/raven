@@ -72,9 +72,9 @@ class TopLevelBinder : BlockBinder
         var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
         foreach (var stmt in globalStatements)
         {
-            if (stmt.Statement is UsingDeclarationStatementSyntax usingDeclaration)
+            if (stmt.Statement is UseDeclarationStatementSyntax useDeclaration)
             {
-                foreach (var declarator in usingDeclaration.Declaration.Declarators)
+                foreach (var declarator in useDeclaration.Declaration.Declarators)
                 {
                     if (SemanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
                         localsToDispose.Add(local);

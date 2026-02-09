@@ -13,7 +13,7 @@ namespace Raven.CodeAnalysis.Tests;
 public class AsyncPropagateCodeGenTests
 {
     [Fact]
-    public async Task AsyncPropagate_UsingDeclaration_DisposesOnSuccessAndFailure()
+    public async Task AsyncPropagate_UseDeclaration_DisposesOnSuccessAndFailure()
     {
         var code = """
 import System.*
@@ -46,13 +46,13 @@ class C {
     }
 
     public async RunFail() -> Task<Result<int, string>> {
-        using val d = Disposable()
+        use d = Disposable()
         val value = try? await Task.FromResult(Fail())
         return .Ok(value)
     }
 
     public async RunSuccess() -> Task<Result<int, string>> {
-        using val d = Disposable()
+        use d = Disposable()
         val value = try? await Task.FromResult(Succeed())
         return .Ok(value)
     }

@@ -6,7 +6,7 @@ import System.*
 import System.Text.*
 import System.IO.*
 
-using val sr = StreamReader("test.txt");
+use sr = StreamReader("test.txt");
 
 val lexer = Lexer.WithSource(sr)
 val token = lexer.ReadToken()

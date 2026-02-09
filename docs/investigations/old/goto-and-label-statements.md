@@ -29,7 +29,7 @@ This note records the gaps that currently block label and `goto` statements and 
 ### 3. Bind labels and goto statements
 
 1. Extend `BlockBinder.BindStatement` to dispatch to `BindLabeledStatement`/`BindGotoStatement`. The labeled binder must declare a `LabelSymbol`, ensure uniqueness within its scope, and register it so later gotos can resolve it.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L385-L408】
-2. Track label scopes so jumps cannot enter a region that skips variable initializers (`let`/`using` declarations, pattern variables, etc.). `LocalScopeBinder` and related infrastructure may need hooks to expose scope boundaries.
+2. Track label scopes so jumps cannot enter a region that skips variable initializers (`let`/`use` declarations, pattern variables, etc.). `LocalScopeBinder` and related infrastructure may need hooks to expose scope boundaries.
 3. Bind goto statements by looking up the label symbol, producing diagnostics for undefined labels, collisions, or jumps across invalid boundaries (e.g., into a `finally`). Add appropriate entries to `DiagnosticDescriptors.xml` and regenerate descriptors.
 4. Record goto-to-label relationships on the `SemanticModel` so later control-flow and code-generation phases can query them. This likely requires storing a per-body table mapping labels to bound nodes and referencing gotos.
 
@@ -42,7 +42,7 @@ This note records the gaps that currently block label and `goto` statements and 
 ### 5. Lowering and code generation
 
 1. Update the lowering pipeline (if any additional passes exist) to preserve labeled blocks and gotos through any transformations that currently assume structured control flow (`BoundTreeRewriter`, expression-to-statement conversions, etc.).
-2. Teach `StatementGenerator` (and any expression emitters used for statement bodies) to reserve IL labels per `LabelSymbol`, mark them at the correct emission point, and emit `br` instructions for gotos. Ensure the generator consults scope-disposal metadata so jumping out of scopes still disposes pending `using` locals before branching.【F:src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs†L18-L216】
+2. Teach `StatementGenerator` (and any expression emitters used for statement bodies) to reserve IL labels per `LabelSymbol`, mark them at the correct emission point, and emit `br` instructions for gotos. Ensure the generator consults scope-disposal metadata so jumping out of scopes still disposes pending `use` locals before branching.【F:src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs†L18-L216】
 3. Verify `Scope` and disposal logic continue to run when a goto leaves a scope. You may need to synthesize finally-like blocks or insert explicit dispose sequences before each branch target.
 
 ### 6. SemanticModel, symbol info, and tooling surface
@@ -61,7 +61,7 @@ This note records the gaps that currently block label and `goto` statements and 
 1. Parser tests: add round-trip tests for labeled and goto statements (green and red trees) in `test/Raven.CodeAnalysis.Tests/Syntax`.
 2. Binder/semantic tests: cover duplicate labels, unknown labels, illegal jumps, and symbol exposure in `Semantics` and `Diagnostics` suites.
 3. Control-flow tests: extend existing control-flow analyses (once fleshed out) to ensure entry/exit points reflect gotos, mirroring Roslyn's coverage.
-4. Code-generation tests: compile snippets containing forward/backward gotos, loops simulated with labels, and gotos across `using`/`try` scopes to confirm the emitted IL matches expectations.
+4. Code-generation tests: compile snippets containing forward/backward gotos, loops simulated with labels, and gotos across `use`/`try` scopes to confirm the emitted IL matches expectations.
 5. End-to-end samples: add a sample to `docs` or `test/Raven.CodeAnalysis.Samples` illustrating when goto might be useful, ensuring documentation and tooling stay aligned.
 
 Following these steps in order will gradually unlock full support for label and goto statements while keeping each change focused and testable.

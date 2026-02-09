@@ -53,7 +53,7 @@ classifies each keyword as either reserved or contextual.
 | Kind | Keywords |
 | --- | --- |
 | Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `return`, `sbyte`, `self`, `short`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
-| Contextual | `abstract`, `alias`, `explicit`, `final`, `get`, `implicit`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `operator`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `val`, `virtual` |
+| Contextual | `abstract`, `alias`, `explicit`, `final`, `get`, `implicit`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `operator`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `use`, `val`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
 their presence optional (for example, omitting `each` in a `for` expression). Contextual keywords behave like ordinary
@@ -2873,27 +2873,24 @@ as positional assignment: they never declare a binding and may carry a type
 annotation when overload resolution needs guidance. `AssignmentStatementSyntax`
 exposes an `IsDiscard` helper when analyzers need to detect this pattern.
 
-### Resource declarations (`using`)
+### Resource declarations (`use`)
 
-Prefixing a local declaration with `using` introduces a scoped disposable resource. The
-declaration follows the normal `val`/`var` syntax and must include an initializer. Both the
-initializer's type and the declared type must be convertible to `System.IDisposable`; if
-either conversion fails, Raven reports the same assignment diagnostic used for other
-implicit conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
+A `use` declaration introduces a **scoped disposable resource**.  
+The declaration resembles a local variable binding and **must include an initializer**.
 
-Resources created with `using` remain in scope like ordinary locals but are automatically
-disposed when control leaves the enclosing block. Disposal runs in reverse declaration
-order so that later resources observe earlier ones still alive. File-scope `using`
-declarations participate as well: they are disposed after the file's top-level statements
-finish executing. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L222-L282】【F:src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs†L54-L87】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L114-L148】
+The initializer’s type — and any explicit type annotation — must be convertible to `System.IDisposable`. If the conversion fails, Raven reports the same diagnostic used for other implicit conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
+
+Resources created with `use` behave like ordinary locals: they remain in scope for the enclosing block and participate in definite-assignment rules. When control leaves the block, the resource is **automatically disposed**. Disposal occurs in **reverse declaration order**, ensuring that later resources observe earlier ones still alive.
+
+File-scope `use` declarations participate as well: they are disposed after the file’s top-level statements finish executing. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L222-L282】【F:src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs†L54-L87】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L114-L148】
 
 ```raven
-using val stream = System.IO.File.OpenRead(path)
-using var reader = System.IO.StreamReader(stream)
+use stream = System.IO.File.OpenRead(path)
+use reader = System.IO.StreamReader(stream)
 
 val text = reader.ReadToEnd()
 // reader.Dispose() and stream.Dispose() run automatically when the scope ends
-```
+````
 
 ## Types
 

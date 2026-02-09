@@ -13,8 +13,8 @@ val str = res match {
 WriteLine(str)
 
 async func fetch(url: string) -> Task<Result<string, Exception>> {
-    using val client = HttpClient()
-    using val response = try? await client.GetAsync(url)
+    use client = HttpClient()
+    use response = try? await client.GetAsync(url)
     _ = try? response.EnsureSuccessStatusCode()
     val responseBody = try? await response.Content.ReadAsStringAsync()
     return .Ok(responseBody)

@@ -13,10 +13,10 @@ val str = res match {
 WriteLine(str)
 
 async func fetch(url: string) -> Task<Result<string, string>> {
-    using val client = HttpClient()
+    use client = HttpClient()
 
     try {
-        using val response = await client.GetAsync(url)
+        use response = await client.GetAsync(url)
         response.EnsureSuccessStatusCode()
         val responseBody = await response.Content.ReadAsStringAsync()
         return .Ok(responseBody)

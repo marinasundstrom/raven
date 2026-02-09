@@ -67,14 +67,14 @@ func Main() {
     }
 
     [Fact]
-    public void ThrowStatement_DisposesUsingDeclarations()
+    public void ThrowStatement_DisposesUseDeclarations()
     {
         var code = """
 import System.*
 
 func Main() {
     try {
-        using val resource = Logger("inner")
+        use resource = Logger("inner")
         throw System.InvalidOperationException("fail")
     } catch (System.Exception ex) {
         Console.WriteLine("caught:" + ex.Message)

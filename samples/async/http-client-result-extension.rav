@@ -3,7 +3,7 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-using val client = HttpClient()
+use client = HttpClient()
 val res = await client.FetchAsync("http://www.contoso.com/")
 
 val str = res match {
@@ -16,7 +16,7 @@ WriteLine(str)
 extension HttpClientExtensions for HttpClient {
     public async FetchAsync(url: string) -> Task<Result<string, string>> {
         try {
-            using val response = await self.GetAsync(url)
+            use response = await self.GetAsync(url)
             response.EnsureSuccessStatusCode()
             val responseBody = await response.Content.ReadAsStringAsync()
             return .Ok(responseBody)

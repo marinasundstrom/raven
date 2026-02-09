@@ -4,7 +4,7 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 try {
-    using val stream = MemoryStream()
+    use stream = MemoryStream()
     val value = await Task.FromResult(42)
     stream.WriteByte(Convert.ToByte(value))
     WriteLine("value:$value")
