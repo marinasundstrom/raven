@@ -1680,7 +1680,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
 
-        var type = new NameSyntaxParser(this).ParseTypeName();
+        // typeof supports open generic syntax like typeof(Dictionary<,>).
+        var type = new NameSyntaxParser(this, allowOmittedTypeArguments: true).ParseTypeName();
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 

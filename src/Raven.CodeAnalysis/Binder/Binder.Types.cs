@@ -204,6 +204,15 @@ internal abstract partial class Binder
         if (lookup.Definition is null)
             return Fail(g, TypeResolutionFailureKind.GenericTypeNotFound);
 
+        if (HasOmittedTypeArguments(g.TypeArgumentList))
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = lookup.Definition,
+                ResolvedNamedDefinition = lookup.Definition
+            };
+        }
+
         var args = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes);
         if (!args.Success)
             return args;
@@ -263,6 +272,15 @@ internal abstract partial class Binder
                     {
                         var nestedDef = nestedCandidates[0];
 
+                        if (HasOmittedTypeArguments(rg.TypeArgumentList))
+                        {
+                            return new ResolveTypeResult
+                            {
+                                ResolvedType = nestedDef,
+                                ResolvedNamedDefinition = nestedDef
+                            };
+                        }
+
                         var args = BindTypeArguments(rg.TypeArgumentList, typeParams, importedScopes);
                         if (!args.Success)
                             return args;
@@ -290,6 +308,15 @@ internal abstract partial class Binder
 
             if (lookup.Definition is null)
                 return Fail(q, TypeResolutionFailureKind.QualifiedGenericTypeNotFound);
+
+            if (HasOmittedTypeArguments(g.TypeArgumentList))
+            {
+                return new ResolveTypeResult
+                {
+                    ResolvedType = lookup.Definition,
+                    ResolvedNamedDefinition = lookup.Definition
+                };
+            }
 
             // ✅ same arg resolution as GenericName
             var args = BindTypeArguments(g.TypeArgumentList, typeParams, importedScopes);
@@ -473,6 +500,20 @@ internal abstract partial class Binder
             ResolvedType = Compilation.GetSpecialType(SpecialType.System_Object),
             ResolvedTypeArguments = args.ToImmutable()
         };
+    }
+
+    private static bool HasOmittedTypeArguments(TypeArgumentListSyntax list)
+    {
+        if (list.Arguments.Count == 0)
+            return false;
+
+        foreach (var argument in list.Arguments)
+        {
+            if (!argument.Type.IsMissing)
+                return false;
+        }
+
+        return true;
     }
 
     // -----------------------------

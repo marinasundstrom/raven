@@ -66,4 +66,19 @@ val members = t.GetMembers(.Public)
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void TypeOf_WithOpenGenericFrameworkType_BindsSuccessfully()
+    {
+        const string testCode = """
+import System.*
+
+val t = typeof(System.Collections.Generic.Dictionary<,>)
+val name = t.Name
+""";
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
