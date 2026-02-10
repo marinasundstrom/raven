@@ -175,7 +175,6 @@ public partial class SemanticModel
         ITypeSymbol? naturalType = boundExpr switch
         {
             BoundConversionExpression cast => cast.Expression.Type,
-            BoundAsExpression asExpression => asExpression.Expression.Type,
             _ => boundExpr.Type
         };
 
