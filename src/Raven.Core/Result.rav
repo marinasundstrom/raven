@@ -2,6 +2,8 @@ namespace System
 
 import System.*
 import System.Collections.Generic.*
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
 
 /// Represents either a result with a value, or an error. See also: [Result&lt;T&gt;](xref:T:System.Result`1).
 ///
@@ -37,12 +39,59 @@ import System.Collections.Generic.*
 ///     // Omitted
 /// }
 /// ```
+[JsonConverter(typeof(ResultJsonConverterFactory))]
 public union Result<T, E> {
     /// Represents a result value
     Ok(value: T)
 
     /// Represents an error
     Error(data: E)
+}
+
+public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
+
+    public override Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        val @case = root.GetProperty("case").GetString()
+
+        return @case match {
+            "Ok" => .Ok(root.GetProperty("value").Deserialize<T>(options))
+            "Error" => .Error(root.GetProperty("data").Deserialize<E>(options))
+            _ => .Error(default(E))
+        }
+    }
+
+    public override Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
+        writer.WriteStartObject()
+
+        if value is .Ok(val okValue) {
+            writer.WriteString("case", "Ok")
+            writer.WritePropertyName("value")
+            JsonSerializer.Serialize(writer, okValue, options)
+        } else if value is .Error(val errorData) {
+            writer.WriteString("case", "Error")
+            writer.WritePropertyName("data")
+            JsonSerializer.Serialize(writer, errorData, options)
+        }
+
+        writer.WriteEndObject()
+    }
+}
+
+public class ResultJsonConverterFactory : JsonConverterFactory {
+
+    public override CanConvert(typeToConvert: Type) -> bool {
+        return typeToConvert.IsGenericType
+            && typeToConvert.GetGenericTypeDefinition() == typeof(Result<,>)
+    }
+
+    public override CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+        val tArgs = typeToConvert.GetGenericArguments()
+        val converterType = typeof(ResultJsonConverter<,>).MakeGenericType([tArgs[0], tArgs[1]])
+        return (JsonConverter)Activator.CreateInstance(converterType)!
+    }
 }
 
 /// Contains extensions for the Result<T, E> type

@@ -9,11 +9,11 @@ val settings = JsonSerializerOptions {
     WriteIndented = true
 }
 
-settings.Converters.Insert(0, OptionJsonConverterFactory())
+//settings.Converters.Insert(0, OptionJsonConverterFactory())
 
 WriteLine(JsonSerializer.Serialize(opt, settings))
 
-//[JsonConverter(typeof(OptionJsonConverterFactory))]
+[JsonConverter(typeof(OptionJsonConverterFactory))]
 public union Option<T> {
     Some(value: T)
     None

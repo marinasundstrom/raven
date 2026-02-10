@@ -1,9 +1,35 @@
 using Raven.CodeAnalysis.Testing;
+using System.Text.Json;
 
 namespace Raven.Core.Tests;
 
 public sealed class OptionTest : RavenCoreDiagnosticTestBase
 {
+    [Fact]
+    public void JsonSerializer_SerializesAndDeserializes_Some()
+    {
+        Option<int> option = new Option<int>.Some(42);
+
+        var json = JsonSerializer.Serialize(option);
+        var parsed = JsonSerializer.Deserialize<Option<int>>(json);
+
+        Assert.NotNull(parsed);
+        Assert.True(parsed.Value.TryGetSome(out var some));
+        Assert.Equal(42, some.Value);
+    }
+
+    [Fact]
+    public void JsonSerializer_SerializesAndDeserializes_None()
+    {
+        Option<int> option = new Option<int>.None();
+
+        var json = JsonSerializer.Serialize(option);
+        var parsed = JsonSerializer.Deserialize<Option<int>>(json);
+
+        Assert.NotNull(parsed);
+        Assert.True(parsed.Value.TryGetNone(out _));
+    }
+
     [Fact]
     public void MapThenWhere_BindsFromRavenCore()
     {

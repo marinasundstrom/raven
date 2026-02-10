@@ -2,6 +2,8 @@ namespace System
 
 import System.*
 import System.Collections.Generic.*
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
 
 /// Represents some value, or no value.
 ///
@@ -37,12 +39,57 @@ import System.Collections.Generic.*
 ///     // Omitted
 /// }
 /// ```
+[JsonConverter(typeof(OptionJsonConverterFactory))]
 public union Option<T> {
     /// Represents some value
     Some(value: T)
 
     /// Represents the absence of a value
     None
+}
+
+public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
+
+    public override Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        val @case = root.GetProperty("case").GetString()
+
+        return @case match {
+            "Some" => .Some(root.GetProperty("value").Deserialize<T>(options))
+            "None" => .None
+            _ => .None
+        }
+    }
+
+    public override Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
+        writer.WriteStartObject()
+
+        if value is .Some(val someValue) {
+            writer.WriteString("case", "Some")
+            writer.WritePropertyName("value")
+            JsonSerializer.Serialize(writer, someValue, options)
+        } else if value is .None {
+            writer.WriteString("case", "None")
+        }
+
+        writer.WriteEndObject()
+    }
+}
+
+public class OptionJsonConverterFactory : JsonConverterFactory {
+
+    public override CanConvert(typeToConvert: Type) -> bool {
+        return typeToConvert.IsGenericType
+            && typeToConvert.GetGenericTypeDefinition() == typeof(Option<>)
+    }
+
+    public override CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+        val tArg = typeToConvert.GetGenericArguments()[0]
+        val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
+        return (JsonConverter)Activator.CreateInstance(converterType)!
+    }
 }
 
 /// Contains extensions for the Option<T> type
