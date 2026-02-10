@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Symbols;
@@ -48,6 +50,24 @@ public partial class SemanticModel
             throw new ArgumentOutOfRangeException(nameof(position));
 
         return s_completionService.GetCompletions(Compilation, SyntaxTree, position);
+    }
+
+    /// <summary>
+    /// Gets completion items available at a position in this semantic model's syntax tree asynchronously.
+    /// </summary>
+    /// <param name="position">The zero-based position in the syntax tree.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>A materialized set of completion items.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="position"/> is outside the tree bounds.</exception>
+    public Task<ImmutableArray<CompletionItem>> GetCompletionsAsync(
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        var treeLength = SyntaxTree.GetRoot().FullSpan.End;
+        if ((uint)position > (uint)treeLength)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        return s_completionService.GetCompletionsAsync(Compilation, SyntaxTree, position, cancellationToken);
     }
 
     public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)

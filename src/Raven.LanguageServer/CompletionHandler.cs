@@ -1,12 +1,15 @@
 using System.Linq;
+
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
-using RavenCompletionItem = Raven.CodeAnalysis.CompletionItem;
+
 using LspCompletionItem = OmniSharp.Extensions.LanguageServer.Protocol.Models.CompletionItem;
+using RavenCompletionItem = Raven.CodeAnalysis.CompletionItem;
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 
 namespace Raven.LanguageServer;
@@ -41,7 +44,7 @@ internal sealed class CompletionHandler : ICompletionHandler
         var position = PositionHelper.ToOffset(text, request.Position);
         var compilation = _documents.GetCompilation();
 
-        var items = _completionService.GetCompletions(compilation, syntaxTree, position)
+        var items = (await _completionService.GetCompletionsAsync(compilation, syntaxTree, position, cancellationToken).ConfigureAwait(false))
             .Select(item => ToLspCompletion(item, text))
             .ToList();
 

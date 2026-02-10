@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -46,6 +48,26 @@ public class CompletionService
             // may fail (for example, missing metadata references).
             return GetBasicKeywordCompletions(token, position);
         }
+    }
+
+    /// <summary>
+    /// Gets the completion items available at the specified position asynchronously.
+    /// </summary>
+    /// <param name="compilation">The compilation that contains the syntax tree.</param>
+    /// <param name="syntaxTree">The syntax tree being queried.</param>
+    /// <param name="position">The position within the syntax tree.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>A materialized set of completion items applicable at the position.</returns>
+    public async Task<ImmutableArray<CompletionItem>> GetCompletionsAsync(
+        Compilation compilation,
+        SyntaxTree syntaxTree,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        return await Task.Run(
+                () => GetCompletions(compilation, syntaxTree, position).ToImmutableArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     internal static IEnumerable<CompletionItem> GetBasicKeywordCompletions(SyntaxToken token, int position)

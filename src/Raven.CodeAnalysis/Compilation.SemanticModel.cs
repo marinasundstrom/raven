@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -22,6 +24,22 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(syntaxTree);
         return GetSemanticModel(syntaxTree).GetCompletions(position);
+    }
+
+    /// <summary>
+    /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
+    /// </summary>
+    /// <param name="syntaxTree">The syntax tree to query.</param>
+    /// <param name="position">The zero-based position in the syntax tree.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>A materialized set of completion items.</returns>
+    public Task<ImmutableArray<CompletionItem>> GetCompletionsAsync(
+        SyntaxTree syntaxTree,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+        return GetSemanticModel(syntaxTree).GetCompletionsAsync(position, cancellationToken);
     }
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
