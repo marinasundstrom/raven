@@ -42,4 +42,13 @@ public static partial class DiagnosticBagExtensions
 
         diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CallIsAmbiguous, location, first, second));
     }
+
+    public static void ReportObsoleteMember(
+        this DiagnosticBag diagnostics,
+        object? symbolKind,
+        object? memberName,
+        object? message,
+        Location location,
+        DiagnosticSeverity severity)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ObsoleteMember, location, severity, symbolKind, memberName, message));
 }

@@ -154,6 +154,7 @@ partial class BlockBinder
                         extensionReceiver,
                         receiverSyntax,
                         out var convertedExtensionReceiver);
+                    ReportObsoleteIfNeeded(selected, syntax.Expression.GetLocation());
                     return new BoundInvocationExpression(selected, converted, methodGroup.Receiver, convertedExtensionReceiver);
                 }
             }
@@ -177,6 +178,7 @@ partial class BlockBinder
                 extensionReceiver,
                 receiverSyntax,
                 out var convertedExtensionReceiver);
+            ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
             return new BoundInvocationExpression(method, convertedArgs, methodGroup.Receiver, convertedExtensionReceiver);
         }
 
@@ -686,6 +688,7 @@ partial class BlockBinder
             var constructor = resolution.Method!;
             if (!EnsureMemberAccessible(constructor, receiverSyntax.GetLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
+            ReportObsoleteIfNeeded(constructor, callSyntax.GetLocation());
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
 
             BoundObjectInitializer? initializer = null;
@@ -848,6 +851,7 @@ partial class BlockBinder
             constructor = EnsureConstructedConstructor(constructor, typeSymbol);
             if (!EnsureMemberAccessible(constructor, syntax.Type.GetLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
+            ReportObsoleteIfNeeded(constructor, syntax.GetLocation());
 
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
 
@@ -2017,6 +2021,7 @@ partial class BlockBinder
                         return new BoundTypeExpression(typeMember);
                     }
 
+                    ReportObsoleteIfNeeded(nonMethodMember, nameLocation);
                     return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
                 }
             }
@@ -2120,6 +2125,7 @@ partial class BlockBinder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
+            ReportObsoleteIfNeeded(member, nameLocation);
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
@@ -2185,7 +2191,10 @@ partial class BlockBinder
 
                 // DO NOT report accessibility yet — may still bind to methods/extensions
                 if (IsSymbolAccessible(nonMethodMember))
+                {
+                    ReportObsoleteIfNeeded(nonMethodMember, nameLocation);
                     return new BoundMemberAccessExpression(receiver, nonMethodMember);
+                }
                 inaccessibleNonMethodMember = nonMethodMember;
             }
 
@@ -2243,6 +2252,7 @@ partial class BlockBinder
                     return ErrorExpression(reason: BoundExpressionReason.NotFound);
                 }
 
+                ReportObsoleteIfNeeded(instanceMember, nameLocation);
                 return new BoundMemberAccessExpression(receiver, instanceMember);
             }
 
@@ -2298,6 +2308,8 @@ partial class BlockBinder
         IPropertySymbol property,
         SyntaxNode receiverSyntax)
     {
+        ReportObsoleteIfNeeded(property, receiverSyntax.GetLocation());
+
         var getter = property.GetMethod;
         if (getter is null)
             return new BoundMemberAccessExpression(receiver, property);
@@ -2336,6 +2348,7 @@ partial class BlockBinder
             out var convertedExtensionReceiver);
 
         // Extension call: no instance receiver, only ExtensionReceiver.
+        ReportObsoleteIfNeeded(chosen, receiverSyntax.GetLocation());
         return new BoundInvocationExpression(
             chosen,
             convertedArgs,
@@ -2448,7 +2461,10 @@ partial class BlockBinder
                 if (!accessibleProperties.IsDefaultOrEmpty)
                 {
                     if (accessibleProperties.Length == 1)
+                    {
+                        ReportObsoleteIfNeeded(accessibleProperties[0], nameLocation);
                         return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), accessibleProperties[0]);
+                    }
 
                     var ambiguousMethods = accessibleProperties
                         .Select(p => p.GetMethod ?? p.SetMethod)
@@ -2501,6 +2517,7 @@ partial class BlockBinder
                     {
                         if (!EnsureMemberAccessible(unitArgCtor, nameLocation, "constructor"))
                             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+                        ReportObsoleteIfNeeded(unitArgCtor, nameLocation);
 
                         var unitType = unitArgCtor.Parameters[0].Type;
                         var unitValue = new BoundUnitExpression(unitType);
@@ -2522,6 +2539,7 @@ partial class BlockBinder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
+        ReportObsoleteIfNeeded(member, nameLocation);
         return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
     }
 

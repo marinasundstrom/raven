@@ -345,6 +345,10 @@
     Title="Attribute argument must be constant"
     Message="Attribute argument must be a constant expression" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0505" Identifier="ObsoleteMember"
+    Title="Obsolete member usage"
+    Message="The {symbolKind} '{memberName}' is obsolete: {message}" Category="compiler"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0815" Identifier="CannotAssignVoidToAnImplicitlyTypedVariable"
     Title="Cannot assign void to an implicitly-typed variable"
     Message="Cannot assign void to an implicitly-typed variable" Category="compiler"

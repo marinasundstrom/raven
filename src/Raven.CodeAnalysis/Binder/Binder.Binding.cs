@@ -237,6 +237,76 @@ internal abstract partial class Binder
         return false;
     }
 
+    protected void ReportObsoleteIfNeeded(ISymbol symbol, Location location)
+    {
+        if (!TryGetObsoleteInfo(symbol, out var message, out var isError))
+            return;
+
+        var symbolKind = symbol.Kind.ToString().ToLowerInvariant();
+        var display = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var text = string.IsNullOrWhiteSpace(message)
+            ? "No additional details provided."
+            : message;
+
+        _diagnostics.ReportObsoleteMember(
+            symbolKind,
+            display,
+            text,
+            location,
+            isError ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning);
+    }
+
+    private static bool TryGetObsoleteInfo(ISymbol symbol, out string? message, out bool isError)
+    {
+        message = null;
+        isError = false;
+
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            var attributeClass = attribute.AttributeClass;
+            if (attributeClass is null)
+                continue;
+
+            if (!string.Equals(attributeClass.Name, "ObsoleteAttribute", StringComparison.Ordinal) &&
+                !string.Equals(attributeClass.Name, "Obsolete", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments.Length >= 1 &&
+                attribute.ConstructorArguments[0].Value is string constructorMessage)
+            {
+                message = constructorMessage;
+            }
+
+            if (attribute.ConstructorArguments.Length >= 2 &&
+                attribute.ConstructorArguments[1].Value is bool constructorIsError)
+            {
+                isError = constructorIsError;
+            }
+
+            foreach (var (name, value) in attribute.NamedArguments)
+            {
+                if (string.Equals(name, "Message", StringComparison.Ordinal) &&
+                    value.Value is string namedMessage)
+                {
+                    message = namedMessage;
+                    continue;
+                }
+
+                if (string.Equals(name, "IsError", StringComparison.Ordinal) &&
+                    value.Value is bool namedIsError)
+                {
+                    isError = namedIsError;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Attempts to interpret a member access expression like <c>System.Console</c> as a type name.
     /// If successful, returns the resolved <see cref="ITypeSymbol"/>.
