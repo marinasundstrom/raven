@@ -15,7 +15,7 @@ unsafe func Run() -> int {
 }
 
 unsafe func Run2() -> int {
-    var value = 41
+    val value = 41
     val pointer: *int = &value
     *pointer = 42
     return value
