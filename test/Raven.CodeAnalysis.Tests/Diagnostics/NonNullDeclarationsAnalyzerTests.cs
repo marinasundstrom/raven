@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class NonNullDeclarationsAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
-    public void NullableLocalType_ReportsDiagnosticWithOptionSuggestion()
+    public void NullableLocalType_ReportsDiagnosticWithReplacementSuggestion()
     {
         const string code = """
 func Test() {
@@ -20,10 +20,7 @@ func Test() {
             [
                 new DiagnosticResult(NonNullDeclarationsAnalyzer.DiagnosticId)
                     .WithSpan(2, 16, 2, 20)
-                    .WithArguments("int?"),
-                new DiagnosticResult(NonNullDeclarationsAnalyzer.OptionSuggestionDiagnosticId)
-                    .WithSpan(2, 16, 2, 20)
-                    .WithArguments("Option<int>")
+                    .WithArguments("Option<int>", "int?")
             ],
             disabledDiagnostics: ["RAV1014"]);
 
@@ -31,7 +28,7 @@ func Test() {
     }
 
     [Fact]
-    public void NullableUnionDeclarationType_ReportsDiagnosticWithOptionSuggestion()
+    public void NullableUnionDeclarationType_ReportsDiagnosticWithReplacementSuggestion()
     {
         const string code = """
 func Test() {
@@ -45,10 +42,7 @@ func Test() {
             [
                 new DiagnosticResult(NonNullDeclarationsAnalyzer.DiagnosticId)
                     .WithSpan(2, 16, 2, 26)
-                    .WithArguments("int?"),
-                new DiagnosticResult(NonNullDeclarationsAnalyzer.OptionSuggestionDiagnosticId)
-                    .WithSpan(2, 16, 2, 26)
-                    .WithArguments("Option<int>")
+                    .WithArguments("Option<int>", "int?")
             ],
             disabledDiagnostics: ["RAV1014"]);
 
