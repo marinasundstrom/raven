@@ -1502,11 +1502,7 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case IParameterSymbol param:
-                int pos = MethodGenerator.GetParameterBuilder(param).Position;
-                if (MethodSymbol.IsStatic)
-                    pos -= 1;
-
-                ILGenerator.Emit(OpCodes.Ldarga, pos);
+                EmitParameterForByRefUse(param);
                 break;
 
             case IFieldSymbol field when field.IsStatic:
@@ -3348,9 +3344,8 @@ internal partial class ExpressionGenerator : Generator
 
                     var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter);
                     var position = parameterBuilder.Position;
-                    if (MethodSymbol.IsStatic)
-                        position -= 1;
-                    ILGenerator.Emit(OpCodes.Ldarga, position);
+                    _ = position; // retained for minimal diff around existing debug flow
+                    EmitParameterForByRefUse(parameterAccess.Parameter);
                     return true;
                 }
 
@@ -3634,13 +3629,8 @@ internal partial class ExpressionGenerator : Generator
 
                     case BoundParameterAccess { Parameter: IParameterSymbol p }:
                         {
-                            // Load address of parameter for ref/out/in calls (e.g. &Utf8JsonReader)
-                            var param = MethodGenerator.GetParameterBuilder(p);
-                            var pos = param.Position;
-                            if (MethodSymbol.IsStatic)
-                                pos -= 1;
-
-                            ILGenerator.Emit(OpCodes.Ldarga, pos);
+                            // For by-ref parameters use ldarg; otherwise load parameter address.
+                            EmitParameterForByRefUse(p);
                             break;
                         }
 
@@ -3743,12 +3733,8 @@ internal partial class ExpressionGenerator : Generator
 
                 case BoundParameterAccess { Parameter: IParameterSymbol p }:
                     {
-                        var param = MethodGenerator.GetParameterBuilder(p);
-                        var pos = param.Position;
-                        if (MethodSymbol.IsStatic)
-                            pos -= 1;
-
-                        ILGenerator.Emit(OpCodes.Ldarga, pos);
+                        // For by-ref parameters use ldarg; otherwise load parameter address.
+                        EmitParameterForByRefUse(p);
                         return;
                     }
 
@@ -3794,6 +3780,20 @@ internal partial class ExpressionGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
         }
+    }
+
+    private void EmitParameterForByRefUse(IParameterSymbol parameter)
+    {
+        var paramBuilder = MethodGenerator.GetParameterBuilder(parameter);
+        var position = paramBuilder.Position;
+        if (MethodSymbol.IsStatic)
+            position -= 1;
+
+        // If the parameter itself is by-ref, loading it already yields managed pointer.
+        if (parameter.Type is ByRefTypeSymbol)
+            ILGenerator.Emit(OpCodes.Ldarg, position);
+        else
+            ILGenerator.Emit(OpCodes.Ldarga, position);
     }
 
     private IMethodSymbol GetInvocationTarget(BoundInvocationExpression invocationExpression)
