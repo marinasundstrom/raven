@@ -21,7 +21,7 @@ internal partial class TypeMemberBinder : Binder
         var propertyTypeSyntax = propertyDecl.Type.Type;
 
         // The real declared type (used for accessor signatures / binding)
-        var declaredPropertyType = ResolveType(propertyTypeSyntax);
+        var declaredPropertyType = ResolveTypeSyntaxForSignature(this, propertyTypeSyntax, RefKind.None);
 
         // The property symbol itself is a marker for extension containers.
         // It must be codegen-safe because the extension container type is not emitted as generic.
@@ -71,7 +71,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (explicitInterfaceSpecifier is not null)
         {
-            var resolved = ResolveType(explicitInterfaceSpecifier.Name);
+            var resolved = ResolveNamedTypeSyntax(this, explicitInterfaceSpecifier.Name);
             if (resolved is INamedTypeSymbol interfaceType && interfaceType.TypeKind == TypeKind.Interface)
             {
                 explicitInterfaceType = interfaceType;
@@ -489,10 +489,10 @@ internal partial class TypeMemberBinder : Binder
 
                     var accessorBinder = new MethodBinder(methodSymbol, this);
 
-                    var boundPropType = accessorBinder.BindType(propertyTypeSyntax, options);
+                    var boundPropType = accessorBinder.BindTypeSyntax(propertyTypeSyntax, options);
                     propertyTypeForAccessor = boundPropType.ResolvedType;
 
-                    var boundReceiver = accessorBinder.BindType(_extensionReceiverTypeSyntax, options);
+                    var boundReceiver = accessorBinder.BindTypeSyntax(_extensionReceiverTypeSyntax, options);
                     receiverTypeForAccessor = boundReceiver.ResolvedType;
                 }
 
@@ -625,8 +625,8 @@ internal partial class TypeMemberBinder : Binder
                         SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
                     };
 
-                propertyTypeForAccessor = binder.BindType(propertyTypeSyntax, options).ResolvedType;
-                receiverTypeForAccessor = binder.BindType(_extensionReceiverTypeSyntax, options).ResolvedType;
+                propertyTypeForAccessor = binder.BindTypeSyntax(propertyTypeSyntax, options).ResolvedType;
+                receiverTypeForAccessor = binder.BindTypeSyntax(_extensionReceiverTypeSyntax, options).ResolvedType;
             }
 
             // Use the accessor-bound property type for the getter signature.
@@ -713,7 +713,7 @@ internal partial class TypeMemberBinder : Binder
                 var substitutions = BuildExtensionTypeParameterSubstitutions(accessorForReceiver.TypeParameters);
 
                 var accessorBinder = new MethodBinder(accessorForReceiver, this);
-                var bound = accessorBinder.BindType(
+                var bound = accessorBinder.BindTypeSyntax(
                     _extensionReceiverTypeSyntax,
                     substitutions is null
                         ? null

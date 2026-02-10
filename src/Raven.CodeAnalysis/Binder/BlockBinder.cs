@@ -160,7 +160,7 @@ partial class BlockBinder : Binder
             ?? bindingKeyword.GetLocation();
         object? constantValue = null;
         if (variableDeclarator.TypeAnnotation is not null)
-            annotatedType = ResolveType(variableDeclarator.TypeAnnotation.Type);
+            annotatedType = ResolveTypeSyntaxOrError(variableDeclarator.TypeAnnotation.Type);
         if (initializer is not null)
         {
             // Initializers are always evaluated for their value; return statements
@@ -205,7 +205,7 @@ partial class BlockBinder : Binder
         }
         else
         {
-            type = annotatedType ?? ResolveType(variableDeclarator.TypeAnnotation.Type);
+            type = annotatedType ?? ResolveTypeSyntaxOrError(variableDeclarator.TypeAnnotation.Type);
         }
 
         var constantValueComputed = false;
@@ -375,7 +375,7 @@ partial class BlockBinder : Binder
 
         foreach (var argument in generic.TypeArgumentList.Arguments)
         {
-            var bound = BindTypeSyntax(argument.Type);
+            var bound = BindTypeSyntaxAsExpression(argument.Type);
             if (bound is not BoundTypeExpression bt)
                 return null;
 
@@ -598,7 +598,7 @@ partial class BlockBinder : Binder
 
         if (variableDeclarator.TypeAnnotation is not null)
         {
-            var annotatedType = ResolveType(variableDeclarator.TypeAnnotation.Type);
+            var annotatedType = ResolveTypeSyntaxOrError(variableDeclarator.TypeAnnotation.Type);
             annotatedType = EnsureTypeAccessible(annotatedType, variableDeclarator.TypeAnnotation.Type.GetLocation());
 
             if (annotatedType.TypeKind != TypeKind.Error && ShouldAttemptConversion(boundInitializer))
@@ -666,7 +666,7 @@ partial class BlockBinder : Binder
         {
             LiteralExpressionSyntax literal => BindLiteralExpression(literal),
             IdentifierNameSyntax identifier => BindIdentifierName(identifier),
-            TypeSyntax type => BindTypeSyntax(type),
+            TypeSyntax type => BindTypeSyntaxAsExpression(type),
             BinaryExpressionSyntax binary => BindBinaryExpression(binary),
             NullCoalesceExpressionSyntax coalesce => BindNullCoalesceExpression(coalesce),
             RangeExpressionSyntax rangeExpression => BindRangeExpression(rangeExpression),
@@ -1435,7 +1435,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindConversionExpression(CastExpressionSyntax castExpression)
     {
         var expression = BindExpression(castExpression.Expression);
-        var targetType = ResolveType(castExpression.Type);
+        var targetType = ResolveTypeSyntaxOrError(castExpression.Type);
 
         if (HasExpressionErrors(expression))
             return expression;
@@ -1457,7 +1457,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
     {
-        var operandType = ResolveType(typeOfExpression.Type);
+        var operandType = ResolveTypeSyntaxOrError(typeOfExpression.Type);
 
         if (operandType.ContainsErrorType())
             return ErrorExpression(operandType, reason: BoundExpressionReason.NotFound);
@@ -1849,7 +1849,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindAsExpression(AsExpressionSyntax asExpression)
     {
         var expression = BindExpression(asExpression.Expression);
-        var targetType = ResolveType(asExpression.Type);
+        var targetType = ResolveTypeSyntaxOrError(asExpression.Type);
 
         if (HasExpressionErrors(expression))
             return expression;
@@ -3634,7 +3634,7 @@ partial class BlockBinder : Binder
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument)
     {
-        if (BindTypeSyntax(typeSyntax) is not BoundTypeExpression typeExpression ||
+        if (BindTypeSyntaxAsExpression(typeSyntax) is not BoundTypeExpression typeExpression ||
             typeExpression.Type is not INamedTypeSymbol typeSymbol)
         {
             return null;
@@ -3732,7 +3732,7 @@ partial class BlockBinder : Binder
         return returnType;
     }
 
-    protected BoundExpression BindTypeSyntax(TypeSyntax syntax)
+    protected BoundExpression BindTypeSyntaxAsExpression(TypeSyntax syntax)
     {
         if (syntax is NullTypeSyntax)
         {
@@ -3795,7 +3795,7 @@ partial class BlockBinder : Binder
 
         if (syntax is NullableTypeSyntax nullableTypeSyntax)
         {
-            var type = BindTypeSyntax(nullableTypeSyntax.ElementType);
+            var type = BindTypeSyntaxAsExpression(nullableTypeSyntax.ElementType);
             return new BoundTypeExpression(type.Type.MakeNullable());
         }
 
@@ -3807,7 +3807,7 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
             }
 
-            if (BindTypeSyntax(pointerTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
+            if (BindTypeSyntaxAsExpression(pointerTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             var elementType = elementTypeExpression.Type;
@@ -3821,7 +3821,7 @@ partial class BlockBinder : Binder
 
         if (syntax is ArrayTypeSyntax arrayTypeSyntax)
         {
-            if (BindTypeSyntax(arrayTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
+            if (BindTypeSyntaxAsExpression(arrayTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
                 return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
             var elementType = elementTypeExpression.Type;
@@ -3844,7 +3844,7 @@ partial class BlockBinder : Binder
 
             foreach (var element in tupleTypeSyntax.Elements)
             {
-                if (BindTypeSyntax(element.Type) is not BoundTypeExpression bt)
+                if (BindTypeSyntaxAsExpression(element.Type) is not BoundTypeExpression bt)
                     return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
                 boundElements.Add((element.NameColon?.Name.ToString(), bt.Type));
@@ -3861,7 +3861,7 @@ partial class BlockBinder : Binder
 
             foreach (var type in unionSyntax.Types)
             {
-                if (BindTypeSyntax(type) is not BoundTypeExpression bt)
+                if (BindTypeSyntaxAsExpression(type) is not BoundTypeExpression bt)
                     return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
                 types.Add(bt.Type);
@@ -3887,7 +3887,7 @@ partial class BlockBinder : Binder
 
         if (syntax is QualifiedNameSyntax qualified)
         {
-            var left = BindTypeSyntax(qualified.Left);
+            var left = BindTypeSyntaxAsExpression(qualified.Left);
 
             if (left is not BoundNamespaceExpression ns && left is not BoundTypeExpression leftType)
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -4336,7 +4336,7 @@ partial class BlockBinder : Binder
 
             hasExplicitArguments = true;
 
-            if (BindTypeSyntax(argument.Type) is not BoundTypeExpression bt)
+            if (BindTypeSyntaxAsExpression(argument.Type) is not BoundTypeExpression bt)
             {
                 boundArguments = ImmutableArray<ITypeSymbol>.Empty;
                 return false;
@@ -4429,7 +4429,7 @@ partial class BlockBinder : Binder
     {
         if (syntax.Type is TypeSyntax explicitType)
         {
-            var type = ResolveType(explicitType);
+            var type = ResolveTypeSyntaxOrError(explicitType);
             type = EnsureTypeAccessible(type, explicitType.GetLocation());
 
             return new BoundDefaultValueExpression(type);
@@ -5040,7 +5040,7 @@ partial class BlockBinder : Binder
                 return CreateMethodGroup(null, instantiated);
         }
 
-        return BindTypeSyntax(generic);
+        return BindTypeSyntaxAsExpression(generic);
     }
 
     private BoundExpression BindPipelineInvocationOnMethodGroup(
@@ -5670,7 +5670,7 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
             }
 
-            var typeExpr = BindTypeSyntax(generic);
+            var typeExpr = BindTypeSyntaxAsExpression(generic);
             if (typeExpr is BoundTypeExpression type && type.Type is INamedTypeSymbol namedType)
             {
                 // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
@@ -6431,7 +6431,7 @@ partial class BlockBinder : Binder
         ITypeSymbol incomingType,
         bool isMutable)
     {
-        var declaredType = ResolveType(typedDesignation.TypeAnnotation.Type);
+        var declaredType = ResolveTypeSyntaxOrError(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
 
         if (incomingType.TypeKind != TypeKind.Error &&
@@ -6447,6 +6447,23 @@ partial class BlockBinder : Binder
         }
 
         return BindVariableDesignationForAssignment(typedDesignation.Designation, declaredType, isMutable);
+    }
+
+    private static bool RequiresByRefType(TypeSyntax typeSyntax, RefKind refKindHint)
+        => refKindHint is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
+           typeSyntax is ByRefTypeSyntax;
+
+    private ITypeSymbol ResolveTypeSyntaxOrError(TypeSyntax typeSyntax, RefKind refKindHint = RefKind.None)
+    {
+        var result = BindTypeSyntax(typeSyntax);
+        if (!result.Success)
+            return BindTypeSyntaxDirect(typeSyntax, refKindHint);
+
+        var resolved = result.ResolvedType;
+        if (RequiresByRefType(typeSyntax, refKindHint) && resolved is not ByRefTypeSymbol)
+            return new ByRefTypeSymbol(resolved);
+
+        return resolved;
     }
 
     private BoundPattern BindSingleVariableDesignationForAssignment(

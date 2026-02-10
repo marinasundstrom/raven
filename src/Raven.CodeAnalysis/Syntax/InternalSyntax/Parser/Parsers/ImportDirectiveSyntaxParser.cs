@@ -26,7 +26,7 @@ internal class ImportDirectiveSyntaxParser : SyntaxParser
         }
         else
         {
-            nameSyntax = new NameSyntaxParser(this).ParseName();
+            nameSyntax = new NameSyntaxParser(this, allowOmittedTypeArguments: true).ParseName();
         }
 
         SetTreatNewlinesAsTokens(true);

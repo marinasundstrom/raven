@@ -9,11 +9,17 @@ val settings = JsonSerializerOptions {
     WriteIndented = true
 }
 
-settings.Converters.Insert(0, OptionJsonConverter<int>())
+settings.Converters.Insert(0, OptionJsonConverterFactory())
 
 WriteLine(JsonSerializer.Serialize(opt, settings))
 
-public sealed class OptionJsonConverter<T> : JsonConverter<Option<T>> {
+//[JsonConverter(typeof(OptionJsonConverterFactory))]
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
     public override Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
@@ -41,5 +47,24 @@ public sealed class OptionJsonConverter<T> : JsonConverter<Option<T>> {
         }
 
         writer.WriteEndObject()
+    }
+}
+
+public class OptionJsonConverterFactory : JsonConverterFactory {
+
+    public override CanConvert(typeToConvert: Type) -> bool {
+        // Option<T>
+        return typeToConvert.IsGenericType
+            && typeToConvert.GetGenericTypeDefinition() == typeof(Option<>)
+    }
+
+    public override CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+        val tArg = typeToConvert.GetGenericArguments()[0]
+
+        // OptionJsonConverter<TArg>
+        val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
+
+        // new OptionJsonConverter<TArg>()
+        return (JsonConverter)Activator.CreateInstance(converterType)!
     }
 }

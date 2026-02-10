@@ -47,7 +47,7 @@ internal sealed class AttributeBinder : BlockBinder
 
         if (attributeType is null)
         {
-            var typeExpression = BindTypeSyntax(attribute.Name);
+            var typeExpression = BindTypeSyntaxAsExpression(attribute.Name);
 
             if (typeExpression is not BoundTypeExpression boundType || boundType.Type is not INamedTypeSymbol resolvedType)
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -143,31 +143,44 @@ internal sealed class AttributeBinder : BlockBinder
 
     private INamedTypeSymbol? BindAttributeType(TypeSyntax attributeName)
     {
-        if (TryBindAttributeTypeCore(attributeName, out var resolved))
+        if (TryBindAttributeTypeCore(attributeName, allowLegacyFallback: false, out var resolved))
             return resolved;
 
         if (!HasAttributeSuffix(attributeName))
         {
             var suffixed = TryAppendAttributeSuffix(attributeName);
-            if (suffixed is not null && TryBindAttributeTypeCore(suffixed, out resolved))
+            if (suffixed is not null && TryBindAttributeTypeCore(suffixed, allowLegacyFallback: false, out resolved))
+                return resolved;
+        }
+
+        // Compatibility pass during migration:
+        // keep legacy ResolveType-style reporting/fallback behavior when the unified
+        // BindTypeSyntax flow cannot resolve the attribute type.
+        if (TryBindAttributeTypeCore(attributeName, allowLegacyFallback: true, out resolved))
+            return resolved;
+
+        if (!HasAttributeSuffix(attributeName))
+        {
+            var suffixed = TryAppendAttributeSuffix(attributeName);
+            if (suffixed is not null && TryBindAttributeTypeCore(suffixed, allowLegacyFallback: true, out resolved))
                 return resolved;
         }
 
         return TryResolveAttributeTypeFallback(attributeName);
     }
 
-    private bool TryBindAttributeTypeCore(TypeSyntax attributeName, out INamedTypeSymbol? resolved)
+    private bool TryBindAttributeTypeCore(
+        TypeSyntax attributeName,
+        bool allowLegacyFallback,
+        out INamedTypeSymbol? resolved)
     {
-        var result = BindType(attributeName);
-        if (result.Success && result.ResolvedType is INamedTypeSymbol named)
-        {
-            resolved = named;
+        if (TryBindNamedTypeFromTypeSyntax(attributeName, out resolved, reportDiagnostics: false))
             return true;
-        }
 
-        if (result.ResolvedType is INamedTypeSymbol resolvedNamed && resolvedNamed.TypeKind != TypeKind.Error)
+        if (allowLegacyFallback && TryResolveNamedTypeFromTypeSyntax(attributeName, out var legacyResolved) &&
+            legacyResolved is not null && legacyResolved.TypeKind != TypeKind.Error)
         {
-            resolved = resolvedNamed;
+            resolved = legacyResolved;
             return true;
         }
 

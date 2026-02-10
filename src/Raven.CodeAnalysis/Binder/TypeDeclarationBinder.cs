@@ -16,7 +16,7 @@ internal abstract class TypeDeclarationBinder : Binder
 
     protected SyntaxNode Syntax { get; }
 
-    public new INamedTypeSymbol ContainingSymbol { get; }
+    public override INamedTypeSymbol ContainingSymbol { get; }
 
     public override ISymbol? LookupSymbol(string name)
     {
@@ -45,9 +45,9 @@ internal abstract class TypeDeclarationBinder : Binder
     {
         var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
 
-        if (this.ContainingSymbol is INamedTypeSymbol nt && !nt.TypeParameters.IsDefaultOrEmpty)
+        if (!ContainingSymbol.TypeParameters.IsDefaultOrEmpty)
         {
-            foreach (var tp in nt.TypeParameters)
+            foreach (var tp in ContainingSymbol.TypeParameters)
                 map.TryAdd(tp.Name, tp);
         }
 

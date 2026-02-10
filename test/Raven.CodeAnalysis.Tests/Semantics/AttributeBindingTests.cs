@@ -16,7 +16,7 @@ public sealed class AttributeBindingTests : CompilationTestBase
         const string source = """
 import System.*
 
-[Obsolete(\"use new\")]
+[Obsolete("use new")]
 class C { }
 """;
 
@@ -61,7 +61,7 @@ import System.*
 
 class MyAttribute<T> : System.Attribute
 {
-    init(value: int) { }
+    public init(value: int) { }
 }
 
 [My<int>(42)]
@@ -70,7 +70,8 @@ class C { }
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
-        var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Single(static c => c.Identifier.ValueText == "C");
         var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         var attribute = Assert.Single(type.GetAttributes());
@@ -78,7 +79,7 @@ class C { }
 
         Assert.Equal("MyAttribute", attributeClass?.Name);
         Assert.Single(attributeClass!.TypeArguments);
-        Assert.Equal("System.Int32", attributeClass.TypeArguments[0].ToDisplayString());
+        Assert.Equal(SpecialType.System_Int32, attributeClass.TypeArguments[0].SpecialType);
         Assert.Equal(42, attribute.ConstructorArguments.Single().Value);
         Assert.Empty(compilation.GetDiagnostics());
     }

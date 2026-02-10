@@ -733,8 +733,8 @@ public partial class SemanticModel
                 }
                 else
                 {
-                    var typeSymbol = provisionalImportBinder.ResolveType(alias.Target);
-                    symbols = typeSymbol == Compilation.ErrorTypeSymbol
+                    var typeSymbol = TryResolveTypeSyntaxSilently(alias.Target);
+                    symbols = typeSymbol is null
                         ? Array.Empty<ISymbol>()
                         : new ISymbol[] { typeSymbol };
                 }
@@ -814,9 +814,9 @@ public partial class SemanticModel
                 if (unconstructed is null)
                     return null;
 
-                var args = g.TypeArgumentList.Arguments
-                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
-                    .ToArray();
+                if (!TryResolveTypeArgumentsSilently(g.TypeArgumentList, out var args))
+                    return null;
+
                 return Compilation.ConstructGenericType(unconstructed, args);
             }
 
@@ -830,9 +830,9 @@ public partial class SemanticModel
                 if (unconstructed is null)
                     return null;
 
-                var args = gen.TypeArgumentList.Arguments
-                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
-                    .ToArray();
+                if (!TryResolveTypeArgumentsSilently(gen.TypeArgumentList, out var args))
+                    return null;
+
                 return Compilation.ConstructGenericType(unconstructed, args);
             }
 
@@ -850,9 +850,9 @@ public partial class SemanticModel
                 if (unconstructed is null)
                     return null;
 
-                var args = g.TypeArgumentList.Arguments
-                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
-                    .ToArray();
+                if (!TryResolveTypeArgumentsSilently(g.TypeArgumentList, out var args))
+                    return null;
+
                 return Compilation.ConstructGenericType(unconstructed, args);
             }
 
@@ -868,6 +868,35 @@ public partial class SemanticModel
             }
 
             return null;
+        }
+
+        ITypeSymbol? TryResolveTypeSyntaxSilently(TypeSyntax syntax)
+        {
+            using (provisionalImportBinder.Diagnostics.CreateNonReportingScope())
+            {
+                var result = provisionalImportBinder.BindTypeSyntax(syntax);
+                if (result.Success)
+                    return result.ResolvedType;
+
+                var legacy = provisionalImportBinder.BindTypeSyntaxDirect(syntax);
+                return legacy.TypeKind == TypeKind.Error ? null : legacy;
+            }
+        }
+
+        bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out ITypeSymbol[] args)
+        {
+            args = new ITypeSymbol[list.Arguments.Count];
+
+            for (var i = 0; i < list.Arguments.Count; i++)
+            {
+                var resolved = TryResolveTypeSyntaxSilently(list.Arguments[i].Type);
+                if (resolved is null)
+                    return false;
+
+                args[i] = resolved;
+            }
+
+            return true;
         }
 
         static string Combine(INamespaceSymbol current, string name)
@@ -1458,6 +1487,19 @@ public partial class SemanticModel
             => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
                typeSyntax is ByRefTypeSyntax;
 
+        ITypeSymbol ResolveTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKindHint)
+        {
+            var result = binder.BindTypeSyntax(typeSyntax);
+            if (!result.Success)
+                return binder.BindTypeSyntaxDirect(typeSyntax, refKindHint);
+
+            var type = result.ResolvedType;
+            if (RequiresByRefType(typeSyntax, refKindHint) && type is not ByRefTypeSymbol)
+                return new ByRefTypeSymbol(type);
+
+            return type;
+        }
+
         // .ctor(object, IntPtr)
         var ctor = new SourceMethodSymbol(
             ".ctor",
@@ -1498,7 +1540,7 @@ public partial class SemanticModel
         // Invoke
         var returnType = delegateDecl.ReturnType is null
             ? unitType!
-            : binder.ResolveType(delegateDecl.ReturnType.Type);
+            : ResolveTypeSyntaxForSignature(delegateDecl.ReturnType.Type, RefKind.None);
 
         var invoke = new SourceMethodSymbol(
             "Invoke",
@@ -1519,9 +1561,7 @@ public partial class SemanticModel
             var refKind = GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = RequiresByRefType(typeSyntax, refKindForType)
-                ? binder.ResolveType(typeSyntax, refKindForType)
-                : binder.ResolveType(typeSyntax);
+            var pType = ResolveTypeSyntaxForSignature(typeSyntax, refKindForType);
 
             invokeParams.Add(new SourceParameterSymbol(
                 p.Identifier.ValueText,
@@ -1630,11 +1670,17 @@ public partial class SemanticModel
 
                     var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
                     var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-                    var parameterType = typeSyntax is null
-                        ? Compilation.ErrorTypeSymbol
-                        : refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                            ? unionBinder.ResolveType(typeSyntax, refKindForType)
-                            : unionBinder.ResolveType(typeSyntax);
+                    ITypeSymbol parameterType;
+                    if (typeSyntax is null)
+                    {
+                        parameterType = Compilation.ErrorTypeSymbol;
+                    }
+                    else
+                    {
+                        parameterType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                            ? unionBinder.BindTypeSyntaxDirect(typeSyntax, refKindForType)
+                            : unionBinder.BindTypeSyntaxDirect(typeSyntax);
+                    }
 
                     var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                         parameterSyntax,
@@ -2313,7 +2359,14 @@ public partial class SemanticModel
         }
 
         var underlyingTypeSyntax = baseList.Types[0];
-        var resolvedType = binder.ResolveType(underlyingTypeSyntax);
+        var resolvedResult = binder.BindTypeSyntax(underlyingTypeSyntax);
+        if (!resolvedResult.Success)
+        {
+            binder.ReportResolveTypeResultDiagnostics(resolvedResult, underlyingTypeSyntax);
+            return defaultType;
+        }
+
+        var resolvedType = resolvedResult.ResolvedType;
 
         if (resolvedType is null || resolvedType == Compilation.ErrorTypeSymbol)
             return defaultType;
@@ -2570,7 +2623,7 @@ public partial class SemanticModel
     {
         if (extensionBinder.ContainingSymbol is SourceNamedTypeSymbol extensionSymbol)
         {
-            var receiverType = extensionBinder.ResolveType(extensionDecl.ReceiverType);
+            var receiverType = extensionBinder.BindTypeSyntaxDirect(extensionDecl.ReceiverType);
             extensionSymbol.SetExtensionReceiverType(receiverType);
         }
 
@@ -2757,11 +2810,17 @@ public partial class SemanticModel
 
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var parameterType = typeSyntax is null
-                ? Compilation.ErrorTypeSymbol
-                : refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? classBinder.ResolveType(typeSyntax, refKindForType)
-                    : classBinder.ResolveType(typeSyntax);
+            ITypeSymbol parameterType;
+            if (typeSyntax is null)
+            {
+                parameterType = Compilation.ErrorTypeSymbol;
+            }
+            else
+            {
+                parameterType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? classBinder.BindTypeSyntaxDirect(typeSyntax, refKindForType)
+                    : classBinder.BindTypeSyntaxDirect(typeSyntax);
+            }
 
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 parameterSyntax,

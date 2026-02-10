@@ -120,7 +120,7 @@ partial class BlockBinder
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(g.TypeArgumentList.Arguments.Count);
             foreach (var ta in g.TypeArgumentList.Arguments)
             {
-                var boundType = BindTypeSyntax(ta.Type);
+                var boundType = BindTypeSyntaxAsExpression(ta.Type);
                 builder.Add(boundType.Type ?? Compilation.ErrorTypeSymbol);
             }
             explicitTypeArguments = builder.ToImmutable();
@@ -130,7 +130,7 @@ partial class BlockBinder
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(g2.TypeArgumentList.Arguments.Count);
             foreach (var ta in g2.TypeArgumentList.Arguments)
             {
-                var boundType = BindTypeSyntax(ta.Type);
+                var boundType = BindTypeSyntaxAsExpression(ta.Type);
                 builder.Add(boundType.Type ?? Compilation.ErrorTypeSymbol);
             }
             explicitTypeArguments = builder.ToImmutable();
@@ -796,7 +796,7 @@ partial class BlockBinder
     {
         INamedTypeSymbol? typeSymbol = null;
 
-        var typeExpr = BindTypeSyntax(syntax.Type);
+        var typeExpr = BindTypeSyntaxAsExpression(syntax.Type);
 
         if (typeExpr is BoundTypeExpression boundType)
         {
@@ -1812,8 +1812,7 @@ partial class BlockBinder
         BoundExpression receiver;
         if (memberAccess.Expression is TypeSyntax ts && memberAccess.Expression is not NameSyntax)
         {
-            var r = BindType(ts);
-            receiver = new BoundTypeExpression(r.Success ? (r.ResolvedType ?? Compilation.ErrorTypeSymbol) : Compilation.ErrorTypeSymbol);
+            receiver = BindTypeSyntaxAsExpression(ts);
         }
         else
         {
@@ -1917,7 +1916,7 @@ partial class BlockBinder
 
         if (simpleName is GenericNameSyntax genericName)
         {
-            var r = BindType(genericName);
+            _ = BindTypeSyntax(genericName);
 
             var boundTypeArguments = TryBindTypeArguments(genericName);
             if (boundTypeArguments is null)

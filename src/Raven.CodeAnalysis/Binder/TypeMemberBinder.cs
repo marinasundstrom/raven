@@ -28,7 +28,7 @@ internal partial class TypeMemberBinder : Binder
         _extensionReceiverTypeSyntax = extensionReceiverTypeSyntax;
     }
 
-    public new INamedTypeSymbol ContainingSymbol => _containingType;
+    public override INamedTypeSymbol ContainingSymbol => _containingType;
 
     public override ISymbol? LookupSymbol(string name)
     {
@@ -83,11 +83,41 @@ internal partial class TypeMemberBinder : Binder
         {
             _extensionReceiverType = _extensionReceiverTypeSyntax is null
                 ? null
-                : ResolveType(_extensionReceiverTypeSyntax);
+                : ResolveTypeSyntaxForSignature(this, _extensionReceiverTypeSyntax, RefKind.None);
             _extensionReceiverTypeComputed = true;
         }
 
         return _extensionReceiverType ?? Compilation.ErrorTypeSymbol;
+    }
+
+    private static bool RequiresByRefType(TypeSyntax typeSyntax, RefKind refKind)
+        => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
+           typeSyntax is ByRefTypeSyntax;
+
+    private ITypeSymbol ResolveTypeSyntaxForSignature(
+        Binder binder,
+        TypeSyntax typeSyntax,
+        RefKind refKindHint,
+        Binder.TypeResolutionOptions? options = null)
+    {
+        var result = binder.BindTypeSyntax(typeSyntax, options);
+        if (!result.Success)
+            return binder.BindTypeSyntaxDirect(typeSyntax, options, refKindHint, allowLegacyFallback: true);
+
+        var resolvedType = result.ResolvedType;
+        if (RequiresByRefType(typeSyntax, refKindHint) && resolvedType is not ByRefTypeSymbol)
+            return new ByRefTypeSymbol(resolvedType);
+
+        return resolvedType;
+    }
+
+    private INamedTypeSymbol? ResolveNamedTypeSyntax(Binder binder, TypeSyntax typeSyntax)
+    {
+        var result = binder.BindTypeSyntax(typeSyntax);
+        if (!result.Success)
+            return binder.BindTypeSyntaxDirect(typeSyntax) as INamedTypeSymbol;
+
+        return result.ResolvedType as INamedTypeSymbol;
     }
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
@@ -236,7 +266,7 @@ internal partial class TypeMemberBinder : Binder
         {
             ITypeSymbol? fieldType = decl.TypeAnnotation is null
                 ? null
-                : ResolveType(decl.TypeAnnotation.Type);
+                : ResolveTypeSyntaxForSignature(this, decl.TypeAnnotation.Type, RefKind.None);
 
             BoundExpression? initializer = null;
             object? constantValue = null;
@@ -355,7 +385,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (explicitInterfaceSpecifier is not null)
         {
-            var resolved = ResolveType(explicitInterfaceSpecifier.Name);
+            var resolved = ResolveNamedTypeSyntax(this, explicitInterfaceSpecifier.Name);
             if (resolved is INamedTypeSymbol interfaceType && interfaceType.TypeKind == TypeKind.Interface)
             {
                 explicitInterfaceType = interfaceType;
@@ -587,7 +617,7 @@ internal partial class TypeMemberBinder : Binder
 
         var returnType = methodDecl.ReturnType is null
             ? defaultReturnType
-            : methodBinder.ResolveType(methodDecl.ReturnType.Type);
+            : ResolveTypeSyntaxForSignature(methodBinder, methodDecl.ReturnType.Type, RefKind.None);
 
         if (isAsync && methodDecl.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
         {
@@ -601,17 +631,17 @@ internal partial class TypeMemberBinder : Binder
         foreach (var (paramName, typeSyntax, refKind, syntax, isMutable) in paramInfos)
         {
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var resolvedType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? methodBinder.ResolveType(typeSyntax, refKindForType)
-                : methodBinder.ResolveType(typeSyntax);
+            var resolvedType = ResolveTypeSyntaxForSignature(methodBinder, typeSyntax, refKindForType);
             resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax, isMutable));
         }
 
         ITypeSymbol? receiverType = null;
         if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
         {
-            var type = methodBinder.BindType(
+            receiverType = ResolveTypeSyntaxForSignature(
+                methodBinder,
                 _extensionReceiverTypeSyntax,
+                RefKind.None,
                 extensionTypeParameterSubstitutions is null
                     ? null
                     : new Binder.TypeResolutionOptions
@@ -619,8 +649,6 @@ internal partial class TypeMemberBinder : Binder
                         TypeParameterSubstitutions = extensionTypeParameterSubstitutions,
                         SubstitutionPrecedence = Binder.SubstitutionPrecedence.OptionsWin
                     });
-
-            receiverType = type.ResolvedType;
         }
 
         var signatureParameters = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToList();
@@ -848,7 +876,7 @@ internal partial class TypeMemberBinder : Binder
 
         var returnType = operatorDecl.ReturnType is null
             ? defaultReturnType
-            : operatorBinder.ResolveType(operatorDecl.ReturnType.Type);
+            : ResolveTypeSyntaxForSignature(operatorBinder, operatorDecl.ReturnType.Type, RefKind.None);
 
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in operatorDecl.ParameterList.Parameters)
@@ -872,9 +900,7 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? operatorBinder.ResolveType(typeSyntax, refKindForType)
-                : operatorBinder.ResolveType(typeSyntax);
+            var pType = ResolveTypeSyntaxForSignature(operatorBinder, typeSyntax, refKindForType);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -984,7 +1010,7 @@ internal partial class TypeMemberBinder : Binder
 
         var returnType = conversionDecl.ReturnType is null
             ? defaultReturnType
-            : conversionBinder.ResolveType(conversionDecl.ReturnType.Type);
+            : ResolveTypeSyntaxForSignature(conversionBinder, conversionDecl.ReturnType.Type, RefKind.None);
 
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in conversionDecl.ParameterList.Parameters)
@@ -1008,9 +1034,7 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? conversionBinder.ResolveType(typeSyntax, refKindForType)
-                : conversionBinder.ResolveType(typeSyntax);
+            var pType = ResolveTypeSyntaxForSignature(conversionBinder, typeSyntax, refKindForType);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1205,9 +1229,7 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? ResolveType(typeSyntax, refKindForType)
-                : ResolveType(typeSyntax);
+            var pType = ResolveTypeSyntaxForSignature(this, typeSyntax, refKindForType);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1324,9 +1346,7 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? ResolveType(typeSyntax, refKindForType)
-                : ResolveType(typeSyntax);
+            var pType = ResolveTypeSyntaxForSignature(this, typeSyntax, refKindForType);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1455,10 +1475,6 @@ internal partial class TypeMemberBinder : Binder
                 };
         }
 
-        static bool RequiresByRefType(TypeSyntax typeSyntax, RefKind refKind)
-            => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
-               typeSyntax is ByRefTypeSyntax;
-
         // .ctor(object, IntPtr)
         var ctor = new SourceMethodSymbol(
             ".ctor",
@@ -1499,7 +1515,7 @@ internal partial class TypeMemberBinder : Binder
         // Invoke
         var returnType = delegateDecl.ReturnType is null
             ? unitType!
-            : binder.ResolveType(delegateDecl.ReturnType.Type);
+            : ResolveTypeSyntaxForSignature(binder, delegateDecl.ReturnType.Type, RefKind.None);
 
         var invoke = new SourceMethodSymbol(
             "Invoke",
@@ -1520,9 +1536,7 @@ internal partial class TypeMemberBinder : Binder
             var refKind = GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
             var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = RequiresByRefType(typeSyntax, refKindForType)
-                ? binder.ResolveType(typeSyntax, refKindForType)
-                : binder.ResolveType(typeSyntax);
+            var pType = ResolveTypeSyntaxForSignature(binder, typeSyntax, refKindForType);
 
             invokeParams.Add(new SourceParameterSymbol(
                 p.Identifier.ValueText,
@@ -1588,7 +1602,7 @@ internal partial class TypeMemberBinder : Binder
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindEventDeclaration(EventDeclarationSyntax eventDecl)
     {
         ReportPartialModifierNotSupported(eventDecl.Modifiers, "event", eventDecl.Identifier.ValueText);
-        var eventType = ResolveType(eventDecl.Type.Type);
+        var eventType = ResolveTypeSyntaxForSignature(this, eventDecl.Type.Type, RefKind.None);
         var modifiers = eventDecl.Modifiers;
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;
@@ -1626,7 +1640,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (explicitInterfaceSpecifier is not null)
         {
-            var resolved = ResolveType(explicitInterfaceSpecifier.Name);
+            var resolved = ResolveNamedTypeSyntax(this, explicitInterfaceSpecifier.Name);
             if (resolved is INamedTypeSymbol interfaceType && interfaceType.TypeKind == TypeKind.Interface)
             {
                 explicitInterfaceType = interfaceType;
@@ -1902,7 +1916,7 @@ internal partial class TypeMemberBinder : Binder
                 if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
                 {
                     binder = new MethodBinder(methodSymbol, this);
-                    receiverTypeForAccessor = binder.ResolveType(_extensionReceiverTypeSyntax);
+                    receiverTypeForAccessor = ResolveTypeSyntaxForSignature(binder, _extensionReceiverTypeSyntax, RefKind.None);
                 }
 
                 var parameters = new List<SourceParameterSymbol>();
@@ -2093,7 +2107,7 @@ internal partial class TypeMemberBinder : Binder
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)
     {
         ReportPartialModifierNotSupported(indexerDecl.Modifiers, "indexer", "Item");
-        var propertyType = ResolveType(indexerDecl.Type.Type);
+        var propertyType = ResolveTypeSyntaxForSignature(this, indexerDecl.Type.Type, RefKind.None);
         var modifiers = indexerDecl.Modifiers;
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier; var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
@@ -2151,9 +2165,7 @@ internal partial class TypeMemberBinder : Binder
                 };
 
             var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
-            var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? ResolveType(typeSyntax, refKindForType)
-                : ResolveType(typeSyntax);
+            var type = ResolveTypeSyntaxForSignature(this, typeSyntax, refKindForType);
 
             var defaultResult = ProcessParameterDefault(
                 p,
@@ -2177,7 +2189,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (explicitInterfaceSpecifier is not null)
         {
-            var resolved = ResolveType(explicitInterfaceSpecifier.Name);
+            var resolved = ResolveNamedTypeSyntax(this, explicitInterfaceSpecifier.Name);
             if (resolved is INamedTypeSymbol interfaceType && interfaceType.TypeKind == TypeKind.Interface)
             {
                 explicitInterfaceType = interfaceType;
@@ -2550,7 +2562,7 @@ internal partial class TypeMemberBinder : Binder
             if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
             {
                 binder = new MethodBinder(methodSymbol, this);
-                receiverTypeForAccessor = binder.ResolveType(_extensionReceiverTypeSyntax);
+                receiverTypeForAccessor = ResolveTypeSyntaxForSignature(binder, _extensionReceiverTypeSyntax, RefKind.None);
             }
 
             var parameters = new List<SourceParameterSymbol>();

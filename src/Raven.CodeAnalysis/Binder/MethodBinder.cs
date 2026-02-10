@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -65,6 +66,25 @@ class MethodBinder : TypeMemberBinder
     }
 
     public IMethodSymbol GetMethodSymbol() => _methodSymbol;
+
+    protected override IReadOnlyDictionary<string, ITypeSymbol> GetInScopeTypeParameters()
+    {
+        var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+
+        if (!_methodSymbol.TypeParameters.IsDefaultOrEmpty)
+        {
+            foreach (var tp in _methodSymbol.TypeParameters)
+                map.TryAdd(tp.Name, tp);
+        }
+
+        if (ContainingSymbol.TypeParameters.IsDefaultOrEmpty)
+            return map;
+
+        foreach (var tp in ContainingSymbol.TypeParameters)
+            map.TryAdd(tp.Name, tp);
+
+        return map;
+    }
 
     protected override bool IsInUnsafeContext
     {

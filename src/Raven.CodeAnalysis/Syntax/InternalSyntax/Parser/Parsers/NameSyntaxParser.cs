@@ -7,9 +7,11 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class NameSyntaxParser : SyntaxParser
 {
-    public NameSyntaxParser(ParseContext parent) : base(parent)
-    {
+    private readonly bool _allowOmittedTypeArguments;
 
+    public NameSyntaxParser(ParseContext parent, bool allowOmittedTypeArguments = false) : base(parent)
+    {
+        _allowOmittedTypeArguments = allowOmittedTypeArguments;
     }
 
 
@@ -388,12 +390,38 @@ internal class NameSyntaxParser : SyntaxParser
                     break;
                 }
 
+                if (_allowOmittedTypeArguments &&
+                    parsedArguments == 0 &&
+                    t.IsKind(SyntaxKind.CommaToken))
+                {
+                    argumentList.Add(TypeArgument(IdentifierName(MissingToken(SyntaxKind.IdentifierToken))));
+                    parsedArguments++;
+                    continue;
+                }
+
                 if (parsedArguments > 0)
                 {
                     if (t.IsKind(SyntaxKind.CommaToken))
                     {
                         var commaToken = ReadToken();
                         argumentList.Add(commaToken);
+                        t = PeekToken();
+
+                        while (IsNewLineLike(t))
+                        {
+                            ReadToken();
+                            t = PeekToken();
+                        }
+
+                        if (_allowOmittedTypeArguments &&
+                            (t.IsKind(SyntaxKind.CommaToken) ||
+                             t.IsKind(SyntaxKind.GreaterThanToken) ||
+                             t.IsKind(SyntaxKind.EndOfFileToken)))
+                        {
+                            argumentList.Add(TypeArgument(IdentifierName(MissingToken(SyntaxKind.IdentifierToken))));
+                            parsedArguments++;
+                            continue;
+                        }
                     }
                     else
                     {

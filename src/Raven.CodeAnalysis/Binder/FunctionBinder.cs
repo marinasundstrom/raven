@@ -89,7 +89,7 @@ class FunctionBinder : Binder
 
         var returnType = _syntax.ReturnType is null
             ? inferredReturnType
-            : methodBinder.ResolveType(_syntax.ReturnType.Type);
+            : methodBinder.BindTypeSyntaxDirect(_syntax.ReturnType.Type);
 
         if (isAsync && _syntax.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
         {
@@ -138,8 +138,8 @@ class FunctionBinder : Binder
 
             var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
             var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? methodBinder.ResolveType(typeSyntax, refKindForType)
-                : methodBinder.ResolveType(typeSyntax);
+                ? methodBinder.BindTypeSyntaxDirect(typeSyntax, refKindForType)
+                : methodBinder.BindTypeSyntaxDirect(typeSyntax);
 
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
 

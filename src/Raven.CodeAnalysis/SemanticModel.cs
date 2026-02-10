@@ -195,7 +195,7 @@ public partial class SemanticModel
         var binder = GetBinder(typeSyntax);
         try
         {
-            var type = binder.ResolveType(typeSyntax);
+            var type = binder.BindTypeSyntaxDirect(typeSyntax);
             return new TypeInfo(type, type, ComputeConversion(type, type));
         }
         catch

@@ -815,7 +815,7 @@ partial class BlockBinder
 
         if (catchClause.Declaration is { } declaration)
         {
-            var declaredType = ResolveType(declaration.Type);
+            var declaredType = ResolveTypeSyntaxOrError(declaration.Type);
             exceptionType = declaredType;
 
             if (exceptionBase.TypeKind != TypeKind.Error &&

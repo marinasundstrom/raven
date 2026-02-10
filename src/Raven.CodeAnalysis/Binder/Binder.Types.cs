@@ -97,9 +97,15 @@ internal abstract partial class Binder
     // -----------------------------
 
     public ResolveTypeResult BindType(TypeSyntax syntax)
-        => BindType(syntax, options: null);
+        => BindTypeSyntax(syntax, options: null);
 
     public ResolveTypeResult BindType(TypeSyntax syntax, TypeResolutionOptions? options)
+        => BindTypeSyntax(syntax, options);
+
+    public ResolveTypeResult BindTypeSyntax(TypeSyntax syntax)
+        => BindTypeSyntax(syntax, options: null);
+
+    public ResolveTypeResult BindTypeSyntax(TypeSyntax syntax, TypeResolutionOptions? options)
     {
         options ??= new TypeResolutionOptions();
 
@@ -159,6 +165,18 @@ internal abstract partial class Binder
 
         if (lookup.Definition is null)
             return Fail(id, TypeResolutionFailureKind.TypeNotFound);
+
+        if (lookup.Definition.Arity > 0 && lookup.Definition.IsUnboundGenericType)
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = Compilation.ErrorTypeSymbol,
+                ResolvedNamedDefinition = lookup.Definition,
+                Failed = true,
+                FailureKinds = ImmutableArray.Create(TypeResolutionFailureKind.ArityMismatch),
+                Issues = ImmutableArray.Create(ResolveTypeResult.ResolutionIssue.Failure(id, TypeResolutionFailureKind.ArityMismatch))
+            };
+        }
 
         return new ResolveTypeResult
         {
@@ -716,8 +734,32 @@ internal abstract partial class Binder
                         var viaLookupType = ns.LookupType(part);
                         if (viaLookupType is INamedTypeSymbol lt)
                         {
-                            current = lt;
-                            continue;
+                            var normalized = NormalizeDefinition(lt);
+                            if (arity is not null && i == nameParts.Length - 1 && normalized.Arity != arity.Value)
+                            {
+                                // Mismatched generic arity for the requested terminal segment.
+                            }
+                            else
+                            {
+                                current = normalized;
+                                continue;
+                            }
+                        }
+
+                        if (i == nameParts.Length - 1)
+                        {
+                            var namespaceName = ns.ToString();
+                            var metadataName = string.IsNullOrEmpty(namespaceName)
+                                ? part
+                                : namespaceName + "." + part;
+                            if (arity is not null)
+                                metadataName += $"`{arity.Value}";
+
+                            if (Compilation.GetTypeByMetadataName(metadataName) is INamedTypeSymbol metadataMatch)
+                            {
+                                current = metadataMatch;
+                                continue;
+                            }
                         }
 
                         return null;
@@ -758,16 +800,40 @@ internal abstract partial class Binder
 
     internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)
     {
-        var result = BindType(syntax);
+        if (TryBindNamedTypeFromTypeSyntax(syntax, out namedType))
+            return true;
+
+        namedType = BindTypeSyntaxDirect(syntax) as INamedTypeSymbol;
+        return namedType is not null;
+    }
+
+    internal bool TryBindNamedTypeFromTypeSyntax(
+        TypeSyntax syntax,
+        out INamedTypeSymbol? namedType,
+        TypeResolutionOptions? options = null,
+        bool reportDiagnostics = false)
+    {
+        ResolveTypeResult result;
+        if (reportDiagnostics)
+        {
+            result = BindTypeSyntax(syntax, options);
+        }
+        else
+        {
+            using (_diagnostics.CreateNonReportingScope())
+                result = BindTypeSyntax(syntax, options);
+        }
+
         if (result.Success && result.ResolvedType is INamedTypeSymbol boundNamedType)
         {
             namedType = boundNamedType;
             return true;
         }
 
-        // Temporary compatibility fallback while migrating from ResolveType(...).
-        // Planned: emit centralized diagnostics from BindType(...) failures here.
-        namedType = ResolveType(syntax) as INamedTypeSymbol;
-        return namedType is not null;
+        if (reportDiagnostics)
+            ReportResolveTypeResultDiagnostics(result, syntax);
+
+        namedType = null;
+        return false;
     }
 }

@@ -150,8 +150,8 @@ class BinderFactory
             }
             else
             {
-                var typeSymbol = provisionalImportBinder.ResolveType(aliasDirective.Target);
-                symbols = typeSymbol == _compilation.ErrorTypeSymbol
+                var typeSymbol = TryResolveTypeSyntaxSilently(aliasDirective.Target);
+                symbols = typeSymbol is null
                     ? Array.Empty<ISymbol>()
                     : new ISymbol[] { typeSymbol };
             }
@@ -287,9 +287,9 @@ class BinderFactory
                 if (unconstructed is null)
                     return null;
 
-                var args = g.TypeArgumentList.Arguments
-                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
-                    .ToArray();
+                if (!TryResolveTypeArgumentsSilently(g.TypeArgumentList, out var args))
+                    return null;
+
                 return _compilation.ConstructGenericType(unconstructed, args);
             }
 
@@ -303,9 +303,9 @@ class BinderFactory
                 if (unconstructed is null)
                     return null;
 
-                var args = gen.TypeArgumentList.Arguments
-                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
-                    .ToArray();
+                if (!TryResolveTypeArgumentsSilently(gen.TypeArgumentList, out var args))
+                    return null;
+
                 return _compilation.ConstructGenericType(unconstructed, args);
             }
 
@@ -323,9 +323,9 @@ class BinderFactory
                 if (unconstructed is null)
                     return null;
 
-                var args = g.TypeArgumentList.Arguments
-                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
-                    .ToArray();
+                if (!TryResolveTypeArgumentsSilently(g.TypeArgumentList, out var args))
+                    return null;
+
                 return _compilation.ConstructGenericType(unconstructed, args);
             }
 
@@ -341,6 +341,31 @@ class BinderFactory
             }
 
             return null;
+        }
+
+        ITypeSymbol? TryResolveTypeSyntaxSilently(TypeSyntax syntax)
+        {
+            using (provisionalImportBinder.Diagnostics.CreateNonReportingScope())
+            {
+                var type = provisionalImportBinder.BindTypeSyntaxDirect(syntax);
+                return type.TypeKind == TypeKind.Error ? null : type;
+            }
+        }
+
+        bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out ITypeSymbol[] args)
+        {
+            args = new ITypeSymbol[list.Arguments.Count];
+
+            for (var i = 0; i < list.Arguments.Count; i++)
+            {
+                var resolved = TryResolveTypeSyntaxSilently(list.Arguments[i].Type);
+                if (resolved is null)
+                    return false;
+
+                args[i] = resolved;
+            }
+
+            return true;
         }
 
         static string Combine(INamespaceSymbol current, string name)

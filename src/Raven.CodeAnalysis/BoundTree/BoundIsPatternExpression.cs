@@ -581,7 +581,7 @@ internal partial class BlockBinder
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
-        var type = BindTypeSyntax(syntax.Type);
+        var type = BindTypeSyntaxAsExpression(syntax.Type);
 
         BoundDesignator designator = syntax.Designation switch
         {
@@ -1195,7 +1195,7 @@ internal partial class BlockBinder
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
-        var boundType = BindTypeSyntax(syntax.Type);
+        var boundType = BindTypeSyntaxAsExpression(syntax.Type);
         var recordType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
 
         if (recordType.TypeKind == TypeKind.Error)
@@ -1391,7 +1391,7 @@ internal partial class BlockBinder
         {
             if (syntax.Type is not null)
             {
-                var boundType = BindTypeSyntax(syntax.Type);
+                var boundType = BindTypeSyntaxAsExpression(syntax.Type);
                 narrowedType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
 
                 // Optional: diagnose incompatibility between input and narrowed type
@@ -1420,7 +1420,7 @@ internal partial class BlockBinder
         // 1) Bind explicit type filter if present: Foo in Foo { ... }
         if (syntax.Type is not null)
         {
-            var boundType = BindTypeSyntax(syntax.Type);
+            var boundType = BindTypeSyntaxAsExpression(syntax.Type);
             narrowedType = EnsureTypeAccessible(boundType.Type, syntax.Type.GetLocation());
         }
 

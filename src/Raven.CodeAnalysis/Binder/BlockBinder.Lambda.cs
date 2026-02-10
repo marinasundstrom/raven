@@ -85,9 +85,7 @@ partial class BlockBinder
             if (typeSyntax is not null)
             {
                 var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-                parameterType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? ResolveType(typeSyntax, refKindForType)
-                    : ResolveType(typeSyntax);
+                parameterType = ResolveTypeSyntaxOrError(typeSyntax, refKindForType);
             }
             else if (targetParam is not null)
             {
@@ -146,7 +144,7 @@ partial class BlockBinder
         };
 
         ITypeSymbol? annotatedReturnType = returnTypeSyntax is not null
-            ? ResolveType(returnTypeSyntax)
+            ? ResolveTypeSyntaxOrError(returnTypeSyntax)
             : null;
 
         var hasInvalidAsyncReturnType = false;
