@@ -1488,6 +1488,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseTypeOfExpression();
                 break;
 
+            case SyntaxKind.SizeOfKeyword:
+                expr = ParseSizeOfExpression();
+                break;
+
             case SyntaxKind.NameOfKeyword:
                 expr = ParseNameOfExpression();
                 break;
@@ -1686,6 +1690,17 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         return TypeOfExpression(typeOfKeyword, openParenToken, type, closeParenToken);
+    }
+
+    private ExpressionSyntax ParseSizeOfExpression()
+    {
+        var sizeOfKeyword = ReadToken();
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
+        var type = new NameSyntaxParser(this, allowOmittedTypeArguments: true).ParseTypeName();
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return SizeOfExpression(sizeOfKeyword, openParenToken, type, closeParenToken);
     }
 
     private ExpressionSyntax ParseNameOfExpression()

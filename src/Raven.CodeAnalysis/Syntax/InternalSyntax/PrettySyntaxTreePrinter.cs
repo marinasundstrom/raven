@@ -405,6 +405,7 @@ public static class PrettySyntaxTreePrinter
             DefaultExpressionSyntax { Type: { } type } => $"default({type}) ",
             DefaultExpressionSyntax => "default ",
             TypeOfExpressionSyntax typeOf => $"typeof({typeOf.Type}) ",
+            SizeOfExpressionSyntax sizeOf => $"sizeof({sizeOf.Type}) ",
             _ => string.Empty
         };
     }

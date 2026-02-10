@@ -302,4 +302,66 @@ class Test {
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
     }
+
+    [Fact]
+    public void PointerArithmetic_AdditionAndSubtraction_BindsWithoutErrors()
+    {
+        const string source = """
+class Test {
+    unsafe static Run() -> nint {
+        var value = 0
+        val pointer: *int = &value;
+        val p1 = pointer + 1
+        val p2 = 2 + pointer
+        val p3 = p1 - 1
+        p3 - pointer
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToDictionary(x => x.Identifier.Text, x => x);
+
+        var p1 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["p1"]));
+        var p2 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["p2"]));
+        var p3 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["p3"]));
+
+        Assert.IsAssignableFrom<IPointerTypeSymbol>(p1.Type);
+        Assert.IsAssignableFrom<IPointerTypeSymbol>(p2.Type);
+        Assert.IsAssignableFrom<IPointerTypeSymbol>(p3.Type);
+
+        var returnExpression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(x => x.OperatorToken.Kind == SyntaxKind.MinusToken && x.Left.ToString() == "p3" && x.Right.ToString() == "pointer");
+
+        var typeInfo = model.GetTypeInfo(returnExpression);
+        Assert.Equal(SpecialType.System_IntPtr, typeInfo.Type?.SpecialType);
+    }
+
+    [Fact]
+    public void PointerArithmetic_WithoutUnsafe_ReportsDiagnostic()
+    {
+        const string source = """
+class Test {
+    static Run() -> *int {
+        var value = 0
+        val pointer: *int = &value
+        pointer + 1
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error),
+            d => d.Id == CompilerDiagnostics.PointerTypeRequiresUnsafe.Id ||
+                 d.Id == CompilerDiagnostics.PointerOperationRequiresUnsafe.Id);
+    }
 }

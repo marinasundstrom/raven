@@ -52,7 +52,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `return`, `sbyte`, `self`, `short`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `each`, `else`, `enum`, `false`, `finally`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `explicit`, `final`, `get`, `implicit`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `operator`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `use`, `val`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
@@ -772,6 +772,17 @@ val listType = typeof(System.Collections.Generic.List<int>)
 
 `typeof` is useful when reflecting over metadata or when passing type objects to
 APIs such as `Activator.CreateInstance`.
+
+### `sizeof` expressions
+
+The `sizeof` operator produces the size, in bytes, of a compile-time type. The
+operand must be a type syntax and is not evaluated. The expression always has
+type `int`.
+
+```raven
+val intSize = sizeof(int)       // 4
+val charSize = sizeof(char)     // 2
+```
 
 ### `nameof` expressions
 
@@ -2691,6 +2702,9 @@ Pointer operations are also gated by unsafe mode. In unsafe mode:
 * `*ptr = value` writes through the pointer.
 * `ptr->Member` accesses a member on the pointed-at type and is equivalent to
   `(*ptr).Member`.
+* `ptr + n` / `n + ptr` advances a pointer by `n` elements.
+* `ptr - n` rewinds a pointer by `n` elements.
+* `ptr1 - ptr2` returns the element-distance as `nint` when both pointers share the same element type.
 
 ```raven
 var value = 41

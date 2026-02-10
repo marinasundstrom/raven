@@ -527,6 +527,12 @@
     <Slot Name="Type" Type="Type" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
+  <Node Name="SizeOfExpression" Inherits="Expression">
+    <Slot Name="SizeOfKeyword" Type="Token" DefaultToken="SizeOfKeyword" />
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
+    <Slot Name="Type" Type="Type" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
+  </Node>
   <Node Name="NameOfExpression" Inherits="Expression">
     <Slot Name="NameOfKeyword" Type="Token" DefaultToken="NameOfKeyword" />
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />

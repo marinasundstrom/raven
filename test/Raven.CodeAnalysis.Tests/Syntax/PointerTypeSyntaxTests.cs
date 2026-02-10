@@ -97,4 +97,18 @@ func test() -> int {
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         Assert.Contains(function.Modifiers, m => m.Kind == SyntaxKind.UnsafeKeyword);
     }
+
+    [Fact]
+    public void SizeOfExpression_ParsesAsDedicatedSyntaxNode()
+    {
+        var code = "val size = sizeof(int)";
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+        var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
+        var initializer = local.Declaration.Declarators[0].Initializer!;
+
+        var sizeOf = Assert.IsType<SizeOfExpressionSyntax>(initializer.Value);
+        Assert.Equal(SyntaxKind.SizeOfKeyword, sizeOf.SizeOfKeyword.Kind);
+        Assert.Equal(SyntaxKind.IntKeyword, ((PredefinedTypeSyntax)sizeOf.Type).Keyword.Kind);
+    }
 }

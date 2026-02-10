@@ -684,6 +684,7 @@ partial class BlockBinder : Binder
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
             DefaultExpressionSyntax defaultExpression => BindDefaultExpression(defaultExpression),
             TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
+            SizeOfExpressionSyntax sizeOfExpression => BindSizeOfExpression(sizeOfExpression),
             NameOfExpressionSyntax nameOfExpression => BindNameOfExpression(nameOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
@@ -1465,6 +1466,18 @@ partial class BlockBinder : Binder
         var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
 
         return new BoundTypeOfExpression(operandType, systemType);
+    }
+
+    private BoundExpression BindSizeOfExpression(SizeOfExpressionSyntax sizeOfExpression)
+    {
+        var operandType = ResolveTypeSyntaxOrError(sizeOfExpression.Type);
+
+        if (operandType.ContainsErrorType())
+            return ErrorExpression(operandType, reason: BoundExpressionReason.NotFound);
+
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+
+        return new BoundTypeOfExpression(operandType, intType);
     }
 
     private BoundExpression BindNameOfExpression(NameOfExpressionSyntax nameOfExpression)
@@ -4804,6 +4817,12 @@ partial class BlockBinder : Binder
         if (HasExpressionErrors(left) || HasExpressionErrors(right))
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
+        if (RequiresUnsafePointerArithmetic(opKind, left.Type, right.Type) && !IsUnsafeEnabled)
+        {
+            _diagnostics.ReportPointerOperationRequiresUnsafe(diagnosticLocation ?? Location.None);
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
         // 1. Specialfall: string + any → string-konkatenering
         if (opKind == SyntaxKind.PlusToken)
         {
@@ -4854,6 +4873,14 @@ partial class BlockBinder : Binder
             diagnosticLocation ?? Location.None);
 
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private static bool RequiresUnsafePointerArithmetic(SyntaxKind opKind, ITypeSymbol? leftType, ITypeSymbol? rightType)
+    {
+        if (opKind is not (SyntaxKind.PlusToken or SyntaxKind.MinusToken))
+            return false;
+
+        return leftType is IPointerTypeSymbol || rightType is IPointerTypeSymbol;
     }
 
     private BoundExpression BindPipeExpression(BoundExpression left, BinaryExpressionSyntax syntax)

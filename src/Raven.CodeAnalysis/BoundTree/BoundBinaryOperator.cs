@@ -48,10 +48,14 @@ internal partial class BoundBinaryOperator
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var int64 = compilation.GetSpecialType(SpecialType.System_Int64);
+        var nintType = compilation.GetSpecialType(SpecialType.System_IntPtr);
         var doubleType = compilation.GetSpecialType(SpecialType.System_Double);
         var decimalType = compilation.GetSpecialType(SpecialType.System_Decimal);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
+
+        if (TryCreatePointerArithmetic(kind, left, right, nintType, out op))
+            return true;
 
         if (left.TypeKind == TypeKind.Enum && right.TypeKind == TypeKind.Enum)
         {
@@ -317,6 +321,74 @@ internal partial class BoundBinaryOperator
 
         op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
         return false;
+    }
+
+    private static bool TryCreatePointerArithmetic(
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        ITypeSymbol nativeIntType,
+        out BoundBinaryOperator op)
+    {
+        var leftPointer = left as IPointerTypeSymbol;
+        var rightPointer = right as IPointerTypeSymbol;
+
+        if (kind == SyntaxKind.PlusToken)
+        {
+            if (leftPointer is not null && IsIntegralType(right))
+            {
+                op = new BoundBinaryOperator(BinaryOperatorKind.Addition, left, right, left);
+                return true;
+            }
+
+            if (rightPointer is not null && IsIntegralType(left))
+            {
+                op = new BoundBinaryOperator(BinaryOperatorKind.Addition, left, right, right);
+                return true;
+            }
+        }
+
+        if (kind == SyntaxKind.MinusToken)
+        {
+            if (leftPointer is not null && IsIntegralType(right))
+            {
+                op = new BoundBinaryOperator(BinaryOperatorKind.Subtraction, left, right, left);
+                return true;
+            }
+
+            if (leftPointer is not null &&
+                rightPointer is not null &&
+                SymbolEqualityComparer.Default.Equals(leftPointer.PointedAtType, rightPointer.PointedAtType))
+            {
+                op = new BoundBinaryOperator(BinaryOperatorKind.Subtraction, left, right, nativeIntType);
+                return true;
+            }
+        }
+
+        op = new BoundBinaryOperator(BinaryOperatorKind.None, left, right, left);
+        return false;
+    }
+
+    private static bool IsIntegralType(ITypeSymbol type)
+    {
+        if (type is LiteralTypeSymbol literal)
+            type = literal.UnderlyingType;
+
+        return type.SpecialType switch
+        {
+            SpecialType.System_SByte => true,
+            SpecialType.System_Byte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_UInt16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
+            SpecialType.System_Char => true,
+            SpecialType.System_IntPtr => true,
+            SpecialType.System_UIntPtr => true,
+            _ => false,
+        };
     }
 
     private static bool TryApplyBinaryNumericPromotion(

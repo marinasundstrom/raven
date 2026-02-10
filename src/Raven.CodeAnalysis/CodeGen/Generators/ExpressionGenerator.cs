@@ -420,6 +420,12 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitTypeOfExpression(BoundTypeOfExpression typeOfExpression)
     {
+        if (typeOfExpression.SystemType.SpecialType == SpecialType.System_Int32)
+        {
+            ILGenerator.Emit(OpCodes.Sizeof, ResolveClrType(typeOfExpression.OperandType));
+            return;
+        }
+
         var operandClrType = ResolveClrType(typeOfExpression.OperandType);
 
         ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
@@ -2859,6 +2865,9 @@ internal partial class ExpressionGenerator : Generator
         if (TryEmitLiftedNullableValueEquality(binaryExpression, operatorKind))
             return;
 
+        if (TryEmitPointerArithmeticBinary(binaryExpression, operatorKind))
+            return;
+
         // Evaluate operands (and ensure they are converted to the operator's expected operand types).
         // Raven's binder may represent operand conversions on the BoundBinaryOperator rather than by
         // injecting explicit BoundConversion nodes into Left/Right.
@@ -2906,6 +2915,93 @@ internal partial class ExpressionGenerator : Generator
             default:
                 throw new InvalidOperationException($"Invalid operator kind '{op.OperatorKind}'");
         }
+    }
+
+    private bool TryEmitPointerArithmeticBinary(BoundBinaryExpression binaryExpression, BinaryOperatorKind operatorKind)
+    {
+        if (operatorKind is not (BinaryOperatorKind.Addition or BinaryOperatorKind.Subtraction))
+            return false;
+
+        var leftType = binaryExpression.Left.Type;
+        var rightType = binaryExpression.Right.Type;
+
+        var leftPointer = leftType as IPointerTypeSymbol;
+        var rightPointer = rightType as IPointerTypeSymbol;
+
+        if (leftPointer is null && rightPointer is null)
+            return false;
+
+        if (operatorKind == BinaryOperatorKind.Addition && leftPointer is not null && IsIntegralType(rightType))
+        {
+            EmitExpression(binaryExpression.Left);
+            EmitScaledPointerOffset(binaryExpression.Right, leftPointer.PointedAtType);
+            ILGenerator.Emit(OpCodes.Add);
+            return true;
+        }
+
+        if (operatorKind == BinaryOperatorKind.Addition && rightPointer is not null && IsIntegralType(leftType))
+        {
+            EmitExpression(binaryExpression.Right);
+            EmitScaledPointerOffset(binaryExpression.Left, rightPointer.PointedAtType);
+            ILGenerator.Emit(OpCodes.Add);
+            return true;
+        }
+
+        if (operatorKind == BinaryOperatorKind.Subtraction && leftPointer is not null && IsIntegralType(rightType))
+        {
+            EmitExpression(binaryExpression.Left);
+            EmitScaledPointerOffset(binaryExpression.Right, leftPointer.PointedAtType);
+            ILGenerator.Emit(OpCodes.Sub);
+            return true;
+        }
+
+        if (operatorKind == BinaryOperatorKind.Subtraction && leftPointer is not null && rightPointer is not null)
+        {
+            EmitExpression(binaryExpression.Left);
+            EmitExpression(binaryExpression.Right);
+            ILGenerator.Emit(OpCodes.Sub);
+
+            ILGenerator.Emit(OpCodes.Sizeof, ResolveClrType(leftPointer.PointedAtType));
+            ILGenerator.Emit(OpCodes.Conv_I);
+            ILGenerator.Emit(OpCodes.Div);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void EmitScaledPointerOffset(BoundExpression offsetExpression, ITypeSymbol elementType)
+    {
+        EmitExpression(offsetExpression);
+        ILGenerator.Emit(OpCodes.Conv_I);
+        ILGenerator.Emit(OpCodes.Sizeof, ResolveClrType(elementType));
+        ILGenerator.Emit(OpCodes.Conv_I);
+        ILGenerator.Emit(OpCodes.Mul);
+    }
+
+    private static bool IsIntegralType(ITypeSymbol? type)
+    {
+        if (type is null)
+            return false;
+
+        if (type is LiteralTypeSymbol literal)
+            type = literal.UnderlyingType;
+
+        return type.SpecialType switch
+        {
+            SpecialType.System_SByte => true,
+            SpecialType.System_Byte => true,
+            SpecialType.System_Int16 => true,
+            SpecialType.System_UInt16 => true,
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => true,
+            SpecialType.System_Int64 => true,
+            SpecialType.System_UInt64 => true,
+            SpecialType.System_Char => true,
+            SpecialType.System_IntPtr => true,
+            SpecialType.System_UIntPtr => true,
+            _ => false,
+        };
     }
 
     private bool TryEmitLiftedNullableValueEquality(BoundBinaryExpression binaryExpression, BinaryOperatorKind operatorKind)
