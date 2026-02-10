@@ -509,6 +509,9 @@
     Title="Pointer operation requires unsafe"
     Message="Pointer operations require unsafe mode ('--unsafe')." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1917" Identifier="UnsafeModeEnabled"
+    Title="Unsafe mode is enabled" Message="Unsafe mode is enabled" Category="compiler"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1913" Identifier="DereferenceRequiresPointerOrByRef"
     Title="Dereference requires pointer or by-reference operand"
     Message="Cannot dereference '{operandType}'. '*' requires a pointer or by-reference value."

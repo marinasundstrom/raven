@@ -36,6 +36,9 @@ public partial class Compilation
             Add(Diagnostic.Create(CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint, Location.None));
         }
 
+        if (Options.AllowUnsafe)
+            Add(Diagnostic.Create(CompilerDiagnostics.UnsafeModeEnabled, Location.None));
+
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
 
         void Add(Diagnostic diagnostic)

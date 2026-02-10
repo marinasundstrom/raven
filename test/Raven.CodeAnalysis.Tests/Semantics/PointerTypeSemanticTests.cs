@@ -168,6 +168,20 @@ val pointer: *int = &value
     }
 
     [Fact]
+    public void GlobalUnsafeMode_ReportsWarningDiagnostic()
+    {
+        const string source = "val value = 0";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(true);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d =>
+            d.Id == CompilerDiagnostics.UnsafeModeEnabled.Id &&
+            d.Severity == DiagnosticSeverity.Warning);
+    }
+
+    [Fact]
     public void PointerDereference_ReadAndWrite_BindsWithoutErrors()
     {
         const string source = """
