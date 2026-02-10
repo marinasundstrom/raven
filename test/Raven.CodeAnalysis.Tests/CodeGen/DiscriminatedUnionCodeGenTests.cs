@@ -637,7 +637,7 @@ union Result<T> {
 }
 
 class Container {
-    public static CreateOk() -> Result<int, string> {
+    public static CreateOk() -> Result<int> {
         return .Ok(99)
     }
 }

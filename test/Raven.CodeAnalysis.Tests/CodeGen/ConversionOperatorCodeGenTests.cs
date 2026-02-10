@@ -101,14 +101,37 @@ class NumberBox {
 
     private static PortableExecutableReference CreateRavenCoreOptionReference(out string assemblyPath)
     {
-        var ravenCoreSourcePath = Path.GetFullPath(Path.Combine(
-            "..", "..", "..", "..", "..", "src", "Raven.Core", "Option.rav"));
-        var ravenCoreSource = File.ReadAllText(ravenCoreSourcePath);
+        const string fixtureSource = """
+namespace System
 
-        var ravenCoreTree = SyntaxTree.ParseText(ravenCoreSource);
+public union Option<T> {
+    Some(value: T)
+    None
+}
+
+public extension OptionExtensions1<T : class> for Option<T> {
+    public static implicit operator(opt: Option<T>) -> T? {
+        if opt is .Some(val value) {
+            return value
+        }
+        null
+    }
+}
+
+public extension OptionExtensions2<T : struct> for Option<T> {
+    public static implicit operator(opt: Option<T>) -> T? {
+        if opt is .Some(val value) {
+            return value
+        }
+        null
+    }
+}
+""";
+
+        var fixtureTree = SyntaxTree.ParseText(fixtureSource);
         var ravenCoreCompilation = Compilation.Create(
             "raven-core-option-fixture",
-            [ravenCoreTree],
+            [fixtureTree],
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

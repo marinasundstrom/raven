@@ -11,8 +11,8 @@ public class MethodReferenceDiagnosticsTests : DiagnosticTestBase
 import System.*
 
 class Logger {
-    static Log(value: string) -> unit {}
-    static Log(value: int) -> unit {}
+    public static Log(value: string) -> unit {}
+    public static Log(value: int) -> unit {}
 }
 
 val callback = Logger.Log
@@ -26,38 +26,42 @@ val callback = Logger.Log
     }
 
     [Fact]
-    public void MethodGroupConversionAmbiguous_SelectsBestOverload()
+    public void MethodGroupConversionAmbiguous_ReportsDiagnostic()
     {
         const string source = """
 import System.*
 
 class Logger {
-    static Log(value: int) -> unit {}
-    static Log(value: double) -> unit {}
+    public static Log(value: int) -> unit {}
+    public static Log(value: double) -> unit {}
 }
 
 val callback: System.Action<int> = Logger.Log
 """;
 
-        var verifier = CreateVerifier(source);
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV2202").WithSpan(8, 36, 8, 46).WithArguments("Logger.Log(int)")]);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void MethodGroupConversionIncompatible_AllowsExplicitDelegate()
+    public void MethodGroupConversionIncompatible_ReportsDiagnostic()
     {
         const string source = """
 import System.*
 
 class Logger {
-    static Log(value: int) -> unit {}
+    public static Log(value: int) -> unit {}
 }
 
 val callback: System.Action<string> = Logger.Log
 """;
 
-        var verifier = CreateVerifier(source);
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV2203").WithSpan(7, 39, 7, 49).WithArguments("Logger.Log(int)", "string -> ()")]);
 
         verifier.Verify();
     }

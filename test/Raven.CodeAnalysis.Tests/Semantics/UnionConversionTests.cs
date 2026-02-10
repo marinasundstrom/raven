@@ -1,4 +1,5 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -63,7 +64,7 @@ class Baz {
 import System.*
 
 open class Animal {
-    Speak() -> string {
+    public Speak() -> string {
         "sound"
     }
 }
@@ -117,7 +118,7 @@ class Baz {
     {
         var code = "val x: \"true\" | 1 = true";
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("true", "\"true\" | 1")
+            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'bool'", "'string | int'")
         ]);
         verifier.Verify();
     }
@@ -136,7 +137,7 @@ func test(flag: bool) {
 """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("unit | int", "int")
+            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'() | int'", "'int'")
         ]);
         verifier.Verify();
     }
@@ -146,7 +147,7 @@ func test(flag: bool) {
     {
         var code = "val x: \"true\" | 1 = 2";
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("2", "\"true\" | 1")
+            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'int'", "'string | int'")
         ]);
         verifier.Verify();
     }

@@ -303,7 +303,7 @@ class Widget : Producer<string> {}
     public void ReferenceConversion_HandlesInterfaceContravariance()
     {
         var source = """
-import System.Collections.Generic
+    import System.Collections.Generic.*
 
 class Comparer : IComparer<object>
 {

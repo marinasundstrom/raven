@@ -129,7 +129,7 @@ public class ConversionsTests : CompilationTestBase
         class Derived : Base {}
         """;
 
-        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var classes = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToArray();
@@ -209,7 +209,7 @@ public class ConversionsTests : CompilationTestBase
         val value: Text = ""
         """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
@@ -256,7 +256,7 @@ public class ConversionsTests : CompilationTestBase
         val method = (System.Reflection.MethodInfo)member
         """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
         var diagnostics = compilation.GetDiagnostics();
 
         var model = compilation.GetSemanticModel(tree);
