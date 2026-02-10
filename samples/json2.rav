@@ -1,0 +1,45 @@
+import System.*
+import System.Console.*
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
+
+val opt: Option<int> = .Some(42)
+
+val settings = JsonSerializerOptions {
+    WriteIndented = true
+}
+
+settings.Converters.Insert(0, OptionJsonConverter<int>())
+
+WriteLine(JsonSerializer.Serialize(opt, settings))
+
+public sealed class OptionJsonConverter<T> : JsonConverter<Option<T>> {
+    public override Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        val @case = root.GetProperty("case").GetString()
+
+        return @case match {
+            "Some" => .Some(
+                root.GetProperty("value").Deserialize<T>(options)
+            )
+            "None" => .None
+            _ => .None
+        }
+    }
+
+    public override Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
+        writer.WriteStartObject()
+
+        if value is .Some(val someValue) {
+            writer.WriteString("case", "Some")
+            writer.WritePropertyName("value")
+            JsonSerializer.Serialize(writer, someValue, options)
+        } else if value is .None {
+            writer.WriteString("case", "None")
+        }
+
+        writer.WriteEndObject()
+    }
+}

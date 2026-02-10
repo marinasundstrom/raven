@@ -3627,9 +3627,23 @@ internal partial class ExpressionGenerator : Generator
                     case BoundAddressOfExpression addressOf:
                         EmitAddressOfExpression(addressOf);
                         break;
+
                     case BoundLocalAccess { Symbol: ILocalSymbol local }:
                         ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                         break;
+
+                    case BoundParameterAccess { Parameter: IParameterSymbol p }:
+                        {
+                            // Load address of parameter for ref/out/in calls (e.g. &Utf8JsonReader)
+                            var param = MethodGenerator.GetParameterBuilder(p);
+                            var pos = param.Position;
+                            if (MethodSymbol.IsStatic)
+                                pos -= 1;
+
+                            ILGenerator.Emit(OpCodes.Ldarga, pos);
+                            break;
+                        }
+
                     default:
                         throw new NotSupportedException($"Unsupported ref/out argument: {argument?.GetType().Name}");
                 }

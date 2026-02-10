@@ -1,4 +1,5 @@
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -38,5 +39,18 @@ internal abstract class TypeDeclarationBinder : Binder
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
         return node == Syntax ? ContainingSymbol : base.BindDeclaredSymbol(node);
+    }
+
+    protected override IReadOnlyDictionary<string, ITypeSymbol> GetInScopeTypeParameters()
+    {
+        var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+
+        if (this.ContainingSymbol is INamedTypeSymbol nt && !nt.TypeParameters.IsDefaultOrEmpty)
+        {
+            foreach (var tp in nt.TypeParameters)
+                map.TryAdd(tp.Name, tp);
+        }
+
+        return map;
     }
 }

@@ -165,27 +165,23 @@ internal class TypeGenerator
             if (containingTypeBuilder is not null && TypeSymbol is INamedTypeSymbol nestedType)
             {
                 var nestedName = GetNestedTypeMetadataName(nestedType);
-                var baseClrType = TypeSymbol.BaseType is not null
-                    ? ResolveClrType(TypeSymbol.BaseType)
-                    : null;
-
                 TypeBuilder = containingTypeBuilder.DefineNestedType(
                     nestedName,
-                    typeAttributes,
-                    baseClrType);
+                    typeAttributes);
             }
             else
             {
                 TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                     TypeSymbol.MetadataName,
                     typeAttributes);
-
-                if (TypeSymbol.BaseType is not null)
-                    TypeBuilder.SetParent(ResolveClrType(TypeSymbol.BaseType));
             }
 
             if (TypeSymbol is INamedTypeSymbol namedType)
                 DefineTypeGenericParameters(namedType);
+
+            // Set base type after generic parameters are defined so type parameters (e.g. T) can be resolved.
+            if (TypeSymbol.BaseType is not null)
+                TypeBuilder!.SetParent(ResolveClrType(TypeSymbol.BaseType));
 
         }
         else if (TypeSymbol is INamedTypeSymbol synthesizedType)
@@ -219,29 +215,25 @@ internal class TypeGenerator
                 synthesizedContainingBuilder = containingGenerator.TypeBuilder;
             }
 
-            var baseClrType = synthesizedType.BaseType is not null
-                ? ResolveClrType(synthesizedType.BaseType)
-                : null;
-
             if (synthesizedContainingBuilder is not null)
             {
                 var nestedName = GetNestedTypeMetadataName(synthesizedType);
                 TypeBuilder = synthesizedContainingBuilder.DefineNestedType(
                     nestedName,
-                    synthesizedAttributes,
-                    baseClrType);
+                    synthesizedAttributes);
             }
             else
             {
                 TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                     synthesizedType.MetadataName,
                     synthesizedAttributes);
-
-                if (baseClrType is not null)
-                    TypeBuilder.SetParent(baseClrType);
             }
 
             DefineTypeGenericParameters(synthesizedType);
+
+            // Set base type after generic parameters are defined so type parameters can be resolved.
+            if (synthesizedType.BaseType is not null)
+                TypeBuilder!.SetParent(ResolveClrType(synthesizedType.BaseType));
         }
 
         if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)

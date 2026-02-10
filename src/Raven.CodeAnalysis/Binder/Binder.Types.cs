@@ -96,10 +96,10 @@ internal abstract partial class Binder
     // Public/Protected entry points (Roslyn-ish)
     // -----------------------------
 
-    protected ResolveTypeResult BindType(TypeSyntax syntax)
+    public ResolveTypeResult BindType(TypeSyntax syntax)
         => BindType(syntax, options: null);
 
-    protected ResolveTypeResult BindType(TypeSyntax syntax, TypeResolutionOptions? options)
+    public ResolveTypeResult BindType(TypeSyntax syntax, TypeResolutionOptions? options)
     {
         options ??= new TypeResolutionOptions();
 
@@ -178,7 +178,8 @@ internal abstract partial class Binder
     {
         var name = g.Identifier.ValueText;
 
-        var lookup = LookupNamedTypeByParts(new[] { name }, importedScopes);
+        var arity = g.TypeArgumentList.Arguments.Count;
+        var lookup = LookupNamedTypeByParts(new[] { name }, importedScopes, arity);
         if (lookup.IsAmbiguous)
             return Ambiguous(g, lookup.Candidates);
 
@@ -234,7 +235,11 @@ internal abstract partial class Binder
                 if (q.Right is GenericNameSyntax rg)
                 {
                     var nestedName = rg.Identifier.ValueText;
-                    var nestedCandidates = leftNamed.GetTypeMembers(nestedName).ToArray();
+                    var nestedArity = rg.TypeArgumentList.Arguments.Count;
+                    var nestedCandidates = leftNamed
+                        .GetTypeMembers(nestedName)
+                        .Where(t => t.Arity == nestedArity)
+                        .ToArray();
 
                     if (nestedCandidates.Length == 1)
                     {
@@ -260,7 +265,8 @@ internal abstract partial class Binder
             var left = Flatten(q.Left);
             var parts = left.Concat(new[] { g.Identifier.ValueText }).ToArray();
 
-            var lookup = LookupNamedTypeByParts(parts, importedScopes);
+            var arity = g.TypeArgumentList.Arguments.Count;
+            var lookup = LookupNamedTypeByParts(parts, importedScopes, arity);
             if (lookup.IsAmbiguous)
                 return Ambiguous(q, lookup.Candidates);
 
@@ -643,7 +649,7 @@ internal abstract partial class Binder
     /// The search starts from each provided scope; ambiguity is reported if multiple distinct types match.
     /// </summary>
     protected virtual (INamedTypeSymbol? Definition, bool IsAmbiguous, ImmutableArray<INamedTypeSymbol> Candidates)
-        LookupNamedTypeByParts(string[] parts, IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        LookupNamedTypeByParts(string[] parts, IReadOnlyList<INamespaceOrTypeSymbol> importedScopes, int? arity = null)
     {
         if (parts is null || parts.Length == 0)
             return (null, false, ImmutableArray<INamedTypeSymbol>.Empty);
@@ -653,7 +659,7 @@ internal abstract partial class Binder
 
         foreach (var scope in importedScopes)
         {
-            var resolved = BindFromScope(scope, parts);
+            var resolved = BindFromScope(scope, parts, arity);
             if (resolved is null)
                 continue;
 
@@ -671,13 +677,15 @@ internal abstract partial class Binder
         // Note: This cannot reliably represent nested types without '+' separators,
         // but helps for common namespace-qualified types.
         var metadataName = string.Join(".", parts);
+        if (arity is not null)
+            metadataName += $"`{arity.Value}";
         var metadataType = Compilation.GetTypeByMetadataName(metadataName);
         if (metadataType is not null)
             return (metadataType, false, ImmutableArray.Create(metadataType));
 
         return (null, false, ImmutableArray<INamedTypeSymbol>.Empty);
 
-        INamedTypeSymbol? BindFromScope(INamespaceOrTypeSymbol start, string[] nameParts)
+        INamedTypeSymbol? BindFromScope(INamespaceOrTypeSymbol start, string[] nameParts, int? arity)
         {
             INamespaceOrTypeSymbol? current = start;
 
@@ -701,6 +709,8 @@ internal abstract partial class Binder
 
                     // Otherwise resolve as a type in this namespace
                     var named = ns.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
+                    if (arity is not null && i == nameParts.Length - 1)
+                        named = named.Where(t => t.Arity == arity.Value).ToArray();
                     if (named.Length == 0)
                     {
                         var viaLookupType = ns.LookupType(part);
@@ -727,6 +737,8 @@ internal abstract partial class Binder
                 if (current is ITypeSymbol type)
                 {
                     var nested = type.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
+                    if (arity is not null && i == nameParts.Length - 1)
+                        nested = nested.Where(t => t.Arity == arity.Value).ToArray();
                     if (nested.Length == 1)
                     {
                         current = nested[0];
@@ -742,5 +754,20 @@ internal abstract partial class Binder
 
             return current as INamedTypeSymbol;
         }
+    }
+
+    internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)
+    {
+        var result = BindType(syntax);
+        if (result.Success && result.ResolvedType is INamedTypeSymbol boundNamedType)
+        {
+            namedType = boundNamedType;
+            return true;
+        }
+
+        // Temporary compatibility fallback while migrating from ResolveType(...).
+        // Planned: emit centralized diagnostics from BindType(...) failures here.
+        namedType = ResolveType(syntax) as INamedTypeSymbol;
+        return namedType is not null;
     }
 }

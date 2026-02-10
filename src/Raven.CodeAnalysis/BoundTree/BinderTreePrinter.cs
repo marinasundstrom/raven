@@ -179,7 +179,7 @@ public static class BinderTreePrinter
             TopLevelBinder => coloredKind + " (" + MaybeColorize("synthesized Main", AnsiColor.BrightBlue) + ")",
 
             TypeDeclarationBinder td =>
-                coloredKind + " (" + MaybeColorize(td.ContainingSymbol?.ToDisplayString() ?? "?", AnsiColor.Cyan) + ")",
+                coloredKind + " (" + MaybeColorize(td.ContainingSymbol?.ToDisplayString() ?? "?", AnsiColor.Cyan) + " : " + MaybeColorize(td.ContainingSymbol?.BaseType?.ToDisplayString() ?? "?", AnsiColor.Cyan) + ")",
 
             MethodBinder m =>
                 coloredKind + " (" + MaybeColorize(m.GetMethodSymbol()?.ToDisplayString() ?? "?", AnsiColor.Cyan) + ")",

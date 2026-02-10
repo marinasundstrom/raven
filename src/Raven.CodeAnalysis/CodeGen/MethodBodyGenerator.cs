@@ -98,7 +98,7 @@ internal class MethodBodyGenerator
         if (returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             throw new InvalidOperationException("Void-like methods do not require a return value local.");
 
-        var clrType = returnType.GetClrType(Compilation);
+        var clrType = TypeSymbolExtensionsForCodeGen.GetClrType(returnType, MethodGenerator.TypeGenerator.CodeGen);
         _returnValueLocal = ILGenerator.DeclareLocal(clrType);
         return _returnValueLocal;
     }

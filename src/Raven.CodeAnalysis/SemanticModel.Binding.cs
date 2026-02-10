@@ -1088,13 +1088,31 @@ public partial class SemanticModel
                         var baseTypeSymbol = objectType;
                         ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
 
+                        if (classSymbol is SourceNamedTypeSymbol recordSymbol && recordSymbol.IsRecord)
+                        {
+                            if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
+                            {
+                                var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(classSymbol);
+                                if (interfaceList.IsDefaultOrEmpty)
+                                {
+                                    interfaceList = [equatableType];
+                                }
+                                else if (!interfaceList.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
+                                {
+                                    interfaceList = interfaceList.Add(equatableType);
+                                }
+                            }
+                        }
+
+                        var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
+                        classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
+
                         if (classDecl.BaseList is not null)
                         {
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in classDecl.BaseList.Types)
                             {
-                                var resolved = parentBinder.ResolveType(t) as INamedTypeSymbol;
-                                if (resolved is null)
+                                if (!classBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
                                     continue;
 
                                 if (resolved.TypeKind == TypeKind.Interface)
@@ -1105,22 +1123,6 @@ public partial class SemanticModel
 
                             if (builder.Count > 0)
                                 interfaceList = builder.ToImmutable();
-                        }
-
-                        if (classSymbol is SourceNamedTypeSymbol recordSymbol && recordSymbol.IsRecord)
-                        {
-                            if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
-                            {
-                                var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(classSymbol);
-                                if (interfaceList.IsDefaultOrEmpty)
-                                {
-                                    interfaceList = ImmutableArray.Create(equatableType);
-                                }
-                                else if (!interfaceList.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
-                                {
-                                    interfaceList = interfaceList.Add(equatableType);
-                                }
-                            }
                         }
 
                         if (baseTypeSymbol is not null &&
@@ -1135,8 +1137,6 @@ public partial class SemanticModel
                             classSymbol.SetInterfaces(MergeInterfaces(classSymbol.Interfaces, interfaceList));
                         }
 
-                        var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
-                        classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
                         if (classDecl.BaseList is not null && baseTypeSymbol?.IsStatic == true)
@@ -1166,8 +1166,7 @@ public partial class SemanticModel
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in structDecl.BaseList.Types)
                             {
-                                var resolved = parentBinder.ResolveType(t) as INamedTypeSymbol;
-                                if (resolved is null)
+                                if (!parentBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
                                     continue;
 
                                 if (resolved.TypeKind == TypeKind.Interface)
@@ -1238,7 +1237,9 @@ public partial class SemanticModel
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in interfaceDecl.BaseList.Types)
                             {
-                                if (parentBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
+                                if (parentBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) &&
+                                    resolved is not null &&
+                                    resolved.TypeKind == TypeKind.Interface)
                                     builder.Add(resolved);
                             }
 
@@ -1974,8 +1975,7 @@ public partial class SemanticModel
                         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                         foreach (var t in nestedBaseList.Types)
                         {
-                            var resolved = classBinder.ResolveType(t) as INamedTypeSymbol;
-                            if (resolved is null)
+                            if (!classBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
                                 continue;
 
                             if (resolved.TypeKind == TypeKind.Interface)
@@ -2055,7 +2055,9 @@ public partial class SemanticModel
                         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                         foreach (var t in nestedInterface.BaseList.Types)
                         {
-                            if (classBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
+                            if (classBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) &&
+                                resolved is not null &&
+                                resolved.TypeKind == TypeKind.Interface)
                                 builder.Add(resolved);
                         }
                         if (builder.Count > 0)
@@ -2448,7 +2450,9 @@ public partial class SemanticModel
                             var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
                             foreach (var t in nestedInterface.BaseList.Types)
                             {
-                                if (interfaceBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
+                                if (interfaceBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) &&
+                                    resolved is not null &&
+                                    resolved.TypeKind == TypeKind.Interface)
                                     builder.Add(resolved);
                             }
 
