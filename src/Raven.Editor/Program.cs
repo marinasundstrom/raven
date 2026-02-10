@@ -24,6 +24,7 @@ internal class Program
 {
     private static readonly RavenWorkspace Workspace = RavenWorkspace.Create();
     private static readonly CompletionService CompletionService = new();
+    private static readonly ImmutableArray<CodeFixProvider> CodeFixProviders = BuiltInCodeFixProviders.CreateDefault();
     private static readonly object WorkspaceGate = new();
     private static CancellationTokenSource? _completionCts;
     private static ProjectId _projectId;
@@ -157,7 +158,8 @@ internal class Program
             }),
             new MenuBarItem("_Edit", new[]
             {
-                new MenuItem("_Format", string.Empty, () => FormatDocument(editor), null, null, Key.F8)
+                new MenuItem("_Format", string.Empty, () => FormatDocument(editor), null, null, Key.F8),
+                new MenuItem("_Apply Fixes", string.Empty, () => ApplyCodeFixes(editor), null, null, Key.F9)
             })
         });
 
@@ -173,6 +175,8 @@ internal class Program
                 CompileAndRun(editor.Text?.ToString() ?? string.Empty)),
             new StatusItem(Key.F8, "~F8~ Format", () =>
                 FormatDocument(editor)),
+            new StatusItem(Key.F9, "~F9~ Fixes", () =>
+                ApplyCodeFixes(editor)),
             new StatusItem(Key.CtrlMask | Key.C, "~^C~ Exit", () => Application.RequestStop())
         });
 
@@ -232,6 +236,11 @@ internal class Program
             else if (IsFormatShortcut(e.KeyEvent))
             {
                 FormatDocument(editor);
+                e.Handled = true;
+            }
+            else if (IsCodeFixShortcut(e.KeyEvent))
+            {
+                ApplyCodeFixes(editor);
                 e.Handled = true;
             }
             else if (IsManualCompletionShortcut(e.KeyEvent))
@@ -760,6 +769,12 @@ internal class Program
                || key == Key.F8;
     }
 
+    private static bool IsCodeFixShortcut(KeyEvent keyEvent)
+    {
+        var key = keyEvent.Key;
+        return key == Key.F9;
+    }
+
     private static bool IsManualCompletionShortcut(KeyEvent keyEvent)
     {
         var key = keyEvent.Key;
@@ -798,6 +813,11 @@ internal class Program
         _ = FormatDocumentAsync(editor);
     }
 
+    private static void ApplyCodeFixes(CodeTextView editor)
+    {
+        _ = ApplyCodeFixesAsync(editor);
+    }
+
     private static async Task FormatDocumentAsync(CodeTextView editor)
     {
         try
@@ -819,6 +839,78 @@ internal class Program
         catch
         {
             await InvokeOnMainLoopAsync(() => SetStatus("Format failed")).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task ApplyCodeFixesAsync(CodeTextView editor)
+    {
+        try
+        {
+            await InvokeOnMainLoopAsync(() => SetStatus("Applying code fixes...")).ConfigureAwait(false);
+            var text = await InvokeOnMainLoopAsync(() => editor.Text?.ToString() ?? string.Empty).ConfigureAwait(false);
+
+            lock (WorkspaceGate)
+            {
+                var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, SourceText.From(text));
+                if (!Workspace.TryApplyChanges(solution))
+                    throw new InvalidOperationException("Unable to apply source changes to workspace.");
+            }
+
+            var result = await Task.Run(() => Workspace.ApplyCodeFixes(
+                _projectId,
+                CodeFixProviders,
+                predicate: fix => fix.DocumentId == _documentId)).ConfigureAwait(false);
+
+            lock (WorkspaceGate)
+            {
+                Workspace.TryApplyChanges(result.Solution);
+            }
+
+            var document = result.Solution.GetDocument(_documentId);
+            var updatedText = document is null
+                ? text
+                : (await document.GetTextAsync().ConfigureAwait(false)).ToString();
+
+            var diagnostics = await Task.Run(() => Workspace.GetDiagnostics(_projectId)).ConfigureAwait(false);
+
+            await InvokeOnMainLoopAsync(() =>
+            {
+                editor.Text = updatedText;
+                Output.Clear();
+                Problems.Clear();
+
+                if (result.AppliedFixCount == 0)
+                {
+                    Output.Add("No code fixes available.");
+                    SetStatus("No code fixes");
+                }
+                else
+                {
+                    Output.Add($"Applied {result.AppliedFixCount} code fix(es).");
+                    foreach (var title in result.AppliedFixes.Select(f => f.Action.Title).Distinct(StringComparer.Ordinal))
+                        Output.Add($"- {title}");
+                    SetStatus("Code fixes applied");
+                }
+
+                if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
+                    Problems.AddRange(diagnostics.Select(d => d.ToString()));
+
+                _outputView!.SetSource(Output);
+                _problemsView!.SetSource(Problems);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await InvokeOnMainLoopAsync(() =>
+            {
+                Output.Clear();
+                Problems.Clear();
+                Output.Add("Applying code fixes failed.");
+                Problems.Add(ex.ToString());
+                _outputView!.SetSource(Output);
+                _problemsView!.SetSource(Problems);
+                SetStatus("Code fixes failed");
+            }).ConfigureAwait(false);
         }
     }
 

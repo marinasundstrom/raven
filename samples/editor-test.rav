@@ -1,11 +1,12 @@
 import System.Console.*
 
 val foo = Foo()
+
 foo.Bar()
 
 class Foo {
-  public Bar() -> () {
-    val x = 2
-    WriteLine(x)
-  }
+    public Bar() -> () {
+        val x = 2
+        WriteLine(x)
+    }
 }
