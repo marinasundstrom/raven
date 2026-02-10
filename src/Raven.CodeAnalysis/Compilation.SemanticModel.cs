@@ -12,6 +12,18 @@ public partial class Compilation
 {
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new();
 
+    /// <summary>
+    /// Gets completion items available at a position in a syntax tree within this compilation.
+    /// </summary>
+    /// <param name="syntaxTree">The syntax tree to query.</param>
+    /// <param name="position">The zero-based position in the syntax tree.</param>
+    /// <returns>A sequence of completion items.</returns>
+    public IEnumerable<CompletionItem> GetCompletions(SyntaxTree syntaxTree, int position)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+        return GetSemanticModel(syntaxTree).GetCompletions(position);
+    }
+
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
         EnsureSetup();

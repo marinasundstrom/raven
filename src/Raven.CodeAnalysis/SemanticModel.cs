@@ -11,6 +11,7 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
+    private static readonly CompletionService s_completionService = new();
     private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
@@ -33,6 +34,21 @@ public partial class SemanticModel
     public Compilation Compilation { get; }
 
     public SyntaxTree SyntaxTree { get; }
+
+    /// <summary>
+    /// Gets completion items available at a position in this semantic model's syntax tree.
+    /// </summary>
+    /// <param name="position">The zero-based position in the syntax tree.</param>
+    /// <returns>A sequence of completion items.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="position"/> is outside the tree bounds.</exception>
+    public IEnumerable<CompletionItem> GetCompletions(int position)
+    {
+        var treeLength = SyntaxTree.GetRoot().FullSpan.End;
+        if ((uint)position > (uint)treeLength)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        return s_completionService.GetCompletions(Compilation, SyntaxTree, position);
+    }
 
     public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {

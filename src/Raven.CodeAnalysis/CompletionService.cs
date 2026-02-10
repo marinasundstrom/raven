@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -10,6 +12,11 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public class CompletionService
 {
+    internal static readonly ImmutableArray<string> BasicKeywords =
+    [
+        "if", "else", "while", "for", "return", "let", "var", "const", "new", "true", "false", "null"
+    ];
+
     /// <summary>
     /// Gets the completion items available at the specified position.
     /// </summary>
@@ -27,8 +34,39 @@ public class CompletionService
         // position to ensure the token to the left of the caret is used.
         var searchPosition = Math.Max(0, position - 1);
         var token = syntaxTree.GetRoot().FindToken(searchPosition);
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        try
+        {
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-        return CompletionProvider.GetCompletions(token, semanticModel, position);
+            return CompletionProvider.GetCompletions(token, semanticModel, position);
+        }
+        catch
+        {
+            // Keep completion usable in lightweight/editor scenarios where semantic setup
+            // may fail (for example, missing metadata references).
+            return GetBasicKeywordCompletions(token, position);
+        }
+    }
+
+    internal static IEnumerable<CompletionItem> GetBasicKeywordCompletions(SyntaxToken token, int position)
+    {
+        var prefix = token.IsKind(SyntaxKind.IdentifierToken)
+            ? token.ValueText
+            : token.Parent is IdentifierNameSyntax { Identifier.IsMissing: false } identifierName
+                ? identifierName.Identifier.ValueText
+                : string.Empty;
+
+        var replacementSpan = token.IsKind(SyntaxKind.IdentifierToken)
+            ? token.Span
+            : token.Parent is IdentifierNameSyntax { Identifier.IsMissing: false } identifier
+                ? identifier.Identifier.Span
+                : new TextSpan(position, 0);
+
+        return BasicKeywords
+            .Where(k => string.IsNullOrEmpty(prefix) || k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(keyword => new CompletionItem(
+                DisplayText: keyword,
+                InsertionText: keyword,
+                ReplacementSpan: replacementSpan));
     }
 }

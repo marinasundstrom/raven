@@ -291,6 +291,17 @@ var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol
 Console.WriteLine(symbol.Name);
 ```
 
+### Completion API
+
+The completion surface is available on both `Compilation` and `SemanticModel`:
+
+```csharp
+var fromCompilation = compilation.GetCompletions(syntaxTree, position);
+var fromSemanticModel = semanticModel.GetCompletions(position);
+```
+
+Each `CompletionItem` carries the display text, insertion text, and replacement span.
+
 ---
 
 ## Operations
