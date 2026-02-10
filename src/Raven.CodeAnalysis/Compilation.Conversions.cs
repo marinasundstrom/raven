@@ -57,6 +57,28 @@ public partial class Compilation
         bool destinationUsedAlias = false;
         destination = Unalias(destination, ref destinationUsedAlias);
 
+        static bool IsSystemNullableDefinition(INamedTypeSymbol named)
+            => named.SpecialType == SpecialType.System_Nullable_T
+               || (named.Arity == 1
+                   && named.Name == "Nullable"
+                   && named.ContainingNamespace?.ToDisplayString() == "System");
+
+        static ITypeSymbol NormalizeExplicitNullableGeneric(ITypeSymbol type)
+        {
+            if (type is INamedTypeSymbol named &&
+                IsSystemNullableDefinition(named) &&
+                named.TypeArguments.Length == 1)
+            {
+                var underlying = named.TypeArguments[0];
+                return underlying.IsNullable ? underlying : underlying.MakeNullable();
+            }
+
+            return type;
+        }
+
+        source = NormalizeExplicitNullableGeneric(source);
+        destination = NormalizeExplicitNullableGeneric(destination);
+
         if (destination is null)
             return Conversion.None;
 

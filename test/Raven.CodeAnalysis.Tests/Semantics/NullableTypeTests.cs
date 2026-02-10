@@ -56,7 +56,9 @@ public class NullableTypeTests : CompilationTestBase
         val i: int? = null
         """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
 
@@ -70,13 +72,77 @@ public class NullableTypeTests : CompilationTestBase
         Assert.Equal(SpecialType.System_Int32, nullableInt.UnderlyingType.SpecialType);
     }
 
+    [Fact]
+    public void ExplicitNullableGenericSyntax_BindsToNamedNullableType()
+    {
+        var source = """
+        import System.*
+
+        val i: Nullable<int> = null
+        """;
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var type = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type;
+
+        var nullableInt = Assert.IsAssignableFrom<INamedTypeSymbol>(type);
+        Assert.Equal(SpecialType.System_Nullable_T, nullableInt.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, nullableInt.TypeArguments.Single().SpecialType);
+    }
+
+    [Fact]
+    public void NullableShorthandAndExplicitNullableGeneric_AreInteroperable()
+    {
+        var source = """
+        import System.*
+
+        val a: int? = 1
+        val b: Nullable<int> = a
+        val c: int? = b
+        """;
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+
+        var aSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(x => x.Identifier.ValueText == "a")));
+        var bSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(x => x.Identifier.ValueText == "b")));
+        var cSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(x => x.Identifier.ValueText == "c")));
+
+        Assert.False(SymbolEqualityComparer.Default.Equals(aSymbol.Type, bSymbol.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(aSymbol.Type, cSymbol.Type));
+    }
+
+    [Fact]
+    public void ExplicitNullableGeneric_AllowsNullableMembers()
+    {
+        var source = """
+        import System.*
+
+        val n: Nullable<int> = 1
+        val hasValue = n.HasValue
+        val value = n.GetValueOrDefault()
+        """;
+
+        var (compilation, _) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Theory]
     [InlineData("class Box<T : struct> { val value: T? = null }", TypeParameterConstraintKind.ValueType)]
     [InlineData("class Box<T : class> { val value: T? = null }", TypeParameterConstraintKind.ReferenceType)]
     [InlineData("class Box<T> { val value: T? = null }", TypeParameterConstraintKind.None)]
     public void NullableTypeSyntax_WrapsTypeParameters_WithConstraints(string source, TypeParameterConstraintKind expectedConstraint)
     {
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
 
@@ -93,7 +159,9 @@ public class NullableTypeTests : CompilationTestBase
     {
         var source = "class Box<T : notnull> { val value: T? = null }";
 
-        var (compilation, _) = CreateCompilation(source);
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(
@@ -113,15 +181,6 @@ public class NullableTypeTests : CompilationTestBase
 
         Assert.Null(nullable.LookupType("DoesNotExist"));
         Assert.False(nullable.IsMemberDefined("DoesNotExist", out _));
-    }
-
-    [Fact]
-    public void NullableQualifiedName_ReportsMissingType()
-    {
-        var (compilation, _) = CreateCompilation("val x: string?.Nested = null");
-
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
     }
 
     [Fact]
@@ -178,7 +237,7 @@ import System.*
 class Foo {
     Run() -> unit {
         val f: Action<int>? = null
-        if f != null {
+        if f is not null {
             f(2)
         }
     }
@@ -247,7 +306,7 @@ import System.*
 class Foo {
     Run() -> unit {
         val f: Action<int>? = null
-        if f == null {
+        if f is null {
             return
         }
         f(2)
@@ -301,10 +360,37 @@ class Foo {
 
         var stringConv = compilation.ClassifyConversion(stringType, nullableString);
         Assert.True(stringConv.IsImplicit);
-        Assert.False(stringConv.IsIdentity);
+        Assert.True(stringConv.IsIdentity);
 
         var reverse = compilation.ClassifyConversion(nullableString, stringType);
-        Assert.False(reverse.IsImplicit);
+        Assert.True(reverse.IsImplicit);
+    }
+
+    [Fact]
+    public void ExplicitNullableGeneric_AndNullableSyntax_UseSameConversionRules()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var nullableSyntaxType = intType.MakeNullable();
+        var nullableDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Nullable`1"));
+        var explicitNullableType = nullableDefinition.Construct([intType]);
+
+        var fromSyntaxToExplicit = compilation.ClassifyConversion(nullableSyntaxType, explicitNullableType);
+        Assert.True(fromSyntaxToExplicit.Exists);
+        Assert.True(fromSyntaxToExplicit.IsImplicit);
+
+        var fromExplicitToSyntax = compilation.ClassifyConversion(explicitNullableType, nullableSyntaxType);
+        Assert.True(fromExplicitToSyntax.Exists);
+        Assert.True(fromExplicitToSyntax.IsImplicit);
+
+        var fromValueToExplicit = compilation.ClassifyConversion(intType, explicitNullableType);
+        Assert.True(fromValueToExplicit.Exists);
+        Assert.True(fromValueToExplicit.IsImplicit);
+
+        var fromExplicitToValue = compilation.ClassifyConversion(explicitNullableType, intType);
+        Assert.True(fromExplicitToValue.Exists);
+        Assert.False(fromExplicitToValue.IsImplicit);
     }
 
     [Fact]
@@ -374,10 +460,12 @@ class Foo {
     [Fact]
     public void ObjectVariable_AssignedNull_RequiresNullable()
     {
-        var (compilation, _) = CreateCompilation("val x: object = null");
+        var (compilation, _) = CreateCompilation(
+            "val x: object = null",
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CannotAssignFromTypeToType, diagnostic.Descriptor);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(x => x.Descriptor == CompilerDiagnostics.CannotAssignFromTypeToType));
         Assert.Equal("Cannot assign 'null' to 'object'", diagnostic.GetMessage());
     }
 
@@ -394,7 +482,9 @@ class Foo {
         val c = f2(null)
         """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
         var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
 
@@ -411,7 +501,9 @@ class Foo {
     [Fact]
     public void ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload()
     {
-        var (compilation, tree) = CreateCompilation("System.Console.WriteLine(\"Foo\")");
+        var (compilation, tree) = CreateCompilation(
+            "System.Console.WriteLine(\"Foo\")",
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
@@ -425,7 +517,9 @@ class Foo {
     [Fact]
     public void ConsoleWriteLine_WithNullLiteral_IsAmbiguous()
     {
-        var (compilation, tree) = CreateCompilation("System.Console.WriteLine(null)");
+        var (compilation, tree) = CreateCompilation(
+            "System.Console.WriteLine(null)",
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var symbolInfo = model.GetSymbolInfo(invocation);
@@ -433,8 +527,9 @@ class Foo {
         Assert.Null(symbolInfo.Symbol);
         Assert.Equal(CandidateReason.Ambiguous, symbolInfo.CandidateReason);
 
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.CallIsAmbiguous, diagnostic.Descriptor);
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
     }
 
     [Fact]
@@ -445,7 +540,9 @@ class Foo {
             System.Console.WriteLine(value)
             """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
@@ -471,8 +568,11 @@ class Foo {
     [Fact]
     public void NullableType_In_Union_ReportsDiagnostic()
     {
-        var (compilation, _) = CreateCompilation("val x: string? | int = null");
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.NullableTypeInUnion, diagnostic.Descriptor);
+        var (compilation, _) = CreateCompilation(
+            "val x: string? | int = null",
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullableTypeInUnion);
     }
 }

@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Symbols;
@@ -191,7 +191,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (type.IsNullableValueType())
         {
             var underlying = ResolveType(type.GetGenericArguments()[0], methodContext);
-            return underlying!.MakeNullable();
+            var nullable = underlying!.MakeNullable();
+            _cache[type] = nullable;
+            return nullable;
         }
 
         // TODO: Return immediately if built in type
@@ -209,7 +211,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         if (type.IsGenericTypeDefinition)
         {
-            return ResolveTypeCore(type);
+            var definition = ResolveTypeCore(type);
+            _cache[type] = definition;
+            return definition;
         }
 
         if (type.IsGenericType)
@@ -229,7 +233,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 return null;
 
             var args = type.GetGenericArguments().Select(x => ResolveType(x, methodContext)!).ToArray();
-            return genericTypeDefinition.Construct(args);
+            var constructed = genericTypeDefinition.Construct(args);
+            _cache[type] = constructed;
+            return constructed;
         }
 
         if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
@@ -443,7 +449,7 @@ internal static class ReflectionTypeExtensions
 {
     /// <summary>True if this Type represents System.Nullable&lt;T&gt;.</summary>
     public static bool IsNullableValueType(this Type t)
-        => t.IsGenericType && t.GetGenericTypeDefinition().Name.Contains("Nullable");
+        => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>);
 
     /// <summary>
     /// True when reflection generic args include inherited outer args and we must rebuild the chain.
