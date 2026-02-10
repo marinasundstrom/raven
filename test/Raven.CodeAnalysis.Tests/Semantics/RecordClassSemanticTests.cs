@@ -32,8 +32,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.Equal(SpecialType.System_Int32, ageProperty.Type.SpecialType);
         Assert.NotNull(nameProperty.GetMethod);
         Assert.NotNull(ageProperty.GetMethod);
-        Assert.Null(nameProperty.SetMethod);
-        Assert.Null(ageProperty.SetMethod);
+        Assert.NotNull(nameProperty.SetMethod);
+        Assert.NotNull(ageProperty.SetMethod);
+        Assert.Equal(MethodKind.InitOnly, nameProperty.SetMethod!.MethodKind);
+        Assert.Equal(MethodKind.InitOnly, ageProperty.SetMethod!.MethodKind);
 
         Assert.Contains(
             person.GetMembers("Equals").OfType<IMethodSymbol>(),
@@ -67,17 +69,18 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void RecordPattern_BindsPrimaryConstructorProperties()
     {
         var source = """
-            record class Person(Name: string, Age: int);
-
             val value: object = new Person("Ada", 42);
 
             val result = value match {
                 Person(val name, val age) => name
                 _ => ""
             };
+
+            record class Person(Name: string, Age: int);
             """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
         var model = compilation.GetSemanticModel(tree);
 
         var recordPattern = tree.GetRoot().DescendantNodes().OfType<RecordPatternSyntax>().Single();
@@ -93,17 +96,18 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     public void PositionalPattern_UsesDeconstructWhenAvailable()
     {
         var source = """
-            record class Pair(Left: int, Right: int);
-
             val value: Pair = new Pair(1, 2);
 
             val result = value match {
                 (val left, val right) => left
                 _ => 0
             };
+
+            record class Pair(Left: int, Right: int);
             """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        var (compilation, tree) = CreateCompilation(source, options: options);
         var model = compilation.GetSemanticModel(tree);
 
         var tuplePattern = tree.GetRoot().DescendantNodes().OfType<PositionalPatternSyntax>().Single();

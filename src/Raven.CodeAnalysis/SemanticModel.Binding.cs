@@ -121,22 +121,10 @@ public partial class SemanticModel
                         break;
                     }
 
-                case ClassDeclarationSyntax classDecl:
+                case TypeDeclarationSyntax typeDecl when IsNominalTypeDeclaration(typeDecl):
                     {
-                        var classSymbol = DeclareClassSymbol(classDecl, parentNamespace, objectType);
-                        DeclareClassMemberTypes(classDecl, classSymbol);
-                        break;
-                    }
-                case RecordDeclarationSyntax recordDecl:
-                    {
-                        var recordSymbol = DeclareClassSymbol(recordDecl, parentNamespace, objectType);
-                        DeclareClassMemberTypes(recordDecl, recordSymbol);
-                        break;
-                    }
-                case StructDeclarationSyntax structDecl:
-                    {
-                        var structSymbol = DeclareClassSymbol(structDecl, parentNamespace, objectType);
-                        DeclareClassMemberTypes(structDecl, structSymbol);
+                        var typeSymbol = DeclareClassSymbol(typeDecl, parentNamespace, objectType);
+                        DeclareClassMemberTypes(typeDecl, typeSymbol);
                         break;
                     }
 
@@ -178,7 +166,7 @@ public partial class SemanticModel
         INamespaceSymbol parentNamespace,
         INamedTypeSymbol? objectType)
     {
-        var declaredTypeKind = classDecl.Keyword.Kind == SyntaxKind.StructKeyword
+        var declaredTypeKind = IsStructLikeNominalType(classDecl)
             ? TypeKind.Struct
             : TypeKind.Class;
         var defaultBaseType = declaredTypeKind == TypeKind.Struct
@@ -278,7 +266,7 @@ public partial class SemanticModel
             {
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
-                        var nestedTypeKind = nestedClass.Keyword.Kind == SyntaxKind.StructKeyword
+                        var nestedTypeKind = IsStructLikeNominalType(nestedClass)
                             ? TypeKind.Struct
                             : TypeKind.Class;
                         var nestedBaseType = nestedTypeKind == TypeKind.Struct ? valueType : objectType;
@@ -1117,205 +1105,9 @@ public partial class SemanticModel
                         break;
                     }
 
-                case ClassDeclarationSyntax classDecl:
+                case TypeDeclarationSyntax typeDecl when IsNominalTypeDeclaration(typeDecl):
                     {
-                        var classSymbol = GetDeclaredTypeSymbol(classDecl);
-                        var baseTypeSymbol = objectType;
-                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
-
-                        if (classSymbol is SourceNamedTypeSymbol recordSymbol && recordSymbol.IsRecord)
-                        {
-                            if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
-                            {
-                                var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(classSymbol);
-                                if (interfaceList.IsDefaultOrEmpty)
-                                {
-                                    interfaceList = [equatableType];
-                                }
-                                else if (!interfaceList.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
-                                {
-                                    interfaceList = interfaceList.Add(equatableType);
-                                }
-                            }
-                        }
-
-                        var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
-                        classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
-
-                        if (classDecl.BaseList is not null)
-                        {
-                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                            foreach (var t in classDecl.BaseList.Types)
-                            {
-                                if (!classBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
-                                    continue;
-
-                                if (resolved.TypeKind == TypeKind.Interface)
-                                    builder.Add(resolved);
-                                else
-                                    baseTypeSymbol = resolved;
-                            }
-
-                            if (builder.Count > 0)
-                                interfaceList = builder.ToImmutable();
-                        }
-
-                        if (baseTypeSymbol is not null &&
-                            !SymbolEqualityComparer.Default.Equals(classSymbol.BaseType, baseTypeSymbol) &&
-                            SymbolEqualityComparer.Default.Equals(classSymbol.BaseType, objectType))
-                        {
-                            classSymbol.SetBaseType(baseTypeSymbol);
-                        }
-
-                        if (!interfaceList.IsDefaultOrEmpty)
-                        {
-                            classSymbol.SetInterfaces(MergeInterfaces(classSymbol.Interfaces, interfaceList));
-                        }
-
-                        _binderCache[classDecl] = classBinder;
-                        RegisterClassSymbol(classDecl, classSymbol);
-                        if (classDecl.BaseList is not null && baseTypeSymbol?.IsStatic == true)
-                        {
-                            classBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
-                                baseTypeSymbol.Name,
-                                classDecl.BaseList.Types[0].GetLocation());
-                        }
-                        else if (classDecl.BaseList is not null && baseTypeSymbol?.IsSealed == true)
-                        {
-                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(
-                                baseTypeSymbol.Name,
-                                classDecl.BaseList.Types[0].GetLocation());
-                        }
-
-                        classBinders.Add((classDecl, classBinder));
-                        break;
-                    }
-                case RecordDeclarationSyntax recordDecl:
-                    {
-                        var recordSymbol = GetDeclaredTypeSymbol(recordDecl);
-                        var baseTypeSymbol = objectType;
-                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
-
-                        if (recordSymbol is SourceNamedTypeSymbol sourceRecordSymbol && sourceRecordSymbol.IsRecord)
-                        {
-                            if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
-                            {
-                                var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(recordSymbol);
-                                if (interfaceList.IsDefaultOrEmpty)
-                                {
-                                    interfaceList = [equatableType];
-                                }
-                                else if (!interfaceList.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
-                                {
-                                    interfaceList = interfaceList.Add(equatableType);
-                                }
-                            }
-                        }
-
-                        if (recordDecl.BaseList is not null)
-                        {
-                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                            foreach (var t in recordDecl.BaseList.Types)
-                            {
-                                if (!parentBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
-                                    continue;
-
-                                if (resolved.TypeKind == TypeKind.Interface)
-                                    builder.Add(resolved);
-                                else
-                                    baseTypeSymbol = resolved;
-                            }
-
-                            if (builder.Count > 0)
-                                interfaceList = builder.ToImmutable();
-                        }
-
-                        if (baseTypeSymbol is not null &&
-                            !SymbolEqualityComparer.Default.Equals(recordSymbol.BaseType, baseTypeSymbol) &&
-                            SymbolEqualityComparer.Default.Equals(recordSymbol.BaseType, objectType))
-                        {
-                            recordSymbol.SetBaseType(baseTypeSymbol);
-                        }
-
-                        if (!interfaceList.IsDefaultOrEmpty)
-                        {
-                            recordSymbol.SetInterfaces(MergeInterfaces(recordSymbol.Interfaces, interfaceList));
-                        }
-
-                        var recordBinder = new ClassDeclarationBinder(parentBinder, recordSymbol, recordDecl);
-                        recordBinder.EnsureTypeParameterConstraintTypesResolved(recordSymbol.TypeParameters);
-                        _binderCache[recordDecl] = recordBinder;
-                        RegisterClassSymbol(recordDecl, recordSymbol);
-                        if (recordDecl.BaseList is not null && baseTypeSymbol?.IsStatic == true)
-                        {
-                            recordBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
-                                baseTypeSymbol.Name,
-                                recordDecl.BaseList.Types[0].GetLocation());
-                        }
-                        else if (recordDecl.BaseList is not null && baseTypeSymbol?.IsSealed == true)
-                        {
-                            recordBinder.Diagnostics.ReportCannotInheritFromSealedType(
-                                baseTypeSymbol.Name,
-                                recordDecl.BaseList.Types[0].GetLocation());
-                        }
-
-                        classBinders.Add((recordDecl, recordBinder));
-                        break;
-                    }
-                case StructDeclarationSyntax structDecl:
-                    {
-                        var structSymbol = GetDeclaredTypeSymbol(structDecl);
-                        var baseTypeSymbol = objectType;
-                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
-
-                        if (structDecl.BaseList is not null)
-                        {
-                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                            foreach (var t in structDecl.BaseList.Types)
-                            {
-                                if (!parentBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
-                                    continue;
-
-                                if (resolved.TypeKind == TypeKind.Interface)
-                                    builder.Add(resolved);
-                                else
-                                    baseTypeSymbol = resolved;
-                            }
-
-                            if (builder.Count > 0)
-                                interfaceList = builder.ToImmutable();
-                        }
-
-                        if (baseTypeSymbol is not null &&
-                            !SymbolEqualityComparer.Default.Equals(structSymbol.BaseType, baseTypeSymbol) &&
-                            SymbolEqualityComparer.Default.Equals(structSymbol.BaseType, objectType))
-                        {
-                            structSymbol.SetBaseType(baseTypeSymbol);
-                        }
-
-                        if (!interfaceList.IsDefaultOrEmpty)
-                        {
-                            structSymbol.SetInterfaces(MergeInterfaces(structSymbol.Interfaces, interfaceList));
-                        }
-
-                        var structBinder = new ClassDeclarationBinder(parentBinder, structSymbol, structDecl);
-                        structBinder.EnsureTypeParameterConstraintTypesResolved(structSymbol.TypeParameters);
-                        _binderCache[structDecl] = structBinder;
-                        RegisterClassSymbol(structDecl, structSymbol);
-                        if (structDecl.BaseList is not null && baseTypeSymbol?.IsStatic == true)
-                        {
-                            structBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
-                                baseTypeSymbol.Name,
-                                structDecl.BaseList.Types[0].GetLocation());
-                        }
-                        else if (structDecl.BaseList is not null && baseTypeSymbol?.IsSealed == true)
-                        {
-                            structBinder.Diagnostics.ReportCannotInheritFromSealedType(
-                                baseTypeSymbol.Name,
-                                structDecl.BaseList.Types[0].GetLocation());
-                        }
-
-                        classBinders.Add((structDecl, structBinder));
+                        BindNominalTypeDeclaration(typeDecl, parentBinder, objectType, classBinders);
                         break;
                     }
 
@@ -1355,7 +1147,7 @@ public partial class SemanticModel
                         }
 
                         if (!interfaceList.IsDefaultOrEmpty)
-                            interfaceSymbol.SetInterfaces(MergeInterfaces(interfaceSymbol.Interfaces, interfaceList));
+                            interfaceSymbol.SetInterfaces(MergeInterfaceSets(interfaceSymbol.Interfaces, interfaceList));
 
                         var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
                         interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
@@ -1429,25 +1221,84 @@ public partial class SemanticModel
         foreach (var (extensionDecl, extensionBinder) in extensionBinders)
             RegisterExtensionMembers(extensionDecl, extensionBinder);
 
-        static ImmutableArray<INamedTypeSymbol> MergeInterfaces(
-            ImmutableArray<INamedTypeSymbol> existing,
-            ImmutableArray<INamedTypeSymbol> additional)
+    }
+
+    private void BindNominalTypeDeclaration(
+        TypeDeclarationSyntax declaration,
+        Binder parentBinder,
+        INamedTypeSymbol? objectType,
+        List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders)
+    {
+        var typeSymbol = GetDeclaredTypeSymbol(declaration);
+        var declarationBinder = new ClassDeclarationBinder(parentBinder, typeSymbol, declaration);
+        declarationBinder.EnsureTypeParameterConstraintTypesResolved(typeSymbol.TypeParameters);
+
+        var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
+        var defaultBaseType = GetDefaultBaseTypeForNominalDeclaration(declaration, objectType, valueType);
+        var defaultInterfaces = GetDefaultNominalInterfaces(typeSymbol);
+        var shape = declarationBinder.BindNominalTypeShape(declaration, defaultBaseType, defaultInterfaces);
+        var baseTypeSymbol = shape.BaseType;
+        var interfaceList = shape.Interfaces;
+
+        if (baseTypeSymbol is not null &&
+            !SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, baseTypeSymbol) &&
+            SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, defaultBaseType))
         {
-            if (existing.IsDefaultOrEmpty)
-                return additional;
-
-            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-            foreach (var type in existing)
-                if (seen.Add(type))
-                    builder.Add(type);
-
-            foreach (var type in additional)
-                if (seen.Add(type))
-                    builder.Add(type);
-
-            return builder.ToImmutable();
+            typeSymbol.SetBaseType(baseTypeSymbol);
         }
+
+        if (!interfaceList.IsDefaultOrEmpty)
+            typeSymbol.SetInterfaces(MergeInterfaceSets(typeSymbol.Interfaces, interfaceList));
+
+        _binderCache[declaration] = declarationBinder;
+        RegisterClassSymbol(declaration, typeSymbol);
+
+        classBinders.Add((declaration, declarationBinder));
+    }
+
+    private static bool IsNominalTypeDeclaration(TypeDeclarationSyntax declaration)
+        => declaration is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax;
+
+    private static INamedTypeSymbol? GetDefaultBaseTypeForNominalDeclaration(
+        TypeDeclarationSyntax declaration,
+        INamedTypeSymbol? objectType,
+        INamedTypeSymbol? valueType)
+        => IsStructLikeNominalType(declaration) ? valueType : objectType;
+
+    private static bool IsStructLikeNominalType(TypeDeclarationSyntax declaration)
+        => declaration is StructDeclarationSyntax ||
+           declaration.Modifiers.Any(modifier => modifier.Kind == SyntaxKind.StructKeyword);
+
+    private ImmutableArray<INamedTypeSymbol> GetDefaultNominalInterfaces(INamedTypeSymbol typeSymbol)
+    {
+        if (typeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsRecord)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is not INamedTypeSymbol equatableDefinition)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(typeSymbol);
+        return ImmutableArray.Create(equatableType);
+    }
+
+    private static ImmutableArray<INamedTypeSymbol> MergeInterfaceSets(
+        ImmutableArray<INamedTypeSymbol> existing,
+        ImmutableArray<INamedTypeSymbol> additional)
+    {
+        if (existing.IsDefaultOrEmpty)
+            return additional;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var type in existing)
+            if (seen.Add(type))
+                builder.Add(type);
+
+        foreach (var type in additional)
+            if (seen.Add(type))
+                builder.Add(type);
+
+        return builder.ToImmutable();
     }
 
     private void EnsureDelegateMembers(SourceNamedTypeSymbol delegateSymbol, DelegateDeclarationSyntax delegateDecl, Binder binder)
@@ -2011,11 +1862,14 @@ public partial class SemanticModel
 
     private void RegisterClassMembers(TypeDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
     {
-        if (classDecl is ClassDeclarationSyntax { ParameterList: not null } or RecordDeclarationSyntax { ParameterList: not null })
+        if (classDecl is ClassDeclarationSyntax { ParameterList: not null }
+            or RecordDeclarationSyntax { ParameterList: not null }
+            or StructDeclarationSyntax { ParameterList: not null })
             RegisterPrimaryConstructor(classDecl, classBinder);
 
         var nestedClassBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
 
         foreach (var member in classDecl.Members)
@@ -2091,67 +1945,26 @@ public partial class SemanticModel
                     break;
 
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
-                    var nestedBaseType = objectType;
-                    ImmutableArray<INamedTypeSymbol> nestedInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-                    var nestedBaseList = GetBaseList(nestedClass);
-                    if (nestedBaseList is not null)
-                    {
-                        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                        foreach (var t in nestedBaseList.Types)
-                        {
-                            if (!classBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
-                                continue;
-
-                            if (resolved.TypeKind == TypeKind.Interface)
-                                builder.Add(resolved);
-                            else
-                                nestedBaseType = resolved;
-                        }
-                        if (builder.Count > 0)
-                            nestedInterfaces = builder.ToImmutable();
-                    }
                     var nestedSymbol = GetDeclaredTypeSymbol(nestedClass);
-                    if (nestedSymbol is SourceNamedTypeSymbol nestedRecordSymbol && nestedRecordSymbol.IsRecord)
-                    {
-                        if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
-                        {
-                            var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(nestedSymbol);
-                            if (nestedInterfaces.IsDefaultOrEmpty)
-                            {
-                                nestedInterfaces = ImmutableArray.Create(equatableType);
-                            }
-                            else if (!nestedInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
-                            {
-                                nestedInterfaces = nestedInterfaces.Add(equatableType);
-                            }
-                        }
-                    }
+                    var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
+                    nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
+                    var defaultNestedBaseType = GetDefaultBaseTypeForNominalDeclaration(nestedClass, objectType, valueType);
+                    var nestedDefaultInterfaces = GetDefaultNominalInterfaces(nestedSymbol);
+                    var shape = nestedBinder.BindNominalTypeShape(nestedClass, defaultNestedBaseType, nestedDefaultInterfaces);
+                    var nestedBaseType = shape.BaseType;
+                    var nestedInterfaces = shape.Interfaces;
+
                     if (nestedBaseType is not null &&
                         !SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, nestedBaseType) &&
-                        SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, objectType))
+                        SymbolEqualityComparer.Default.Equals(nestedSymbol.BaseType, defaultNestedBaseType))
                     {
                         nestedSymbol.SetBaseType(nestedBaseType);
                     }
 
                     if (!nestedInterfaces.IsDefaultOrEmpty)
-                        nestedSymbol.SetInterfaces(MergeInterfaces(nestedSymbol.Interfaces, nestedInterfaces));
-
-                    var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
-                    nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
+                        nestedSymbol.SetInterfaces(MergeInterfaceSets(nestedSymbol.Interfaces, nestedInterfaces));
                     _binderCache[nestedClass] = nestedBinder;
                     RegisterClassSymbol(nestedClass, nestedSymbol);
-                    if (nestedBaseList is not null && nestedBaseType!.IsStatic)
-                    {
-                        nestedBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
-                            nestedBaseType.Name,
-                            nestedBaseList.Types[0].GetLocation());
-                    }
-                    else if (nestedBaseList is not null && nestedBaseType!.IsSealed)
-                    {
-                        nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(
-                            nestedBaseType.Name,
-                            nestedBaseList.Types[0].GetLocation());
-                    }
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
                     nestedClassBinders.Add((nestedClass, nestedBinder));
@@ -2190,7 +2003,7 @@ public partial class SemanticModel
 
                     if (!parentInterfaces.IsDefaultOrEmpty)
                         GetDeclaredTypeSymbol(nestedInterface).SetInterfaces(
-                            MergeInterfaces(GetDeclaredTypeSymbol(nestedInterface).Interfaces, parentInterfaces));
+                            MergeInterfaceSets(GetDeclaredTypeSymbol(nestedInterface).Interfaces, parentInterfaces));
                     var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
                     var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
                     nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
@@ -2224,29 +2037,10 @@ public partial class SemanticModel
             ReportMissingAbstractBaseMembers(nestedSymbol, nestedSyntax, nestedBinder.Diagnostics);
         }
 
-        if (classDecl is ClassDeclarationSyntax or RecordDeclarationSyntax)
+        if (classBinder.ContainingSymbol is SourceNamedTypeSymbol { IsRecord: true })
             RegisterRecordValueMembers(classDecl, classBinder);
         classBinder.EnsureDefaultConstructor();
 
-        static ImmutableArray<INamedTypeSymbol> MergeInterfaces(
-            ImmutableArray<INamedTypeSymbol> existing,
-            ImmutableArray<INamedTypeSymbol> additional)
-        {
-            if (existing.IsDefaultOrEmpty)
-                return additional;
-
-            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-            foreach (var type in existing)
-                if (seen.Add(type))
-                    builder.Add(type);
-
-            foreach (var type in additional)
-                if (seen.Add(type))
-                    builder.Add(type);
-
-            return builder.ToImmutable();
-        }
     }
 
 
