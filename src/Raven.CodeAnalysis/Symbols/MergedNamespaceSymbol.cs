@@ -8,14 +8,19 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
     private readonly ImmutableArray<INamespaceSymbol> _namespaces;
 
     public MergedNamespaceSymbol(IEnumerable<INamespaceSymbol> namespaces, INamespaceSymbol containingNamespace)
+        : this(CreateMergedNamespaces(namespaces), containingNamespace)
+    {
+    }
+
+    private MergedNamespaceSymbol(ImmutableArray<INamespaceSymbol> namespaces, INamespaceSymbol containingNamespace)
         : base(SymbolKind.Namespace,
-               namespaces.First().Name,
+               namespaces[0].Name,
                containingNamespace,
                null,
                containingNamespace,
                [], [])
     {
-        _namespaces = Flatten(namespaces).ToImmutableArray();
+        _namespaces = namespaces;
     }
 
     public override SymbolKind Kind => SymbolKind.Namespace;
@@ -179,6 +184,18 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
                 yield return ns;
             }
         }
+    }
+
+    private static ImmutableArray<INamespaceSymbol> CreateMergedNamespaces(IEnumerable<INamespaceSymbol> namespaces)
+    {
+        ArgumentNullException.ThrowIfNull(namespaces);
+
+        var flattened = Flatten(namespaces).ToImmutableArray();
+
+        if (flattened.IsEmpty)
+            throw new ArgumentException("At least one namespace must be provided.", nameof(namespaces));
+
+        return flattened;
     }
 
     public IEnumerable<INamespaceSymbol> GetMergedNamespaces() => _namespaces;
