@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.PortableExecutable;
 using System.Text;
 
 using Raven;
@@ -333,6 +334,24 @@ if (run && outputKind != OutputKind.ConsoleApplication)
     return;
 }
 
+static bool IsValidAssemblyReference(string path)
+{
+    try
+    {
+        var fileInfo = new FileInfo(path);
+        if (!fileInfo.Exists || fileInfo.Length == 0)
+            return false;
+
+        using var stream = File.OpenRead(path);
+        using var peReader = new PEReader(stream);
+        return peReader.HasMetadata;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
 {
     var ravenCoreCandidates = new[]
@@ -344,7 +363,7 @@ if (!ravenCoreExplicitlyProvided && !skipDefaultRavenCoreLookup)
 
     foreach (var candidate in ravenCoreCandidates)
     {
-        if (File.Exists(candidate))
+        if (File.Exists(candidate) && IsValidAssemblyReference(candidate))
         {
             ravenCorePath = candidate;
             break;
@@ -384,6 +403,17 @@ if (!string.IsNullOrWhiteSpace(ravenCorePath))
 
         ravenCorePath = null;
     }
+    else if (!IsValidAssemblyReference(ravenCorePath))
+    {
+        if (ravenCoreExplicitlyProvided)
+        {
+            AnsiConsole.MarkupLine($"[red]Raven core assembly '{ravenCorePath}' is not a valid managed assembly.[/]");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        ravenCorePath = null;
+    }
 }
 
 var defaultAssemblyBaseName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
@@ -415,7 +445,7 @@ string? ResolveAndCopyLocalDependency(string fileName, params string[] candidate
             continue;
 
         var full = Path.GetFullPath(candidate);
-        if (!File.Exists(full))
+        if (!File.Exists(full) || !IsValidAssemblyReference(full))
             continue;
 
         Directory.CreateDirectory(outputDirectory!);
