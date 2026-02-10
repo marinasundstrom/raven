@@ -2012,42 +2012,37 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        // Determine the enclosing return type.
-        ITypeSymbol? enclosingReturnType = null;
-        var enclosingIsAsync = false;
-        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        if (!TryGetEnclosingCarrierReturnType(out var enclosingReturnType))
         {
-            if (current.ContainingSymbol is IMethodSymbol method)
+            _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
+                "?",
+                operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                questionToken.GetLocation());
+
+            if (enclosingReturnType is not null && enclosingReturnType.TypeKind != TypeKind.Error)
             {
-                enclosingReturnType = method.ReturnType;
-                enclosingIsAsync = method.IsAsync;
-                break;
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    enclosingReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    operandInfo.UnionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    questionToken.GetLocation());
             }
 
-            if (current.ContainingSymbol is ILambdaSymbol lambda)
-            {
-                enclosingReturnType = lambda.ReturnType;
-                enclosingIsAsync = lambda.IsAsync;
-                break;
-            }
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
-        enclosingReturnType = enclosingReturnType is not null ? UnwrapAlias(enclosingReturnType) : null;
-
-        if (enclosingIsAsync && enclosingReturnType is not null)
-        {
-            enclosingReturnType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, enclosingReturnType)
-                ?? enclosingReturnType;
-        }
-
-        if (enclosingReturnType is not INamedTypeSymbol enclosingNamed ||
-            !TryGetPropagationInfo(enclosingNamed, out var enclosingInfo) ||
+        if (!TryGetPropagationInfo(enclosingReturnType, out var enclosingInfo) ||
             enclosingInfo.Kind != operandInfo.Kind)
         {
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                 "?",
                 operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 questionToken.GetLocation());
+
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                operandInfo.UnionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                enclosingReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                questionToken.GetLocation());
+
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
@@ -2128,6 +2123,44 @@ partial class BlockBinder : Binder
             okValueProperty: okValueProperty,
             unwrapErrorMethod: unwrapErrorMethod,
             errorConversion: errorConversion);
+    }
+
+    private bool TryGetEnclosingCarrierReturnType(out INamedTypeSymbol? enclosingReturnType)
+    {
+        enclosingReturnType = null;
+
+        ITypeSymbol? declaredReturnType = null;
+        var enclosingIsAsync = false;
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current.ContainingSymbol is IMethodSymbol method)
+            {
+                declaredReturnType = method.ReturnType;
+                enclosingIsAsync = method.IsAsync;
+                break;
+            }
+
+            if (current.ContainingSymbol is ILambdaSymbol lambda)
+            {
+                declaredReturnType = lambda.ReturnType;
+                enclosingIsAsync = lambda.IsAsync;
+                break;
+            }
+        }
+
+        if (declaredReturnType is null)
+            return false;
+
+        var effectiveReturnType = UnwrapAlias(declaredReturnType);
+
+        if (enclosingIsAsync)
+        {
+            effectiveReturnType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, effectiveReturnType)
+                ?? effectiveReturnType;
+        }
+
+        enclosingReturnType = effectiveReturnType as INamedTypeSymbol;
+        return enclosingReturnType is not null;
     }
 
     private enum PropagationKind

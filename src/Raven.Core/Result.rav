@@ -57,8 +57,8 @@ public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
         val @case = root.GetProperty("case").GetString()
 
         return @case match {
-            "Ok" => .Ok(root.GetProperty("value").Deserialize<T>(options))
-            "Error" => .Error(root.GetProperty("data").Deserialize<E>(options))
+            "Ok" => .Ok(JsonSerializer.Deserialize<T>(root.GetProperty("value"), options))
+            "Error" => .Error(JsonSerializer.Deserialize<E>(root.GetProperty("data"), options))
             _ => .Error(default(E))
         }
     }

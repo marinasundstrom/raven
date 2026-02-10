@@ -1054,6 +1054,8 @@ partial class BlockBinder
             kind == BoundCarrierKind.Result ? carrierGeneric.Construct(u, errorType!) :
             throw new InvalidOperationException();
 
+        ValidateCarrierConditionalAccessReturnCompatibility(syntax, kind, resultType, errorType);
+
         // Resolve carrier APIs as symbols so codegen doesn't have to guess via reflection.
         INamedTypeSymbol? carrierTypeSymbol = resultType as INamedTypeSymbol;
 
@@ -1176,6 +1178,70 @@ partial class BlockBinder
             optionNoneCtorOrFactory: optNoneCtor,
             optionImplicitFromSome: optImplSome,
             optionImplicitFromNone: optImplNone);
+    }
+
+    private void ValidateCarrierConditionalAccessReturnCompatibility(
+        ConditionalAccessExpressionSyntax syntax,
+        BoundCarrierKind kind,
+        ITypeSymbol resultType,
+        ITypeSymbol? resultErrorType)
+    {
+        if (!IsDirectReturnExpression(syntax))
+            return;
+
+        if (!TryGetEnclosingCarrierReturnType(out var enclosingReturnType) ||
+            enclosingReturnType is null ||
+            enclosingReturnType.TypeKind == TypeKind.Error)
+        {
+            return;
+        }
+
+        if (!TryGetPropagationInfo(enclosingReturnType, out var enclosingInfo))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                resultType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                enclosingReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.OperatorToken.GetLocation());
+            return;
+        }
+
+        if ((kind == BoundCarrierKind.Result && enclosingInfo.Kind != PropagationKind.Result) ||
+            (kind == BoundCarrierKind.Option && enclosingInfo.Kind != PropagationKind.Option))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                resultType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                enclosingInfo.UnionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.OperatorToken.GetLocation());
+            return;
+        }
+
+        if (kind != BoundCarrierKind.Result ||
+            resultErrorType is null ||
+            enclosingInfo.ErrorPayloadType is null)
+        {
+            return;
+        }
+
+        var errorConversion = Compilation.ClassifyConversion(resultErrorType, enclosingInfo.ErrorPayloadType);
+        if (!errorConversion.Exists)
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                resultErrorType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.OperatorToken.GetLocation());
+        }
+    }
+
+    private static bool IsDirectReturnExpression(ConditionalAccessExpressionSyntax syntax)
+    {
+        if (syntax.Parent is ReturnStatementSyntax returnStatement &&
+            ReferenceEquals(returnStatement.Expression, syntax))
+        {
+            return true;
+        }
+
+        return syntax.Parent is ArrowExpressionClauseSyntax arrowExpressionClause &&
+               ReferenceEquals(arrowExpressionClause.Expression, syntax);
     }
 
     private static INamedTypeSymbol? FindNestedCase(INamedTypeSymbol carrier, string name)

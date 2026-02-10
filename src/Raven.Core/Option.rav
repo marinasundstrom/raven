@@ -57,7 +57,7 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
         val @case = root.GetProperty("case").GetString()
 
         return @case match {
-            "Some" => .Some(root.GetProperty("value").Deserialize<T>(options))
+            "Some" => .Some(JsonSerializer.Deserialize<T>(root.GetProperty("value"), options))
             "None" => .None
             _ => .None
         }
