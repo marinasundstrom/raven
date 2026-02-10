@@ -54,20 +54,15 @@ internal class Program
         var solution = Workspace.CurrentSolution.AddDocument(_documentId, documentName, sourceText);
 
         var targetFrameworkTfm = "net9.0";
-
         var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
         var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
-        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
-        foreach (var refPath in new[]
+        var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
+
+        foreach (var reference in frameworkReferences)
         {
-            Path.Combine(refAssembliesPath!, "System.Runtime.dll"),
-            Path.Combine(refAssembliesPath!, "System.Collections.dll"),
-            typeof(Console).Assembly.Location,
-            //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll"))
-        })
-        {
-            var reference = MetadataReference.CreateFromFile(Path.GetFullPath(refPath));
             solution = solution.AddMetadataReference(_projectId, reference);
         }
 
