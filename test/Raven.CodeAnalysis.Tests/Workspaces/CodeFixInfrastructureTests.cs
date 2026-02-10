@@ -238,4 +238,47 @@ func Test() {
         Assert.Equal(1, applyResult.AppliedFixCount);
         Assert.Contains("val first = arr.FirstOrNone()", updatedText, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ApplyCodeFixes_PreferIsNullOverEquality_RewritesToIsNotNull()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+class C
+{
+    Run(x: int?) -> unit
+    {
+        if x != null { }
+    }
+}
+""";
+
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferIsNullOverEqualityAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDiagnostics(projectId);
+        Assert.Contains(diagnostics, d => d.Id == PreferIsNullOverEqualityAnalyzer.DiagnosticId);
+
+        var applyResult = workspace.ApplyCodeFixes(
+            projectId,
+            [new PreferIsNullOverEqualityCodeFixProvider()]);
+
+        workspace.TryApplyChanges(applyResult.Solution);
+        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
+        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
+
+        Assert.Equal(1, applyResult.AppliedFixCount);
+        Assert.Contains("if x is not null { }", updatedText, StringComparison.Ordinal);
+    }
 }

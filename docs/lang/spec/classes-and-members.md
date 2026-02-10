@@ -456,8 +456,9 @@ resolved using the same extension lookup rules as other static extension
 members.
 
 For null checks, prefer `is null` / `is not null` when you need strict
-nullability narrowing. Equality checks (`== null`, `!= null`) may bind to
-user-defined operators; in that case Raven warns and does not narrow.
+nullability narrowing. Raven's analyzer recommends these forms over
+`== null`/`!= null` and provides a code fix. Pointer-like comparisons are
+excluded from that recommendation.
 
 ### Invocation operator
 

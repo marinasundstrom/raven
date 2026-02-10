@@ -181,7 +181,7 @@ val ne = a != b
     }
 
     [Fact]
-    public void NullCheck_WithUserDefinedEquality_ReportsFriendlyWarning_AndDoesNotNarrow()
+    public void NullCheck_WithUserDefinedEquality_DoesNotNarrow()
     {
         var source = """
 class Number
@@ -208,7 +208,6 @@ class C
         var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NullCheckUsesUserDefinedEquality);
         Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
     }
 }

@@ -164,10 +164,11 @@ form but influence static flow analysis and conversion rules.
 Raven treats `is null` and `is not null` as the strict null-check forms for
 flow analysis. These forms always participate in nullability narrowing.
 
-`== null` and `!= null` are also valid, but narrowing is only applied when the
-comparison binds to built-in null comparison semantics. If overload resolution
-selects a user-defined equality operator, Raven reports a warning and does not
-narrow nullability in that branch.
+`== null` and `!= null` are also valid. Flow narrowing only applies when the
+comparison follows built-in null-comparison semantics.
+
+Raven includes an analyzer that recommends replacing `== null`/`!= null` with
+`is null`/`is not null` for strict checks. Pointer-like comparisons are exempt.
 
 Warning message:
 

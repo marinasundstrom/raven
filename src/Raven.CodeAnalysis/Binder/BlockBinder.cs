@@ -5441,7 +5441,6 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        ReportNullCheckUsesUserDefinedEqualityIfNeeded(opKind, left, right, diagnosticLocation ?? callSyntax?.GetLocation());
         var converted = ConvertArguments(method.Parameters, arguments);
         return new BoundInvocationExpression(method, converted);
     }
@@ -5516,7 +5515,6 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        ReportNullCheckUsesUserDefinedEqualityIfNeeded(opKind, left, right, diagnosticLocation ?? callSyntax?.GetLocation());
         var convertedArguments = ConvertArguments(method.Parameters, liftedArguments);
         var invocation = (BoundExpression)new BoundInvocationExpression(method, convertedArguments);
         var isInequality = opKind == SyntaxKind.NotEqualsToken;
@@ -5537,21 +5535,6 @@ partial class BlockBinder : Binder
             : CreateNullableHasValueCondition(right);
         var whenNull = CreateBoolLiteral(isInequality);
         return new BoundIfExpression(hasValue, invocation, whenNull);
-    }
-
-    private void ReportNullCheckUsesUserDefinedEqualityIfNeeded(
-        SyntaxKind opKind,
-        BoundExpression left,
-        BoundExpression right,
-        Location? location)
-    {
-        if (opKind is not (SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken))
-            return;
-
-        if (!IsNullLiteral(left) && !IsNullLiteral(right))
-            return;
-
-        _diagnostics.ReportNullCheckUsesUserDefinedEquality(location ?? Location.None);
     }
 
     private BoundExpression CreateNullableHasValueCondition(BoundExpression nullableOperand)
