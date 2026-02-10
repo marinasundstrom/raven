@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,13 +32,15 @@ internal class Program
     private static readonly List<string> Problems = new();
     private static ListView? _outputView;
     private static ListView? _problemsView;
+    private static Window? _mainWindow;
     private static Window? _completionWin;
     private static ListView? _completionList;
     private static CompletionItem[] _currentItems = Array.Empty<CompletionItem>();
     private static string[] _currentCompletions = Array.Empty<string>();
     private static CodeTextView? _editor;
-    private const int CompletionDebounceMs = 100;
+    private const int CompletionDebounceMs = 40;
     private readonly record struct CompletionContext(string Text, int Row, int Start, int Position);
+    private static string _baseWindowTitle = "Raven Editor";
 
     public static void Main(string[] args)
     {
@@ -123,16 +128,55 @@ internal class Program
         var windowTitle = string.IsNullOrEmpty(filePath)
             ? "Raven Editor"
             : $"Raven Editor - {documentName}";
+        _baseWindowTitle = windowTitle;
 
         var win = new Window(windowTitle)
         {
             X = 0,
-            Y = 0,
+            Y = 1,
             Width = Dim.Fill(),
-            Height = Dim.Fill()
+            Height = Dim.Fill(1)
         };
+        _mainWindow = win;
         win.Add(editor, problemsFrame, outputFrame);
-        Application.Top.Add(win);
+
+        var menu = new MenuBar(new[]
+        {
+            new MenuBarItem("_File", new[]
+            {
+                new MenuItem("_Save", string.Empty, () =>
+                {
+                    SaveDocument(filePath, editor);
+                }, null, null, Key.CtrlMask | Key.S),
+                new MenuItem("_Quit", string.Empty, () => Application.RequestStop(), null, null, Key.CtrlMask | Key.C)
+            }),
+            new MenuBarItem("_Build", new[]
+            {
+                new MenuItem("_Compile", string.Empty, () => Compile(editor.Text?.ToString() ?? string.Empty), null, null, Key.F7),
+                new MenuItem("Compile and _Run", string.Empty, () => CompileAndRun(editor.Text?.ToString() ?? string.Empty), null, null, Key.F5)
+            }),
+            new MenuBarItem("_Edit", new[]
+            {
+                new MenuItem("_Format", string.Empty, () => FormatDocument(editor), null, null, Key.F8)
+            })
+        });
+
+        var statusBar = new StatusBar(new[]
+        {
+            new StatusItem(Key.CtrlMask | Key.S, "~^S~ Save", () =>
+            {
+                SaveDocument(filePath, editor);
+            }),
+            new StatusItem(Key.F7, "~F7~ Compile", () =>
+                Compile(editor.Text?.ToString() ?? string.Empty)),
+            new StatusItem(Key.F5, "~F5~ Run", () =>
+                CompileAndRun(editor.Text?.ToString() ?? string.Empty)),
+            new StatusItem(Key.F8, "~F8~ Format", () =>
+                FormatDocument(editor)),
+            new StatusItem(Key.CtrlMask | Key.C, "~^C~ Exit", () => Application.RequestStop())
+        });
+
+        Application.Top.Add(menu, win, statusBar);
 
         editor.KeyPress += e =>
         {
@@ -167,8 +211,7 @@ internal class Program
             }
             else if (e.KeyEvent.Key == (Key.CtrlMask | Key.S))
             {
-                if (!string.IsNullOrEmpty(filePath))
-                    File.WriteAllText(filePath, editor.Text.ToString());
+                SaveDocument(filePath, editor);
                 e.Handled = true;
             }
             else if (e.KeyEvent.Key == (Key.CtrlMask | Key.C))
@@ -176,10 +219,37 @@ internal class Program
                 Application.RequestStop();
                 e.Handled = true;
             }
-            else if (e.KeyEvent.Key == Key.F5)
+            else if (IsBuildShortcut(e.KeyEvent))
             {
                 Compile(editor.Text?.ToString() ?? string.Empty);
                 e.Handled = true;
+            }
+            else if (IsRunShortcut(e.KeyEvent))
+            {
+                CompileAndRun(editor.Text?.ToString() ?? string.Empty);
+                e.Handled = true;
+            }
+            else if (IsFormatShortcut(e.KeyEvent))
+            {
+                FormatDocument(editor);
+                e.Handled = true;
+            }
+            else if (IsManualCompletionShortcut(e.KeyEvent))
+            {
+                _completionCts?.Cancel();
+                _completionCts?.Dispose();
+                _completionCts = null;
+                _ = ShowCompletionAsync(editor, CancellationToken.None);
+                e.Handled = true;
+            }
+            else if (e.KeyEvent.Key == Key.F6) // legacy alias
+            {
+                CompileAndRun(editor.Text?.ToString() ?? string.Empty);
+                e.Handled = true;
+            }
+            else if (IsCompletionTriggerKey(e.KeyEvent))
+            {
+                ScheduleCompletion(editor, debounceMs: 0);
             }
             else if (!e.KeyEvent.IsCtrl && !e.KeyEvent.IsAlt && e.KeyEvent.KeyValue >= 32 && e.KeyEvent.KeyValue <= 126)
             {
@@ -354,7 +424,7 @@ internal class Program
         _ = ShowCompletionAsync(editor, CancellationToken.None);
     }
 
-    private static void ScheduleCompletion(CodeTextView editor)
+    private static void ScheduleCompletion(CodeTextView editor, int debounceMs = CompletionDebounceMs)
     {
         _completionCts?.Cancel();
         _completionCts?.Dispose();
@@ -366,7 +436,9 @@ internal class Program
         {
             try
             {
-                await Task.Delay(CompletionDebounceMs, cts.Token);
+                if (debounceMs > 0)
+                    await Task.Delay(debounceMs, cts.Token);
+
                 if (cts.Token.IsCancellationRequested)
                     return;
 
@@ -470,13 +542,21 @@ internal class Program
 
     private static void Compile(string source)
     {
-        _ = CompileAsync(source);
+        _ = CompileAsync(source, runAfterCompile: false);
     }
 
-    private static async Task CompileAsync(string source)
+    private static void CompileAndRun(string source)
     {
+        _ = CompileAsync(source, runAfterCompile: true);
+    }
+
+    private static async Task CompileAsync(string source, bool runAfterCompile)
+    {
+        string? emittedAssemblyPath = null;
         try
         {
+            await InvokeOnMainLoopAsync(() => SetStatus("Compiling...")).ConfigureAwait(false);
+
             lock (WorkspaceGate)
             {
                 var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, SourceText.From(source));
@@ -485,11 +565,31 @@ internal class Program
             }
 
             var diagnostics = await Task.Run(() => Workspace.GetDiagnostics(_projectId)).ConfigureAwait(false);
+
+            if (runAfterCompile && !diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
+            {
+                await InvokeOnMainLoopAsync(() => SetStatus("Preparing run...")).ConfigureAwait(false);
+
+                Compilation compilation;
+                lock (WorkspaceGate)
+                {
+                    compilation = Workspace.GetCompilation(_projectId);
+                }
+
+                emittedAssemblyPath = Path.Combine(Path.GetTempPath(), $"raven-editor-{Guid.NewGuid():N}.dll");
+                await using var peStream = File.Open(emittedAssemblyPath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                var emitResult = await Task.Run(() => compilation.Emit(peStream)).ConfigureAwait(false);
+                diagnostics = diagnostics.Concat(emitResult.Diagnostics).Distinct().ToImmutableArray();
+
+                if (emitResult.Success)
+                    CreateRuntimeConfigForAssembly(emittedAssemblyPath);
+            }
+
             await InvokeOnMainLoopAsync(() =>
             {
                 Output.Clear();
                 Problems.Clear();
-                if (diagnostics.IsDefaultOrEmpty)
+                if (!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
                 {
                     Output.Add("Compilation succeeded");
                 }
@@ -501,6 +601,37 @@ internal class Program
                 _outputView!.SetSource(Output);
                 _problemsView!.SetSource(Problems);
             }).ConfigureAwait(false);
+
+            if (runAfterCompile && !diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error) && emittedAssemblyPath is not null)
+            {
+                await InvokeOnMainLoopAsync(() => SetStatus("Running program...")).ConfigureAwait(false);
+                var (exitCode, stdout, stderr) = await RunAssemblyAsync(emittedAssemblyPath).ConfigureAwait(false);
+
+                await InvokeOnMainLoopAsync(() =>
+                {
+                    if (!string.IsNullOrWhiteSpace(stdout))
+                    {
+                        foreach (var line in SplitLines(stdout))
+                            Output.Add(line);
+                    }
+
+                    Output.Add($"Program exited with code {exitCode}");
+
+                    if (!string.IsNullOrWhiteSpace(stderr))
+                    {
+                        foreach (var line in SplitLines(stderr))
+                            Problems.Add(line);
+                    }
+
+                    _outputView!.SetSource(Output);
+                    _problemsView!.SetSource(Problems);
+                }).ConfigureAwait(false);
+            }
+
+            await InvokeOnMainLoopAsync(() =>
+                SetStatus(diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)
+                    ? "Compilation failed"
+                    : "Ready")).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -512,8 +643,193 @@ internal class Program
                 Problems.Add(ex.ToString());
                 _outputView!.SetSource(Output);
                 _problemsView!.SetSource(Problems);
+                SetStatus("Compilation failed");
             }).ConfigureAwait(false);
         }
+        finally
+        {
+            var runtimeConfigPath = emittedAssemblyPath is null
+                ? null
+                : Path.ChangeExtension(emittedAssemblyPath, "runtimeconfig.json");
+
+            if (emittedAssemblyPath is not null && File.Exists(emittedAssemblyPath))
+            {
+                try
+                {
+                    File.Delete(emittedAssemblyPath);
+                }
+                catch
+                {
+                    // Best-effort cleanup for temporary run artifacts.
+                }
+            }
+
+            if (runtimeConfigPath is not null && File.Exists(runtimeConfigPath))
+            {
+                try
+                {
+                    File.Delete(runtimeConfigPath);
+                }
+                catch
+                {
+                    // Best-effort cleanup for temporary run artifacts.
+                }
+            }
+        }
+    }
+
+    private static async Task<(int ExitCode, string StdOut, string StdErr)> RunAssemblyAsync(string outputFilePath)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }
+        };
+        process.StartInfo.ArgumentList.Add(outputFilePath);
+
+        if (!process.Start())
+            throw new InvalidOperationException("Failed to start the produced assembly.");
+
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync().ConfigureAwait(false);
+
+        var stdout = await stdoutTask.ConfigureAwait(false);
+        var stderr = await stderrTask.ConfigureAwait(false);
+        return (process.ExitCode, stdout, stderr);
+    }
+
+    private static void CreateRuntimeConfigForAssembly(string assemblyPath)
+    {
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, "runtimeconfig.json");
+        var runtimeConfig = new
+        {
+            runtimeOptions = new
+            {
+                tfm = "net9.0",
+                framework = new
+                {
+                    name = "Microsoft.NETCore.App",
+                    version = "9.0.0"
+                }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(runtimeConfig, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        File.WriteAllText(runtimeConfigPath, json);
+    }
+
+    private static IEnumerable<string> SplitLines(string text)
+    {
+        return text
+            .Replace("\r\n", "\n")
+            .Replace("\r", "\n")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    private static bool IsBuildShortcut(KeyEvent keyEvent)
+    {
+        var key = keyEvent.Key;
+        return key == (Key.CtrlMask | Key.ShiftMask | Key.B)
+               || key == (Key.CtrlMask | Key.B)
+               || key == (Key.AltMask | Key.B)
+               || key == (Key.CtrlMask | Key.F5)
+               || key == Key.F7;
+    }
+
+    private static bool IsRunShortcut(KeyEvent keyEvent)
+    {
+        var key = keyEvent.Key;
+        return key == Key.F5;
+    }
+
+    private static bool IsFormatShortcut(KeyEvent keyEvent)
+    {
+        var key = keyEvent.Key;
+        return key == (Key.CtrlMask | Key.ShiftMask | Key.F)
+               || key == (Key.CtrlMask | Key.F)
+               || key == (Key.AltMask | Key.F)
+               || key == Key.F8;
+    }
+
+    private static bool IsManualCompletionShortcut(KeyEvent keyEvent)
+    {
+        var key = keyEvent.Key;
+        return key == (Key.CtrlMask | Key.Space);
+    }
+
+    private static bool IsCompletionTriggerKey(KeyEvent keyEvent)
+    {
+        if (keyEvent.IsCtrl || keyEvent.IsAlt)
+            return false;
+
+        return keyEvent.KeyValue is '.' or ':';
+    }
+
+    private static void SaveDocument(string filePath, CodeTextView editor)
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            SetStatus("Save failed (no file path)");
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(filePath, editor.Text?.ToString() ?? string.Empty);
+            SetStatus("Saved");
+        }
+        catch
+        {
+            SetStatus("Save failed");
+        }
+    }
+
+    private static void FormatDocument(CodeTextView editor)
+    {
+        _ = FormatDocumentAsync(editor);
+    }
+
+    private static async Task FormatDocumentAsync(CodeTextView editor)
+    {
+        try
+        {
+            await InvokeOnMainLoopAsync(() => SetStatus("Formatting...")).ConfigureAwait(false);
+            var text = await InvokeOnMainLoopAsync(() => editor.Text?.ToString() ?? string.Empty).ConfigureAwait(false);
+
+            var tree = SyntaxTree.ParseText(text);
+            var normalizer = new SyntaxNormalizer();
+            var formattedRoot = normalizer.Visit(tree.GetRoot());
+            var formatted = formattedRoot.ToFullString();
+
+            await InvokeOnMainLoopAsync(() =>
+            {
+                editor.Text = formatted;
+                SetStatus("Ready");
+            }).ConfigureAwait(false);
+        }
+        catch
+        {
+            await InvokeOnMainLoopAsync(() => SetStatus("Format failed")).ConfigureAwait(false);
+        }
+    }
+
+    private static void SetStatus(string? status)
+    {
+        if (_mainWindow is null)
+            return;
+
+        var suffix = string.IsNullOrWhiteSpace(status) ? string.Empty : $" [{status}]";
+        _mainWindow.Title = _baseWindowTitle + suffix;
+        _mainWindow.SetNeedsDisplay();
     }
 
     private static Task InvokeOnMainLoopAsync(Action action)

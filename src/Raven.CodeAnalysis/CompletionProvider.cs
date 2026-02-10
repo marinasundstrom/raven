@@ -581,7 +581,7 @@ public static class CompletionProvider
                 {
                     var prefix = memberAccess.Name.Identifier.ValueText;
                     var nameSpan = memberAccess.Name.Identifier.IsMissing
-                        ? new TextSpan(position, 0)
+                        ? new TextSpan(dotToken.End, 0)
                         : memberAccess.Name.Identifier.Span;
 
                     foreach (var member in members.Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))

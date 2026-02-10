@@ -319,4 +319,32 @@ widget.
         var updated = ApplyCompletion(code, @double);
         Assert.EndsWith("widget.Double()", updated, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void GetCompletions_OnMissingMemberNameInInvocationArgument_InsertsAfterDot()
+    {
+        var code = """
+func WriteLine(value: int) -> unit { }
+
+val x = 2
+WriteLine(x.)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+        var toString = Assert.Single(items.Where(i => i.DisplayText == "ToString"));
+
+        var dotIndex = code.LastIndexOf('.');
+        Assert.Equal(new TextSpan(dotIndex + 1, 0), toString.ReplacementSpan);
+
+        var updated = ApplyCompletion(code, toString);
+        Assert.EndsWith("WriteLine(x.ToString())", updated, StringComparison.Ordinal);
+    }
 }
