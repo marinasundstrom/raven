@@ -16,7 +16,7 @@ internal class EqualsValueClauseSyntaxParser : SyntaxParser
         var previous = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(false);
 
-        var expr = new ExpressionSyntaxParser(this).ParseExpression();
+        var expr = new ExpressionSyntaxParser(this, stopOnLeadingNewlineBinaryOperator: true).ParseExpression();
 
         SetTreatNewlinesAsTokens(previous);
 

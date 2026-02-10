@@ -132,6 +132,29 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Statement_NewlineContinuation_WithStarAndWhitespace_ParsesAsMultiplication()
+    {
+        // Arrange
+        var source = "let x =\n    2\n    * 3\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        // Act
+        var statement = (LocalDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
+        var value = statement.Declaration.Declarators[0].Initializer!.Value;
+
+        // Assert
+        var multiply = Assert.IsType<BinaryExpressionSyntax>(value);
+        Assert.Equal(SyntaxKind.MultiplyExpression, multiply.Kind);
+        Assert.Equal(SyntaxKind.StarToken, multiply.OperatorToken.Kind);
+        multiply.OperatorToken.TrailingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.WhitespaceTrivia,
+        });
+    }
+
+    [Fact]
     public void Statement_NewlineTerminator_PreservesTrailingComment()
     {
         // Arrange

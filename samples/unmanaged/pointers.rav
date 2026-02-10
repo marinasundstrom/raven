@@ -3,12 +3,22 @@ import System.Console.*
 func Main() -> () {
     val value = Run()
     WriteLine(value)
+
+    val value2 = Run2()
+    WriteLine(value2)
 }
 
 unsafe func Run() -> int {
     val holder = Holder()
     val pointer: *Holder = &holder
     return pointer->Value
+}
+
+unsafe func Run2() -> int {
+    var value = 41
+    val pointer: *int = &value
+    *pointer = 42
+    return value
 }
 
 struct Holder {

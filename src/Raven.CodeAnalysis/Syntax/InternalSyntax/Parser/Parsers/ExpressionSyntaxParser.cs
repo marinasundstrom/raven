@@ -351,7 +351,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (!TryResolveOperatorPrecedence(operatorCandidate, out prec))
                 return expr ?? new ExpressionSyntax.Missing();
 
-            if (_stopOnLeadingNewlineBinaryOperator && HasLeadingNewLine(operatorCandidate))
+            // In some contexts (e.g., equals-value initializers), a leading `*` on the
+            // next line can start a dereference statement (e.g., `val p = &x` then `*p = 1`).
+            // Only stop continuation for the `*identifier` shape (no trailing whitespace after `*`),
+            // so newline multiplication like `* 3` can still continue.
+            if (_stopOnLeadingNewlineBinaryOperator
+                && IsLeadingDereferenceLikeStar(operatorCandidate))
                 return expr ?? new ExpressionSyntax.Missing();
 
             if (prec >= precedence)
@@ -1320,6 +1325,25 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return false;
+    }
+
+    private bool IsLeadingDereferenceLikeStar(SyntaxToken token)
+    {
+        if (!token.IsKind(SyntaxKind.StarToken))
+            return false;
+
+        if (!HasLeadingNewLine(token))
+            return false;
+
+        // Require immediate `*identifier` adjacency: no trivia between the tokens.
+        if (token.TrailingTrivia.Width != 0)
+            return false;
+
+        var next = PeekToken(1);
+        if (!CanTokenBeIdentifier(next))
+            return false;
+
+        return next.LeadingTrivia.Width == 0;
     }
 
     private TupleExpressionSyntax ParseTupleExpressionSyntax()
