@@ -172,11 +172,7 @@ public partial class SemanticModel
         if (boundExpr is null)
             return new TypeInfo(null, null);
 
-        ITypeSymbol? naturalType = boundExpr switch
-        {
-            BoundConversionExpression cast => cast.Expression.Type,
-            _ => boundExpr.Type
-        };
+        ITypeSymbol? naturalType = boundExpr.Type;
 
         ITypeSymbol? convertedType = boundExpr.GetConvertedType() ?? boundExpr.Type;
 

@@ -32,7 +32,7 @@ val x: double = 1
     }
 
     [Fact]
-    public void GetTypeInfo_ExplicitCast_ReportsExplicitNumericConversion()
+    public void GetTypeInfo_ExplicitCast_ReportsNumericConversionAndResultType()
     {
         const string source = """
 val x = (double)1
@@ -45,8 +45,9 @@ val x = (double)1
         var cast = tree.GetRoot().DescendantNodes().OfType<CastExpressionSyntax>().Single();
         var typeInfo = model.GetTypeInfo(cast);
 
-        Assert.NotNull(typeInfo.Type);
+        Assert.Equal(SpecialType.System_Double, typeInfo.Type?.SpecialType);
         Assert.Equal(SpecialType.System_Double, typeInfo.ConvertedType?.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType));
         Assert.True(typeInfo.Conversion.Exists);
         Assert.True(typeInfo.Conversion.IsNumeric);
         Assert.False(typeInfo.Conversion.IsIdentity);
