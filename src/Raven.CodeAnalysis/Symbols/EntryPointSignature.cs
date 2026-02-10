@@ -45,8 +45,19 @@ internal static class EntryPointSignature
                 var intType = compilation.GetSpecialType(SpecialType.System_Int32);
                 if (!named.TypeArguments.IsDefaultOrEmpty && SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], intType))
                     return true;
+
+                if (!named.TypeArguments.IsDefaultOrEmpty &&
+                    TryGetResultType(named.TypeArguments[0], out _, out var okType, out _) &&
+                    IsSupportedResultOkType(okType))
+                {
+                    return true;
+                }
             }
         }
+
+        if (TryGetResultType(returnType, out _, out var directOkType, out _) &&
+            IsSupportedResultOkType(directOkType))
+            return true;
 
         return false;
     }
@@ -71,6 +82,16 @@ internal static class EntryPointSignature
                 {
                     returnsInt = true;
                     return true;
+                }
+
+                if (!named.TypeArguments.IsDefaultOrEmpty &&
+                    TryGetResultType(named.TypeArguments[0], out _, out var okType, out _))
+                {
+                    if (IsSupportedResultOkType(okType))
+                    {
+                        returnsInt = okType.SpecialType == SpecialType.System_Int32;
+                        return true;
+                    }
                 }
             }
         }
@@ -105,6 +126,24 @@ internal static class EntryPointSignature
             : compilation.GetSpecialType(SpecialType.System_Unit);
     }
 
+    public static ITypeSymbol ResolveBridgeReturnType(Compilation compilation, ITypeSymbol returnType)
+    {
+        if (TryGetResultPayloadTypes(returnType, out var okType, out _, out _))
+        {
+            return okType.SpecialType == SpecialType.System_Int32
+                ? compilation.GetSpecialType(SpecialType.System_Int32)
+                : compilation.GetSpecialType(SpecialType.System_Unit);
+        }
+
+        if (returnType.SpecialType == SpecialType.System_Int32)
+            return compilation.GetSpecialType(SpecialType.System_Int32);
+
+        if (IsAsyncReturnType(returnType, compilation, out var returnsInt))
+            return ResolveReturnType(compilation, returnsInt);
+
+        return compilation.GetSpecialType(SpecialType.System_Unit);
+    }
+
     public static ITypeSymbol ResolveAsyncReturnType(Compilation compilation, IAssemblySymbol assembly, bool returnsInt)
     {
         if (returnsInt && assembly.GetTypeByMetadataName("System.Threading.Tasks.Task`1") is INamedTypeSymbol taskOfT)
@@ -128,6 +167,39 @@ internal static class EntryPointSignature
         return new ArrayTypeSymbol(arrayType, stringType, arrayType.ContainingSymbol, null, arrayType.ContainingNamespace, Array.Empty<Location>());
     }
 
+    public static bool RequiresEntryPointBridge(ITypeSymbol returnType, Compilation compilation)
+    {
+        return IsAsyncReturnType(returnType, compilation, out _) ||
+            TryGetResultPayloadTypes(returnType, out _, out _, out _);
+    }
+
+    public static bool TryGetResultPayloadTypes(
+        ITypeSymbol returnType,
+        out ITypeSymbol okType,
+        out ITypeSymbol errorType,
+        out bool asyncWrapped)
+    {
+        okType = null!;
+        errorType = null!;
+        asyncWrapped = false;
+
+        if (TryGetResultType(returnType, out _, out okType, out errorType))
+            return true;
+
+        if (returnType is INamedTypeSymbol named &&
+            !named.IsUnboundGenericType &&
+            named.Arity == 1 &&
+            IsTaskOfT(named, taskOfT: null) &&
+            !named.TypeArguments.IsDefaultOrEmpty &&
+            TryGetResultType(named.TypeArguments[0], out _, out okType, out errorType))
+        {
+            asyncWrapped = true;
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool IsTaskType(INamedTypeSymbol namedReturn, INamedTypeSymbol? taskType)
     {
         if (taskType is not null && SymbolEqualityComparer.Default.Equals(namedReturn, taskType))
@@ -144,6 +216,38 @@ internal static class EntryPointSignature
 
         return named.OriginalDefinition.MetadataName == "Task`1"
             && IsInNamespace(named.OriginalDefinition.ContainingNamespace, "System.Threading.Tasks");
+    }
+
+    private static bool TryGetResultType(
+        ITypeSymbol type,
+        out INamedTypeSymbol resultType,
+        out ITypeSymbol okType,
+        out ITypeSymbol errorType)
+    {
+        resultType = null!;
+        okType = null!;
+        errorType = null!;
+
+        type = type.UnwrapLiteralType() ?? type;
+
+        if (type is not INamedTypeSymbol named ||
+            named.IsUnboundGenericType ||
+            named.Arity != 2 ||
+            !string.Equals(named.Name, "Result", StringComparison.Ordinal) ||
+            named.TypeArguments.Length != 2)
+        {
+            return false;
+        }
+
+        resultType = named;
+        okType = named.TypeArguments[0];
+        errorType = named.TypeArguments[1];
+        return true;
+    }
+
+    private static bool IsSupportedResultOkType(ITypeSymbol okType)
+    {
+        return okType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Unit;
     }
 
     private static bool IsInNamespace(INamespaceSymbol? namespaceSymbol, string qualifiedNamespace)

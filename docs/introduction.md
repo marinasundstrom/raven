@@ -343,7 +343,7 @@ val value = try int.Parse(text) match {
 async func DownloadLength(url: string) -> Task<int> {
     use http = HttpClient()
     val text = await http.GetStringAsync(url)
-    return text.Length
+    text.Length
 }
 ```
 

@@ -1,0 +1,21 @@
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Main(args: string[]) -> Task<Result<int, CustomError>> {
+
+    await Task.Delay(200)
+
+    if args.Length == 0 {
+        val x = Test()?
+        return .Error(CustomError("Baam"))
+    }
+
+    .Ok(42)
+}
+
+func Test() -> Result<int, CustomError> {
+    .Error(CustomError("Baam"))
+}
+
+record class CustomError(Message: string)

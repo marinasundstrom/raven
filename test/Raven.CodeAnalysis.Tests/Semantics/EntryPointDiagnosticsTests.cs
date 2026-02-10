@@ -87,10 +87,40 @@ class Program {
 
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointHasInvalidSignature);
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.EntryPointHasInvalidSignature));
+        Assert.Equal("Main", tree.GetText().ToString(diagnostic.Location.SourceSpan));
 
         var entryPoint = compilation.GetEntryPoint();
         Assert.Null(entryPoint);
+    }
+
+    [Fact]
+    public void ConsoleApp_WithResultOfStringMain_ProducesInvalidSignatureDiagnostic()
+    {
+        var code = """
+public union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class Program {
+    static Main() -> Result<string, string> {
+        .Ok("done")
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "app",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.EntryPointHasInvalidSignature));
+        Assert.Equal("Main", tree.GetText().ToString(diagnostic.Location.SourceSpan));
+        Assert.Null(compilation.GetEntryPoint());
     }
 
     [Fact]

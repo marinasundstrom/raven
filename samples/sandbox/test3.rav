@@ -25,7 +25,7 @@ func tap(value: Option<int>) -> Option<int> {
     return value
 }
 
-func inferLabel(x: int) -> {
+func inferLabel(x: int) -> string {
     if x > 0 { return "gt0" }
     "le0"
 }

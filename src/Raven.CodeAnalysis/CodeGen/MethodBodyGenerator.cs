@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.SymbolStore;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -30,6 +31,12 @@ internal class MethodBodyGenerator
     private static readonly Guid DocumentTypeId = new("5a869d0b-6611-11d3-bd2a-0000f80849bd");
     private static readonly Guid DocumentVendorId = new("994b45c4-e6e9-11d2-903f-00c04fa302a1");
     private static readonly Guid Sha256AlgorithmId = new("8829d00f-11b8-4213-878b-770e8597ac16");
+    private static readonly MethodInfo ConsoleErrorGetter =
+        typeof(Console).GetProperty(nameof(Console.Error))?.GetMethod
+        ?? throw new InvalidOperationException("System.Console.Error getter was not found.");
+    private static readonly MethodInfo TextWriterWriteLineObject =
+        typeof(TextWriter).GetMethod(nameof(TextWriter.WriteLine), [typeof(object)])
+        ?? throw new InvalidOperationException("System.IO.TextWriter.WriteLine(object) was not found.");
 
     public MethodBodyGenerator(MethodGenerator methodGenerator)
     {
@@ -610,34 +617,44 @@ internal class MethodBodyGenerator
         }
     }
 
-    private void EmitEntryPointBridge(IMethodSymbol bridgeMethod, IMethodSymbol asyncImplementation)
+    private void EmitEntryPointBridge(IMethodSymbol bridgeMethod, IMethodSymbol implementationMethod)
     {
-        if (!AwaitablePattern.TryFind(asyncImplementation.ReturnType, isAccessible: null, out var awaitable, out _, out _))
-            throw new NotSupportedException("Async entry point return type is not awaitable.");
-
         var codeGen = MethodGenerator.TypeGenerator.CodeGen;
-        var asyncMethodInfo = codeGen.RuntimeSymbolResolver.GetMethodInfo(asyncImplementation);
+        var implementationMethodInfo = codeGen.RuntimeSymbolResolver.GetMethodInfo(implementationMethod);
 
         if (bridgeMethod.Parameters.Length == 1)
             ILGenerator.Emit(OpCodes.Ldarg_0);
 
-        ILGenerator.Emit(GetCallOpCode(asyncImplementation, asyncMethodInfo), asyncMethodInfo);
+        ILGenerator.Emit(GetCallOpCode(implementationMethod, implementationMethodInfo), implementationMethodInfo);
 
-        var getAwaiter = codeGen.RuntimeSymbolResolver.GetMethodInfo(awaitable.GetAwaiterMethod);
-        ILGenerator.Emit(GetCallOpCode(awaitable.GetAwaiterMethod, getAwaiter), getAwaiter);
+        var producedType = implementationMethod.ReturnType;
 
-        var awaiterType = codeGen.RuntimeSymbolResolver.GetType(awaitable.AwaiterType, treatUnitAsVoid: true);
-        var awaiterLocal = ILGenerator.DeclareLocal(awaiterType);
-        awaiterLocal.SetLocalSymInfo("awaiter");
-        ILGenerator.Emit(OpCodes.Stloc, awaiterLocal);
-        ILGenerator.Emit(OpCodes.Ldloca, awaiterLocal);
+        if (AwaitablePattern.TryFind(implementationMethod.ReturnType, isAccessible: null, out var awaitable, out _, out _))
+        {
+            var getAwaiter = codeGen.RuntimeSymbolResolver.GetMethodInfo(awaitable.GetAwaiterMethod);
+            ILGenerator.Emit(GetCallOpCode(awaitable.GetAwaiterMethod, getAwaiter), getAwaiter);
 
-        var getResult = codeGen.RuntimeSymbolResolver.GetMethodInfo(awaitable.GetResultMethod);
-        ILGenerator.Emit(GetCallOpCode(awaitable.GetResultMethod, getResult), getResult);
+            var awaiterType = codeGen.RuntimeSymbolResolver.GetType(awaitable.AwaiterType, treatUnitAsVoid: true);
+            var awaiterLocal = ILGenerator.DeclareLocal(awaiterType);
+            awaiterLocal.SetLocalSymInfo("awaiter");
+            ILGenerator.Emit(OpCodes.Stloc, awaiterLocal);
+            ILGenerator.Emit(OpCodes.Ldloca, awaiterLocal);
+
+            var getResult = codeGen.RuntimeSymbolResolver.GetMethodInfo(awaitable.GetResultMethod);
+            ILGenerator.Emit(GetCallOpCode(awaitable.GetResultMethod, getResult), getResult);
+            producedType = awaitable.GetResultMethod.ReturnType;
+        }
+
+        if (EntryPointSignature.TryGetResultPayloadTypes(producedType, out _, out _, out _) &&
+            producedType is INamedTypeSymbol resultType)
+        {
+            EmitResultEntryPointBridgeReturn(bridgeMethod, resultType);
+            return;
+        }
 
         if (bridgeMethod.ReturnType.SpecialType == SpecialType.System_Unit)
         {
-            if (awaitable.GetResultMethod.ReturnType.SpecialType is not SpecialType.System_Void
+            if (producedType.SpecialType is not SpecialType.System_Void
                 and not SpecialType.System_Unit)
                 ILGenerator.Emit(OpCodes.Pop);
             ILGenerator.Emit(OpCodes.Ret);
@@ -646,6 +663,269 @@ internal class MethodBodyGenerator
 
         ILGenerator.Emit(OpCodes.Ret);
     }
+
+    private void EmitResultEntryPointBridgeReturn(IMethodSymbol bridgeMethod, INamedTypeSymbol resultType)
+    {
+        var codeGen = MethodGenerator.TypeGenerator.CodeGen;
+        var resultClrType = codeGen.RuntimeSymbolResolver.GetType(resultType, treatUnitAsVoid: true);
+        var resultLocal = ILGenerator.DeclareLocal(resultClrType);
+        resultLocal.SetLocalSymInfo("entryResult");
+        ILGenerator.Emit(OpCodes.Stloc, resultLocal);
+
+        var okMethod = FindSingleOutBoolMethod(resultType, "TryGetOk");
+        var errorMethod = FindSingleOutBoolMethod(resultType, "TryGetError");
+
+        var doneLabel = ILGenerator.DefineLabel();
+        var isIntBridge = bridgeMethod.ReturnType.SpecialType == SpecialType.System_Int32;
+
+        if (isIntBridge && okMethod is not null)
+        {
+            var okMethodInfo = codeGen.RuntimeSymbolResolver.GetMethodInfo(okMethod);
+            var okCaseRuntimeType = TryGetOutLocalElementType(okMethodInfo, resultClrType) ?? typeof(object);
+            var okCaseLocal = ILGenerator.DeclareLocal(okCaseRuntimeType);
+            okCaseLocal.SetLocalSymInfo("okCase");
+
+            var nextLabel = ILGenerator.DefineLabel();
+            EmitLoadInstanceReceiver(resultLocal, resultClrType);
+            ILGenerator.Emit(OpCodes.Ldloca, okCaseLocal);
+            ILGenerator.Emit(GetCallOpCode(okMethod, okMethodInfo), okMethodInfo);
+            ILGenerator.Emit(OpCodes.Brfalse_S, nextLabel);
+            EmitLoadCasePayload(okCaseLocal, okCaseRuntimeType, okMethod.Parameters[0].Type, "Value");
+            ILGenerator.Emit(OpCodes.Ret);
+            ILGenerator.MarkLabel(nextLabel);
+        }
+
+        if (errorMethod is not null)
+        {
+            var errorMethodInfo = codeGen.RuntimeSymbolResolver.GetMethodInfo(errorMethod);
+            var errorCaseRuntimeType = TryGetOutLocalElementType(errorMethodInfo, resultClrType) ?? typeof(object);
+            var errorCaseLocal = ILGenerator.DeclareLocal(errorCaseRuntimeType);
+            errorCaseLocal.SetLocalSymInfo("errorCase");
+
+            var nextLabel = ILGenerator.DefineLabel();
+            EmitLoadInstanceReceiver(resultLocal, resultClrType);
+            ILGenerator.Emit(OpCodes.Ldloca, errorCaseLocal);
+            ILGenerator.Emit(GetCallOpCode(errorMethod, errorMethodInfo), errorMethodInfo);
+            ILGenerator.Emit(OpCodes.Brfalse_S, nextLabel);
+            EmitWriteCasePayloadToStderr(errorCaseLocal, errorCaseRuntimeType, errorMethod.Parameters[0].Type, "Error");
+            ILGenerator.Emit(OpCodes.Br_S, doneLabel);
+            ILGenerator.MarkLabel(nextLabel);
+        }
+
+        ILGenerator.MarkLabel(doneLabel);
+
+        if (isIntBridge)
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private static Type? TryGetOutLocalElementType(MethodInfo methodInfo, Type carrierRuntimeType)
+    {
+        var parameters = methodInfo.GetParameters();
+        if (parameters.Length != 1)
+            return null;
+
+        var parameterType = parameters[0].ParameterType;
+        if (!parameterType.IsByRef)
+            return null;
+
+        var elementType = parameterType.GetElementType();
+        if (elementType is null)
+            return null;
+
+        var closed = CloseTypeFromMethodContext(elementType, methodInfo.DeclaringType);
+        return CloseNestedCarrierCaseType(closed, carrierRuntimeType);
+    }
+
+    private static Type CloseTypeFromMethodContext(Type type, Type? declaringType)
+    {
+        if (type.IsByRef)
+            return CloseTypeFromMethodContext(type.GetElementType()!, declaringType).MakeByRefType();
+
+        if (type.IsPointer)
+            return CloseTypeFromMethodContext(type.GetElementType()!, declaringType).MakePointerType();
+
+        if (type.IsArray)
+        {
+            var closedElement = CloseTypeFromMethodContext(type.GetElementType()!, declaringType);
+            return type.GetArrayRank() == 1
+                ? closedElement.MakeArrayType()
+                : closedElement.MakeArrayType(type.GetArrayRank());
+        }
+
+        if (type.IsGenericParameter)
+        {
+            if (type.DeclaringMethod is not null)
+                return type;
+
+            if (declaringType is { IsGenericType: true, ContainsGenericParameters: false })
+            {
+                var typeArguments = declaringType.GetGenericArguments();
+                var ordinal = type.GenericParameterPosition;
+                if ((uint)ordinal < (uint)typeArguments.Length)
+                    return typeArguments[ordinal];
+            }
+
+            return type;
+        }
+
+        if (!type.IsGenericType)
+            return type;
+
+        var definition = type.IsGenericTypeDefinition ? type : type.GetGenericTypeDefinition();
+        var arguments = type.GetGenericArguments();
+        var substituted = new Type[arguments.Length];
+        var changed = false;
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var updated = CloseTypeFromMethodContext(arguments[i], declaringType);
+            substituted[i] = updated;
+            if (!ReferenceEquals(updated, arguments[i]))
+                changed = true;
+        }
+
+        if (!changed)
+            return type;
+
+        return definition.MakeGenericType(substituted);
+    }
+
+    private static Type CloseNestedCarrierCaseType(Type caseType, Type carrierType)
+    {
+        if (!caseType.ContainsGenericParameters)
+            return caseType;
+
+        if (!carrierType.IsGenericType || carrierType.ContainsGenericParameters)
+            return caseType;
+
+        var flags = BindingFlags.Public | BindingFlags.NonPublic;
+        var nestedType = carrierType.GetNestedType(caseType.Name, flags);
+        if (nestedType is null)
+        {
+            var caseBaseName = caseType.Name.Split('`')[0];
+            nestedType = carrierType.GetNestedTypes(flags)
+                .FirstOrDefault(type =>
+                    string.Equals(type.Name, caseType.Name, StringComparison.Ordinal) ||
+                    string.Equals(type.Name.Split('`')[0], caseBaseName, StringComparison.Ordinal));
+        }
+
+        if (nestedType is not null && nestedType.ContainsGenericParameters)
+        {
+            var nestedDefinition = nestedType.IsGenericTypeDefinition
+                ? nestedType
+                : nestedType.GetGenericTypeDefinition();
+            var carrierArguments = carrierType.GetGenericArguments();
+            if (nestedDefinition.GetGenericArguments().Length == carrierArguments.Length)
+            {
+                nestedType = nestedDefinition.MakeGenericType(carrierArguments);
+            }
+        }
+
+        return nestedType ?? caseType;
+    }
+
+    private void EmitWriteCasePayloadToStderr(
+        IILocal caseLocal,
+        Type caseRuntimeType,
+        ITypeSymbol caseSymbolType,
+        string preferredPropertyName)
+    {
+        var payloadGetterSymbol = ResolveCasePayloadGetter(caseSymbolType, preferredPropertyName);
+
+        if (payloadGetterSymbol is null)
+        {
+            EmitWriteLocalObjectToStderr(caseLocal, caseRuntimeType);
+            return;
+        }
+
+        var payloadTypeSymbol = payloadGetterSymbol.ReturnType;
+        var payloadGetter = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetMethodInfo(payloadGetterSymbol);
+        ILGenerator.Emit(OpCodes.Call, ConsoleErrorGetter);
+        EmitLoadInstanceReceiver(caseLocal, caseRuntimeType);
+        ILGenerator.Emit(OpCodes.Call, payloadGetter);
+
+        if (!payloadTypeSymbol.IsReferenceType)
+        {
+            var payloadRuntimeType = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetType(payloadTypeSymbol, treatUnitAsVoid: true);
+            ILGenerator.Emit(OpCodes.Box, payloadRuntimeType);
+        }
+
+        ILGenerator.Emit(OpCodes.Callvirt, TextWriterWriteLineObject);
+    }
+
+    private void EmitLoadCasePayload(
+        IILocal caseLocal,
+        Type caseRuntimeType,
+        ITypeSymbol caseSymbolType,
+        string preferredPropertyName)
+    {
+        var payloadGetterSymbol = ResolveCasePayloadGetter(caseSymbolType, preferredPropertyName);
+        if (payloadGetterSymbol is null)
+            throw new InvalidOperationException("Could not resolve case payload getter.");
+
+        EmitLoadInstanceReceiver(caseLocal, caseRuntimeType);
+        var payloadGetter = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetMethodInfo(payloadGetterSymbol);
+        ILGenerator.Emit(OpCodes.Call, payloadGetter);
+    }
+
+    private static IMethodSymbol? ResolveCasePayloadGetter(ITypeSymbol caseSymbolType, string preferredPropertyName)
+    {
+        var normalizedCaseType = caseSymbolType.GetPlainType();
+        if (normalizedCaseType is ByRefTypeSymbol byRef)
+            normalizedCaseType = byRef.ElementType;
+
+        var caseNamedType = normalizedCaseType as INamedTypeSymbol;
+        var payloadGetterSymbol = caseNamedType?
+            .GetMembers(preferredPropertyName)
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(property => property.GetMethod is not null)
+            ?.GetMethod;
+
+        if (payloadGetterSymbol is null)
+        {
+            payloadGetterSymbol = caseNamedType?
+                .GetMembers()
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(property => property.GetMethod is not null)
+                ?.GetMethod;
+        }
+
+        return payloadGetterSymbol;
+    }
+
+    private void EmitLoadInstanceReceiver(IILocal local, Type localRuntimeType)
+    {
+        if (localRuntimeType.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Ldloca, local);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, local);
+    }
+
+    private void EmitWriteLocalObjectToStderr(IILocal local, Type runtimeType)
+    {
+        ILGenerator.Emit(OpCodes.Call, ConsoleErrorGetter);
+        ILGenerator.Emit(OpCodes.Ldloc, local);
+        if (runtimeType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, runtimeType);
+        ILGenerator.Emit(OpCodes.Callvirt, TextWriterWriteLineObject);
+    }
+
+    private static IMethodSymbol? FindSingleOutBoolMethod(INamedTypeSymbol type, string methodName)
+    {
+        return type.GetMembers(methodName)
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(method =>
+                method.Parameters.Length == 1 &&
+                method.Parameters[0].RefKind == RefKind.Out &&
+                method.ReturnType.SpecialType == SpecialType.System_Boolean);
+    }
+
+
 
     private static OpCode GetCallOpCode(IMethodSymbol methodSymbol, MethodInfo methodInfo)
     {

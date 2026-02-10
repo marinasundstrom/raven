@@ -2257,7 +2257,9 @@ project does not contain runnable file-scope statements, the compiler instead
 looks for a user-defined entry point. Any
 static method named `Main` qualifies when it meets the following requirements:
 
-* The method returns `unit`, `int`, `Task`, or `Task<int>`.
+* The method returns one of:
+  `unit`, `int`, `Task`, `Task<int>`, `Result<int, E>`, `Result<(), E>`,
+  `Task<Result<int, E>>`, or `Task<Result<(), E>>`.
 * It has no type parameters.
 * It declares either no parameters or a single parameter of type `string[]`
   (representing the command-line arguments).
@@ -2268,7 +2270,8 @@ the compilation. When no method qualifies, the compiler reports
 `Main` (including mixing top-level statements with a matching method) causes the
 compiler to emit `RAV1017` *Program has more than one entry point defined*.
 
-When the selected entry point returns `Task` or `Task<int>`, the compiler emits
+When the selected entry point returns `Task`, `Task<int>`, `Result<int, E>`,
+`Result<(), E>`, `Task<Result<int, E>>`, or `Task<Result<(), E>>`, the compiler emits
 an implicit synchronous bridge method in the entry point's containing type. For
 file-scope code the bridge is `Program.Main`, while user-defined async entries
 receive a synthesized `<Main>_EntryPoint` neighbor unless a synchronous `Main`
@@ -2282,9 +2285,14 @@ completes. Exceptions thrown from the async body bubble through the same
 purely synchronous entry point. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】【F:test/Raven.CodeAnalysis.Tests/CodeGen/CodeGeneratorTests.cs†L88-L144】
 
 Entry points that return `Task<int>` produce a bridge that awaits the async body
-and returns the awaited integer as the process exit code. The bridge also leaves
-console writes intact so the awaited value can be observed by both the caller
-and the host operating system. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L405-L476】
+and returns the awaited integer as the process exit code. Entry points that
+return `Result<int, E>` or `Task<Result<int, E>>` use `Ok(value)` as the process
+exit code. Entry points that return `Result<(), E>` or `Task<Result<(), E>>`
+produce no output on `Ok`, while `Error` payload data is printed to standard
+error.
+The bridge also leaves console writes intact so the awaited value can be
+observed by both the caller and the host operating system.
+【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L405-L476】
 
 Library and script output kinds ignore the entry point search; they never report
 missing or ambiguous entry-point diagnostics.
@@ -2534,6 +2542,8 @@ asynchronous work before storing values.
 
 Async declarations support both block bodies and expression bodies. Every
 `return` inside an async declaration completes the task produced by the method.
+For `async Task<T>` block bodies, a trailing expression statement is treated as
+an implicit return value and must convert to `T`.
 For `async Task` members each `return` statement must omit the expression;
 falling off the end of the body is equivalent to `return;`. For `async Task<T>`
 members, return expressions must convert to `T`.

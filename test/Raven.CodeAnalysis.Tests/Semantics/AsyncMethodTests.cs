@@ -141,6 +141,33 @@ class C {
     }
 
     [Fact]
+    public void AsyncTaskOfResult_BlockBody_AllowsTailExpressionWithoutReturn()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+union Result<T, E> {
+    Ok(value: T)
+    Error(data: E)
+}
+
+class C {
+    async f(v: int) -> Task<Result<int, string>> {
+        await Task.Yield()
+        if v < 0 {
+            return .Error("neg")
+        }
+
+        .Ok(v)
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void TopLevelAwait_PromotesSynthesizedMainToAsyncTask()
     {
         const string source = """

@@ -97,17 +97,17 @@ class MethodBodyBinder : BlockBinder
         var skipTrailingExpressionCheck = ShouldSkipTrailingExpressionCheck(unit);
 
         if (!skipTrailingExpressionCheck &&
-            !SymbolEqualityComparer.Default.Equals(_methodSymbol.ReturnType, unit))
+            !SymbolEqualityComparer.Default.Equals(GetTrailingExpressionTargetType(_methodSymbol), unit))
         {
             if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt &&
                 exprStmt.Expression.Type is ITypeSymbol t &&
                 !_methodSymbol.ReturnType.ContainsErrorType() &&
                 !t.ContainsErrorType() &&
-                !IsAssignable(_methodSymbol.ReturnType, t, out _))
+                !IsAssignable(GetTrailingExpressionTargetType(_methodSymbol), t, out _))
             {
                 _diagnostics.ReportCannotConvertFromTypeToType(
                     t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    _methodSymbol.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    GetTrailingExpressionTargetType(_methodSymbol).ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     bodySyntax.GetLocation());
             }
         }
@@ -160,6 +160,27 @@ class MethodBodyBinder : BlockBinder
         }
 
         return false;
+    }
+
+    private static ITypeSymbol GetTrailingExpressionTargetType(IMethodSymbol method)
+    {
+        if (method is SourceMethodSymbol { HasAsyncReturnTypeError: true } or SourceLambdaSymbol { HasAsyncReturnTypeError: true })
+            return method.ReturnType;
+
+        var returnType = method.ReturnType;
+        if (returnType is ErrorTypeSymbol)
+            return returnType;
+
+        if (method.IsAsync &&
+            returnType is INamedTypeSymbol namedReturn &&
+            namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            namedReturn.TypeArguments.Length == 1 &&
+            namedReturn.TypeArguments[0] is { } resultType)
+        {
+            return resultType;
+        }
+
+        return returnType;
     }
 
     public override BoundNode GetOrBind(SyntaxNode node)

@@ -8,15 +8,14 @@ namespace Raven.CodeAnalysis.Symbols;
 sealed class SynthesizedEntryPointBridgeMethodSymbol : SourceMethodSymbol, IMethodSymbol
 {
     public SynthesizedEntryPointBridgeMethodSymbol(
-        Compilation compilation,
         SourceNamedTypeSymbol containingType,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        bool returnsInt,
+        ITypeSymbol returnType,
         IMethodSymbol asyncImplementation)
         : base(
             name: "<Main>_EntryPoint",
-            returnType: EntryPointSignature.ResolveReturnType(compilation, returnsInt),
+            returnType: returnType,
             parameters: ImmutableArray<SourceParameterSymbol>.Empty,
             containingType,
             containingType,

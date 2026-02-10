@@ -362,6 +362,29 @@ let x = 2 // RAV1021: Top-level statements are not allowed when 'Main' is declar
 func Main() -> unit {}
 ```
 
+## RAV1022: Invalid entry point signature
+`Main` exists but its signature is not one of the supported entry point forms.
+
+Allowed return types are:
+- `unit`
+- `int`
+- `Task`
+- `Task<int>`
+- `Result<int, E>`
+- `Result<(), E>`
+- `Task<Result<int, E>>`
+- `Task<Result<(), E>>`
+
+Allowed parameter lists are:
+- no parameters
+- a single `string[]` parameter
+
+```raven
+class Program {
+    static Main(code: int) -> unit { } // RAV1022
+}
+```
+
 ## RAV1019: Expected newline or ';' to terminate the statement.
 Trailing tokens remain after a statement has already been completed. Insert a
 semicolon to separate multiple statements on the same line, or move the extra

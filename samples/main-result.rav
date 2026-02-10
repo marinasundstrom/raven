@@ -1,0 +1,17 @@
+import System.*
+import System.Console.*
+
+func Main(args: string[]) -> Result<int, CustomError> {
+    if args.Length == 0 {
+        val x = Test()?
+        return .Error(CustomError("Baam"))
+    }
+
+    .Ok(2)
+}
+
+func Test() -> Result<int, CustomError> {
+    .Error(CustomError("Baam"))
+}
+
+record class CustomError(Message: string)

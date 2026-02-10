@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -87,7 +88,7 @@ public partial class Compilation
 
                 if (!hasValidShape)
                 {
-                    var location = method.Locations.FirstOrDefault() ?? Location.None;
+                    var location = GetEntryPointDiagnosticLocation(method);
                     diagnostics.Add(Diagnostic.Create(CompilerDiagnostics.EntryPointHasInvalidSignature, location));
                     continue;
                 }
@@ -106,7 +107,7 @@ public partial class Compilation
             }
             else if (candidates.Length == 1)
             {
-                _entryPoint = TrySynthesizeAsyncEntryPointBridge(candidates[0]);
+                _entryPoint = TrySynthesizeEntryPointBridge(candidates[0]);
                 _entryPointDiagnostics = diagnostics.ToImmutable();
             }
             else if (candidates.Length > 1)
@@ -118,7 +119,7 @@ public partial class Compilation
 
                 foreach (var candidate in candidates)
                 {
-                    var location = candidate.Locations.FirstOrDefault() ?? Location.None;
+                    var location = GetEntryPointDiagnosticLocation(candidate);
                     builder.Add(Diagnostic.Create(CompilerDiagnostics.EntryPointIsAmbiguous, location));
                 }
 
@@ -134,9 +135,9 @@ public partial class Compilation
         }
     }
 
-    private IMethodSymbol TrySynthesizeAsyncEntryPointBridge(IMethodSymbol entryPointCandidate)
+    private IMethodSymbol TrySynthesizeEntryPointBridge(IMethodSymbol entryPointCandidate)
     {
-        if (!EntryPointSignature.IsAsyncReturnType(entryPointCandidate.ReturnType, this, out var returnsInt))
+        if (!EntryPointSignature.RequiresEntryPointBridge(entryPointCandidate.ReturnType, this))
             return entryPointCandidate;
 
         if (entryPointCandidate is SynthesizedMainMethodSymbol { AsyncImplementation: not null })
@@ -157,15 +158,26 @@ public partial class Compilation
         var syntaxReferences = entryPointCandidate.DeclaringSyntaxReferences.ToArray();
 
         var bridge = new SynthesizedEntryPointBridgeMethodSymbol(
-            this,
             containingType,
             locations,
             syntaxReferences,
-            returnsInt,
+            EntryPointSignature.ResolveBridgeReturnType(this, entryPointCandidate.ReturnType),
             entryPointCandidate);
 
         containingType.AddMember(bridge);
 
         return bridge;
+    }
+
+    private static Location GetEntryPointDiagnosticLocation(IMethodSymbol method)
+    {
+        var syntax = method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        if (syntax is MethodDeclarationSyntax methodSyntax)
+            return methodSyntax.Identifier.GetLocation();
+
+        if (syntax is FunctionStatementSyntax functionSyntax)
+            return functionSyntax.Identifier.GetLocation();
+
+        return method.Locations.FirstOrDefault() ?? Location.None;
     }
 }

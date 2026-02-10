@@ -797,20 +797,6 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             ? nullable.UnderlyingType
             : asyncMethod.ReturnType;
 
-        if (asyncMethod is SynthesizedMainAsyncMethodSymbol { ReturnsInt: true } mainAsync)
-        {
-            var intType = mainAsync.ContainingAssembly?.GetTypeByMetadataName("System.Int32")
-                ?? compilation.GetSpecialType(SpecialType.System_Int32);
-
-            if (intType is ITypeSymbol { TypeKind: not TypeKind.Error } awaitedType &&
-                compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
-                    is INamedTypeSymbol builderDefinition &&
-                builderDefinition.TypeKind != TypeKind.Error)
-            {
-                return builderDefinition.Construct(awaitedType);
-            }
-        }
-
         if (returnType.SpecialType == SpecialType.System_Void)
             return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder);
 
