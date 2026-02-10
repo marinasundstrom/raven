@@ -127,6 +127,12 @@ public partial class SemanticModel
                         DeclareClassMemberTypes(classDecl, classSymbol);
                         break;
                     }
+                case RecordDeclarationSyntax recordDecl:
+                    {
+                        var recordSymbol = DeclareClassSymbol(recordDecl, parentNamespace, objectType);
+                        DeclareClassMemberTypes(recordDecl, recordSymbol);
+                        break;
+                    }
                 case StructDeclarationSyntax structDecl:
                     {
                         var structSymbol = DeclareClassSymbol(structDecl, parentNamespace, objectType);
@@ -183,7 +189,7 @@ public partial class SemanticModel
         var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isSealed = isStatic || (!classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
         var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
-        var isRecord = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
+        var isRecord = classDecl is RecordDeclarationSyntax || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
             classDecl.Modifiers,
             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
@@ -270,7 +276,7 @@ public partial class SemanticModel
         {
             switch (member)
             {
-                case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax:
+                case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
                         var nestedTypeKind = nestedClass.Keyword.Kind == SyntaxKind.StructKeyword
                             ? TypeKind.Struct
@@ -280,7 +286,7 @@ public partial class SemanticModel
                         var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                         var nestedSealed = nestedStatic || (!nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
                         var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
-                        var nestedRecord = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
+                        var nestedRecord = nestedClass is RecordDeclarationSyntax || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
                         var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             nestedClass.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
@@ -1155,6 +1161,78 @@ public partial class SemanticModel
                         classBinders.Add((classDecl, classBinder));
                         break;
                     }
+                case RecordDeclarationSyntax recordDecl:
+                    {
+                        var recordSymbol = GetDeclaredTypeSymbol(recordDecl);
+                        var baseTypeSymbol = objectType;
+                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+
+                        if (recordSymbol is SourceNamedTypeSymbol sourceRecordSymbol && sourceRecordSymbol.IsRecord)
+                        {
+                            if (Compilation.GetTypeByMetadataName("System.IEquatable`1") is INamedTypeSymbol equatableDefinition)
+                            {
+                                var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(recordSymbol);
+                                if (interfaceList.IsDefaultOrEmpty)
+                                {
+                                    interfaceList = [equatableType];
+                                }
+                                else if (!interfaceList.Any(i => SymbolEqualityComparer.Default.Equals(i, equatableType)))
+                                {
+                                    interfaceList = interfaceList.Add(equatableType);
+                                }
+                            }
+                        }
+
+                        if (recordDecl.BaseList is not null)
+                        {
+                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                            foreach (var t in recordDecl.BaseList.Types)
+                            {
+                                if (!parentBinder.TryResolveNamedTypeFromTypeSyntax(t, out var resolved) || resolved is null)
+                                    continue;
+
+                                if (resolved.TypeKind == TypeKind.Interface)
+                                    builder.Add(resolved);
+                                else
+                                    baseTypeSymbol = resolved;
+                            }
+
+                            if (builder.Count > 0)
+                                interfaceList = builder.ToImmutable();
+                        }
+
+                        if (baseTypeSymbol is not null &&
+                            !SymbolEqualityComparer.Default.Equals(recordSymbol.BaseType, baseTypeSymbol) &&
+                            SymbolEqualityComparer.Default.Equals(recordSymbol.BaseType, objectType))
+                        {
+                            recordSymbol.SetBaseType(baseTypeSymbol);
+                        }
+
+                        if (!interfaceList.IsDefaultOrEmpty)
+                        {
+                            recordSymbol.SetInterfaces(MergeInterfaces(recordSymbol.Interfaces, interfaceList));
+                        }
+
+                        var recordBinder = new ClassDeclarationBinder(parentBinder, recordSymbol, recordDecl);
+                        recordBinder.EnsureTypeParameterConstraintTypesResolved(recordSymbol.TypeParameters);
+                        _binderCache[recordDecl] = recordBinder;
+                        RegisterClassSymbol(recordDecl, recordSymbol);
+                        if (recordDecl.BaseList is not null && baseTypeSymbol?.IsStatic == true)
+                        {
+                            recordBinder.Diagnostics.ReportStaticTypeCannotBeInherited(
+                                baseTypeSymbol.Name,
+                                recordDecl.BaseList.Types[0].GetLocation());
+                        }
+                        else if (recordDecl.BaseList is not null && baseTypeSymbol?.IsSealed == true)
+                        {
+                            recordBinder.Diagnostics.ReportCannotInheritFromSealedType(
+                                baseTypeSymbol.Name,
+                                recordDecl.BaseList.Types[0].GetLocation());
+                        }
+
+                        classBinders.Add((recordDecl, recordBinder));
+                        break;
+                    }
                 case StructDeclarationSyntax structDecl:
                     {
                         var structSymbol = GetDeclaredTypeSymbol(structDecl);
@@ -1887,8 +1965,8 @@ public partial class SemanticModel
 
     private void RegisterClassMembers(TypeDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
     {
-        if (classDecl is ClassDeclarationSyntax concreteClass && concreteClass.ParameterList is not null)
-            RegisterPrimaryConstructor(concreteClass, classBinder);
+        if (classDecl is ClassDeclarationSyntax { ParameterList: not null } or RecordDeclarationSyntax { ParameterList: not null })
+            RegisterPrimaryConstructor(classDecl, classBinder);
 
         var nestedClassBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var objectType = Compilation.GetTypeByMetadataName("System.Object");
@@ -1966,7 +2044,7 @@ public partial class SemanticModel
                     _binderCache[del] = delBinder;
                     break;
 
-                case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax:
+                case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     var nestedBaseType = objectType;
                     ImmutableArray<INamedTypeSymbol> nestedInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
                     var nestedBaseList = GetBaseList(nestedClass);
@@ -2100,8 +2178,8 @@ public partial class SemanticModel
             ReportMissingAbstractBaseMembers(nestedSymbol, nestedSyntax, nestedBinder.Diagnostics);
         }
 
-        if (classDecl is ClassDeclarationSyntax classSyntax)
-            RegisterRecordValueMembers(classSyntax, classBinder);
+        if (classDecl is ClassDeclarationSyntax or RecordDeclarationSyntax)
+            RegisterRecordValueMembers(classDecl, classBinder);
         classBinder.EnsureDefaultConstructor();
 
         static ImmutableArray<INamedTypeSymbol> MergeInterfaces(
@@ -2626,7 +2704,7 @@ public partial class SemanticModel
         };
     }
 
-    private void RegisterPrimaryConstructor(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
+    private void RegisterPrimaryConstructor(TypeDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
     {
         var classSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
         var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
@@ -2845,7 +2923,7 @@ public partial class SemanticModel
         return propertySymbol;
     }
 
-    private void RegisterRecordValueMembers(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
+    private void RegisterRecordValueMembers(TypeDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
     {
         if (classBinder.ContainingSymbol is not SourceNamedTypeSymbol recordSymbol || !recordSymbol.IsRecord)
             return;
@@ -3171,6 +3249,7 @@ public partial class SemanticModel
         => declaration switch
         {
             ClassDeclarationSyntax classDeclaration => classDeclaration.TypeParameterList,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.TypeParameterList,
             StructDeclarationSyntax structDeclaration => structDeclaration.TypeParameterList,
             _ => null
         };
@@ -3179,6 +3258,7 @@ public partial class SemanticModel
         => declaration switch
         {
             ClassDeclarationSyntax classDeclaration => classDeclaration.ConstraintClauses,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.ConstraintClauses,
             StructDeclarationSyntax structDeclaration => structDeclaration.ConstraintClauses,
             _ => SyntaxList<TypeParameterConstraintClauseSyntax>.Empty
         };
@@ -3187,6 +3267,7 @@ public partial class SemanticModel
         => declaration switch
         {
             ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.BaseList,
             StructDeclarationSyntax structDeclaration => structDeclaration.BaseList,
             _ => null
         };

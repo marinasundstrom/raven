@@ -25,7 +25,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                 return;
             }
 
-            var hasPrimaryConstructor = typeSyntax is ClassDeclarationSyntax { ParameterList: not null };
+            var hasPrimaryConstructor = typeSyntax is ClassDeclarationSyntax { ParameterList: not null } or RecordDeclarationSyntax { ParameterList: not null };
             var hasExplicitInstanceConstructor = typeSyntax.Members
                 .OfType<ConstructorDeclarationSyntax>()
                 .Any(ctor => !ctor.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));

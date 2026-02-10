@@ -108,7 +108,7 @@ public partial class Compilation
 
             var typeDeclarations = root.DescendantNodes()
                 .OfType<TypeDeclarationSyntax>()
-                .Where(typeDecl => typeDecl is ClassDeclarationSyntax or StructDeclarationSyntax);
+                .Where(typeDecl => typeDecl is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax);
 
             foreach (var classDecl in typeDeclarations)
             {
@@ -116,7 +116,7 @@ public partial class Compilation
 
                 constructorFlags.TryGetValue(symbol, out var flags);
 
-                if (classDecl is ClassDeclarationSyntax { ParameterList: not null })
+                if (classDecl is ClassDeclarationSyntax { ParameterList: not null } or RecordDeclarationSyntax { ParameterList: not null })
                     flags.HasPrimaryConstructor = true;
 
                 if (classDecl.Members.OfType<ConstructorDeclarationSyntax>()

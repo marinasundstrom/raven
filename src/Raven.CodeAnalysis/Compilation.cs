@@ -546,7 +546,7 @@ public partial class Compilation
             }
         }
         else if (memberDeclaration is TypeDeclarationSyntax classDeclaration &&
-                 classDeclaration is ClassDeclarationSyntax or StructDeclarationSyntax)
+                 classDeclaration is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax)
         {
             Location[] locations = [syntaxTree.GetLocation(classDeclaration.EffectiveSpan)];
 
@@ -571,18 +571,21 @@ public partial class Compilation
             var baseList = classDeclaration switch
             {
                 ClassDeclarationSyntax concreteClass => concreteClass.BaseList,
+                RecordDeclarationSyntax concreteRecord => concreteRecord.BaseList,
                 StructDeclarationSyntax concreteStruct => concreteStruct.BaseList,
                 _ => null
             };
             var typeParameterList = classDeclaration switch
             {
                 ClassDeclarationSyntax concreteClass => concreteClass.TypeParameterList,
+                RecordDeclarationSyntax concreteRecord => concreteRecord.TypeParameterList,
                 StructDeclarationSyntax concreteStruct => concreteStruct.TypeParameterList,
                 _ => null
             };
             var constraintClauses = classDeclaration switch
             {
                 ClassDeclarationSyntax concreteClass => concreteClass.ConstraintClauses,
+                RecordDeclarationSyntax concreteRecord => concreteRecord.ConstraintClauses,
                 StructDeclarationSyntax concreteStruct => concreteStruct.ConstraintClauses,
                 _ => SyntaxList<TypeParameterConstraintClauseSyntax>.Empty
             };

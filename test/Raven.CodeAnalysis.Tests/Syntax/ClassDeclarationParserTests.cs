@@ -37,6 +37,20 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void RecordClassDeclaration_ParsesRecordDeclarationSyntax()
+    {
+        var source = "record class Person(name: string, age: int) {}";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<RecordDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.NotNull(declaration.ParameterList);
+        Assert.Equal(2, declaration.ParameterList!.Parameters.Count);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void InterfaceDeclaration_WithVariantTypeParameters_ParsesVarianceModifiers()
     {
         var source = "interface Producer<out T, in U> {}";

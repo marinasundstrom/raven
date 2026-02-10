@@ -35,6 +35,7 @@ internal class TypeDeclarationParser : SyntaxParser
         var modifiers = ParseModifiers();
 
         var typeKeyword = ReadToken();
+        var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
 
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
@@ -67,7 +68,7 @@ internal class TypeDeclarationParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
         SyntaxToken closeBraceToken;
-        if (openBraceToken.IsMissing && typeKeyword.IsKind(SyntaxKind.ClassKeyword) && modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword)))
+        if (openBraceToken.IsMissing && typeKeyword.IsKind(SyntaxKind.ClassKeyword) && hasRecordModifier)
         {
             closeBraceToken = MissingToken(SyntaxKind.CloseBraceToken);
         }
@@ -118,6 +119,11 @@ internal class TypeDeclarationParser : SyntaxParser
         if (typeKeyword.IsKind(SyntaxKind.StructKeyword))
         {
             return StructDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        }
+
+        if (hasRecordModifier && typeKeyword.IsKind(SyntaxKind.ClassKeyword))
+        {
+            return RecordDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
         return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);

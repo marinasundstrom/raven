@@ -589,6 +589,7 @@ internal class MethodBodyGenerator
                 }
 
             case ClassDeclarationSyntax:
+            case RecordDeclarationSyntax:
             case StructDeclarationSyntax:
                 if (!MethodSymbol.IsStatic)
                 {

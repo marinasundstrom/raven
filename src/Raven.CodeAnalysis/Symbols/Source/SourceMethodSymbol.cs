@@ -321,6 +321,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             foreach (var r in type.DeclaringSyntaxReferences)
             {
                 var syntax = r.GetSyntax();
+                if (syntax is RecordDeclarationSyntax)
+                    return true;
+
                 if (syntax is ClassDeclarationSyntax cd && cd.Modifiers.Any(x => x.Kind == SyntaxKind.RecordKeyword))
                     return true;
             }
