@@ -59,6 +59,16 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return token;
         }
 
+        if (IsNewLineToken(token.Kind))
+        {
+            var normalizedNewLine = SyntaxFactory.NewLineToken
+                .WithLeadingTrivia(SyntaxFactory.TriviaList())
+                .WithTrailingTrivia(SyntaxFactory.TriviaList());
+
+            TrackTokenFlow(normalizedNewLine);
+            return normalizedNewLine;
+        }
+
         if (HasNonWhitespaceTrivia(token.LeadingTrivia) || HasNonWhitespaceTrivia(token.TrailingTrivia))
         {
             TrackTokenFlow(token);
@@ -101,7 +111,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return SyntaxFactory.TriviaList();
         }
 
-        if (token.Kind == SyntaxKind.EndOfFileToken)
+        if (token.Kind == SyntaxKind.EndOfFileToken || IsNewLineToken(token.Kind))
         {
             return SyntaxFactory.TriviaList();
         }
@@ -123,7 +133,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             var trivias = new List<SyntaxTrivia>(lineBreaks + 1);
             for (var i = 0; i < lineBreaks; i++)
             {
-                trivias.Add(SyntaxFactory.CarriageReturnLineFeed);
+                trivias.Add(SyntaxFactory.LineFeed);
             }
 
             if (token.Kind != SyntaxKind.EndOfFileToken)
@@ -177,6 +187,11 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         if (token.Kind == SyntaxKind.EndOfFileToken)
         {
             return 0;
+        }
+
+        if (IsNewLineToken(token.Kind))
+        {
+            return 1;
         }
 
         if (token.Kind == SyntaxKind.SemicolonToken)
@@ -301,7 +316,11 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.CloseBraceToken
             or SyntaxKind.DotToken
             or SyntaxKind.ColonToken
-            or SyntaxKind.QuestionToken;
+            or SyntaxKind.QuestionToken
+            or SyntaxKind.NewLineToken
+            or SyntaxKind.LineFeedToken
+            or SyntaxKind.CarriageReturnToken
+            or SyntaxKind.CarriageReturnLineFeedToken;
     }
 
     private static bool IsNoSpaceAfter(SyntaxKind kind)

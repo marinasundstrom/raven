@@ -25,7 +25,7 @@ func main(x: int, y: int) -> int {
         return y
     }
 }
-""".Replace("\n", "\r\n");
+""";
 
         Assert.Equal(expected, normalized);
     }
@@ -69,5 +69,41 @@ func main(x: int, y: int) -> int {
             var normalizedTree = SyntaxTree.ParseText(once);
             Assert.NotNull(normalizedTree.GetRoot());
         }
+    }
+
+    [Fact]
+    public void NormalizeWhitespace_PreservesIndentationAcrossNewLineTerminators()
+    {
+        const string source = """
+import System.Console.*
+
+val foo = Foo()
+foo.Bar()
+
+class Foo {
+  public Bar() -> () {
+    val x = 2
+    WriteLine(x)
+  }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var normalized = tree.GetRoot().NormalizeWhitespace().ToFullString();
+
+        var expected = """
+import System.Console.*
+val foo = Foo()
+foo.Bar()
+class Foo {
+    public Bar() -> () {
+        val x = 2
+        WriteLine(x)
+    }
+}
+""";
+
+        Assert.Equal(expected, normalized);
+        Assert.DoesNotContain(" \n", normalized);
     }
 }
