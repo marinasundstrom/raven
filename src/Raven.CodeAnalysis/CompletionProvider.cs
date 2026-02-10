@@ -539,6 +539,17 @@ public static class CompletionProvider
                 IEnumerable<ISymbol>? members = null;
                 INamedTypeSymbol? instanceTypeForExtensions = null;
 
+                // For invocation expressions, prefer the invoked method return type.
+                // This avoids leaking argument/literal types into completion and
+                // correctly suppresses member access on unit/void returns.
+                if (memberAccess.Expression is InvocationExpressionSyntax &&
+                    symbol is IMethodSymbol invokedMethod)
+                {
+                    type = invokedMethod.ReturnType;
+                    if (type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+                        return completions;
+                }
+
                 if (symbol is INamespaceSymbol ns)
                 {
                     // Namespace or namespace alias: list its public members
@@ -569,7 +580,9 @@ public static class CompletionProvider
                 if (members is not null)
                 {
                     var prefix = memberAccess.Name.Identifier.ValueText;
-                    var nameSpan = memberAccess.Name.Identifier.Span;
+                    var nameSpan = memberAccess.Name.Identifier.IsMissing
+                        ? new TextSpan(position, 0)
+                        : memberAccess.Name.Identifier.Span;
 
                     foreach (var member in members.Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                     {
