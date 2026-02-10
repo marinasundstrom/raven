@@ -273,16 +273,16 @@ internal class NameSyntaxParser : SyntaxParser
 
         while (PeekToken().IsKind(SyntaxKind.OpenBracketToken))
         {
-            var checkpoint = CreateCheckpoint("array-rank-specifier");
             var rankSpecifier = ParseArrayRankSpecifier();
+
+            rankSpecifiers.Add(rankSpecifier);
 
             if (rankSpecifier.CloseBracketToken.IsMissing)
             {
-                checkpoint.Rewind();
+                // Recovery: keep the consumed '[' and missing ']' so the parser
+                // makes forward progress on malformed inputs.
                 break;
             }
-
-            rankSpecifiers.Add(rankSpecifier);
         }
 
         if (rankSpecifiers.Count == 0)

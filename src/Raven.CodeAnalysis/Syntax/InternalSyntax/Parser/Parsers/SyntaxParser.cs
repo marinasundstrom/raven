@@ -291,7 +291,8 @@ internal class SyntaxParser : ParseContext
             return true;
         }
 
-        if (IsPotentialStatementStart(current))
+        if (IsPotentialStatementStart(current) &&
+            current.Kind != SyntaxKind.IdentifierToken)
         {
             token = Token(SyntaxKind.None);
             SetTreatNewlinesAsTokens(previous);
@@ -299,11 +300,15 @@ internal class SyntaxParser : ParseContext
         }
 
         var skippedTokens = new List<SyntaxToken>();
+        SyntaxToken firstSkippedToken = Token(SyntaxKind.None);
 
         while (true)
         {
             var t = ReadToken();
             skippedTokens.Add(t);
+            if (firstSkippedToken.Kind == SyntaxKind.None)
+                firstSkippedToken = t;
+
             current = PeekToken();
 
             if (IsPotentialStatementStart(current))
@@ -316,6 +321,7 @@ internal class SyntaxParser : ParseContext
 
             if (current.Kind == SyntaxKind.SemicolonToken)
             {
+                ReportInvalidExpressionTermForSkippedToken(firstSkippedToken);
                 token = ConsumeWithLeadingSkipped(skippedTokens);
                 SetTreatNewlinesAsTokens(previous);
                 return true;
@@ -323,6 +329,7 @@ internal class SyntaxParser : ParseContext
 
             if (IsNewLineToken(current))
             {
+                ReportInvalidExpressionTermForSkippedToken(firstSkippedToken);
                 token = ConsumeWithLeadingSkipped(skippedTokens);
                 SetTreatNewlinesAsTokens(previous);
                 return true;
@@ -336,6 +343,22 @@ internal class SyntaxParser : ParseContext
                 SetTreatNewlinesAsTokens(previous);
                 return true;
             }
+        }
+
+        void ReportInvalidExpressionTermForSkippedToken(SyntaxToken skippedToken)
+        {
+            if (skippedToken.Kind is SyntaxKind.None or SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
+                return;
+
+            var tokenText = string.IsNullOrEmpty(skippedToken.Text)
+                ? skippedToken.Kind.ToString()
+                : skippedToken.Text;
+
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.InvalidExpressionTerm,
+                    GetSpanOfLastToken(),
+                    tokenText));
         }
     }
 

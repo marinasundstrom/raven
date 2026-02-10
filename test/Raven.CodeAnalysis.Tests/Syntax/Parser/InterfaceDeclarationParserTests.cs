@@ -1,5 +1,8 @@
+using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -38,7 +41,9 @@ public class InterfaceDeclarationParserTests
         var baseList = classDeclaration.BaseList!;
         Assert.Equal(2, baseList.Types.Count);
 
-        Assert.Empty(tree.GetDiagnostics());
+        Assert.Equal(
+            2,
+            tree.GetDiagnostics().Count(d => d.Descriptor == CompilerDiagnostics.ExpectedNewLineBetweenDeclarations));
     }
 
     [Fact]

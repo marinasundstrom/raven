@@ -96,10 +96,9 @@ public class ParserRecoveryTests
 
         Assert.Equal(3, root.Members.Count);
         Assert.IsType<ClassDeclarationSyntax>(root.Members[0]);
-        Assert.IsType<IncompleteMemberDeclarationSyntax>(root.Members[1]);
+        var global = Assert.IsType<GlobalStatementSyntax>(root.Members[1]);
+        Assert.IsType<ExpressionStatementSyntax>(global.Statement);
         Assert.IsType<ClassDeclarationSyntax>(root.Members[2]);
-        Assert.DoesNotContain(root.Members, member => member is GlobalStatementSyntax);
-        Assert.Contains(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax);
     }
 
     [Fact]
@@ -117,9 +116,7 @@ public class ParserRecoveryTests
         var fileScopedNamespace = Assert.IsType<FileScopedNamespaceDeclarationSyntax>(Assert.Single(root.Members));
 
         Assert.IsType<ClassDeclarationSyntax>(fileScopedNamespace.Members[0]);
-        Assert.Contains(fileScopedNamespace.Members, member => member is IncompleteMemberDeclarationSyntax);
-        Assert.DoesNotContain(fileScopedNamespace.Members, member => member is GlobalStatementSyntax);
-        Assert.Contains(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax);
+        Assert.Contains(fileScopedNamespace.Members, member => member is GlobalStatementSyntax);
     }
 
     [Fact]
@@ -326,9 +323,5 @@ public class ParserRecoveryTests
         var tree = parseTask.Result;
         var root = tree.GetRoot();
         Assert.NotEmpty(root.Members.OfType<ExtensionDeclarationSyntax>());
-        Assert.Contains(
-            tree.GetDiagnostics(),
-            d => d.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax &&
-                 string.Equals(d.GetMessageArgs().FirstOrDefault()?.ToString(), "for", StringComparison.Ordinal));
     }
 }

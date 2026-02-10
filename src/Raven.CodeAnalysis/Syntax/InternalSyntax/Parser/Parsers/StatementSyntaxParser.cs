@@ -663,11 +663,10 @@ internal class StatementSyntaxParser : SyntaxParser
 
                     if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
                     {
-                        ReadToken();
                         AddDiagnostic(
                             DiagnosticInfo.Create(
                                 CompilerDiagnostics.IdentifierExpected,
-                                GetSpanOfLastToken()));
+                                GetSpanOfPeekedToken()));
                     }
                     else
                     {

@@ -1718,7 +1718,9 @@ internal abstract partial class Binder
         foreach (var argument in generic.TypeArgumentList.Arguments)
             builder.Add(BindTypeSyntaxDirect(argument.Type));
 
-        return builder.MoveToImmutable();
+        // Recovery path: malformed generic type argument lists can produce
+        // sparse/missing entries, so avoid MoveToImmutable's capacity contract.
+        return builder.ToImmutable();
     }
 
     protected INamedTypeSymbol? FindAccessibleNamedType(string name, int arity)
