@@ -708,7 +708,17 @@ internal class MethodBodyGenerator
             ILGenerator.Emit(GetCallOpCode(errorMethod, errorMethodInfo), errorMethodInfo);
             ILGenerator.Emit(OpCodes.Brfalse_S, nextLabel);
             EmitWriteCasePayloadToStderr(errorCaseLocal, errorCaseRuntimeType, errorMethod.Parameters[0].Type, "Error");
-            ILGenerator.Emit(OpCodes.Br_S, doneLabel);
+
+            if (isIntBridge)
+            {
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                ILGenerator.Emit(OpCodes.Ret);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Br_S, doneLabel);
+            }
+
             ILGenerator.MarkLabel(nextLabel);
         }
 

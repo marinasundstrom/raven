@@ -133,7 +133,7 @@ class Program {
             var exitCode = entryPoint!.GetParameters().Length == 0
                 ? entryPoint.Invoke(null, null)
                 : entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
-            Assert.Equal(0, Assert.IsType<int>(exitCode));
+            Assert.Equal(1, Assert.IsType<int>(exitCode));
             Assert.Contains("Wrong args", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
@@ -188,7 +188,7 @@ class Program {
         try
         {
             var exitCode = entryPoint!.Invoke(null, new object?[] { Array.Empty<string>() });
-            Assert.Equal(0, Assert.IsType<int>(exitCode));
+            Assert.Equal(1, Assert.IsType<int>(exitCode));
             Assert.Contains("boom", errorWriter.ToString(), StringComparison.Ordinal);
         }
         finally
