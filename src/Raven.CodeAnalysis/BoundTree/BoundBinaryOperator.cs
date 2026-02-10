@@ -32,6 +32,14 @@ internal partial class BoundBinaryOperator
         if (right is LiteralTypeSymbol litRight)
             right = litRight.UnderlyingType;
 
+        // Nullable reference types are represented with a wrapper symbol in Raven.
+        // For built-in operator lookup they should behave like their underlying reference type.
+        if (left is NullableTypeSymbol { UnderlyingType: { IsValueType: false } leftUnderlying })
+            left = leftUnderlying;
+
+        if (right is NullableTypeSymbol { UnderlyingType: { IsValueType: false } rightUnderlying })
+            right = rightUnderlying;
+
         if (left is ErrorTypeSymbol || right is ErrorTypeSymbol)
         {
             op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
@@ -209,7 +217,31 @@ internal partial class BoundBinaryOperator
             }
         }
 
-        // Try lifting
+        // Null literal equality/inequality for nullable/reference operands.
+        if (kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken)
+        {
+            if (left.TypeKind == TypeKind.Null && (right.IsReferenceType || right.IsNullable))
+            {
+                op = new BoundBinaryOperator(
+                    kind == SyntaxKind.EqualsEqualsToken ? BinaryOperatorKind.Equality : BinaryOperatorKind.Inequality,
+                    left,
+                    right,
+                    boolType);
+                return true;
+            }
+
+            if (right.TypeKind == TypeKind.Null && (left.IsReferenceType || left.IsNullable))
+            {
+                op = new BoundBinaryOperator(
+                    kind == SyntaxKind.EqualsEqualsToken ? BinaryOperatorKind.Equality : BinaryOperatorKind.Inequality,
+                    left,
+                    right,
+                    boolType);
+                return true;
+            }
+        }
+
+        // Try lifting for nullable/nullable.
         if (left.IsNullable && right.IsNullable)
         {
             var underlyingLeft = left.GetNullableUnderlyingType() ?? left;
@@ -232,12 +264,54 @@ internal partial class BoundBinaryOperator
 
             if (lifted is not null)
             {
+                var liftedKind = lifted.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+                var resultType = liftedKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality
+                    ? boolType
+                    : lifted.ResultType.MakeNullable();
+
                 op = new BoundBinaryOperator(
                     lifted.OperatorKind | BinaryOperatorKind.Lifted,
                     left,
                     right,
-                    lifted.ResultType.MakeNullable());
+                    resultType);
                 return true;
+            }
+        }
+
+        // Try lifting for nullable-value/non-nullable and non-nullable/nullable-value.
+        // Example: int? == int, int == int?, FooStruct? != FooStruct.
+        if (kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken)
+        {
+            if (left is NullableTypeSymbol { UnderlyingType: { IsValueType: true } leftValueUnderlying } &&
+                right is not NullableTypeSymbol &&
+                TryLookup(compilation, kind, leftValueUnderlying, right, out var leftLiftedBase))
+            {
+                var liftedBaseKind = leftLiftedBase.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+                if (liftedBaseKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality)
+                {
+                    op = new BoundBinaryOperator(
+                        liftedBaseKind | BinaryOperatorKind.Lifted,
+                        left,
+                        right,
+                        boolType);
+                    return true;
+                }
+            }
+
+            if (right is NullableTypeSymbol { UnderlyingType: { IsValueType: true } rightValueUnderlying } &&
+                left is not NullableTypeSymbol &&
+                TryLookup(compilation, kind, left, rightValueUnderlying, out var rightLiftedBase))
+            {
+                var liftedBaseKind = rightLiftedBase.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+                if (liftedBaseKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality)
+                {
+                    op = new BoundBinaryOperator(
+                        liftedBaseKind | BinaryOperatorKind.Lifted,
+                        left,
+                        right,
+                        boolType);
+                    return true;
+                }
             }
         }
 

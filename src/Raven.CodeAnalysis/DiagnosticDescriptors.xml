@@ -306,6 +306,10 @@
   <Descriptor Id="RAV0402" Identifier="PossibleNullReferenceAccess"
     Title="Possible null reference access" Message="Possible null reference access"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0403" Identifier="NullCheckUsesUserDefinedEquality"
+    Title="Use 'is null' for strict null checks"
+    Message="This comparison may call a custom equality operator, so nullability isn’t narrowed. Use 'is null' or 'is not null' for a strict check."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0410" Identifier="EnumUnderlyingTypeMustBeSingle"
     Title="Enum underlying type list must be a single type"
     Message="Enum declarations may specify only one underlying type" Category="compiler"

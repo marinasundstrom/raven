@@ -5390,6 +5390,21 @@ partial class BlockBinder : Binder
         leftType = leftType.UnwrapLiteralType() ?? leftType;
         rightType = rightType.UnwrapLiteralType() ?? rightType;
 
+        if (TryBindLiftedUserDefinedEqualityOperator(
+                opKind,
+                operatorInfo.MetadataName,
+                left,
+                right,
+                leftType,
+                rightType,
+                diagnosticLocation,
+                leftSyntax,
+                rightSyntax,
+                callSyntax) is { } liftedEquality)
+        {
+            return liftedEquality;
+        }
+
         var candidates = GetUserDefinedOperatorCandidates(
             operatorInfo.MetadataName,
             leftType,
@@ -5426,8 +5441,137 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
+        ReportNullCheckUsesUserDefinedEqualityIfNeeded(opKind, left, right, diagnosticLocation ?? callSyntax?.GetLocation());
         var converted = ConvertArguments(method.Parameters, arguments);
         return new BoundInvocationExpression(method, converted);
+    }
+
+    private BoundExpression? TryBindLiftedUserDefinedEqualityOperator(
+        SyntaxKind opKind,
+        string metadataName,
+        BoundExpression left,
+        BoundExpression right,
+        ITypeSymbol leftType,
+        ITypeSymbol rightType,
+        Location? diagnosticLocation,
+        ExpressionSyntax? leftSyntax,
+        ExpressionSyntax? rightSyntax,
+        SyntaxNode? callSyntax)
+    {
+        if (opKind is not SyntaxKind.EqualsEqualsToken and not SyntaxKind.NotEqualsToken)
+            return null;
+
+        var leftNullable = leftType as NullableTypeSymbol;
+        var rightNullable = rightType as NullableTypeSymbol;
+
+        var leftIsNullableValue = leftNullable is { UnderlyingType: { IsValueType: true } };
+        var rightIsNullableValue = rightNullable is { UnderlyingType: { IsValueType: true } };
+
+        if (!leftIsNullableValue && !rightIsNullableValue)
+            return null;
+
+        var candidateLeftType = leftIsNullableValue ? leftNullable!.UnderlyingType : leftType;
+        var candidateRightType = rightIsNullableValue ? rightNullable!.UnderlyingType : rightType;
+
+        var candidates = GetUserDefinedOperatorCandidates(
+            metadataName,
+            candidateLeftType,
+            candidateRightType,
+            diagnosticLocation);
+
+        if (candidates.IsDefaultOrEmpty)
+            return null;
+
+        var unwrappedLeft = leftIsNullableValue
+            ? new BoundNullableValueExpression(left, candidateLeftType)
+            : left;
+        var unwrappedRight = rightIsNullableValue
+            ? new BoundNullableValueExpression(right, candidateRightType)
+            : right;
+
+        var liftedArguments = new[]
+        {
+            new BoundArgument(unwrappedLeft, RefKind.None, null, leftSyntax),
+            new BoundArgument(unwrappedRight, RefKind.None, null, rightSyntax),
+        };
+
+        var resolution = OverloadResolver.ResolveOverload(
+            candidates,
+            liftedArguments,
+            Compilation,
+            canBindLambda: EnsureLambdaCompatible,
+            callSyntax: callSyntax);
+
+        if (resolution.IsAmbiguous)
+        {
+            var operatorText = OperatorFacts.GetDisplayText(opKind);
+            _diagnostics.ReportCallIsAmbiguous($"operator {operatorText}", resolution.AmbiguousCandidates, diagnosticLocation ?? Location.None);
+            return ErrorExpression(
+                reason: BoundExpressionReason.Ambiguous,
+                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+        }
+
+        if (!resolution.Success)
+            return null;
+
+        var method = resolution.Method!;
+        ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
+        ReportNullCheckUsesUserDefinedEqualityIfNeeded(opKind, left, right, diagnosticLocation ?? callSyntax?.GetLocation());
+        var convertedArguments = ConvertArguments(method.Parameters, liftedArguments);
+        var invocation = (BoundExpression)new BoundInvocationExpression(method, convertedArguments);
+        var isInequality = opKind == SyntaxKind.NotEqualsToken;
+
+        if (leftIsNullableValue && rightIsNullableValue)
+        {
+            var leftHasValue = CreateNullableHasValueCondition(left);
+            var rightHasValue = CreateNullableHasValueCondition(right);
+            var mismatchResult = CreateBoolLiteral(isInequality);
+            var bothNullResult = CreateBoolLiteral(!isInequality);
+            var rightBranch = new BoundIfExpression(rightHasValue, mismatchResult, bothNullResult);
+            var leftThenBranch = new BoundIfExpression(rightHasValue, invocation, mismatchResult);
+            return new BoundIfExpression(leftHasValue, leftThenBranch, rightBranch);
+        }
+
+        var hasValue = leftIsNullableValue
+            ? CreateNullableHasValueCondition(left)
+            : CreateNullableHasValueCondition(right);
+        var whenNull = CreateBoolLiteral(isInequality);
+        return new BoundIfExpression(hasValue, invocation, whenNull);
+    }
+
+    private void ReportNullCheckUsesUserDefinedEqualityIfNeeded(
+        SyntaxKind opKind,
+        BoundExpression left,
+        BoundExpression right,
+        Location? location)
+    {
+        if (opKind is not (SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken))
+            return;
+
+        if (!IsNullLiteral(left) && !IsNullLiteral(right))
+            return;
+
+        _diagnostics.ReportNullCheckUsesUserDefinedEquality(location ?? Location.None);
+    }
+
+    private BoundExpression CreateNullableHasValueCondition(BoundExpression nullableOperand)
+    {
+        var nullableType = nullableOperand.Type;
+        if (nullableType is null)
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+        var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, nullableType);
+        if (!BoundBinaryOperator.TryLookup(Compilation, SyntaxKind.NotEqualsToken, nullableType, nullableType, out var notEquals))
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
+        return new BoundBinaryExpression(nullableOperand, notEquals, nullLiteral);
+    }
+
+    private BoundLiteralExpression CreateBoolLiteral(bool value)
+    {
+        var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+        var kind = value ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral;
+        return new BoundLiteralExpression(kind, value, boolType);
     }
 
     private BoundExpression? BindUserDefinedUnaryOperator(

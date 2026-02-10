@@ -2856,6 +2856,9 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        if (TryEmitLiftedNullableValueEquality(binaryExpression, operatorKind))
+            return;
+
         // Evaluate operands (and ensure they are converted to the operator's expected operand types).
         // Raven's binder may represent operand conversions on the BoundBinaryOperator rather than by
         // injecting explicit BoundConversion nodes into Left/Right.
@@ -2903,6 +2906,143 @@ internal partial class ExpressionGenerator : Generator
             default:
                 throw new InvalidOperationException($"Invalid operator kind '{op.OperatorKind}'");
         }
+    }
+
+    private bool TryEmitLiftedNullableValueEquality(BoundBinaryExpression binaryExpression, BinaryOperatorKind operatorKind)
+    {
+        if ((binaryExpression.Operator.OperatorKind & BinaryOperatorKind.Lifted) == 0)
+            return false;
+
+        if (operatorKind is not (BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality))
+            return false;
+
+        var leftType = NormalizeRuntimeType(binaryExpression.Left.Type ?? binaryExpression.Operator.LeftType);
+        var rightType = NormalizeRuntimeType(binaryExpression.Right.Type ?? binaryExpression.Operator.RightType);
+
+        var leftNullable = leftType as NullableTypeSymbol;
+        var rightNullable = rightType as NullableTypeSymbol;
+
+        var leftNullableValue = leftNullable is { UnderlyingType: { IsValueType: true } };
+        var rightNullableValue = rightNullable is { UnderlyingType: { IsValueType: true } };
+
+        if (!leftNullableValue && !rightNullableValue)
+            return false;
+
+        var leftClrType = ResolveClrType(leftType);
+        var rightClrType = ResolveClrType(rightType);
+        var leftLocal = ILGenerator.DeclareLocal(leftClrType);
+        var rightLocal = ILGenerator.DeclareLocal(rightClrType);
+
+        EmitExpression(binaryExpression.Left);
+        ILGenerator.Emit(OpCodes.Stloc, leftLocal);
+
+        EmitExpression(binaryExpression.Right);
+        ILGenerator.Emit(OpCodes.Stloc, rightLocal);
+
+        var compareLeftType = leftNullableValue ? leftNullable!.UnderlyingType : leftType;
+        var compareRightType = rightNullableValue ? rightNullable!.UnderlyingType : rightType;
+
+        if (!BoundBinaryOperator.TryLookup(Compilation, SyntaxKind.EqualsEqualsToken, compareLeftType, compareRightType, out var compareOperator))
+            return false;
+
+        var compareKind = compareOperator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+        if (compareKind is not BinaryOperatorKind.Equality)
+            return false;
+
+        var isNotEquals = operatorKind == BinaryOperatorKind.Inequality;
+        var doneLabel = ILGenerator.DefineLabel();
+
+        if (leftNullableValue && rightNullableValue)
+        {
+            var hasValueMismatchLabel = ILGenerator.DefineLabel();
+            var bothNullLabel = ILGenerator.DefineLabel();
+
+            EmitNullableHasValue(leftLocal, leftClrType);
+            EmitNullableHasValue(rightLocal, rightClrType);
+            ILGenerator.Emit(OpCodes.Ceq);
+            ILGenerator.Emit(OpCodes.Brfalse, hasValueMismatchLabel);
+
+            EmitNullableHasValue(leftLocal, leftClrType);
+            ILGenerator.Emit(OpCodes.Brfalse, bothNullLabel);
+
+            EmitComparableValue(leftLocal, leftType, compareOperator.LeftType);
+            EmitComparableValue(rightLocal, rightType, compareOperator.RightType);
+            ILGenerator.Emit(OpCodes.Ceq);
+            if (isNotEquals)
+            {
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+            }
+
+            ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+            ILGenerator.MarkLabel(bothNullLabel);
+            ILGenerator.Emit(isNotEquals ? OpCodes.Ldc_I4_0 : OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Br, doneLabel);
+
+            ILGenerator.MarkLabel(hasValueMismatchLabel);
+            ILGenerator.Emit(isNotEquals ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+            ILGenerator.MarkLabel(doneLabel);
+            return true;
+        }
+
+        var nullCaseLabel = ILGenerator.DefineLabel();
+
+        if (leftNullableValue)
+        {
+            EmitNullableHasValue(leftLocal, leftClrType);
+            ILGenerator.Emit(OpCodes.Brfalse, nullCaseLabel);
+
+            EmitComparableValue(leftLocal, leftType, compareOperator.LeftType);
+            EmitComparableValue(rightLocal, rightType, compareOperator.RightType);
+            ILGenerator.Emit(OpCodes.Ceq);
+        }
+        else
+        {
+            EmitNullableHasValue(rightLocal, rightClrType);
+            ILGenerator.Emit(OpCodes.Brfalse, nullCaseLabel);
+
+            EmitComparableValue(leftLocal, leftType, compareOperator.LeftType);
+            EmitComparableValue(rightLocal, rightType, compareOperator.RightType);
+            ILGenerator.Emit(OpCodes.Ceq);
+        }
+
+        if (isNotEquals)
+        {
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Ceq);
+        }
+
+        ILGenerator.Emit(OpCodes.Br, doneLabel);
+        ILGenerator.MarkLabel(nullCaseLabel);
+        ILGenerator.Emit(isNotEquals ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+        ILGenerator.MarkLabel(doneLabel);
+        return true;
+    }
+
+    private static ITypeSymbol NormalizeRuntimeType(ITypeSymbol type)
+    {
+        return type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
+    }
+
+    private void EmitNullableHasValue(IILocal local, Type nullableClrType)
+    {
+        ILGenerator.Emit(OpCodes.Ldloca, local);
+        ILGenerator.Emit(OpCodes.Call, GetNullableHasValueGetter(nullableClrType));
+    }
+
+    private void EmitComparableValue(IILocal local, ITypeSymbol runtimeType, ITypeSymbol targetType)
+    {
+        if (runtimeType is NullableTypeSymbol nullable && nullable.UnderlyingType.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Ldloca, local);
+            ILGenerator.Emit(OpCodes.Call, GetNullableGetValueOrDefault(ResolveClrType(runtimeType)));
+            EmitBinaryOperandConversionIfNeeded(nullable.UnderlyingType, targetType);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, local);
+        EmitBinaryOperandConversionIfNeeded(runtimeType, targetType);
     }
 
     private void EmitBinaryOperandConversionIfNeeded(ITypeSymbol? fromType, ITypeSymbol toType)
@@ -4466,10 +4606,18 @@ internal partial class ExpressionGenerator : Generator
 
         if (expression is BoundBinaryExpression binaryExpression)
         {
+            if ((binaryExpression.Operator.OperatorKind & (BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)) != 0)
+            {
+                EmitExpression(binaryExpression);
+                ILGenerator.Emit(OpCodes.Brfalse, end);
+                return;
+            }
+
             EmitExpression(binaryExpression.Left);
             EmitExpression(binaryExpression.Right);
 
-            switch (binaryExpression.Operator.OperatorKind)
+            var operatorKind = binaryExpression.Operator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+            switch (operatorKind)
             {
                 case BinaryOperatorKind.Equality:
                     ILGenerator.Emit(OpCodes.Ceq); // compare

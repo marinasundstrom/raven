@@ -346,6 +346,32 @@ class Foo {
     }
 
     [Fact]
+    public void NullableDelegateInvocation_AfterNotEqualsNullGuard_AllowsAccess()
+    {
+        var source = """
+import System.*
+
+class Foo {
+    Run() -> unit {
+        val f: Action<int>? = null
+        if f != null {
+            f(2)
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
+    }
+
+    [Fact]
     public void NonNullable_To_Nullable_Conversion_IsImplicit()
     {
         var compilation = CreateCompilation();
@@ -551,6 +577,77 @@ class Foo {
         Assert.Equal(SpecialType.System_String, param.UnderlyingType.SpecialType);
 
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void NullableString_EqualityComparisonWithStringLiteral_IsAllowed()
+    {
+        const string source = """
+            val x: string? = null
+
+            if x == "" { }
+            """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var binary = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
+        var typeInfo = model.GetTypeInfo(binary);
+
+        Assert.Equal(SpecialType.System_Boolean, typeInfo.Type?.SpecialType);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
+    }
+
+    [Fact]
+    public void NullableInt_EqualityComparisonWithIntLiteral_IsAllowed()
+    {
+        const string source = """
+            val x: int? = null
+
+            if x == 1 { }
+            if x != 1 { }
+            """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var binaries = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().ToArray();
+
+        Assert.Equal(2, binaries.Length);
+        Assert.All(binaries, binary => Assert.Equal(SpecialType.System_Boolean, model.GetTypeInfo(binary).Type?.SpecialType));
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
+    }
+
+    [Fact]
+    public void NullableUserType_EqualityComparisonWithValue_IsAllowed()
+    {
+        const string source = """
+            class Foo {}
+
+            val x: Foo? = null
+            val foo = Foo()
+
+            if x == foo { }
+            if x != foo { }
+            """;
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var binaries = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().ToArray();
+
+        Assert.Equal(2, binaries.Length);
+        Assert.All(binaries, binary => Assert.Equal(SpecialType.System_Boolean, model.GetTypeInfo(binary).Type?.SpecialType));
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
     }
 
     [Fact]

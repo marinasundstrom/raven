@@ -159,6 +159,21 @@ value types lift member access through the underlying `Nullable<T>` API; nullabl
 reference types retain the same runtime representation as their non-nullable
 form but influence static flow analysis and conversion rules.
 
+#### Strict null checks and flow narrowing
+
+Raven treats `is null` and `is not null` as the strict null-check forms for
+flow analysis. These forms always participate in nullability narrowing.
+
+`== null` and `!= null` are also valid, but narrowing is only applied when the
+comparison binds to built-in null comparison semantics. If overload resolution
+selects a user-defined equality operator, Raven reports a warning and does not
+narrow nullability in that branch.
+
+Warning message:
+
+> This comparison may call a custom equality operator, so nullability isn’t
+> narrowed. Use `is null` or `is not null` for a strict check.
+
 ### Union types
 
 `A | B` represents a value that may be either type. Each branch retains its own

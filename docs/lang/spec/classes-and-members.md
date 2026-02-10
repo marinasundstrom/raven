@@ -455,6 +455,10 @@ conversion members. These conversion operators are `public static` and are
 resolved using the same extension lookup rules as other static extension
 members.
 
+For null checks, prefer `is null` / `is not null` when you need strict
+nullability narrowing. Equality checks (`== null`, `!= null`) may bind to
+user-defined operators; in that case Raven warns and does not narrow.
+
 ### Invocation operator
 
 Declaring a method named `self` makes instances of the type invocable with the
