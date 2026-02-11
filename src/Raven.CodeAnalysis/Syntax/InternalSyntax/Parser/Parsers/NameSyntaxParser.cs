@@ -376,6 +376,7 @@ internal class NameSyntaxParser : SyntaxParser
         {
             while (true)
             {
+                var argumentStart = Position;
                 var t = PeekToken();
 
                 while (IsNewLineLike(t))
@@ -441,6 +442,26 @@ internal class NameSyntaxParser : SyntaxParser
                             CompilerDiagnostics.IdentifierExpected,
                             GetSpanOfPeekedToken()));
                     typeName = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+                }
+
+                if (Position == argumentStart)
+                {
+                    var token = PeekToken();
+                    var tokenText = string.IsNullOrEmpty(token.Text)
+                        ? token.Kind.ToString()
+                        : token.Text;
+
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            tokenText));
+
+                    if (token.IsKind(SyntaxKind.GreaterThanToken) || token.IsKind(SyntaxKind.EndOfFileToken))
+                        break;
+
+                    ReadToken();
+                    continue;
                 }
 
                 argumentList.Add(TypeArgument(typeName));
