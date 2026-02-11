@@ -44,6 +44,12 @@ var stopwatch = Stopwatch.StartNew();
 // -h, --help        - display help
 // --run             - execute the produced assembly when compilation succeeds (console apps only)
 
+if (args.Length > 0 && string.Equals(args[0], "init", StringComparison.OrdinalIgnoreCase))
+{
+    Environment.ExitCode = RunInitCommand(args);
+    return;
+}
+
 var sourceFiles = new List<string>();
 var additionalRefs = new List<string>();
 string? targetFrameworkTfm = null;
@@ -327,7 +333,10 @@ if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentation
     documentationFormat = DocumentationFormat.Markdown;
 }
 
-if (run && outputKind != OutputKind.ConsoleApplication)
+var inputMayBeProjectFile = sourceFiles.Count == 1 &&
+                            string.Equals(Path.GetExtension(sourceFiles[0]), ".ravenproj", StringComparison.OrdinalIgnoreCase);
+
+if (run && outputKind != OutputKind.ConsoleApplication && !inputMayBeProjectFile)
 {
     AnsiConsole.MarkupLine("[red]--run is only supported for console applications. Class libraries cannot be executed.[/]");
     Environment.ExitCode = 1;
@@ -389,6 +398,11 @@ for (int i = 0; i < sourceFiles.Count; i++)
     }
 }
 
+var projectFileInput = sourceFiles.Count == 1 &&
+                       string.Equals(Path.GetExtension(sourceFiles[0]), ".ravenproj", StringComparison.OrdinalIgnoreCase)
+    ? sourceFiles[0]
+    : null;
+
 if (!string.IsNullOrWhiteSpace(ravenCorePath))
 {
     ravenCorePath = Path.GetFullPath(ravenCorePath);
@@ -416,16 +430,41 @@ if (!string.IsNullOrWhiteSpace(ravenCorePath))
     }
 }
 
-var defaultAssemblyBaseName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
+var explicitOutputPath = !string.IsNullOrEmpty(outputPath);
+var defaultAssemblyBaseName = projectFileInput is not null
+    ? Path.GetFileNameWithoutExtension(projectFileInput)
+    : Path.GetFileNameWithoutExtension(sourceFiles[0]);
 
-outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : defaultAssemblyBaseName;
-if (!Path.HasExtension(outputPath))
-    outputPath = $"{outputPath}.dll";
-var outputFilePath = Path.GetFullPath(outputPath);
-var assemblyName = Path.GetFileNameWithoutExtension(outputFilePath);
-var outputDirectory = Path.GetDirectoryName(outputFilePath);
-if (string.IsNullOrEmpty(outputDirectory))
-    outputDirectory = Directory.GetCurrentDirectory();
+string outputFilePath;
+string assemblyName;
+string outputDirectory;
+if (projectFileInput is not null)
+{
+    if (explicitOutputPath && Path.HasExtension(outputPath))
+    {
+        AnsiConsole.MarkupLine("[red]For project-file inputs, -o/--output must be a directory path, not a file path.[/]");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    var projectDirectory = Path.GetDirectoryName(projectFileInput)!;
+    outputDirectory = explicitOutputPath
+        ? Path.GetFullPath(outputPath!)
+        : Path.Combine(projectDirectory, "bin");
+    assemblyName = defaultAssemblyBaseName;
+    outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
+}
+else
+{
+    outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : defaultAssemblyBaseName;
+    if (!Path.HasExtension(outputPath))
+        outputPath = $"{outputPath}.dll";
+    outputFilePath = Path.GetFullPath(outputPath);
+    assemblyName = Path.GetFileNameWithoutExtension(outputFilePath);
+    outputDirectory = Path.GetDirectoryName(outputFilePath)!;
+    if (string.IsNullOrEmpty(outputDirectory))
+        outputDirectory = Directory.GetCurrentDirectory();
+}
 if (!string.IsNullOrEmpty(ravenCorePath))
 {
     Directory.CreateDirectory(outputDirectory!);
@@ -494,25 +533,45 @@ workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
     DocumentationMode = true,
     DocumentationFormat = documentationFormat
 };
-var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
-var project = workspace.CurrentSolution.GetProject(projectId)!;
+ProjectId projectId;
+Project project;
 
-foreach (var filePath in sourceFiles)
+if (projectFileInput is not null)
 {
-    using var file = File.OpenRead(filePath);
-    var sourceText = SourceText.From(file);
-    var parsedTree = SyntaxTree.ParseText(sourceText, path: filePath);
-    var document = project.AddDocument(Path.GetFileName(filePath), sourceText, filePath);
-    project = document.Project;
+    projectId = workspace.OpenProject(projectFileInput);
+    project = workspace.CurrentSolution.GetProject(projectId)!;
+
+    if (targetFrameworkTfm is not null)
+    {
+        var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
+        foreach (var reference in frameworkReferences)
+            project = project.AddMetadataReference(reference);
+    }
 }
-
-var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
-    .Select(MetadataReference.CreateFromFile)
-    .ToArray();
-
-foreach (var reference in frameworkReferences)
+else
 {
-    project = project.AddMetadataReference(reference);
+    projectId = workspace.AddProject(assemblyName, compilationOptions: options);
+    project = workspace.CurrentSolution.GetProject(projectId)!;
+
+    foreach (var filePath in sourceFiles)
+    {
+        using var file = File.OpenRead(filePath);
+        var sourceText = SourceText.From(file);
+        var parsedTree = SyntaxTree.ParseText(sourceText, path: filePath);
+        var document = project.AddDocument(Path.GetFileName(filePath), sourceText, filePath);
+        project = document.Project;
+    }
+
+    var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
+        .Select(MetadataReference.CreateFromFile)
+        .ToArray();
+
+    foreach (var reference in frameworkReferences)
+    {
+        project = project.AddMetadataReference(reference);
+    }
 }
 
 if (!string.IsNullOrWhiteSpace(ravenCorePath))
@@ -544,10 +603,30 @@ foreach (var r in additionalRefs)
     project = project.AddMetadataReference(MetadataReference.CreateFromFile(full));
 }
 
+if (projectFileInput is not null)
+{
+    options = project.CompilationOptions ?? options;
+    assemblyName = project.AssemblyName ?? project.Name;
+    outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
+}
+
+project = project.WithCompilationOptions(options);
 project = AddDefaultAnalyzers(project);
 
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
+
+if (!noEmit)
+{
+    CopyNuGetReferencesToOutput(project, targetFramework, outputDirectory!);
+}
+
+if (run && options.OutputKind != OutputKind.ConsoleApplication)
+{
+    AnsiConsole.MarkupLine("[red]--run is only supported for console applications. Class libraries cannot be executed.[/]");
+    Environment.ExitCode = 1;
+    return;
+}
 
 project = ApplyCodeFixesIfRequested(workspace, projectId, project, fix);
 project = ApplyFormattingIfRequested(workspace, projectId, project, format);
@@ -587,7 +666,7 @@ if (emitDocs)
 
 stopwatch.Stop();
 
-var allowConsoleOutput = sourceFiles.Count == 1;
+var allowConsoleOutput = project.Documents.Count() == 1;
 var debugDir = FindDebugDirectory();
 var ilVerifyFailed = false;
 
@@ -1032,9 +1111,118 @@ static string? FindDebugDirectory()
     return null;
 }
 
+static void CopyNuGetReferencesToOutput(Project project, string targetFramework, string outputDirectory)
+{
+    var globalPackages = GetNuGetGlobalPackagesFolder();
+    if (string.IsNullOrWhiteSpace(globalPackages) || !Directory.Exists(globalPackages))
+        return;
+
+    var copiedFileNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var reference in project.MetadataReferences.OfType<PortableExecutableReference>())
+    {
+        var referencePath = reference.FilePath;
+        if (string.IsNullOrWhiteSpace(referencePath))
+            continue;
+
+        var fullReferencePath = Path.GetFullPath(referencePath);
+        if (!IsUnderDirectory(fullReferencePath, globalPackages))
+            continue;
+
+        var runtimePath = ResolveNuGetRuntimeAssemblyPath(fullReferencePath, targetFramework);
+        if (!File.Exists(runtimePath))
+            continue;
+
+        Directory.CreateDirectory(outputDirectory);
+        var fileName = Path.GetFileName(runtimePath);
+        var destination = Path.Combine(outputDirectory, fileName);
+
+        if (copiedFileNames.TryGetValue(fileName, out var existingSource) &&
+            !string.Equals(existingSource, runtimePath, StringComparison.OrdinalIgnoreCase))
+        {
+            AnsiConsole.MarkupLine(
+                $"[yellow]Warning: Skipping NuGet reference '{Markup.Escape(runtimePath)}' because '{Markup.Escape(fileName)}' was already copied from '{Markup.Escape(existingSource)}'.[/]");
+            continue;
+        }
+
+        copiedFileNames[fileName] = runtimePath;
+
+        if (!string.Equals(runtimePath, destination, StringComparison.OrdinalIgnoreCase))
+            File.Copy(runtimePath, destination, overwrite: true);
+    }
+}
+
+static string ResolveNuGetRuntimeAssemblyPath(string referencePath, string targetFramework)
+{
+    var normalized = referencePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+    var refSegment = $"{Path.DirectorySeparatorChar}ref{Path.DirectorySeparatorChar}";
+    var refIndex = normalized.IndexOf(refSegment, StringComparison.OrdinalIgnoreCase);
+    if (refIndex < 0)
+        return referencePath;
+
+    var libCandidate = normalized[..refIndex] +
+                       $"{Path.DirectorySeparatorChar}lib{Path.DirectorySeparatorChar}" +
+                       normalized[(refIndex + refSegment.Length)..];
+    if (File.Exists(libCandidate))
+        return libCandidate;
+
+    var packageRoot = FindNuGetPackageRoot(normalized, refIndex);
+    if (packageRoot is null)
+        return referencePath;
+
+    var fileName = Path.GetFileName(referencePath);
+    var targetCandidate = Path.Combine(packageRoot, "lib", targetFramework, fileName);
+    if (File.Exists(targetCandidate))
+        return targetCandidate;
+
+    var alternatives = Directory.Exists(Path.Combine(packageRoot, "lib"))
+        ? Directory.EnumerateFiles(Path.Combine(packageRoot, "lib"), fileName, SearchOption.AllDirectories)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+        : Enumerable.Empty<string>();
+
+    return alternatives.FirstOrDefault() ?? referencePath;
+}
+
+static string? FindNuGetPackageRoot(string normalizedReferencePath, int refSegmentStartIndex)
+{
+    // Path shape: .../<id>/<version>/ref/<tfm>/<assembly>.dll
+    var beforeRef = normalizedReferencePath[..refSegmentStartIndex];
+    var versionDir = Path.GetDirectoryName(beforeRef);
+    if (string.IsNullOrWhiteSpace(versionDir))
+        return null;
+    var packageDir = Path.GetDirectoryName(versionDir);
+    if (string.IsNullOrWhiteSpace(packageDir))
+        return null;
+    return Path.Combine(packageDir, Path.GetFileName(versionDir));
+}
+
+static string GetNuGetGlobalPackagesFolder()
+{
+    var env = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+    if (!string.IsNullOrWhiteSpace(env))
+        return Path.GetFullPath(env);
+
+    var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    if (string.IsNullOrWhiteSpace(userProfile))
+        return string.Empty;
+
+    return Path.Combine(userProfile, ".nuget", "packages");
+}
+
+static bool IsUnderDirectory(string path, string directory)
+{
+    var fullPath = Path.GetFullPath(path)
+        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    var fullDirectory = Path.GetFullPath(directory)
+        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    return fullPath.StartsWith(fullDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(fullPath, fullDirectory, StringComparison.OrdinalIgnoreCase);
+}
+
 static void PrintHelp()
 {
-    Console.WriteLine("Usage: ravenc [options] <source-files>");
+    Console.WriteLine("Usage: ravenc [options] <source-files|project-file.ravenproj>");
+    Console.WriteLine("       ravenc init [--name <project-name>] [--framework <tfm>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
@@ -1045,7 +1233,9 @@ static void PrintHelp()
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  --unsafe         Enable unsafe mode (required for pointer declarations/usages)");
-    Console.WriteLine("  -o <path>          Output assembly path");
+    Console.WriteLine("  -o <path>          Output path.");
+    Console.WriteLine("                     For .rav inputs: output assembly path.");
+    Console.WriteLine("                     For .ravenproj inputs: output directory path (default: <project-dir>/bin).");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
     Console.WriteLine("  -ps                Print the parsing sequence");
@@ -1077,6 +1267,16 @@ static void PrintHelp()
     Console.WriteLine("                    Path to the ilverify executable when not on PATH");
     Console.WriteLine("  --run             Execute the produced assembly after a successful compilation (console apps only)");
     Console.WriteLine("  -h, --help         Display help");
+    Console.WriteLine();
+    Console.WriteLine("Init command:");
+    Console.WriteLine("  init              Create a .ravenproj project scaffold in the current directory.");
+    Console.WriteLine("  init --name <name>");
+    Console.WriteLine("                    Override the generated project/assembly name.");
+    Console.WriteLine("  init --framework <tfm>");
+    Console.WriteLine("                    Set TargetFramework in the generated project file.");
+    Console.WriteLine("  init --type <app|classlib>");
+    Console.WriteLine("                    Set OutputKind in the generated project file (default: app).");
+    Console.WriteLine("  init --force      Overwrite existing scaffold files.");
 }
 
 static void RunAssembly(string outputFilePath)
@@ -1122,6 +1322,154 @@ static bool TryParseSyntaxTreeFormat(string[] args, ref int index, out SyntaxTre
     AnsiConsole.MarkupLine($"[red]Unknown syntax tree format '{value}'.[/]");
     format = SyntaxTreeFormat.Flat;
     return false;
+}
+
+static int RunInitCommand(string[] args)
+{
+    string? name = null;
+    var framework = TargetFrameworkUtil.GetLatestFramework();
+    var isClassLibrary = false;
+    var force = false;
+
+    for (var i = 1; i < args.Length; i++)
+    {
+        switch (args[i])
+        {
+            case "-h":
+            case "--help":
+                PrintInitHelp();
+                return 0;
+            case "--name":
+                if (i + 1 >= args.Length)
+                {
+                    AnsiConsole.MarkupLine("[red]Missing value for --name.[/]");
+                    PrintInitHelp();
+                    return 1;
+                }
+
+                name = args[++i];
+                break;
+            case "--framework":
+                if (i + 1 >= args.Length)
+                {
+                    AnsiConsole.MarkupLine("[red]Missing value for --framework.[/]");
+                    PrintInitHelp();
+                    return 1;
+                }
+
+                framework = args[++i];
+                break;
+            case "--type":
+                if (i + 1 >= args.Length)
+                {
+                    AnsiConsole.MarkupLine("[red]Missing value for --type.[/]");
+                    PrintInitHelp();
+                    return 1;
+                }
+
+                var typeValue = args[++i];
+                if (string.Equals(typeValue, "app", StringComparison.OrdinalIgnoreCase))
+                {
+                    isClassLibrary = false;
+                }
+                else if (string.Equals(typeValue, "classlib", StringComparison.OrdinalIgnoreCase))
+                {
+                    isClassLibrary = true;
+                }
+                else
+                {
+                    AnsiConsole.MarkupLine($"[red]Invalid --type '{Markup.Escape(typeValue)}'. Use 'app' or 'classlib'.[/]");
+                    PrintInitHelp();
+                    return 1;
+                }
+
+                break;
+            case "--force":
+                force = true;
+                break;
+            default:
+                AnsiConsole.MarkupLine($"[red]Unknown init option '{Markup.Escape(args[i])}'.[/]");
+                PrintInitHelp();
+                return 1;
+        }
+    }
+
+    var cwd = Directory.GetCurrentDirectory();
+    var fallbackName = Path.GetFileName(cwd.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+    var projectName = SanitizeProjectName(string.IsNullOrWhiteSpace(name) ? fallbackName : name!);
+    var projectFilePath = Path.Combine(cwd, $"{projectName}.ravenproj");
+    var srcDir = Path.Combine(cwd, "src");
+    var mainSourcePath = Path.Combine(srcDir, "main.rav");
+    var binDir = Path.Combine(cwd, "bin");
+    var binGitkeep = Path.Combine(binDir, ".gitkeep");
+    var outputKind = isClassLibrary
+        ? OutputKind.DynamicallyLinkedLibrary
+        : OutputKind.ConsoleApplication;
+
+    if (!force)
+    {
+        var existing = new[] { projectFilePath, mainSourcePath, binGitkeep }.Where(File.Exists).ToArray();
+        if (existing.Length > 0)
+        {
+            AnsiConsole.MarkupLine("[red]Init aborted: one or more scaffold files already exist.[/]");
+            foreach (var file in existing)
+                AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(file)}[/]");
+            AnsiConsole.MarkupLine("[grey]Use --force to overwrite scaffold files.[/]");
+            return 1;
+        }
+    }
+
+    Directory.CreateDirectory(srcDir);
+    Directory.CreateDirectory(binDir);
+
+    var projectXml = $"""
+                      <Project Name="{projectName}" TargetFramework="{framework}" Output="{projectName}" OutputKind="{outputKind}">
+                      </Project>
+                      """;
+    File.WriteAllText(projectFilePath, projectXml + Environment.NewLine);
+
+    var sourceText = """
+                     val message = "Hello from Raven"
+                     System.Console.WriteLine(message)
+                     """;
+    File.WriteAllText(mainSourcePath, sourceText + Environment.NewLine);
+
+    if (!File.Exists(binGitkeep))
+        File.WriteAllText(binGitkeep, string.Empty);
+
+    AnsiConsole.MarkupLine("[green]Raven project scaffold created.[/]");
+    AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(projectFilePath)}[/]");
+    AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(mainSourcePath)}[/]");
+    AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(binGitkeep)}[/]");
+    AnsiConsole.MarkupLine("[grey]Compile with: ravenc ./"+Markup.Escape(Path.GetFileName(projectFilePath))+" -o bin/"+Markup.Escape(projectName)+".dll[/]");
+
+    return 0;
+}
+
+static void PrintInitHelp()
+{
+    Console.WriteLine("Usage: ravenc init [--name <project-name>] [--framework <tfm>] [--type <app|classlib>] [--force]");
+    Console.WriteLine();
+    Console.WriteLine("Creates a Raven project scaffold in the current directory:");
+    Console.WriteLine("  - <project-name>.ravenproj");
+    Console.WriteLine("  - src/main.rav");
+    Console.WriteLine("  - bin/.gitkeep");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
+    Console.WriteLine("  --name <project-name>      Override generated project/assembly name.");
+    Console.WriteLine("  --framework <tfm>          Set TargetFramework (default: latest installed).");
+    Console.WriteLine("  --type <app|classlib>      Set OutputKind (default: app).");
+    Console.WriteLine("  --force                    Overwrite scaffold files.");
+}
+
+static string SanitizeProjectName(string name)
+{
+    if (string.IsNullOrWhiteSpace(name))
+        return "RavenApp";
+
+    var invalid = Path.GetInvalidFileNameChars();
+    var cleaned = new string(name.Where(ch => !invalid.Contains(ch)).ToArray()).Trim();
+    return string.IsNullOrWhiteSpace(cleaned) ? "RavenApp" : cleaned;
 }
 
 static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool printRawSyntax, out bool printSyntax,

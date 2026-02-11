@@ -12,6 +12,12 @@
    Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler  --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
 3. Execute the emitted assembly with `dotnet <file>.dll` (or rely on `build.sh`/`run.sh` for batch work).
 
+## Project-file sample
+
+For `.ravenproj` + NuGet restore/cache behavior, see:
+
+- `samples/project-files/nuget-demo/README.md`
+
 ### Compiler options
 
 These are the main options available for when debugging the compiler:

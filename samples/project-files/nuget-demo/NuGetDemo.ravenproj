@@ -1,0 +1,4 @@
+<Project Name="NuGetDemo" TargetFramework="net9.0" Output="NuGetDemo">
+  <Document Path="src/main.rav" />
+  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+</Project>

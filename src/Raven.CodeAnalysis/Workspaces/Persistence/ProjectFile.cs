@@ -11,7 +11,13 @@ namespace Raven.CodeAnalysis;
 
 internal static class ProjectFile
 {
-    internal sealed record ProjectFileInfo(ProjectInfo Info, ImmutableArray<string> ProjectReferences);
+    internal sealed record PackageReferenceInfo(string Id, string Version);
+
+    internal sealed record ProjectFileInfo(
+        ProjectInfo Info,
+        ImmutableArray<string> ProjectReferences,
+        ImmutableArray<string> MetadataReferences,
+        ImmutableArray<PackageReferenceInfo> PackageReferences);
 
     public static void Save(Project project, string filePath)
     {
@@ -93,7 +99,9 @@ internal static class ProjectFile
         }
         else
         {
-            paths = RavenFileExtensions.All.SelectMany(ext => Directory.EnumerateFiles(projectDir, $"*{ext}"));
+            paths = RavenFileExtensions.All.SelectMany(ext =>
+                    Directory.EnumerateFiles(projectDir, $"*{ext}", SearchOption.AllDirectories))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
         }
 
         var documents = paths.Select(p =>
@@ -108,8 +116,26 @@ internal static class ProjectFile
             .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))
             .ToImmutableArray();
 
+        var metadataRefs = root.Elements("Reference")
+            .Select(e => (string?)e.Attribute("Path") ?? (string?)e.Attribute("Include") ?? throw new InvalidDataException("Reference path missing."))
+            .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))
+            .ToImmutableArray();
+
+        var packageRefs = root.Elements("PackageReference")
+            .Select(e =>
+            {
+                var id = (string?)e.Attribute("Include") ?? (string?)e.Attribute("Id");
+                var version = (string?)e.Attribute("Version") ?? (string?)e.Element("Version");
+                if (string.IsNullOrWhiteSpace(id))
+                    throw new InvalidDataException("PackageReference Include is missing.");
+                if (string.IsNullOrWhiteSpace(version))
+                    throw new InvalidDataException($"PackageReference '{id}' version is missing.");
+                return new PackageReferenceInfo(id, version);
+            })
+            .ToImmutableArray();
+
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
         var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
-        return new ProjectFileInfo(info, projectRefs);
+        return new ProjectFileInfo(info, projectRefs, metadataRefs, packageRefs);
     }
 }

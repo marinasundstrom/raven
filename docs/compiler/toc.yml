@@ -2,6 +2,8 @@
   href: index.md
 - name: Raven.Compiler CLI
   href: raven-compiler.md
+- name: Project system
+  href: project-system.md
 - name: Raven Core Library
   href: raven-core-library.md
 - name: Diagnostics

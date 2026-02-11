@@ -135,6 +135,35 @@ dotnet build Raven.sln
 dotnet test
 ```
 
+### End-to-end getting started (project workflow)
+
+Create and run a Raven app project in the current directory:
+
+```bash
+mkdir hello-raven
+cd hello-raven
+
+# Create a project scaffold (default type: app)
+dotnet run --project ../src/Raven.Compiler -- init
+
+# Build (project files default output to ./bin)
+dotnet run --project ../src/Raven.Compiler -- *.ravenproj
+
+# Run the produced assembly
+dotnet bin/Hello.dll
+```
+
+Create a class library scaffold instead:
+
+```bash
+dotnet run --project ../src/Raven.Compiler -- init --type classlib --name MyLibrary
+```
+
+Project-system and NuGet details:
+
+- [Compiler project system docs](docs/compiler/project-system.md)
+- [NuGet project-file sample](samples/project-files/nuget-demo/README.md)
+
 ### Run the compiler
 
 Command:

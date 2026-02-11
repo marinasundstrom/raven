@@ -9,5 +9,6 @@ from Raven source code and referenced by default during compilation.
 For deeper dives into the implementation see:
 
 - [Architecture](architecture/index.md) for the high-level pipeline and major subsystems.
+- [Project system](project-system.md) for `.ravenproj` structure, implicit source inclusion, and NuGet integration.
 - [Diagnostics](diagnostics.md) for how errors and warnings are produced.
 - [Compiler API](api/README.md) for using syntax, symbols, and the new [operations surface](api/operations.md).

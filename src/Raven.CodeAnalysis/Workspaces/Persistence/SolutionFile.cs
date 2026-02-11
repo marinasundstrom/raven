@@ -47,6 +47,14 @@ internal static class SolutionFile
             var tfm = projInfo.Info.TargetFramework ?? workspace.DefaultTargetFramework;
             foreach (var reference in workspace.GetFrameworkReferences(tfm))
                 solution = solution.AddMetadataReference(projId, reference);
+
+            foreach (var metadataReferencePath in projInfo.MetadataReferences)
+                solution = solution.AddMetadataReference(projId, MetadataReference.CreateFromFile(metadataReferencePath));
+
+            var packageReferences = NuGetPackageResolver.ResolveReferences(projPath, tfm, projInfo.PackageReferences);
+            foreach (var packageReference in packageReferences)
+                solution = solution.AddMetadataReference(projId, packageReference);
+
             loaded.Add((projId, projInfo, projPath));
         }
 

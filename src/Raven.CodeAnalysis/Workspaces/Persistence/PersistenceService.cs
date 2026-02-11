@@ -34,6 +34,18 @@ public class PersistenceService
             var docId = DocumentId.CreateNew(projectId);
             solution = solution.AddDocument(docId, doc.Name, doc.Text, doc.FilePath);
         }
+
+        var tfm = projInfo.Info.TargetFramework ?? raven.DefaultTargetFramework;
+        foreach (var reference in raven.GetFrameworkReferences(tfm))
+            solution = solution.AddMetadataReference(projectId, reference);
+
+        foreach (var metadataReferencePath in projInfo.MetadataReferences)
+            solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
+
+        var packageReferences = NuGetPackageResolver.ResolveReferences(projectFilePath, tfm, projInfo.PackageReferences);
+        foreach (var packageReference in packageReferences)
+            solution = solution.AddMetadataReference(projectId, packageReference);
+
         foreach (var refPath in projInfo.ProjectReferences)
         {
             var full = Path.IsPathRooted(refPath) ? refPath : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(projectFilePath)!, refPath));
@@ -166,4 +178,3 @@ public class PersistenceService
         }
     }
 }
-
