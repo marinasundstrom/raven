@@ -162,4 +162,56 @@ func Main() -> unit {
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TopLevelStatementsDisallowedWithMainFunction);
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
     }
+
+    [Fact]
+    public void GlobalStatement_AfterTypeDeclaration_ReportsOutOfOrderDiagnostic()
+    {
+        const string source = """
+class Widget { }
+
+val x = 1
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+    }
+
+    [Fact]
+    public void FileScopedNamespace_GlobalStatement_BeforeTypeDeclaration_IsAllowed()
+    {
+        const string source = """
+namespace App;
+
+val x = 1
+
+class Widget { }
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+    }
+
+    [Fact]
+    public void FileScopedNamespace_GlobalStatement_AfterTypeDeclaration_ReportsOutOfOrderDiagnostic()
+    {
+        const string source = """
+namespace App;
+
+class Widget { }
+
+val x = 1
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
+    }
 }

@@ -943,26 +943,27 @@ public partial class SemanticModel
 
         var shouldCreateTopLevelProgram = bindableGlobals.Count > 0
             || (!hasNonGlobalMembers && Compilation.Options.OutputKind == OutputKind.ConsoleApplication);
+        var hasExecutableFileScopedCode = bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
 
         void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
         {
-            var seenNonGlobal = false;
+            var seenTypeDeclaration = false;
             foreach (var member in members)
             {
-                if (member is ExtensionDeclarationSyntax)
-                    continue;
-
                 if (member is GlobalStatementSyntax gs)
                 {
-                    if (seenNonGlobal)
+                    if (seenTypeDeclaration)
                         parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
                 }
-                else
+                else if (IsTypeDeclarationMember(member))
                 {
-                    seenNonGlobal = true;
+                    seenTypeDeclaration = true;
                 }
             }
         }
+
+        static bool IsTypeDeclarationMember(MemberDeclarationSyntax member)
+            => member is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax;
 
         if (fileScopedNamespace != null)
         {
@@ -981,15 +982,17 @@ public partial class SemanticModel
             CheckOrder(cu.Members);
         }
 
-        if (bindableGlobals.Count > 0)
+        if (hasExecutableFileScopedCode)
         {
+            var firstExecutableGlobal = bindableGlobals.First(static g => g.Statement is not FunctionStatementSyntax);
+
             if (Compilation.Options.OutputKind != OutputKind.ConsoleApplication)
-                parentBinder.Diagnostics.ReportFileScopedCodeRequiresConsole(bindableGlobals[0].GetLocation());
+                parentBinder.Diagnostics.ReportFileScopedCodeRequiresConsole(firstExecutableGlobal.GetLocation());
 
             if (Compilation.SyntaxTreeWithFileScopedCode is null)
                 Compilation.SyntaxTreeWithFileScopedCode = cu.SyntaxTree;
             else if (Compilation.SyntaxTreeWithFileScopedCode != cu.SyntaxTree)
-                parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(bindableGlobals[0].GetLocation());
+                parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(firstExecutableGlobal.GetLocation());
         }
 
         if (!shouldCreateTopLevelProgram)

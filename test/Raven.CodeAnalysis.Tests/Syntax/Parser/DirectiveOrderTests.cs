@@ -33,4 +33,18 @@ public class DirectiveOrderTests
         var diagnostic = Assert.Single(tree.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.AliasDirectiveOutOfOrder, diagnostic.Descriptor);
     }
+
+    [Fact]
+    public void FileScopedNamespace_AliasAfterGlobalStatement_ProducesDiagnostic()
+    {
+        var code = """
+        namespace NS;
+        val x = 0
+        alias A = B;
+        """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var diagnostic = Assert.Single(tree.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.AliasDirectiveOutOfOrder, diagnostic.Descriptor);
+    }
 }
