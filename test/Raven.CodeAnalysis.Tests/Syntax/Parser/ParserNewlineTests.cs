@@ -617,6 +617,26 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Invocation_BlankLineBeforeDot_DoesNotContinueMemberAccess()
+    {
+        // Arrange
+        var source = "A.B(42)\n\n    .C()\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        // Act
+        var expression = (ExpressionSyntax)parser.ParseExpression().CreateRed();
+
+        // Assert
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(expression);
+        var memberAccess = Assert.IsType<MemberAccessExpressionSyntax>(invocation.Expression);
+        Assert.Equal("B", memberAccess.Name.GetLastToken().ValueText);
+
+        Assert.Equal(SyntaxKind.DotToken, context.PeekToken().Kind);
+    }
+
+    [Fact]
     public void SkipUntil_AtEndOfFile_ReturnsNoneToken()
     {
         var source = string.Empty;

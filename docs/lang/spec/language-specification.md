@@ -3234,6 +3234,9 @@ var grade: Grades = .B
 grade = Grades.C
 ```
 
+Line-continuation details for leading-dot forms are defined in
+[Control flow: Line continuations](control-flow.md#line-continuations).
+
 Importing the members of an enum brings them into scope:
 
 ```raven
@@ -3264,6 +3267,9 @@ with the leading-dot shorthand:
 val token = Token.Identifier("foo")
 val other: Token = .Unknown
 ```
+
+Line-continuation details for leading-dot forms are defined in
+[Control flow: Line continuations](control-flow.md#line-continuations).
 
 Each case becomes a nested struct (`Token.Identifier`, `Token.Number`, …) whose
 constructor parameters mirror the payload declared on the case. Supplying the

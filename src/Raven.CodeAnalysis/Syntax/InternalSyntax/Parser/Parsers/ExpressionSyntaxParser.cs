@@ -841,6 +841,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) // Member Access
             {
+                // Keep fluent chains across a single newline (`a\n  .b()`), but treat a blank-line
+                // separation as a new statement so target-typed member bindings like `.Ok` can start
+                // the next expression.
+                if (HasLeadingBlankLine(token))
+                    return expr;
+
                 var operatorToken = ReadToken();
                 SimpleNameSyntax memberName;
                 if (CanTokenBeIdentifier(PeekToken()))
@@ -1321,6 +1327,23 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         foreach (var trivia in token.LeadingTrivia)
         {
             if (IsNewLineLike(trivia.Kind))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasLeadingBlankLine(SyntaxToken token)
+    {
+        var newlineCount = 0;
+
+        foreach (var trivia in token.LeadingTrivia)
+        {
+            if (!IsNewLineLike(trivia.Kind))
+                continue;
+
+            newlineCount++;
+            if (newlineCount >= 2)
                 return true;
         }
 

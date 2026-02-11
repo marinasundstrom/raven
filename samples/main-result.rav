@@ -1,17 +1,55 @@
 import System.*
 import System.Console.*
 
-func Main(args: string[]) -> Result<int, CustomError> {
+func Main(args: string[]) -> Result<(), CustomError> {
     if args.Length == 0 {
-        val x = Test()?
-        return .Error(CustomError("Baam"))
+        return .Error(CustomError(
+            message: "Missing required argument: <name>",
+            code: .MissingArgument
+        ))
     }
 
-    .Ok(2)
+    val name = args[0]
+
+    // Propagate domain errors with ?
+    val greeting = BuildGreeting(name)?
+
+    Console.WriteLine(greeting)
+
+    .Ok
 }
 
-func Test() -> Result<int, CustomError> {
-    .Error(CustomError("Baam"))
+func BuildGreeting(name: string) -> Result<string, CustomError> {
+    if name.Length < 2 {
+        return .Error(CustomError(
+            message: "Name must be at least 2 characters",
+            code: .InvalidName
+        ))
+    }
+
+    if name == "doom" {
+        return .Error(CustomError(
+            message: "That name is cursed and may not be spoken",
+            code: .ForbiddenName
+        ))
+    }
+
+    .Ok("Hello, " + name + "!")
 }
 
-record class CustomError(Message: string)
+record class CustomError(
+    Message: string,
+    Code: ErrorCode
+) {
+
+    public override ToString() -> string {
+        // This is what the runtime will print on Error
+        "Error [${Code}]: ${Message}"
+    }
+}
+
+enum ErrorCode {
+    MissingArgument
+    InvalidName
+    ForbiddenName
+}

@@ -87,6 +87,11 @@ binary operator still requires its right-hand operand. Indentation on the
 continued line becomes leading whitespace trivia for the next token, while the
 terminating newline token itself remains trivia-free.
 
+Member-access continuation follows the same model. A leading `.` (or `->`) on
+the next line continues the previous expression when separated by a single
+newline. If there is a blank line (two or more consecutive newlines), the
+continuation is broken and parsing resumes as a new statement/expression.
+
 ```raven
 val sum =
     1
@@ -95,6 +100,16 @@ val sum =
 val labelled = 42 // comment stays with the literal
 val next =
     labelled
+```
+
+```raven
+val chain = source
+    .Child
+    .SubChild
+
+val first = source.Call()
+
+.Ok // starts a new target-typed expression (blank line breaks continuation)
 ```
 
 In the example above, the newline following `=` and the newline immediately
