@@ -43,14 +43,17 @@ internal static class ConstantValueEvaluator
         if (targetType is LiteralTypeSymbol literalType)
             targetType = literalType.UnderlyingType;
 
+        // Nullable<T> (or Raven's nullable wrapper). Allow null, otherwise convert to the underlying type.
         if (targetType is NullableTypeSymbol nullableType)
         {
-            if (nullableType.UnderlyingType.IsValueType)
+            // null is always a valid value for a nullable type, regardless of whether the underlying type is a value type.
+            if (value is null)
             {
                 converted = null;
-                return false;
+                return true;
             }
 
+            // For non-null constants, validate/convert as the underlying type.
             return TryConvert(nullableType.UnderlyingType, value, out converted);
         }
 

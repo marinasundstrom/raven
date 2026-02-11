@@ -33,9 +33,22 @@ partial class BlockBinder
         var targetType = GetTargetType(syntax);
         if (targetType is NullableTypeSymbol nullableTargetType)
             targetType = nullableTargetType.UnderlyingType;
+
         var candidateDelegates = GetLambdaDelegateTargets(syntax);
         if (candidateDelegates.IsDefaultOrEmpty)
             candidateDelegates = ComputeLambdaDelegateTargets(syntax);
+
+        // If the target context is `System.Delegate` / `System.MulticastDelegate` (common when an API
+        // accepts an untyped handler), do NOT force the lambda to match any cached candidate delegate
+        // (like RequestDelegate). We only want those candidates for optional parameter-type inference,
+        // not for shaping the lambda's return type.
+        if (targetType is INamedTypeSymbol namedTarget &&
+            namedTarget.ContainingNamespace?.ToDisplayString() == "System" &&
+            (namedTarget.Name == "Delegate" || namedTarget.Name == "MulticastDelegate"))
+        {
+            candidateDelegates = ImmutableArray<INamedTypeSymbol>.Empty;
+        }
+
         var suppressedDiagnostics = ImmutableArray.CreateBuilder<SuppressedLambdaDiagnostic>();
 
         INamedTypeSymbol? targetDelegate = targetType as INamedTypeSymbol;
@@ -54,7 +67,7 @@ partial class BlockBinder
         if (candidateDelegates.IsDefault)
             candidateDelegates = ImmutableArray<INamedTypeSymbol>.Empty;
 
-        INamedTypeSymbol? primaryDelegate = targetDelegate ?? candidateDelegates.FirstOrDefault();
+        INamedTypeSymbol? primaryDelegate = targetDelegate;
         var targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
 
         var parameterSymbols = new List<IParameterSymbol>();
@@ -299,7 +312,13 @@ partial class BlockBinder
 
             var returnForSelection = inferredReturn ?? asyncResult;
 
+            if (primaryDelegate is null)
+                return null;
+
             if (candidateDelegates.IsDefaultOrEmpty)
+                return primaryDelegate;
+
+            if (returnForSelection is null || returnForSelection.TypeKind == TypeKind.Error)
                 return primaryDelegate;
 
             if (returnForSelection is null || returnForSelection.TypeKind == TypeKind.Error)
@@ -408,7 +427,7 @@ partial class BlockBinder
             if (syncMatch is not null)
                 return syncMatch;
 
-            return primaryDelegate ?? candidateDelegates.FirstOrDefault();
+            return primaryDelegate;
         }
 
         var delegateSelectionType = isAsyncLambda
@@ -702,7 +721,11 @@ partial class BlockBinder
         }
 
         if (methods.IsDefaultOrEmpty)
+        {
+            // No viable method set => clear any previously recorded targets for this lambda.
+            _lambdaDelegateTargets.Remove(lambda);
             return;
+        }
 
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
         var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
@@ -729,7 +752,16 @@ partial class BlockBinder
         }
 
         if (builder.Count > 0)
+        {
             _lambdaDelegateTargets[lambda] = builder.ToImmutable();
+        }
+        else
+        {
+            // We ended up selecting an overload where the parameter is not a concrete delegate type
+            // (e.g. `System.Delegate`). Clear any stale delegate targets (like RequestDelegate)
+            // so lambda binding can fall back to normal inference (e.g. return `string`).
+            _lambdaDelegateTargets.Remove(lambda);
+        }
     }
 
     private ITypeSymbol? TryInferLambdaParameterType(ImmutableArray<INamedTypeSymbol> candidateDelegates, int parameterIndex, out RefKind? inferredRefKind)
@@ -965,12 +997,12 @@ partial class BlockBinder
             var parameterSyntax = parameterSyntaxes[index];
             var delegateParameter = invoke.Parameters[index];
             var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
-            var defaultResult = TypeMemberBinder.ProcessParameterDefault(
-                parameterSyntax,
-                delegateParameter.Type,
-                parameterSyntax.Identifier.ValueText,
-                _diagnostics,
-                ref seenOptionalParameter);
+
+            // IMPORTANT: Lambda replay is used for overload resolution / compatibility checks.
+            // Do NOT validate or flow explicit default values here, because replay may bind the
+            // lambda against an unrelated delegate candidate (e.g. RequestDelegate(HttpContext)->Task)
+            // and we must not report diagnostics like "default cannot convert to HttpContext" for
+            // a delegate type that will not be selected.
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 delegateParameter.Type,
@@ -980,8 +1012,8 @@ partial class BlockBinder
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
                 delegateParameter.RefKind,
-                defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue,
+                hasExplicitDefaultValue: false,
+                explicitDefaultValue: null,
                 isMutable: isMutable);
 
             parameterSymbols.Add(parameterSymbol);

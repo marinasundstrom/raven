@@ -1006,6 +1006,22 @@ internal sealed class OverloadResolver
             var candParamType = candParams[candidateParameterIndex].Type;
             var currentParamType = currentParams[currentParameterIndex].Type;
 
+            // Prefer a concrete delegate type (e.g. RequestDelegate) over the catch-all
+            // `System.Delegate` / `System.MulticastDelegate` overload when both are applicable.
+            // IMPORTANT: Decide immediately so later heuristics (like inheritance distance)
+            // do not accidentally prefer `System.Delegate`.
+            if (candParamType is INamedTypeSymbol candNamed && currentParamType is INamedTypeSymbol currentNamed)
+            {
+                var candIsSystemDelegate = IsSystemDelegateLike(candNamed);
+                var currentIsSystemDelegate = IsSystemDelegateLike(currentNamed);
+
+                if (candIsSystemDelegate != currentIsSystemDelegate)
+                {
+                    // Candidate wins iff it is NOT the System.Delegate-like parameter.
+                    return !candIsSystemDelegate;
+                }
+            }
+
             if (argType.TypeKind == TypeKind.Null)
             {
                 var candImplicit = IsImplicitConversion(compilation, candParamType, currentParamType);
