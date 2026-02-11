@@ -1,6 +1,19 @@
 import Microsoft.AspNetCore.Builder.*
+import System.Threading.Tasks.*
 
 val builder = WebApplication.CreateBuilder(args)
 val app = builder.Build()
+
 app.MapGet("/", () => "Hello from Raven Minimal API")
+app.MapGet("/ping", () => "pong")
+app.MapGet("/async", async () => {
+    await Task.Delay(1)
+    return "Hello from async MapGet"
+})
+app.MapPost("/submit", () => "submitted")
+app.MapPost("/submit-async", async () => {
+    await Task.Delay(1)
+    return "submitted async"
+})
+
 app.Run()
