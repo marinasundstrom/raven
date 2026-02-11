@@ -76,4 +76,58 @@ public class MethodOverloadTests : CompilationTestBase
         Assert.Equal("Base", symbol.Parameters[0].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void LambdaArgument_CanBindToSystemDelegateParameter()
+    {
+        var source = """
+        import System.*
+        class C {
+            static takes(handler: Delegate) -> int { 1 }
+            run() -> int {
+                return takes(() => 42)
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        Assert.Equal(SpecialType.System_Delegate, symbol.Parameters[0].Type.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
+    }
+
+    [Fact]
+    public void LambdaArgument_PrefersTypedFuncOverSystemDelegateOverload()
+    {
+        var source = """
+        import System.*
+        class C {
+            static pick(handler: Delegate) -> int { 1 }
+            static pick(handler: Func<string>) -> int { 2 }
+
+            run() -> int {
+                return pick(() => "ok")
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        Assert.Equal("Func", symbol.Parameters[0].Type.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

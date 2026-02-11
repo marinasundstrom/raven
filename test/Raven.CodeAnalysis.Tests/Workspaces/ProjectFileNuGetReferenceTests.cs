@@ -93,4 +93,40 @@ public sealed class ProjectFileNuGetReferenceTests
             project.MetadataReferences.OfType<PortableExecutableReference>(),
             reference => reference.FilePath.Contains("Microsoft.AspNetCore", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void OpenProject_FrameworkReference_AllowsMapGetWithParameterlessLambda()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        var sourceDir = Path.Combine(projectDir, "src");
+
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(sourceDir);
+
+        var sourcePath = Path.Combine(sourceDir, "main.rav");
+        File.WriteAllText(
+            sourcePath,
+            """
+            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            val app = builder.Build()
+            app.MapGet("/", () => "Hello from Raven Minimal API")
+            app.Run()
+            """);
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net9.0" Output="App">
+              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var diagnostics = workspace.GetDiagnostics(projectId);
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV1501");
+    }
 }

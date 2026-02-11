@@ -1291,20 +1291,20 @@ internal sealed class OverloadResolver
         ref int score)
     {
         var argType = argument.Type;
-        if (argType is null)
-        {
-            LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.NullArgumentType, "argument type is null");
-            return false;
-        }
-
-        if (argType.SpecialType == SpecialType.System_Void)
-        {
-            LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.VoidArgument, "argument type is void");
-            return false;
-        }
-
         if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
         {
+            if (argType is null)
+            {
+                LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.NullArgumentType, "argument type is null");
+                return false;
+            }
+
+            if (argType.SpecialType == SpecialType.System_Void)
+            {
+                LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.VoidArgument, "argument type is void");
+                return false;
+            }
+
             if (argument is not BoundAddressOfExpression ||
                 argType is not IAddressTypeSymbol addressType ||
                 argType.SpecialType == SpecialType.System_Void)
@@ -1338,45 +1338,75 @@ internal sealed class OverloadResolver
         bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
-            if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+            if (delegateType.TypeKind == TypeKind.Delegate)
             {
-                var invoke = delegateType.GetDelegateInvokeMethod();
-                string? asyncDetail = null;
-                var asyncCompatible = invoke is not null && IsAsyncDelegateCompatible(lambda, invoke.ReturnType, compilation, out asyncDetail);
-
-                if (!asyncCompatible)
+                if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
                 {
-                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, asyncDetail ?? "async delegate mismatch");
-                    return false;
-                }
-            }
+                    var invoke = delegateType.GetDelegateInvokeMethod();
+                    string? asyncDetail = null;
+                    var asyncCompatible = invoke is not null && IsAsyncDelegateCompatible(lambda, invoke.ReturnType, compilation, out asyncDetail);
 
-            if (delegateType.IsGenericType && delegateType.TypeArguments.Any(static t => t is ITypeParameterSymbol))
-            {
-                lambdaCompatible = true;
-                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda retained for generic delegate binding");
-            }
-            else if (canBindLambda is not null)
-            {
-                if (!canBindLambda(parameter, lambda))
-                {
-                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda rejected by binder callback");
-                    return false;
+                    if (!asyncCompatible)
+                    {
+                        LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, asyncDetail ?? "async delegate mismatch");
+                        return false;
+                    }
                 }
 
-                lambdaCompatible = true;
-                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda accepted via binder callback");
+                if (delegateType.IsGenericType && delegateType.TypeArguments.Any(static t => t is ITypeParameterSymbol))
+                {
+                    lambdaCompatible = true;
+                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda retained for generic delegate binding");
+                }
+                else if (canBindLambda is not null)
+                {
+                    if (!canBindLambda(parameter, lambda))
+                    {
+                        LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda rejected by binder callback");
+                        return false;
+                    }
+
+                    lambdaCompatible = true;
+                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda accepted via binder callback");
+                }
+                else if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
+                {
+                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda signature is incompatible with delegate");
+                    return false;
+                }
+                else
+                {
+                    lambdaCompatible = true;
+                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda compatible with delegate");
+                }
+
+                argType = lambda.DelegateType ?? argType;
             }
-            else if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
+            else if (IsSystemDelegateLike(delegateType))
             {
-                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda signature is incompatible with delegate");
-                return false;
-            }
-            else
-            {
+                var inferredDelegate = lambda.DelegateType as INamedTypeSymbol;
+                if (inferredDelegate is null || inferredDelegate.TypeKind != TypeKind.Delegate)
+                {
+                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda does not have an inferred delegate type");
+                    return false;
+                }
+
                 lambdaCompatible = true;
-                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda compatible with delegate");
+                argType = inferredDelegate;
+                LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda accepted for System.Delegate-like parameter");
             }
+        }
+
+        if (argType is null)
+        {
+            LogComparison(comparisonLog, parameter, argument.Type, OverloadArgumentComparisonResult.NullArgumentType, "argument type is null");
+            return false;
+        }
+
+        if (argType.SpecialType == SpecialType.System_Void)
+        {
+            LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.VoidArgument, "argument type is void");
+            return false;
         }
 
         if (argument is BoundAddressOfExpression)
@@ -1465,6 +1495,18 @@ internal sealed class OverloadResolver
                 return false;
             }
         }
+    }
+
+    private static bool IsSystemDelegateLike(INamedTypeSymbol type)
+    {
+        var definition = type.OriginalDefinition ?? type;
+        if (definition.ContainingNamespace is null)
+            return false;
+        if (!string.Equals(definition.ContainingNamespace.ToDisplayString(), "System", StringComparison.Ordinal))
+            return false;
+
+        return string.Equals(definition.MetadataName, "Delegate", StringComparison.Ordinal) ||
+               string.Equals(definition.MetadataName, "MulticastDelegate", StringComparison.Ordinal);
     }
 
     private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch
