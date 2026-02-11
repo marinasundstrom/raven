@@ -618,8 +618,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         var token = PeekToken();
 
         // Lambda fast-path: if there's no `=>` ahead before newline/terminator, don't even try.
-        // This avoids the checkpoint/rewind churn shown in the trace.
-        if (!LooksLikeLambdaAhead(startOffset: 0))
+        // Bracket-starting lambdas need a slower path because target-specifier attributes
+        // (e.g. `[return: Attr]`) can confuse the cheap token scan.
+        if (token.Kind != SyntaxKind.OpenBracketToken &&
+            !LooksLikeLambdaAhead(startOffset: 0))
             return false;
 
         if (token.Kind == SyntaxKind.AsyncKeyword)
@@ -636,6 +638,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             {
                 return true;
             }
+            else if (PeekToken().Kind == SyntaxKind.OpenBracketToken)
+            {
+                if (TryParseSimpleLambdaExpression(asyncKeyword, out lambda))
+                    return true;
+
+                if (TryParseAttributedParenthesizedLambdaExpression(asyncKeyword, out lambda))
+                    return true;
+            }
 
             checkpoint.Rewind();
             return false;
@@ -647,6 +657,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 return false;
 
             if (TryParseParenthesizedLambdaExpression(asyncKeyword: null, out lambda))
+                return true;
+        }
+
+        if (token.Kind == SyntaxKind.OpenBracketToken)
+        {
+            if (TryParseSimpleLambdaExpression(asyncKeyword: null, out lambda))
+                return true;
+
+            if (TryParseAttributedParenthesizedLambdaExpression(asyncKeyword: null, out lambda))
                 return true;
         }
 
@@ -721,6 +740,129 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             body);
 
         return true;
+    }
+
+    private bool TryParseAttributedParenthesizedLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
+    {
+        lambda = null;
+
+        if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+            return false;
+
+        var checkpoint = CreateCheckpoint("attributed-parenthesized-lambda");
+
+        var leadingAttributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+        if (leadingAttributeLists.SlotCount == 0 || !PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        SplitLeadingLambdaAttributeLists(leadingAttributeLists, out var parameterAttributeLists, out var returnAttributeLists);
+
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList();
+        if (parameterAttributeLists.SlotCount > 0 &&
+            parameterList.Parameters.SlotCount > 0 &&
+            parameterList.Parameters[0] is ParameterSyntax firstParameter)
+        {
+            var mergedAttributes = ConcatSyntaxLists(parameterAttributeLists, firstParameter.AttributeLists);
+            var updatedFirstParameter = firstParameter.Update(
+                mergedAttributes,
+                firstParameter.RefKindKeyword,
+                firstParameter.BindingKeyword,
+                firstParameter.Identifier,
+                firstParameter.TypeAnnotation,
+                firstParameter.DefaultValue);
+
+            var items = new GreenNode[parameterList.Parameters.SlotCount];
+            for (var i = 0; i < items.Length; i++)
+                items[i] = parameterList.Parameters[i];
+
+            items[0] = updatedFirstParameter;
+
+            parameterList = parameterList.Update(
+                parameterList.OpenParenToken,
+                List(items),
+                parameterList.CloseParenToken);
+        }
+
+        var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+        if (returnType is not null && returnAttributeLists.SlotCount > 0)
+        {
+            var mergedReturnAttributes = ConcatSyntaxLists(returnAttributeLists, returnType.AttributeLists);
+            returnType = returnType.Update(mergedReturnAttributes, returnType.ArrowToken, returnType.Type);
+        }
+
+        if ((returnType is null && !IsNextToken(SyntaxKind.FatArrowToken)) ||
+            (returnType is null && returnAttributeLists.SlotCount > 0))
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
+
+        var body = new ExpressionSyntaxParser(this).ParseExpression();
+
+        lambda = ParenthesizedLambdaExpression(
+            asyncKeyword,
+            parameterList,
+            returnType,
+            fatArrowToken,
+            body);
+
+        return true;
+    }
+
+    private static SyntaxList ConcatSyntaxLists(SyntaxList leading, SyntaxList trailing)
+    {
+        if (leading.SlotCount == 0)
+            return trailing;
+
+        if (trailing.SlotCount == 0)
+            return leading;
+
+        var merged = new GreenNode[leading.SlotCount + trailing.SlotCount];
+        var index = 0;
+
+        for (var i = 0; i < leading.SlotCount; i++)
+            merged[index++] = leading[i];
+
+        for (var i = 0; i < trailing.SlotCount; i++)
+            merged[index++] = trailing[i];
+
+        return List(merged);
+    }
+
+    private static void SplitLeadingLambdaAttributeLists(
+        SyntaxList attributeLists,
+        out SyntaxList parameterAttributes,
+        out SyntaxList returnAttributes)
+    {
+        if (attributeLists.SlotCount == 0)
+        {
+            parameterAttributes = SyntaxList.Empty;
+            returnAttributes = SyntaxList.Empty;
+            return;
+        }
+
+        var parameterItems = new List<GreenNode>();
+        var returnItems = new List<GreenNode>();
+
+        for (var i = 0; i < attributeLists.SlotCount; i++)
+        {
+            if (attributeLists[i] is not AttributeListSyntax attributeList)
+                continue;
+
+            var isReturnTarget = attributeList.Target is { Identifier.Text: "return" };
+            if (isReturnTarget)
+                returnItems.Add(attributeList);
+            else
+                parameterItems.Add(attributeList);
+        }
+
+        parameterAttributes = parameterItems.Count == 0 ? SyntaxList.Empty : List(parameterItems);
+        returnAttributes = returnItems.Count == 0 ? SyntaxList.Empty : List(returnItems);
     }
 
     private bool TryParseSimpleLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)

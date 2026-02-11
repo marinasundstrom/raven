@@ -2338,6 +2338,10 @@ Function, method, and accessor parameters use the `name: Type` syntax. Parameter
 names are required and participate in overload resolution alongside their types
 and any `ref`/`out` modifiers.
 
+Lambda parameter lists use the same parameter form and default-value rules.
+Parameters in function-like declarations may include attribute lists. This
+applies to functions, methods, constructors, delegates, accessors, and lambdas.
+
 Parameters may provide a default value using `= expression` after the type. A
 parameter with a default value is optional when invoking the function: callers
 can omit that argument and the compiler supplies the stored constant instead.
@@ -2573,6 +2577,22 @@ creating a lambda immediately affects all delegates that captured it. Capturing
 preserves the argument value from the invoking scope. Nested lambdas reuse the
 closure instances produced by their enclosing scopes so that captures shared
 across multiple lambda layers continue to reference the same storage locations.
+
+Parenthesized lambdas may place attribute lists immediately before the
+parameter list as shorthand. Leading lists are applied contextually:
+non-targeted attributes are applied to the first parameter, while
+`[return: ...]` lists are applied to the lambda return type.
+
+```raven
+val parse = [FromBody](content: string) => content
+```
+
+Lambda parameters may also declare default values using the same trailing
+optional-parameter rules as functions and methods.
+
+```raven
+val format = (name: string, age: int = 1) => $"{name}:${age}"
+```
 
 Lambda parameter types are optional when the expression is converted to a known
 delegate type. The compiler infers the parameter types (and any `ref`/`out`

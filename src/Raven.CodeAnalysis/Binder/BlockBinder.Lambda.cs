@@ -58,6 +58,7 @@ partial class BlockBinder
         var targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
 
         var parameterSymbols = new List<IParameterSymbol>();
+        var seenOptionalParameter = false;
         for (int index = 0; index < parameterSyntaxes.Length; index++)
         {
             var parameterSyntax = parameterSyntaxes[index];
@@ -120,6 +121,12 @@ partial class BlockBinder
             }
 
             var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var defaultResult = TypeMemberBinder.ProcessParameterDefault(
+                parameterSyntax,
+                parameterType,
+                parameterSyntax.Identifier.ValueText,
+                _diagnostics,
+                ref seenOptionalParameter);
 
             var symbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
@@ -130,6 +137,8 @@ partial class BlockBinder
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
                 refKind,
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue,
                 isMutable: isMutable
             );
 
@@ -949,12 +958,19 @@ partial class BlockBinder
         }
 
         var parameterSymbols = new List<IParameterSymbol>(parameterSyntaxes.Length);
+        var seenOptionalParameter = false;
 
         for (int index = 0; index < parameterSyntaxes.Length; index++)
         {
             var parameterSyntax = parameterSyntaxes[index];
             var delegateParameter = invoke.Parameters[index];
             var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
+            var defaultResult = TypeMemberBinder.ProcessParameterDefault(
+                parameterSyntax,
+                delegateParameter.Type,
+                parameterSyntax.Identifier.ValueText,
+                _diagnostics,
+                ref seenOptionalParameter);
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 delegateParameter.Type,
@@ -964,6 +980,8 @@ partial class BlockBinder
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
                 delegateParameter.RefKind,
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue,
                 isMutable: isMutable);
 
             parameterSymbols.Add(parameterSymbol);

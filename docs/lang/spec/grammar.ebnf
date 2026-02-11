@@ -81,8 +81,11 @@ ExtensionPropertyModifiers ::= AccessModifier ;
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
-Parameter                ::= RefKindModifier? Identifier ':' Type ['=' Expression] ;
+Parameter                ::= {AttributeList} RefKindModifier? Identifier ':' Type ['=' Expression] ;
 RefKindModifier          ::= 'ref' | 'out' | 'in' ;
+
+AttributeList            ::= '[' Attribute {',' Attribute} ']' ;
+Attribute                ::= QualifiedName [AttributeArgumentList] ;
 
 EnumDeclaration          ::= TypeModifiers?
                              'enum' Identifier EnumBaseList?

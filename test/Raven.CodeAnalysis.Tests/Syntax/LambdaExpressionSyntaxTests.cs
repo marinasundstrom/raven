@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
@@ -55,6 +56,42 @@ public class LambdaExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithLeadingAttribute_ParsesAndAppliesToParameter()
+    {
+        var lambda = ParseLambdaInitializer("[FromBody](content: string) => content");
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        var attributeList = Assert.Single(parameter.AttributeLists);
+        var attribute = Assert.Single(attributeList.Attributes);
+        var attributeName = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("FromBody", attributeName.Identifier.Text);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithLeadingReturnAttribute_ParsesAndAppliesToReturnType()
+    {
+        var lambda = ParseLambdaInitializer("[return: ReturnAttr] (x: int) -> int => x");
+
+        Assert.NotNull(lambda.ReturnType);
+        var returnAttributeList = Assert.Single(lambda.ReturnType!.AttributeLists);
+        Assert.NotNull(returnAttributeList.Target);
+        Assert.Equal("return", returnAttributeList.Target!.Identifier.Text);
+
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        Assert.Empty(parameter.AttributeLists);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithDefaultParameterValue_Parses()
+    {
+        var expression = ParseExpression("(name: string, age: int = 1) => age");
+
+        var lambda = Assert.IsType<ParenthesizedLambdaExpressionSyntax>(expression);
+        Assert.Equal(2, lambda.ParameterList.Parameters.Count);
+        Assert.Null(lambda.ParameterList.Parameters[0].DefaultValue);
+        Assert.NotNull(lambda.ParameterList.Parameters[1].DefaultValue);
+    }
+
+    [Fact]
     public void ParenthesizedExpression_WithSingleIdentifier_DoesNotParseAsLambda()
     {
         var expression = ParseExpression("(value)");
@@ -88,5 +125,18 @@ public class LambdaExpressionSyntaxTests
         var statement = Assert.IsType<ExpressionStatementSyntax>(globalStatement.Statement);
 
         return statement.Expression;
+    }
+
+    private static ParenthesizedLambdaExpressionSyntax ParseLambdaInitializer(string initializer)
+    {
+        var tree = SyntaxTree.ParseText($"val f = {initializer}");
+        var root = tree.GetRoot();
+
+        Assert.Single(root.Members);
+        var globalStatement = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
+        var declarationStatement = Assert.IsType<LocalDeclarationStatementSyntax>(globalStatement.Statement);
+        var declarator = Assert.Single(declarationStatement.Declaration.Declarators);
+        var lambda = Assert.IsType<ParenthesizedLambdaExpressionSyntax>(declarator.Initializer!.Value);
+        return lambda;
     }
 }

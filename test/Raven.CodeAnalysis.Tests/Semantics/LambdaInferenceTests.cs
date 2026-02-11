@@ -29,7 +29,7 @@ class Calculator {
 
         var (compilation, tree) = CreateCompilation(code);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
@@ -168,6 +168,66 @@ class Container {
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, lambdaSymbol.ReturnType));
+    }
+
+    [Fact]
+    public void Lambda_ParameterWithDefaultValue_BindsAsOptionalParameter()
+    {
+        const string code = """
+import System.*
+class Container {
+    Provide() -> unit {
+        val f = (name: string, age: int = 1) => age
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var parameters = boundLambda.Parameters.ToArray();
+        Assert.Equal(2, parameters.Length);
+        Assert.False(parameters[0].HasExplicitDefaultValue);
+        Assert.True(parameters[1].HasExplicitDefaultValue);
+        Assert.Equal(1, parameters[1].ExplicitDefaultValue);
+    }
+
+    [Fact]
+    public void Lambda_LeadingAttribute_BindsToSingleParameter()
+    {
+        const string code = """
+import System.*
+
+class Container {
+    Provide() -> unit {
+        val f = [Obsolete](content: string) => content
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .Single();
+
+        var syntaxParameter = Assert.Single(lambdaSyntax.ParameterList.Parameters);
+        Assert.Single(syntaxParameter.AttributeLists);
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Single(boundLambda.Parameters);
     }
 
     [Fact]

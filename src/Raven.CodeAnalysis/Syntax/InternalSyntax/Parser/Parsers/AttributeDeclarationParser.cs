@@ -30,7 +30,8 @@ internal static class AttributeDeclarationParser
         var openBracket = parser.ReadToken();
 
         AttributeTargetSpecifierSyntax? target = null;
-        if (SyntaxFacts.CanBeIdentifier(parser.PeekToken().Kind) && parser.PeekToken(1).IsKind(SyntaxKind.ColonToken))
+        if ((SyntaxFacts.CanBeIdentifier(parser.PeekToken().Kind) || SyntaxFacts.IsReservedWordKind(parser.PeekToken().Kind))
+            && parser.PeekToken(1).IsKind(SyntaxKind.ColonToken))
         {
             var identifier = parser.ReadToken();
             parser.ConsumeTokenOrMissing(SyntaxKind.ColonToken, out var colonToken);
