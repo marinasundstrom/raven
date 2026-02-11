@@ -469,10 +469,57 @@ if (!string.IsNullOrEmpty(ravenCorePath))
 {
     Directory.CreateDirectory(outputDirectory!);
     var ravenCoreDestination = Path.Combine(outputDirectory!, Path.GetFileName(ravenCorePath));
+
+    // When targeting a project output directory, Raven.Core.dll may already be loaded by a running app.
+    // In that case, overwriting can fail on some platforms. Prefer reusing the existing file if it looks identical.
     if (!string.Equals(ravenCoreDestination, ravenCorePath, StringComparison.OrdinalIgnoreCase))
     {
-        File.Copy(ravenCorePath, ravenCoreDestination, overwrite: true);
-        ravenCorePath = ravenCoreDestination;
+        try
+        {
+            if (File.Exists(ravenCoreDestination))
+            {
+                var srcInfo = new FileInfo(ravenCorePath);
+                var dstInfo = new FileInfo(ravenCoreDestination);
+
+                // Fast equality check: same size and same last write time (UTC). If so, keep the existing copy.
+                if (srcInfo.Exists && dstInfo.Exists &&
+                    srcInfo.Length == dstInfo.Length &&
+                    srcInfo.LastWriteTimeUtc == dstInfo.LastWriteTimeUtc)
+                {
+                    ravenCorePath = ravenCoreDestination;
+                }
+                else
+                {
+                    File.Copy(ravenCorePath, ravenCoreDestination, overwrite: true);
+                    // Preserve timestamps so subsequent runs can use the fast equality check.
+                    File.SetLastWriteTimeUtc(ravenCoreDestination, srcInfo.LastWriteTimeUtc);
+                    ravenCorePath = ravenCoreDestination;
+                }
+            }
+            else
+            {
+                File.Copy(ravenCorePath, ravenCoreDestination, overwrite: true);
+                var srcInfo = new FileInfo(ravenCorePath);
+                if (srcInfo.Exists)
+                    File.SetLastWriteTimeUtc(ravenCoreDestination, srcInfo.LastWriteTimeUtc);
+                ravenCorePath = ravenCoreDestination;
+            }
+        }
+        catch (IOException)
+        {
+            // If the destination is locked (e.g. a previously run app is still using Raven.Core.dll),
+            // keep using the existing file if present.
+            if (File.Exists(ravenCoreDestination))
+            {
+                AnsiConsole.MarkupLine(
+                    $"[yellow]Warning: Could not overwrite '{Markup.Escape(ravenCoreDestination)}' because it is in use. Reusing the existing file.[/]");
+                ravenCorePath = ravenCoreDestination;
+            }
+            else
+            {
+                throw;
+            }
+        }
     }
 }
 
@@ -491,7 +538,39 @@ string? ResolveAndCopyLocalDependency(string fileName, params string[] candidate
         var destination = Path.Combine(outputDirectory!, fileName);
 
         if (!string.Equals(full, destination, StringComparison.OrdinalIgnoreCase))
-            File.Copy(full, destination, overwrite: true);
+        {
+            try
+            {
+                // Same "in use" issue can happen for local dependencies when the previous output is still running.
+                if (File.Exists(destination))
+                {
+                    var srcInfo = new FileInfo(full);
+                    var dstInfo = new FileInfo(destination);
+                    if (srcInfo.Exists && dstInfo.Exists &&
+                        srcInfo.Length == dstInfo.Length &&
+                        srcInfo.LastWriteTimeUtc == dstInfo.LastWriteTimeUtc)
+                    {
+                        return destination;
+                    }
+                }
+
+                File.Copy(full, destination, overwrite: true);
+                var src = new FileInfo(full);
+                if (src.Exists)
+                    File.SetLastWriteTimeUtc(destination, src.LastWriteTimeUtc);
+            }
+            catch (IOException)
+            {
+                if (File.Exists(destination))
+                {
+                    AnsiConsole.MarkupLine(
+                        $"[yellow]Warning: Could not overwrite '{Markup.Escape(destination)}' because it is in use. Reusing the existing file.[/]");
+                    return destination;
+                }
+
+                throw;
+            }
+        }
 
         return destination;
     }
