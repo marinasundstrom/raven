@@ -17,6 +17,7 @@
 For `.ravenproj` + NuGet restore/cache behavior, see:
 
 - `samples/project-files/nuget-demo/README.md`
+- `samples/project-files/aspnet-minimal-api/README.md`
 
 ### Compiler options
 

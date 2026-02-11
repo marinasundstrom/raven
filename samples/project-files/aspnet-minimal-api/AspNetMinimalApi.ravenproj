@@ -1,0 +1,3 @@
+<Project Name="AspNetMinimalApi" TargetFramework="net9.0" Output="AspNetMinimalApi" OutputKind="ConsoleApplication">
+  <FrameworkReference Include="Microsoft.AspNetCore.App" />
+</Project>

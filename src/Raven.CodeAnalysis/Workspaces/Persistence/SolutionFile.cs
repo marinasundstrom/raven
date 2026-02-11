@@ -51,7 +51,11 @@ internal static class SolutionFile
             foreach (var metadataReferencePath in projInfo.MetadataReferences)
                 solution = solution.AddMetadataReference(projId, MetadataReference.CreateFromFile(metadataReferencePath));
 
-            var packageReferences = NuGetPackageResolver.ResolveReferences(projPath, tfm, projInfo.PackageReferences);
+            var packageReferences = NuGetPackageResolver.ResolveReferences(
+                projPath,
+                tfm,
+                projInfo.PackageReferences,
+                projInfo.FrameworkReferences);
             foreach (var packageReference in packageReferences)
                 solution = solution.AddMetadataReference(projId, packageReference);
 

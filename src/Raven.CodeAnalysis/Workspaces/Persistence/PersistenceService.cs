@@ -42,7 +42,11 @@ public class PersistenceService
         foreach (var metadataReferencePath in projInfo.MetadataReferences)
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
 
-        var packageReferences = NuGetPackageResolver.ResolveReferences(projectFilePath, tfm, projInfo.PackageReferences);
+        var packageReferences = NuGetPackageResolver.ResolveReferences(
+            projectFilePath,
+            tfm,
+            projInfo.PackageReferences,
+            projInfo.FrameworkReferences);
         foreach (var packageReference in packageReferences)
             solution = solution.AddMetadataReference(projectId, packageReference);
 

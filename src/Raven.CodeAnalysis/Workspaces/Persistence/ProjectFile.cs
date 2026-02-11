@@ -12,12 +12,14 @@ namespace Raven.CodeAnalysis;
 internal static class ProjectFile
 {
     internal sealed record PackageReferenceInfo(string Id, string Version);
+    internal sealed record FrameworkReferenceInfo(string Name);
 
     internal sealed record ProjectFileInfo(
         ProjectInfo Info,
         ImmutableArray<string> ProjectReferences,
         ImmutableArray<string> MetadataReferences,
-        ImmutableArray<PackageReferenceInfo> PackageReferences);
+        ImmutableArray<PackageReferenceInfo> PackageReferences,
+        ImmutableArray<FrameworkReferenceInfo> FrameworkReferences);
 
     public static void Save(Project project, string filePath)
     {
@@ -134,8 +136,14 @@ internal static class ProjectFile
             })
             .ToImmutableArray();
 
+        var frameworkRefs = root.Elements("FrameworkReference")
+            .Select(e => (string?)e.Attribute("Include") ?? (string?)e.Attribute("Name"))
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => new FrameworkReferenceInfo(value!))
+            .ToImmutableArray();
+
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
         var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
-        return new ProjectFileInfo(info, projectRefs, metadataRefs, packageRefs);
+        return new ProjectFileInfo(info, projectRefs, metadataRefs, packageRefs, frameworkRefs);
     }
 }

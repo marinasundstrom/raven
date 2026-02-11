@@ -14,23 +14,38 @@ internal static class NuGetPackageResolver
     public static ImmutableArray<MetadataReference> ResolveReferences(
         string projectFilePath,
         string targetFramework,
-        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences)
+        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences,
+        ImmutableArray<ProjectFile.FrameworkReferenceInfo> frameworkReferences)
     {
-        if (packageReferences.IsDefaultOrEmpty)
+        if (packageReferences.IsDefaultOrEmpty && frameworkReferences.IsDefaultOrEmpty)
             return ImmutableArray<MetadataReference>.Empty;
 
         var globalPackagesFolder = GetGlobalPackagesFolder();
+        var resolvedPaths = ImmutableArray.CreateBuilder<string>();
 
-        if (TryResolveDirectlyFromGlobalCache(globalPackagesFolder, targetFramework, packageReferences, out var directReferences))
-            return directReferences.Select(MetadataReference.CreateFromFile).Select(static x => (MetadataReference)x).ToImmutableArray();
+        if (frameworkReferences.IsDefaultOrEmpty &&
+            TryResolveDirectlyFromGlobalCache(globalPackagesFolder, targetFramework, packageReferences, out var directReferences))
+        {
+            resolvedPaths.AddRange(directReferences);
+        }
+        else
+        {
+            var restoreResult = RestoreAndResolveReferencesFromAssets(
+                projectFilePath,
+                globalPackagesFolder,
+                targetFramework,
+                packageReferences,
+                frameworkReferences);
 
-        var restoredReferences = RestoreAndResolveReferencesFromAssets(
-            projectFilePath,
-            globalPackagesFolder,
-            targetFramework,
-            packageReferences);
+            resolvedPaths.AddRange(restoreResult.PackageReferencePaths);
+            resolvedPaths.AddRange(restoreResult.FrameworkPackReferencePaths);
+        }
 
-        return restoredReferences.Select(MetadataReference.CreateFromFile).Select(static x => (MetadataReference)x).ToImmutableArray();
+        return resolvedPaths
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(MetadataReference.CreateFromFile)
+            .Select(static x => (MetadataReference)x)
+            .ToImmutableArray();
     }
 
     private static bool TryResolveDirectlyFromGlobalCache(
@@ -65,11 +80,12 @@ internal static class NuGetPackageResolver
         return true;
     }
 
-    private static ImmutableArray<string> RestoreAndResolveReferencesFromAssets(
+    private static RestoreResolutionResult RestoreAndResolveReferencesFromAssets(
         string projectFilePath,
         string globalPackagesFolder,
         string targetFramework,
-        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences)
+        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences,
+        ImmutableArray<ProjectFile.FrameworkReferenceInfo> frameworkReferences)
     {
         var projectDirectory = Path.GetDirectoryName(projectFilePath)
             ?? throw new InvalidOperationException($"Unable to determine project directory for '{projectFilePath}'.");
@@ -77,7 +93,7 @@ internal static class NuGetPackageResolver
         Directory.CreateDirectory(scratchDir);
 
         var tempProjectPath = Path.Combine(scratchDir, "Restore.csproj");
-        var tempProjectXml = BuildTemporaryRestoreProject(targetFramework, packageReferences);
+        var tempProjectXml = BuildTemporaryRestoreProject(targetFramework, packageReferences, frameworkReferences);
         File.WriteAllText(tempProjectPath, tempProjectXml);
 
         try
@@ -88,7 +104,7 @@ internal static class NuGetPackageResolver
             if (!File.Exists(assetsPath))
                 throw new InvalidOperationException($"Restore succeeded but '{assetsPath}' was not generated.");
 
-            return ParseCompileAssets(assetsPath, globalPackagesFolder, targetFramework);
+            return ParseResolutionFromAssets(assetsPath, globalPackagesFolder, targetFramework);
         }
         finally
         {
@@ -105,7 +121,8 @@ internal static class NuGetPackageResolver
 
     private static string BuildTemporaryRestoreProject(
         string targetFramework,
-        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences)
+        ImmutableArray<ProjectFile.PackageReferenceInfo> packageReferences,
+        ImmutableArray<ProjectFile.FrameworkReferenceInfo> frameworkReferences)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<Project Sdk=\"Microsoft.NET.Sdk\">");
@@ -115,6 +132,8 @@ internal static class NuGetPackageResolver
         sb.AppendLine("  <ItemGroup>");
         foreach (var package in packageReferences)
             sb.AppendLine($"    <PackageReference Include=\"{package.Id}\" Version=\"{package.Version}\" />");
+        foreach (var framework in frameworkReferences)
+            sb.AppendLine($"    <FrameworkReference Include=\"{framework.Name}\" />");
         sb.AppendLine("  </ItemGroup>");
         sb.AppendLine("</Project>");
         return sb.ToString();
@@ -152,7 +171,7 @@ internal static class NuGetPackageResolver
         }
     }
 
-    private static ImmutableArray<string> ParseCompileAssets(string assetsPath, string globalPackagesFolder, string targetFramework)
+    private static RestoreResolutionResult ParseResolutionFromAssets(string assetsPath, string globalPackagesFolder, string targetFramework)
     {
         using var stream = File.OpenRead(assetsPath);
         using var document = JsonDocument.Parse(stream);
@@ -171,7 +190,7 @@ internal static class NuGetPackageResolver
         if (targetKey is null)
             throw new InvalidDataException($"Could not find target '{targetFramework}' in '{assetsPath}'.");
 
-        var resolved = ImmutableArray.CreateBuilder<string>();
+        var resolvedPackagePaths = ImmutableArray.CreateBuilder<string>();
         foreach (var libraryTarget in targets.GetProperty(targetKey).EnumerateObject())
         {
             var libraryName = libraryTarget.Name;
@@ -197,13 +216,153 @@ internal static class NuGetPackageResolver
                     packagePath.Replace('/', Path.DirectorySeparatorChar),
                     compileAsset.Name.Replace('/', Path.DirectorySeparatorChar));
                 if (File.Exists(fullPath))
-                    resolved.Add(fullPath);
+                    resolvedPackagePaths.Add(fullPath);
+            }
+        }
+
+        var resolvedFrameworkPackPaths = ResolveFrameworkPackReferencesFromAssets(root, targetFramework);
+
+        return new RestoreResolutionResult(
+            resolvedPackagePaths.Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
+            resolvedFrameworkPackPaths);
+    }
+
+    private static ImmutableArray<string> ResolveFrameworkPackReferencesFromAssets(JsonElement root, string targetFramework)
+    {
+        if (!root.TryGetProperty("project", out var projectElement) || projectElement.ValueKind != JsonValueKind.Object)
+            return ImmutableArray<string>.Empty;
+        if (!projectElement.TryGetProperty("frameworks", out var frameworksElement) || frameworksElement.ValueKind != JsonValueKind.Object)
+            return ImmutableArray<string>.Empty;
+
+        var frameworkKey = frameworksElement.EnumerateObject()
+            .Select(static x => x.Name)
+            .FirstOrDefault(name => string.Equals(name, targetFramework, StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith(targetFramework + "/", StringComparison.OrdinalIgnoreCase));
+        if (frameworkKey is null)
+            return ImmutableArray<string>.Empty;
+
+        var frameworkNode = frameworksElement.GetProperty(frameworkKey);
+        if (!frameworkNode.TryGetProperty("downloadDependencies", out var downloadDependencies) ||
+            downloadDependencies.ValueKind != JsonValueKind.Array)
+            return ImmutableArray<string>.Empty;
+
+        var resolved = ImmutableArray.CreateBuilder<string>();
+        foreach (var dep in downloadDependencies.EnumerateArray())
+        {
+            var name = dep.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
+            var versionRange = dep.TryGetProperty("version", out var versionElement) ? versionElement.GetString() : null;
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(versionRange))
+                continue;
+            if (!name.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var version = NormalizeNuGetVersionRange(versionRange);
+            if (string.IsNullOrWhiteSpace(version))
+                continue;
+            var sharedFrameworkName = name.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase)
+                ? name[..^4]
+                : name;
+            if (string.Equals(sharedFrameworkName, "Microsoft.NETCore.App", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var dotnetRoot in GetDotNetRoots())
+            {
+                var runtimeRefs = ResolveSharedFrameworkRuntimeAssemblies(dotnetRoot, sharedFrameworkName, version);
+                if (!runtimeRefs.IsDefaultOrEmpty)
+                {
+                    resolved.AddRange(runtimeRefs);
+                    break;
+                }
+
+                var packRoot = Path.Combine(dotnetRoot, "packs", name);
+                if (!Directory.Exists(packRoot))
+                    continue;
+
+                var selectedVersion = SelectInstalledPackVersion(packRoot, version);
+                if (string.IsNullOrWhiteSpace(selectedVersion))
+                    continue;
+
+                var packRefDir = Path.Combine(packRoot, selectedVersion, "ref");
+                if (!Directory.Exists(packRefDir))
+                    continue;
+
+                var tfmDir = Path.Combine(packRefDir, targetFramework);
+                if (!Directory.Exists(tfmDir))
+                {
+                    tfmDir = Directory.EnumerateDirectories(packRefDir)
+                        .FirstOrDefault(path => string.Equals(Path.GetFileName(path), targetFramework, StringComparison.OrdinalIgnoreCase))
+                        ?? string.Empty;
+                }
+
+                if (!Directory.Exists(tfmDir))
+                    continue;
+
+                resolved.AddRange(Directory.EnumerateFiles(tfmDir, "*.dll", SearchOption.TopDirectoryOnly));
+                break;
             }
         }
 
         return resolved
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
+    }
+
+    private static ImmutableArray<string> ResolveSharedFrameworkRuntimeAssemblies(
+        string dotnetRoot,
+        string sharedFrameworkName,
+        string requestedVersion)
+    {
+        var sharedRoot = Path.Combine(dotnetRoot, "shared", sharedFrameworkName);
+        if (!Directory.Exists(sharedRoot))
+            return ImmutableArray<string>.Empty;
+
+        var selectedVersion = SelectInstalledPackVersion(sharedRoot, requestedVersion);
+        if (string.IsNullOrWhiteSpace(selectedVersion))
+            return ImmutableArray<string>.Empty;
+
+        var runtimeDir = Path.Combine(sharedRoot, selectedVersion);
+        if (!Directory.Exists(runtimeDir))
+            return ImmutableArray<string>.Empty;
+
+        return Directory.EnumerateFiles(runtimeDir, "*.dll", SearchOption.TopDirectoryOnly)
+            .ToImmutableArray();
+    }
+
+    private static string SelectInstalledPackVersion(string packRoot, string requestedVersion)
+    {
+        var exact = Path.Combine(packRoot, requestedVersion);
+        if (Directory.Exists(exact))
+            return requestedVersion;
+
+        var requested = ParseVersionLoose(requestedVersion);
+        var available = Directory.EnumerateDirectories(packRoot)
+            .Select(Path.GetFileName)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => new { Name = name!, Version = ParseVersionLoose(name!) })
+            .Where(static x => x.Version is not null)
+            .Select(static x => (x.Name, Version: x.Version!))
+            .ToArray();
+
+        if (available.Length == 0)
+            return string.Empty;
+
+        if (requested is null)
+            return available.OrderByDescending(static x => x.Version).First().Name;
+
+        var compatible = available
+            .Where(x => x.Version.Major == requested.Major && x.Version.Minor == requested.Minor)
+            .OrderByDescending(static x => x.Version)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(compatible.Name))
+            return compatible.Name;
+
+        return available.OrderByDescending(static x => x.Version).First().Name;
+    }
+
+    private static Version? ParseVersionLoose(string value)
+    {
+        var core = value.Split('-', StringSplitOptions.RemoveEmptyEntries)[0];
+        return Version.TryParse(core, out var parsed) ? parsed : null;
     }
 
     private static ImmutableArray<string> ResolvePackageAssemblies(string packageRoot, string targetFramework)
@@ -243,4 +402,70 @@ internal static class NuGetPackageResolver
             throw new InvalidOperationException("Unable to determine user profile for the NuGet global package cache.");
         return Path.Combine(home, ".nuget", "packages");
     }
+
+    private static string NormalizeNuGetVersionRange(string versionRange)
+    {
+        var trimmed = versionRange.Trim();
+        if (trimmed.Length == 0)
+            return string.Empty;
+        if (!trimmed.StartsWith("[", StringComparison.Ordinal) && !trimmed.StartsWith("(", StringComparison.Ordinal))
+            return trimmed;
+
+        var body = trimmed.Trim('[', ']', '(', ')');
+        var first = body.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return first ?? string.Empty;
+    }
+
+    private static IEnumerable<string> GetDotNetRoots()
+    {
+        var envRoots = new[]
+        {
+            Environment.GetEnvironmentVariable("DOTNET_ROOT"),
+            Environment.GetEnvironmentVariable("DOTNET_ROOT(x86)")
+        }.Where(static s => !string.IsNullOrWhiteSpace(s));
+
+        foreach (var root in envRoots)
+        {
+            if (Directory.Exists(root))
+                yield return root!;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var x64 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
+            var x86 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "dotnet");
+            if (Directory.Exists(x64))
+                yield return x64;
+            if (Directory.Exists(x86))
+                yield return x86;
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            const string appleDefault = "/usr/local/share/dotnet";
+            const string brew = "/opt/homebrew/opt/dotnet/libexec";
+            if (Directory.Exists(appleDefault))
+                yield return appleDefault;
+            if (Directory.Exists(brew))
+                yield return brew;
+        }
+        else
+        {
+            var candidates = new[]
+            {
+                "/usr/share/dotnet",
+                "/usr/lib/dotnet",
+                "/snap/dotnet-sdk/current",
+            };
+
+            foreach (var candidate in candidates)
+            {
+                if (Directory.Exists(candidate))
+                    yield return candidate;
+            }
+        }
+    }
+
+    private sealed record RestoreResolutionResult(
+        ImmutableArray<string> PackageReferencePaths,
+        ImmutableArray<string> FrameworkPackReferencePaths);
 }

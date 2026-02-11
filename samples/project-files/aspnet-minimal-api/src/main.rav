@@ -1,0 +1,4 @@
+val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+val app = builder.Build()
+app.MapGet("/", context => context.Response.WriteAsync("Hello from Raven Minimal API"))
+app.Run()

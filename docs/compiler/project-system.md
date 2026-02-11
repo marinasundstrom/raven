@@ -26,6 +26,7 @@ Supported child elements:
 - `<ProjectReference Path="..."/>`
 - `<Reference Path="..."/>` (or `Include="..."`)
 - `<PackageReference Include="Package.Id" Version="x.y.z"/>`
+- `<FrameworkReference Include="Framework.Name"/>`
 
 ## Implicit source inclusion
 
@@ -48,6 +49,12 @@ When a `.ravenproj` includes `<PackageReference>`:
    - otherwise `~/.nuget/packages`
 2. If required assets are missing, Raven runs `dotnet restore` for a temporary SDK project.
 3. Raven reads resolved compile assets and adds those assemblies as metadata references.
+
+When a `.ravenproj` includes `<FrameworkReference>`:
+
+1. Raven restores a temporary SDK project that contains those framework references.
+2. Raven resolves the corresponding framework reference packs from installed .NET SDK `packs/`.
+3. Pack reference assemblies are added as metadata references for compilation.
 
 ## Output dependency copying
 

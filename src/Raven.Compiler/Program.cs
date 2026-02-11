@@ -1126,10 +1126,14 @@ static void CopyNuGetReferencesToOutput(Project project, string targetFramework,
             continue;
 
         var fullReferencePath = Path.GetFullPath(referencePath);
-        if (!IsUnderDirectory(fullReferencePath, globalPackages))
+        var isNuGetPackageReference = IsUnderDirectory(fullReferencePath, globalPackages);
+        var isSharedFrameworkReference = IsUnderAnyDotNetSharedRoot(fullReferencePath);
+        if (!isNuGetPackageReference && !isSharedFrameworkReference)
             continue;
 
-        var runtimePath = ResolveNuGetRuntimeAssemblyPath(fullReferencePath, targetFramework);
+        var runtimePath = isNuGetPackageReference
+            ? ResolveNuGetRuntimeAssemblyPath(fullReferencePath, targetFramework)
+            : fullReferencePath;
         if (!File.Exists(runtimePath))
             continue;
 
@@ -1217,6 +1221,67 @@ static bool IsUnderDirectory(string path, string directory)
         .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     return fullPath.StartsWith(fullDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
            string.Equals(fullPath, fullDirectory, StringComparison.OrdinalIgnoreCase);
+}
+
+static bool IsUnderAnyDotNetSharedRoot(string path)
+{
+    foreach (var root in GetDotNetRootsForDependencyCopy())
+    {
+        var sharedRoot = Path.Combine(root, "shared");
+        if (Directory.Exists(sharedRoot) && IsUnderDirectory(path, sharedRoot))
+            return true;
+    }
+
+    return false;
+}
+
+static IEnumerable<string> GetDotNetRootsForDependencyCopy()
+{
+    var envRoots = new[]
+    {
+        Environment.GetEnvironmentVariable("DOTNET_ROOT"),
+        Environment.GetEnvironmentVariable("DOTNET_ROOT(x86)")
+    }.Where(static value => !string.IsNullOrWhiteSpace(value));
+
+    foreach (var root in envRoots)
+    {
+        if (Directory.Exists(root))
+            yield return root!;
+    }
+
+    if (OperatingSystem.IsWindows())
+    {
+        var x64 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet");
+        var x86 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "dotnet");
+        if (Directory.Exists(x64))
+            yield return x64;
+        if (Directory.Exists(x86))
+            yield return x86;
+    }
+    else if (OperatingSystem.IsMacOS())
+    {
+        const string appleDefault = "/usr/local/share/dotnet";
+        const string brew = "/opt/homebrew/opt/dotnet/libexec";
+        if (Directory.Exists(appleDefault))
+            yield return appleDefault;
+        if (Directory.Exists(brew))
+            yield return brew;
+    }
+    else
+    {
+        var candidates = new[]
+        {
+            "/usr/share/dotnet",
+            "/usr/lib/dotnet",
+            "/snap/dotnet-sdk/current",
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (Directory.Exists(candidate))
+                yield return candidate;
+        }
+    }
 }
 
 static void PrintHelp()
@@ -1441,7 +1506,7 @@ static int RunInitCommand(string[] args)
     AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(projectFilePath)}[/]");
     AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(mainSourcePath)}[/]");
     AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(binGitkeep)}[/]");
-    AnsiConsole.MarkupLine("[grey]Compile with: ravenc ./"+Markup.Escape(Path.GetFileName(projectFilePath))+" -o bin/"+Markup.Escape(projectName)+".dll[/]");
+    AnsiConsole.MarkupLine("[grey]Compile with: ravenc ./" + Markup.Escape(Path.GetFileName(projectFilePath)) + " -o bin/" + Markup.Escape(projectName) + ".dll[/]");
 
     return 0;
 }
