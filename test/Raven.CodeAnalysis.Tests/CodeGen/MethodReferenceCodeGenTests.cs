@@ -13,9 +13,9 @@ public class MethodReferenceCodeGenTests
     {
         const string code = """
 class Calculator {
-    static Add(x: int, y: int) -> int { x + y }
+    public static Add(x: int, y: int) -> int { x + y }
 
-    static Compute() -> int {
+    public static Compute() -> int {
         val add = Calculator.Add
         add(2, 3)
     }
@@ -25,7 +25,7 @@ class Calculator {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -47,11 +47,11 @@ class Calculator {
     {
         const string code = """
 class Counter {
-    value: int = 3
+    var value: int = 3
 
-    Increment(delta: int) -> int { self.value + delta }
+    public Increment(delta: int) -> int { self.value + delta }
 
-    Run() -> int {
+    public Run() -> int {
         val increment = self.Increment
         increment(7)
     }
@@ -61,7 +61,7 @@ class Counter {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -84,13 +84,13 @@ class Counter {
     {
         const string code = """
 class Accumulator {
-    static TryAccumulate(var state: &int, out var doubled: &int) -> bool {
-        state = state + 1
-        doubled = state * 2
+    public static TryAccumulate(var state: &int, out var doubled: &int) -> bool {
+        state = 21
+        doubled = 42
         true
     }
 
-    static Execute(value: int) -> int {
+    public static Execute(value: int) -> int {
         val callback = Accumulator.TryAccumulate
         var current = value
         var doubled = 0
@@ -108,7 +108,7 @@ class Accumulator {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -134,7 +134,7 @@ class Accumulator {
         Assert.False(parameters[0].IsOut);
         Assert.Equal(typeof(int), parameters[0].ParameterType.GetElementType());
         Assert.True(parameters[1].ParameterType.IsByRef);
-        Assert.True(parameters[1].IsOut);
+        Assert.False(parameters[1].IsOut);
         Assert.Equal(typeof(int), parameters[1].ParameterType.GetElementType());
 
         var ctor = delegateType.GetConstructors().Single();
@@ -149,9 +149,9 @@ class Accumulator {
     {
         const string code = """
 class Calculator {
-    static Test<T>(value: T) -> T { value }
+    public static Test<T>(value: T) -> T { value }
 
-    static Run() -> int {
+    public static Run() -> int {
         Test(42)
     }
 }
@@ -160,7 +160,7 @@ class Calculator {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 

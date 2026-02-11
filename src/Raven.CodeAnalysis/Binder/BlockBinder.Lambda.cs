@@ -1040,8 +1040,11 @@ partial class BlockBinder
             }
         }
 
-        ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol asyncReturnType)
+        ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol? asyncReturnType)
         {
+            if (asyncReturnType is null)
+                return null;
+
             if (asyncReturnType is NullableTypeSymbol nullable)
                 asyncReturnType = nullable.UnderlyingType;
 

@@ -26,7 +26,7 @@ val callback = Logger.Log
     }
 
     [Fact]
-    public void MethodGroupConversionAmbiguous_ReportsDiagnostic()
+    public void MethodGroupConversionPrefersBetterOverload_WithNamedDelegateType()
     {
         const string source = """
 import System.*
@@ -39,9 +39,26 @@ class Logger {
 val callback: System.Action<int> = Logger.Log
 """;
 
-        var verifier = CreateVerifier(
-            source,
-            [new DiagnosticResult("RAV2202").WithSpan(8, 36, 8, 46).WithArguments("Logger.Log(int)")]);
+        var verifier = CreateVerifier(source, []);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MethodGroupConversionPrefersBetterOverload_WithFunctionTypeSyntax()
+    {
+        const string source = """
+import System.*
+
+class Logger {
+    public static Log(value: int) -> unit {}
+    public static Log(value: double) -> unit {}
+}
+
+val callback: int -> () = Logger.Log
+""";
+
+        var verifier = CreateVerifier(source, []);
 
         verifier.Verify();
     }

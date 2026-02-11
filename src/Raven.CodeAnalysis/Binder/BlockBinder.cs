@@ -1779,8 +1779,22 @@ partial class BlockBinder : Binder
         }
         else
         {
-            selectedMethod = null;
-            computedReason = BoundExpressionReason.Ambiguous;
+            var resolution = ResolveMethodGroupOverloadForDelegate(compatibleMethods, invoke, methodGroup.Receiver);
+
+            if (resolution.Success)
+            {
+                selectedMethod = resolution.Method;
+            }
+            else if (resolution.IsAmbiguous)
+            {
+                selectedMethod = null;
+                computedReason = BoundExpressionReason.Ambiguous;
+            }
+            else
+            {
+                selectedMethod = null;
+                computedReason = BoundExpressionReason.OverloadResolutionFailed;
+            }
         }
 
         var reason = methodGroup.Reason != BoundExpressionReason.None ? methodGroup.Reason : computedReason;
@@ -1810,6 +1824,22 @@ partial class BlockBinder : Binder
         }
 
         return new BoundDelegateCreationExpression(resolvedGroup, delegateType);
+    }
+
+    private OverloadResolutionResult ResolveMethodGroupOverloadForDelegate(
+        ImmutableArray<IMethodSymbol> methods,
+        IMethodSymbol invoke,
+        BoundExpression? receiver)
+    {
+        var arguments = new BoundArgument[invoke.Parameters.Length];
+        for (var i = 0; i < invoke.Parameters.Length; i++)
+        {
+            var parameter = invoke.Parameters[i];
+            var expression = new BoundDefaultValueExpression(parameter.Type);
+            arguments[i] = new BoundArgument(expression, parameter.RefKind, name: null);
+        }
+
+        return OverloadResolver.ResolveOverload(methods, arguments, Compilation, receiver: receiver);
     }
 
     private bool IsCompatibleWithDelegate(IMethodSymbol method, IMethodSymbol invoke, bool hasReceiver)
