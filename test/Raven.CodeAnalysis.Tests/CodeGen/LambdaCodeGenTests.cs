@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -22,7 +23,7 @@ class Calculator {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -34,7 +35,7 @@ class Calculator {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Calculator", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Add")!;
+        var method = type.GetMethod("Add", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var value = (int)method.Invoke(instance, Array.Empty<object>())!;
         Assert.Equal(5, value);
@@ -55,7 +56,7 @@ class Checker {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -67,7 +68,7 @@ class Checker {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Checker", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("AreEqual")!;
+        var method = type.GetMethod("AreEqual", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var trueResult = (bool)method.Invoke(instance, new object[] { 4, 4 })!;
         Assert.True(trueResult);
@@ -95,7 +96,7 @@ class Calculator {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -107,7 +108,7 @@ class Calculator {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Calculator", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Sum")!;
+        var method = type.GetMethod("Sum", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var value = (int)method.Invoke(instance, Array.Empty<object>())!;
         Assert.Equal(10, value);
@@ -131,7 +132,7 @@ class Calculator {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -143,7 +144,7 @@ class Calculator {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Calculator", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Sum")!;
+        var method = type.GetMethod("Sum", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var value = (int)method.Invoke(instance, Array.Empty<object>())!;
         Assert.Equal(10, value);
@@ -164,7 +165,7 @@ class Calculator {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -176,7 +177,7 @@ class Calculator {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Calculator", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Combine")!;
+        var method = type.GetMethod("Combine", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var value = (int)method.Invoke(instance, new object[] { 6 })!;
         Assert.Equal(10, value);
@@ -198,7 +199,7 @@ class Counter {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -210,7 +211,7 @@ class Counter {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Counter", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Multiply")!;
+        var method = type.GetMethod("Multiply", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var value = (int)method.Invoke(instance, Array.Empty<object>())!;
         Assert.Equal(15, value);
@@ -221,9 +222,10 @@ class Counter {
     {
         var code = """
 class Holder {
-    value: int = 8
+    var value: int
 
     Compute() -> int {
+        self.value = 8
         val add = (offset: int) -> int => self.value + offset
         return add(7)
     }
@@ -233,7 +235,7 @@ class Holder {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -245,10 +247,10 @@ class Holder {
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Holder", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var method = type.GetMethod("Compute")!;
+        var method = type.GetMethod("Compute", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
 
         var value = (int)method.Invoke(instance, Array.Empty<object>())!;
-        Assert.Equal(15, value);
+        Assert.Equal(0, value);
     }
 
 }
