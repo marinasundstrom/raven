@@ -906,6 +906,9 @@ partial class BlockBinder
                 targetType = GetReturnTargetType(targetLambda);
             }
 
+            // Return expressions are context-sensitive; ensure stale non-target-typed cache entries
+            // do not block target-typed member bindings like `.Some(...)`.
+            RemoveCachedBoundNode(returnStatement.Expression);
             expr = BindExpressionWithTargetType(returnStatement.Expression, targetType, allowReturn: false);
         }
 

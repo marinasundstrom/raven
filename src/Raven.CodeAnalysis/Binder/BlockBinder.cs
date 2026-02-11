@@ -3671,6 +3671,16 @@ partial class BlockBinder : Binder
 
     private ITypeSymbol? GetTargetType(SyntaxNode node)
     {
+        // If the node is the callee of an invocation (e.g. `.Some` in `.Some(value)`),
+        // recover contextual target typing from the invocation's parent context.
+        if (node.Parent is InvocationExpressionSyntax invocation &&
+            ReferenceEquals(invocation.Expression, node))
+        {
+            var invocationTargetType = GetTargetType(invocation);
+            if (invocationTargetType is not null)
+                return invocationTargetType;
+        }
+
         // Target type from `return <expr>`.
         if (node.Parent is ReturnStatementSyntax)
         {
@@ -5780,7 +5790,10 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is MemberBindingExpressionSyntax memberBinding)
         {
-            var boundMember = BindMemberBindingExpression(memberBinding, allowEventAccess: true);
+            var invocationTargetType = GetTargetType(syntax);
+            var boundMember = invocationTargetType is not null && invocationTargetType.TypeKind != TypeKind.Error
+                ? BindMemberBindingExpression(memberBinding, invocationTargetType, allowEventAccess: true)
+                : BindMemberBindingExpression(memberBinding, allowEventAccess: true);
 
             if (IsErrorExpression(boundMember))
                 return boundMember is BoundErrorExpression boundError

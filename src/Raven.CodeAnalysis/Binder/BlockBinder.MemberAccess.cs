@@ -2433,6 +2433,18 @@ partial class BlockBinder
         // a target type is available (e.g. argument position, assignment, return, etc.).
         var expectedType = GetTargetType(memberBinding);
 
+        if (expectedType is null && memberBinding.Parent is InvocationExpressionSyntax invocation)
+        {
+            expectedType = GetTargetType(invocation);
+
+            if (expectedType is null &&
+                invocation.Parent is ReturnStatementSyntax &&
+                ContainingSymbol is IMethodSymbol containingMethod)
+            {
+                expectedType = GetReturnTargetType(containingMethod);
+            }
+        }
+
         if (expectedType is not null && expectedType.TypeKind != TypeKind.Error)
         {
             return BindTargetTypedMemberAccess(memberBinding.Name, expectedType, allowEventAccess);

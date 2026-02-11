@@ -488,6 +488,7 @@ internal partial class TypeMemberBinder : Binder
                         };
 
                     var accessorBinder = new MethodBinder(methodSymbol, this);
+                    accessorBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
                     var boundPropType = accessorBinder.BindTypeSyntax(propertyTypeSyntax, options);
                     propertyTypeForAccessor = boundPropType.ResolvedType;
@@ -613,6 +614,7 @@ internal partial class TypeMemberBinder : Binder
             ITypeSymbol? receiverTypeForAccessor = receiverType;
 
             var binder = new MethodBinder(methodSymbol, this);
+            binder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
             if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
             {
