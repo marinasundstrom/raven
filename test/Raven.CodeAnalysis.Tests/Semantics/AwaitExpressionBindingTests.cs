@@ -76,6 +76,22 @@ async func outer() {
     }
 
     [Fact]
+    public void AwaitExpression_ErrorOperand_DoesNotReportNotAwaitable()
+    {
+        const string source = """
+async func outer() {
+    await Task.CompletedTask;
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ExpressionIsNotAwaitable);
+    }
+
+    [Fact]
     public void AwaitExpression_MissingIsCompleted_ReportsDiagnostic()
     {
         const string source = """

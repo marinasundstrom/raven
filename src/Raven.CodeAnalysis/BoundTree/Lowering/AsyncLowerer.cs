@@ -2239,6 +2239,27 @@ internal static class AsyncLowerer
                         return conditionalAccessExpression;
                     }
 
+                case BoundArrayAccessExpression arrayAccessExpression:
+                    {
+                        var receiver = VisitExpression(arrayAccessExpression.Receiver) ?? arrayAccessExpression.Receiver;
+                        var originalIndices = arrayAccessExpression.Indices.ToArray();
+                        var rewrittenIndices = new BoundExpression[originalIndices.Length];
+                        var changed = !ReferenceEquals(receiver, arrayAccessExpression.Receiver);
+
+                        for (var i = 0; i < originalIndices.Length; i++)
+                        {
+                            var rewritten = VisitExpression(originalIndices[i]) ?? originalIndices[i];
+                            rewrittenIndices[i] = rewritten;
+                            if (!ReferenceEquals(rewritten, originalIndices[i]))
+                                changed = true;
+                        }
+
+                        if (changed)
+                            return new BoundArrayAccessExpression(receiver, rewrittenIndices, arrayAccessExpression.ElementType);
+
+                        return arrayAccessExpression;
+                    }
+
                 case BoundIfExpression ifExpression:
                     {
                         var condition = VisitExpression(ifExpression.Condition) ?? ifExpression.Condition;
@@ -2353,10 +2374,45 @@ internal static class AsyncLowerer
             if (node is null)
                 return null;
 
-            if (_stateMachine.ParameterFieldMap.TryGetValue(node.Parameter, out var field))
+            if (TryGetParameterField(node.Parameter, out var field))
                 return new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), field, node.Reason);
 
             return node;
+        }
+
+        private bool TryGetParameterField(IParameterSymbol parameter, out SourceFieldSymbol field)
+        {
+            if (_stateMachine.ParameterFieldMap.TryGetValue(parameter, out field))
+                return true;
+
+            foreach (var asyncParameter in _stateMachine.AsyncMethod.Parameters)
+            {
+                if (!string.Equals(asyncParameter.Name, parameter.Name, StringComparison.Ordinal))
+                    continue;
+
+                if (!SymbolEqualityComparer.Default.Equals(asyncParameter.Type, parameter.Type))
+                    continue;
+
+                if (_stateMachine.ParameterFieldMap.TryGetValue(asyncParameter, out field))
+                {
+                    return true;
+                }
+            }
+
+            foreach (var (mappedParameter, mappedField) in _stateMachine.ParameterFieldMap)
+            {
+                if (!string.Equals(mappedParameter.Name, parameter.Name, StringComparison.Ordinal))
+                    continue;
+
+                if (!SymbolEqualityComparer.Default.Equals(mappedParameter.Type, parameter.Type))
+                    continue;
+
+                field = mappedField;
+                return true;
+            }
+
+            field = null!;
+            return false;
         }
 
         public override BoundNode? VisitVariableExpression(BoundVariableExpression node)

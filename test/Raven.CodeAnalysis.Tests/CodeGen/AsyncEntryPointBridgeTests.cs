@@ -198,6 +198,52 @@ class Program {
     }
 
     [Fact]
+    public void ProgramMain_TaskResultOfUnit_WithArgsAndAwait_EmitsAndRuns()
+    {
+        var code = """
+import System.Threading.Tasks.*
+
+public union Result<T, E> {
+    Ok(value: T)
+    Error(error: E)
+}
+
+class Program {
+    static async Main(args: string[]) -> Task<Result<(), string>> {
+        val first = args[0]
+        await Task.Yield()
+
+        if first.Length == 0 {
+            return .Error("empty")
+        }
+
+        return .Ok
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+            "async-result-unit-bridge-program",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var entryPoint = assembly.EntryPoint;
+        Assert.NotNull(entryPoint);
+
+        var invokeResult = entryPoint!.Invoke(null, new object?[] { new[] { "ok" } });
+        Assert.Null(invokeResult);
+    }
+
+    [Fact]
     public void ProgramMain_ReturningResultOfUnit_OkCaseDoesNotPrint()
     {
         var code = """

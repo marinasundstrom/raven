@@ -1278,12 +1278,7 @@ partial class BlockBinder : Binder
         var operandType = operand.Type;
 
         if (operandType is null || operandType.TypeKind == TypeKind.Error)
-        {
-            _diagnostics.ReportExpressionIsNotAwaitable(
-                operandType?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<unknown>",
-                awaitExpression.Expression.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
-        }
 
         if (!AwaitablePattern.TryFind(operandType, IsSymbolAccessible, out var awaitable, out var failure, out var awaiterType))
         {
@@ -2016,6 +2011,9 @@ partial class BlockBinder : Binder
             return operand;
 
         var operandType = UnwrapAlias(operand.Type ?? Compilation.ErrorTypeSymbol);
+        if (operandType.TypeKind == TypeKind.Error)
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+
         if (operandType is not INamedTypeSymbol operandNamed || !TryGetPropagationInfo(operandNamed, out var operandInfo))
         {
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(

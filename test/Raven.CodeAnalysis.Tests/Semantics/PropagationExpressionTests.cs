@@ -60,4 +60,25 @@ func test2() -> Option<int> {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void ResultPropagation_ErrorOperand_DoesNotReportOperatorCannotBeApplied()
+    {
+        var code = """
+async func test() {
+    val greeting = await BuildGreeting()
+    val value = greeting?
+}
+
+func BuildGreeting() -> Task<Result<int, string>> {
+    return .Ok(1)
+}
+""";
+
+        var result = CreateVerifier(code).GetResult();
+        var diagnostics = result.Compilation.GetDiagnostics();
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandOfType);
+    }
 }
