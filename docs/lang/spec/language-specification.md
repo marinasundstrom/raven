@@ -1453,6 +1453,9 @@ from the end of a sequence. The operand must be implicitly convertible to
 indices are computed using the array's length and are evaluated exactly once
 alongside the receiver.
 
+`^` is parsed as a tight prefix form: `^expr`. Trivia between `^` and the
+operand is rejected, so `^1` is valid while `^ 1` is not.
+
 ### Range expressions
 
 `..` produces a `Range` value that can be stored, passed to APIs, or used for
@@ -1474,6 +1477,12 @@ start. The resulting `Range` uses `Index.FromStart` for ordinary boundaries and
 `Range.StartAt`, `Range.EndAt`, or `Range.All` accordingly. A range expression
 retains its `Range` type even when no target type is provided, enabling
 declarations like `val r = 3..^5` without additional annotations.
+
+Element access applies these types directly:
+- One-dimensional arrays accept a single `Range` argument (`array[range]`) and
+  produce a sliced array.
+- Non-array receivers resolve `[]` using argument-type matching, so indexers
+  that differ by `Index` vs `Range` can coexist.
 
 ### Bitwise operators
 
@@ -3362,6 +3371,7 @@ Lowest → highest (all left-associative unless noted):
 > * `<` starts **type arguments** only in a **type context**; elsewhere it’s the less-than operator.
 > * The LHS of assignment must be either an **assignable expression** (identifier, member access, element access, etc.) or a
 >   **pattern** such as a positional deconstruction.
+> * `^` index expressions are parsed as an adjacent prefix form (`^expr`); whitespace between `^` and the operand is not allowed.
 
 ## Outstanding questions and suggested follow-ups
 

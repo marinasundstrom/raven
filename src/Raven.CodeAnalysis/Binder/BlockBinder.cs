@@ -4099,6 +4099,12 @@ partial class BlockBinder : Binder
 
             if (receiver.Type is IArrayTypeSymbol arrayType)
             {
+                if (args.Any(argument => IsRangeType(argument.Type)))
+                {
+                    _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                    return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
+                }
+
                 var arrayRightExpression = BindExpressionWithTargetType(rightSyntax, arrayType.ElementType);
 
                 if (IsErrorExpression(arrayRightExpression))
@@ -4109,7 +4115,7 @@ partial class BlockBinder : Binder
                 return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRight);
             }
 
-            var indexer = ResolveIndexer(receiver.Type!, args.Length);
+            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
             if (indexer is null || indexer.SetMethod is null)
             {
@@ -4122,7 +4128,7 @@ partial class BlockBinder : Binder
             if (IsErrorExpression(indexerRightExpression))
                 return AsErrorExpression(indexerRightExpression);
 
-            var indexerAccess = new BoundIndexerAccessExpression(receiver, args, indexer);
+            var indexerAccess = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
             var indexerRight = BindCompoundAssignmentValue(indexerAccess, indexerRightExpression, indexer.Type, binaryOperator.Value, rightSyntax);
             return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRight);
         }

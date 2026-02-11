@@ -38,6 +38,10 @@ internal partial class ExpressionGenerator : Generator
         .GetMethod(nameof(Console.WriteLine), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
         ?? throw new InvalidOperationException("Failed to resolve Console.WriteLine(string, object).");
 
+    private static readonly MethodInfo IndexGetOffsetMethod = typeof(Index)
+        .GetMethod(nameof(Index.GetOffset), BindingFlags.Public | BindingFlags.Instance, binder: null, new[] { typeof(int) }, modifiers: null)
+        ?? throw new InvalidOperationException("Failed to resolve Index.GetOffset(int).");
+
     private static readonly MethodInfo StringFormatStringObject = typeof(string)
         .GetMethod(nameof(string.Format), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
         ?? throw new InvalidOperationException("Failed to resolve string.Format(string, object).");
@@ -1897,8 +1901,7 @@ internal partial class ExpressionGenerator : Generator
     {
         var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
 
-        var requiresLength = boundArrayAccessExpression.Indices
-            .Any(static argument => argument is BoundIndexExpression { IsFromEnd: true });
+        var requiresLength = RequiresArrayLength(boundArrayAccessExpression);
 
         IILocal? arrayLocal = null;
         if (requiresLength)
@@ -1921,8 +1924,7 @@ internal partial class ExpressionGenerator : Generator
         if (arrayAccess.Receiver.Type is not IArrayTypeSymbol arrayType)
             throw new NotSupportedException("Cannot take the address of a non-array element access.");
 
-        var requiresLength = arrayAccess.Indices
-            .Any(static argument => argument is BoundIndexExpression { IsFromEnd: true });
+        var requiresLength = RequiresArrayLength(arrayAccess);
 
         IILocal? arrayLocal = null;
         if (requiresLength)
@@ -1963,12 +1965,35 @@ internal partial class ExpressionGenerator : Generator
                     new ExpressionGenerator(this, indexExpression.Value).Emit();
                 }
             }
+            else if (IsSystemIndexType(argument.Type))
+            {
+                if (arrayLocal is null)
+                    throw new InvalidOperationException("Array local is required for System.Index arguments.");
+
+                var indexLocal = ILGenerator.DeclareLocal(typeof(Index));
+                EmitExpression(argument);
+                ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+                ILGenerator.Emit(OpCodes.Ldloca, indexLocal);
+                ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
+                ILGenerator.Emit(OpCodes.Ldlen);
+                ILGenerator.Emit(OpCodes.Conv_I4);
+                ILGenerator.Emit(OpCodes.Call, IndexGetOffsetMethod);
+            }
             else
             {
                 EmitExpression(argument);
             }
         }
     }
+
+    private static bool IsSystemIndexType(ITypeSymbol? type)
+        => type is INamedTypeSymbol named && named.ToFullyQualifiedMetadataName() == "System.Index";
+
+    private static bool RequiresArrayLength(BoundArrayAccessExpression arrayAccess)
+        => arrayAccess.Indices.Any(argument =>
+            argument is BoundIndexExpression { IsFromEnd: true } ||
+            IsSystemIndexType(argument.Type));
 
     private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
     {
@@ -2365,14 +2390,26 @@ internal partial class ExpressionGenerator : Generator
                 }
 
             case BoundArrayAssignmentExpression array:
-                EmitExpression(array.Left.Receiver);
+                if (array.Left.Receiver.Type is not IArrayTypeSymbol arrayType)
+                    throw new InvalidOperationException("Array assignment requires an array receiver.");
 
-                foreach (var index in array.Left.Indices)
-                    EmitExpression(index);
+                var requiresLength = RequiresArrayLength(array.Left);
+                IILocal? arrayLocal = null;
+                if (requiresLength)
+                {
+                    var receiverInfo = EmitExpression(array.Left.Receiver);
+                    arrayLocal = SpillValueToLocalIfNeeded(ResolveClrType(arrayType), receiverInfo, keepValueOnStack: true);
+                }
+                else
+                {
+                    EmitExpression(array.Left.Receiver);
+                }
+
+                EmitArrayIndices(array.Left, arrayLocal);
 
                 EmitExpression(array.Right);
 
-                EmitStoreElement(((IArrayTypeSymbol)array.Left.Type).ElementType);
+                EmitStoreElement(arrayType.ElementType);
                 break;
 
             case BoundIndexerAssignmentExpression indexer:

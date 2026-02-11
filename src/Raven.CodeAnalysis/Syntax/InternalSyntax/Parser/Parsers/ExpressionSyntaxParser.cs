@@ -568,6 +568,21 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             case SyntaxKind.CaretToken:
                 ReadToken();
+                if (token.TrailingTrivia.Width != 0)
+                {
+                    var unexpected = PeekToken();
+                    var unexpectedText = string.IsNullOrEmpty(unexpected.Text)
+                        ? unexpected.Kind.ToString()
+                        : unexpected.Text;
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                            GetSpanOfPeekedToken(),
+                            unexpectedText));
+                    expr = new ExpressionSyntax.Missing();
+                    break;
+                }
+
                 expr = ParseFactorExpression();
                 expr = IndexExpression(token, expr);
                 break;

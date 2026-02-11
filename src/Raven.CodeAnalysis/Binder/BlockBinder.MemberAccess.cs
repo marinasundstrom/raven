@@ -1439,10 +1439,23 @@ partial class BlockBinder
 
         if (receiverType.TypeKind is TypeKind.Array)
         {
+            var arrayType = (IArrayTypeSymbol)receiverType;
+            if (argumentExprs.Length == 1 && IsRangeType(argumentExprs[0].Type))
+            {
+                return BindArrayRangeAccess(receiver, arrayType, argumentExprs[0], argumentList.Arguments[0].Expression);
+            }
+
+            if (argumentExprs.Any(argument => IsRangeType(argument.Type)))
+            {
+                _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                    syntax.GetLocation());
+                return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
+            }
+
             return new BoundArrayAccessExpression(receiver, argumentExprs, ((IArrayTypeSymbol)receiverType).ElementType);
         }
 
-        var indexer = ResolveIndexer(receiverType, argumentExprs.Length);
+        var indexer = ResolveIndexer(receiverType, argumentExprs, argumentList.Arguments, requireSetter: false, out var convertedArguments);
 
         if (indexer is null)
         {
@@ -1451,18 +1464,141 @@ partial class BlockBinder
             return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
         }
 
-        return new BoundIndexerAccessExpression(receiver, argumentExprs, indexer);
+        return new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
     }
 
-    private IPropertySymbol? ResolveIndexer(ITypeSymbol receiverType, int argCount)
+    private IPropertySymbol? ResolveIndexer(
+        ITypeSymbol receiverType,
+        BoundExpression[] arguments,
+        SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes,
+        bool requireSetter,
+        out BoundExpression[] convertedArguments)
     {
-        return receiverType
+        convertedArguments = arguments;
+
+        var candidates = receiverType
             .GetMembers()
             .OfType<IPropertySymbol>()
-            .FirstOrDefault(p => p.IsIndexer &&
-                                 p.GetMethod is not null &&
-                                 p.GetMethod.Parameters.Length == argCount);
+            .Where(p => p.GetMethod is not null &&
+                        (p.IsIndexer || p.GetMethod.Parameters.Length > 0) &&
+                        (!requireSetter || p.SetMethod is not null) &&
+                        p.GetMethod.Parameters.Length == arguments.Length)
+            .ToArray();
+
+        IPropertySymbol? best = null;
+        BoundExpression[]? bestConverted = null;
+        var bestConversionCost = int.MaxValue;
+
+        foreach (var candidate in candidates)
+        {
+            var converted = new BoundExpression[arguments.Length];
+            var conversionCost = 0;
+            var valid = true;
+
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                var parameterType = candidate.GetMethod!.Parameters[i].Type;
+                var convertedArgument = arguments[i];
+
+                if (parameterType.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(convertedArgument))
+                {
+                    convertedArgument = BindLambdaToDelegateIfNeeded(convertedArgument, parameterType);
+
+                    if (!IsAssignable(parameterType, convertedArgument.Type, out var conversion))
+                    {
+                        valid = false;
+                        break;
+                    }
+
+                    convertedArgument = ApplyConversion(convertedArgument, parameterType, conversion, argumentSyntaxes[i].Expression);
+                    if (!conversion.IsIdentity)
+                        conversionCost++;
+                }
+
+                converted[i] = convertedArgument;
+            }
+
+            if (!valid)
+                continue;
+
+            if (best is null || conversionCost < bestConversionCost)
+            {
+                best = candidate;
+                bestConverted = converted;
+                bestConversionCost = conversionCost;
+            }
+        }
+
+        if (best is not null && bestConverted is not null)
+            convertedArguments = bestConverted;
+
+        return best;
     }
+
+    private BoundExpression BindArrayRangeAccess(
+        BoundExpression receiver,
+        IArrayTypeSymbol arrayType,
+        BoundExpression rangeExpression,
+        ExpressionSyntax rangeSyntax)
+    {
+        if (arrayType.Rank != 1)
+        {
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(rangeSyntax.GetLocation());
+            return new BoundErrorExpression(arrayType, null, BoundExpressionReason.NotFound);
+        }
+
+        var rangeType = GetRangeType();
+        if (rangeType.TypeKind != TypeKind.Error && ShouldAttemptConversion(rangeExpression))
+        {
+            if (!IsAssignable(rangeType, rangeExpression.Type, out var conversion))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    rangeExpression.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    rangeType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    rangeSyntax.GetLocation());
+                return new BoundErrorExpression(rangeType, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            rangeExpression = ApplyConversion(rangeExpression, rangeType, conversion, rangeSyntax);
+        }
+
+        var subArrayMethod = ResolveArraySliceMethod(arrayType);
+        if (subArrayMethod is null)
+        {
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(rangeSyntax.GetLocation());
+            return new BoundErrorExpression(arrayType, null, BoundExpressionReason.NotFound);
+        }
+
+        return new BoundInvocationExpression(subArrayMethod, [receiver, rangeExpression], receiver: null, extensionReceiver: null);
+    }
+
+    private IMethodSymbol? ResolveArraySliceMethod(IArrayTypeSymbol arrayType)
+    {
+        var runtimeHelpers = Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeHelpers");
+        var rangeType = GetRangeType();
+        if (runtimeHelpers is null || runtimeHelpers.TypeKind == TypeKind.Error || rangeType.TypeKind == TypeKind.Error)
+            return null;
+
+        foreach (var candidate in runtimeHelpers.GetMembers("GetSubArray").OfType<IMethodSymbol>())
+        {
+            if (!candidate.IsStatic || !candidate.IsGenericMethod || candidate.TypeParameters.Length != 1 || candidate.Parameters.Length != 2)
+                continue;
+
+            if (candidate.Parameters[0].Type is not IArrayTypeSymbol parameterArray || parameterArray.Rank != 1)
+                continue;
+
+            if (!SymbolEqualityComparer.Default.Equals(candidate.Parameters[1].Type, rangeType))
+                continue;
+
+            return candidate.Construct(arrayType.ElementType);
+        }
+
+        return null;
+    }
+
+    private static bool IsRangeType(ITypeSymbol? type)
+        => type is INamedTypeSymbol named && named.ToFullyQualifiedMetadataName() == "System.Range";
 
     private BoundExpression BindAssignment(ExpressionSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node, SyntaxKind operatorTokenKind)
     {
@@ -1502,6 +1638,12 @@ partial class BlockBinder
 
             if (receiver.Type is IArrayTypeSymbol arrayType)
             {
+                if (args.Any(argument => IsRangeType(argument.Type)))
+                {
+                    _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                    return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
+                }
+
                 var arrayRightExpression = BindExpressionWithTargetType(rightSyntax, arrayType.ElementType);
 
                 if (IsErrorExpression(arrayRightExpression))
@@ -1529,7 +1671,7 @@ partial class BlockBinder
                     arrayRightExpression);
             }
 
-            var indexer = ResolveIndexer(receiver.Type!, args.Length);
+            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
             if (indexer is null || indexer.SetMethod is null)
             {
@@ -1542,7 +1684,7 @@ partial class BlockBinder
             if (IsErrorExpression(indexerRightExpression))
                 return AsErrorExpression(indexerRightExpression);
 
-            var access = new BoundIndexerAccessExpression(receiver, args, indexer);
+            var access = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
             if (indexer.Type.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(indexerRightExpression))
             {

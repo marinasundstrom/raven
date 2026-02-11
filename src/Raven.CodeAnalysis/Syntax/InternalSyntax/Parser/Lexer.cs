@@ -443,6 +443,9 @@ internal class Lexer : ILexer
                         }
                         return new Token(SyntaxKind.GreaterThanToken, chStr);
 
+                    case '^':
+                        return new Token(SyntaxKind.CaretToken, chStr);
+
 
                     case ' ':
                         int length = 1;
