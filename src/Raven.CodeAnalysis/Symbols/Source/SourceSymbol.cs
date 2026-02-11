@@ -188,6 +188,7 @@ internal abstract class SourceSymbol : Symbol
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
+            FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
             ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,
             NamedConstructorDeclarationSyntax namedConstructorDeclaration => namedConstructorDeclaration.AttributeLists,
             PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.AttributeLists,

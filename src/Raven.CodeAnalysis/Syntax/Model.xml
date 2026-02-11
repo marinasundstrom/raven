@@ -906,6 +906,7 @@
     <Slot Name="ExpressionBody" Type="Expression" IsInherited="true" />
   </Node>
   <Node Name="FunctionStatement" Inherits="Statement">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="Modifiers" Type="TokenList" />
     <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword" />
     <Slot Name="Identifier" Type="Token" />

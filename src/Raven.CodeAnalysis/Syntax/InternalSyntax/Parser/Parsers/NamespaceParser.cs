@@ -1,7 +1,12 @@
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System.Collections.Generic;
+using System.Linq;
+
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
+
+using GreenNode = Raven.CodeAnalysis.Syntax.GreenNode;
 
 internal class NamespaceDeclarationParser : SyntaxParser
 {
@@ -52,7 +57,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                         var statement = new StatementSyntaxParser(this).ParseStatement();
                         if (statement is not null && Position > start)
                         {
-                            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None));
+                            var globalStatement = CreateGlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement);
                             memberDeclarations.Add(globalStatement);
                             order = MemberOrder.Members;
                         }
@@ -364,7 +369,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             if (statement is null)
                 return;
 
-            var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None));
+            var globalStatement = CreateGlobalStatement(attributeLists, modifiers, statement);
 
             AddMemberDeclarationWithSeparatorValidation(globalStatement);
             order = MemberOrder.Members;
@@ -376,7 +381,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (statement is not null && Position > statementStart)
             {
-                var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Token(SyntaxKind.None));
+                var globalStatement = CreateGlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement);
                 AddMemberDeclarationWithSeparatorValidation(globalStatement);
                 order = MemberOrder.Members;
                 return;
@@ -422,5 +427,49 @@ internal class NamespaceDeclarationParser : SyntaxParser
         }
 
         return modifiers;
+    }
+
+    private static GlobalStatementSyntax CreateGlobalStatement(
+        SyntaxList attributeLists,
+        SyntaxList modifiers,
+        StatementSyntax statement)
+    {
+        if (statement is FunctionStatementSyntax functionStatement)
+        {
+            var mergedAttributes = ConcatenateSyntaxLists(attributeLists, functionStatement.AttributeLists);
+            var mergedModifiers = ConcatenateSyntaxLists(modifiers, functionStatement.Modifiers);
+
+            statement = functionStatement.Update(
+                mergedAttributes,
+                mergedModifiers,
+                functionStatement.FuncKeyword,
+                functionStatement.Identifier,
+                functionStatement.TypeParameterList,
+                functionStatement.ParameterList,
+                functionStatement.ReturnType,
+                functionStatement.ConstraintClauses,
+                functionStatement.Body,
+                functionStatement.ExpressionBody,
+                functionStatement.TerminatorToken);
+
+            attributeLists = SyntaxList.Empty;
+            modifiers = SyntaxList.Empty;
+        }
+
+        return GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None));
+    }
+
+    private static SyntaxList ConcatenateSyntaxLists(SyntaxList first, SyntaxList second)
+    {
+        if (!first.GetChildren().Any())
+            return second;
+
+        if (!second.GetChildren().Any())
+            return first;
+
+        var nodes = new List<GreenNode>();
+        nodes.AddRange(first.GetChildren());
+        nodes.AddRange(second.GetChildren());
+        return List(nodes);
     }
 }

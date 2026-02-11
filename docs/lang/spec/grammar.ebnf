@@ -40,7 +40,8 @@ Declaration              ::= NamespaceDeclaration
 
 NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {Declaration | Statement} '}' ;
 
-FunctionDeclaration      ::= FunctionModifiers?
+FunctionDeclaration      ::= {AttributeList}
+                             FunctionModifiers?
                              'func' Identifier TypeParameterList?
                              '(' ParameterList? ')'
                              ReturnTypeClause?
@@ -265,7 +266,9 @@ ThrowStatement           ::= 'throw' Expression ;
 BreakStatement           ::= 'break' ;
 ContinueStatement        ::= 'continue' ;
 
-FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList?
+FunctionStatement        ::= {AttributeList}
+                             ('async' | 'unsafe' | 'extern')*
+                             'func' Identifier TypeParameterList?
                              '(' ParameterList? ')'
                              ReturnTypeClause?
                              WhereClauseList?

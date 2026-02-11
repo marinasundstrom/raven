@@ -1,8 +1,8 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
 
@@ -129,5 +129,22 @@ func test() {}
         _ = model.GetDeclaredSymbol(funcs[1]);
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.FunctionAlreadyDefined, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void Function_WithAttribute_BindsDeclaredAttributes()
+    {
+        var source = """
+[System.Obsolete]
+func test() {}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var symbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(function));
+        var attributes = symbol.GetAttributes();
+
+        Assert.Contains(attributes, static a => a.AttributeClass?.Name is "ObsoleteAttribute");
     }
 }

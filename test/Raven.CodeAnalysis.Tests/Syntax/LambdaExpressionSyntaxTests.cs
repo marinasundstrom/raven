@@ -81,6 +81,35 @@ public class LambdaExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithLeadingReturnAttributeList_ParsesAllReturnAttributes()
+    {
+        var lambda = ParseLambdaInitializer("[return: A, B(\"Test\")] (x: int) -> int => x");
+
+        Assert.NotNull(lambda.ReturnType);
+        var returnAttributeList = Assert.Single(lambda.ReturnType!.AttributeLists);
+        Assert.NotNull(returnAttributeList.Target);
+        Assert.Equal("return", returnAttributeList.Target!.Identifier.Text);
+        Assert.Equal(2, returnAttributeList.Attributes.Count);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithLeadingReturnAndParameterAttributes_SplitsByTarget()
+    {
+        var lambda = ParseLambdaInitializer("[return: A][FromBody] (x: int) -> int => x");
+
+        Assert.NotNull(lambda.ReturnType);
+        var returnAttributeList = Assert.Single(lambda.ReturnType!.AttributeLists);
+        Assert.NotNull(returnAttributeList.Target);
+        Assert.Equal("return", returnAttributeList.Target!.Identifier.Text);
+        Assert.Single(returnAttributeList.Attributes);
+
+        var parameter = Assert.Single(lambda.ParameterList.Parameters);
+        var parameterAttributeList = Assert.Single(parameter.AttributeLists);
+        Assert.Null(parameterAttributeList.Target);
+        Assert.Single(parameterAttributeList.Attributes);
+    }
+
+    [Fact]
     public void ParenthesizedLambda_WithDefaultParameterValue_Parses()
     {
         var expression = ParseExpression("(name: string, age: int = 1) => age");

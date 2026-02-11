@@ -2,6 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
@@ -295,9 +296,45 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         SyntaxList modifiers,
         StatementSyntax statement)
     {
+        if (statement is FunctionStatementSyntax functionStatement)
+        {
+            var mergedAttributes = ConcatenateSyntaxLists(attributeLists, functionStatement.AttributeLists);
+            var mergedModifiers = ConcatenateSyntaxLists(modifiers, functionStatement.Modifiers);
+
+            statement = functionStatement.Update(
+                mergedAttributes,
+                mergedModifiers,
+                functionStatement.FuncKeyword,
+                functionStatement.Identifier,
+                functionStatement.TypeParameterList,
+                functionStatement.ParameterList,
+                functionStatement.ReturnType,
+                functionStatement.ConstraintClauses,
+                functionStatement.Body,
+                functionStatement.ExpressionBody,
+                functionStatement.TerminatorToken);
+
+            attributeLists = SyntaxList.Empty;
+            modifiers = SyntaxList.Empty;
+        }
+
         var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None));
 
         memberDeclarations.Add(globalStatement);
+    }
+
+    private static SyntaxList ConcatenateSyntaxLists(SyntaxList first, SyntaxList second)
+    {
+        if (!first.GetChildren().Any())
+            return second;
+
+        if (!second.GetChildren().Any())
+            return first;
+
+        var nodes = new List<GreenNode>();
+        nodes.AddRange(first.GetChildren());
+        nodes.AddRange(second.GetChildren());
+        return List(nodes);
     }
 
     private void AddMemberDeclaration(List<MemberDeclarationSyntax> memberDeclarations, MemberDeclarationSyntax declaration)

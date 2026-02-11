@@ -247,4 +247,134 @@ public class AttributeParsingTests : DiagnosticTestBase
         Assert.Equal("MyAttr", name.Identifier.Text);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void MethodDeclaration_WithReturnAttributeTarget_ParsesTarget()
+    {
+        const string code = """
+            class Widget {
+                [return: A, B("Test")]
+                public M() -> int => 42
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var method = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var attributeList = Assert.Single(method.AttributeLists);
+        Assert.NotNull(attributeList.Target);
+        Assert.Equal("return", attributeList.Target!.Identifier.Text);
+        Assert.Equal(2, attributeList.Attributes.Count);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FunctionStatement_WithAttributeList_ParsesAttributes()
+    {
+        const string code = """
+            [MyAttr]
+            func Compute() -> int {
+                return 1
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+
+        var attributeList = Assert.Single(function.AttributeLists);
+        Assert.Null(attributeList.Target);
+        var attribute = Assert.Single(attributeList.Attributes);
+        var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("MyAttr", name.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FunctionStatement_WithReturnAttributeTarget_ParsesTarget()
+    {
+        const string code = """
+            [return: Result]
+            func Compute() -> int {
+                return 1
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+
+        var attributeList = Assert.Single(function.AttributeLists);
+        Assert.NotNull(attributeList.Target);
+        Assert.Equal("return", attributeList.Target!.Identifier.Text);
+        var attribute = Assert.Single(attributeList.Attributes);
+        var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("Result", name.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void LocalFunctionStatement_WithLeadingAttributeList_ParsesAttributes()
+    {
+        const string code = """
+            func Outer() {
+                [return: A, B("Test")]
+                [FromBody]
+                func Inner(content: string) -> string {
+                    return content
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.Text == "Inner");
+
+        Assert.Equal(2, function.AttributeLists.Count);
+
+        var returnList = function.AttributeLists[0];
+        Assert.NotNull(returnList.Target);
+        Assert.Equal("return", returnList.Target!.Identifier.Text);
+        Assert.Equal(2, returnList.Attributes.Count);
+
+        var parameterList = function.AttributeLists[1];
+        Assert.Null(parameterList.Target);
+        Assert.Single(parameterList.Attributes);
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void DelegateDeclaration_WithReturnAttributeTarget_ParsesTarget()
+    {
+        const string code = """
+            class C {
+                [return: FormatterResult]
+                public delegate Formatter(value: string) -> string
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<DelegateDeclarationSyntax>()
+            .Single();
+
+        var attributeList = Assert.Single(declaration.AttributeLists);
+        Assert.NotNull(attributeList.Target);
+        Assert.Equal("return", attributeList.Target!.Identifier.Text);
+        var attribute = Assert.Single(attributeList.Attributes);
+        var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("FormatterResult", name.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

@@ -2332,6 +2332,21 @@ Arrow bodies are allowed:
 func add(a: int, b: int) -> int => a + b
 ```
 
+Function declarations (including local `func` statements) may carry declaration
+attributes with the same bracket syntax as methods:
+
+```raven
+[Trace]
+func compute(x: int) -> int => x * 2
+```
+
+Return-targeted attribute lists are also supported on functions:
+
+```raven
+[return: MaybeNull]
+func find(name: string) -> string { /* ... */ }
+```
+
 ### Parameters
 
 Function, method, and accessor parameters use the `name: Type` syntax. Parameter

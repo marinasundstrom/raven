@@ -30,6 +30,10 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             statement = ParseLabeledStatementSyntax();
         }
+        else if (token.Kind == SyntaxKind.OpenBracketToken && TryParseAttributedFunctionSyntax(out var attributedFunction))
+        {
+            statement = attributedFunction;
+        }
         else
         {
             switch (token.Kind)
@@ -43,7 +47,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 case SyntaxKind.AsyncKeyword when PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
                 case SyntaxKind.UnsafeKeyword when PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword:
                 case SyntaxKind.UnsafeKeyword when PeekToken(1).Kind == SyntaxKind.AsyncKeyword && PeekToken(2).Kind == SyntaxKind.ExternKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword:
-                    statement = ParseFunctionSyntax();
+                    statement = ParseFunctionSyntax(SyntaxList.Empty, SyntaxList.Empty);
                     break;
 
                 case SyntaxKind.YieldKeyword:
@@ -93,7 +97,7 @@ internal class StatementSyntaxParser : SyntaxParser
                         (PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.FuncKeyword) ||
                         (PeekToken(1).Kind == SyntaxKind.ExternKeyword && PeekToken(2).Kind == SyntaxKind.AsyncKeyword && PeekToken(3).Kind == SyntaxKind.FuncKeyword))
                     {
-                        statement = ParseFunctionSyntax();
+                        statement = ParseFunctionSyntax(SyntaxList.Empty, SyntaxList.Empty);
                     }
                     else
                     {
@@ -129,6 +133,24 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return statement;
+    }
+
+    private bool TryParseAttributedFunctionSyntax(out StatementSyntax? functionStatement)
+    {
+        functionStatement = null;
+
+        var checkpoint = CreateCheckpoint("attributed-function-statement");
+        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+        var modifiers = ParseFunctionModifiers();
+
+        if (!PeekToken().IsKind(SyntaxKind.FuncKeyword))
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        functionStatement = ParseFunctionSyntax(attributeLists, modifiers);
+        return true;
     }
 
     private bool IsPossibleLabeledStatementStart(SyntaxToken token)
@@ -473,9 +495,9 @@ internal class StatementSyntaxParser : SyntaxParser
         return ForStatement(forKeyword, eachKeyword, identifier, inKeyword, expression!, body!, terminatorToken);
     }
 
-    private StatementSyntax? ParseFunctionSyntax()
+    private StatementSyntax? ParseFunctionSyntax(SyntaxList attributeLists, SyntaxList modifiers)
     {
-        var modifiers = ParseFunctionModifiers();
+        modifiers = !modifiers.GetChildren().Any() ? ParseFunctionModifiers() : modifiers;
         var isExtern = modifiers.GetChildren().Any(child => child.IsKind(SyntaxKind.ExternKeyword));
 
         var funcKeyword = ExpectToken(SyntaxKind.FuncKeyword);
@@ -521,6 +543,7 @@ internal class StatementSyntaxParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
 
         return FunctionStatement(
+            attributeLists,
             modifiers,
             funcKeyword,
             identifier,
