@@ -134,12 +134,20 @@ partial class BlockBinder
             }
 
             var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
-            var defaultResult = TypeMemberBinder.ProcessParameterDefault(
-                parameterSyntax,
-                parameterType,
-                parameterSyntax.Identifier.ValueText,
-                _diagnostics,
-                ref seenOptionalParameter);
+
+            var hasExplicitDefaultValue = false;
+            object explicitDefaultValue = null;
+
+            // Lambda parameter types can be unresolved here; preserve syntactic constants anyway.
+            if (parameterSyntax?.DefaultValue?.Value is not null)
+            {
+                if (ConstantValueEvaluator.TryEvaluate(parameterSyntax.DefaultValue.Value, out var evaluated))
+                {
+                    hasExplicitDefaultValue = true;
+                    explicitDefaultValue = evaluated;
+                    seenOptionalParameter = true;
+                }
+            }
 
             var symbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
@@ -150,8 +158,8 @@ partial class BlockBinder
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
                 refKind,
-                defaultResult.HasExplicitDefaultValue,
-                defaultResult.ExplicitDefaultValue,
+                hasExplicitDefaultValue,
+                explicitDefaultValue,
                 isMutable: isMutable
             );
 
@@ -998,6 +1006,18 @@ partial class BlockBinder
             var delegateParameter = invoke.Parameters[index];
             var isMutable = parameterSyntax.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
 
+            // Preserve any default values that were already extracted during the initial bind.
+            // IMPORTANT: We still do NOT validate/convert these defaults during replay.
+            // Validation/conversion (and diagnostics) should happen only once an overload is selected.
+            var originalParam = unbound.LambdaSymbol.Parameters.Length > index
+                ? unbound.LambdaSymbol.Parameters[index]
+                : null;
+
+            var hasExplicitDefaultValue = originalParam?.HasExplicitDefaultValue == true;
+            var explicitDefaultValue = hasExplicitDefaultValue
+                ? originalParam!.ExplicitDefaultValue
+                : null;
+
             // IMPORTANT: Lambda replay is used for overload resolution / compatibility checks.
             // Do NOT validate or flow explicit default values here, because replay may bind the
             // lambda against an unrelated delegate candidate (e.g. RequestDelegate(HttpContext)->Task)
@@ -1012,8 +1032,8 @@ partial class BlockBinder
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
                 delegateParameter.RefKind,
-                hasExplicitDefaultValue: false,
-                explicitDefaultValue: null,
+                hasExplicitDefaultValue: hasExplicitDefaultValue,
+                explicitDefaultValue: explicitDefaultValue,
                 isMutable: isMutable);
 
             parameterSymbols.Add(parameterSymbol);

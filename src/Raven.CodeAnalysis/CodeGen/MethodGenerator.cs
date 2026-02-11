@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.ComponentModel;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -267,6 +268,8 @@ internal class MethodGenerator
                 attrs |= ParameterAttributes.Out;
             else if (parameterSymbol.RefKind == RefKind.In)
                 attrs |= ParameterAttributes.In;
+            if (parameterSymbol.HasExplicitDefaultValue)
+                attrs |= ParameterAttributes.Optional | ParameterAttributes.HasDefault;
 
             ParameterBuilder parameterBuilder;
             if (MethodBase is MethodBuilder mb)
@@ -290,6 +293,7 @@ internal class MethodGenerator
                 parameterBuilder.SetCustomAttribute(tupleNamesAttr);
 
             TypeGenerator.CodeGen.ApplyCustomAttributes(parameterSymbol.GetAttributes(), attribute => parameterBuilder.SetCustomAttribute(attribute));
+            ApplyParameterDefaultValueIfAny(parameterBuilder, parameterSymbol);
 
             _parameterBuilders.Add((parameterSymbol, parameterBuilder));
             i++;
@@ -724,6 +728,37 @@ internal class MethodGenerator
     }
 
     public override string ToString() => this.MethodSymbol.ToDisplayString();
+
+    private static void ApplyParameterDefaultValueIfAny(ParameterBuilder parameterBuilder, IParameterSymbol parameterSymbol)
+    {
+        if (parameterBuilder is null)
+            throw new ArgumentNullException(nameof(parameterBuilder));
+        if (parameterSymbol is null)
+            throw new ArgumentNullException(nameof(parameterSymbol));
+
+        if (!parameterSymbol.HasExplicitDefaultValue)
+            return;
+
+        var defaultValue = parameterSymbol.ExplicitDefaultValue;
+
+        // Mark as optional and attach default constant.
+
+        // Reflection.Emit accepts null for reference/nullable defaults.
+        // If the symbol uses Type.Missing / Missing.Value to represent “no default”, don't set a constant.
+        if (ReferenceEquals(defaultValue, Type.Missing) || ReferenceEquals(defaultValue, System.Reflection.Missing.Value))
+            return;
+
+        parameterBuilder.SetConstant(defaultValue);
+
+        // Some reflection consumers rely on attributes rather than Constant/HasDefault.
+        // Emit both DefaultParameterValueAttribute and DefaultValueAttribute.
+        var dpvCtor = typeof(DefaultParameterValueAttribute).GetConstructor(new[] { typeof(object) });
+        if (dpvCtor is not null)
+        {
+            var dpvAttr = new CustomAttributeBuilder(dpvCtor, new object?[] { defaultValue });
+            parameterBuilder.SetCustomAttribute(dpvAttr);
+        }
+    }
 
     private static bool HasInterfaceMethodBody(IMethodSymbol methodSymbol)
     {
