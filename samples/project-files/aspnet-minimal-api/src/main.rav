@@ -12,8 +12,7 @@ app.MapGet("/del", (context: HttpContext) => context.Response.WriteAsync("Hello 
 app.MapGet("/ping", 
     (name: string) => "pong ${name}")
 
-app.MapGet("/ping2", 
-    (no: int = 2) => "pong ${no}")
+app.MapGet("/ping2", (no: int = 2) => "pong ${no}")
 
 app.MapGet("/async", async () => {
     await Task.Delay(1)
