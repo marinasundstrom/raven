@@ -1077,9 +1077,9 @@ partial class BlockBinder : Binder
             binaryOperatorKind,
             binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
-            value => localType is ByRefTypeSymbol byRef
-                ? BoundFactory.CreateByRefAssignmentExpression(localAccess, byRef.ElementType, value)
-                : BoundFactory.CreateLocalAssignmentExpression(localSymbol, value));
+            value => localType is RefTypeSymbol refType
+                ? BoundFactory.CreateByRefAssignmentExpression(localAccess, refType.ElementType, value)
+                : BoundFactory.CreateLocalAssignmentExpression(localSymbol, localAccess, value));
     }
 
     private BoundExpression BindIncrementForParameter(
@@ -1105,9 +1105,9 @@ partial class BlockBinder : Binder
             binaryOperatorKind,
             binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
-            value => parameterType is ByRefTypeSymbol byRef && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
-                ? BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRef.ElementType, value)
-                : BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, value));
+            value => parameterType is RefTypeSymbol refType && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
+                ? BoundFactory.CreateByRefAssignmentExpression(parameterAccess, refType.ElementType, value)
+                : BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, parameterAccess, value));
     }
 
     private BoundExpression BindIncrementForField(
@@ -1253,7 +1253,7 @@ partial class BlockBinder : Binder
 
     private ITypeSymbol GetIncrementTargetType(ITypeSymbol type)
     {
-        return type is ByRefTypeSymbol byRef ? byRef.ElementType : type;
+        return type is RefTypeSymbol refType ? refType.ElementType : type;
     }
 
     private BoundLiteralExpression CreateStepLiteral()
@@ -1399,7 +1399,7 @@ partial class BlockBinder : Binder
         {
             IPointerTypeSymbol pointer => pointer.PointedAtType,
             IAddressTypeSymbol address => address.ReferencedType,
-            ByRefTypeSymbol byRef => byRef.ElementType,
+            RefTypeSymbol refType => refType.ElementType,
             _ => null,
         };
 
@@ -4212,21 +4212,21 @@ partial class BlockBinder : Binder
         {
             var localSymbol = localAccess.Local;
             var localType = localSymbol.Type;
-            var rightTargetType = localType is ByRefTypeSymbol byRefLocal
-                ? byRefLocal.ElementType
+            var rightTargetType = localType is RefTypeSymbol refTypeLocal
+                ? refTypeLocal.ElementType
                 : localType;
             var right = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
             if (IsErrorExpression(right))
                 return AsErrorExpression(right);
 
-            if (localType is ByRefTypeSymbol byRefLocalType)
+            if (localType is RefTypeSymbol refTypeLocalType)
             {
-                var localByRefRight = BindCompoundAssignmentValue(localAccess, right, byRefLocalType.ElementType, binaryOperator.Value, rightSyntax);
+                var localByRefRight = BindCompoundAssignmentValue(localAccess, right, refTypeLocalType.ElementType, binaryOperator.Value, rightSyntax);
                 if (localByRefRight is BoundErrorExpression)
                     return localByRefRight;
 
-                return BoundFactory.CreateByRefAssignmentExpression(localAccess, byRefLocalType.ElementType, localByRefRight);
+                return BoundFactory.CreateByRefAssignmentExpression(localAccess, refTypeLocalType.ElementType, localByRefRight);
             }
 
             if (!localSymbol.IsMutable)
@@ -4236,15 +4236,15 @@ partial class BlockBinder : Binder
             }
 
             var localRight = BindCompoundAssignmentValue(localAccess, right, localType, binaryOperator.Value, rightSyntax);
-            return BoundFactory.CreateLocalAssignmentExpression(localSymbol, localRight);
+            return BoundFactory.CreateLocalAssignmentExpression(localSymbol, localAccess, localRight);
         }
         else if (left is BoundParameterAccess parameterAccess)
         {
             var parameterSymbol = parameterAccess.Parameter;
             var parameterType = parameterSymbol.Type;
-            var rightTargetType = parameterType is ByRefTypeSymbol byRefParameter &&
+            var rightTargetType = parameterType is RefTypeSymbol refTypeParameter &&
                 parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
-                ? byRefParameter.ElementType
+                ? refTypeParameter.ElementType
                 : parameterType;
             var right = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
@@ -4257,17 +4257,17 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            if (parameterType is ByRefTypeSymbol byRefParameterType && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
+            if (parameterType is RefTypeSymbol refTypeParameterType && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
             {
-                var parameterByRefRight = BindCompoundAssignmentValue(parameterAccess, right, byRefParameterType.ElementType, binaryOperator.Value, rightSyntax);
+                var parameterByRefRight = BindCompoundAssignmentValue(parameterAccess, right, refTypeParameterType.ElementType, binaryOperator.Value, rightSyntax);
                 if (parameterByRefRight is BoundErrorExpression)
                     return parameterByRefRight;
 
-                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, parameterByRefRight);
+                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, refTypeParameterType.ElementType, parameterByRefRight);
             }
 
             var parameterRight = BindCompoundAssignmentValue(parameterAccess, right, parameterType, binaryOperator.Value, rightSyntax);
-            return BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, parameterRight);
+            return BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, parameterAccess, parameterRight);
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
@@ -6710,8 +6710,8 @@ partial class BlockBinder : Binder
             return BindTypeSyntaxDirect(typeSyntax, refKindHint);
 
         var resolved = result.ResolvedType;
-        if (RequiresByRefType(typeSyntax, refKindHint) && resolved is not ByRefTypeSymbol)
-            return new ByRefTypeSymbol(resolved);
+        if (RequiresByRefType(typeSyntax, refKindHint) && resolved is not RefTypeSymbol)
+            return new RefTypeSymbol(resolved);
 
         return resolved;
     }

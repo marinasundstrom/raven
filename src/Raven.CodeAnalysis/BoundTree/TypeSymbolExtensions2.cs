@@ -17,6 +17,6 @@ public static class TypeSymbolExtensions2
         if (type is IAddressTypeSymbol address)
             return address.ReferencedType;
 
-        return type is ByRefTypeSymbol byRef ? byRef.ElementType : null;
+        return type is RefTypeSymbol refType ? refType.ElementType : null;
     }
 }

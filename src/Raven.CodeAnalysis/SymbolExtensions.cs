@@ -235,12 +235,12 @@ public static partial class SymbolExtensions
             return type;
         }
 
-        if (type is ByRefTypeSymbol byRef)
+        if (type is RefTypeSymbol refType)
         {
-            var substitutedElement = SubstituteTypeParameters(byRef.ElementType, map);
+            var substitutedElement = SubstituteTypeParameters(refType.ElementType, map);
 
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                return new ByRefTypeSymbol(substitutedElement);
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, refType.ElementType))
+                return new RefTypeSymbol(substitutedElement);
 
             return type;
         }
@@ -319,8 +319,8 @@ public static partial class SymbolExtensions
             case NullableTypeSymbol nullableType:
                 MapReceiverTypeParameters(nullableType.UnderlyingType, methodParameters, map);
                 break;
-            case ByRefTypeSymbol byRef:
-                MapReceiverTypeParameters(byRef.ElementType, methodParameters, map);
+            case RefTypeSymbol refType:
+                MapReceiverTypeParameters(refType.ElementType, methodParameters, map);
                 break;
             case IAddressTypeSymbol address:
                 MapReceiverTypeParameters(address.ReferencedType, methodParameters, map);

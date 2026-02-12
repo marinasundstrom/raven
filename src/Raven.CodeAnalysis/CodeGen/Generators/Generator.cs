@@ -206,7 +206,7 @@ internal abstract class Generator
         if (conversion.IsIdentity)
             return;
 
-        if (to is ByRefTypeSymbol && from is IAddressTypeSymbol)
+        if (to is RefTypeSymbol && from is IAddressTypeSymbol)
             return;
 
         var fromClrType = ResolveClrType(from);

@@ -171,12 +171,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null)
     {
-        if (type is ByRefTypeSymbol byRef)
+        if (type is RefTypeSymbol refType)
         {
-            var rewrittenElement = ReanchorNestedTypeIfNeeded(byRef.ElementType, methodMap);
-            return SymbolEqualityComparer.Default.Equals(rewrittenElement, byRef.ElementType)
+            var rewrittenElement = ReanchorNestedTypeIfNeeded(refType.ElementType, methodMap);
+            return SymbolEqualityComparer.Default.Equals(rewrittenElement, refType.ElementType)
                 ? type
-                : new ByRefTypeSymbol(rewrittenElement);
+                : new RefTypeSymbol(rewrittenElement);
         }
 
         if (type is INamedTypeSymbol named &&
@@ -257,12 +257,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 return result;
             }
 
-            if (type is ByRefTypeSymbol byRef)
+            if (type is RefTypeSymbol refType)
             {
-                var substitutedElement = SubstituteCore(byRef.ElementType, methodMap, inProgress, cache);
+                var substitutedElement = SubstituteCore(refType.ElementType, methodMap, inProgress, cache);
 
-                if (!IsEquivalentForSubstitution(substitutedElement, byRef.ElementType))
-                    result = new ByRefTypeSymbol(substitutedElement);
+                if (!IsEquivalentForSubstitution(substitutedElement, refType.ElementType))
+                    result = new RefTypeSymbol(substitutedElement);
                 else
                     result = type;
 
@@ -587,12 +587,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
                 arrayArgument.Rank);
         }
 
-        if (argument is ByRefTypeSymbol byRefArgument)
+        if (argument is RefTypeSymbol refTypeArgument)
         {
-            var element = SubstituteInterfaceTypeArgument(byRefArgument.ElementType, cache, visiting);
-            return IsEquivalentForSubstitution(element, byRefArgument.ElementType)
+            var element = SubstituteInterfaceTypeArgument(refTypeArgument.ElementType, cache, visiting);
+            return IsEquivalentForSubstitution(element, refTypeArgument.ElementType)
                 ? argument
-                : new ByRefTypeSymbol(element);
+                : new RefTypeSymbol(element);
         }
 
         if (argument is IAddressTypeSymbol addressArgument)

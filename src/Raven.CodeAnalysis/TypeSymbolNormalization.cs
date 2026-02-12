@@ -13,7 +13,7 @@ internal static class TypeSymbolNormalization
         if (type is IAddressTypeSymbol address)
         {
             var referenced = NormalizeForInference(address.ReferencedType);
-            return new ByRefTypeSymbol(referenced);
+            return new RefTypeSymbol(referenced);
         }
 
         if (type is ITypeUnionSymbol union)

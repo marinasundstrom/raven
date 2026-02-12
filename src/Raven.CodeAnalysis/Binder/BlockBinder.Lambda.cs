@@ -299,8 +299,8 @@ partial class BlockBinder
                     return named.TypeArguments.Any(ContainsTypeParameter);
                 case IArrayTypeSymbol array:
                     return ContainsTypeParameter(array.ElementType);
-                case ByRefTypeSymbol byRef:
-                    return ContainsTypeParameter(byRef.ElementType);
+                case RefTypeSymbol refType:
+                    return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
                 case ITupleTypeSymbol tuple:
@@ -1179,8 +1179,8 @@ partial class BlockBinder
                     return named.TypeArguments.Any(ContainsTypeParameter);
                 case IArrayTypeSymbol array:
                     return ContainsTypeParameter(array.ElementType);
-                case ByRefTypeSymbol byRef:
-                    return ContainsTypeParameter(byRef.ElementType);
+                case RefTypeSymbol refType:
+                    return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
                 case ITupleTypeSymbol tuple:

@@ -33,7 +33,7 @@ Other constructed type symbols serve particular purposes:
 * `TypeUnionSymbol` – models a value whose type can be any of its constituent types.
 * `TupleTypeSymbol` – packs named elements into a fixed-size tuple backed by `System.ValueTuple`.
 * `NullableTypeSymbol` – wraps an underlying type in `T?`.
-* `ByRefTypeSymbol` – represents a `ref` or `out` type.
+* `RefTypeSymbol` – represents a `ref` or `out` type.
 * `LiteralTypeSymbol` – captures a specific constant value as a type for flow analysis and generics.
 * `NullTypeSymbol` – the type of the `null` literal.
 * `UnitTypeSymbol` – models the `Unit` (void) type.

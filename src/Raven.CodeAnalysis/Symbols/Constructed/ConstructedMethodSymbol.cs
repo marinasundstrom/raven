@@ -272,147 +272,147 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         try
         {
-        if (type is ITypeParameterSymbol tp)
-        {
-            tp = CanonicalizeTypeParameter(tp);
-            if (_substitutionMap.TryGetValue(tp, out var replacement))
+            if (type is ITypeParameterSymbol tp)
             {
-                cache[type] = replacement;
-                return replacement;
-            }
-        }
-
-        if (type is NullableTypeSymbol nullableTypeSymbol)
-        {
-            var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, visiting, cache);
-
-            if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
-            {
-                var result = underlyingType.MakeNullable();
-                cache[type] = result;
-                return result;
-            }
-
-            cache[type] = type;
-            return type;
-        }
-
-        if (type is ByRefTypeSymbol byRef)
-        {
-            var substitutedElement = Substitute(byRef.ElementType, visiting, cache);
-
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-            {
-                var result = new ByRefTypeSymbol(substitutedElement);
-                cache[type] = result;
-                return result;
-            }
-
-            cache[type] = type;
-            return type;
-        }
-
-        if (type is IAddressTypeSymbol address)
-        {
-            var substitutedElement = Substitute(address.ReferencedType, visiting, cache);
-
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
-            {
-                var result = new AddressTypeSymbol(substitutedElement);
-                cache[type] = result;
-                return result;
-            }
-
-            cache[type] = type;
-            return type;
-        }
-
-        if (type is IArrayTypeSymbol arrayType)
-        {
-            var substitutedElement = Substitute(arrayType.ElementType, visiting, cache);
-
-            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
-            {
-                var result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
-                cache[type] = result;
-                return result;
-            }
-
-            cache[type] = type;
-            return type;
-        }
-
-        if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
-        {
-            var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
-            var substitutedArgs = new ITypeSymbol[typeArguments.Length];
-            var changed = false;
-
-            for (int i = 0; i < typeArguments.Length; i++)
-            {
-                var originalArg = typeArguments[i];
-                var substitutedArg = Substitute(originalArg, visiting, cache);
-
-                substitutedArgs[i] = substitutedArg;
-
-                if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
-                    changed = true;
-            }
-
-            if (!changed)
-            {
-                // Even if type arguments did not change, nested types may need re-anchoring
-                // under a substituted containing type.
-                if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
+                tp = CanonicalizeTypeParameter(tp);
+                if (_substitutionMap.TryGetValue(tp, out var replacement))
                 {
-                    var constructedFromSame = TypeSubstitution.GetDefinitionForSubstitution(named);
-                    return TypeSubstitution.ReanchorNested(
-                        constructedFromSame,
-                        containingOverride,
-                        inheritedSubstitution: null,
-                        typeArguments: typeArguments);
+                    cache[type] = replacement;
+                    return replacement;
+                }
+            }
+
+            if (type is NullableTypeSymbol nullableTypeSymbol)
+            {
+                var underlyingType = Substitute(nullableTypeSymbol.UnderlyingType, visiting, cache);
+
+                if (!SymbolEqualityComparer.Default.Equals(underlyingType, nullableTypeSymbol.UnderlyingType))
+                {
+                    var result = underlyingType.MakeNullable();
+                    cache[type] = result;
+                    return result;
                 }
 
-                return named;
+                cache[type] = type;
+                return type;
             }
 
-            // Avoid reusing a possibly already-constructed named
-            var constructedFrom = TypeSubstitution.GetDefinitionForSubstitution(named);
-
-            if (named.ContainingType is INamedTypeSymbol namedContaining)
+            if (type is RefTypeSymbol refType)
             {
-                var immutableArguments = ImmutableArray.Create(substitutedArgs);
-                var containingForNested = namedContaining;
-                if (TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
-                    containingForNested = overrideContaining;
+                var substitutedElement = Substitute(refType.ElementType, visiting, cache);
 
-                return TypeSubstitution.ReanchorNested(
-                    constructedFrom,
-                    containingForNested,
-                    inheritedSubstitution: null,
-                    typeArguments: immutableArguments);
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, refType.ElementType))
+                {
+                    var result = new RefTypeSymbol(substitutedElement);
+                    cache[type] = result;
+                    return result;
+                }
+
+                cache[type] = type;
+                return type;
             }
 
-            var constructedResult = constructedFrom.Construct(substitutedArgs);
-            cache[type] = constructedResult;
-            return constructedResult;
-        }
-
-        // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
-        if (type is INamedTypeSymbol nestedNamed && nestedNamed.ContainingType is INamedTypeSymbol)
-        {
-            if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
+            if (type is IAddressTypeSymbol address)
             {
-                return TypeSubstitution.ReanchorNested(
-                    nestedNamed,
-                    containingOverride,
-                    inheritedSubstitution: null,
-                    typeArguments: ImmutableArray<ITypeSymbol>.Empty);
-            }
-        }
+                var substitutedElement = Substitute(address.ReferencedType, visiting, cache);
 
-        cache[type] = type;
-        return type;
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType))
+                {
+                    var result = new AddressTypeSymbol(substitutedElement);
+                    cache[type] = result;
+                    return result;
+                }
+
+                cache[type] = type;
+                return type;
+            }
+
+            if (type is IArrayTypeSymbol arrayType)
+            {
+                var substitutedElement = Substitute(arrayType.ElementType, visiting, cache);
+
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                {
+                    var result = new ArrayTypeSymbol(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank);
+                    cache[type] = result;
+                    return result;
+                }
+
+                cache[type] = type;
+                return type;
+            }
+
+            if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            {
+                var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
+                var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+                var changed = false;
+
+                for (int i = 0; i < typeArguments.Length; i++)
+                {
+                    var originalArg = typeArguments[i];
+                    var substitutedArg = Substitute(originalArg, visiting, cache);
+
+                    substitutedArgs[i] = substitutedArg;
+
+                    if (!SymbolEqualityComparer.Default.Equals(substitutedArg, originalArg))
+                        changed = true;
+                }
+
+                if (!changed)
+                {
+                    // Even if type arguments did not change, nested types may need re-anchoring
+                    // under a substituted containing type.
+                    if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
+                    {
+                        var constructedFromSame = TypeSubstitution.GetDefinitionForSubstitution(named);
+                        return TypeSubstitution.ReanchorNested(
+                            constructedFromSame,
+                            containingOverride,
+                            inheritedSubstitution: null,
+                            typeArguments: typeArguments);
+                    }
+
+                    return named;
+                }
+
+                // Avoid reusing a possibly already-constructed named
+                var constructedFrom = TypeSubstitution.GetDefinitionForSubstitution(named);
+
+                if (named.ContainingType is INamedTypeSymbol namedContaining)
+                {
+                    var immutableArguments = ImmutableArray.Create(substitutedArgs);
+                    var containingForNested = namedContaining;
+                    if (TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
+                        containingForNested = overrideContaining;
+
+                    return TypeSubstitution.ReanchorNested(
+                        constructedFrom,
+                        containingForNested,
+                        inheritedSubstitution: null,
+                        typeArguments: immutableArguments);
+                }
+
+                var constructedResult = constructedFrom.Construct(substitutedArgs);
+                cache[type] = constructedResult;
+                return constructedResult;
+            }
+
+            // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
+            if (type is INamedTypeSymbol nestedNamed && nestedNamed.ContainingType is INamedTypeSymbol)
+            {
+                if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
+                {
+                    return TypeSubstitution.ReanchorNested(
+                        nestedNamed,
+                        containingOverride,
+                        inheritedSubstitution: null,
+                        typeArguments: ImmutableArray<ITypeSymbol>.Empty);
+                }
+            }
+
+            cache[type] = type;
+            return type;
         }
         finally
         {
@@ -1024,7 +1024,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         if (runtimeType.IsByRef)
         {
-            var symbolElement = (symbolArgument as ByRefTypeSymbol)?.ElementType ?? symbolArgument;
+            var symbolElement = (symbolArgument as RefTypeSymbol)?.ElementType ?? symbolArgument;
             var substitutedElement = SubstituteRuntimeTypeUsingSymbol(runtimeType.GetElementType()!, symbolElement, codeGen);
             return substitutedElement.MakeByRefType();
         }
@@ -1464,30 +1464,30 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         try
         {
-        if (symbol is ITypeParameterSymbol typeParameter)
-        {
-            if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
+            if (symbol is ITypeParameterSymbol typeParameter)
             {
-                if (!ReferenceEquals(substitution, typeParameter))
-                    return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel, visiting);
-            }
+                if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
+                {
+                    if (!ReferenceEquals(substitution, typeParameter))
+                        return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel, visiting);
+                }
 
-            if (typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
-                typeParameter.DeclaringMethodParameterOwner is IMethodSymbol declaringMethod &&
-                TryGetMethodGenericParameter(declaringMethod, typeParameter.Ordinal, codeGen, out var methodGenericParameter))
-            {
-                return methodGenericParameter;
-            }
+                if (typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
+                    typeParameter.DeclaringMethodParameterOwner is IMethodSymbol declaringMethod &&
+                    TryGetMethodGenericParameter(declaringMethod, typeParameter.Ordinal, codeGen, out var methodGenericParameter))
+                {
+                    return methodGenericParameter;
+                }
 
-            if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, CodeGen.RuntimeTypeUsage.MethodBody, out var runtimeType))
-                return runtimeType;
+                if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, CodeGen.RuntimeTypeUsage.MethodBody, out var runtimeType))
+                    return runtimeType;
 
                 throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
             }
 
-            if (symbol is ByRefTypeSymbol byRef)
+            if (symbol is RefTypeSymbol refType)
             {
-                var elementType = GetProjectedRuntimeType(byRef.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false, visiting);
+                var elementType = GetProjectedRuntimeType(refType.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false, visiting);
                 return elementType.MakeByRefType();
             }
 

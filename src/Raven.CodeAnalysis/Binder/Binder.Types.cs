@@ -424,7 +424,7 @@ internal abstract partial class Binder
                 Issues = element.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(br.ElementType, TypeResolutionFailureKind.ByRefElementFailed))
             };
 
-        return new ResolveTypeResult { ResolvedType = new ByRefTypeSymbol(element.ResolvedType) };
+        return new ResolveTypeResult { ResolvedType = new RefTypeSymbol(element.ResolvedType) };
     }
 
     private ResolveTypeResult BindNullable(

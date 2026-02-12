@@ -214,8 +214,8 @@ internal sealed partial class BoundNodeFactory
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(local, reason);
 
-    public BoundLocalAssignmentExpression CreateLocalAssignmentExpression(ILocalSymbol local, BoundExpression right)
-        => new(local, right, Compilation.UnitTypeSymbol);
+    public BoundLocalAssignmentExpression CreateLocalAssignmentExpression(ILocalSymbol local, BoundLocalAccess left, BoundExpression right)
+        => new(local, left, right, Compilation.UnitTypeSymbol);
 
     public BoundLocalDeclarationStatement CreateLocalDeclarationStatement(
         IEnumerable<BoundVariableDeclarator> declarators,
@@ -271,8 +271,9 @@ internal sealed partial class BoundNodeFactory
 
     public BoundParameterAssignmentExpression CreateParameterAssignmentExpression(
         IParameterSymbol parameter,
+        BoundExpression left,
         BoundExpression right)
-        => new(parameter, right, Compilation.UnitTypeSymbol);
+        => new(parameter, left, right, Compilation.UnitTypeSymbol);
 
     public BoundParenthesizedExpression CreateParenthesizedExpression(BoundExpression expression)
         => new(expression);
@@ -292,7 +293,7 @@ internal sealed partial class BoundNodeFactory
         BoundExpression? receiver,
         IPropertySymbol property,
         BoundExpression right)
-        => new(receiver, property, right, Compilation.UnitTypeSymbol);
+        => new(receiver, property, receiver, right, Compilation.UnitTypeSymbol);
 
     public BoundReturnStatement CreateReturnStatement(BoundExpression? expression)
         => new(expression);

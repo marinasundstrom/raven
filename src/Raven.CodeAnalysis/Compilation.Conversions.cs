@@ -184,8 +184,8 @@ public partial class Compilation
 
         if (source is IAddressTypeSymbol addressSource)
         {
-            if (destination is ByRefTypeSymbol byRefDestination &&
-                ElementTypesAreCompatible(addressSource.ReferencedType, byRefDestination.ElementType))
+            if (destination is RefTypeSymbol refTypeDestination &&
+                ElementTypesAreCompatible(addressSource.ReferencedType, refTypeDestination.ElementType))
             {
                 return Finalize(new Conversion(isImplicit: true));
             }
@@ -197,9 +197,9 @@ public partial class Compilation
             }
         }
 
-        if (source is ByRefTypeSymbol byRefSource &&
+        if (source is RefTypeSymbol refTypeSource &&
             destination is IPointerTypeSymbol pointerDestination &&
-            ElementTypesAreCompatible(byRefSource.ElementType, pointerDestination.PointedAtType))
+            ElementTypesAreCompatible(refTypeSource.ElementType, pointerDestination.PointedAtType))
         {
             return Finalize(new Conversion(isImplicit: true, isPointer: true));
         }

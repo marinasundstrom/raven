@@ -36,8 +36,8 @@ public class ResultMetadataSymbolTests
             var okParameter = Assert.Single(tryGetOk.Parameters);
             var errorParameter = Assert.Single(tryGetError.Parameters);
 
-            var okByRef = Assert.IsType<ByRefTypeSymbol>(okParameter.Type);
-            var errorByRef = Assert.IsType<ByRefTypeSymbol>(errorParameter.Type);
+            var okByRef = Assert.IsType<RefTypeSymbol>(okParameter.Type);
+            var errorByRef = Assert.IsType<RefTypeSymbol>(errorParameter.Type);
 
             Assert.True(SymbolEqualityComparer.Default.Equals(okCase, okByRef.ElementType));
             Assert.True(SymbolEqualityComparer.Default.Equals(errorCase, errorByRef.ElementType));
@@ -78,8 +78,8 @@ public class ResultMetadataSymbolTests
             var okParameter = Assert.Single(tryGetOk.Parameters);
             var errorParameter = Assert.Single(tryGetError.Parameters);
 
-            var okByRef = Assert.IsType<ByRefTypeSymbol>(okParameter.Type);
-            var errorByRef = Assert.IsType<ByRefTypeSymbol>(errorParameter.Type);
+            var okByRef = Assert.IsType<RefTypeSymbol>(okParameter.Type);
+            var errorByRef = Assert.IsType<RefTypeSymbol>(errorParameter.Type);
 
             Assert.True(SymbolEqualityComparer.Default.Equals(okCase, okByRef.ElementType));
             Assert.True(SymbolEqualityComparer.Default.Equals(errorCase, errorByRef.ElementType));

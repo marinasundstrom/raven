@@ -830,7 +830,7 @@ public partial class Compilation
                 var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
                 var resolvedType = ResolveTypeSyntax(typeSyntax, symbol);
                 var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? resolvedType is ByRefTypeSymbol ? resolvedType : new ByRefTypeSymbol(resolvedType)
+                    ? resolvedType is RefTypeSymbol ? resolvedType : new RefTypeSymbol(resolvedType)
                     : resolvedType;
 
                 invokeParameters.Add(new SourceParameterSymbol(
@@ -974,10 +974,10 @@ public partial class Compilation
     {
         switch (typeSyntax)
         {
-            case ByRefTypeSyntax byRef:
+            case ByRefTypeSyntax refType:
                 {
-                    var elementType = ResolveTypeSyntax(byRef.ElementType, container);
-                    return new ByRefTypeSymbol(elementType);
+                    var elementType = ResolveTypeSyntax(refType.ElementType, container);
+                    return new RefTypeSymbol(elementType);
                 }
 
             case PredefinedTypeSyntax predefined:

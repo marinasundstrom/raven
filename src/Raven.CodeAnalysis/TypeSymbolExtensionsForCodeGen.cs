@@ -5,6 +5,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
+
 using static Raven.CodeAnalysis.CodeGen.DebugUtils;
 
 namespace Raven.CodeAnalysis;
@@ -153,8 +154,8 @@ public static class TypeSymbolExtensionsForCodeGen
                 throw new InvalidOperationException($"Unable to resolve runtime type for metadata symbol: {metadataName}");
             }
 
-        if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
-        {
+            if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
+            {
                 if (codeGen.RuntimeTypeMap.TryResolveTypeParameter(typeParameterSymbol, usage, out var parameterType))
                     return parameterType;
 
@@ -168,109 +169,109 @@ public static class TypeSymbolExtensionsForCodeGen
                     $"originalType={(original?.GetType().Name ?? "<null>")}, originalContaining={(original?.ContainingSymbol?.ToString() ?? "<null>")}]");
             }
 
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            var elementClrType = GetClrTypeInternal(arrayType.ElementType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-            return arrayType.Rank == 1
-                ? elementClrType.MakeArrayType()
-                : elementClrType.MakeArrayType(arrayType.Rank);
-        }
-
-        if (typeSymbol is ByRefTypeSymbol byRefType)
-        {
-            var elementClrType = GetClrTypeInternal(byRefType.ElementType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-            return elementClrType.MakeByRefType();
-        }
-
-        if (typeSymbol is IAddressTypeSymbol addressType)
-        {
-            var elementClrType = GetClrTypeInternal(addressType.ReferencedType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-            return elementClrType.MakeByRefType();
-        }
-
-        if (typeSymbol is IPointerTypeSymbol pointerType)
-        {
-            var elementClrType = GetClrTypeInternal(pointerType.PointedAtType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-            return elementClrType.MakePointerType();
-        }
-
-        if (typeSymbol is ITupleTypeSymbol tupleSymbol)
-        {
-            var elementClrTypes = tupleSymbol.TupleElements
-                .Select(e => GetClrTypeInternal(e.Type, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting))
-                .ToArray();
-
-            return GetValueTupleClrType(elementClrTypes, compilation);
-        }
-
-        if (typeSymbol is NullTypeSymbol)
-        {
-            if (codeGen.NullType is null)
-                throw new InvalidOperationException("Null type was not emitted.");
-            return codeGen.NullType;
-        }
-
-        if (typeSymbol.SpecialType == SpecialType.System_Unit)
-            return ResolveUnitRuntimeType(typeSymbol, compilation, codeGen, treatUnitAsVoid, isTopLevel);
-
-        if (typeSymbol is LiteralTypeSymbol literalType)
-        {
-            return GetClrTypeInternal(literalType.UnderlyingType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-        }
-
-        if (typeSymbol is INamedTypeSymbol named &&
-            named is not ConstructedNamedTypeSymbol &&
-            named.IsGenericType &&
-            !named.IsUnboundGenericType)
-        {
-            if (named.ConstructedFrom is INamedTypeSymbol definition &&
-                !ReferenceEquals(named, definition))
+            if (typeSymbol is IArrayTypeSymbol arrayType)
             {
-                var genericDef = GetClrTypeInternal(definition, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-                var args = named.TypeArguments
-                    .Select(arg => GetClrTypeInternal(arg, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting))
+                var elementClrType = GetClrTypeInternal(arrayType.ElementType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+                return arrayType.Rank == 1
+                    ? elementClrType.MakeArrayType()
+                    : elementClrType.MakeArrayType(arrayType.Rank);
+            }
+
+            if (typeSymbol is RefTypeSymbol refTypeType)
+            {
+                var elementClrType = GetClrTypeInternal(refTypeType.ElementType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+                return elementClrType.MakeByRefType();
+            }
+
+            if (typeSymbol is IAddressTypeSymbol addressType)
+            {
+                var elementClrType = GetClrTypeInternal(addressType.ReferencedType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+                return elementClrType.MakeByRefType();
+            }
+
+            if (typeSymbol is IPointerTypeSymbol pointerType)
+            {
+                var elementClrType = GetClrTypeInternal(pointerType.PointedAtType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+                return elementClrType.MakePointerType();
+            }
+
+            if (typeSymbol is ITupleTypeSymbol tupleSymbol)
+            {
+                var elementClrTypes = tupleSymbol.TupleElements
+                    .Select(e => GetClrTypeInternal(e.Type, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting))
                     .ToArray();
 
-                if (!genericDef.IsGenericTypeDefinition && !genericDef.ContainsGenericParameters)
+                return GetValueTupleClrType(elementClrTypes, compilation);
+            }
+
+            if (typeSymbol is NullTypeSymbol)
+            {
+                if (codeGen.NullType is null)
+                    throw new InvalidOperationException("Null type was not emitted.");
+                return codeGen.NullType;
+            }
+
+            if (typeSymbol.SpecialType == SpecialType.System_Unit)
+                return ResolveUnitRuntimeType(typeSymbol, compilation, codeGen, treatUnitAsVoid, isTopLevel);
+
+            if (typeSymbol is LiteralTypeSymbol literalType)
+            {
+                return GetClrTypeInternal(literalType.UnderlyingType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+            }
+
+            if (typeSymbol is INamedTypeSymbol named &&
+                named is not ConstructedNamedTypeSymbol &&
+                named.IsGenericType &&
+                !named.IsUnboundGenericType)
+            {
+                if (named.ConstructedFrom is INamedTypeSymbol definition &&
+                    !ReferenceEquals(named, definition))
                 {
-                    return genericDef;
+                    var genericDef = GetClrTypeInternal(definition, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+                    var args = named.TypeArguments
+                        .Select(arg => GetClrTypeInternal(arg, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting))
+                        .ToArray();
+
+                    if (!genericDef.IsGenericTypeDefinition && !genericDef.ContainsGenericParameters)
+                    {
+                        return genericDef;
+                    }
+
+                    return genericDef.MakeGenericType(args);
+                }
+            }
+
+            if (typeSymbol.SpecialType != SpecialType.None)
+            {
+                return GetSpecialClrType(typeSymbol.SpecialType, compilation);
+            }
+
+            if (typeSymbol is INamedTypeSymbol namedType)
+            {
+                if (codeGen.TryEnsureRuntimeTypeForSymbol(namedType, out var builtType))
+                    return builtType;
+
+                var metadataName = namedType.ToFullyQualifiedMetadataName();
+                var runtimeType = compilation.ResolveRuntimeType(metadataName);
+                if (runtimeType is not null)
+                    return runtimeType;
+
+                throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
+            }
+
+            if (typeSymbol is ITypeUnionSymbol union)
+            {
+                var emission = union.GetUnionEmissionInfo(compilation);
+                var underlyingClr = GetClrTypeInternal(emission.UnderlyingTypeSymbol, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+
+                if (emission.WrapInNullable)
+                {
+                    var nullableDefinition = GetNullableRuntimeType(compilation);
+                    return nullableDefinition.MakeGenericType(underlyingClr);
                 }
 
-                return genericDef.MakeGenericType(args);
+                return underlyingClr;
             }
-        }
-
-        if (typeSymbol.SpecialType != SpecialType.None)
-        {
-            return GetSpecialClrType(typeSymbol.SpecialType, compilation);
-        }
-
-        if (typeSymbol is INamedTypeSymbol namedType)
-        {
-            if (codeGen.TryEnsureRuntimeTypeForSymbol(namedType, out var builtType))
-                return builtType;
-
-            var metadataName = namedType.ToFullyQualifiedMetadataName();
-            var runtimeType = compilation.ResolveRuntimeType(metadataName);
-            if (runtimeType is not null)
-                return runtimeType;
-
-            throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
-        }
-
-        if (typeSymbol is ITypeUnionSymbol union)
-        {
-            var emission = union.GetUnionEmissionInfo(compilation);
-            var underlyingClr = GetClrTypeInternal(emission.UnderlyingTypeSymbol, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-
-            if (emission.WrapInNullable)
-            {
-                var nullableDefinition = GetNullableRuntimeType(compilation);
-                return nullableDefinition.MakeGenericType(underlyingClr);
-            }
-
-            return underlyingClr;
-        }
 
             throw new NotSupportedException($"Unsupported type symbol: {typeSymbol}");
         }

@@ -511,7 +511,7 @@ public sealed class SubstitutionTypeResolver
 
         return new ResolveTypeResult
         {
-            ResolvedType = new ByRefTypeSymbol(element.ResolvedType),
+            ResolvedType = new RefTypeSymbol(element.ResolvedType),
             Notes = ImmutableArray.Create("Created byref type symbol from resolved element type.")
         };
     }

@@ -1303,8 +1303,8 @@ internal abstract partial class Binder
 
     private static bool IsErrorTypeResult(ITypeSymbol type)
     {
-        while (type is ByRefTypeSymbol byRef)
-            type = byRef.ElementType;
+        while (type is RefTypeSymbol refType)
+            type = refType.ElementType;
 
         return type.TypeKind == TypeKind.Error;
     }
@@ -1402,10 +1402,10 @@ internal abstract partial class Binder
         if (refKindHint is not RefKind.Ref and not RefKind.Out and not RefKind.In and not RefKind.RefReadOnly and not RefKind.RefReadOnlyParameter)
             return type;
 
-        if (type is ByRefTypeSymbol existing)
+        if (type is RefTypeSymbol existing)
             return existing;
 
-        return new ByRefTypeSymbol(type);
+        return new RefTypeSymbol(type);
     }
 
     private ITypeSymbol ApplyAccessibilityAndRefKind(

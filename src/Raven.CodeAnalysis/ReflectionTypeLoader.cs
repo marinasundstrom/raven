@@ -36,7 +36,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (nullInfo.ElementType is not null)
                 elementType = ApplyNullability(elementType, nullInfo.ElementType);
 
-            return new ByRefTypeSymbol(elementType);
+            return new RefTypeSymbol(elementType);
         }
 
         var declaredType = ResolveType(parameterType, methodContext);

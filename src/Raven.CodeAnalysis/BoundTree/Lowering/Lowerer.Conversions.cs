@@ -41,12 +41,15 @@ internal sealed partial class Lowerer
         var caseLocal = CreateTempLocal("case", caseType, isMutable: true);
         var unionLocal = CreateTempLocal("union", unionType, isMutable: true);
 
+        var unionLocalLocalAccess = new BoundLocalAccess(unionLocal);
+
         var statements = new List<BoundStatement>
         {
             new BoundLocalDeclarationStatement(new[] { new BoundVariableDeclarator(caseLocal, rewrittenExpression) }),
             new BoundLocalDeclarationStatement(new[] { new BoundVariableDeclarator(unionLocal, null) }),
             new BoundExpressionStatement(new BoundLocalAssignmentExpression(
                 unionLocal,
+                unionLocalLocalAccess,
                 new BoundDefaultValueExpression(unionType),
                 unitType)),
             new BoundExpressionStatement(new BoundFieldAssignmentExpression(

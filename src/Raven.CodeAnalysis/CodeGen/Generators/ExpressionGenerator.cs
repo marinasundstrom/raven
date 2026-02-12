@@ -2172,8 +2172,8 @@ internal partial class ExpressionGenerator : Generator
                 EmitParameterAssignmentExpression(parameterAssignmentExpression, preserveResult);
                 break;
 
-            case BoundByRefAssignmentExpression byRefAssignmentExpression:
-                EmitByRefAssignmentExpression(byRefAssignmentExpression, preserveResult);
+            case BoundByRefAssignmentExpression refTypeAssignmentExpression:
+                EmitByRefAssignmentExpression(refTypeAssignmentExpression, preserveResult);
                 break;
 
             case BoundFieldAssignmentExpression fieldAssignmentExpression:
@@ -4066,7 +4066,7 @@ internal partial class ExpressionGenerator : Generator
             position -= 1;
 
         // If the parameter itself is by-ref, loading it already yields managed pointer.
-        if (parameter.Type is ByRefTypeSymbol)
+        if (parameter.Type is RefTypeSymbol)
             ILGenerator.Emit(OpCodes.Ldarg, position);
         else
             ILGenerator.Emit(OpCodes.Ldarga, position);

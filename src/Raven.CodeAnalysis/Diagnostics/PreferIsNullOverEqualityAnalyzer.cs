@@ -54,6 +54,6 @@ public sealed class PreferIsNullOverEqualityAnalyzer : DiagnosticAnalyzer
 
     private static bool IsPointerLike(ITypeSymbol type)
     {
-        return type is IPointerTypeSymbol or IAddressTypeSymbol or ByRefTypeSymbol;
+        return type is IPointerTypeSymbol or IAddressTypeSymbol or RefTypeSymbol;
     }
 }

@@ -88,8 +88,8 @@ public static partial class SymbolExtensions
             case IArrayTypeSymbol array:
                 return array.ElementType.ContainsErrorType();
 
-            case ByRefTypeSymbol byRef:
-                return byRef.ElementType.ContainsErrorType();
+            case RefTypeSymbol refType:
+                return refType.ElementType.ContainsErrorType();
 
             case IPointerTypeSymbol pointer:
                 return pointer.PointedAtType.ContainsErrorType();
@@ -703,9 +703,9 @@ public static partial class SymbolExtensions
         }
 
         // ByRef
-        if (typeSymbol is ByRefTypeSymbol byRefType)
+        if (typeSymbol is RefTypeSymbol refTypeType)
         {
-            var addressTo = FormatType(byRefType.ElementType, format);
+            var addressTo = FormatType(refTypeType.ElementType, format);
             return "&" + addressTo;
         }
 

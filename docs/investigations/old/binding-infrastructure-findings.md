@@ -22,9 +22,9 @@ This document captures several risks uncovered while reviewing the binder and re
 *Potential direction.* Evaluate whether type symbols should be preferred (or at least considered on equal footing) when both a namespace and a type are viable matches. Adjusting the resolution order or reporting ambiguity would prevent silent misbinding.
 
 ### 3. By-ref syntax loses ref/out information during binding
-*Observation.* Originally, `ResolveType` simply returned the element type for `ByRefTypeSyntax` nodes, ignoring the presence of the ref/out modifier even though a `ByRefTypeSymbol` exists in the type system.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ByRefTypeSymbol.cs†L5-L55】
+*Observation.* Originally, `ResolveType` simply returned the element type for `ByRefTypeSyntax` nodes, ignoring the presence of the ref/out modifier even though a `RefTypeSymbol` exists in the type system.【F:src/Raven.CodeAnalysis/Symbols/Constructed/RefTypeSymbol.cs†L5-L55】
 
-*Status.* **Resolved.** `Binder.ResolveType` now constructs `ByRefTypeSymbol` instances when a declaration is marked `&`, while the consuming symbol (such as a parameter) records the specific `ref`/`out`/`in` modifier via its own `RefKind`.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L328-L438】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceParameterSymbol.cs†L13-L30】
+*Status.* **Resolved.** `Binder.ResolveType` now constructs `RefTypeSymbol` instances when a declaration is marked `&`, while the consuming symbol (such as a parameter) records the specific `ref`/`out`/`in` modifier via its own `RefKind`.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L328-L438】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceParameterSymbol.cs†L13-L30】
 
 *Why it matters.* Any code that relies on tracking ref, in, or out semantics during binding (for overload resolution, assignment checks, or emission) will see those types as plain value types. That can lead to incorrect conversions, missed diagnostics, or invalid IL generation.
 

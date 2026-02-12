@@ -993,7 +993,7 @@ partial class BlockBinder
         BoundExpression expression,
         SyntaxNode syntax)
     {
-        if (method.ReturnType is not ByRefTypeSymbol byRefReturnType)
+        if (method.ReturnType is not RefTypeSymbol refTypeReturnType)
             return expression;
 
         if (!TryGetAddressOfStorage(expression, out var storage))
@@ -1002,14 +1002,14 @@ partial class BlockBinder
         if (storage is BoundLocalAccess localAccess)
             return ReportInvalidByRefReturnStorage(
                 localAccess.Local.Name,
-                byRefReturnType,
+                refTypeReturnType,
                 syntax,
                 isValueParameter: false);
 
         if (storage is BoundParameterAccess parameterAccess && parameterAccess.Parameter.RefKind == RefKind.None)
             return ReportInvalidByRefReturnStorage(
                 parameterAccess.Parameter.Name,
-                byRefReturnType,
+                refTypeReturnType,
                 syntax,
                 isValueParameter: true);
 
@@ -1018,7 +1018,7 @@ partial class BlockBinder
 
     private BoundExpression ReportInvalidByRefReturnStorage(
         string sourceName,
-        ByRefTypeSymbol targetType,
+        RefTypeSymbol targetType,
         SyntaxNode syntax,
         bool isValueParameter)
     {

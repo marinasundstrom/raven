@@ -50,8 +50,8 @@ class C {
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
 
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var byRef = Assert.IsType<ByRefTypeSymbol>(local.Type);
-        Assert.Equal(SpecialType.System_Int32, byRef.ElementType.SpecialType);
+        var refType = Assert.IsType<RefTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
     }
 
     [Fact]
@@ -98,8 +98,8 @@ class Buffer {
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "alias");
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var byRef = Assert.IsType<ByRefTypeSymbol>(local.Type);
-        Assert.Equal(SpecialType.System_Int32, byRef.ElementType.SpecialType);
+        var refType = Assert.IsType<RefTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
     }
 
     [Fact]
@@ -123,8 +123,8 @@ class Counter {
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "alias");
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var byRef = Assert.IsType<ByRefTypeSymbol>(local.Type);
-        Assert.Equal(SpecialType.System_Int32, byRef.ElementType.SpecialType);
+        var refType = Assert.IsType<RefTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
     }
 
     [Fact]
@@ -147,8 +147,8 @@ class Data {
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "slot");
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var byRef = Assert.IsType<ByRefTypeSymbol>(local.Type);
-        Assert.Equal(SpecialType.System_Int32, byRef.ElementType.SpecialType);
+        var refType = Assert.IsType<RefTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
     }
 
     [Fact]

@@ -2,11 +2,11 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class ByRefTypeSymbol : SourceSymbol, ITypeSymbol
+internal sealed class RefTypeSymbol : SourceSymbol, ITypeSymbol
 {
     public ITypeSymbol ElementType { get; }
 
-    public ByRefTypeSymbol(ITypeSymbol elementType)
+    public RefTypeSymbol(ITypeSymbol elementType)
         : base(
             SymbolKind.Type, "",
             containingSymbol: elementType.ContainingSymbol ?? throw new ArgumentNullException(nameof(elementType.ContainingSymbol)),
@@ -55,7 +55,7 @@ internal sealed class ByRefTypeSymbol : SourceSymbol, ITypeSymbol
     public override string ToString() => Name;
 
     public override bool Equals(object? obj) =>
-        obj is ByRefTypeSymbol other &&
+        obj is RefTypeSymbol other &&
         SymbolEqualityComparer.Default.Equals(ElementType, other.ElementType);
 
     public override int GetHashCode() => HashCode.Combine(ElementType);

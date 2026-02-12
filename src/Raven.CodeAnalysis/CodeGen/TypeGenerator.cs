@@ -342,7 +342,7 @@ internal class TypeGenerator
         {
             case IArrayTypeSymbol:
                 return true;
-            case ByRefTypeSymbol:
+            case RefTypeSymbol:
                 return true;
             case IAddressTypeSymbol:
                 return true;

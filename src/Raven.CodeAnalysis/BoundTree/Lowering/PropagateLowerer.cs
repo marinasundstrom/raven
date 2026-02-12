@@ -176,8 +176,8 @@ internal static class PropagateLowerer
             if (tryGetMethod is null)
                 return null;
 
-            var okLocalType = tryGetMethod.Parameters[0].Type is ByRefTypeSymbol byRefType
-                ? byRefType.ElementType
+            var okLocalType = tryGetMethod.Parameters[0].Type is RefTypeSymbol refTypeType
+                ? refTypeType.ElementType
                 : tryGetMethod.Parameters[0].Type;
             var okLocal = CreateTempLocal("propagateOk", okLocalType, isMutable: true);
 

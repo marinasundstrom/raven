@@ -568,7 +568,9 @@ internal static class IteratorLowerer
                 return new BoundFieldAssignmentExpression(null, field, right, _unitType);
 
             if (!ReferenceEquals(right, node.Right))
-                return new BoundLocalAssignmentExpression(node.Local, right, _unitType);
+            {
+                return new BoundLocalAssignmentExpression(node.Local, node.LocalAccess, right, _unitType);
+            }
 
             return node;
         }
@@ -743,7 +745,9 @@ internal static class IteratorLowerer
             var value = expression ?? CreateBoolLiteral(false);
             value = ConvertIfNeeded(_compilation, value, _boolType);
 
-            var assignment = new BoundLocalAssignmentExpression(_resultLocal, value, _unitType);
+            var localAccess = new BoundLocalAccess(_resultLocal);
+
+            var assignment = new BoundLocalAssignmentExpression(_resultLocal, localAccess, value, _unitType);
             var assignStatement = new BoundAssignmentStatement(assignment);
             var gotoStatement = new BoundGotoStatement(_returnLabel);
 

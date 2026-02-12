@@ -196,7 +196,7 @@ internal partial class BoundLambdaExpression : BoundExpression
                     case NullableTypeSymbol sourceNullable when targetType is NullableTypeSymbol targetNullable:
                         return TryAddTypeMappings(sourceNullable.UnderlyingType, targetNullable.UnderlyingType, substitutions);
 
-                    case ByRefTypeSymbol sourceByRef when targetType is ByRefTypeSymbol targetByRef:
+                    case RefTypeSymbol sourceByRef when targetType is RefTypeSymbol targetByRef:
                         return TryAddTypeMappings(sourceByRef.ElementType, targetByRef.ElementType, substitutions);
 
                     case IAddressTypeSymbol sourceAddress when targetType is IAddressTypeSymbol targetAddress:
@@ -262,15 +262,15 @@ internal partial class BoundLambdaExpression : BoundExpression
                             return nullableType;
                         }
 
-                    case ByRefTypeSymbol byRefType:
+                    case RefTypeSymbol refTypeType:
                         {
-                            var substitutedElement = SubstituteType(byRefType.ElementType, substitutions, compilation);
-                            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRefType.ElementType))
+                            var substitutedElement = SubstituteType(refTypeType.ElementType, substitutions, compilation);
+                            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, refTypeType.ElementType))
                             {
-                                return new ByRefTypeSymbol(substitutedElement);
+                                return new RefTypeSymbol(substitutedElement);
                             }
 
-                            return byRefType;
+                            return refTypeType;
                         }
 
                     case IAddressTypeSymbol addressType:

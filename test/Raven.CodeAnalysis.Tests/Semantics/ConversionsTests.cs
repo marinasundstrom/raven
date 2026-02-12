@@ -150,9 +150,9 @@ public class ConversionsTests : CompilationTestBase
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var address = new AddressTypeSymbol(intType);
-        var byRef = new ByRefTypeSymbol(intType);
+        var refType = new RefTypeSymbol(intType);
 
-        var conversion = compilation.ClassifyConversion(address, byRef);
+        var conversion = compilation.ClassifyConversion(address, refType);
 
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
@@ -191,9 +191,9 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(aliasType.IsAlias);
 
         var address = new AddressTypeSymbol(aliasType);
-        var byRef = new ByRefTypeSymbol(aliasType);
+        var refType = new RefTypeSymbol(aliasType);
 
-        var conversion = compilation.ClassifyConversion(address, byRef);
+        var conversion = compilation.ClassifyConversion(address, refType);
 
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);

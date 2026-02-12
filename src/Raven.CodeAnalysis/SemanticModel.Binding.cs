@@ -1348,8 +1348,8 @@ public partial class SemanticModel
                 return binder.BindTypeSyntaxDirect(typeSyntax, refKindHint);
 
             var type = result.ResolvedType;
-            if (RequiresByRefType(typeSyntax, refKindHint) && type is not ByRefTypeSymbol)
-                return new ByRefTypeSymbol(type);
+            if (RequiresByRefType(typeSyntax, refKindHint) && type is not RefTypeSymbol)
+                return new RefTypeSymbol(type);
 
             return type;
         }

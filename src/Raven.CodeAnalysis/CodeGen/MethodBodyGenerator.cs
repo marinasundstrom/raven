@@ -883,8 +883,8 @@ internal class MethodBodyGenerator
     private static IMethodSymbol? ResolveCasePayloadGetter(ITypeSymbol caseSymbolType, string preferredPropertyName)
     {
         var normalizedCaseType = caseSymbolType.GetPlainType();
-        if (normalizedCaseType is ByRefTypeSymbol byRef)
-            normalizedCaseType = byRef.ElementType;
+        if (normalizedCaseType is RefTypeSymbol refType)
+            normalizedCaseType = refType.ElementType;
 
         var caseNamedType = normalizedCaseType as INamedTypeSymbol;
         var payloadGetterSymbol = caseNamedType?

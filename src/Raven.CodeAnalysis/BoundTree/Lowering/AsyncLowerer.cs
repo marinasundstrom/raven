@@ -2021,7 +2021,9 @@ internal static class AsyncLowerer
                 var resultDeclarator = new BoundVariableDeclarator(resultLocal, initializer: null);
                 var resultDeclaration = new BoundLocalDeclarationStatement(new[] { resultDeclarator });
 
-                var assignment = new BoundLocalAssignmentExpression(resultLocal, convertedExpression, unitType);
+                var localAccess = new BoundLocalAccess(resultLocal);
+
+                var assignment = new BoundLocalAssignmentExpression(resultLocal, localAccess, convertedExpression, unitType);
                 tryStatements.Add(new BoundExpressionStatement(assignment));
                 var tryBlock = new BoundBlockStatement(tryStatements);
 
@@ -2054,8 +2056,11 @@ internal static class AsyncLowerer
                     resultType,
                     compilation);
 
+                var resultLocalAccess = new BoundLocalAccess(resultLocal);
+
                 var catchAssignment = new BoundLocalAssignmentExpression(
                     resultLocal,
+                    resultLocalAccess,
                     catchExpression,
                     unitType);
 
@@ -2442,7 +2447,10 @@ internal static class AsyncLowerer
                 return CreateStateMachineFieldAssignment(_stateMachine, field, right);
 
             if (!ReferenceEquals(right, node.Right))
-                return new BoundLocalAssignmentExpression(node.Local, right, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
+            {
+                var localAccess = new BoundLocalAccess(node.Local);
+                return new BoundLocalAssignmentExpression(node.Local, localAccess, right, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
+            }
 
             return node;
         }
@@ -2609,7 +2617,9 @@ internal static class AsyncLowerer
                 if (resultLocal is null)
                     return new BoundStatement[] { new BoundExpressionStatement(getResult) };
 
-                var assignment = new BoundLocalAssignmentExpression(resultLocal, getResult, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
+                var localAccess = new BoundLocalAccess(resultLocal);
+
+                var assignment = new BoundLocalAssignmentExpression(resultLocal, localAccess, getResult, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
                 return new BoundStatement[] { new BoundExpressionStatement(assignment) };
             }));
 
@@ -2670,7 +2680,10 @@ internal static class AsyncLowerer
             resumeStatements.Add(new BoundLocalDeclarationStatement(new[] { awaiterDeclarator }));
 
             var awaiterFieldAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), awaiterField);
-            var captureAwaiter = new BoundLocalAssignmentExpression(awaiterLocal, awaiterFieldAccess, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
+
+            var awaiterLocalAccess = new BoundLocalAccess(awaiterLocal);
+
+            var captureAwaiter = new BoundLocalAssignmentExpression(awaiterLocal, awaiterLocalAccess, awaiterFieldAccess, _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit));
             resumeStatements.Add(new BoundExpressionStatement(captureAwaiter));
 
             var awaiterAccess = new BoundLocalAccess(awaiterLocal);

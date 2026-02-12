@@ -57,8 +57,10 @@ internal sealed partial class Lowerer
 
             expression = ApplyConversionIfNeeded(expression, resultType, compilation);
 
+            var resultLocalAccess = new BoundLocalAccess(resultLocal);
+
             BoundStatement armResult = new BoundBlockStatement([
-                new BoundAssignmentStatement(new BoundLocalAssignmentExpression(resultLocal, expression, unitType)),
+                new BoundAssignmentStatement(new BoundLocalAssignmentExpression(resultLocal, resultLocalAccess, expression, unitType)),
                 new BoundGotoStatement(endLabel)
             ]);
 

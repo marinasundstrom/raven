@@ -607,12 +607,12 @@ partial class BlockBinder
                 : substituted.MakeNullable();
         }
 
-        if (type is ByRefTypeSymbol byRefType)
+        if (type is RefTypeSymbol refTypeType)
         {
-            var substituted = SubstituteTypeParameters(byRefType.ElementType, substitutions);
-            return SymbolEqualityComparer.Default.Equals(substituted, byRefType.ElementType)
+            var substituted = SubstituteTypeParameters(refTypeType.ElementType, substitutions);
+            return SymbolEqualityComparer.Default.Equals(substituted, refTypeType.ElementType)
                 ? type
-                : new ByRefTypeSymbol(substituted);
+                : new RefTypeSymbol(substituted);
         }
 
         if (type is IAddressTypeSymbol addressType)
@@ -1736,21 +1736,21 @@ partial class BlockBinder
             var localSymbol = localAccess.Local;
             var localType = localSymbol.Type;
 
-            var rightTargetType = localType is ByRefTypeSymbol byRefLocal
-                ? byRefLocal.ElementType
+            var rightTargetType = localType is RefTypeSymbol refTypeLocal
+                ? refTypeLocal.ElementType
                 : localType;
             var right2 = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
 
-            if (localType is ByRefTypeSymbol byRefLocalType)
+            if (localType is RefTypeSymbol refTypeLocalType)
             {
-                var converted = ConvertValueForAssignment(right2, byRefLocalType.ElementType, rightSyntax);
+                var converted = ConvertValueForAssignment(right2, refTypeLocalType.ElementType, rightSyntax);
                 if (converted is BoundErrorExpression)
                     return converted;
 
-                return BoundFactory.CreateByRefAssignmentExpression(localAccess, byRefLocalType.ElementType, converted);
+                return BoundFactory.CreateByRefAssignmentExpression(localAccess, refTypeLocalType.ElementType, converted);
             }
 
             if (!localSymbol.IsMutable)
@@ -1761,7 +1761,7 @@ partial class BlockBinder
 
             if (right2 is BoundEmptyCollectionExpression)
             {
-                return BoundFactory.CreateLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
+                return BoundFactory.CreateLocalAssignmentExpression(localSymbol, localAccess, new BoundEmptyCollectionExpression(localSymbol.Type));
             }
 
             if (localType.TypeKind != TypeKind.Error &&
@@ -1780,7 +1780,7 @@ partial class BlockBinder
                 right2 = ApplyConversion(right2, localType, conversion, rightSyntax);
             }
 
-            return BoundFactory.CreateLocalAssignmentExpression(localSymbol, right2);
+            return BoundFactory.CreateLocalAssignmentExpression(localSymbol, localAccess, right2);
         }
         else if (left is BoundParameterAccess parameterAccess)
         {
@@ -1793,23 +1793,23 @@ partial class BlockBinder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            var rightTargetType = parameterType is ByRefTypeSymbol byRefParameter &&
+            var rightTargetType = parameterType is RefTypeSymbol refTypeParameter &&
                 parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
-                ? byRefParameter.ElementType
+                ? refTypeParameter.ElementType
                 : parameterType;
             var right2 = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
 
-            if (parameterType is ByRefTypeSymbol byRefParameterType &&
+            if (parameterType is RefTypeSymbol refTypeParameterType &&
                 parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
             {
-                var converted = ConvertValueForAssignment(right2, byRefParameterType.ElementType, rightSyntax);
+                var converted = ConvertValueForAssignment(right2, refTypeParameterType.ElementType, rightSyntax);
                 if (converted is BoundErrorExpression)
                     return converted;
 
-                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRefParameterType.ElementType, converted);
+                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, refTypeParameterType.ElementType, converted);
             }
 
             if (parameterType.TypeKind != TypeKind.Error &&
@@ -1828,7 +1828,7 @@ partial class BlockBinder
                 right2 = ApplyConversion(right2, parameterType, conversion, rightSyntax);
             }
 
-            return BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, right2);
+            return BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, parameterAccess, right2);
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {

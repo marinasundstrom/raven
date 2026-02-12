@@ -491,8 +491,8 @@ internal sealed class OverloadResolver
                     return named.TypeArguments.Any(ContainsTypeParameter);
                 case IArrayTypeSymbol array:
                     return ContainsTypeParameter(array.ElementType);
-                case ByRefTypeSymbol byRef:
-                    return ContainsTypeParameter(byRef.ElementType);
+                case RefTypeSymbol refType:
+                    return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
                 case ITupleTypeSymbol tuple:
@@ -1332,7 +1332,7 @@ internal sealed class OverloadResolver
             var parameterType = parameter.Type;
             var referencedType = addressType.ReferencedType;
 
-            if (parameterType is ByRefTypeSymbol paramByRef)
+            if (parameterType is RefTypeSymbol paramByRef)
             {
                 if (!SymbolEqualityComparer.Default.Equals(referencedType, paramByRef.ElementType))
                 {

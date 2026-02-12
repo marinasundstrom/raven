@@ -105,8 +105,8 @@ internal partial class TypeMemberBinder : Binder
             return binder.BindTypeSyntaxDirect(typeSyntax, options, refKindHint, allowLegacyFallback: true);
 
         var resolvedType = result.ResolvedType;
-        if (RequiresByRefType(typeSyntax, refKindHint) && resolvedType is not ByRefTypeSymbol)
-            return new ByRefTypeSymbol(resolvedType);
+        if (RequiresByRefType(typeSyntax, refKindHint) && resolvedType is not RefTypeSymbol)
+            return new RefTypeSymbol(resolvedType);
 
         return resolvedType;
     }

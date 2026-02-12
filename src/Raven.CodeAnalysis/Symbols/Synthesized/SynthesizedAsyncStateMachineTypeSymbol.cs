@@ -556,11 +556,11 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
                 return replacement;
             }
 
-            if (symbol is ByRefTypeSymbol byRef)
+            if (symbol is RefTypeSymbol refType)
             {
-                var substitutedElement = Substitute(byRef.ElementType);
-                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
-                    return new ByRefTypeSymbol(substitutedElement);
+                var substitutedElement = Substitute(refType.ElementType);
+                if (!SymbolEqualityComparer.Default.Equals(substitutedElement, refType.ElementType))
+                    return new RefTypeSymbol(substitutedElement);
 
                 return symbol;
             }

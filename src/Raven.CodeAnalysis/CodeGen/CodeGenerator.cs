@@ -1700,8 +1700,8 @@ internal class CodeGenerator
             case IArrayTypeSymbol arrayType:
                 EnsureTypeDependencies(arrayType.ElementType, visited, visiting);
                 break;
-            case ByRefTypeSymbol byRefType:
-                EnsureTypeDependencies(byRefType.ElementType, visited, visiting);
+            case RefTypeSymbol refTypeType:
+                EnsureTypeDependencies(refTypeType.ElementType, visited, visiting);
                 break;
             case IPointerTypeSymbol pointerType:
                 EnsureTypeDependencies(pointerType.PointedAtType, visited, visiting);

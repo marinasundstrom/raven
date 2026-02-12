@@ -33,10 +33,10 @@ internal abstract partial class Binder
             return ApplyRefKindHint(new LiteralTypeSymbol(underlying, value, Compilation), refKindHint);
         }
 
-        if (typeSyntax is ByRefTypeSyntax byRef)
+        if (typeSyntax is ByRefTypeSyntax refType)
         {
-            var elementType = ResolveTypeInternalLegacy(byRef.ElementType, refKindHint: null);
-            return new ByRefTypeSymbol(elementType);
+            var elementType = ResolveTypeInternalLegacy(refType.ElementType, refKindHint: null);
+            return new RefTypeSymbol(elementType);
         }
 
         if (typeSyntax is PointerTypeSyntax pointer)
