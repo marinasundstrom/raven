@@ -324,7 +324,7 @@ if (printParseSequence)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../../../samples/json2{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../../../samples/result-and-options/test4{RavenFileExtensions.Raven}");
 
 if (emitDocs && documentationTool == DocumentationTool.RavenDoc && documentationFormatExplicitlySet &&
     documentationFormat == DocumentationFormat.Xml)
@@ -709,6 +709,62 @@ if (run && options.OutputKind != OutputKind.ConsoleApplication)
 
 project = ApplyCodeFixesIfRequested(workspace, projectId, project, fix);
 project = ApplyFormattingIfRequested(workspace, projectId, project, format);
+
+// Print syntax tree BEFORE binding/diagnostics retrieval.
+// Binding may be triggered by workspace diagnostics/semantic model creation, so keep syntax-only printing above that.
+var allowConsoleOutputPreBinding = project.Documents.Count() == 1;
+if (allowConsoleOutputPreBinding && (printSyntaxTree || printSyntaxTreeInternal))
+{
+    var document = project.Documents.Single();
+    var syntaxTree = document.GetSyntaxTreeAsync().Result!;
+    var root = syntaxTree.GetRoot();
+
+    if (printSyntaxTree)
+    {
+        root.PrintSyntaxTree(new PrinterOptions
+        {
+            IncludeNames = true,
+            IncludeTokens = true,
+            IncludeTrivia = true,
+            IncludeSpans = true,
+            IncludeLocations = true,
+            Colorize = true,
+            ExpandListsAsProperties = syntaxTreeFormat == SyntaxTreeFormat.Flat,
+            // IMPORTANT: keep this syntax-only. Do not include diagnostics here, since fetching diagnostics can bind.
+            IncludeDiagnostics = false,
+            IncludeAnnotations = true,
+            DiagnosticsAsChildren = false,
+            AnnotationsAsChildren = true
+        });
+    }
+    else
+    {
+        // Internal (green) syntax tree printer.
+        var green = (GreenNode?)typeof(SyntaxNode)
+            .GetField("Green", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(root);
+
+        var greenPrinterOptions = new Raven.CodeAnalysis.Syntax.InternalSyntax.PrettyGreenTreePrinterOptions()
+        {
+            IncludeTrivia = true,
+            IncludeTriviaText = true,
+            FlattenSyntaxLists = false,
+            IncludeSlotIndices = true,
+            IncludeWidths = true,
+            HideZeroWidthSlots = false,
+            IncludeDiagnostics = false,
+            IncludeAnnotations = true,
+            DiagnosticsAsChildren = false,
+            AnnotationsAsChildren = true
+        };
+
+        Console.WriteLine(Raven.CodeAnalysis.Syntax.InternalSyntax.PrettyGreenTreePrinter.PrintToString(green!, greenPrinterOptions));
+    }
+
+    // Avoid printing the same tree again later.
+    printSyntaxTree = false;
+    printSyntaxTreeInternal = false;
+}
 
 var compilation = workspace.GetCompilation(projectId);
 
