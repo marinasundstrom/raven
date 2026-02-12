@@ -744,6 +744,65 @@ For `Result` and `Option`, the following conditional forms are not lifted and ar
 
 If you need indexing or invocation, unwrap first (with `?`, `UnwrapOrDefault`, or pattern matching), then apply indexing/invocation on the unwrapped value.
 
+## Standard carrier helper APIs (Raven.Core)
+
+Raven ships `Option<T>`, `Result<T, E>`, and related extension helpers in
+`Raven.Core`. These are library APIs (not syntax), but they are part of the
+standard language experience and are expected by diagnostics, samples, and
+tooling.
+
+### `Option<T>` helpers
+
+- State checks: `HasSome`, `HasNone`
+- Mapping/composition: `Map`, `Then`, `Where`, `Filter`, `OrElse`
+- Result bridge: `ThenResult`, `MapResult`, `IsOkOr(error)`,
+  `IsOkOr(errorFactory)`
+- Pattern/value helpers: `Match`, `Tap`, `TapNone`
+- Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
+  `UnwrapOr(defaultValue)`
+- Enumeration helpers: `ToEnumerable`, `GetEnumerator`
+- Nested carrier helper: `Flatten` for `Option<Option<T>>`
+- Nullable conversions:
+  - `Option<T : class> <-> T?`
+  - `Option<T : struct> <-> T?`
+
+### `Result<T, E>` helpers
+
+- State checks: `HasOk`, `HasError`
+- Channel projection: `IsOk`, `IsError`
+- Mapping/composition: `Map`, `Then`, `MapError`, `OrElse`
+- Pattern/value helpers: `Match`, `Tap`, `TapError`
+- Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
+  `UnwrapOr(defaultValue)`, `UnwrapError`
+- Enumeration helpers: `ToEnumerable`, `GetEnumerator`
+
+### Carrier LINQ extensions on `IEnumerable<T>` (`System.Linq`)
+
+- Option-returning:
+  - `FirstOrNone()`, `FirstOrNone(predicate)`
+  - `LastOrNone()`, `LastOrNone(predicate)`
+  - `SingleOrNone()`, `SingleOrNone(predicate)`
+  - `ElementAtOrNone(index)`
+- Result-returning with custom errors:
+  - `FirstOrError(errorFactory)`, `FirstOrError(predicate, errorFactory)`
+  - `LastOrError(errorFactory)`, `LastOrError(predicate, errorFactory)`
+  - `SingleOrError(errorFactory)`, `SingleOrError(predicate, errorFactory)`
+  - `SingleOrError(errorIfNone, errorIfMany)`
+  - `SingleOrError(predicate, errorIfNone, errorIfMany)`
+  - `ElementAtOrError(index, errorFactory)`
+- Result-returning with captured exceptions:
+  - `ToArrayOrException() -> Result<T[], Exception>`
+  - `ToListOrException() -> Result<List<T>, Exception>`
+  - `ToHashSetOrException() -> Result<HashSet<T>, Exception>`
+  - `ToDictionaryOrException(keySelector) -> Result<Dictionary<TKey, T>, Exception>`
+  - `ToDictionaryOrException(keySelector, elementSelector) -> Result<Dictionary<TKey, TValue>, Exception>`
+- Result-returning with mapped errors:
+  - `ToArrayOrError(errorFactory: Exception -> E) -> Result<T[], E>`
+  - `ToListOrError(errorFactory: Exception -> E) -> Result<List<T>, E>`
+  - `ToHashSetOrError(errorFactory: Exception -> E) -> Result<HashSet<T>, E>`
+  - `ToDictionaryOrError(keySelector, errorFactory) -> Result<Dictionary<TKey, T>, E>`
+  - `ToDictionaryOrError(keySelector, elementSelector, errorFactory) -> Result<Dictionary<TKey, TValue>, E>`
+
 ### Cast expressions
 
 Explicit casts request a conversion to a specific type and use C# syntax.

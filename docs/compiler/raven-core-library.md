@@ -32,22 +32,66 @@ A discriminated union with two cases:
 - `Some(value: T)` holds a value.
 - `None` represents the absence of a value.
 
-Extension helpers provide ergonomic accessors:
+`Option<T>` extension helpers:
 
-- `UnwrapOrDefault()` returns the contained value or `default(T)`.
-- `UnwrapOrThrow()` returns the value or throws `InvalidOperationException` if
-  none is present.
-- `UnwrapOr(defaultValue: T)` returns the value or the supplied fallback.
+- State checks: `HasSome`, `HasNone`
+- Mapping and composition: `Map`, `Then`, `Where`, `Filter`, `OrElse`
+- Interop with `Result`: `ThenResult`, `MapResult`, `IsOkOr(error)`,
+  `IsOkOr(errorFactory)`
+- Pattern/value helpers: `Match`, `Tap`, `TapNone`
+- Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
+  `UnwrapOr(defaultValue)`
+- Sequence helpers: `ToEnumerable`, `GetEnumerator`
+- Nested helper (`Option<Option<T>>`): `Flatten`
+- Nullable conversions:
+  - `Option<T : class> <-> T?`
+  - `Option<T : struct> <-> T?`
 
-### `Result<T>` and `Result<T, E>`
+### `Result<T, E>`
 
-Two result shapes are available:
+`Result<T, E>` has two cases:
 
-- `Result<T>` differentiates success (`Ok(value: T)`) from failure
-  (`Error(message: string)`), with `IsOk`, `IsError`, and unwrap helpers mirroring
-  `Option<T>`'s patterns.
-- `Result<T, E>` separates payload and error data by allowing an arbitrary error
-  payload type in the `Error(data: E)` case.
+- `Ok(value: T)` for success.
+- `Error(data: E)` for failure.
+
+`Result<T, E>` extension helpers:
+
+- State checks: `HasOk`, `HasError`
+- Channel projection: `IsOk`, `IsError`
+- Mapping and composition: `Map`, `Then`, `MapError`, `OrElse`
+- Pattern/value helpers: `Match`, `Tap`, `TapError`
+- Unwrap helpers: `UnwrapOrElse`, `UnwrapOrDefault`, `UnwrapOrThrow`,
+  `UnwrapOr(defaultValue)`, `UnwrapError`
+- Sequence helpers: `ToEnumerable`, `GetEnumerator`
+
+### LINQ-style carrier extensions (`System.Linq`)
+
+`IEnumerable<T>` gets Raven.Core helpers for carrier-friendly queries:
+
+- Option-returning:
+  - `FirstOrNone()`, `FirstOrNone(predicate)`
+  - `LastOrNone()`, `LastOrNone(predicate)`
+  - `SingleOrNone()`, `SingleOrNone(predicate)`
+  - `ElementAtOrNone(index)`
+- Result-returning (custom error):
+  - `FirstOrError(errorFactory)`, `FirstOrError(predicate, errorFactory)`
+  - `LastOrError(errorFactory)`, `LastOrError(predicate, errorFactory)`
+  - `SingleOrError(errorFactory)`, `SingleOrError(predicate, errorFactory)`
+  - `SingleOrError(errorIfNone, errorIfMany)`
+  - `SingleOrError(predicate, errorIfNone, errorIfMany)`
+  - `ElementAtOrError(index, errorFactory)`
+- Result-returning (captured exception):
+  - `ToArrayOrException() -> Result<T[], Exception>`
+  - `ToListOrException() -> Result<List<T>, Exception>`
+  - `ToHashSetOrException() -> Result<HashSet<T>, Exception>`
+  - `ToDictionaryOrException(keySelector) -> Result<Dictionary<TKey, T>, Exception>`
+  - `ToDictionaryOrException(keySelector, elementSelector) -> Result<Dictionary<TKey, TValue>, Exception>`
+- Result-returning (mapped error):
+  - `ToArrayOrError(errorFactory: Exception -> E) -> Result<T[], E>`
+  - `ToListOrError(errorFactory: Exception -> E) -> Result<List<T>, E>`
+  - `ToHashSetOrError(errorFactory: Exception -> E) -> Result<HashSet<T>, E>`
+  - `ToDictionaryOrError(keySelector, errorFactory) -> Result<Dictionary<TKey, T>, E>`
+  - `ToDictionaryOrError(keySelector, elementSelector, errorFactory) -> Result<Dictionary<TKey, TValue>, E>`
 
 These unions provide lightweight error-handling primitives while keeping Raven
 programs compatible with the .NET type system.

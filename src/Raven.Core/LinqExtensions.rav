@@ -160,4 +160,78 @@ public extension EnumerableOption<T> for IEnumerable<T> {
             .None => .Error(errorFactory())
         }
     }
+
+    // -------------------------
+    // Materialization with exception capture
+    // -------------------------
+
+    public ToArrayOrException() -> Result<T[], Exception> {
+        try self.ToArray()
+    }
+
+    public ToArrayOrError<E>(errorFactory: Exception -> E) -> Result<T[], E> {
+        try {
+            return .Ok(self.ToArray())
+        } catch (Exception ex) {
+            return .Error(errorFactory(ex))
+        }
+    }
+
+    public ToListOrException() -> Result<List<T>, Exception> {
+        try self.ToList()
+    }
+
+    public ToListOrError<E>(errorFactory: Exception -> E) -> Result<List<T>, E> {
+        try {
+            return .Ok(self.ToList())
+        } catch (Exception ex) {
+            return .Error(errorFactory(ex))
+        }
+    }
+
+    public ToHashSetOrException() -> Result<HashSet<T>, Exception> {
+        try self.ToHashSet()
+    }
+
+    public ToHashSetOrError<E>(errorFactory: Exception -> E) -> Result<HashSet<T>, E> {
+        try {
+            return .Ok(self.ToHashSet())
+        } catch (Exception ex) {
+            return .Error(errorFactory(ex))
+        }
+    }
+
+    public ToDictionaryOrException<TKey>(keySelector: T -> TKey) -> Result<Dictionary<TKey, T>, Exception> {
+        try self.ToDictionary(keySelector)
+    }
+
+    public ToDictionaryOrError<TKey, E>(
+        keySelector: T -> TKey,
+        errorFactory: Exception -> E
+    ) -> Result<Dictionary<TKey, T>, E> {
+        try {
+            return .Ok(self.ToDictionary(keySelector))
+        } catch (Exception ex) {
+            return .Error(errorFactory(ex))
+        }
+    }
+
+    public ToDictionaryOrException<TKey, TValue>(
+        keySelector: T -> TKey,
+        elementSelector: T -> TValue
+    ) -> Result<Dictionary<TKey, TValue>, Exception> {
+        try self.ToDictionary(keySelector, elementSelector)
+    }
+
+    public ToDictionaryOrError<TKey, TValue, E>(
+        keySelector: T -> TKey,
+        elementSelector: T -> TValue,
+        errorFactory: Exception -> E
+    ) -> Result<Dictionary<TKey, TValue>, E> {
+        try {
+            return .Ok(self.ToDictionary(keySelector, elementSelector))
+        } catch (Exception ex) {
+            return .Error(errorFactory(ex))
+        }
+    }
 }
