@@ -19,6 +19,8 @@ partial class BlockBinder
             _ => throw new NotSupportedException("Unknown lambda syntax")
         };
 
+        var hasAnyExplicitParameterType = parameterSyntaxes.Any(p => p.TypeAnnotation?.Type is not null);
+
         SyntaxToken? asyncKeywordToken = syntax switch
         {
             SimpleLambdaExpressionSyntax simple => simple.AsyncKeyword,
@@ -33,6 +35,20 @@ partial class BlockBinder
         var targetType = GetTargetType(syntax);
         if (targetType is NullableTypeSymbol nullableTargetType)
             targetType = nullableTargetType.UnderlyingType;
+
+        // Minimal APIs have overloads that accept `RequestDelegate` and `Delegate`.
+        // If the lambda has explicit parameter type annotations, do not let the argument-binding
+        // phase force the lambda into `RequestDelegate` (which would rewrite parameters to HttpContext
+        // and hide real diagnostics like unknown identifiers inside the body).
+        // Leave it unshaped here; overload resolution will still be able to pick the correct overload.
+        if (hasAnyExplicitParameterType &&
+            targetType is INamedTypeSymbol tNamed &&
+            tNamed.TypeKind == TypeKind.Delegate &&
+            tNamed.Name == "RequestDelegate" &&
+            string.Equals(tNamed.ContainingNamespace?.ToDisplayString(), "Microsoft.AspNetCore.Http", StringComparison.Ordinal))
+        {
+            targetType = null;
+        }
 
         var candidateDelegates = GetLambdaDelegateTargets(syntax);
         if (candidateDelegates.IsDefaultOrEmpty)
@@ -1018,6 +1034,57 @@ partial class BlockBinder
                 ? originalParam!.ExplicitDefaultValue
                 : null;
 
+            // If the lambda parameter has an explicit type annotation, respect it during replay.
+            // If it doesn't match the candidate delegate's parameter type (or ref-kind), the
+            // candidate is not applicable. Do not report diagnostics during replay.
+            var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
+            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+
+            var refKind = delegateParameter.RefKind;
+            ITypeSymbol parameterType;
+
+            if (typeSyntax is not null)
+            {
+                var explicitRefKind = refKind;
+
+                if (typeSyntax is ByRefTypeSyntax)
+                {
+                    explicitRefKind = refKindTokenKind switch
+                    {
+                        SyntaxKind.OutKeyword => RefKind.Out,
+                        SyntaxKind.InKeyword => RefKind.In,
+                        SyntaxKind.RefKeyword => RefKind.Ref,
+                        _ => RefKind.Ref,
+                    };
+                }
+
+                parameterType = ResolveTypeSyntaxOrError(typeSyntax, explicitRefKind);
+
+                // Explicitly annotated type must match the candidate delegate parameter type.
+                if (parameterType.TypeKind != TypeKind.Error &&
+                    delegateParameter.Type.TypeKind != TypeKind.Error &&
+                    !SymbolEqualityComparer.Default.Equals(parameterType, delegateParameter.Type))
+                {
+                    instrumentation.RecordBindingFailure();
+                    return null;
+                }
+
+                // Explicitly annotated ref-kind must match the candidate delegate ref-kind.
+                if (explicitRefKind != delegateParameter.RefKind)
+                {
+                    instrumentation.RecordBindingFailure();
+                    return null;
+                }
+
+                refKind = explicitRefKind;
+            }
+            else
+            {
+                // No explicit annotation: use the candidate delegate parameter type.
+                parameterType = delegateParameter.Type;
+                refKind = delegateParameter.RefKind;
+            }
+
             // IMPORTANT: Lambda replay is used for overload resolution / compatibility checks.
             // Do NOT validate or flow explicit default values here, because replay may bind the
             // lambda against an unrelated delegate candidate (e.g. RequestDelegate(HttpContext)->Task)
@@ -1025,16 +1092,26 @@ partial class BlockBinder
             // a delegate type that will not be selected.
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
-                delegateParameter.Type,
+                parameterType,
                 _containingSymbol,
                 _containingSymbol.ContainingType as INamedTypeSymbol,
                 _containingSymbol.ContainingNamespace,
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
-                delegateParameter.RefKind,
+                refKind,
                 hasExplicitDefaultValue: hasExplicitDefaultValue,
                 explicitDefaultValue: explicitDefaultValue,
                 isMutable: isMutable);
+
+            // Keep the replay order rule: once we saw an optional parameter, later parameters must be optional.
+            if (seenOptionalParameter && !hasExplicitDefaultValue)
+            {
+                instrumentation.RecordBindingFailure();
+                return null;
+            }
+
+            if (hasExplicitDefaultValue)
+                seenOptionalParameter = true;
 
             parameterSymbols.Add(parameterSymbol);
         }
@@ -1055,6 +1132,28 @@ partial class BlockBinder
             lambdaBinder.DeclareParameter(parameter);
 
         var body = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+
+        // If the lambda has an explicit return type annotation, it must match the delegate candidate.
+        // Do not report diagnostics during replay; just treat the candidate as not applicable.
+        TypeSyntax? annotatedReturnTypeSyntax = syntax switch
+        {
+            SimpleLambdaExpressionSyntax s => s.ReturnType?.Type,
+            ParenthesizedLambdaExpressionSyntax p => p.ReturnType?.Type,
+            _ => null
+        };
+
+        if (annotatedReturnTypeSyntax is not null)
+        {
+            var annotatedReturnType = ResolveTypeSyntaxOrError(annotatedReturnTypeSyntax);
+
+            if (annotatedReturnType.TypeKind != TypeKind.Error &&
+                invoke.ReturnType.TypeKind != TypeKind.Error &&
+                !SymbolEqualityComparer.Default.Equals(annotatedReturnType, invoke.ReturnType))
+            {
+                instrumentation.RecordBindingFailure();
+                return null;
+            }
+        }
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var collectedReturn = unbound.LambdaSymbol.IsAsync
             ? ReturnTypeCollector.InferAsync(Compilation, body)

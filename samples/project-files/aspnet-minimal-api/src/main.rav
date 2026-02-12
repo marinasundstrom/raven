@@ -1,3 +1,4 @@
+import System.*
 import Microsoft.AspNetCore.Builder.*
 import Microsoft.AspNetCore.Http.*
 import System.Threading.Tasks.*
@@ -8,6 +9,18 @@ val app = builder.Build()
 app.MapGet("/", () => "Hello from Raven Minimal API")
 
 app.MapGet("/del", (context: HttpContext) => context.Response.WriteAsync("Hello World"))
+
+func ping(name: string) -> PingResult {
+    PingResult("pong ${name}")
+}
+
+app.MapGet("/ping0", ping)
+
+func ping1(name: string) -> Result<PingResult, CustomError> {
+    .Ok(PingResult("pong ${name}"))
+}
+
+app.MapGet("/ping1", ping1)
 
 app.MapGet("/ping", 
     (name: string) => "pong ${name}")
@@ -21,9 +34,17 @@ app.MapGet("/async", async () => {
 
 app.MapPost("/submit", (content: string) => "submitted: $content")
 
+app.MapPost("/submit2", (data: Data) => "submitted: ${data.Value}")
+
 app.MapPost("/submit-async", async (content: string) => {
     await Task.Delay(1)
     return "submitted async: $content"
 })
 
 app.Run()
+
+public record class Data(Value: string)
+
+public record class PingResult(Message: string)
+
+public record class CustomError(Message: string)

@@ -1351,6 +1351,33 @@ internal sealed class OverloadResolver
             return true;
         }
 
+        // Method group conversions must be validated against the target delegate type.
+        // Without this, a method group can appear applicable for unrelated delegate types
+        // (e.g. RequestDelegate) which breaks overload resolution for APIs that have both
+        // RequestDelegate and System.Delegate overloads (like ASP.NET Minimal APIs).
+        if (argument is BoundMethodGroupExpression methodGroup && parameter.Type is INamedTypeSymbol target)
+        {
+            if (target.TypeKind == TypeKind.Delegate)
+            {
+                if (!IsMethodGroupCompatibleWithDelegate(methodGroup, target, compilation))
+                {
+                    LogComparison(comparisonLog, parameter, target, OverloadArgumentComparisonResult.ConversionFailed, "method group is incompatible with delegate");
+                    return false;
+                }
+
+                // Compatible method group => treat as a successful match without further conversion scoring.
+                LogComparison(comparisonLog, parameter, target, OverloadArgumentComparisonResult.Success, "method group compatible with delegate");
+                return true;
+            }
+
+            // Allow method groups to match System.Delegate / System.MulticastDelegate parameters.
+            if (IsSystemDelegateLike(target))
+            {
+                LogComparison(comparisonLog, parameter, target, OverloadArgumentComparisonResult.Success, "method group accepted for System.Delegate-like parameter");
+                return true;
+            }
+        }
+
         bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
@@ -1511,6 +1538,88 @@ internal sealed class OverloadResolver
                 return false;
             }
         }
+    }
+
+    private static bool IsMethodGroupCompatibleWithDelegate(
+        BoundMethodGroupExpression methodGroup,
+        INamedTypeSymbol delegateType,
+        Compilation compilation)
+    {
+        if (delegateType.TypeKind != TypeKind.Delegate)
+            return false;
+
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return false;
+
+        var candidates = methodGroup.Methods;
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var candidate in candidates)
+        {
+            if (candidate is null)
+                continue;
+
+            // Skip open generic candidates; they are not directly convertible without type inference.
+            if (candidate.IsGenericMethod && candidate.TypeParameters.Length > 0)
+                continue;
+
+            // Delegate conversion requires the method to be invokable with the delegate's parameter list.
+            // For now we require equal parameter counts (no optional/params-array bridging).
+            if (candidate.Parameters.Length != invoke.Parameters.Length)
+                continue;
+
+            var ok = true;
+
+            for (int i = 0; i < invoke.Parameters.Length; i++)
+            {
+                var invokeParam = invoke.Parameters[i];
+                var methodParam = candidate.Parameters[i];
+
+                if (invokeParam.RefKind != methodParam.RefKind)
+                {
+                    ok = false;
+                    break;
+                }
+
+                // Delegate parameters are contravariant: the delegate-provided value must be
+                // implicitly convertible to the method parameter type.
+                var conv = compilation.ClassifyConversion(invokeParam.Type, methodParam.Type);
+                if (!conv.Exists || !conv.IsImplicit)
+                {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (!ok)
+                continue;
+
+            // Returns are covariant: the method return must be implicitly convertible to the delegate return.
+            var delegateReturn = invoke.ReturnType;
+            var methodReturn = candidate.ReturnType;
+
+            if (delegateReturn.SpecialType == SpecialType.System_Void)
+            {
+                // Accept a Unit-returning method for a void-returning delegate.
+                if (methodReturn.SpecialType != SpecialType.System_Void &&
+                    methodReturn.SpecialType != SpecialType.System_Unit)
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            var retConv = compilation.ClassifyConversion(methodReturn, delegateReturn);
+            if (!retConv.Exists || !retConv.IsImplicit)
+                continue;
+
+            return true;
+        }
+
+        return false;
     }
 
     private static bool IsSystemDelegateLike(INamedTypeSymbol type)
