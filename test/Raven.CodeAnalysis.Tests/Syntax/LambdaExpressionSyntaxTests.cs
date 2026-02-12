@@ -121,6 +121,29 @@ public class LambdaExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithGenericReturnType_Parses()
+    {
+        var lambda = ParseLambdaInitializer("(content: Data) -> Result<string, MyError> => content");
+
+        Assert.NotNull(lambda.ReturnType);
+        var returnType = Assert.IsType<GenericNameSyntax>(lambda.ReturnType!.Type);
+        Assert.Equal("Result", returnType.Identifier.Text);
+        Assert.Equal(2, returnType.TypeArgumentList.Arguments.Count);
+    }
+
+    [Fact]
+    public void ParenthesizedLambda_WithGenericReturnType_AsInvocationArgument_Parses()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            app.MapPost("/submit2", (content: Data) -> Result<string, MyError> => content)
+            """
+        );
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ParenthesizedExpression_WithSingleIdentifier_DoesNotParseAsLambda()
     {
         var expression = ParseExpression("(value)");

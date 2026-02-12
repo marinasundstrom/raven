@@ -162,6 +162,41 @@ internal class SyntaxParser : ParseContext
         return true;
     }
 
+    protected bool TrySplitLeadingLookaheadToken(
+        SyntaxKind compositeKind,
+        SyntaxKind firstKind,
+        string firstText,
+        SyntaxKind secondKind,
+        string secondText)
+    {
+        var composite = PeekToken();
+        if (!composite.IsKind(compositeKind))
+            return false;
+
+        var baseContext = GetBaseContext();
+
+        var first = new SyntaxToken(
+            firstKind,
+            firstText,
+            composite.LeadingTrivia,
+            SyntaxTriviaList.Empty,
+            composite._diagnostics,
+            composite._annotations);
+
+        var second = new SyntaxToken(
+            secondKind,
+            secondText,
+            SyntaxTriviaList.Empty,
+            composite.TrailingTrivia,
+            diagnostics: null,
+            annotations: null);
+
+        baseContext._lookaheadTokens[0] = first;
+        baseContext._lookaheadTokens.Insert(1, second);
+
+        return true;
+    }
+
     public bool ConsumeTokenOrNull(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken? token)
     {
         var hasConsumedToken = ConsumeToken(kind, out var t);

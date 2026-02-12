@@ -2451,6 +2451,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         const int MaxLookahead = 64; // keep bounded; lambdas should surface quickly
 
         var depth = 0; // track (), [], {} nesting so we don't stop on commas inside them
+        var typeArgumentDepth = 0; // track <...> so generic return types don't terminate on commas
 
         for (int i = startOffset; i < startOffset + MaxLookahead; i++)
         {
@@ -2471,7 +2472,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             // If we're not nested, these tokens end the current expression/statement region.
             // Note: we intentionally do NOT treat `)` as a terminator here, because parenthesized lambdas
             // have the shape `( ... ) => ...` and we still want to see the `=>` after the `)`.
-            if (depth == 0)
+            if (depth == 0 && typeArgumentDepth == 0)
             {
                 if (t.IsKind(SyntaxKind.SemicolonToken)
                     || t.IsKind(SyntaxKind.CommaToken)
@@ -2509,6 +2510,25 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             {
                 if (depth > 0)
                     depth--;
+                continue;
+            }
+
+            if (t.IsKind(SyntaxKind.LessThanToken))
+            {
+                typeArgumentDepth++;
+                continue;
+            }
+
+            if (t.IsKind(SyntaxKind.GreaterThanToken))
+            {
+                if (typeArgumentDepth > 0)
+                    typeArgumentDepth--;
+                continue;
+            }
+
+            if (t.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
+            {
+                typeArgumentDepth = Math.Max(0, typeArgumentDepth - 2);
                 continue;
             }
         }

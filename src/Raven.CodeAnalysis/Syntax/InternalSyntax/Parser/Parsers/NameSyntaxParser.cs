@@ -386,7 +386,8 @@ internal class NameSyntaxParser : SyntaxParser
                 }
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
-                    t.IsKind(SyntaxKind.GreaterThanToken))
+                    t.IsKind(SyntaxKind.GreaterThanToken) ||
+                    t.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
                 {
                     break;
                 }
@@ -417,6 +418,7 @@ internal class NameSyntaxParser : SyntaxParser
                         if (_allowOmittedTypeArguments &&
                             (t.IsKind(SyntaxKind.CommaToken) ||
                              t.IsKind(SyntaxKind.GreaterThanToken) ||
+                             t.IsKind(SyntaxKind.GreaterThanGreaterThanToken) ||
                              t.IsKind(SyntaxKind.EndOfFileToken)))
                         {
                             argumentList.Add(TypeArgument(IdentifierName(MissingToken(SyntaxKind.IdentifierToken))));
@@ -457,7 +459,9 @@ internal class NameSyntaxParser : SyntaxParser
                             GetSpanOfPeekedToken(),
                             tokenText));
 
-                    if (token.IsKind(SyntaxKind.GreaterThanToken) || token.IsKind(SyntaxKind.EndOfFileToken))
+                    if (token.IsKind(SyntaxKind.GreaterThanToken) ||
+                        token.IsKind(SyntaxKind.GreaterThanGreaterThanToken) ||
+                        token.IsKind(SyntaxKind.EndOfFileToken))
                         break;
 
                     ReadToken();
@@ -468,7 +472,22 @@ internal class NameSyntaxParser : SyntaxParser
                 parsedArguments++;
             }
 
-            ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out greaterThanToken);
+            if (!ConsumeToken(SyntaxKind.GreaterThanToken, out greaterThanToken))
+            {
+                if (TrySplitLeadingLookaheadToken(
+                    SyntaxKind.GreaterThanGreaterThanToken,
+                    SyntaxKind.GreaterThanToken,
+                    ">",
+                    SyntaxKind.GreaterThanToken,
+                    ">"))
+                {
+                    ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out greaterThanToken);
+                }
+                else
+                {
+                    greaterThanToken = MissingToken(SyntaxKind.GreaterThanToken);
+                }
+            }
         }
         finally
         {
@@ -581,6 +600,12 @@ internal class NameSyntaxParser : SyntaxParser
             {
                 depth--;
                 if (depth == 0)
+                    return true;
+            }
+            else if (token.IsKind(SyntaxKind.GreaterThanGreaterThanToken))
+            {
+                depth -= 2;
+                if (depth <= 0)
                     return true;
             }
             else if (token.IsKind(SyntaxKind.EndOfFileToken) ||

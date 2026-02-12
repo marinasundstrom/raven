@@ -433,12 +433,11 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.LessThanOrEqualsToken, "<=");
                         }
-                        /*
                         else if (PeekChar(out ch2) && ch2 == '<')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.LessThanLessThanToken, "<<");
-                        }*/
+                        }
                         return new Token(SyntaxKind.LessThanToken, chStr);
 
                     case '>':
@@ -447,13 +446,11 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.GreaterThanOrEqualsToken, ">=");
                         }
-                        /*
                         else if (PeekChar(out ch2) && ch2 == '>')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.GreaterThanGreaterThanToken, ">>");
                         }
-                        */
                         return new Token(SyntaxKind.GreaterThanToken, chStr);
 
                     case '^':

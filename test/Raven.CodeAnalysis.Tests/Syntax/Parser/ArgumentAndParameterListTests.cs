@@ -122,6 +122,34 @@ public class ArgumentAndParameterListTests
     }
 
     [Fact]
+    public void TypeArgumentList_NestedGenericClosersWithoutWhitespace_Parses()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            class Holder {
+                var value: Box<Box<int>>
+            }
+            """
+        );
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TypeArgumentList_AllowsFunctionTypeArgumentEndingWithNestedGenericClosers()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            class Holder {
+                var value: Box<() -> Result<string, MyError>>
+            }
+            """
+        );
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ParameterList_LeadingComma_ProducesDiagnosticsAndCompletesParse()
     {
         var tree = SyntaxTree.ParseText("func F(, value: int) {}");

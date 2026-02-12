@@ -235,4 +235,24 @@ public class LexerTests
         Assert.Equal(SyntaxKind.LineFeedToken, lineFeed.Kind);
         Assert.Equal("\n", lineFeed.Text);
     }
+
+    [Fact]
+    public void ShiftLeftOperator_IsLexedAsSingleToken()
+    {
+        var lexer = new Lexer(new StringReader("a<<1"));
+
+        Assert.Equal(SyntaxKind.IdentifierToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.LessThanLessThanToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, lexer.ReadToken().Kind);
+    }
+
+    [Fact]
+    public void ShiftRightOperator_IsLexedAsSingleToken()
+    {
+        var lexer = new Lexer(new StringReader("a>>1"));
+
+        Assert.Equal(SyntaxKind.IdentifierToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.GreaterThanGreaterThanToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, lexer.ReadToken().Kind);
+    }
 }
