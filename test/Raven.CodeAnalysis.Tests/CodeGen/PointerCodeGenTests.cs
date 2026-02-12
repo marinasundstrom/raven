@@ -50,4 +50,85 @@ class PointerMath {
         var size = (int)sizeOfMethod.Invoke(null, Array.Empty<object>())!;
         Assert.Equal(4, size);
     }
+
+    [Fact]
+    public void PointerMemberAccess_OnValueTypeMethod_PreservesOriginalStorage()
+    {
+        const string code = """
+struct Counter {
+    public var Value: int = 0
+
+    public Increment() -> unit {
+        self.Value = self.Value + 1
+    }
+}
+
+class PointerMethods {
+    unsafe static Run() -> int {
+        var counter = Counter()
+        val pointer: *Counter = &counter
+        pointer->Increment()
+        pointer->Increment()
+        counter.Value
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("pointer_member_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("PointerMethods", throwOnError: true)!;
+        var runMethod = type.GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var value = (int)runMethod.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(2, value);
+    }
+
+    [Fact]
+    public void PointerMemberFieldAssignment_WritesThroughPointer()
+    {
+        const string code = """
+struct Holder {
+    public var Foo: int = 0
+}
+
+class PointerAssignment {
+    unsafe static Run() -> int {
+        var holder = Holder()
+        val pointer: *Holder = &holder
+        pointer->Foo = 2
+        holder.Foo
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("pointer_member_assignment_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("PointerAssignment", throwOnError: true)!;
+        var runMethod = type.GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var value = (int)runMethod.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(2, value);
+    }
 }

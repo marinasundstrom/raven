@@ -232,6 +232,39 @@ class Test {
     }
 
     [Fact]
+    public void PointerArrowMemberAccess_BindsToBoundPointerMemberAccessExpression()
+    {
+        const string source = """
+struct Holder {
+    public var Value: int = 42
+}
+
+class Test {
+    unsafe static Run() -> int {
+        var holder = Holder()
+        val pointer: *Holder = &holder
+        return pointer->Value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pointerAccessSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.OperatorToken.Kind == SyntaxKind.ArrowToken);
+
+        var boundPointerAccess = Assert.IsType<BoundPointerMemberAccessExpression>(model.GetBoundNode(pointerAccessSyntax));
+        Assert.IsType<BoundLocalAccess>(boundPointerAccess.PointerReceiver);
+        Assert.Equal("pointer", boundPointerAccess.PointerReceiver.Symbol?.Name);
+        Assert.Equal("Value", boundPointerAccess.Member.Name);
+    }
+
+    [Fact]
     public void PointerDereference_WithoutUnsafe_ReportsDiagnostic()
     {
         const string source = """

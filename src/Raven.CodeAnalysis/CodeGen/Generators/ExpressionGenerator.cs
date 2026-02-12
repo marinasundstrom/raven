@@ -171,7 +171,7 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundPointerMemberAccessExpression pointerMemberAccess:
-                EmitPointerMemberAccessExpression(pointerMemberAccess, context);
+                info = EmitPointerMemberAccessExpression(pointerMemberAccess, context);
                 break;
 
 
@@ -3622,6 +3622,12 @@ internal partial class ExpressionGenerator : Generator
         if (TryEmitInvocationReceiverAddress(receiver))
             return true;
 
+        if (receiver is BoundDereferenceExpression dereference)
+        {
+            EmitExpression(dereference.Reference);
+            return true;
+        }
+
         if (receiver is BoundMemberAccessExpression { Member: IFieldSymbol fieldSymbol } member && !fieldSymbol.IsStatic)
         {
             var containingType = fieldSymbol.ContainingType;
@@ -3660,6 +3666,10 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundAddressOfExpression addressOf:
                 EmitAddressOfExpression(addressOf);
+                return true;
+
+            case BoundDereferenceExpression dereference:
+                EmitExpression(dereference.Reference);
                 return true;
 
             case BoundLocalAccess localAccess:
@@ -3730,6 +3740,9 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundAddressOfExpression addressOf:
                 return CanReEmitInvocationReceiverAddress(addressOf.Receiver);
+
+            case BoundDereferenceExpression dereference:
+                return CanReEmitInvocationReceiverAddress(dereference.Reference);
 
             case BoundLocalAccess localAccess:
                 if (MethodBodyGenerator.TryGetCapturedField(localAccess.Local, out _))

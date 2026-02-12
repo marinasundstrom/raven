@@ -74,6 +74,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundMemberAccessExpression memberAccess:
                 VisitMemberAccessExpression(memberAccess);
                 break;
+            case BoundPointerMemberAccessExpression pointerMemberAccess:
+                VisitPointerMemberAccessExpression(pointerMemberAccess);
+                break;
             case BoundObjectCreationExpression creation:
                 foreach (var arg in creation.Arguments)
                     VisitExpression(arg);

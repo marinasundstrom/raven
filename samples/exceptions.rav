@@ -1,0 +1,7 @@
+import System.*
+
+Test(null)
+
+func Test(name: string?) {
+    val x = name ?? throw ArgumentNullException(nameof(name))
+}

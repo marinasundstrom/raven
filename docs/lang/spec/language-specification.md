@@ -2755,10 +2755,12 @@ Pointer operations are also gated by unsafe mode. In unsafe mode:
 * `*ptr` dereferences a pointer (or by-reference value) and reads the pointed value.
 * `*ptr = value` writes through the pointer.
 * `ptr->Member` accesses a member on the pointed-at type and is equivalent to
-  `(*ptr).Member`.
+  `(*ptr).Member`, while preserving direct storage semantics (no implicit struct copy for
+  instance member calls/field writes).
 * `ptr + n` / `n + ptr` advances a pointer by `n` elements.
 * `ptr - n` rewinds a pointer by `n` elements.
 * `ptr1 - ptr2` returns the element-distance as `nint` when both pointers share the same element type.
+  Arithmetic offsets are scaled by `sizeof(element-type)`.
 
 ```raven
 var value = 41
@@ -2766,6 +2768,19 @@ let pointer: *int = &value
 
 *pointer = 42
 val result = *pointer // 42
+```
+
+```raven
+struct Holder {
+    public var Foo: int = 0
+}
+
+unsafe func assignThroughPointer() -> int {
+    var holder = Holder()
+    let pointer: *Holder = &holder
+    pointer->Foo = 2
+    holder.Foo // 2
+}
 ```
 
 ### Extern declarations

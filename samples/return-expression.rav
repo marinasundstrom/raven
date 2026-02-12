@@ -1,0 +1,13 @@
+import System.*
+
+val res = Test(null)
+
+WriteLine(res)
+
+func Test(name: string?) -> Result<string, CustomError> {
+    val str = name ?? return .CustomError(nameof(name))
+
+    .Ok(str)
+}
+
+record class CustomError(Message: string)
