@@ -170,6 +170,11 @@ internal partial class ExpressionGenerator : Generator
                 EmitMemberAccessExpression(memberAccessExpression);
                 break;
 
+            case BoundPointerMemberAccessExpression pointerMemberAccess:
+                EmitPointerMemberAccessExpression(pointerMemberAccess, context);
+                break;
+
+
             case BoundConditionalAccessExpression conditionalAccess:
                 EmitConditionalAccessExpression(conditionalAccess, context);
                 break;
@@ -326,6 +331,26 @@ internal partial class ExpressionGenerator : Generator
     {
         switch (expression)
         {
+            /*
+            case BoundDereferenceExpression dereference:
+                // Address-of for a dereference: the reference expression already produces the address.
+                // Critical for pointer-member assignments so we don't materialize a copy via ldobj.
+                EmitExpression(dereference.Reference);
+                return EmitInfo.ForAddress();*/
+
+            case BoundPointerMemberAccessExpression pointerMemberAccess:
+                // Address-of for `x->A` when A is a field: load the pointer (address) and take field address.
+                if (pointerMemberAccess.Member is not IFieldSymbol pField)
+                    return EmitInfo.None;
+
+                EmitExpression(pointerMemberAccess.PointerReceiver);
+                ILGenerator.Emit(OpCodes.Ldflda, GetField(pField));
+
+                if (TryGetAsyncInvestigationFieldLabel(pField, out var pFieldLabel))
+                    EmitAsyncInvestigationAddressLogPreservingPointer(pFieldLabel);
+
+                return EmitInfo.ForAddress(pField);
+
             case BoundLocalAccess localAccess:
                 if (TryEmitCapturedVariableLoad(localAccess.Local))
                     return EmitInfo.None;
@@ -2135,9 +2160,29 @@ internal partial class ExpressionGenerator : Generator
     private void EmitAssignmentExpression(BoundAssignmentExpression node)
         => EmitAssignmentExpression(node, preserveResult: true);
 
-    private void EmitAssignmentExpression(BoundAssignmentExpression node, bool preserveResult)
+    private void EmitAssignmentExpression(BoundAssignmentExpression assignmentExpression, bool preserveResult)
     {
-        switch (node)
+        // Fast-path: pointer member field assignment `x->A = value`.
+        // Must store through the field address, not mutate a spilled struct copy.
+        if (assignmentExpression.Left is BoundPointerMemberAccessExpression pma &&
+            pma.Member is IFieldSymbol field)
+        {
+            // Push address of the field (will go through TryEmitAddress)
+            EmitExpression(pma, emitAddress: true);
+
+            // Push RHS value
+            EmitExpression(assignmentExpression.Right);
+
+            // If assignment returns a value, keep a copy on the stack
+            if (_preserveResult)
+                ILGenerator.Emit(OpCodes.Dup);
+
+            // Store through the address (stind.* / stobj)
+            EmitStoreIndirect(field.Type);
+            return;
+        }
+
+        switch (assignmentExpression)
         {
             case BoundLocalAssignmentExpression localAssignmentExpression:
                 if (TryEmitCapturedAssignment(localAssignmentExpression.Local, localAssignmentExpression.Right))
@@ -2150,7 +2195,7 @@ internal partial class ExpressionGenerator : Generator
                 var rightExpression = localAssignmentExpression.Right;
                 EmitExpression(rightExpression);
 
-                var resultType = node.Type;
+                var resultType = assignmentExpression.Type;
                 var needsResult = preserveResult
                     && resultType is not null
                     && resultType.SpecialType is not SpecialType.System_Unit
@@ -2186,7 +2231,7 @@ internal partial class ExpressionGenerator : Generator
                     var containingType = fieldSymbol.ContainingType;
                     var needsReceiverAddress = containingType?.IsValueType == true;
                     var needsAddress = requiresAddress || needsReceiverAddress;
-                    var fieldResultType = node.Type;
+                    var fieldResultType = assignmentExpression.Type;
                     var fieldNeedsResult = preserveResult
                         && fieldResultType is not null
                         && fieldResultType.SpecialType is not SpecialType.System_Unit
@@ -2434,10 +2479,10 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             default:
-                throw new NotSupportedException($"Unknown BoundAssignmentExpression: {node.GetType().Name}");
+                throw new NotSupportedException($"Unknown BoundAssignmentExpression: {assignmentExpression.GetType().Name}");
         }
 
-        if (preserveResult && node.Type?.SpecialType == SpecialType.System_Unit)
+        if (preserveResult && assignmentExpression.Type?.SpecialType == SpecialType.System_Unit)
             EmitUnitValue();
     }
 
@@ -3410,6 +3455,31 @@ internal partial class ExpressionGenerator : Generator
             default:
                 throw new Exception($"Unsupported member access: {memberAccessExpression}");
         }
+    }
+
+    private EmitInfo EmitPointerMemberAccessExpression(BoundPointerMemberAccessExpression expr, EmitContext context)
+    {
+        // Pointer member access `x->A` is conceptually `(*x).A`.
+        // For reads, we can reuse the normal member-access pipeline by binding the receiver as a dereference.
+        // For writes, the assignment path should request an address; address emission is handled in TryEmitAddress.
+
+        BoundExpression derefReceiver;
+        if (expr.PointerReceiver.Type is IPointerTypeSymbol ptr)
+            derefReceiver = new BoundDereferenceExpression(expr.PointerReceiver, ptr.PointedAtType);
+        else
+            derefReceiver = new BoundDereferenceExpression(expr.PointerReceiver, expr.Member.ContainingType ?? expr.Type);
+
+        // Fast-path for fields (common in unsafe structs) to avoid any accidental copies.
+        if (expr.Member is IFieldSymbol field)
+        {
+            var fieldAccess = new BoundFieldAccess(derefReceiver, field, expr.Reason);
+            return EmitFieldAccess(fieldAccess, context);
+        }
+
+        // Fallback: reuse the existing member access emission.
+        var memberAccess = new BoundMemberAccessExpression(derefReceiver, expr.Member, expr.Reason);
+        EmitMemberAccessExpression(memberAccess);
+        return EmitInfo.ForValue();
     }
 
     private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional, EmitContext context)

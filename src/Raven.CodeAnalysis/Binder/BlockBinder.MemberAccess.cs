@@ -2008,6 +2008,11 @@ partial class BlockBinder
        bool preferMethods = false,
        bool allowEventAccess = false)
     {
+        if (memberAccess.IsKind(SyntaxKind.PointerMemberAccessExpression))
+        {
+            return BindPointerMemberAccessExpression(memberAccess, preferMethods, allowEventAccess);
+        }
+
         // First, attempt to treat the *entire* member access as a type name.
         // This enables nested-type construction like `Outer<int>.Inner<string>` and `Foo<int>.Bar`.
         // Avoid rewriting syntax trees; resolve directly in the binder.
@@ -2076,6 +2081,63 @@ partial class BlockBinder
             suppressNullWarning: true,
             receiverTypeForLookup: null,
             forceExtensionReceiver: false);
+    }
+
+    private BoundExpression BindPointerMemberAccessExpression(
+        MemberAccessExpressionSyntax memberAccess,
+        bool preferMethods,
+        bool allowEventAccess)
+    {
+        // Bind receiver expression (same pattern as normal member access).
+        BoundExpression receiver;
+        if (memberAccess.Expression is TypeSyntax ts && memberAccess.Expression is not NameSyntax)
+            receiver = BindTypeSyntaxAsExpression(ts);
+        else
+            receiver = BindExpression(memberAccess.Expression);
+
+        if (IsErrorExpression(receiver))
+            return receiver is BoundErrorExpression boundError
+                ? boundError
+                : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
+
+        if (!IsUnsafeEnabled)
+        {
+            _diagnostics.ReportPointerOperationRequiresUnsafe(memberAccess.OperatorToken.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+        }
+
+        if (receiver.Type is not IPointerTypeSymbol pointerReceiver)
+        {
+            var receiverTypeText = (receiver.Type ?? Compilation.ErrorTypeSymbol)
+                .ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+            _diagnostics.ReportPointerMemberAccessRequiresPointer(receiverTypeText, memberAccess.OperatorToken.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
+
+        var lookupType = pointerReceiver.PointedAtType;
+
+        // Bind as if it were `(*receiver).Name` to reuse the proven lookup logic.
+        var dereferencedReceiver = new BoundDereferenceExpression(receiver, lookupType);
+
+        var bound = BindMemberAccessOnReceiver(
+            dereferencedReceiver,
+            memberAccess.Name,
+            preferMethods,
+            allowEventAccess,
+            suppressNullWarning: true,
+            receiverTypeForLookup: lookupType,
+            forceExtensionReceiver: false);
+
+        if (IsErrorExpression(bound))
+            return AsErrorExpression(bound);
+
+        // If it’s a plain member access, preserve the pointer nature explicitly.
+        if (bound is BoundMemberAccessExpression ma)
+            return new BoundPointerMemberAccessExpression(receiver, ma.Member, ma.Reason);
+
+        // Method groups / invocations / other special forms: return as-is for now.
+        return bound;
     }
 
     /// <summary>
