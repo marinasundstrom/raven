@@ -43,6 +43,8 @@
   <NodeKind Name="ModuloExpression" Type="BinaryExpression" />
   <NodeKind Name="BitwiseAndExpression" Type="BinaryExpression" />
   <NodeKind Name="BitwiseOrExpression" Type="BinaryExpression" />
+  <NodeKind Name="ShiftLeftExpression" Type="BinaryExpression" />
+  <NodeKind Name="ShiftRightExpression" Type="BinaryExpression" />
   <NodeKind Name="PowerExpression" Type="BinaryExpression" />
   <NodeKind Name="PipeExpression" Type="BinaryExpression" />
   <NodeKind Name="EqualsExpression" Type="BinaryExpression" />
@@ -60,6 +62,7 @@
   <NodeKind Name="DivideAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="BitwiseAndAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="BitwiseOrAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="BitwiseXorAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="NullCoalesceAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="SimpleAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="DiscardAssignmentStatement" Type="AssignmentStatement" />
@@ -70,6 +73,7 @@
   <NodeKind Name="DivideAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="BitwiseAndAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="BitwiseOrAssignmentStatement" Type="AssignmentStatement" />
+  <NodeKind Name="BitwiseXorAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="IntegerDivideAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="ExponentiateAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="LeftShiftAssignmentStatement" Type="AssignmentStatement" />

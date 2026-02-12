@@ -378,6 +378,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.SlashEqualsToken
             or SyntaxKind.AmpersandEqualsToken
             or SyntaxKind.BarEqualsToken
+            or SyntaxKind.CaretEqualsToken
             or SyntaxKind.ArrowToken
             or SyntaxKind.FatArrowToken;
     }

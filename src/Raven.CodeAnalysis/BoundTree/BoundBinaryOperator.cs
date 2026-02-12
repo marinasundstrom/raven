@@ -84,6 +84,12 @@ internal partial class BoundBinaryOperator
                     op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, left, right, left);
                     return true;
                 }
+
+                if (kind == SyntaxKind.CaretToken)
+                {
+                    op = new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor, left, right, left);
+                    return true;
+                }
             }
         }
 
@@ -97,10 +103,16 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, intType, intType),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      intType, intType, intType),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      intType, intType, intType),
+
+            // int shifts
+            new BoundBinaryOperator(BinaryOperatorKind.ShiftLeft,       intType, intType, intType),
+            new BoundBinaryOperator(BinaryOperatorKind.ShiftRight,      intType, intType, intType),
 
             // bool non-short-circuit operators
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      boolType, boolType, boolType),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       boolType, boolType, boolType),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      boolType, boolType, boolType),
 
             // int (left) with long (right)
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        intType, int64,  int64),
@@ -110,6 +122,7 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          intType, int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      intType, int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       intType, int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      intType, int64,  int64),
 
             // long arithmetic
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  int64,  int64),
@@ -119,6 +132,11 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      int64,  int64,  int64),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       int64,  int64,  int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      int64,  int64,  int64),
+
+            // long shifts (shift count is still int)
+            new BoundBinaryOperator(BinaryOperatorKind.ShiftLeft,       int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.ShiftRight,      int64,  intType, int64),
 
             // long (left) with int (right)
             new BoundBinaryOperator(BinaryOperatorKind.Addition,        int64,  intType, int64),
@@ -128,6 +146,7 @@ internal partial class BoundBinaryOperator
             new BoundBinaryOperator(BinaryOperatorKind.Modulo,          int64,  intType, int64),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd,      int64,  intType, int64),
             new BoundBinaryOperator(BinaryOperatorKind.BitwiseOr,       int64,  intType, int64),
+            new BoundBinaryOperator(BinaryOperatorKind.BitwiseXor,      int64,  intType, int64),
 
             // double arithmetic
             new BoundBinaryOperator(BinaryOperatorKind.Addition,       doubleType, doubleType, doubleType),
@@ -567,6 +586,8 @@ internal partial class BoundBinaryOperator
             SyntaxKind.BarToken => operatorKind == BinaryOperatorKind.BitwiseOr,
             SyntaxKind.AmpersandAmpersandToken => operatorKind == BinaryOperatorKind.LogicalAnd,
             SyntaxKind.BarBarToken => operatorKind == BinaryOperatorKind.LogicalOr,
+            SyntaxKind.LessThanLessThanToken => operatorKind == BinaryOperatorKind.ShiftLeft,
+            SyntaxKind.GreaterThanGreaterThanToken => operatorKind == BinaryOperatorKind.ShiftRight,
             _ => false,
         };
     }
@@ -589,9 +610,14 @@ internal enum BinaryOperatorKind
     Modulo,
     BitwiseAnd,
     BitwiseOr,
+    BitwiseXor,
     LogicalAnd,
     LogicalOr,
     StringConcatenation,
+
+    ShiftLeft,
+    ShiftRight,
+
 
     Lifted = 1 << 8,
     Checked = 1 << 9,

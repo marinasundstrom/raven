@@ -882,6 +882,7 @@ internal class StatementSyntaxParser : SyntaxParser
             SyntaxKind.DivideAssignmentExpression => SyntaxKind.DivideAssignmentStatement,
             SyntaxKind.BitwiseAndAssignmentExpression => SyntaxKind.BitwiseAndAssignmentStatement,
             SyntaxKind.BitwiseOrAssignmentExpression => SyntaxKind.BitwiseOrAssignmentStatement,
+            SyntaxKind.BitwiseXorAssignmentExpression => SyntaxKind.BitwiseXorAssignmentStatement,
             SyntaxKind.NullCoalesceAssignmentExpression => SyntaxKind.NullCoalesceAssignmentStatement,
             _ => SyntaxKind.SimpleAssignmentStatement,
         };

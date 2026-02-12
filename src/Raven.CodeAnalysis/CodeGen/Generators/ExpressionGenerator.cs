@@ -2931,6 +2931,9 @@ internal partial class ExpressionGenerator : Generator
             case BinaryOperatorKind.Modulo: ILGenerator.Emit(OpCodes.Rem); break;
             case BinaryOperatorKind.BitwiseAnd: ILGenerator.Emit(OpCodes.And); break;
             case BinaryOperatorKind.BitwiseOr: ILGenerator.Emit(OpCodes.Or); break;
+            case BinaryOperatorKind.BitwiseXor: ILGenerator.Emit(OpCodes.Xor); break;
+            case BinaryOperatorKind.ShiftLeft: ILGenerator.Emit(OpCodes.Shl); break;
+            case BinaryOperatorKind.ShiftRight: ILGenerator.Emit(OpCodes.Shr); break;
             case BinaryOperatorKind.Equality: ILGenerator.Emit(OpCodes.Ceq); break;
             case BinaryOperatorKind.Inequality:
                 ILGenerator.Emit(OpCodes.Ceq);

@@ -807,6 +807,7 @@ partial class BlockBinder : Binder
             SyntaxKind.SlashEqualsToken => SyntaxKind.SlashToken,
             SyntaxKind.AmpersandEqualsToken => SyntaxKind.AmpersandToken,
             SyntaxKind.BarEqualsToken => SyntaxKind.BarToken,
+            SyntaxKind.CaretEqualsToken => SyntaxKind.CaretToken,
             SyntaxKind.QuestionQuestionEqualsToken => SyntaxKind.QuestionQuestionToken,
             _ => null,
         };

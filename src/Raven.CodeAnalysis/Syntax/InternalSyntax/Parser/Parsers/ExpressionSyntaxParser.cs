@@ -168,6 +168,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.BarToken:
                 return SyntaxKind.BitwiseOrExpression;
 
+            case SyntaxKind.LessThanLessThanToken:
+                return SyntaxKind.ShiftLeftExpression;
+
+            case SyntaxKind.GreaterThanGreaterThanToken:
+                return SyntaxKind.ShiftRightExpression;
+
             case SyntaxKind.PipeToken:
                 return SyntaxKind.PipeExpression;
 
@@ -459,6 +465,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.SlashEqualsToken => SyntaxKind.DivideAssignmentExpression,
             SyntaxKind.AmpersandEqualsToken => SyntaxKind.BitwiseAndAssignmentExpression,
             SyntaxKind.BarEqualsToken => SyntaxKind.BitwiseOrAssignmentExpression,
+            SyntaxKind.CaretEqualsToken => SyntaxKind.BitwiseXorAssignmentExpression,
             _ => SyntaxKind.SimpleAssignmentExpression,
         };
     }
@@ -483,7 +490,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             or SyntaxKind.StarEqualsToken
             or SyntaxKind.SlashEqualsToken
             or SyntaxKind.AmpersandEqualsToken
-            or SyntaxKind.BarEqualsToken;
+            or SyntaxKind.BarEqualsToken
+            or SyntaxKind.CaretEqualsToken;
     }
 
     private static bool IsPossibleAssignmentPatternStart(SyntaxToken token)

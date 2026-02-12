@@ -410,7 +410,8 @@ ConditionalNullCoalesceExpression
 
 LogicalOrExpression      ::= LogicalAndExpression {'||' LogicalAndExpression} ;
 LogicalAndExpression     ::= BitwiseOrExpression {'&&' BitwiseOrExpression} ;
-BitwiseOrExpression      ::= BitwiseAndExpression {'|' BitwiseAndExpression} ;
+BitwiseOrExpression      ::= BitwiseXorExpression {'|' BitwiseXorExpression} ;
+BitwiseXorExpression     ::= BitwiseAndExpression {'^' BitwiseAndExpression} ;
 BitwiseAndExpression     ::= EqualityExpression {'&' EqualityExpression} ;
 EqualityExpression       ::= RelationalExpression {('==' | '!=') RelationalExpression} ;
 RelationalExpression     ::= TypeTestExpression
@@ -419,11 +420,14 @@ RelationalExpression     ::= TypeTestExpression
 TypeTestExpression       ::= RangeExpression { 'as' Type } [ 'is' Pattern ] ;
 
 RangeExpression          ::= RangeStart '..' RangeEnd
-                           | AdditiveExpression ;
+                           | ShiftExpression ;
 
 RangeStart               ::= RangeIndex? ;
 RangeEnd                 ::= RangeIndex? ;
+
 RangeIndex               ::= '^'? AdditiveExpression ;
+
+ShiftExpression          ::= AdditiveExpression {('<<' | '>>') AdditiveExpression} ;
 
 AdditiveExpression       ::= MultiplicativeExpression {('+' | '-') MultiplicativeExpression} ;
 MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression} ;

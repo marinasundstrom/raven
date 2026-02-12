@@ -107,8 +107,11 @@
   <TokenKind Name="EqualsEqualsToken" Text="==" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="NotEqualsToken" Text="!=" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="LessThanToken" Text="&lt;" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="LessThanLessThanToken" Text="&lt;&lt;" IsBinaryOperator="true" Precedence="4" />
   <TokenKind Name="LessThanOrEqualsToken" Text="&lt;=" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="GreaterThanToken" Text="&gt;" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="GreaterThanGreaterThanToken" Text="&gt;&gt;" IsBinaryOperator="true"
+    Precedence="4" />
   <TokenKind Name="GreaterThanOrEqualsToken" Text="&gt;=" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="PlusToken" Text="+" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="5" />
   <TokenKind Name="PlusPlusToken" Text="++" IsUnaryOperator="true" />
@@ -123,6 +126,7 @@
   <TokenKind Name="SlashEqualsToken" Text="/=" />
   <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="6" />
   <TokenKind Name="CaretToken" Text="^" />
+  <TokenKind Name="CaretEqualsToken" Text="^=" />
   <TokenKind Name="AmpersandEqualsToken" Text="&amp;=" />
   <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" IsBinaryOperator="true"
     Precedence="2" />

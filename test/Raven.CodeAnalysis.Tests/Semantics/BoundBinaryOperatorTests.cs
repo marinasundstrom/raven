@@ -1,6 +1,7 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -48,6 +49,7 @@ public class BoundBinaryOperatorTests : CompilationTestBase
 
         var andSuccess = BoundBinaryOperator.TryLookup(compilation, SyntaxKind.AmpersandToken, boolType, boolType, out var and);
         var orSuccess = BoundBinaryOperator.TryLookup(compilation, SyntaxKind.BarToken, boolType, boolType, out var or);
+        var xorSuccess = BoundBinaryOperator.TryLookup(compilation, SyntaxKind.CaretToken, boolType, boolType, out var xor);
 
         Assert.True(andSuccess);
         Assert.Equal(BinaryOperatorKind.BitwiseAnd, and.OperatorKind);
@@ -56,6 +58,10 @@ public class BoundBinaryOperatorTests : CompilationTestBase
         Assert.True(orSuccess);
         Assert.Equal(BinaryOperatorKind.BitwiseOr, or.OperatorKind);
         Assert.Equal(boolType, or.ResultType);
+
+        Assert.True(xorSuccess);
+        Assert.Equal(BinaryOperatorKind.BitwiseXor, or.OperatorKind);
+        Assert.Equal(boolType, xor.ResultType);
     }
 
     [Fact]

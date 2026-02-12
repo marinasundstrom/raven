@@ -1,0 +1,57 @@
+import System.Console.*
+
+func Main() -> () {
+    val header = PacketHeader()
+
+    unsafe {
+        val ptr: *PacketHeader = &header
+
+        InitHeader(ptr, 1234, priority: 5)
+
+        WriteLine("Raw flags: ${ptr->Flags}")
+        WriteLine("Encrypted: ${IsEncrypted(ptr)}")
+        WriteLine("Compressed: ${IsCompressed(ptr)}")
+        WriteLine("Priority: ${GetPriority(ptr)}")
+    }
+}
+
+//
+// Unsafe native-style functions
+//
+
+unsafe func InitHeader(header: *PacketHeader, id: int, priority: int) -> () {
+    header->Id = id
+
+    // Clear flags
+    header->Flags = 0
+
+    // Bit layout:
+    // bit 0 = encrypted
+    // bit 1 = compressed
+    // bits 2–4 = priority
+
+    header->Flags |= 0b00000001          // encrypted
+    header->Flags |= 0b00000010          // compressed
+    header->Flags |= (priority << 2)     // pack priority
+}
+
+unsafe func IsEncrypted(header: *PacketHeader) -> bool {
+    (header->Flags & 0b00000001) != 0
+}
+
+unsafe func IsCompressed(header: *PacketHeader) -> bool {
+    (header->Flags & 0b00000010) != 0
+}
+
+unsafe func GetPriority(header: *PacketHeader) -> int {
+    (header->Flags >> 2) & 0b111
+}
+
+//
+// Plain value struct (implicitly unmanaged)
+//
+
+struct PacketHeader {
+    public var Id: int
+    public var Flags: int
+}

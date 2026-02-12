@@ -165,9 +165,9 @@ internal class Lexer : ILexer
                     _stringBuilder.Append(ch2);
                 }
 
-                var text = GetStringBuilderValue();
-                var valueText = string.Intern(text.Substring(1));
-                return new Token(SyntaxKind.IdentifierToken, text, valueText);
+                var text2 = GetStringBuilderValue();
+                var valueText = string.Intern(text2.Substring(1));
+                return new Token(SyntaxKind.IdentifierToken, text2, valueText);
             }
 
             if (SyntaxFacts.IsIdentifierStartCharacter(ch) ||
@@ -433,6 +433,11 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.LessThanOrEqualsToken, "<=");
                         }
+                        else if (PeekChar(out ch2) && ch2 == '<')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.LessThanLessThanToken, "<<");
+                        }
                         return new Token(SyntaxKind.LessThanToken, chStr);
 
                     case '>':
@@ -441,9 +446,19 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.GreaterThanOrEqualsToken, ">=");
                         }
+                        else if (PeekChar(out ch2) && ch2 == '>')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.GreaterThanGreaterThanToken, ">>");
+                        }
                         return new Token(SyntaxKind.GreaterThanToken, chStr);
 
                     case '^':
+                        if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.CaretEqualsToken, "^=");
+                        }
                         return new Token(SyntaxKind.CaretToken, chStr);
 
 
@@ -1237,6 +1252,109 @@ internal class Lexer : ILexer
             else
             {
                 ch = '\0';
+            }
+        }
+
+        // Binary integer literal: 0b1010_0101 (optionally with integral suffix like L/l or B/b for byte)
+        // NOTE: This must run BEFORE suffix parsing; otherwise the 'b' in 0b would be mistaken for the byte suffix.
+        if (!hasDecimal)
+        {
+            // At this point _stringBuilder contains the first digit already (or "-" + first digit).
+            // We only recognize the binary prefix when the last appended digit is '0' and the next char is 'b'/'B'.
+            if (_stringBuilder.Length > 0 && _stringBuilder[_stringBuilder.Length - 1] == '0' && PeekChar(out var binPrefix) && (binPrefix == 'b' || binPrefix == 'B'))
+            {
+                ReadChar();
+                _stringBuilder.Append(binPrefix); // append 'b'/'B'
+
+                bool sawBit = false;
+                ulong value = 0;
+
+                // Read 0/1/_ digits
+                while (PeekChar(out var bitCh))
+                {
+                    if (bitCh == '_')
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(bitCh);
+                        continue;
+                    }
+
+                    if (bitCh == '0' || bitCh == '1')
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(bitCh);
+                        sawBit = true;
+
+                        // value = value * 2 + bit
+                        value = (value << 1) | (ulong)(bitCh - '0');
+                        continue;
+                    }
+
+                    break;
+                }
+
+                // Require at least one binary digit after the prefix.
+                if (!sawBit)
+                {
+                    var text0 = GetStringBuilderValue();
+                    ReportDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.NumericLiteralOutOfRange,
+                        new TextSpan(_tokenStartPosition, text0.Length)
+                    ));
+                    return new Token(SyntaxKind.NumericLiteralToken, text0, 0, text0.Length);
+                }
+
+                // Optional integral suffix for binary literals.
+                bool binIsLong = false;
+                bool binIsByte = false;
+                if (PeekChar(out var suffix) && (suffix == 'l' || suffix == 'L' || suffix == 'b' || suffix == 'B'))
+                {
+                    ReadChar();
+                    _stringBuilder.Append(suffix);
+                    if (suffix == 'l' || suffix == 'L')
+                        binIsLong = true;
+                    else
+                        binIsByte = true;
+                }
+
+                var text2 = GetStringBuilderValue();
+
+                if (binIsByte)
+                {
+                    if (value <= byte.MaxValue)
+                        return new Token(SyntaxKind.NumericLiteralToken, text2, (byte)value, text2.Length);
+
+                    ReportDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.NumericLiteralOutOfRange,
+                        new TextSpan(_tokenStartPosition, text2.Length)
+                    ));
+                    return new Token(SyntaxKind.NumericLiteralToken, text2, (byte)0, text2.Length);
+                }
+
+                if (binIsLong)
+                {
+                    if (value <= (ulong)long.MaxValue)
+                        return new Token(SyntaxKind.NumericLiteralToken, text2, (long)value, text2.Length);
+
+                    ReportDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.NumericLiteralOutOfRange,
+                        new TextSpan(_tokenStartPosition, text2.Length)
+                    ));
+                    return new Token(SyntaxKind.NumericLiteralToken, text2, 0L, text2.Length);
+                }
+
+                // Default: choose int if it fits, else long if it fits.
+                if (value <= int.MaxValue)
+                    return new Token(SyntaxKind.NumericLiteralToken, text2, (int)value, text2.Length);
+
+                if (value <= (ulong)long.MaxValue)
+                    return new Token(SyntaxKind.NumericLiteralToken, text2, (long)value, text2.Length);
+
+                ReportDiagnostic(DiagnosticInfo.Create(
+                    CompilerDiagnostics.NumericLiteralOutOfRange,
+                    new TextSpan(_tokenStartPosition, text2.Length)
+                ));
+                return new Token(SyntaxKind.NumericLiteralToken, text2, 0, text2.Length);
             }
         }
 
