@@ -826,6 +826,12 @@ partial class BlockBinder
                 return null;
         }
 
+        // Do not bind lambda bodies against open generic placeholders (for example `TSource` from
+        // `Enumerable.Select<TSource, TResult>`). Let overload resolution/replay shape the lambda
+        // with a constructed delegate once concrete type arguments are known.
+        if (inferredType is ITypeParameterSymbol)
+            return null;
+
         return inferredType;
     }
 

@@ -231,6 +231,48 @@ class Container {
     }
 
     [Fact]
+    public void Lambda_InGenericLinqSelect_DoesNotBindAgainstOpenTypeParameter()
+    {
+        const string code = """
+import System.Linq.*
+
+class Container {
+    Run() -> unit {
+        val arr = [1, -1, 3]
+        val result = arr.Select(n => if n < 0 { 0 } else { n * 2 })
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void Lambda_InGenericLinqWhere_AllowsMemberAccessOnConcreteRecordType()
+    {
+        const string code = """
+import System.Linq.*
+import System.Collections.Generic.*
+
+record class RatePlan(Carrier: string)
+
+class Container {
+    HasCarrier(carrier: string) -> bool {
+        val plans = List<RatePlan> { RatePlan("NorthStar") }
+        val selected = plans.Where(p => p.Carrier == carrier)
+        return selected.Any()
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void Lambda_LocalDeclaration_InfersFuncDelegate()
     {
         const string code = """
