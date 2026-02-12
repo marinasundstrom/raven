@@ -130,4 +130,99 @@ public class MethodOverloadTests : CompilationTestBase
         Assert.Equal("Func", symbol.Parameters[0].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void LambdaArgument_WithRequestDelegateLikeOverload_PrefersExplicitlyTypedLambdaMatch()
+    {
+        var source = """
+        import System.*
+        import System.Threading.Tasks.*
+
+        namespace Microsoft.AspNetCore.Http {
+            public class HttpContext { }
+        }
+
+        class C {
+            static map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
+            static map(handler: Func<string, string>) -> int { 2 }
+
+            run() -> int {
+                return map((name: string) => "ok")
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "map" });
+
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        Assert.Equal("Func", symbol.Parameters[0].Type.Name);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
+    }
+
+    [Fact]
+    public void LambdaArgument_WithRequestDelegateLikeOverload_ReportsLambdaBodyDiagnostics()
+    {
+        var source = """
+        import System.*
+        import System.Threading.Tasks.*
+
+        namespace Microsoft.AspNetCore.Http {
+            public class HttpContext { }
+        }
+
+        class C {
+            static map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
+            static map(handler: Func<string, string>) -> int { 2 }
+
+            run() -> int {
+                return map((name: string) => missingValue)
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext &&
+            diagnostic.GetMessage().Contains("missingValue"));
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV1501");
+    }
+
+    [Fact]
+    public void LambdaArgument_WithRequestDelegateLikeOverload_WhenNoSignatureMatches_ReportsBindingError()
+    {
+        var source = """
+        import System.*
+        import System.Threading.Tasks.*
+
+        namespace Microsoft.AspNetCore.Http {
+            public class HttpContext { }
+        }
+
+        class C {
+            static map(handler: Func<Microsoft.AspNetCore.Http.HttpContext, Task>) -> int { 1 }
+            static map(handler: Func<string, string>) -> int { 2 }
+
+            run() -> int {
+                return map(() => "ok")
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+    }
 }

@@ -225,6 +225,7 @@ partial class BlockBinder
             lambdaBinder.DeclareParameter(param);
 
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        ReportLambdaBodyDiagnostics(lambdaBinder);
 
         var inferred = bodyExpr.Type;
         var collectedReturn = ReturnTypeCollector.Infer(bodyExpr);
@@ -610,6 +611,12 @@ partial class BlockBinder
         }
 
         return boundLambda;
+    }
+
+    private void ReportLambdaBodyDiagnostics(LambdaBinder lambdaBinder)
+    {
+        foreach (var diagnostic in lambdaBinder.Diagnostics.AsEnumerable())
+            _diagnostics.Report(diagnostic);
     }
 
     private ImmutableArray<INamedTypeSymbol> GetLambdaDelegateTargets(LambdaExpressionSyntax syntax)

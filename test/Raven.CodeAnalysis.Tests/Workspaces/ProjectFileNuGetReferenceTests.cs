@@ -217,4 +217,5 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV1501");
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV0121");
     }
+
 }

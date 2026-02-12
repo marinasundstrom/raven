@@ -523,4 +523,28 @@ val result = apply(5, doubled)
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void Lambda_WithBodyError_ReportsBodyDiagnostics()
+    {
+        const string code = """
+import System.*
+
+class Container {
+    Map(projector: Func<string, string>) -> unit { }
+
+    Test() -> unit {
+        Map((name: string) => missingValue)
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("missingValue"),
+            ]);
+
+        verifier.Verify();
+    }
 }
