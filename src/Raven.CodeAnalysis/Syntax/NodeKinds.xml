@@ -29,6 +29,7 @@
   <NodeKind Name="UnaryPlusExpression" Type="UnaryExpression" />
   <NodeKind Name="UnaryMinusExpression" Type="UnaryExpression" />
   <NodeKind Name="LogicalNotExpression" Type="UnaryExpression" />
+  <NodeKind Name="BitwiseNotExpression" Type="UnaryExpression" />
   <NodeKind Name="AddressOfExpression" Type="UnaryExpression" />
   <NodeKind Name="DereferenceExpression" Type="UnaryExpression" />
   <NodeKind Name="PreIncrementExpression" Type="UnaryExpression" />
@@ -43,6 +44,7 @@
   <NodeKind Name="ModuloExpression" Type="BinaryExpression" />
   <NodeKind Name="BitwiseAndExpression" Type="BinaryExpression" />
   <NodeKind Name="BitwiseOrExpression" Type="BinaryExpression" />
+  <NodeKind Name="BitwiseXorExpression" Type="BinaryExpression" />
   <NodeKind Name="ShiftLeftExpression" Type="BinaryExpression" />
   <NodeKind Name="ShiftRightExpression" Type="BinaryExpression" />
   <NodeKind Name="PowerExpression" Type="BinaryExpression" />

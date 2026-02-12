@@ -367,9 +367,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             or SyntaxKind.AmpersandAmpersandToken
             or SyntaxKind.BarToken
             or SyntaxKind.BarBarToken
+            or SyntaxKind.LessThanLessThanToken
+            or SyntaxKind.GreaterThanGreaterThanToken
             or SyntaxKind.AndToken
             or SyntaxKind.OrToken
             or SyntaxKind.PipeToken
+            or SyntaxKind.TildeToken
             or SyntaxKind.QuestionQuestionToken
             or SyntaxKind.QuestionQuestionEqualsToken
             or SyntaxKind.PlusEqualsToken

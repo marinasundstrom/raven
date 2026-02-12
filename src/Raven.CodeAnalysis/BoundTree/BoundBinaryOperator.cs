@@ -584,6 +584,7 @@ internal partial class BoundBinaryOperator
             SyntaxKind.LessThanOrEqualsToken => operatorKind == BinaryOperatorKind.LessThanOrEqual,
             SyntaxKind.AmpersandToken => operatorKind == BinaryOperatorKind.BitwiseAnd,
             SyntaxKind.BarToken => operatorKind == BinaryOperatorKind.BitwiseOr,
+            SyntaxKind.CaretToken => operatorKind == BinaryOperatorKind.BitwiseXor,
             SyntaxKind.AmpersandAmpersandToken => operatorKind == BinaryOperatorKind.LogicalAnd,
             SyntaxKind.BarBarToken => operatorKind == BinaryOperatorKind.LogicalOr,
             SyntaxKind.LessThanLessThanToken => operatorKind == BinaryOperatorKind.ShiftLeft,

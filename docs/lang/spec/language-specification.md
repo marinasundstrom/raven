@@ -1486,9 +1486,15 @@ Element access applies these types directly:
 
 ### Bitwise operators
 
-The binary `&` and `|` operators perform bitwise combination on `int`, `long`, and matching enum operands. When both operands are `bool`, they evaluate **without** short-circuiting and return `bool`, allowing direct use in non-conditional contexts or within compound assignments. Operands must share the same enum type when applied to enums; the result has that enum type.
+Raven supports unary bitwise-not `~` plus binary `&`, `|`, `^`, `<<`, and `>>`.
 
-Compound assignments `&=` and `|=` are available and apply the corresponding binary operator after evaluating the left-hand side once. These operators share left-to-right associativity with other Raven binary operators, and their precedence sits between the logical (`||`, `&&`) and equality operators.
+- `~` is defined for `int` and `long`.
+- `&`, `|`, and `^` are defined for `int`, `long`, `bool`, and matching enum operands.
+- `<<` and `>>` are defined for `int` and `long` left operands with an `int` shift count.
+
+When both operands are `bool`, `&`, `|`, and `^` evaluate **without** short-circuiting and return `bool`, allowing direct use in non-conditional contexts or within compound assignments. Operands must share the same enum type when applied to enums; the result has that enum type.
+
+Compound assignments `&=`, `|=`, and `^=` are available and apply the corresponding binary operator after evaluating the left-hand side once. These operators share left-to-right associativity with other Raven binary operators, and their precedence sits between the logical (`||`, `&&`) and equality operators.
 
 Enum member accesses support **leading-dot** syntax when a target type is already known, including inside bitwise combinations and argument lists:
 

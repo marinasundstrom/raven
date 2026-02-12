@@ -461,6 +461,9 @@ internal class Lexer : ILexer
                         }
                         return new Token(SyntaxKind.CaretToken, chStr);
 
+                    case '~':
+                        return new Token(SyntaxKind.TildeToken, chStr);
+
 
                     case ' ':
                         int length = 1;

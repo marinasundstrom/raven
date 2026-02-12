@@ -434,8 +434,8 @@ parameter as required.
 
 Classes and structs can declare overloadable operators using the `operator`
 contextual keyword followed by one of the supported operator tokens (`+`, `-`,
-`*`, `/`, `%`, `^`, `&`, `&&`, `and`, `|`, `||`, `or`, `==`, `!=`, `<`, `<=`,
-`>`, `>=`, `!`, `++`, `--`). Operators mirror methods: they take a
+`*`, `/`, `%`, `^`, `&`, `&&`, `and`, `|`, `||`, `or`, `<<`, `>>`, `==`, `!=`,
+`<`, `<=`, `>`, `>=`, `!`, `~`, `++`, `--`). Operators mirror methods: they take a
 parenthesized parameter list, optional return-type arrow, and either a block
 body or expression body. Operators must be `public static`, and the parameter
 count must match the chosen operator (unary or binary). Operator declarations

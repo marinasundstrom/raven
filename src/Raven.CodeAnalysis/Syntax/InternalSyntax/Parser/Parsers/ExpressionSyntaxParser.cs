@@ -168,6 +168,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.BarToken:
                 return SyntaxKind.BitwiseOrExpression;
 
+            case SyntaxKind.CaretToken:
+                return SyntaxKind.BitwiseXorExpression;
+
             case SyntaxKind.LessThanLessThanToken:
                 return SyntaxKind.ShiftLeftExpression;
 
@@ -574,6 +577,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = UnaryExpression(SyntaxKind.DereferenceExpression, token, expr);
                 break;
 
+            case SyntaxKind.TildeToken:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = UnaryExpression(SyntaxKind.BitwiseNotExpression, token, expr);
+                break;
+
             case SyntaxKind.CaretToken:
                 ReadToken();
                 if (token.TrailingTrivia.Width != 0)
@@ -954,7 +963,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     }
 
     /// <summary>
-    /// Parse a power expression.
+    /// Parse a primary expression and trailers.
     /// </summary>
     /// <returns>An expression.</returns>
     private ExpressionSyntax ParsePowerExpression()
@@ -964,12 +973,6 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         ExpressionSyntax expr = ParsePrimaryExpression();
 
         expr = AddTrailers(start, expr);
-
-        if (ConsumeToken(SyntaxKind.CaretToken, out var token))
-        {
-            ExpressionSyntax right = ParseFactorExpression();
-            expr = BinaryExpression(SyntaxKind.PowerExpression, expr, token, right);
-        }
 
         return expr;
     }

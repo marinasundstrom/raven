@@ -66,7 +66,7 @@ internal static class OperatorFacts
         return operatorToken switch
         {
             SyntaxKind.PlusToken or SyntaxKind.MinusToken => "1 or 2",
-            SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken or SyntaxKind.ExclamationToken => "1",
+            SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken or SyntaxKind.ExclamationToken or SyntaxKind.TildeToken => "1",
             _ => "2",
         };
     }
@@ -78,6 +78,7 @@ internal static class OperatorFacts
         SyntaxKind.PlusPlusToken => "op_Increment",
         SyntaxKind.MinusMinusToken => "op_Decrement",
         SyntaxKind.ExclamationToken => "op_LogicalNot",
+        SyntaxKind.TildeToken => "op_OnesComplement",
         _ => null,
     };
 
@@ -93,6 +94,8 @@ internal static class OperatorFacts
         SyntaxKind.AmpersandAmpersandToken or SyntaxKind.AndToken => "op_LogicalAnd",
         SyntaxKind.BarToken => "op_BitwiseOr",
         SyntaxKind.BarBarToken or SyntaxKind.OrToken => "op_LogicalOr",
+        SyntaxKind.LessThanLessThanToken => "op_LeftShift",
+        SyntaxKind.GreaterThanGreaterThanToken => "op_RightShift",
         SyntaxKind.EqualsEqualsToken => "op_Equality",
         SyntaxKind.NotEqualsToken => "op_Inequality",
         SyntaxKind.LessThanToken => "op_LessThan",

@@ -16,6 +16,24 @@ public class SyntaxFactoryEntryPointTests
     }
 
     [Fact]
+    public void ParseExpression_ParsesBitwiseXorExpression()
+    {
+        var expression = SyntaxFactory.ParseExpression("1 ^ 2");
+
+        var binary = Assert.IsType<BinaryExpressionSyntax>(expression);
+        Assert.Equal(SyntaxKind.BitwiseXorExpression, binary.Kind);
+    }
+
+    [Fact]
+    public void ParseExpression_ParsesBitwiseNotExpression()
+    {
+        var expression = SyntaxFactory.ParseExpression("~1");
+
+        var unary = Assert.IsType<UnaryExpressionSyntax>(expression);
+        Assert.Equal(SyntaxKind.BitwiseNotExpression, unary.Kind);
+    }
+
+    [Fact]
     public void ParseExpression_ParsesBlockExpression()
     {
         var expression = SyntaxFactory.ParseExpression("{ return 1; }");

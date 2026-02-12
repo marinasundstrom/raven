@@ -902,6 +902,7 @@ partial class BlockBinder : Binder
                 return BindDereferenceExpression(operand, unaryExpression);
 
             case SyntaxKind.LogicalNotExpression:
+            case SyntaxKind.BitwiseNotExpression:
             case SyntaxKind.UnaryMinusExpression:
             case SyntaxKind.UnaryPlusExpression:
                 {

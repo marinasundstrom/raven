@@ -255,4 +255,13 @@ public class LexerTests
         Assert.Equal(SyntaxKind.GreaterThanGreaterThanToken, lexer.ReadToken().Kind);
         Assert.Equal(SyntaxKind.NumericLiteralToken, lexer.ReadToken().Kind);
     }
+
+    [Fact]
+    public void TildeOperator_IsLexedAsSingleToken()
+    {
+        var lexer = new Lexer(new StringReader("~1"));
+
+        Assert.Equal(SyntaxKind.TildeToken, lexer.ReadToken().Kind);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, lexer.ReadToken().Kind);
+    }
 }

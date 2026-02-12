@@ -125,7 +125,7 @@
   <TokenKind Name="SlashToken" Text="/" IsBinaryOperator="true" Precedence="6" />
   <TokenKind Name="SlashEqualsToken" Text="/=" />
   <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="6" />
-  <TokenKind Name="CaretToken" Text="^" />
+  <TokenKind Name="CaretToken" Text="^" IsBinaryOperator="true" Precedence="2" />
   <TokenKind Name="CaretEqualsToken" Text="^=" />
   <TokenKind Name="AmpersandEqualsToken" Text="&amp;=" />
   <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" IsBinaryOperator="true"
@@ -137,6 +137,7 @@
   <TokenKind Name="PipeToken" Text="|>" IsBinaryOperator="true" Precedence="0" />
   <TokenKind Name="UnderscoreToken" Text="_" />
   <TokenKind Name="ExclamationToken" Text="!" IsUnaryOperator="true" />
+  <TokenKind Name="TildeToken" Text="~" IsUnaryOperator="true" />
   <TokenKind Name="QuestionToken" Text="?" />
   <TokenKind Name="QuestionQuestionToken" Text="??" />
   <TokenKind Name="QuestionQuestionEqualsToken" Text="??=" />

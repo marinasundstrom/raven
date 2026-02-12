@@ -153,6 +153,35 @@ val b = -a
     }
 
     [Fact]
+    public void OperatorDeclaration_BitwiseOperatorsBindExpectedMetadataNames()
+    {
+        var source = """
+class Bits
+{
+    public static operator ~(value: Bits) -> Bits { return value }
+    public static operator <<(left: Bits, right: int) -> Bits { return left }
+    public static operator >>(left: Bits, right: int) -> Bits { return left }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var operators = tree.GetRoot().DescendantNodes().OfType<OperatorDeclarationSyntax>().ToArray();
+
+        Assert.Equal(3, operators.Length);
+
+        var symbols = operators
+            .Select(op => Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(op)))
+            .ToArray();
+
+        Assert.Contains(symbols, symbol => symbol.Name == "op_OnesComplement");
+        Assert.Contains(symbols, symbol => symbol.Name == "op_LeftShift");
+        Assert.Contains(symbols, symbol => symbol.Name == "op_RightShift");
+    }
+
+    [Fact]
     public void OperatorUsage_NullableMixedEquality_BindsWithoutOperatorDiagnostic()
     {
         var source = """

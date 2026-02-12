@@ -18,6 +18,8 @@ public static partial class SyntaxFacts
         SyntaxKind.AmpersandAmpersandToken,
         SyntaxKind.BarToken,
         SyntaxKind.BarBarToken,
+        SyntaxKind.LessThanLessThanToken,
+        SyntaxKind.GreaterThanGreaterThanToken,
         SyntaxKind.AndToken,
         SyntaxKind.OrToken,
         SyntaxKind.EqualsEqualsToken,
@@ -27,6 +29,7 @@ public static partial class SyntaxFacts
         SyntaxKind.GreaterThanToken,
         SyntaxKind.GreaterThanOrEqualsToken,
         SyntaxKind.ExclamationToken,
+        SyntaxKind.TildeToken,
     };
 
     public static bool IsOverloadableOperatorToken(SyntaxKind kind) => s_overloadableOperatorTokens.Contains(kind);

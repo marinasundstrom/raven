@@ -75,6 +75,7 @@ internal partial class BoundUnaryOperator
             SyntaxKind.PlusToken => operatorKind == BoundUnaryOperatorKind.UnaryPlus,
             SyntaxKind.MinusToken => operatorKind == BoundUnaryOperatorKind.UnaryMinus,
             SyntaxKind.ExclamationToken => operatorKind == BoundUnaryOperatorKind.LogicalNot,
+            SyntaxKind.TildeToken => operatorKind == BoundUnaryOperatorKind.BitwiseNot,
             _ => false,
         };
     }
