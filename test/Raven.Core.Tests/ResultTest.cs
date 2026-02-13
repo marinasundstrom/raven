@@ -93,6 +93,25 @@ val _ = result.MapError((v: int) => v)
         verifier.Verify();
     }
 
+    [Fact]
+    public void MapError_InGenericExtensionMethod_BindsWithoutNestedTypeInferenceArtifacts()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+extension TestExt<T> for IEnumerable<T> {
+    ToArrayOrError2<E>(errorFactory: Exception -> E) -> Result<T[], E> {
+        val result: Result<T[], Exception> = .Ok([])
+        result.MapError(errorFactory)
+    }
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
     private static Assembly LoadRavenCoreAssembly()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");

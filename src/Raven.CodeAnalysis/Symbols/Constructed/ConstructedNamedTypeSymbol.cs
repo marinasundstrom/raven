@@ -633,35 +633,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
 
     private ImmutableArray<ITypeSymbol> BuildTypeArguments()
     {
-        // Metadata generic instantiations already carry closed type arguments.
-        // Re-substituting them can recurse in self-referential generic graphs.
-        if (_originalDefinition is PENamedTypeSymbol)
-            return _explicitTypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _explicitTypeArguments;
-
-        // Nested non-generic types (e.g. Test<T>.A) do NOT become generic.
-        // Outer substitution is carried via _substitutionMap and _containingTypeOverride.
-        return NormalizeTypeArguments(_explicitTypeArguments);
+        // The constructor receives explicit type arguments for this constructed symbol.
+        // Re-substituting them here can apply the same mapping twice (for example T[] -> T[][])
+        // when the argument was already produced through substitution.
+        return _explicitTypeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _explicitTypeArguments;
     }
 
     private ImmutableArray<ITypeParameterSymbol> BuildTypeParameters()
     {
         // Nested types do not implicitly inherit containing type parameters.
         return _originalDefinition.TypeParameters;
-    }
-
-    private ImmutableArray<ITypeSymbol> NormalizeTypeArguments(ImmutableArray<ITypeSymbol> typeArguments)
-    {
-        if (typeArguments.IsDefault)
-            return ImmutableArray<ITypeSymbol>.Empty;
-
-        if (typeArguments.IsDefaultOrEmpty || typeArguments.Length == 0)
-            return typeArguments;
-
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(typeArguments.Length);
-        foreach (var argument in typeArguments)
-            builder.Add(Substitute(argument));
-
-        return builder.MoveToImmutable();
     }
 
     // Helper methods for chain-aware substitution of nested types
