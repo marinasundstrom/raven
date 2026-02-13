@@ -6,6 +6,7 @@ Behind the scenes, a `Compilation` is created, from which the diagnostics is bei
 
 For analyzer scenarios, see the [Analyzer verifier](analyzer-verifier.md) which runs
 analyzers through the workspace to capture diagnostics.
+For analyzer + fix verification, see the [Code fix verifier](code-fix-verifier.md).
 
 This example shows how to use the testing framework:
 

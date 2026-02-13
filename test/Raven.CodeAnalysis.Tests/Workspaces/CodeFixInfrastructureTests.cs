@@ -1,55 +1,36 @@
 using Raven.CodeAnalysis.Diagnostics;
-using Raven.CodeAnalysis.Text;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Workspaces;
 
-public class CodeFixInfrastructureTests
+public class CodeFixInfrastructureTests : CodeFixTestBase
 {
     [Fact]
     public void ApplyCodeFixes_MissingReturnTypeAnnotation_AddsArrowTypeClause()
     {
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
-        var projectId = solutionWithProject.Projects.Single().Id;
-        workspace.TryApplyChanges(solutionWithProject);
-
-        var docId = DocumentId.CreateNew(projectId);
         var code = """
 func Test() {
     return 1
 }
 """;
 
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
-        workspace.TryApplyChanges(solution);
+        var fixedCode = """
+func Test() -> int {
+    return 1
+}
+""";
 
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
-        foreach (var reference in TestMetadataReferences.Default)
-            project = project.AddMetadataReference(reference);
-        workspace.TryApplyChanges(project.Solution);
+        var verifier = CreateCodeFixVerifier<MissingReturnTypeAnnotationAnalyzer, MissingReturnTypeAnnotationCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        var applyResult = workspace.ApplyCodeFixes(
-            projectId,
-            [new MissingReturnTypeAnnotationCodeFixProvider()]);
-
-        workspace.TryApplyChanges(applyResult.Solution);
-        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
-        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
-
-        Assert.Equal(1, applyResult.AppliedFixCount);
-        Assert.Contains("func Test() -> int {", updatedText, StringComparison.Ordinal);
+        verifier.Verify();
     }
 
     [Fact]
     public void ApplyCodeFixes_PreferTargetTypedUnionCase_RewritesDeclaration()
     {
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
-        var projectId = solutionWithProject.Projects.Single().Id;
-        workspace.TryApplyChanges(solutionWithProject);
-
-        var docId = DocumentId.CreateNew(projectId);
         var code = """
 func Test() {
     val v = Option<int>.Some(0)
@@ -61,36 +42,28 @@ union Option<T> {
 }
 """;
 
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
-        workspace.TryApplyChanges(solution);
+        var fixedCode = """
+func Test() {
+    val v: Option<int> = .Some(0)
+}
 
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseAnalyzer()));
-        foreach (var reference in TestMetadataReferences.Default)
-            project = project.AddMetadataReference(reference);
-        workspace.TryApplyChanges(project.Solution);
+union Option<T> {
+    Some(value: T)
+    None
+}
+""";
 
-        var applyResult = workspace.ApplyCodeFixes(
-            projectId,
-            [new PreferTargetTypedUnionCaseCodeFixProvider()]);
+        var verifier = CreateCodeFixVerifier<PreferTargetTypedUnionCaseAnalyzer, PreferTargetTypedUnionCaseCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(PreferTargetTypedUnionCaseAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        workspace.TryApplyChanges(applyResult.Solution);
-        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
-        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
-
-        Assert.Equal(1, applyResult.AppliedFixCount);
-        Assert.Contains("val v: Option<int> = .Some(0)", updatedText, StringComparison.Ordinal);
+        verifier.Verify();
     }
 
     [Fact]
     public void ApplyCodeFixes_PreferTargetTypedUnionCaseInTargetTypedContext_RewritesInvocationArgument()
     {
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
-        var projectId = solutionWithProject.Projects.Single().Id;
-        workspace.TryApplyChanges(solutionWithProject);
-
-        var docId = DocumentId.CreateNew(projectId);
         var code = """
 func Foo(x: Shape) {}
 
@@ -104,72 +77,53 @@ union Shape {
 }
 """;
 
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
-        workspace.TryApplyChanges(solution);
+        var fixedCode = """
+func Foo(x: Shape) {}
 
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer()));
-        foreach (var reference in TestMetadataReferences.Default)
-            project = project.AddMetadataReference(reference);
-        workspace.TryApplyChanges(project.Solution);
+func Test() {
+    Foo(.Circle(2))
+}
 
-        var applyResult = workspace.ApplyCodeFixes(
-            projectId,
-            [new PreferTargetTypedUnionCaseInTargetTypedContextCodeFixProvider()]);
+union Shape {
+    Circle(radius: int)
+    Rectangle(width: int, height: int)
+}
+""";
 
-        workspace.TryApplyChanges(applyResult.Solution);
-        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
-        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
+        var verifier = CreateCodeFixVerifier<PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer, PreferTargetTypedUnionCaseInTargetTypedContextCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        Assert.Equal(1, applyResult.AppliedFixCount);
-        Assert.Contains("Foo(.Circle(2))", updatedText, StringComparison.Ordinal);
+        verifier.Verify();
     }
 
     [Fact]
     public void ApplyCodeFixes_NonNullDeclarations_RewritesNullableTypeToOption()
     {
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
-        var projectId = solutionWithProject.Projects.Single().Id;
-        workspace.TryApplyChanges(solutionWithProject);
-
-        var docId = DocumentId.CreateNew(projectId);
         var code = """
 func Test() {
     var value: int? = null
 }
 """;
 
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
-        workspace.TryApplyChanges(solution);
+        var fixedCode = """
+func Test() {
+    var value: Option<int> = null
+}
+""";
 
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()));
-        foreach (var reference in TestMetadataReferences.Default)
-            project = project.AddMetadataReference(reference);
-        workspace.TryApplyChanges(project.Solution);
+        var verifier = CreateCodeFixVerifier<NonNullDeclarationsAnalyzer, NonNullDeclarationsCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(NonNullDeclarationsAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        var applyResult = workspace.ApplyCodeFixes(
-            projectId,
-            [new NonNullDeclarationsCodeFixProvider()]);
-
-        workspace.TryApplyChanges(applyResult.Solution);
-        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
-        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
-
-        Assert.Equal(1, applyResult.AppliedFixCount);
-        Assert.Contains("var value: Option<int> = null", updatedText, StringComparison.Ordinal);
+        verifier.Verify();
     }
 
     [Fact]
     public void ApplyCodeFixes_PreferDuLinqExtensions_RewritesMethodName()
     {
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
-        var projectId = solutionWithProject.Projects.Single().Id;
-        workspace.TryApplyChanges(solutionWithProject);
-
-        var docId = DocumentId.CreateNew(projectId);
         var code = """
 import System.Linq.*
 
@@ -179,36 +133,26 @@ func Test() {
 }
 """;
 
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
-        workspace.TryApplyChanges(solution);
+        var fixedCode = """
+import System.Linq.*
 
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
-        foreach (var reference in TestMetadataReferences.Default)
-            project = project.AddMetadataReference(reference);
-        workspace.TryApplyChanges(project.Solution);
+func Test() {
+    val arr = [1, 2, 3]
+    val first = arr.FirstOrError(() => "TODO: provide error")
+}
+""";
 
-        var applyResult = workspace.ApplyCodeFixes(
-            projectId,
-            [new PreferDuLinqExtensionsCodeFixProvider()]);
+        var verifier = CreateCodeFixVerifier<PreferDuLinqExtensionsAnalyzer, PreferDuLinqExtensionsCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(PreferDuLinqExtensionsAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        workspace.TryApplyChanges(applyResult.Solution);
-        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
-        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
-
-        Assert.Equal(1, applyResult.AppliedFixCount);
-        Assert.Contains("val first = arr.FirstOrError(() => \"TODO: provide error\")", updatedText, StringComparison.Ordinal);
+        verifier.Verify();
     }
 
     [Fact]
     public void ApplyCodeFixes_PreferDuLinqExtensions_FirstOrDefault_RewritesToFirstOrNone()
     {
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
-        var projectId = solutionWithProject.Projects.Single().Id;
-        workspace.TryApplyChanges(solutionWithProject);
-
-        var docId = DocumentId.CreateNew(projectId);
         var code = """
 import System.Linq.*
 
@@ -218,36 +162,26 @@ func Test() {
 }
 """;
 
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
-        workspace.TryApplyChanges(solution);
+        var fixedCode = """
+import System.Linq.*
 
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
-        foreach (var reference in TestMetadataReferences.Default)
-            project = project.AddMetadataReference(reference);
-        workspace.TryApplyChanges(project.Solution);
+func Test() {
+    val arr = [1, 2, 3]
+    val first = arr.FirstOrNone()
+}
+""";
 
-        var applyResult = workspace.ApplyCodeFixes(
-            projectId,
-            [new PreferDuLinqExtensionsCodeFixProvider()]);
+        var verifier = CreateCodeFixVerifier<PreferDuLinqExtensionsAnalyzer, PreferDuLinqExtensionsCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(PreferDuLinqExtensionsAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        workspace.TryApplyChanges(applyResult.Solution);
-        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
-        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
-
-        Assert.Equal(1, applyResult.AppliedFixCount);
-        Assert.Contains("val first = arr.FirstOrNone()", updatedText, StringComparison.Ordinal);
+        verifier.Verify();
     }
 
     [Fact]
     public void ApplyCodeFixes_PreferIsNullOverEquality_RewritesToIsNotNull()
     {
-        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
-        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
-        var projectId = solutionWithProject.Projects.Single().Id;
-        workspace.TryApplyChanges(solutionWithProject);
-
-        var docId = DocumentId.CreateNew(projectId);
         var code = """
 class C
 {
@@ -258,27 +192,21 @@ class C
 }
 """;
 
-        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From(code));
-        workspace.TryApplyChanges(solution);
+        var fixedCode = """
+class C
+{
+    Run(x: int?) -> unit
+    {
+        if x is not null { }
+    }
+}
+""";
 
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        project = project.AddAnalyzerReference(new AnalyzerReference(new PreferIsNullOverEqualityAnalyzer()));
-        foreach (var reference in TestMetadataReferences.Default)
-            project = project.AddMetadataReference(reference);
-        workspace.TryApplyChanges(project.Solution);
+        var verifier = CreateCodeFixVerifier<PreferIsNullOverEqualityAnalyzer, PreferIsNullOverEqualityCodeFixProvider>(
+            code,
+            fixedCode,
+            [new DiagnosticResult(PreferIsNullOverEqualityAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        var diagnostics = workspace.GetDiagnostics(projectId);
-        Assert.Contains(diagnostics, d => d.Id == PreferIsNullOverEqualityAnalyzer.DiagnosticId);
-
-        var applyResult = workspace.ApplyCodeFixes(
-            projectId,
-            [new PreferIsNullOverEqualityCodeFixProvider()]);
-
-        workspace.TryApplyChanges(applyResult.Solution);
-        var updatedDoc = workspace.CurrentSolution.GetDocument(docId)!;
-        var updatedText = updatedDoc.GetTextAsync().GetAwaiter().GetResult().ToString();
-
-        Assert.Equal(1, applyResult.AppliedFixCount);
-        Assert.Contains("if x is not null { }", updatedText, StringComparison.Ordinal);
+        verifier.Verify();
     }
 }

@@ -1,31 +1,33 @@
 # Analyzer verifier
 
-The analyzer testing framework builds Raven projects using `RavenWorkspace` so analyzers run
-with full project context. `AnalyzerVerifier` executes an analyzer against the provided
-source code and collects diagnostics for verification.
+`AnalyzerVerifier<TAnalyzer>` runs analyzers through `RavenWorkspace` so diagnostics are evaluated with project-level context.
 
-This example checks that the `MissingReturnTypeAnnotationAnalyzer` reports a diagnostic when a
-function omits its return type:
+Derive from `AnalyzerTestBase` and call `CreateAnalyzerVerifier<TAnalyzer>(...)` to reduce setup.
 
 ```csharp
-public class ReturnTypeTests : AnalyzerTestBase<MissingReturnTypeAnnotationAnalyzer>
+using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Testing;
+
+namespace Raven.CodeAnalysis.Tests.Diagnostics;
+
+public sealed class ReturnTypeTests : AnalyzerTestBase
 {
     [Fact]
-    public async Task Reports_missing_return_type()
+    public void Reports_missing_return_type()
     {
         const string source = """
-        def foo() => 42
-        """;
+func foo() {
+    return 42
+}
+""";
 
-        var verifier = CreateAnalyzerVerifier(source);
+        var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(
+            source,
+            [new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId).WithAnySpan()]);
 
-        var result = await verifier.GetResultAsync();
-
-        result.MatchedDiagnostics.ShouldContain(d => d.Id == "RAV1003");
+        verifier.Verify();
     }
 }
 ```
 
-`AnalyzerTestBase<TAnalyzer>` wires up the workspace and exposes a `CreateAnalyzerVerifier`
-helper that simplifies test setup. The verifier also supports specifying expected and disabled
-diagnostics similar to `DiagnosticVerifier`.
+For code-fix scenarios, use the [Code fix verifier](code-fix-verifier.md).

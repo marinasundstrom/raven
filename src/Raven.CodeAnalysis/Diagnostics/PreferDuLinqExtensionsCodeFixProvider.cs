@@ -21,7 +21,7 @@ public sealed class PreferDuLinqExtensionsCodeFixProvider : CodeFixProvider
             return;
 
         var args = diagnostic.GetMessageArgs();
-        if (args.Length < 2 || args[1] is not string preferredName || string.IsNullOrWhiteSpace(preferredName))
+        if (args.Length < 1 || args[0] is not string preferredName || string.IsNullOrWhiteSpace(preferredName))
             return;
 
         var syntaxTree = context.Document.GetSyntaxTreeAsync(context.CancellationToken).GetAwaiter().GetResult();
