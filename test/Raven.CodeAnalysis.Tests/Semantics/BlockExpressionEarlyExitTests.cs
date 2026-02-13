@@ -3,15 +3,16 @@ using System.Linq;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
-namespace Raven.CodeAnalysis.Tests.Bugs;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ExplicitReturnInIfExpressionTests : DiagnosticTestBase
+public class BlockExpressionEarlyExitTests : DiagnosticTestBase
 {
     [Fact]
-    public void ExplicitReturnInIfExpressionInitializerProducesDiagnostics()
+    public void IfExpression_InitializerWithReturnStatements_ReportsDiagnostics_AndPreservesUnionInference()
     {
-        var code = """
+        const string code = """
 class Foo {
     Test(flag: bool) -> int | () {
         val x = if flag {
@@ -23,8 +24,10 @@ class Foo {
 }
 """;
 
-        var verifier = CreateVerifier(code,
-            expectedDiagnostics: [
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
                 new DiagnosticResult("RAV1900").WithSpan(4, 13, 4, 22),
                 new DiagnosticResult("RAV1900").WithSpan(6, 13, 6, 22)
             ]);
@@ -42,9 +45,9 @@ class Foo {
     }
 
     [Fact]
-    public void ExplicitReturnInIfExpression_GlobalInitializer_ProducesDiagnostics()
+    public void IfExpression_GlobalInitializerWithReturnStatements_ReportsDiagnostics_AndPreservesUnionInference()
     {
-        var code = """
+        const string code = """
 val x = if true {
     return 42
 } else {
@@ -52,10 +55,12 @@ val x = if true {
 }
 """;
 
-        var verifier = CreateVerifier(code,
-            expectedDiagnostics: [
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
                 new DiagnosticResult("RAV1900").WithSpan(2, 5, 2, 14),
-                        new DiagnosticResult("RAV1900").WithSpan(4, 5, 4, 14)
+                new DiagnosticResult("RAV1900").WithSpan(4, 5, 4, 14)
             ]);
 
         var result = verifier.GetResult();
@@ -71,9 +76,51 @@ val x = if true {
     }
 
     [Fact]
-    public void ExplicitReturnInIfStatementIsAllowed()
+    public void LocalInitializer_BlockExpressionWithReturnStatement_IsAllowed()
     {
-        var code = """
+        const string code = """
+class C {
+    M(f: bool) -> bool {
+        val x = {
+            if f {
+                return true
+            }
+
+            42
+        }
+
+        return false
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void NullCoalesce_RightBlockExpressionWithReturnStatement_IsAllowed()
+    {
+        const string code = """
+class C {
+    M(obj: string?) -> () {
+        val foo = obj ?? {
+            return ()
+        }
+
+        ()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void IfStatement_WithReturnStatements_IsAllowed()
+    {
+        const string code = """
 class Foo {
     Test(flag: bool) -> int | () {
         if flag {
@@ -86,6 +133,30 @@ class Foo {
 """;
 
         var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_BlockArmWithReturnStatement_ReportsDiagnostic()
+    {
+        const string code = """
+class C {
+    M(value: int) -> int | () {
+        val x = value match {
+            0 => {
+                return 1
+            }
+            _ => 2
+        }
+
+        return x
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV1900").WithAnySpan()]);
 
         verifier.Verify();
     }

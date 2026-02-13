@@ -43,7 +43,7 @@ func Main() {
     }
 
     [Fact]
-    public void ThrowStatementInExpressionContext_ReportsDiagnostic()
+    public void ThrowStatementInBlockExpressionInitializer_IsAllowed()
     {
         var code = """
 func Main() {
@@ -57,7 +57,6 @@ func Main() {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV1907").WithSpan(3, 9, 3, 14),
                 new DiagnosticResult("RAV0162").WithSpan(4, 9, 4, 11)
             ]);
 

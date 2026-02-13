@@ -25,6 +25,7 @@ partial class BlockBinder : Binder
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
+    private bool _allowReturnsInBlockExpressionsOnly;
     private int _loopDepth;
     private int _expressionContextDepth;
     private int _tempCounter;
@@ -163,12 +164,15 @@ partial class BlockBinder : Binder
             annotatedType = ResolveTypeSyntaxOrError(variableDeclarator.TypeAnnotation.Type);
         if (initializer is not null)
         {
-            // Initializers are always evaluated for their value; return statements
-            // are not permitted within them since they would escape the enclosing
-            // context. Bind the initializer with returns disallowed so explicit
-            // `return` keywords trigger diagnostics rather than method return
-            // validation.
-            boundInitializer = BindExpressionWithTargetType(initializer.Value, annotatedType, allowReturn: false);
+            // Initializers evaluate to values, but block expressions can still be used
+            // as scoped early-exit helpers. Allow early-exit statements inside block
+            // expressions only, while keeping inline expression arms (`if`/`match`)
+            // under expression-context restrictions.
+            boundInitializer = BindExpressionWithTargetType(
+                initializer.Value,
+                annotatedType,
+                allowReturn: false,
+                allowReturnInBlockExpressionsOnly: true);
             initializerValueType = boundInitializer?.Type;
         }
 
@@ -594,7 +598,10 @@ partial class BlockBinder : Binder
             return new BoundExpressionStatement(BoundFactory.UnitExpression());
         }
 
-        var boundInitializer = BindExpression(initializer.Value, allowReturn: false);
+        var boundInitializer = BindExpression(
+            initializer.Value,
+            allowReturn: false,
+            allowReturnInBlockExpressionsOnly: true);
 
         if (variableDeclarator.TypeAnnotation is not null)
         {
@@ -628,17 +635,20 @@ partial class BlockBinder : Binder
         return new BoundExpressionStatement(boundInitializer);
     }
 
-    public BoundExpression BindExpression(ExpressionSyntax syntax, bool allowReturn)
+    public BoundExpression BindExpression(ExpressionSyntax syntax, bool allowReturn, bool allowReturnInBlockExpressionsOnly = false)
     {
-        var previous = _allowReturnsInExpression;
+        var previousAllowReturn = _allowReturnsInExpression;
+        var previousAllowReturnInBlocksOnly = _allowReturnsInBlockExpressionsOnly;
         _allowReturnsInExpression = allowReturn;
+        _allowReturnsInBlockExpressionsOnly = allowReturnInBlockExpressionsOnly;
         try
         {
             return BindExpression(syntax);
         }
         finally
         {
-            _allowReturnsInExpression = previous;
+            _allowReturnsInExpression = previousAllowReturn;
+            _allowReturnsInBlockExpressionsOnly = previousAllowReturnInBlocksOnly;
         }
     }
 
@@ -648,13 +658,17 @@ partial class BlockBinder : Binder
         return new TargetTypeScope(this);
     }
 
-    private BoundExpression BindExpressionWithTargetType(ExpressionSyntax syntax, ITypeSymbol? targetType, bool allowReturn = true)
+    private BoundExpression BindExpressionWithTargetType(
+        ExpressionSyntax syntax,
+        ITypeSymbol? targetType,
+        bool allowReturn = true,
+        bool allowReturnInBlockExpressionsOnly = false)
     {
         if (targetType is null)
-            return BindExpression(syntax, allowReturn);
+            return BindExpression(syntax, allowReturn, allowReturnInBlockExpressionsOnly);
 
         using var _ = PushTargetType(targetType);
-        return BindExpression(syntax, allowReturn);
+        return BindExpression(syntax, allowReturn, allowReturnInBlockExpressionsOnly);
     }
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax)
@@ -688,7 +702,7 @@ partial class BlockBinder : Binder
             NameOfExpressionSyntax nameOfExpression => BindNameOfExpression(nameOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
-            BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
+            BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression || _allowReturnsInBlockExpressionsOnly),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
@@ -3662,9 +3676,19 @@ partial class BlockBinder : Binder
         }
 
         var thenBinder = SemanticModel.GetBinder(ifExpression, this);
-        var thenExpr = thenBinder is BlockBinder bb
-            ? bb.BindExpression(ifExpression.Expression, _allowReturnsInExpression)
-            : thenBinder.BindExpression(ifExpression.Expression);
+        var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
+        _allowReturnsInBlockExpressionsOnly = false;
+        BoundExpression thenExpr;
+        try
+        {
+            thenExpr = thenBinder is BlockBinder bb
+                ? bb.BindExpression(ifExpression.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
+                : thenBinder.BindExpression(ifExpression.Expression);
+        }
+        finally
+        {
+            _allowReturnsInBlockExpressionsOnly = previousAllowReturnsInBlockExpressionsOnly;
+        }
 
         if (ifExpression.ElseClause is null)
         {
@@ -3673,9 +3697,19 @@ partial class BlockBinder : Binder
         }
 
         var elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
-        var elseExpr = elseBinder is BlockBinder ebb
-            ? ebb.BindExpression(ifExpression.ElseClause.Expression, _allowReturnsInExpression)
-            : elseBinder.BindExpression(ifExpression.ElseClause.Expression);
+        previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
+        _allowReturnsInBlockExpressionsOnly = false;
+        BoundExpression elseExpr;
+        try
+        {
+            elseExpr = elseBinder is BlockBinder ebb
+                ? ebb.BindExpression(ifExpression.ElseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
+                : elseBinder.BindExpression(ifExpression.ElseClause.Expression);
+        }
+        finally
+        {
+            _allowReturnsInBlockExpressionsOnly = previousAllowReturnsInBlockExpressionsOnly;
+        }
 
         var thenType = thenExpr.Type ?? Compilation.ErrorTypeSymbol;
         var elseType = elseExpr.Type ?? Compilation.ErrorTypeSymbol;

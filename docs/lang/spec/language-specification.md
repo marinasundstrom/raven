@@ -1804,8 +1804,11 @@ start:
 
 `throw expression` aborts the current control path by raising an exception. The
 expression must be implicitly convertible to `System.Exception`; otherwise the
-compiler reports `RAV1020`. As with other imperative statements, `throw` cannot
-appear in expression contexts such as the arms of an `if` expression.
+compiler reports `RAV1020`. Statement `throw` is allowed inside block
+expressions used as scoped early-exit regions, but it remains disallowed in
+inline expression arms (for example, `if`/`match` expression arms), where it
+reports `RAV1907`. Use `throw` expression form (`?? throw ...`) when you need
+inline expression-level control flow.
 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L529-L557】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L231-L240】
 
 ```raven
@@ -1872,9 +1875,10 @@ statement form, the selected arm expression is evaluated and its resulting value
 is discarded.
 
 In statement form, arm block expressions are interpreted in statement context.
-That means explicit `return` statements inside those arm blocks are valid and
-return from the enclosing function/method. In expression form, `return` remains
-disallowed in arm expressions and reports `RAV1900`.
+That means explicit `return`/`throw` statements inside those arm blocks are
+valid. `return` exits the enclosing function/method and `throw` raises an
+exception. In expression form, statement `return`/`throw` remains disallowed in
+arm expressions and reports `RAV1900`/`RAV1907`.
 
 Arm bodies accept any expression, including block expressions:
 

@@ -460,9 +460,21 @@ log().ToString() // RAV1526
 let x = if flag { return 1 } else { 2 } // RAV1900
 ```
 
-This applies to expression contexts (for example, `if` expressions and
-expression-form `match` arms). It does not apply to statement-form `match`
-(`match value { ... }`) where arm blocks execute in statement context.
+This applies to inline expression contexts (for example, `if` expressions and
+expression-form `match` arms). It does not apply to scoped block-expression
+early-exit regions (for example, block expressions in initializer/coalesce
+fallback contexts) or statement-form `match` (`match value { ... }`), where arm
+blocks execute in statement context.
+
+## RAV1907: Throw statement not allowed here
+`throw` statement used in an inline expression context.
+
+```raven
+let x = if flag { throw Exception("x") } else { 1 } // RAV1907
+```
+
+Use `throw` expression form for inline control flow (`value ?? throw ...`), or
+move the `throw` statement into an allowed statement/block-expression context.
 
 ## RAV1901: If expression requires an else clause
 `if` expressions used for their value must include an `else` branch.
