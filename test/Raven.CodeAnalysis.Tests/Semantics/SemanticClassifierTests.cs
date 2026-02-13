@@ -108,4 +108,53 @@ func Render(result: Result) -> int {
 
         result.Tokens[caseToken].ShouldBe(SemanticClassification.Type);
     }
+
+    [Fact]
+    public void ReturnExpressionKeyword_IsClassifiedAsKeyword()
+    {
+        var source = """
+func M(name: string?) -> string {
+    val value = name ?? return "fallback"
+    return value
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
+
+        var returnExpressionKeyword = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ReturnExpressionSyntax>()
+            .Select(n => n.ReturnKeyword)
+            .Single();
+
+        result.Tokens[returnExpressionKeyword].ShouldBe(SemanticClassification.Keyword);
+    }
+
+    [Fact]
+    public void ThrowExpressionKeyword_IsClassifiedAsKeyword()
+    {
+        var source = """
+import System.*
+
+func M(name: string?) -> string {
+    return name ?? throw InvalidOperationException("missing")
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
+
+        var throwExpressionKeyword = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ThrowExpressionSyntax>()
+            .Select(n => n.ThrowKeyword)
+            .Single();
+
+        result.Tokens[throwExpressionKeyword].ShouldBe(SemanticClassification.Keyword);
+    }
 }
