@@ -8,7 +8,16 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
 {
     public override BoundNode? Visit(BoundNode? node)
     {
-        return node?.Accept(this);
+        if (node is null)
+            return null;
+
+        if (node is BoundPattern pattern)
+            return VisitPattern(pattern);
+
+        if (node is BoundDesignator designator)
+            return VisitDesignator(designator);
+
+        return node.Accept(this);
     }
 
     public virtual IEnumerable<T> VisitList<T>(IEnumerable<T> nodes)
@@ -70,32 +79,13 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
         if (node is null)
             return null;
 
-        return node switch
-        {
-            BoundLiteralExpression lit => (BoundExpression)VisitLiteralExpression(lit)!,
-            BoundLocalAccess local => (BoundExpression)VisitLocalAccess(local)!,
-            BoundParameterAccess par => (BoundExpression)VisitParameterAccess(par)!,
-            BoundBinaryExpression bin => (BoundExpression)VisitBinaryExpression(bin)!,
-            BoundInvocationExpression call => (BoundExpression)VisitInvocationExpression(call)!,
-            BoundObjectCreationExpression objectCreation => (BoundExpression)VisitObjectCreationExpression(objectCreation)!,
-            BoundLambdaExpression lambda => (BoundExpression)VisitLambdaExpression(lambda)!,
-            BoundBlockExpression block => (BoundExpression)VisitBlockExpression(block)!,
-            BoundAssignmentExpression assignment => (BoundExpression)VisitAssignmentExpression(assignment)!,
-            BoundFieldAccess fieldAccess => (BoundExpression)VisitFieldAccess(fieldAccess)!,
-            BoundMemberAccessExpression memberAccess => (BoundExpression)VisitMemberAccessExpression(memberAccess)!,
-            BoundPointerMemberAccessExpression pointerMemberAccess => (BoundExpression)VisitPointerMemberAccessExpression(pointerMemberAccess)!,
-            BoundConversionExpression conversion => (BoundExpression)VisitConversionExpression(conversion)!,
-            BoundAsExpression asExpr => (BoundExpression)VisitAsExpression(asExpr)!,
-            BoundDelegateCreationExpression delegateCreation => (BoundExpression)VisitDelegateCreationExpression(delegateCreation)!,
-            BoundMethodGroupExpression methodGroup => (BoundExpression)VisitMethodGroupExpression(methodGroup)!,
-            BoundTypeOfExpression typeOfExpression => (BoundExpression)VisitTypeOfExpression(typeOfExpression)!,
-            BoundTypeExpression typeExpression => (BoundExpression)VisitTypeExpression(typeExpression)!,
-            BoundMatchExpression matchExpression => (BoundExpression)VisitMatchExpression(matchExpression)!,
-            BoundTryExpression tryExpression => (BoundExpression)VisitTryExpression(tryExpression)!,
-            BoundWithExpression withExpression => (BoundExpression)VisitWithExpression(withExpression)!,
-            BoundDereferenceExpression dereference => (BoundExpression)VisitDereferenceExpression(dereference)!,
-            _ => node,
-        };
+        if (node is BoundPattern pattern)
+            return (BoundExpression?)VisitPattern(pattern);
+
+        if (node is BoundDesignator designator)
+            return (BoundExpression?)VisitDesignator(designator);
+
+        return (BoundExpression?)Visit(node);
     }
     public virtual BoundNode? VisitAssignmentExpression(BoundAssignmentExpression node) => node;
 
@@ -163,12 +153,23 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
 
     public virtual BoundNode VisitPattern(BoundPattern pattern)
     {
-        return pattern.Accept(this);
+        return pattern switch
+        {
+            BoundAndPattern andPattern => VisitAndPattern(andPattern) ?? andPattern,
+            BoundOrPattern orPattern => VisitOrPattern(orPattern) ?? orPattern,
+            BoundNotPattern notPattern => VisitNotPattern(notPattern) ?? notPattern,
+            BoundDeclarationPattern declarationPattern => VisitDeclarationPattern(declarationPattern) ?? declarationPattern,
+            _ => pattern
+        };
     }
 
     public virtual BoundNode VisitDesignator(BoundDesignator designator)
     {
-        return designator.Accept(this);
+        return designator switch
+        {
+            BoundSingleVariableDesignator singleVariable => VisitSingleVariableDesignator(singleVariable) ?? singleVariable,
+            _ => designator
+        };
     }
 
 }

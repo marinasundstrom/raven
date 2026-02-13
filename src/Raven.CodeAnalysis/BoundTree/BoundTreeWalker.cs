@@ -127,6 +127,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundDereferenceExpression dereference:
                 VisitDereferenceExpression(dereference);
                 break;
+            case BoundNullCoalesceExpression nullCoalesceExpression:
+                VisitNullCoalesceExpression(nullCoalesceExpression);
+                break;
             case BoundThrowExpression throwExpression:
                 VisitThrowExpression(throwExpression);
                 break;
@@ -229,6 +232,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         if (node.Expression is not null)
             VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitNullCoalesceExpression(BoundNullCoalesceExpression node)
+    {
+        VisitExpression(node.Left);
+        VisitExpression(node.Right);
     }
 
     public override void VisitAssignmentStatement(BoundAssignmentStatement node)

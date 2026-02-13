@@ -253,4 +253,82 @@ class Holder {
         Assert.Equal(0, value);
     }
 
+    [Fact]
+    public void Lambda_BlockBody_NullCoalesceReturnExpression_ReturnsFromLambda()
+    {
+        var code = """
+class Handler {
+    Compute(input: string?) -> int {
+        val lengthOrNegativeOne = (text: string?) -> int => {
+            val required = text ?? return -1
+            return required.Length
+        }
+
+        return lengthOrNegativeOne(input)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Handler", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Compute", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var nullResult = (int)method.Invoke(instance, new object?[] { null })!;
+        var valueResult = (int)method.Invoke(instance, new object?[] { "abcd" })!;
+
+        Assert.Equal(-1, nullResult);
+        Assert.Equal(4, valueResult);
+    }
+
+    [Fact]
+    public void Lambda_BlockBody_NullCoalesceThrowExpression_ThrowsFromLambda()
+    {
+        var code = """
+class Handler {
+    Compute(input: string?) -> int {
+        val lengthOrThrow = (text: string?) -> int => {
+            val required = text ?? throw System.InvalidOperationException("missing")
+            return required.Length
+        }
+
+        return lengthOrThrow(input)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Handler", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Compute", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var thrown = Assert.Throws<TargetInvocationException>(() => method.Invoke(instance, new object?[] { null }));
+        var invalidOperation = Assert.IsType<InvalidOperationException>(thrown.InnerException);
+        Assert.Equal("missing", invalidOperation.Message);
+    }
+
 }
