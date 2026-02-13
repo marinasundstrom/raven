@@ -118,4 +118,29 @@ public class PropertyBindingTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void PropertyAccessorFieldKeyword_BindsToSynthesizedBackingField()
+    {
+        string testCode =
+            """
+            class Box {
+                public Value: int {
+                    get => field
+                    set {
+                        field = value;
+                    }
+                }
+            }
+
+            val box = Box()
+            box.Value = 42
+            val current = box.Value
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
 }

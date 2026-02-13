@@ -218,10 +218,14 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics.Report(diag);
         }
 
+        var hasAutoAccessorList = propertyDecl.AccessorList is { } accessorList &&
+            accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null);
+        var usesFieldKeyword = UsesAutoPropertyFieldKeyword(propertyDecl);
+
         if (!isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface &&
-            propertyDecl.AccessorList is { } accessorList &&
-            accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null))
+            sourcePropertySymbol is not null &&
+            (hasAutoAccessorList || usesFieldKeyword))
         {
             var backingField = new SourceFieldSymbol(
                 $"<{propertySymbol.Name}>k__BackingField",
@@ -756,5 +760,34 @@ internal partial class TypeMemberBinder : Binder
         }
 
         return binders;
+    }
+
+    private static bool UsesAutoPropertyFieldKeyword(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.AccessorList is { } accessorList)
+        {
+            foreach (var accessor in accessorList.Accessors)
+            {
+                if (accessor.Body is { } body &&
+                    body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
+                {
+                    return true;
+                }
+
+                if (accessor.ExpressionBody is { } expressionBody &&
+                    expressionBody.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (propertyDecl.ExpressionBody is { } propertyExpressionBody &&
+            propertyExpressionBody.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
+        {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -236,6 +236,20 @@ public Value: int {
 }
 ```
 
+Inside class/struct property accessors, the contextual keyword `field` refers
+to the property's synthesized backing field:
+
+```raven
+public Value: int {
+    get => field
+    set {
+        field = value
+    }
+}
+```
+
+`field` is not available in extension properties.
+
 #### Auto-implemented properties
 
 When every accessor in a class or struct property omits both a block body and an
@@ -245,6 +259,9 @@ bodies that read from and write to that field. Auto-properties respect the
 property's modifiers: a `static` auto-property produces a static backing field,
 and accessor-level accessibility (for example `private set`) controls exposure
 without affecting code generation.
+
+The compiler also synthesizes a backing field when a property accessor body
+uses `field`.
 
 Any accessor may be omitted. A property with only `get` remains read-only and
 exposes the default value of its backing field until assigned from within the

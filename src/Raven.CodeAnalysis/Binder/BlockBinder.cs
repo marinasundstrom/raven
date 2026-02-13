@@ -4773,6 +4773,22 @@ partial class BlockBinder : Binder
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax, bool allowEventAccess = false)
     {
         var name = syntax.Identifier.ValueText;
+
+        if (string.Equals(name, "field", StringComparison.Ordinal))
+        {
+            if (TryBindAutoPropertyFieldKeyword(out var fieldAccess))
+                return fieldAccess;
+
+            if (IsExtensionPropertyAccessor())
+            {
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
+
+                var error = ErrorExpression(reason: BoundExpressionReason.NotFound);
+                CacheBoundNode(syntax, error);
+                return error;
+            }
+        }
+
         var symbol = LookupSymbol(name);
 
         if (symbol is null)
@@ -4852,6 +4868,35 @@ partial class BlockBinder : Binder
                     return n;
                 }
         }
+    }
+
+    private bool TryBindAutoPropertyFieldKeyword(out BoundFieldAccess fieldAccess)
+    {
+        fieldAccess = null!;
+
+        if (_containingSymbol is not IMethodSymbol
+            {
+                MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
+                ContainingSymbol: SourcePropertySymbol propertySymbol
+            })
+        {
+            return false;
+        }
+
+        if (propertySymbol.IsDeclaredInExtension || propertySymbol.BackingField is null)
+            return false;
+
+        fieldAccess = new BoundFieldAccess(propertySymbol.BackingField);
+        return true;
+    }
+
+    private bool IsExtensionPropertyAccessor()
+    {
+        return _containingSymbol is IMethodSymbol
+        {
+            MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
+            ContainingSymbol: IPropertySymbol { IsExtensionProperty: true }
+        };
     }
 
     private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods)
