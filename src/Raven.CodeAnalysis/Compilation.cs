@@ -192,8 +192,32 @@ public partial class Compilation
         if (!string.IsNullOrEmpty(runtimeCorePath) && !paths.Contains(runtimeCorePath, StringComparer.OrdinalIgnoreCase))
             paths.Add(runtimeCorePath);
 
-        var resolver = new PathAssemblyResolver(paths);
-        _metadataLoadContext = new MetadataLoadContext(resolver);
+        // Seed the metadata resolver with framework/runtime assemblies so MetadataLoadContext
+        // can resolve transitive framework dependencies (for example System.Reflection.MetadataLoadContext).
+        EnsureTrustedPlatformAssembliesCached();
+        foreach (var knownPath in _assemblyPathMap.Values)
+        {
+            if (!string.IsNullOrEmpty(knownPath) && File.Exists(knownPath) && !paths.Contains(knownPath, StringComparer.OrdinalIgnoreCase))
+                paths.Add(knownPath);
+        }
+
+        foreach (var loadedAssembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            string location;
+            try
+            {
+                location = loadedAssembly.Location;
+            }
+            catch (NotSupportedException)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(location) && File.Exists(location) && !paths.Contains(location, StringComparer.OrdinalIgnoreCase))
+                paths.Add(location);
+        }
+
+        _metadataLoadContext = CreateMetadataLoadContext(paths);
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
         RuntimeCoreAssembly = typeof(object).Assembly;
@@ -215,6 +239,69 @@ public partial class Compilation
 
         if (Options.OutputKind == OutputKind.ConsoleApplication)
             InitializeTopLevelPrograms();
+    }
+
+    private static MetadataLoadContext CreateMetadataLoadContext(IEnumerable<string> paths)
+    {
+        var pathByAssemblyIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                continue;
+
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(path);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!File.Exists(fullPath))
+                continue;
+
+            System.Reflection.AssemblyName assemblyIdentity;
+            try
+            {
+                assemblyIdentity = System.Reflection.AssemblyName.GetAssemblyName(fullPath);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(assemblyIdentity.FullName))
+                continue;
+
+            var identityKey = assemblyIdentity.FullName;
+
+            if (!pathByAssemblyIdentity.TryGetValue(identityKey, out var existingPath))
+            {
+                pathByAssemblyIdentity[identityKey] = fullPath;
+                continue;
+            }
+
+            // Prefer runtime implementation assemblies over reference assemblies when both exist.
+            if (IsReferenceAssemblyPath(existingPath) && !IsReferenceAssemblyPath(fullPath))
+                pathByAssemblyIdentity[identityKey] = fullPath;
+        }
+
+        var normalizedPaths = pathByAssemblyIdentity.Values
+            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var resolver = new PathAssemblyResolver(normalizedPaths);
+        return new MetadataLoadContext(resolver);
+    }
+
+    private static bool IsReferenceAssemblyPath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized.Contains("/packs/", StringComparison.OrdinalIgnoreCase)
+            && normalized.Contains("/ref/", StringComparison.OrdinalIgnoreCase);
     }
 
     internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader ??= new ReflectionTypeLoader(this);
@@ -1091,7 +1178,7 @@ public partial class Compilation
             {
                 case PortableExecutableReference per:
                     {
-                        var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
+                        var assembly = LoadMetadataAssembly(per.FilePath);
                         RegisterRuntimeAssembly(assembly, per.FilePath);
                         symbol = GetAssembly(assembly);
                         break;
@@ -1110,6 +1197,37 @@ public partial class Compilation
             _metadataReferenceSymbols[metadataReference] = (IAssemblySymbol)symbol!;
         }
         return symbol;
+    }
+
+    private Assembly LoadMetadataAssembly(string assemblyPath)
+    {
+        var fullPath = Path.GetFullPath(assemblyPath);
+        if (_lazyMetadataAssemblies.TryGetValue(fullPath, out var cachedByPath))
+            return cachedByPath;
+
+        System.Reflection.AssemblyName? identity = null;
+        try
+        {
+            identity = System.Reflection.AssemblyName.GetAssemblyName(fullPath);
+        }
+        catch
+        {
+            // Fall through and attempt to load by path directly.
+        }
+
+        Assembly assembly;
+        if (identity is not null)
+        {
+            assembly = _metadataLoadContext.LoadFromAssemblyName(identity);
+        }
+        else
+        {
+            assembly = _metadataLoadContext.LoadFromAssemblyPath(fullPath);
+        }
+
+        _lazyMetadataAssemblies[fullPath] = assembly;
+
+        return assembly;
     }
 
     private IAssemblySymbol GetAssembly(Assembly assembly)

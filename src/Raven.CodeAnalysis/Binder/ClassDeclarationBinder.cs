@@ -79,7 +79,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
 
             bool hasStaticCtor = named.GetMembers()
                 .OfType<IMethodSymbol>()
-                .Any(m => m.IsStatic && m.MethodKind == MethodKind.Constructor);
+                .Any(m => m.MethodKind == MethodKind.StaticConstructor);
 
             if (!hasStaticCtor)
             {
@@ -107,7 +107,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
             [typeSyntax.GetLocation()],
             [typeSyntax.GetReference()],
             isStatic: true,
-            methodKind: MethodKind.Constructor,
+            methodKind: MethodKind.StaticConstructor,
             declaredAccessibility: Accessibility.Private);
     }
 }

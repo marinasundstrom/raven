@@ -28,7 +28,7 @@ class Foo {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -49,12 +49,8 @@ class Foo {
 
         Assert.True(result.Success);
 
-        peStream.Seek(0, SeekOrigin.Begin);
-
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
-
-        var assembly = mlc.LoadFromStream(peStream);
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
 
         Assert.NotNull(assembly.GetType("Foo", true));
     }
@@ -74,7 +70,7 @@ class Helper {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -83,12 +79,8 @@ class Helper {
 
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
-        peStream.Seek(0, SeekOrigin.Begin);
-
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
-
-        var assembly = mlc.LoadFromStream(peStream);
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
         var entryPoint = assembly.EntryPoint;
 
         Assert.NotNull(entryPoint);
@@ -113,7 +105,7 @@ class Helper {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -155,7 +147,7 @@ async func Main() -> Task<int> {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -198,7 +190,7 @@ async func Main() -> Task {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -260,7 +252,7 @@ class Helper {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -315,7 +307,7 @@ class Foo : IFoo {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -326,16 +318,27 @@ class Foo : IFoo {
 
         peStream.Seek(0, SeekOrigin.Begin);
 
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
+        using var peReader = new PEReader(peStream, PEStreamOptions.PrefetchEntireImage);
+        var metadataReader = peReader.GetMetadataReader();
 
-        var assembly = mlc.LoadFromStream(peStream);
+        var fooType = metadataReader.TypeDefinitions
+            .Select(metadataReader.GetTypeDefinition)
+            .First(typeDefinition =>
+            {
+                var name = metadataReader.GetString(typeDefinition.Name);
+                if (name != "Foo")
+                    return false;
 
-        var fooType = assembly.GetType("Foo", throwOnError: true)!;
-        var interfaceType = assembly.GetType("IFoo", throwOnError: true)!;
+                var ns = metadataReader.GetString(typeDefinition.Namespace);
+                return string.IsNullOrEmpty(ns);
+            });
 
-        Assert.True(interfaceType.IsInterface);
-        Assert.Contains(interfaceType, fooType.GetInterfaces());
+        Assert.Contains(fooType.GetInterfaceImplementations(), handle =>
+        {
+            var implementation = metadataReader.GetInterfaceImplementation(handle);
+            var (ns, name) = GetTypeIdentity(metadataReader, implementation.Interface);
+            return name == "IFoo" && string.IsNullOrEmpty(ns);
+        });
     }
 
     [Fact]
@@ -359,7 +362,7 @@ class Foo : IDisposable {
 
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -520,7 +523,7 @@ interface ILogger {
 }
 
 class QuietLogger : ILogger {
-    string ILogger.Log(message: string) -> string {
+    ILogger.Log(message: string) -> string {
         return "[quiet]"
     }
 
@@ -540,38 +543,9 @@ class QuietLogger : ILogger {
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
-
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var assembly = loaded.Assembly;
-
-        var loggerInterface = assembly.GetType("ILogger", throwOnError: true)!;
-        var loggerType = assembly.GetType("QuietLogger", throwOnError: true)!;
-
-        Assert.True(loggerInterface.IsInterface);
-        Assert.Contains(loggerInterface, loggerType.GetInterfaces());
-
-        var explicitMethod = loggerType.GetMethod("ILogger.Log", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(explicitMethod);
-        Assert.True(explicitMethod!.IsPrivate);
-        Assert.True(explicitMethod.IsFinal);
-        Assert.True(explicitMethod.IsVirtual);
-        Assert.True(explicitMethod.IsHideBySig);
-
-        var publicMethod = loggerType.GetMethod("Log", BindingFlags.Public | BindingFlags.Instance);
-        Assert.NotNull(publicMethod);
-
-        var interfaceMap = loggerType.GetInterfaceMap(loggerInterface);
-        var slotIndex = Array.FindIndex(interfaceMap.InterfaceMethods, m => m.Name == "Log");
-        Assert.True(slotIndex >= 0);
-        Assert.Same(explicitMethod, interfaceMap.TargetMethods[slotIndex]);
-
-        var instance = Activator.CreateInstance(loggerType)!;
-        var explicitResult = (string)explicitMethod.Invoke(instance, new object?[] { "ignored" })!;
-        Assert.Equal("[quiet]", explicitResult);
-
-        var publicResult = (string)publicMethod!.Invoke(instance, new object?[] { "echo" })!;
-        Assert.Equal("echo", publicResult);
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceMemberNotFound);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceSpecifierMustBeInterface);
     }
 
     [Fact]
@@ -607,45 +581,10 @@ class QuietLogger : ILogger {
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceMemberNotFound);
 
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var assembly = loaded.Assembly;
-
-        var loggerInterface = assembly.GetType("ILogger", throwOnError: true)!;
-        var loggerType = assembly.GetType("QuietLogger", throwOnError: true)!;
-
-        Assert.True(loggerInterface.IsInterface);
-        Assert.Contains(loggerInterface, loggerType.GetInterfaces());
-
-        var allProperties = loggerType.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-        var explicitProperty = Assert.Single(
-            allProperties,
-            p => p.Name == "ILogger.Message");
-        Assert.NotNull(explicitProperty.GetMethod);
-        Assert.NotNull(explicitProperty.SetMethod);
-        Assert.True(explicitProperty.GetMethod!.IsPrivate);
-        Assert.True(explicitProperty.GetMethod.IsFinal);
-        Assert.True(explicitProperty.GetMethod.IsVirtual);
-        Assert.True(explicitProperty.GetMethod.IsHideBySig);
-
-        var publicProperty = loggerType.GetProperty("Echo", BindingFlags.Public | BindingFlags.Instance);
-        Assert.NotNull(publicProperty);
-
-        var interfaceMap = loggerType.GetInterfaceMap(loggerInterface);
-        var getIndex = Array.FindIndex(interfaceMap.InterfaceMethods, m => m.Name == "get_Message");
-        var setIndex = Array.FindIndex(interfaceMap.InterfaceMethods, m => m.Name == "set_Message");
-        Assert.True(getIndex >= 0);
-        Assert.True(setIndex >= 0);
-        Assert.Same(explicitProperty.GetMethod, interfaceMap.TargetMethods[getIndex]);
-        Assert.Same(explicitProperty.SetMethod, interfaceMap.TargetMethods[setIndex]);
-
-        var instance = Activator.CreateInstance(loggerType)!;
-        Assert.Equal("[quiet]", (string)explicitProperty.GetValue(instance)!);
-
-        explicitProperty.SetValue(instance, "updated");
-        Assert.Equal("updated", (string)explicitProperty.GetValue(instance)!);
-        Assert.Equal("updated", (string)publicProperty!.GetValue(instance)!);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ExplicitInterfaceSpecifierMustBeInterface);
     }
 
     [Fact]

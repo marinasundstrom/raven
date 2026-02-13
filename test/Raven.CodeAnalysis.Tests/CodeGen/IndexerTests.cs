@@ -12,7 +12,7 @@ public class IndexerTests
     {
         var code = """
 class Box {
-    var data: int
+    var data: int;
     public self[index: int]: int {
         get => data;
         set => data = value;
@@ -23,13 +23,13 @@ class Box {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;

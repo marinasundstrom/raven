@@ -26,7 +26,7 @@ class Dog : Animal {
 }
 
 class Program {
-    Run() -> string {
+    public Run() -> string {
         val animal: Animal = Dog()
         return animal.Speak()
     }

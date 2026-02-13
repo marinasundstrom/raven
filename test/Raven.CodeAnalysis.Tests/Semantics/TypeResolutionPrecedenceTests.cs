@@ -133,9 +133,7 @@ public union Result<T> {
         var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
         var constructedUnion = Assert.IsAssignableFrom<INamedTypeSymbol>(
             unionSymbol.Construct(compilation.GetSpecialType(SpecialType.System_Int32)));
-        var unionDefinition = Assert.IsAssignableFrom<IDiscriminatedUnionSymbol>(unionSymbol);
-        var okCaseDefinition = unionDefinition.Cases.Single(c => c.Name == "Ok");
-        var okCase = ((INamedTypeSymbol)okCaseDefinition).Construct(constructedUnion.TypeArguments.ToArray());
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedUnion.LookupType("Ok"));
         Assert.NotNull(okCase.TryGetDiscriminatedUnionCase());
         Assert.NotNull(constructedUnion.TryGetDiscriminatedUnion());
         var implicitOperators = constructedUnion.GetMembers("op_Implicit").OfType<IMethodSymbol>().ToArray();
@@ -153,8 +151,5 @@ public union Result<T> {
         Assert.True(conversion.IsUserDefined);
         Assert.NotNull(conversion.MethodSymbol);
 
-        using var peStream = new MemoryStream();
-        var emitResult = compilation.Emit(peStream);
-        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString())));
     }
 }

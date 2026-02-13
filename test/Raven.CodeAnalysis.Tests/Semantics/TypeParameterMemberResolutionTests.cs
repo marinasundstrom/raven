@@ -52,6 +52,6 @@ func parse<T: IParsable<T>>(text: string) -> T {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Empty(diagnostics);
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
     }
 }

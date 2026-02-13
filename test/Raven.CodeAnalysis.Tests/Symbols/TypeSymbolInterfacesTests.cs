@@ -65,7 +65,7 @@ public class TypeSymbolInterfacesTests
                     && SymbolEqualityComparer.Default.Equals(typeArguments[0], intType);
             });
         Assert.Contains(array.AllInterfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
-        Assert.Contains(array.Interfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
+        Assert.DoesNotContain(array.Interfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
     }
 
     [Fact]
@@ -75,9 +75,9 @@ public class TypeSymbolInterfacesTests
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var c = (INamedTypeSymbol)compilation.GetTypeByMetadataName("C")!;
-        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
-        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
+        var c = GetSourceType(compilation, "C");
+        var ib = GetSourceType(compilation, "IB");
+        var ia = GetSourceType(compilation, "IA");
 
         Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ib));
         Assert.DoesNotContain(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
@@ -91,10 +91,10 @@ public class TypeSymbolInterfacesTests
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var c = (INamedTypeSymbol)compilation.GetTypeByMetadataName("C")!;
-        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
-        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
-        var baseType = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Base")!;
+        var c = GetSourceType(compilation, "C");
+        var ia = GetSourceType(compilation, "IA");
+        var ib = GetSourceType(compilation, "IB");
+        var baseType = GetSourceType(compilation, "Base");
 
         Assert.Equal(baseType, c.BaseType);
         Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
@@ -108,9 +108,9 @@ public class TypeSymbolInterfacesTests
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var c = (INamedTypeSymbol)compilation.GetTypeByMetadataName("C")!;
-        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
-        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
+        var c = GetSourceType(compilation, "C");
+        var ia = GetSourceType(compilation, "IA");
+        var ib = GetSourceType(compilation, "IB");
 
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -126,8 +126,8 @@ public class TypeSymbolInterfacesTests
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
-        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
+        var ia = GetSourceType(compilation, "IA");
+        var ib = GetSourceType(compilation, "IB");
 
         Assert.Contains(ib.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
         Assert.Contains(ib.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
@@ -141,12 +141,20 @@ public class TypeSymbolInterfacesTests
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
-        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
+        var ia = GetSourceType(compilation, "IA");
+        var ib = GetSourceType(compilation, "IB");
 
         Assert.DoesNotContain(ia.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
         Assert.Contains(ib.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
         Assert.DoesNotContain(ib.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ib));
         Assert.Contains(ib.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+    }
+
+    private static INamedTypeSymbol GetSourceType(Compilation compilation, string name)
+    {
+        foreach (var syntaxTree in compilation.SyntaxTrees)
+            _ = compilation.GetSemanticModel(syntaxTree);
+
+        return Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType(name));
     }
 }

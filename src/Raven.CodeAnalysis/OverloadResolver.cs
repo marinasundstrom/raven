@@ -1043,6 +1043,24 @@ internal sealed class OverloadResolver
             // prefer the more specific type. This is essential for numeric overload resolution where inheritance
             // distance is not informative (e.g. byte -> int vs byte -> double/decimal).
             {
+                // Prefer candidates that can use a standard implicit conversion from the actual argument.
+                // This avoids ambiguous picks where one candidate only works through user-defined conversions.
+                var candStandardFromArg = compilation.ClassifyConversion(argType, candParamType, includeUserDefined: false);
+                var currentStandardFromArg = compilation.ClassifyConversion(argType, currentParamType, includeUserDefined: false);
+
+                if (candStandardFromArg.Exists && candStandardFromArg.IsImplicit &&
+                    (!currentStandardFromArg.Exists || !currentStandardFromArg.IsImplicit))
+                {
+                    better = true;
+                    continue;
+                }
+
+                if ((!candStandardFromArg.Exists || !candStandardFromArg.IsImplicit) &&
+                    currentStandardFromArg.Exists && currentStandardFromArg.IsImplicit)
+                {
+                    return false;
+                }
+
                 var candToCurrent = IsImplicitConversion(compilation, candParamType, currentParamType);
                 var currentToCand = IsImplicitConversion(compilation, currentParamType, candParamType);
 

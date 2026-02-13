@@ -32,7 +32,9 @@ class C {
         Assert.True(result.Success);
 
         var assembly = Assembly.Load(peStream.ToArray());
-        var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
+        var parameter = assembly.GetType("C")!
+            .GetMethod("M", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+            .GetParameters()[0];
 
         Assert.Equal(assembly.GetType("Base"), parameter.ParameterType);
     }
@@ -48,7 +50,9 @@ class C {
         Assert.True(result.Success);
 
         var assembly = Assembly.Load(peStream.ToArray());
-        var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
+        var parameter = assembly.GetType("C")!
+            .GetMethod("M", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+            .GetParameters()[0];
 
         Assert.Contains(parameter.GetCustomAttributesData(), a => a.AttributeType.Name == "NullableAttribute");
     }
@@ -73,7 +77,9 @@ class C {
         Assert.True(result.Success);
 
         var assembly = Assembly.Load(peStream.ToArray());
-        var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
+        var parameter = assembly.GetType("C")!
+            .GetMethod("M", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+            .GetParameters()[0];
 
         Assert.Equal(assembly.GetType("IThing"), parameter.ParameterType);
     }
@@ -103,4 +109,3 @@ class C {
         Assert.DoesNotContain(parameter.GetCustomAttributesData(), a => a.AttributeType.Name == "NullableAttribute");
     }
 }
-

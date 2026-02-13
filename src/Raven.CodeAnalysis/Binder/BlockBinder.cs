@@ -5039,6 +5039,11 @@ partial class BlockBinder : Binder
             return new BoundBinaryExpression(left, op, right);
         }
 
+        // Metadata identity drift can produce distinct enum symbols for the same CLR enum type.
+        // Keep common enum flag operations bindable when names/namespace align.
+        if (BoundBinaryOperator.TryCreateEnumLikeOperator(Compilation, opKind, left.Type, right.Type, out var enumOp))
+            return new BoundBinaryExpression(left, enumOp, right);
+
         // 4. Fel
         var operatorText = SyntaxFacts.GetSyntaxTokenText(opKind) ?? opKind.ToString();
         _diagnostics.ReportOperatorCannotBeAppliedToOperandsOfTypes(

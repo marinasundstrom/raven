@@ -70,37 +70,43 @@ public static partial class SymbolExtensions
     }
 
     public static bool ContainsErrorType(this ITypeSymbol? typeSymbol)
+        => ContainsErrorType(typeSymbol, new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+
+    private static bool ContainsErrorType(ITypeSymbol? typeSymbol, HashSet<ITypeSymbol> visited)
     {
         if (typeSymbol is null)
+            return false;
+
+        if (!visited.Add(typeSymbol))
             return false;
 
         if (typeSymbol is IErrorTypeSymbol)
             return true;
 
         if (typeSymbol is LiteralTypeSymbol literal)
-            return literal.UnderlyingType.ContainsErrorType();
+            return ContainsErrorType(literal.UnderlyingType, visited);
 
         if (typeSymbol is NullableTypeSymbol nullable)
-            return nullable.UnderlyingType.ContainsErrorType();
+            return ContainsErrorType(nullable.UnderlyingType, visited);
 
         switch (typeSymbol)
         {
             case IArrayTypeSymbol array:
-                return array.ElementType.ContainsErrorType();
+                return ContainsErrorType(array.ElementType, visited);
 
             case RefTypeSymbol refType:
-                return refType.ElementType.ContainsErrorType();
+                return ContainsErrorType(refType.ElementType, visited);
 
             case IPointerTypeSymbol pointer:
-                return pointer.PointedAtType.ContainsErrorType();
+                return ContainsErrorType(pointer.PointedAtType, visited);
 
             case IAddressTypeSymbol address:
-                return address.ReferencedType.ContainsErrorType();
+                return ContainsErrorType(address.ReferencedType, visited);
 
             case ITypeUnionSymbol union:
                 foreach (var member in union.Types)
                 {
-                    if (member.ContainsErrorType())
+                    if (ContainsErrorType(member, visited))
                         return true;
                 }
 
@@ -111,7 +117,7 @@ public static partial class SymbolExtensions
                 {
                     foreach (var argument in named.TypeArguments)
                     {
-                        if (argument.ContainsErrorType())
+                        if (ContainsErrorType(argument, visited))
                             return true;
                     }
                 }
@@ -119,12 +125,12 @@ public static partial class SymbolExtensions
                 if (named.TypeKind == TypeKind.Delegate &&
                     named.GetDelegateInvokeMethod() is { } invoke)
                 {
-                    if (invoke.ReturnType.ContainsErrorType())
+                    if (ContainsErrorType(invoke.ReturnType, visited))
                         return true;
 
                     foreach (var parameter in invoke.Parameters)
                     {
-                        if (parameter.Type.ContainsErrorType())
+                        if (ContainsErrorType(parameter.Type, visited))
                             return true;
                     }
                 }
@@ -136,7 +142,7 @@ public static partial class SymbolExtensions
                 {
                     foreach (var constraint in typeParameter.ConstraintTypes)
                     {
-                        if (constraint.ContainsErrorType())
+                        if (ContainsErrorType(constraint, visited))
                             return true;
                     }
                 }

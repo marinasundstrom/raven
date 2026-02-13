@@ -134,7 +134,7 @@ public static class TypeSymbolExtensionsForCodeGen
             if (typeSymbol is NullableTypeSymbol nullableType)
             {
                 var underlying = GetClrTypeInternal(nullableType.UnderlyingType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
-                if (!nullableType.UnderlyingType.IsValueType)
+                if (!IsNullableValueTypeUnderlying(nullableType.UnderlyingType))
                     return underlying;
 
                 var nullableDefinition = GetNullableRuntimeType(codeGen.Compilation);
@@ -387,6 +387,29 @@ public static class TypeSymbolExtensionsForCodeGen
     private static Type GetNullableRuntimeType(Compilation compilation)
     {
         return ResolveRuntimeTypeOrThrow(compilation, "System.Nullable`1");
+    }
+
+    private static bool IsNullableValueTypeUnderlying(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+            return true;
+
+        return type.SpecialType is SpecialType.System_Boolean
+            or SpecialType.System_Char
+            or SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Decimal
+            or SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_IntPtr
+            or SpecialType.System_UIntPtr
+            or SpecialType.System_DateTime;
     }
 
     private static Type GetSpecialClrType(SpecialType specialType, Compilation compilation)

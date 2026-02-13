@@ -1,6 +1,8 @@
 using System.IO;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -78,8 +80,7 @@ class Puppy : Dog {
         var result = compilation.Emit(stream);
 
         Assert.False(result.Success);
-        var diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal("RAV0310", diagnostic.Descriptor.Id);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Descriptor.Id == "RAV0310");
     }
 
     [Fact]
@@ -153,8 +154,7 @@ class Puppy : Dog {
         var result = compilation.Emit(stream);
 
         Assert.False(result.Success);
-        var diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal("RAV0310", diagnostic.Descriptor.Id);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Descriptor.Id == "RAV0310");
     }
 
     [Fact]

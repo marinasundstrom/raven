@@ -1109,6 +1109,8 @@ internal partial class TypeMemberBinder : Binder
         ITypeSymbol returnType,
         (ITypeSymbol type, RefKind refKind)[] parameters)
     {
+        var fallbackCandidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
         foreach (var member in interfaceType.GetMembers(methodName).OfType<IMethodSymbol>())
         {
             if (member.IsStatic)
@@ -1117,11 +1119,19 @@ internal partial class TypeMemberBinder : Binder
             if (!ReturnTypesMatch(returnType, member.ReturnType))
                 continue;
 
-            if (!SignaturesMatch(member, parameters))
+            if (!ExplicitImplementationSignaturesMatch(member, parameters))
+            {
+                if (IsPotentiallyUnboundSourceMethodSignature(member, parameters.Length))
+                    fallbackCandidates.Add(member);
+
                 continue;
+            }
 
             return member;
         }
+
+        if (fallbackCandidates.Count == 1)
+            return fallbackCandidates[0];
 
         return null;
     }
@@ -1133,15 +1143,16 @@ internal partial class TypeMemberBinder : Binder
         bool isIndexer,
         (ITypeSymbol type, RefKind refKind)[] parameters)
     {
+        var shapeCandidates = ImmutableArray.CreateBuilder<IPropertySymbol>();
+
         foreach (var property in interfaceType.GetMembers(propertyName).OfType<IPropertySymbol>())
         {
             if (property.IsIndexer != isIndexer)
                 continue;
 
-            var existingType = StripNullableReference(property.Type);
-            var newType = StripNullableReference(propertyType);
+            shapeCandidates.Add(property);
 
-            if (!SymbolEqualityComparer.Default.Equals(existingType, newType))
+            if (!TypesMatchForExplicitImplementation(property.Type, propertyType))
                 continue;
 
             if (isIndexer && !IndexerParametersMatch(property, parameters))
@@ -1149,6 +1160,9 @@ internal partial class TypeMemberBinder : Binder
 
             return property;
         }
+
+        if (shapeCandidates.Count == 1)
+            return shapeCandidates[0];
 
         return null;
     }
@@ -1158,16 +1172,20 @@ internal partial class TypeMemberBinder : Binder
         string eventName,
         ITypeSymbol eventType)
     {
+        var shapeCandidates = ImmutableArray.CreateBuilder<IEventSymbol>();
+
         foreach (var @event in interfaceType.GetMembers(eventName).OfType<IEventSymbol>())
         {
-            var existingType = StripNullableReference(@event.Type);
-            var newType = StripNullableReference(eventType);
+            shapeCandidates.Add(@event);
 
-            if (!SymbolEqualityComparer.Default.Equals(existingType, newType))
+            if (!TypesMatchForExplicitImplementation(@event.Type, eventType))
                 continue;
 
             return @event;
         }
+
+        if (shapeCandidates.Count == 1)
+            return shapeCandidates[0];
 
         return null;
     }
@@ -1183,13 +1201,65 @@ internal partial class TypeMemberBinder : Binder
 
     private static bool ReturnTypesMatch(ITypeSymbol candidateReturnType, ITypeSymbol interfaceReturnType)
     {
-        if (SymbolEqualityComparer.Default.Equals(candidateReturnType, interfaceReturnType))
+        if (TypesMatchForExplicitImplementation(candidateReturnType, interfaceReturnType))
             return true;
 
         if (candidateReturnType.SpecialType == SpecialType.System_Unit && interfaceReturnType.SpecialType == SpecialType.System_Void)
             return true;
 
         if (candidateReturnType.SpecialType == SpecialType.System_Void && interfaceReturnType.SpecialType == SpecialType.System_Unit)
+            return true;
+
+        return false;
+    }
+
+    private static bool ExplicitImplementationSignaturesMatch(IMethodSymbol existing, (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        if (existing.Parameters.Length != parameters.Length)
+            return false;
+
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var existingParam = existing.Parameters[i];
+            var newParam = parameters[i];
+
+            if (existingParam.RefKind != newParam.refKind)
+                return false;
+
+            if (!TypesMatchForExplicitImplementation(existingParam.Type, newParam.type))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool TypesMatchForExplicitImplementation(ITypeSymbol existingType, ITypeSymbol newType)
+    {
+        var existing = StripNullableReference(existingType);
+        var candidate = StripNullableReference(newType);
+
+        if (existing.TypeKind == TypeKind.Error || candidate.TypeKind == TypeKind.Error)
+            return true;
+
+        if (existing.MetadataIdentityEquals(candidate))
+            return true;
+
+        return SymbolEqualityComparer.Default.Equals(existing, candidate);
+    }
+
+    private static bool IsPotentiallyUnboundSourceMethodSignature(IMethodSymbol method, int expectedParameterCount)
+    {
+        if (method is not SourceMethodSymbol)
+            return false;
+
+        var syntaxReference = method.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference?.GetSyntax() is not MethodDeclarationSyntax syntax)
+            return false;
+
+        if (syntax.ParameterList.Parameters.Count != expectedParameterCount)
+            return true;
+
+        if (syntax.ReturnType is not null && method.ReturnType.SpecialType == SpecialType.System_Unit)
             return true;
 
         return false;
@@ -1246,10 +1316,13 @@ internal partial class TypeMemberBinder : Binder
                 syntax.TypeAnnotation!.Type.GetLocation());
         }
 
-        CheckForDuplicateSignature(".ctor", _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation(), ctorDecl);
+        var constructorMetadataName = isStatic ? ".cctor" : ".ctor";
+        var constructorKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
+
+        CheckForDuplicateSignature(constructorMetadataName, _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation(), ctorDecl);
 
         var ctorSymbol = new SourceMethodSymbol(
-            ".ctor",
+            constructorMetadataName,
             Compilation.GetSpecialType(SpecialType.System_Unit),
             ImmutableArray<SourceParameterSymbol>.Empty,
             _containingType,
@@ -1258,7 +1331,7 @@ internal partial class TypeMemberBinder : Binder
             [ctorDecl.GetLocation()],
             [ctorDecl.GetReference()],
             isStatic: isStatic,
-            methodKind: MethodKind.Constructor,
+            methodKind: constructorKind,
             declaredAccessibility: ctorAccessibility);
 
         var parameters = new List<SourceParameterSymbol>();

@@ -547,7 +547,7 @@ An **explicit interface implementation** qualifies the member name with the inte
 ```raven
 class QuietLogger : ILogger
 {
-    string ILogger.Log(message: string) -> string
+    ILogger.Log(message: string) -> string
     {
         return "[quiet]"
     }

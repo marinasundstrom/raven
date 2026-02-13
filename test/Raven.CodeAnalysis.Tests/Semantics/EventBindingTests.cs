@@ -18,7 +18,7 @@ func Use(button: Button) -> unit {
 """;
 
         var verifier = CreateVerifier(code,
-            [new DiagnosticResult("RAV0201").WithAnySpan()]);
+            [new DiagnosticResult("RAV0201").WithAnySpan().WithArguments("Clicked")]);
 
         verifier.Verify();
     }
@@ -37,7 +37,7 @@ class Button {
 """;
 
         var verifier = CreateVerifier(code,
-            [new DiagnosticResult("RAV0201").WithAnySpan()]);
+            [new DiagnosticResult("RAV0201").WithAnySpan().WithArguments("Clicked")]);
 
         verifier.Verify();
     }
@@ -59,7 +59,7 @@ class Button {
 """;
 
         var verifier = CreateVerifier(code,
-            [new DiagnosticResult("RAV0202").WithAnySpan()]);
+            [new DiagnosticResult("RAV0202").WithAnySpan().WithArguments("Clicked")]);
 
         verifier.Verify();
     }

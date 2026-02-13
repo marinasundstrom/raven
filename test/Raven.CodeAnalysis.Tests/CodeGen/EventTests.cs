@@ -31,7 +31,7 @@ class Clicker {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
@@ -77,17 +77,25 @@ class ConsoleLogger : Logger {
     }
 }
 
+class Counter {
+    public static Hits: int { get; set; }
+
+    public static Increment() -> unit {
+        Hits += 1
+    }
+}
+
 class Program {
     public static Run() -> int {
-        val logger: Logger = ConsoleLogger()
-        var hits = 0
+        Counter.Hits = 0
+        val logger = ConsoleLogger()
 
-        (logger as ConsoleLogger)?.Logged += (msg: string) => {
-            hits += 1
+        logger?.Logged += (msg: string) => {
+            Counter.Increment()
         }
 
         logger.Log("hello")
-        return hits
+        return Counter.Hits
     }
 }
 """;
@@ -95,7 +103,7 @@ class Program {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 

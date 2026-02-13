@@ -28,11 +28,12 @@ class Sample {
                 .Select(path => MetadataReference.CreateFromFile(path))
         ];
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
-        var compilationType = compilation.GetTypeByMetadataName("Sample");
+        _ = compilation.GetSemanticModel(syntaxTree);
+        var compilationType = compilation.SourceGlobalNamespace.LookupType("Sample");
         Assert.NotNull(compilationType);
         Assert.Contains("Value", compilationType!.GetMembers().Select(m => m.Name));
 
@@ -76,11 +77,12 @@ class Counter {
                 .Select(path => MetadataReference.CreateFromFile(path))
         ];
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
-        var compilationType = compilation.GetTypeByMetadataName("Counter");
+        _ = compilation.GetSemanticModel(syntaxTree);
+        var compilationType = compilation.SourceGlobalNamespace.LookupType("Counter");
         Assert.NotNull(compilationType);
         Assert.Contains("Count", compilationType!.GetMembers().Select(m => m.Name));
 

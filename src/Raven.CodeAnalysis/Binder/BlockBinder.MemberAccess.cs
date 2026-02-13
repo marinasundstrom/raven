@@ -2579,7 +2579,7 @@ partial class BlockBinder
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
         }
 
-        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation);
+        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation ?? simpleName.GetLocation() ?? Location.None);
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 

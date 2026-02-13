@@ -82,7 +82,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
 
-    public IMethodSymbol? StaticConstructor { get; }
+    public IMethodSymbol? StaticConstructor => _members
+        .OfType<IMethodSymbol>()
+        .FirstOrDefault(m => m.MethodKind == MethodKind.StaticConstructor);
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
     public ITypeSymbol? ConstructedFrom => this;

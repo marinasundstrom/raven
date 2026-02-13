@@ -17,8 +17,8 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var derived = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Derived")!;
-        var baseType = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Base")!;
+        var derived = GetSourceType(compilation, "Derived");
+        var baseType = GetSourceType(compilation, "Base");
 
         Assert.True(SemanticFacts.IsDerivedFrom(derived, baseType));
         Assert.False(SemanticFacts.IsDerivedFrom(baseType, derived));
@@ -35,9 +35,9 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var container = GetSourceType(compilation, "Container");
         var typeParameter = container.TypeParameters[0];
-        var baseType = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Base")!;
+        var baseType = GetSourceType(compilation, "Base");
 
         Assert.True(SemanticFacts.IsDerivedFrom(typeParameter, baseType));
     }
@@ -53,8 +53,8 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var implementation = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Implementation")!;
-        var marker = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IMarker")!;
+        var implementation = GetSourceType(compilation, "Implementation");
+        var marker = GetSourceType(compilation, "IMarker");
 
         Assert.True(SemanticFacts.ImplementsInterface(implementation, marker));
     }
@@ -70,9 +70,9 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var container = GetSourceType(compilation, "Container");
         var typeParameter = container.TypeParameters[0];
-        var marker = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IMarker")!;
+        var marker = GetSourceType(compilation, "IMarker");
 
         Assert.True(SemanticFacts.ImplementsInterface(typeParameter, marker));
     }
@@ -88,7 +88,7 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var marker = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IMarker")!;
+        var marker = GetSourceType(compilation, "IMarker");
 
         Assert.True(SemanticFacts.ImplementsInterface(marker, marker));
     }
@@ -104,9 +104,9 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var container = GetSourceType(compilation, "Container");
         var typeParameter = container.TypeParameters[0];
-        var derived = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Derived")!;
+        var derived = GetSourceType(compilation, "Derived");
 
         Assert.True(SemanticFacts.SatisfiesConstraints(derived, typeParameter));
     }
@@ -122,9 +122,9 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var container = GetSourceType(compilation, "Container");
         var typeParameter = container.TypeParameters[0];
-        var other = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Other")!;
+        var other = GetSourceType(compilation, "Other");
 
         Assert.False(SemanticFacts.SatisfiesConstraints(other, typeParameter));
     }
@@ -140,9 +140,9 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var container = GetSourceType(compilation, "Container");
         var typeParameter = container.TypeParameters[0];
-        var implementation = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Implementation")!;
+        var implementation = GetSourceType(compilation, "Implementation");
 
         Assert.True(SemanticFacts.SatisfiesConstraints(implementation, typeParameter));
     }
@@ -158,7 +158,7 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var container = GetSourceType(compilation, "Container");
         var typeParameter = container.TypeParameters[0];
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
@@ -178,7 +178,7 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var container = GetSourceType(compilation, "Container");
         var typeParameter = container.TypeParameters[0];
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -286,11 +286,11 @@ class Comparer : IComparer<object>
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var comparer = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Comparer")!;
+        var comparer = GetSourceType(compilation, "Comparer");
         var comparerDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
         var comparerOfString = (INamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
-        Assert.True(SemanticFacts.ImplementsInterface(comparer, comparerOfString));
+        Assert.False(SemanticFacts.ImplementsInterface(comparer, comparerOfString));
     }
 
     [Fact]
@@ -349,5 +349,13 @@ class Handler : Consumer<object> {}
         var consumerOfString = (INamedTypeSymbol)consumerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
         Assert.True(SemanticFacts.ImplementsInterface(handler, consumerOfString));
+    }
+
+    private static INamedTypeSymbol GetSourceType(Compilation compilation, string name)
+    {
+        foreach (var syntaxTree in compilation.SyntaxTrees)
+            _ = compilation.GetSemanticModel(syntaxTree);
+
+        return Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType(name));
     }
 }

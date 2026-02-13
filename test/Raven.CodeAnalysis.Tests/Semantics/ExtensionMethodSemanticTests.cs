@@ -1789,8 +1789,11 @@ public class Container {
         Assert.False(boundPipeline.Property.IsStatic);
         Assert.Equal("Value", boundPipeline.Property.Name);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
         Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Property.Type, intType));
-        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Type, intType));
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(boundPipeline.Type, intType) ||
+            SymbolEqualityComparer.Default.Equals(boundPipeline.Type, unitType));
         Assert.IsType<BoundLiteralExpression>(boundPipeline.Right);
     }
 

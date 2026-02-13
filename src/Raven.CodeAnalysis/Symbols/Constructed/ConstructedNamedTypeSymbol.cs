@@ -886,7 +886,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IDiscrimina
     }
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers().OfType<IMethodSymbol>().Where(x => !x.IsStatic && x.IsConstructor).ToImmutableArray();
     public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
-    public IMethodSymbol? StaticConstructor => GetMembers().OfType<IMethodSymbol>().Where(x => x.IsStatic && x.IsConstructor).FirstOrDefault();
+    public IMethodSymbol? StaticConstructor => GetMembers().OfType<IMethodSymbol>().FirstOrDefault(x => x.MethodKind == MethodKind.StaticConstructor);
 
     public IDiscriminatedUnionSymbol Union
     {

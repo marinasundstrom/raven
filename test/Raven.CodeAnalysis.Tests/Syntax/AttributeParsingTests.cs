@@ -124,7 +124,7 @@ public class AttributeParsingTests : DiagnosticTestBase
     {
         const string code = """
             class Widget {
-                var data: int
+                var data: int;
                 [Indexed]
                 public self[index: int]: int { get => data }
             }

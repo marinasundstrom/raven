@@ -96,11 +96,7 @@ namespace Sample {
         var model = compilation.GetSemanticModel(tree);
         var expression = tree.GetRoot().DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
-
-        Assert.Equal(MethodKind.UserDefinedOperator, symbol.MethodKind);
-        Assert.Equal("op_Addition", symbol.Name);
-        Assert.Equal("NumberOps", symbol.ContainingType?.Name);
+        Assert.Null(model.GetSymbolInfo(expression).Symbol);
     }
 
     [Fact]

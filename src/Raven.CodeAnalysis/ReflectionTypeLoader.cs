@@ -145,8 +145,25 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
     private ITypeUnionSymbol CreateTypeUnionSymbol(CustomAttributeData unionAttribute, ITypeSymbol? declaredUnderlyingType)
     {
-        var args = (IEnumerable<CustomAttributeTypedArgument>)unionAttribute
-            .ConstructorArguments.First().Value!;
+        IEnumerable<CustomAttributeTypedArgument> args;
+        try
+        {
+            var firstArgument = unionAttribute.ConstructorArguments.FirstOrDefault();
+            if (firstArgument.Value is IEnumerable<CustomAttributeTypedArgument> typedArguments)
+            {
+                args = typedArguments;
+            }
+            else
+            {
+                return CreateFallbackTypeUnion(declaredUnderlyingType);
+            }
+        }
+        catch (Exception)
+        {
+            // MetadataLoadContext can throw while decoding malformed or unsupported custom
+            // attribute payloads. Keep binding resilient and degrade to a safe fallback.
+            return CreateFallbackTypeUnion(declaredUnderlyingType);
+        }
 
         var types = new List<ITypeSymbol>();
         foreach (var arg in args)
@@ -162,7 +179,16 @@ internal class ReflectionTypeLoader(Compilation compilation)
             }
         }
 
+        if (types.Count == 0)
+            return CreateFallbackTypeUnion(declaredUnderlyingType);
+
         return new TypeUnionSymbol(types.ToArray(), null, null, null, [], declaredUnderlyingType);
+    }
+
+    private ITypeUnionSymbol CreateFallbackTypeUnion(ITypeSymbol? declaredUnderlyingType)
+    {
+        var fallbackType = declaredUnderlyingType ?? compilation.ErrorTypeSymbol;
+        return new TypeUnionSymbol([fallbackType], null, null, null, [], declaredUnderlyingType);
     }
 
     public void RegisterMethodSymbol(MethodBase method, PEMethodSymbol symbol)
@@ -233,7 +259,10 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 return null;
 
             var args = type.GetGenericArguments().Select(x => ResolveType(x, methodContext)!).ToArray();
-            var constructed = genericTypeDefinition.Construct(args);
+            var constructed = TryConstructNamedType(genericTypeDefinition, args);
+            if (constructed is null)
+                return compilation.ErrorTypeSymbol;
+
             _cache[type] = constructed;
             return constructed;
         }
@@ -287,7 +316,13 @@ internal class ReflectionTypeLoader(Compilation compilation)
         INamedTypeSymbol current = outerNamed;
 
         if (slices[0].Length > 0)
-            current = (INamedTypeSymbol)current.Construct(slices[0].Select(x => ResolveType(x, methodContext)!).ToArray());
+        {
+            var constructedOuter = TryConstructNamedType(current, slices[0].Select(x => ResolveType(x, methodContext)!).ToArray());
+            if (constructedOuter is null)
+                return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
+
+            current = constructedOuter;
+        }
 
         var str = current.ToString();
 
@@ -303,7 +338,13 @@ internal class ReflectionTypeLoader(Compilation compilation)
             current = nestedDef;
 
             if (slices[i].Length > 0)
-                current = (INamedTypeSymbol)current.Construct(slices[i].Select(x => ResolveType(x, methodContext)!).ToArray());
+            {
+                var constructedNested = TryConstructNamedType(current, slices[i].Select(x => ResolveType(x, methodContext)!).ToArray());
+                if (constructedNested is null)
+                    return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
+
+                current = constructedNested;
+            }
         }
 
         return current;
@@ -345,7 +386,11 @@ internal class ReflectionTypeLoader(Compilation compilation)
             }
 
             if (changed)
-                typeSymbol = named.Construct(typeArgs);
+            {
+                var reconstructed = TryConstructNamedType(named, typeArgs);
+                if (reconstructed is not null)
+                    typeSymbol = reconstructed;
+            }
         }
 
         if (nullInfo.ReadState == NullabilityState.Nullable
@@ -357,6 +402,25 @@ internal class ReflectionTypeLoader(Compilation compilation)
         }
 
         return typeSymbol;
+    }
+
+    private INamedTypeSymbol? TryConstructNamedType(INamedTypeSymbol definition, ITypeSymbol[] typeArguments)
+    {
+        if (definition is IErrorTypeSymbol)
+            return null;
+
+        try
+        {
+            return (INamedTypeSymbol)definition.Construct(typeArguments);
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     protected ITypeSymbol ResolveTypeCore(Type type)

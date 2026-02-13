@@ -457,6 +457,15 @@ public partial class Compilation
                     continue;
                 }
 
+                if (ContainsUnboundTypeParameter(method.Parameters[0].Type) ||
+                    ContainsUnboundTypeParameter(method.ReturnType))
+                {
+                    continue;
+                }
+
+                if (!SatisfiesMethodAndContainingTypeConstraints(method))
+                    continue;
+
                 var sourceConversion = ClassifyConversion(source, method.Parameters[0].Type, includeUserDefined: false);
                 var sourceConvertible = sourceConversion.Exists && sourceConversion.IsImplicit;
 
@@ -539,6 +548,62 @@ public partial class Compilation
             return SymbolEqualityComparer.Default.Equals(sourceCase.Union, parameterUnion) ||
                 SymbolEqualityComparer.Default.Equals(sourceCase.Union.OriginalDefinition, parameterUnion.OriginalDefinition);
         }
+
+        static bool ContainsUnboundTypeParameter(ITypeSymbol type)
+        {
+            type = type.GetPlainType();
+
+            return type switch
+            {
+                ITypeParameterSymbol => true,
+                IArrayTypeSymbol array => ContainsUnboundTypeParameter(array.ElementType),
+                INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty =>
+                    named.TypeArguments.Any(ContainsUnboundTypeParameter),
+                INamedTypeSymbol => false,
+                _ => false
+            };
+        }
+
+        static bool SatisfiesMethodAndContainingTypeConstraints(IMethodSymbol method)
+        {
+            var methodDefinition = method.OriginalDefinition ?? method;
+            var methodTypeParameters = methodDefinition.TypeParameters;
+
+            if (!methodTypeParameters.IsDefaultOrEmpty && methodTypeParameters.Length > 0)
+            {
+                var methodTypeArguments = method.TypeArguments;
+                if (methodTypeArguments.IsDefaultOrEmpty || methodTypeArguments.Length != methodTypeParameters.Length)
+                    return false;
+
+                for (int i = 0; i < methodTypeParameters.Length; i++)
+                {
+                    var argument = methodTypeArguments[i];
+                    if (argument is ITypeParameterSymbol || !argument.SatisfiesConstraints(methodTypeParameters[i]))
+                        return false;
+                }
+            }
+
+            if (method.ContainingType is not INamedTypeSymbol containingType)
+                return true;
+
+            var containerDefinition = containingType.ConstructedFrom as INamedTypeSymbol ?? containingType;
+            var containerTypeParameters = containerDefinition.TypeParameters;
+            if (containerTypeParameters.IsDefaultOrEmpty || containerTypeParameters.Length == 0)
+                return true;
+
+            var containerTypeArguments = containingType.TypeArguments;
+            if (containerTypeArguments.IsDefaultOrEmpty || containerTypeArguments.Length != containerTypeParameters.Length)
+                return false;
+
+            for (int i = 0; i < containerTypeParameters.Length; i++)
+            {
+                var argument = containerTypeArguments[i];
+                if (argument is ITypeParameterSymbol || !argument.SatisfiesConstraints(containerTypeParameters[i]))
+                    return false;
+            }
+
+            return true;
+        }
     }
 
     private readonly record struct ConversionCacheKey(
@@ -591,10 +656,26 @@ public partial class Compilation
                     break;
             }
 
-            constructed ??= method;
+            if (constructed is null && !IsOpenGenericConversionMethod(method))
+                constructed = method;
 
             if (constructed is not null && seen.Add(constructed))
                 yield return constructed;
+        }
+
+        static bool IsOpenGenericConversionMethod(IMethodSymbol method)
+        {
+            if (!method.TypeParameters.IsDefaultOrEmpty && method.TypeParameters.Length > 0)
+                return true;
+
+            if (method.ContainingType is not INamedTypeSymbol containingType || !containingType.IsGenericType)
+                return false;
+
+            var typeArguments = containingType.TypeArguments;
+            if (!typeArguments.IsDefaultOrEmpty && typeArguments.Length > 0)
+                return typeArguments.Any(static argument => argument is ITypeParameterSymbol);
+
+            return !containingType.TypeParameters.IsDefaultOrEmpty && containingType.TypeParameters.Length > 0;
         }
     }
 

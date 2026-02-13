@@ -180,19 +180,22 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     private static bool IsValueTypeLike(System.Reflection.TypeInfo typeInfo)
     {
+        var runtimeType = typeInfo.AsType();
+
         try
         {
-            if (typeInfo.IsValueType)
+            if (runtimeType.IsValueType || runtimeType.IsPrimitive || runtimeType.IsEnum)
                 return true;
 
-            if (!typeInfo.IsGenericTypeDefinition)
-                return false;
-
-            return typeInfo.BaseType?.FullName == "System.ValueType";
+            var baseTypeName = typeInfo.BaseType?.FullName;
+            return baseTypeName == "System.ValueType" || baseTypeName == "System.Enum";
         }
         catch (ArgumentException)
         {
-            return false;
+            // MetadataLoadContext can throw while resolving incomplete type graphs.
+            // Fall back to stable runtime shape checks for known value-type families.
+            var fullName = runtimeType.FullName ?? typeInfo.FullName ?? string.Empty;
+            return fullName is "System.Decimal" or "System.DateTime" or "System.TimeSpan" or "System.Guid";
         }
     }
 
@@ -264,7 +267,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _isValueType = IsValueTypeLike(typeInfo);
 
-        if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
+        if (typeInfo?.Name == "Object")
         {
             TypeKind = TypeKind.Class;
             (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();

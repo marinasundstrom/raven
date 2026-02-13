@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -43,7 +44,7 @@ class Derived : Base {
         var verifier = CreateVerifier(
             code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1501").WithSpan(6, 24, 6, 27).WithArguments("Base", 1)
+                new DiagnosticResult("RAV1501").WithSpan(6, 24, 6, 27).WithArguments("constructor for type", "Base", 1)
             ]);
 
         verifier.Verify();
@@ -65,7 +66,7 @@ class Derived : Base {
         var verifier = CreateVerifier(
             code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1503").WithSpan(6, 25, 6, 31).WithArguments("\"text\"", "int")
+                new DiagnosticResult("RAV1503").WithSpan(6, 25, 6, 31).WithArguments("string", "int")
             ]);
 
         verifier.Verify();
