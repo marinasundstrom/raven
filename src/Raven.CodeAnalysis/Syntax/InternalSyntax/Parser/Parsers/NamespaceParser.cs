@@ -295,6 +295,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             var checkpoint = CreateCheckpoint();
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
             var modifiers = ParseModifiers();
+            var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
 
             var tokenAfterModifiers = PeekToken();
 
@@ -353,7 +354,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 return;
             }
 
-            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword or SyntaxKind.StructKeyword)
+            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword or SyntaxKind.StructKeyword ||
+                (hasRecordModifier && CanTokenBeIdentifier(tokenAfterModifiers)))
             {
                 checkpoint.Rewind();
 

@@ -1179,6 +1179,9 @@ record Person(Name: string, Age: int)
 val p = Person("Ada", 36)   // ok
 ```
 
+`record Name(...)` is shorthand for `record class Name(...)`. Use
+`record struct Name(...)` for a value-type record.
+
 For constructors **without** this attribute, all required members must be provided by an object initializer at each creation site.
 
 ##### Object initializer checking

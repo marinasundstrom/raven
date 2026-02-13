@@ -16,9 +16,16 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var parser = new TypeDeclarationParser(context);
         _ = AttributeDeclarationParser.ParseAttributeLists(parser);
-        _ = parser.ParseModifiers();
+        var modifiers = parser.ParseModifiers();
+        var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
 
-        var kind = context.PeekToken().Kind;
+        var nextToken = context.PeekToken();
+        var kind = nextToken.Kind;
+        if (hasRecordModifier && CanTokenBeIdentifier(nextToken))
+        {
+            kind = SyntaxKind.ClassKeyword;
+        }
+
         checkpoint.Rewind();
         return kind;
     }
@@ -38,7 +45,14 @@ internal class TypeDeclarationParser : SyntaxParser
         var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
 
         SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
+        if (hasRecordModifier &&
+            !typeKeyword.IsKind(SyntaxKind.ClassKeyword) &&
+            !typeKeyword.IsKind(SyntaxKind.StructKeyword))
+        {
+            identifier = typeKeyword;
+            typeKeyword = MissingToken(SyntaxKind.ClassKeyword);
+        }
+        else if (CanTokenBeIdentifier(PeekToken()))
         {
             identifier = ReadIdentifierToken();
         }
@@ -48,7 +62,8 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         ParameterListSyntax? parameterList = null;
-        if (typeKeyword.IsKind(SyntaxKind.ClassKeyword) && PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        if ((typeKeyword.IsKind(SyntaxKind.ClassKeyword) || typeKeyword.IsKind(SyntaxKind.StructKeyword)) &&
+            PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             parameterList = ParseParameterList();
         }
@@ -352,6 +367,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
         var modifiers = ParseModifiers();
+        var hasRecordModifier = modifiers.GetChildren().Any(x => x.IsKind(SyntaxKind.RecordKeyword));
 
         var keywordOrIdentifier = PeekToken();
 
@@ -391,7 +407,10 @@ internal class TypeDeclarationParser : SyntaxParser
             }
         }
 
-        if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.StructKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) ||
+            keywordOrIdentifier.IsKind(SyntaxKind.StructKeyword) ||
+            keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword) ||
+            (hasRecordModifier && CanTokenBeIdentifier(keywordOrIdentifier)))
         {
             memberDeclarationCheckpoint.Rewind();
             return new TypeDeclarationParser(this).Parse();

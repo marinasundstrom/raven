@@ -152,4 +152,22 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void RecordDeclaration_WithoutClassKeyword_BindsAsRecordClass()
+    {
+        var source = """
+            record Person(Name: string, Age: int) {}
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.GetSemanticModel(tree);
+
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("Person"));
+
+        Assert.Equal(TypeKind.Class, person.TypeKind);
+        Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }
