@@ -689,6 +689,20 @@ if (projectFileInput is not null)
     outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
 }
 
+var sourceDocumentPaths = project.Documents
+    .Select(static d => d.FilePath)
+    .Where(static path => !string.IsNullOrWhiteSpace(path))
+    .Select(static path => path!)
+    .ToArray();
+var editorConfigAnchorPath = projectFileInput ?? sourceDocumentPaths.FirstOrDefault();
+if (!string.IsNullOrWhiteSpace(editorConfigAnchorPath))
+{
+    options = EditorConfigDiagnosticOptions.ApplyDiagnosticSeverityOptions(
+        options,
+        editorConfigAnchorPath,
+        sourceDocumentPaths);
+}
+
 project = project.WithCompilationOptions(options);
 project = AddDefaultAnalyzers(project);
 

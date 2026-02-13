@@ -28,6 +28,35 @@ Supported child elements:
 - `<PackageReference Include="Package.Id" Version="x.y.z"/>`
 - `<FrameworkReference Include="Framework.Name"/>`
 
+## `.editorconfig` diagnostic severity support
+
+Raven reads `.editorconfig` files when compiling project and source files and applies
+diagnostic severity overrides from:
+
+- `dotnet_diagnostic.<ID>.severity`
+- `dotnet_diagnostic.*.severity`
+- `dotnet_analyzer_diagnostic.severity`
+
+Supported severity values:
+
+- `none`/`suppress` -> suppressed
+- `silent`/`hidden` -> hidden
+- `suggestion`/`info` -> info
+- `warning`/`warn` -> warning
+- `error` -> error
+- `default` -> default severity
+
+Example:
+
+```ini
+root = true
+
+[*.rav]
+dotnet_diagnostic.RAV9012.severity = none
+dotnet_diagnostic.RAV9013.severity = none
+dotnet_diagnostic.RAV9014.severity = none
+```
+
 ## Implicit source inclusion
 
 If no `<Document>` entries are present, Raven implicitly includes all Raven source files under the project directory recursively (`**/*.rav`).

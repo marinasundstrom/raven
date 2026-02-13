@@ -87,7 +87,7 @@ public partial class Compilation
 
     internal Diagnostic? ApplyCompilationOptions(Diagnostic diagnostic, bool reportSuppressedDiagnostics = false)
     {
-        if (Options.SpecificDiagnosticOptions.TryGetValue(diagnostic.Descriptor.Id, out var report))
+        if (TryGetReportDiagnostic(diagnostic.Descriptor.Id, out var report))
         {
             if (report == ReportDiagnostic.Suppress)
                 return reportSuppressedDiagnostics ? diagnostic.WithSuppression(true) : null;
@@ -109,5 +109,13 @@ public partial class Compilation
         }
 
         return diagnostic;
+
+        bool TryGetReportDiagnostic(string diagnosticId, out ReportDiagnostic mappedReport)
+        {
+            if (Options.SpecificDiagnosticOptions.TryGetValue(diagnosticId, out mappedReport))
+                return true;
+
+            return Options.SpecificDiagnosticOptions.TryGetValue("*", out mappedReport);
+        }
     }
 }

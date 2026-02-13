@@ -1,0 +1,11 @@
+root = true
+
+[*.rav]
+# not-use-null (NonNullDeclarationsAnalyzer)
+dotnet_diagnostic.RAV9012.severity = none
+
+# don't use throw (ThrowStatementUseResultAnalyzer)
+dotnet_diagnostic.RAV9013.severity = none
+
+# prefer Result/Option-based LINQ extensions (PreferDuLinqExtensionsAnalyzer)
+dotnet_diagnostic.RAV9014.severity = none

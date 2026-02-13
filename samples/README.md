@@ -18,6 +18,7 @@ For `.ravenproj` + NuGet restore/cache behavior, see:
 
 - `samples/project-files/nuget-demo/README.md`
 - `samples/project-files/aspnet-minimal-api/README.md`
+- `samples/project-files/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
 
 ### Compiler options
 

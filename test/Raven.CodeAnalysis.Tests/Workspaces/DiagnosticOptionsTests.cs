@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -135,5 +137,114 @@ func Test() {
         var diagnostics = workspace.GetDiagnostics(projectId);
         var diagnostic = Assert.Single(diagnostics, d => d.Descriptor.Id == NonNullDeclarationsAnalyzer.DiagnosticId);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    [Fact]
+    public void OpenProject_EditorConfigSuppressesConfiguredAnalyzerDiagnostics()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+
+        try
+        {
+            var projectPath = Path.Combine(dir, "App.ravenproj");
+            var sourcePath = Path.Combine(dir, "main.rav");
+            var editorConfigPath = Path.Combine(dir, ".editorconfig");
+
+            File.WriteAllText(sourcePath,
+                """
+import System.Linq.*
+
+func Main() {
+    var maybe: int? = null
+    val arr = [1, 2, 3]
+    val x = arr.FirstOrDefault()
+    throw Exception("boom")
+}
+""");
+
+            File.WriteAllText(projectPath,
+                """
+<Project Name="App" TargetFramework="net9.0" Output="App">
+  <Document Path="main.rav" />
+</Project>
+""");
+
+            File.WriteAllText(editorConfigPath,
+                """
+root = true
+
+[*.rav]
+dotnet_diagnostic.RAV9012.severity = none
+dotnet_diagnostic.RAV9013.severity = none
+dotnet_diagnostic.RAV9014.severity = none
+""");
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            project = project
+                .AddAnalyzerReference(new AnalyzerReference(new NonNullDeclarationsAnalyzer()))
+                .AddAnalyzerReference(new AnalyzerReference(new ThrowStatementUseResultAnalyzer()))
+                .AddAnalyzerReference(new AnalyzerReference(new PreferDuLinqExtensionsAnalyzer()));
+
+            foreach (var reference in TestMetadataReferences.Default)
+                project = project.AddMetadataReference(reference);
+
+            workspace.TryApplyChanges(project.Solution);
+
+            var diagnostics = workspace.GetDiagnostics(projectId);
+            Assert.DoesNotContain(diagnostics, d => d.Id == NonNullDeclarationsAnalyzer.DiagnosticId);
+            Assert.DoesNotContain(diagnostics, d => d.Id == ThrowStatementUseResultAnalyzer.DiagnosticId);
+            Assert.DoesNotContain(diagnostics, d => d.Id == PreferDuLinqExtensionsAnalyzer.DiagnosticId);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_EditorConfigGlobalAnalyzerSeveritySuppressesAnalyzerDiagnostics()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+
+        try
+        {
+            var projectPath = Path.Combine(dir, "App.ravenproj");
+            var sourcePath = Path.Combine(dir, "main.rav");
+            var editorConfigPath = Path.Combine(dir, ".editorconfig");
+
+            File.WriteAllText(sourcePath, "TODO");
+            File.WriteAllText(projectPath,
+                """
+<Project Name="App" TargetFramework="net9.0" Output="App">
+  <Document Path="main.rav" />
+</Project>
+""");
+            File.WriteAllText(editorConfigPath,
+                """
+root = true
+
+[*.rav]
+dotnet_analyzer_diagnostic.severity = none
+""");
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            project = project.AddAnalyzerReference(new AnalyzerReference(new TodoAnalyzer()));
+            foreach (var reference in TestMetadataReferences.Default)
+                project = project.AddMetadataReference(reference);
+            workspace.TryApplyChanges(project.Solution);
+
+            var diagnostics = workspace.GetDiagnostics(projectId);
+            Assert.DoesNotContain(diagnostics, d => d.Id == TodoAnalyzer.Descriptor.Id);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
     }
 }

@@ -113,6 +113,11 @@ internal static class ProjectFile
             return DocumentInfo.Create(docId, Path.GetFileName(p), text, p);
         }).ToList();
 
+        options = EditorConfigDiagnosticOptions.ApplyDiagnosticSeverityOptions(
+            options,
+            filePath,
+            documents.Select(d => d.FilePath));
+
         var projectRefs = root.Elements("ProjectReference")
             .Select(e => (string?)e.Attribute("Path") ?? throw new InvalidDataException("ProjectReference path missing."))
             .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))

@@ -1,0 +1,3 @@
+<Project Name="AnalyzerEditorConfig" TargetFramework="net9.0" Output="AnalyzerEditorConfig">
+  <Document Path="src/main.rav" />
+</Project>
