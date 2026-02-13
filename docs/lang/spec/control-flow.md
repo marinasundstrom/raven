@@ -30,10 +30,10 @@ context.
 Only certain constructs are legal exclusively in statement context because they
 do not yield a value:
 
-* `return` (including the omission of a value when returning `unit`).
+* Statement-form `return` (including the omission of a value when returning `unit`).
 * Iterator statements `yield return` and `yield break`.
 * Loop-control transfers `break` and `continue`.
-* `throw` statements that propagate exceptions.
+* Statement-form `throw` that propagates exceptions.
 * Statement-form `try` blocks that attach `catch` or `finally` clauses.
 
 Using any of these constructs inside an expression context produces the
@@ -154,12 +154,21 @@ The `return` keyword exits a function, lambda, or property accessor. Because
 Raven supports both statement and expression forms:
 
 * Statement form: `return` or `return <expression>` in statement position.
-* Expression form: `return <expression>` anywhere an expression is valid (for
-  example, `name ?? return -1`).
+* Expression form: `return <expression>` in expression contexts where early exit
+  is valid (for example, `name ?? return -1`).
 
 `return` statements remain statement-only. When a return statement appears inside
 an expression context (for example, in a block expression), the compiler reports
 diagnostic `RAV1900`.
+
+`return` expression form is intentionally narrow. It models an abrupt exit from
+the enclosing callable while still fitting expression-oriented operators like
+`??`, `if` arms, and similar value positions. It does not turn expression blocks
+into statement-flow regions. In other words:
+
+* `let b = if (a) e else return -1` is valid (`else return -1` is a return expression).
+* `let b = if (a) e else { return -1 }` is invalid because `{ ... }` here is a
+  block expression, and `return` inside that block is parsed as a statement.
 
 A `return` statement may omit its expression when the surrounding function or
 accessor returns `unit`. See [implementation notes](dotnet-implementation.md#return-statements)
@@ -187,11 +196,11 @@ func DoOperation(a: int, b: int) -> int {
     return a + b
 }
 
-func DoOperation2(a: int, b: int) -> int | false {
+func DoOperation2(a: int, b: int) -> Result<int, bool> {
     if a > b {
-        return false
+        return .Error(false)
     }
-    return a + b
+    return .Ok(a + b)
 }
 ```
 
@@ -199,11 +208,11 @@ Property accessors follow the same rule: each explicit `return` must produce a
 value compatible with the property's declared type.
 
 ```raven
-func choose(flag: bool) -> int | () {
+func choose(flag: bool) -> Result<int, ()> {
     return if flag {
-        42
+        .Ok(42)
     } else {
-        ()
+        .Error(())
     }
 }
 

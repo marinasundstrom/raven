@@ -19,11 +19,16 @@ The statement form still follows statement placement rules. When a throw stateme
 appears inside an expression-only context (such as inside a block expression), the
 compiler reports `RAV1907`. Use throw expression form in those contexts.
 
+Unlike `return`, `throw` has a single control-flow meaning in both forms: it
+always aborts the current evaluation path and propagates an exception. That
+makes it safe to embed in expression positions (for example the right-hand side
+of `??`) without introducing statement-flow semantics into expression blocks.
+
 Throwing an exception unwinds the stack just like returning early: `use`
 declarations in the current scope are disposed before the exception escapes.
 Because exceptions are expensive and intended for unexpected situations, prefer
-returning a dedicated result object (for example, a union or struct that carries
-either the value or an error) to model normal control flow. Reserve `throw` for
+returning a dedicated result object (`Result<T, TError>`) to model normal
+control flow. Reserve `throw` for
 genuinely exceptional circumstances so APIs remain predictable and declarative.
 This recommendation applies equally to throw statements and throw expressions.
 
