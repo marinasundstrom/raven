@@ -1099,7 +1099,7 @@ internal partial class ExpressionGenerator : Generator
                     m.Parameters.Length == 1 &&
                     m.Parameters[0].RefKind == RefKind.Out &&
                     expr.OkCaseType is not null &&
-                    TypesMatch(m.Parameters[0].Type.GetElementType(), expr.OkCaseType));
+                    TypesMatch(m.Parameters[0].GetByRefElementType(), expr.OkCaseType));
 
             if (tryGetOkSymbol is null)
                 throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkCaseType}) on '{expr.Operand.Type}'.");
@@ -1168,7 +1168,7 @@ internal partial class ExpressionGenerator : Generator
                 !m.IsStatic &&
                 m.Parameters.Length == 1 &&
                 m.Parameters[0].RefKind == RefKind.Out &&
-                TypesMatch(m.Parameters[0].Type, expr.OkType));
+                TypesMatch(m.Parameters[0].GetByRefElementType(), expr.OkType));
 
             if (tryGetOkSymbol is null)
                 throw new InvalidOperationException($"Missing {tryGetOkName}(out {expr.OkType}) on '{expr.Operand.Type}'.");
@@ -4216,7 +4216,7 @@ internal partial class ExpressionGenerator : Generator
             position -= 1;
 
         // If the parameter itself is by-ref, loading it already yields managed pointer.
-        if (parameter.Type is RefTypeSymbol)
+        if (parameter.IsByRefParameter())
             ILGenerator.Emit(OpCodes.Ldarg, position);
         else
             ILGenerator.Emit(OpCodes.Ldarga, position);

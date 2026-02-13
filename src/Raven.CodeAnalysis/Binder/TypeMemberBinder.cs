@@ -90,10 +90,6 @@ internal partial class TypeMemberBinder : Binder
         return _extensionReceiverType ?? Compilation.ErrorTypeSymbol;
     }
 
-    private static bool RequiresByRefType(TypeSyntax typeSyntax, RefKind refKind)
-        => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
-           typeSyntax is ByRefTypeSyntax;
-
     private ITypeSymbol ResolveTypeSyntaxForSignature(
         Binder binder,
         TypeSyntax typeSyntax,
@@ -102,13 +98,22 @@ internal partial class TypeMemberBinder : Binder
     {
         var result = binder.BindTypeSyntax(typeSyntax, options);
         if (!result.Success)
-            return binder.BindTypeSyntaxDirect(typeSyntax, options, refKindHint, allowLegacyFallback: true);
+            return binder.BindTypeSyntaxDirect(typeSyntax, options, refKindHint: null, allowLegacyFallback: true);
 
-        var resolvedType = result.ResolvedType;
-        if (RequiresByRefType(typeSyntax, refKindHint) && resolvedType is not RefTypeSymbol)
-            return new RefTypeSymbol(resolvedType);
+        return result.ResolvedType;
+    }
 
-        return resolvedType;
+    private ITypeSymbol ResolveParameterTypeSyntaxForSignature(
+        Binder binder,
+        TypeSyntax typeSyntax,
+        RefKind refKind,
+        Binder.TypeResolutionOptions? options = null)
+    {
+        var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+            ? byRefType.ElementType
+            : typeSyntax;
+
+        return ResolveTypeSyntaxForSignature(binder, boundTypeSyntax, RefKind.None, options);
     }
 
     private INamedTypeSymbol? ResolveNamedTypeSyntax(Binder binder, TypeSyntax typeSyntax)
@@ -630,8 +635,7 @@ internal partial class TypeMemberBinder : Binder
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var (paramName, typeSyntax, refKind, syntax, isMutable) in paramInfos)
         {
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var resolvedType = ResolveTypeSyntaxForSignature(methodBinder, typeSyntax, refKindForType);
+            var resolvedType = ResolveParameterTypeSyntaxForSignature(methodBinder, typeSyntax, refKind);
             resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax, isMutable));
         }
 
@@ -899,8 +903,7 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = ResolveTypeSyntaxForSignature(operatorBinder, typeSyntax, refKindForType);
+            var pType = ResolveParameterTypeSyntaxForSignature(operatorBinder, typeSyntax, refKind);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1033,8 +1036,7 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = ResolveTypeSyntaxForSignature(conversionBinder, typeSyntax, refKindForType);
+            var pType = ResolveParameterTypeSyntaxForSignature(conversionBinder, typeSyntax, refKind);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             resolvedParamInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1228,8 +1230,7 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = ResolveTypeSyntaxForSignature(this, typeSyntax, refKindForType);
+            var pType = ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1345,8 +1346,7 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = ResolveTypeSyntaxForSignature(this, typeSyntax, refKindForType);
+            var pType = ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p, isMutable));
         }
@@ -1535,8 +1535,7 @@ internal partial class TypeMemberBinder : Binder
         {
             var refKind = GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = ResolveTypeSyntaxForSignature(binder, typeSyntax, refKindForType);
+            var pType = ResolveParameterTypeSyntaxForSignature(binder, typeSyntax, refKind);
 
             invokeParams.Add(new SourceParameterSymbol(
                 p.Identifier.ValueText,
@@ -2164,8 +2163,7 @@ internal partial class TypeMemberBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
-            var type = ResolveTypeSyntaxForSignature(this, typeSyntax, refKindForType);
+            var type = ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
 
             var defaultResult = ProcessParameterDefault(
                 p,

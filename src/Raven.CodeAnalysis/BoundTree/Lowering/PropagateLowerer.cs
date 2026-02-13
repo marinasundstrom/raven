@@ -176,9 +176,7 @@ internal static class PropagateLowerer
             if (tryGetMethod is null)
                 return null;
 
-            var okLocalType = tryGetMethod.Parameters[0].Type is RefTypeSymbol refTypeType
-                ? refTypeType.ElementType
-                : tryGetMethod.Parameters[0].Type;
+            var okLocalType = tryGetMethod.Parameters[0].GetByRefElementType();
             var okLocal = CreateTempLocal("propagateOk", okLocalType, isMutable: true);
 
             var operandLocal = CreateTempLocal("propagateOperand", operandType, isMutable: true);
@@ -315,14 +313,14 @@ internal static class PropagateLowerer
             if (okCaseType is not null)
             {
                 var caseMatch = candidates.FirstOrDefault(m =>
-                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type.GetPlainType(), okCaseType));
+                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].GetByRefElementType().GetPlainType(), okCaseType));
                 if (caseMatch is not null)
                     return caseMatch;
             }
 
             var okPayloadType = propagate.OkType.GetPlainType();
             var payloadMatch = candidates.FirstOrDefault(m =>
-                SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type.GetPlainType(), okPayloadType));
+                SymbolEqualityComparer.Default.Equals(m.Parameters[0].GetByRefElementType().GetPlainType(), okPayloadType));
 
             return payloadMatch ?? candidates[0];
         }

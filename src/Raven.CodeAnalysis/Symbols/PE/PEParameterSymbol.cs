@@ -22,7 +22,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
 
     public override SymbolKind Kind => SymbolKind.Parameter;
     public override string Name => _parameterInfo.Name;
-    public ITypeSymbol Type => _type ??= _reflectionTypeLoader.ResolveType(_parameterInfo);
+    public ITypeSymbol Type => _type ??= ResolveParameterType();
 
     public bool IsParams
     {
@@ -46,6 +46,15 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     }
 
     public bool IsMutable => RefKind is RefKind.Ref or RefKind.Out;
+
+    private ITypeSymbol ResolveParameterType()
+    {
+        var resolved = _reflectionTypeLoader.ResolveType(_parameterInfo);
+        if (RefKind.IsByRef() && resolved is RefTypeSymbol refType)
+            return refType.ElementType;
+
+        return resolved;
+    }
 
     public ParameterInfo GetParameterInfo() => _parameterInfo;
 

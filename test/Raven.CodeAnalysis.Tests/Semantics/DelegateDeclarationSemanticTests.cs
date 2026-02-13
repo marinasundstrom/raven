@@ -40,11 +40,9 @@ class Container
         Assert.Equal(2, parameters.Length);
 
         Assert.Equal(RefKind.Ref, parameters[0].RefKind);
-        var firstType = Assert.IsType<RefTypeSymbol>(parameters[0].Type);
-        Assert.Equal("T", firstType.ElementType.Name);
+        Assert.Equal("T", parameters[0].Type.Name);
 
         Assert.Equal(RefKind.Out, parameters[1].RefKind);
-        var secondType = Assert.IsType<RefTypeSymbol>(parameters[1].Type);
-        Assert.Equal(SpecialType.System_String, secondType.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_String, parameters[1].Type.SpecialType);
     }
 }

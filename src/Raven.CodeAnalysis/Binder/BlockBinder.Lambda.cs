@@ -114,8 +114,10 @@ partial class BlockBinder
             ITypeSymbol parameterType;
             if (typeSyntax is not null)
             {
-                var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-                parameterType = ResolveTypeSyntaxOrError(typeSyntax, refKindForType);
+                var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                    ? byRefType.ElementType
+                    : typeSyntax;
+                parameterType = ResolveTypeSyntaxOrError(boundTypeSyntax);
             }
             else if (targetParam is not null)
             {

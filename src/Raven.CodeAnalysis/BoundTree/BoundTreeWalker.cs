@@ -100,6 +100,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundConditionalAccessExpression conditionalAccess:
                 VisitConditionalAccessExpression(conditionalAccess);
                 break;
+            case BoundCarrierConditionalAccessExpression carrierConditionalAccess:
+                VisitCarrierConditionalAccessExpression(carrierConditionalAccess);
+                break;
             case BoundIfExpression ifExpression:
                 VisitIfExpression(ifExpression);
                 break;
@@ -135,6 +138,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
                 break;
             case BoundReturnExpression returnExpression:
                 VisitReturnExpression(returnExpression);
+                break;
+            case BoundPropagateExpression propagateExpression:
+                VisitPropagateExpression(propagateExpression);
                 break;
             // Add others as needed
             default:
@@ -245,6 +251,18 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Expression);
     }
 
+    public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
+    {
+        foreach (var declarator in node.Declarators)
+            VisitVariableDeclarator(declarator);
+    }
+
+    public override void VisitVariableDeclarator(BoundVariableDeclarator node)
+    {
+        if (node.Initializer is not null)
+            VisitExpression(node.Initializer);
+    }
+
     public virtual void VisitExpressionStatement(BoundExpressionStatement node)
     {
         VisitExpression(node.Expression);
@@ -311,6 +329,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Expression);
     }
 
+    public virtual void VisitPropagateExpression(BoundPropagateExpression node)
+    {
+        VisitExpression(node.Operand);
+    }
+
     public override void VisitParenthesizedExpression(BoundParenthesizedExpression node)
     {
         VisitExpression(node.Expression);
@@ -346,6 +369,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         VisitExpression(node.Receiver);
         VisitExpression(node.WhenNotNull);
+    }
+
+    public virtual void VisitCarrierConditionalAccessExpression(BoundCarrierConditionalAccessExpression node)
+    {
+        VisitExpression(node.Receiver);
+        VisitExpression(node.WhenPresent);
     }
 
     public virtual void VisitIfExpression(BoundIfExpression node)

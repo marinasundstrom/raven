@@ -1337,21 +1337,21 @@ public partial class SemanticModel
                 };
         }
 
-        static bool RequiresByRefType(TypeSyntax typeSyntax, RefKind refKind)
-            => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
-               typeSyntax is ByRefTypeSyntax;
-
         ITypeSymbol ResolveTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKindHint)
         {
             var result = binder.BindTypeSyntax(typeSyntax);
             if (!result.Success)
-                return binder.BindTypeSyntaxDirect(typeSyntax, refKindHint);
+                return binder.BindTypeSyntaxDirect(typeSyntax);
 
-            var type = result.ResolvedType;
-            if (RequiresByRefType(typeSyntax, refKindHint) && type is not RefTypeSymbol)
-                return new RefTypeSymbol(type);
+            return result.ResolvedType;
+        }
 
-            return type;
+        ITypeSymbol ResolveParameterTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKind)
+        {
+            var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                ? byRefType.ElementType
+                : typeSyntax;
+            return ResolveTypeSyntaxForSignature(boundTypeSyntax, RefKind.None);
         }
 
         // .ctor(object, IntPtr)
@@ -1414,8 +1414,7 @@ public partial class SemanticModel
         {
             var refKind = GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-            var pType = ResolveTypeSyntaxForSignature(typeSyntax, refKindForType);
+            var pType = ResolveParameterTypeSyntaxForSignature(typeSyntax, refKind);
 
             invokeParams.Add(new SourceParameterSymbol(
                 p.Identifier.ValueText,
@@ -1513,17 +1512,24 @@ public partial class SemanticModel
             {
                 foreach (var parameterSyntax in parameterList.Parameters)
                 {
-                    var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
-                    var refKind = refKindTokenKind switch
-                    {
-                        SyntaxKind.OutKeyword => RefKind.Out,
-                        SyntaxKind.InKeyword => RefKind.In,
-                        SyntaxKind.RefKeyword => RefKind.Ref,
-                        _ => RefKind.None,
-                    };
-
                     var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-                    var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+                    var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+                    var refKind = typeSyntax is ByRefTypeSyntax
+                        ? refKindTokenKind switch
+                        {
+                            SyntaxKind.OutKeyword => RefKind.Out,
+                            SyntaxKind.InKeyword => RefKind.In,
+                            SyntaxKind.RefKeyword => RefKind.Ref,
+                            _ => RefKind.Ref,
+                        }
+                        : refKindTokenKind switch
+                        {
+                            SyntaxKind.OutKeyword => RefKind.Out,
+                            SyntaxKind.InKeyword => RefKind.In,
+                            SyntaxKind.RefKeyword => RefKind.Ref,
+                            _ => RefKind.None,
+                        };
+
                     ITypeSymbol parameterType;
                     if (typeSyntax is null)
                     {
@@ -1531,9 +1537,10 @@ public partial class SemanticModel
                     }
                     else
                     {
-                        parameterType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                            ? unionBinder.BindTypeSyntaxDirect(typeSyntax, refKindForType)
-                            : unionBinder.BindTypeSyntaxDirect(typeSyntax);
+                        var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                            ? byRefType.ElementType
+                            : typeSyntax;
+                        parameterType = unionBinder.BindTypeSyntaxDirect(boundTypeSyntax);
                     }
 
                     var defaultResult = TypeMemberBinder.ProcessParameterDefault(
@@ -2596,17 +2603,24 @@ public partial class SemanticModel
         var seenOptionalParameter = false;
         foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
         {
-            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
-            var refKind = refKindTokenKind switch
-            {
-                SyntaxKind.OutKeyword => RefKind.Out,
-                SyntaxKind.InKeyword => RefKind.In,
-                SyntaxKind.RefKeyword => RefKind.Ref,
-                _ => RefKind.None,
-            };
-
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+            var refKindTokenKind = parameterSyntax.RefKindKeyword?.Kind;
+            var refKind = typeSyntax is ByRefTypeSyntax
+                ? refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.Ref,
+                }
+                : refKindTokenKind switch
+                {
+                    SyntaxKind.OutKeyword => RefKind.Out,
+                    SyntaxKind.InKeyword => RefKind.In,
+                    SyntaxKind.RefKeyword => RefKind.Ref,
+                    _ => RefKind.None,
+                };
+
             ITypeSymbol parameterType;
             if (typeSyntax is null)
             {
@@ -2614,9 +2628,10 @@ public partial class SemanticModel
             }
             else
             {
-                parameterType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? classBinder.BindTypeSyntaxDirect(typeSyntax, refKindForType)
-                    : classBinder.BindTypeSyntaxDirect(typeSyntax);
+                var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                    ? byRefType.ElementType
+                    : typeSyntax;
+                parameterType = classBinder.BindTypeSyntaxDirect(boundTypeSyntax);
             }
 
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(

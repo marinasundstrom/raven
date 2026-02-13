@@ -36,11 +36,8 @@ public class ResultMetadataSymbolTests
             var okParameter = Assert.Single(tryGetOk.Parameters);
             var errorParameter = Assert.Single(tryGetError.Parameters);
 
-            var okByRef = Assert.IsType<RefTypeSymbol>(okParameter.Type);
-            var errorByRef = Assert.IsType<RefTypeSymbol>(errorParameter.Type);
-
-            Assert.True(SymbolEqualityComparer.Default.Equals(okCase, okByRef.ElementType));
-            Assert.True(SymbolEqualityComparer.Default.Equals(errorCase, errorByRef.ElementType));
+            Assert.True(HasParameterType(tryGetOk, okCase));
+            Assert.True(HasParameterType(tryGetError, errorCase));
         }
         finally
         {
@@ -78,11 +75,8 @@ public class ResultMetadataSymbolTests
             var okParameter = Assert.Single(tryGetOk.Parameters);
             var errorParameter = Assert.Single(tryGetError.Parameters);
 
-            var okByRef = Assert.IsType<RefTypeSymbol>(okParameter.Type);
-            var errorByRef = Assert.IsType<RefTypeSymbol>(errorParameter.Type);
-
-            Assert.True(SymbolEqualityComparer.Default.Equals(okCase, okByRef.ElementType));
-            Assert.True(SymbolEqualityComparer.Default.Equals(errorCase, errorByRef.ElementType));
+            Assert.True(HasParameterType(tryGetOk, okCase));
+            Assert.True(HasParameterType(tryGetError, errorCase));
         }
         finally
         {
@@ -161,13 +155,13 @@ public class ResultMetadataSymbolTests
 
     private static (MetadataReference Reference, string Path) CreateRavenCoreResultReference()
     {
-        var sourcePath = Path.GetFullPath(Path.Combine(
-            "..", "..", "..", "..", "..", "src", "Raven.Core", "Result.rav"));
-        var source = File.ReadAllText(sourcePath);
-        var tree = SyntaxTree.ParseText(source);
+        var coreDirectory = Path.GetFullPath(Path.Combine(
+            "..", "..", "..", "..", "..", "src", "Raven.Core"));
+        var optionTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Option.rav")));
+        var resultTree = SyntaxTree.ParseText(File.ReadAllText(Path.Combine(coreDirectory, "Result.rav")));
         var compilation = Compilation.Create(
             "raven-core-result-fixture",
-            [tree],
+            [optionTree, resultTree],
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
@@ -185,7 +179,20 @@ public class ResultMetadataSymbolTests
         if (method.Parameters.Length != 1)
             return false;
 
-        var parameterType = method.Parameters[0].Type;
-        return SymbolEqualityComparer.Default.Equals(parameterType, expectedType);
+        var parameterType = method.Parameters[0].GetByRefElementType();
+        return AreEquivalentTypes(parameterType, expectedType);
+    }
+
+    private static bool AreEquivalentTypes(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        var leftNamed = left as INamedTypeSymbol;
+        var rightNamed = right as INamedTypeSymbol;
+        if (leftNamed is null || rightNamed is null)
+            return false;
+
+        return SymbolEqualityComparer.Default.Equals(leftNamed.OriginalDefinition, rightNamed.OriginalDefinition);
     }
 }

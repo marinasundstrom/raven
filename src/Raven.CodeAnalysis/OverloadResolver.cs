@@ -1332,15 +1332,8 @@ internal sealed class OverloadResolver
             var parameterType = parameter.Type;
             var referencedType = addressType.ReferencedType;
 
-            if (parameterType is RefTypeSymbol paramByRef)
-            {
-                if (!SymbolEqualityComparer.Default.Equals(referencedType, paramByRef.ElementType))
-                {
-                    LogComparison(comparisonLog, parameter, referencedType, OverloadArgumentComparisonResult.RefKindMismatch, "by-ref element type mismatch");
-                    return false;
-                }
-            }
-            else if (!SymbolEqualityComparer.Default.Equals(referencedType, parameterType))
+            var expectedByRefElementType = parameter.GetByRefElementType();
+            if (!SymbolEqualityComparer.Default.Equals(referencedType, expectedByRefElementType))
             {
                 LogComparison(comparisonLog, parameter, referencedType, OverloadArgumentComparisonResult.RefKindMismatch, "address type does not match parameter type");
                 return false;

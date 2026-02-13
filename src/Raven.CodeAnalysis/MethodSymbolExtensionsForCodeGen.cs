@@ -854,7 +854,19 @@ internal static class MethodSymbolCodeGenResolver
         if (symbolParameter.RefKind == RefKind.In && !(runtimeParameter.IsIn || runtimeParameter.ParameterType.IsByRef))
             return false;
 
-        return TypesEquivalent(runtimeParameter.ParameterType, symbolParameter.Type, codeGen);
+        var runtimeParameterType = runtimeParameter.ParameterType;
+        var symbolParameterType = symbolParameter.Type;
+
+        if (symbolParameter.IsByRefParameter())
+        {
+            if (!runtimeParameterType.IsByRef)
+                return false;
+
+            runtimeParameterType = runtimeParameterType.GetElementType() ?? runtimeParameterType;
+            symbolParameterType = symbolParameter.GetByRefElementType();
+        }
+
+        return TypesEquivalent(runtimeParameterType, symbolParameterType, codeGen);
     }
 
     internal static bool ReturnTypesMatch(Type runtimeReturnType, ITypeSymbol symbolReturnType, CodeGenerator codeGen)

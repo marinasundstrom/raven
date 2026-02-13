@@ -1110,8 +1110,8 @@ partial class BlockBinder : Binder
             binaryOperatorKind,
             binaryOperatorKind == SyntaxKind.PlusToken ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken,
             isPostfix,
-            value => parameterType is RefTypeSymbol refType && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
-                ? BoundFactory.CreateByRefAssignmentExpression(parameterAccess, refType.ElementType, value)
+            value => parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
+                ? BoundFactory.CreateByRefAssignmentExpression(parameterAccess, parameterSymbol.GetByRefElementType(), value)
                 : BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, parameterAccess, value));
     }
 
@@ -4293,9 +4293,8 @@ partial class BlockBinder : Binder
         {
             var parameterSymbol = parameterAccess.Parameter;
             var parameterType = parameterSymbol.Type;
-            var rightTargetType = parameterType is RefTypeSymbol refTypeParameter &&
-                parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
-                ? refTypeParameter.ElementType
+            var rightTargetType = parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
+                ? parameterSymbol.GetByRefElementType()
                 : parameterType;
             var right = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
@@ -4308,13 +4307,14 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            if (parameterType is RefTypeSymbol refTypeParameterType && parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
+            if (parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
             {
-                var parameterByRefRight = BindCompoundAssignmentValue(parameterAccess, right, refTypeParameterType.ElementType, binaryOperator.Value, rightSyntax);
+                var byRefElementType = parameterSymbol.GetByRefElementType();
+                var parameterByRefRight = BindCompoundAssignmentValue(parameterAccess, right, byRefElementType, binaryOperator.Value, rightSyntax);
                 if (parameterByRefRight is BoundErrorExpression)
                     return parameterByRefRight;
 
-                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, refTypeParameterType.ElementType, parameterByRefRight);
+                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRefElementType, parameterByRefRight);
             }
 
             var parameterRight = BindCompoundAssignmentValue(parameterAccess, right, parameterType, binaryOperator.Value, rightSyntax);

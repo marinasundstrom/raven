@@ -1804,23 +1804,22 @@ partial class BlockBinder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
 
-            var rightTargetType = parameterType is RefTypeSymbol refTypeParameter &&
-                parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
-                ? refTypeParameter.ElementType
+            var rightTargetType = parameterSymbol.RefKind is RefKind.Ref or RefKind.Out
+                ? parameterSymbol.GetByRefElementType()
                 : parameterType;
             var right2 = BindExpressionWithTargetType(rightSyntax, rightTargetType);
 
             if (IsErrorExpression(right2))
                 return AsErrorExpression(right2);
 
-            if (parameterType is RefTypeSymbol refTypeParameterType &&
-                parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
+            if (parameterSymbol.RefKind is RefKind.Ref or RefKind.Out)
             {
-                var converted = ConvertValueForAssignment(right2, refTypeParameterType.ElementType, rightSyntax);
+                var byRefElementType = parameterSymbol.GetByRefElementType();
+                var converted = ConvertValueForAssignment(right2, byRefElementType, rightSyntax);
                 if (converted is BoundErrorExpression)
                     return converted;
 
-                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, refTypeParameterType.ElementType, converted);
+                return BoundFactory.CreateByRefAssignmentExpression(parameterAccess, byRefElementType, converted);
             }
 
             if (parameterType.TypeKind != TypeKind.Error &&

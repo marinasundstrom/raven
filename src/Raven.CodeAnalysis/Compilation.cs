@@ -827,11 +827,10 @@ public partial class Compilation
                         _ => RefKind.None,
                     };
 
-                var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
-                var resolvedType = ResolveTypeSyntax(typeSyntax, symbol);
-                var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? resolvedType is RefTypeSymbol ? resolvedType : new RefTypeSymbol(resolvedType)
-                    : resolvedType;
+                var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                    ? byRefType.ElementType
+                    : typeSyntax;
+                var pType = ResolveTypeSyntax(boundTypeSyntax, symbol);
 
                 invokeParameters.Add(new SourceParameterSymbol(
                     p.Identifier.ValueText,

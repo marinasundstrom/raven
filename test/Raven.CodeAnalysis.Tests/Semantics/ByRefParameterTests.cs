@@ -24,9 +24,8 @@ class C {
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
-        var type = Assert.IsType<RefTypeSymbol>(symbol.Type);
         Assert.Equal(RefKind.Ref, symbol.RefKind);
-        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
     }
 
     [Fact]
@@ -43,9 +42,8 @@ class C {
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
-        var type = Assert.IsType<RefTypeSymbol>(symbol.Type);
         Assert.Equal(RefKind.Out, symbol.RefKind);
-        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
     }
 
     [Fact]
@@ -62,9 +60,8 @@ class C {
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
-        var type = Assert.IsType<RefTypeSymbol>(parameter.Type);
         Assert.Equal(RefKind.Ref, parameter.RefKind);
-        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
 
     [Fact]
@@ -81,9 +78,8 @@ class C {
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
-        var type = Assert.IsType<RefTypeSymbol>(parameter.Type);
         Assert.Equal(RefKind.Out, parameter.RefKind);
-        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
 
     [Fact]
@@ -100,9 +96,8 @@ func outer() {
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
-        var type = Assert.IsType<RefTypeSymbol>(parameter.Type);
         Assert.Equal(RefKind.Ref, parameter.RefKind);
-        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
 
     [Fact]
@@ -119,9 +114,8 @@ func outer() {
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
-        var type = Assert.IsType<RefTypeSymbol>(parameter.Type);
         Assert.Equal(RefKind.Out, parameter.RefKind);
-        Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
 
     [Fact]

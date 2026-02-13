@@ -136,10 +136,10 @@ class FunctionBinder : Binder
                     _ => RefKind.None,
                 };
 
-            var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
-            var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                ? methodBinder.BindTypeSyntaxDirect(typeSyntax, refKindForType)
-                : methodBinder.BindTypeSyntaxDirect(typeSyntax);
+            var boundTypeSyntax = refKind.IsByRef() && typeSyntax is ByRefTypeSyntax byRefType
+                ? byRefType.ElementType
+                : typeSyntax;
+            var type = methodBinder.BindTypeSyntaxDirect(boundTypeSyntax);
 
             var isMutable = p.BindingKeyword?.Kind == SyntaxKind.VarKeyword;
 

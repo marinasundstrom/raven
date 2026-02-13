@@ -7,6 +7,15 @@ namespace Raven.CodeAnalysis;
 
 public static partial class SymbolExtensions
 {
+    public static bool IsByRef(this RefKind refKind)
+        => refKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter;
+
+    public static bool IsByRefParameter(this IParameterSymbol parameter)
+        => parameter.RefKind.IsByRef();
+
+    public static ITypeSymbol GetByRefElementType(this IParameterSymbol parameter)
+        => parameter.Type is RefTypeSymbol refType ? refType.ElementType : parameter.Type;
+
     /// <summary>
     /// Unwraps the actual type of a property symbol or local symbol. 
     /// If the symbol is a type symbol, then return it, otherwise null.

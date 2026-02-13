@@ -1170,14 +1170,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 if (debug)
                 {
                     var normalized = SubstituteRuntimeType(runtimeParameters[i].ParameterType, methodRuntimeArguments, typeRuntimeArguments);
+                    var symbolType = parameterSymbols[i].IsByRefParameter()
+                        ? parameterSymbols[i].GetByRefElementType()
+                        : parameterSymbols[i].Type;
                     Type expected;
                     try
                     {
-                        expected = GetProjectedRuntimeType(parameterSymbols[i].Type, codeGen, treatUnitAsVoid: true, isTopLevel: false);
+                        expected = GetProjectedRuntimeType(symbolType, codeGen, treatUnitAsVoid: true, isTopLevel: false);
                     }
                     catch
                     {
-                        expected = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(parameterSymbols[i].Type, codeGen);
+                        expected = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(symbolType, codeGen);
                     }
                     Console.Error.WriteLine($"    Parameter mismatch at {i}: runtime={normalized} expected={expected} symbol={parameterSymbols[i].Type}");
                 }
@@ -1205,14 +1208,26 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (symbolParameter.RefKind == RefKind.In && !(runtimeParameter.IsIn || runtimeParameter.ParameterType.IsByRef))
             return false;
 
-        var normalizedRuntimeType = SubstituteRuntimeType(runtimeParameter.ParameterType, methodRuntimeArguments, typeRuntimeArguments);
-        var equivalent = MethodSymbolCodeGenResolver.TypesEquivalent(normalizedRuntimeType, symbolParameter.Type, codeGen);
+        var runtimeParameterType = runtimeParameter.ParameterType;
+        var symbolParameterType = symbolParameter.Type;
+
+        if (symbolParameter.IsByRefParameter())
+        {
+            if (!runtimeParameterType.IsByRef)
+                return false;
+
+            runtimeParameterType = runtimeParameterType.GetElementType() ?? runtimeParameterType;
+            symbolParameterType = symbolParameter.GetByRefElementType();
+        }
+
+        var normalizedRuntimeType = SubstituteRuntimeType(runtimeParameterType, methodRuntimeArguments, typeRuntimeArguments);
+        var equivalent = MethodSymbolCodeGenResolver.TypesEquivalent(normalizedRuntimeType, symbolParameterType, codeGen);
 
         if (!equivalent)
         {
             try
             {
-                var projectedSymbolType = GetProjectedRuntimeType(symbolParameter.Type, codeGen, treatUnitAsVoid: true, isTopLevel: false);
+                var projectedSymbolType = GetProjectedRuntimeType(symbolParameterType, codeGen, treatUnitAsVoid: true, isTopLevel: false);
                 var normalizedKey = GetRuntimeTypeKey(normalizedRuntimeType);
                 var projectedKey = GetRuntimeTypeKey(projectedSymbolType);
                 if (TypeSignatureEquals(normalizedRuntimeType, projectedSymbolType) ||
@@ -1229,7 +1244,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             if (equivalent)
                 return true;
 
-            var symbolClrType = TypeSymbolExtensionsForCodeGen.GetClrType(symbolParameter.Type, codeGen);
+            var symbolClrType = TypeSymbolExtensionsForCodeGen.GetClrType(symbolParameterType, codeGen);
             if (string.Equals(normalizedRuntimeType.ToString(), symbolClrType.ToString(), StringComparison.Ordinal))
                 equivalent = true;
         }
