@@ -692,6 +692,7 @@ partial class BlockBinder : Binder
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
+            ReturnExpressionSyntax returnExpression => BindReturnExpression(returnExpression),
             ThrowExpressionSyntax throwExpression => BindThrowExpression(throwExpression),
             PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
@@ -2027,6 +2028,25 @@ partial class BlockBinder : Binder
         }
 
         return boundTry;
+    }
+
+    private BoundExpression BindReturnExpression(ReturnExpressionSyntax returnExpression)
+    {
+        var returnValue = BindReturnValue(returnExpression.Expression, returnExpression);
+
+        var targetType = GetTargetType(returnExpression);
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
+
+        targetType ??= _containingSymbol switch
+        {
+            IMethodSymbol method => GetReturnTargetType(method),
+            _ => null,
+        };
+
+        targetType ??= Compilation.UnitTypeSymbol;
+
+        return new BoundReturnExpression(returnValue, targetType);
     }
 
     private BoundExpression BindThrowExpression(ThrowExpressionSyntax throwExpression)

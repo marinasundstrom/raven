@@ -884,14 +884,21 @@ partial class BlockBinder
 
     private BoundStatement BindReturnStatement(ReturnStatementSyntax returnStatement)
     {
-        BoundExpression? expr = null;
-
         if (returnStatement.Expression is null && IsSynthesizedTopLevelEntryPointContext())
         {
             _diagnostics.ReportExpressionExpected(returnStatement.ReturnKeyword.GetLocation());
         }
 
-        if (returnStatement.Expression is not null)
+        var expr = BindReturnValue(returnStatement.Expression, returnStatement);
+
+        return new BoundReturnStatement(expr);
+    }
+
+    private BoundExpression? BindReturnValue(ExpressionSyntax? expressionSyntax, SyntaxNode returnSyntax)
+    {
+        BoundExpression? expr = null;
+
+        if (expressionSyntax is not null)
         {
             ITypeSymbol? targetType = null;
 
@@ -906,10 +913,10 @@ partial class BlockBinder
                 targetType = GetReturnTargetType(targetLambda);
             }
 
-            // Return expressions are context-sensitive; ensure stale non-target-typed cache entries
-            // do not block target-typed member bindings like `.Some(...)`.
-            RemoveCachedBoundNode(returnStatement.Expression);
-            expr = BindExpressionWithTargetType(returnStatement.Expression, targetType, allowReturn: false);
+            // Return payloads are context-sensitive; ensure stale non-target-typed cache entries
+            // do not block target-typed member bindings like `.Error(...)`.
+            RemoveCachedBoundNode(expressionSyntax);
+            expr = BindExpressionWithTargetType(expressionSyntax, targetType, allowReturn: false);
         }
 
         if (_containingSymbol is IMethodSymbol method)
@@ -926,7 +933,7 @@ partial class BlockBinder
             {
                 var methodReturnType = method.ReturnType;
                 if (methodReturnType is null)
-                    return new BoundReturnStatement(expr);
+                    return expr;
 
                 if (expr is null)
                 {
@@ -935,7 +942,7 @@ partial class BlockBinder
                         _diagnostics.ReportCannotConvertFromTypeToType(
                             unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             methodReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            returnStatement.GetLocation());
+                            returnSyntax.GetLocation());
                 }
                 else if (method.IsAsync &&
                     methodReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
@@ -943,7 +950,7 @@ partial class BlockBinder
                     var methodDisplay = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
                     _diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
                         methodDisplay,
-                        returnStatement.Expression!.GetLocation());
+                        expressionSyntax!.GetLocation());
                 }
                 else
                 {
@@ -968,11 +975,11 @@ partial class BlockBinder
                             _diagnostics.ReportCannotConvertFromTypeToType(
                                 expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                                 targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                returnStatement.Expression!.GetLocation());
+                                expressionSyntax!.GetLocation());
                         }
                         else
                         {
-                            expr = ApplyConversion(expr, targetType, conversion, returnStatement.Expression!);
+                            expr = ApplyConversion(expr, targetType, conversion, expressionSyntax!);
                         }
                     }
                 }
@@ -982,10 +989,10 @@ partial class BlockBinder
                 expr = ValidateByRefReturnExpression(
                     method,
                     expr,
-                    returnStatement.Expression as SyntaxNode ?? returnStatement);
+                    expressionSyntax as SyntaxNode ?? returnSyntax);
         }
 
-        return new BoundReturnStatement(expr);
+        return expr;
     }
 
     protected BoundExpression ValidateByRefReturnExpression(

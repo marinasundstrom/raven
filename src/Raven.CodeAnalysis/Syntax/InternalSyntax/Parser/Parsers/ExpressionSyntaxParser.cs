@@ -612,6 +612,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseTryExpression();
                 break;
 
+            case SyntaxKind.ReturnKeyword:
+                expr = ParseReturnExpression();
+                break;
+
             case SyntaxKind.ThrowKeyword:
                 expr = ParseThrowExpression();
                 break;
@@ -645,6 +649,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             : Token(SyntaxKind.None);
         var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
         return TryExpression(tryKeyword, questionToken, expression);
+    }
+
+    private ReturnExpressionSyntax ParseReturnExpression()
+    {
+        var returnKeyword = ReadToken();
+        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        return ReturnExpression(returnKeyword, expression);
     }
 
     private ThrowExpressionSyntax ParseThrowExpression()

@@ -304,6 +304,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitThrowExpression(throwExpression);
                 break;
 
+            case BoundReturnExpression returnExpression:
+                EmitReturnExpression(returnExpression);
+                break;
+
             case BoundErrorExpression errorExpression:
                 EmitErrorExpression(errorExpression);
                 break;
@@ -559,6 +563,12 @@ internal partial class ExpressionGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Throw);
+    }
+
+    private void EmitReturnExpression(BoundReturnExpression returnExpression)
+    {
+        var returnStatement = new BoundReturnStatement(returnExpression.Expression);
+        new StatementGenerator(this, returnStatement).Emit();
     }
 
     private void EmitDelegateCreation(BoundExpression? receiver, IMethodSymbol method, INamedTypeSymbol delegateType)

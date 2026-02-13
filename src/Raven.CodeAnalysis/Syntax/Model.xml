@@ -487,6 +487,10 @@
     <Slot Name="QuestionToken" Type="Token" IsOptionalToken="true" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="ReturnExpression" Inherits="Expression">
+    <Slot Name="ReturnKeyword" Type="Token" DefaultToken="ReturnKeyword" />
+    <Slot Name="Expression" Type="Expression" />
+  </Node>
   <Node Name="ThrowExpression" Inherits="Expression">
     <Slot Name="ThrowKeyword" Type="Token" DefaultToken="ThrowKeyword" />
     <Slot Name="Expression" Type="Expression" />

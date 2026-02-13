@@ -514,6 +514,8 @@ PrimaryExpression        ::= Literal
                            | TupleExpression
                            | ParenthesizedExpression
                            | TryExpression
+                           | ReturnExpression
+                           | ThrowExpression
                            | Block
                            | IfExpression
                            | InterpolatedStringExpression ;
@@ -531,6 +533,8 @@ NameOfOperand            ::= Identifier
                            | QualifiedName ;
 
 TryExpression            ::= 'try' ['?'] Expression ;
+ReturnExpression         ::= 'return' Expression ;
+ThrowExpression          ::= 'throw' Expression ;
 
 Block                    ::= '{' {Statement} '}' ;
 

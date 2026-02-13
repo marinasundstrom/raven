@@ -130,6 +130,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundThrowExpression throwExpression:
                 VisitThrowExpression(throwExpression);
                 break;
+            case BoundReturnExpression returnExpression:
+                VisitReturnExpression(returnExpression);
+                break;
             // Add others as needed
             default:
                 break;
@@ -220,6 +223,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public virtual void VisitThrowExpression(BoundThrowExpression node)
     {
         VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitReturnExpression(BoundReturnExpression node)
+    {
+        if (node.Expression is not null)
+            VisitExpression(node.Expression);
     }
 
     public override void VisitAssignmentStatement(BoundAssignmentStatement node)

@@ -148,18 +148,18 @@ own line and always evaluates to `unit`.
 Values produced by expression statements are discarded and do not become implicit
 function return values.
 
-## Return statements
+## Return statements and expressions
 
 The `return` keyword exits a function, lambda, or property accessor. Because
-control-flow constructs are expressions, using `return` inside an expression that
-itself produces a value is not allowed. Explicit `return` statements may appear
-only in statement positions, such as within a function body or as their own
-expression statement. When a `return` occurs in a value context—for example,
-within an `if` expression assigned to a variable—the compiler reports diagnostic
-`RAV1900` and the block should rely on an implicit return instead. Within an `if`
-statement, the `else` keyword implicitly terminates a preceding `return`,
-allowing `if flag return else return` to be written without additional
-separators.
+Raven supports both statement and expression forms:
+
+* Statement form: `return` or `return <expression>` in statement position.
+* Expression form: `return <expression>` anywhere an expression is valid (for
+  example, `name ?? return -1`).
+
+`return` statements remain statement-only. When a return statement appears inside
+an expression context (for example, in a block expression), the compiler reports
+diagnostic `RAV1900`.
 
 A `return` statement may omit its expression when the surrounding function or
 accessor returns `unit`. See [implementation notes](dotnet-implementation.md#return-statements)
@@ -170,6 +170,10 @@ Within a method-like body, each `return` is validated against the declared
 return type of that body. A `return` without an expression is treated as
 returning `unit`. If the returned expression's type is not assignable to the
 declared return type, the compiler emits a conversion diagnostic.
+
+Return expressions follow the same return-type validation as return statements:
+the payload must be assignable to the enclosing function/lambda/accessor return
+type.
 
 Implicit return inference for methods/functions/lambdas uses explicit `return`
 statements and the outer body tail expression only. Tail expressions inside nested
@@ -210,6 +214,11 @@ if flag {
 func log(msg: string) {
     Console.WriteLine(msg)
     return            // equivalent to returning ()
+}
+
+func firstCharOrFail(name: string?) -> Result<int, string> {
+    val required = name ?? return .Error("Missing name")
+    return .Ok(required.Length)
 }
 ```
 
