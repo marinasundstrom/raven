@@ -1,4 +1,5 @@
 import System.*
+import System.Console.*
 
 Test(null)
 
