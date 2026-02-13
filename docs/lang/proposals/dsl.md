@@ -21,6 +21,7 @@ Typical use cases include:
 * Query builders
 * Validation pipelines
 * Structured code generation
+* Declarative wrappers over existing object models (for example, MAUI or WPF)
 
 ## Overview
 
@@ -202,6 +203,67 @@ During binding, the compiler:
 Builder blocks are never inferred implicitly; they are only used when a builder
 is explicitly specified.
 
+## Runtime model for UI/stateful DSLs
+
+For UI-style DSLs, the builder output should be treated as a description that
+drives a runtime state machine over an object graph. The key idea is:
+
+* The syntax stays declarative
+* Lowering remains builder-method based
+* Runtime integration performs create/update/dispose operations incrementally
+
+A typical lifecycle contract is:
+
+* `CreateNode(kind, args)` creates a framework node
+* `SetProperty(node, name, value)` updates scalar state
+* `AttachChild(parent, child, slot)` establishes hierarchy/ordering
+* `ReconcileChildren(parent, children)` diffs and updates child collections
+* `DisposeNode(node)` tears down removed nodes
+
+This model allows DSL blocks to act as deterministic state transitions rather
+than one-shot object construction.
+
+## Framework integration via adapters and extensions
+
+To support existing UI frameworks without modifying their types, DSL integration
+should be split into two layers:
+
+* **Core builder/runtime contract** in framework-agnostic libraries
+* **Framework adapters** (for example MAUI/WPF packages) that map contract
+  operations to concrete framework APIs
+
+Framework-facing entry points are exposed as extension methods or adapter-owned
+factory helpers, so integration does not require changes to framework classes.
+
+Conceptually:
+
+```raven
+val view = Window("My Window") {
+    StackPanel(.Horizontal) {
+        for item in items {
+            TextBlock(item.Name)
+        }
+    }
+}
+```
+
+is lowered into builder calls, then interpreted by the selected adapter as
+incremental graph operations against MAUI/WPF objects.
+
+## Identity and incremental updates
+
+UI/stateful DSLs should define stable identity rules to avoid full rebuilds on
+every update.
+
+Recommended matching order:
+
+1. Explicit key (if provided by DSL surface)
+2. Structural path + position in parent
+3. Fallback replacement (dispose + recreate)
+
+Without explicit identity rules, loop-heavy or condition-heavy DSL content is
+likely to cause unintended node churn.
+
 ## Interaction with initializers
 
 Builder blocks are distinct from:
@@ -224,6 +286,8 @@ The compiler produces targeted diagnostics when:
 
 ## Future work
 
+* Standardized adapter interfaces for tree and graph reconcilers
+* First-class key syntax for DSL identity control
 * Pattern matching inside builder blocks
 * Builder inference based on target type
 * Builder composition
