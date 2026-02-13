@@ -71,6 +71,12 @@ corresponding statement node (`BoundIfStatement`, `BoundWhileStatement`,
 `BoundForStatement`). These nodes capture the imperative intent and ensure any
 produced values are discarded.
 
+Standalone statement-form `match` (`match value { ... }`) is treated the same
+way: it executes in imperative statement context even though the syntax shape is
+shared with `match` expressions. This allows explicit `return` statements inside
+arm blocks in statement form, while expression-form `match` arms still follow
+expression-context rules.
+
 `BoundIfStatement` is flexible in its branches: each branch may be either a
 `BoundStatement` (such as a `return` or another `if`) or a `BoundExpression`. If an
 expression branch appears, its value is ignored.

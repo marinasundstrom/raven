@@ -1871,6 +1871,11 @@ In expression form, the `match` result is the selected arm expression value. In
 statement form, the selected arm expression is evaluated and its resulting value
 is discarded.
 
+In statement form, arm block expressions are interpreted in statement context.
+That means explicit `return` statements inside those arm blocks are valid and
+return from the enclosing function/method. In expression form, `return` remains
+disallowed in arm expressions and reports `RAV1900`.
+
 Arm bodies accept any expression, including block expressions:
 
 ```raven
@@ -1887,6 +1892,23 @@ match value {
     _ => {
         Console.WriteLine("other")
         ()
+    }
+}
+```
+
+Statement-form `match` with block arms may use explicit `return`:
+
+```raven
+class Evaluator {
+    Eval(scrutinee: bool) -> bool {
+        match scrutinee {
+            true => {
+                return true
+            }
+            false => {
+                return false
+            }
+        }
     }
 }
 ```

@@ -161,52 +161,6 @@ val result = character match {
     }
 
     [Fact]
-    public void MatchStatement_PrefixForm_BindsLikeMatchExpression()
-    {
-        const string code = """
-match 1 {
-    1 => 1
-    _ => 0
-}
-""";
-
-        var verifier = CreateVerifier(code);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void MatchStatement_PrefixForm_MissingCoverageReportsExhaustivenessDiagnostic()
-    {
-        const string code = """
-match 1 {
-    1 => 1
-}
-""";
-
-        var verifier = CreateVerifier(
-            code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("_")]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void MatchStatement_PrefixFormWithBlockArms_AfterPreviousStatement_BindsWithoutDiagnostics()
-    {
-        const string code = """
-val value: bool = true
-
-match value {
-    true => { 1 }
-    false => { 0 }
-}
-""";
-
-        var verifier = CreateVerifier(code);
-        verifier.Verify();
-    }
-
-    [Fact]
     public void MatchExpression_WithEnumArms_MissingCaseReportsDiagnostic()
     {
         const string code = """

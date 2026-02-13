@@ -460,6 +460,10 @@ log().ToString() // RAV1526
 let x = if flag { return 1 } else { 2 } // RAV1900
 ```
 
+This applies to expression contexts (for example, `if` expressions and
+expression-form `match` arms). It does not apply to statement-form `match`
+(`match value { ... }`) where arm blocks execute in statement context.
+
 ## RAV1901: If expression requires an else clause
 `if` expressions used for their value must include an `else` branch.
 
