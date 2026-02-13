@@ -692,6 +692,7 @@ partial class BlockBinder : Binder
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
+            ThrowExpressionSyntax throwExpression => BindThrowExpression(throwExpression),
             PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
@@ -714,19 +715,21 @@ partial class BlockBinder : Binder
     private BoundExpression BindNullCoalesceExpression(NullCoalesceExpressionSyntax coalesce)
     {
         var left = BindExpression(coalesce.Left);
-        var right = BindExpression(coalesce.Right);
 
         if (left is BoundErrorExpression)
             return left;
-        if (right is BoundErrorExpression)
-            return right;
 
         var leftType = left.Type ?? Compilation.ErrorTypeSymbol;
-        var rightType = right.Type ?? Compilation.ErrorTypeSymbol;
 
         // If the left is nullable, the result is typically the non-nullable left type
         // combined with the right type.
         var leftNonNullable = leftType.GetPlainType();
+        var right = BindExpressionWithTargetType(coalesce.Right, leftNonNullable);
+
+        if (right is BoundErrorExpression)
+            return right;
+
+        var rightType = right.Type ?? Compilation.ErrorTypeSymbol;
 
         var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { leftNonNullable, rightType });
 
@@ -2024,6 +2027,22 @@ partial class BlockBinder : Binder
         }
 
         return boundTry;
+    }
+
+    private BoundExpression BindThrowExpression(ThrowExpressionSyntax throwExpression)
+    {
+        var exceptionBase = Compilation.GetTypeByMetadataName("System.Exception")
+            ?? Compilation.ErrorTypeSymbol;
+
+        var expression = BindExpression(throwExpression.Expression);
+        expression = BindThrowValueExpression(expression, throwExpression.Expression, exceptionBase);
+
+        var targetType = GetTargetType(throwExpression);
+        var resultType = targetType is not null && targetType.TypeKind != TypeKind.Error
+            ? targetType
+            : Compilation.UnitTypeSymbol;
+
+        return new BoundThrowExpression(expression, resultType);
     }
 
     private BoundExpression BindPropagateExpression(PropagateExpressionSyntax propagateExpression)

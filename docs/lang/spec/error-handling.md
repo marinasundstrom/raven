@@ -4,14 +4,20 @@ Raven models exceptions as a last-resort control transfer for unexpected
 conditions. The language offers both statement-based structured exception
 handling and expression forms that surface errors as values.
 
-## `throw` statements
+## `throw` statements and expressions
 
 The `throw` keyword aborts the current control flow by propagating an exception.
 The operand must be an expression whose type derives from `System.Exception`;
-using any other type produces diagnostic `RAV1020`. Like other control-flow
-statements, `throw` may only appear in statement positions. When it occurs inside
-an expression context—such as within the branches of an `if` expression—the
-compiler reports diagnostic `RAV1907`.
+using any other type produces diagnostic `RAV1020`.
+
+Raven supports two forms:
+
+- Statement form: `throw <expression>` as a statement.
+- Expression form: `throw <expression>` anywhere an expression is valid (for example in `??`).
+
+The statement form still follows statement placement rules. When a throw statement
+appears inside an expression-only context (such as inside a block expression), the
+compiler reports `RAV1907`. Use throw expression form in those contexts.
 
 Throwing an exception unwinds the stack just like returning early: `use`
 declarations in the current scope are disposed before the exception escapes.
@@ -19,17 +25,18 @@ Because exceptions are expensive and intended for unexpected situations, prefer
 returning a dedicated result object (for example, a union or struct that carries
 either the value or an error) to model normal control flow. Reserve `throw` for
 genuinely exceptional circumstances so APIs remain predictable and declarative.
+This recommendation applies equally to throw statements and throw expressions.
 
 ```raven
-func parseInt(text: string) -> int | ParseError {
+func parseInt(text: string) -> Result<int, ParseError> {
     if text.isEmpty {
-        return ParseError.Empty
+        return .Error(ParseError.Empty)
     }
 
     try {
-        return int.Parse(text)
+        return .Ok(int.Parse(text))
     } catch (System.FormatException ex) {
-        return ParseError.Invalid(ex.Message)
+        return .Error(ParseError.Invalid(ex.Message))
     }
 }
 
@@ -39,6 +46,10 @@ func readConfig(path: string) {
         throw System.IO.FileNotFoundException(path)
     }
     // ...
+}
+
+func requireName(name: string?) -> string {
+    return name ?? throw ArgumentException("Missing name")
 }
 ```
 

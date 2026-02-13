@@ -27,6 +27,27 @@ func Test() {
     }
 
     [Fact]
+    public void ThrowExpression_ReportsDiagnosticOnEntireExpression()
+    {
+        const string code = """
+func Test(name: string?) -> string {
+    return name ?? throw Exception("missing")
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<ThrowStatementUseResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(ThrowStatementUseResultAnalyzer.DiagnosticId)
+                    .WithSpan(2, 20, 2, 46)
+            ],
+            disabledDiagnostics: ["RAV1014", "RAV0103"]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void NoThrowStatement_NoDiagnostic()
     {
         const string code = """

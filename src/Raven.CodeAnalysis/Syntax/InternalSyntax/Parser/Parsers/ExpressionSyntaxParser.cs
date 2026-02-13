@@ -612,6 +612,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseTryExpression();
                 break;
 
+            case SyntaxKind.ThrowKeyword:
+                expr = ParseThrowExpression();
+                break;
+
             case SyntaxKind.AwaitKeyword:
                 ReadToken();
                 expr = ParseFactorExpression();
@@ -641,6 +645,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             : Token(SyntaxKind.None);
         var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
         return TryExpression(tryKeyword, questionToken, expression);
+    }
+
+    private ThrowExpressionSyntax ParseThrowExpression()
+    {
+        var throwKeyword = ReadToken();
+        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        return ThrowExpression(throwKeyword, expression);
     }
 
     private bool TryParseLambdaExpression(out LambdaExpressionSyntax? lambda)

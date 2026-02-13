@@ -300,6 +300,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitRequiredResultExpression(requiredResultExpression);
                 break;
 
+            case BoundThrowExpression throwExpression:
+                EmitThrowExpression(throwExpression);
+                break;
+
             case BoundErrorExpression errorExpression:
                 EmitErrorExpression(errorExpression);
                 break;
@@ -502,6 +506,59 @@ internal partial class ExpressionGenerator : Generator
             return;
 
         EmitDefaultValue(errorExpression.Type);
+    }
+
+    private void EmitThrowExpression(BoundThrowExpression throwExpression)
+    {
+        var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
+        var expression = throwExpression.Expression;
+        var expressionType = expression.Type;
+        IILocal? resultTemp = null;
+        var hasValueOnStack = true;
+
+        var info = EmitExpression(expression);
+
+        if (localsToDispose.Length > 0 && expressionType is { TypeKind: not TypeKind.Error })
+        {
+            var clrType = ResolveClrType(expressionType);
+            resultTemp = SpillValueToLocalIfNeeded(clrType, info, keepValueOnStack: false);
+            hasValueOnStack = false;
+        }
+        else if (localsToDispose.Length > 0)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            hasValueOnStack = false;
+        }
+
+        EmitDispose(localsToDispose);
+
+        if (resultTemp is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+            hasValueOnStack = true;
+        }
+        else if (!hasValueOnStack)
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+            hasValueOnStack = true;
+        }
+
+        if (expressionType is { TypeKind: not TypeKind.Error })
+        {
+            if (expressionType.IsValueType)
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+
+            var exceptionType = Compilation.GetTypeByMetadataName("System.Exception");
+            if (exceptionType is { TypeKind: not TypeKind.Error })
+                ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(exceptionType));
+        }
+        else if (hasValueOnStack)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldnull);
+        }
+
+        ILGenerator.Emit(OpCodes.Throw);
     }
 
     private void EmitDelegateCreation(BoundExpression? receiver, IMethodSymbol method, INamedTypeSymbol delegateType)

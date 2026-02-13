@@ -16,16 +16,14 @@ public sealed class ThrowStatementUseResultAnalyzer : DiagnosticAnalyzer
         defaultSeverity: DiagnosticSeverity.Warning);
 
     public override void Initialize(AnalysisContext context)
-        => context.RegisterSyntaxNodeAction(AnalyzeThrowStatement, SyntaxKind.ThrowStatement);
+        => context.RegisterSyntaxNodeAction(
+            AnalyzeThrow,
+            SyntaxKind.ThrowStatement,
+            SyntaxKind.ThrowExpression);
 
-    private static void AnalyzeThrowStatement(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeThrow(SyntaxNodeAnalysisContext context)
     {
-        if (context.Node is not ThrowStatementSyntax throwStatement)
-            return;
-
-        var location = Location.Create(
-            throwStatement.SyntaxTree,
-            throwStatement.EffectiveSpan);
+        var location = Location.Create(context.Node.SyntaxTree, context.Node.EffectiveSpan);
 
         var diagnostic = Diagnostic.Create(Descriptor, location);
         context.ReportDiagnostic(diagnostic);

@@ -1098,11 +1098,18 @@ partial class BlockBinder
         if (_expressionContextDepth > 0)
             _diagnostics.ReportThrowStatementInExpression(location);
 
-        var expression = BindExpression(throwStatement.Expression);
-
         var exceptionBase = Compilation.GetTypeByMetadataName("System.Exception")
             ?? Compilation.ErrorTypeSymbol;
+        var expression = BindThrowValueExpression(BindExpression(throwStatement.Expression), throwStatement.Expression, exceptionBase);
 
+        return new BoundThrowStatement(expression);
+    }
+
+    private BoundExpression BindThrowValueExpression(
+        BoundExpression expression,
+        ExpressionSyntax expressionSyntax,
+        ITypeSymbol exceptionBase)
+    {
         if (ShouldAttemptConversion(expression) &&
             expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
             exceptionBase.TypeKind != TypeKind.Error)
@@ -1111,15 +1118,15 @@ partial class BlockBinder
             {
                 _diagnostics.ReportThrowExpressionMustBeException(
                     expressionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    throwStatement.Expression.GetLocation());
+                    expressionSyntax.GetLocation());
             }
             else
             {
-                expression = ApplyConversion(expression, exceptionBase, conversion, throwStatement.Expression);
+                expression = ApplyConversion(expression, exceptionBase, conversion, expressionSyntax);
             }
         }
 
-        return new BoundThrowStatement(expression);
+        return expression;
     }
 
     private BoundStatement BindLabeledStatement(LabeledStatementSyntax labeledStatement)

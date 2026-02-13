@@ -127,6 +127,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundDereferenceExpression dereference:
                 VisitDereferenceExpression(dereference);
                 break;
+            case BoundThrowExpression throwExpression:
+                VisitThrowExpression(throwExpression);
+                break;
             // Add others as needed
             default:
                 break;
@@ -210,6 +213,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
     }
 
     public virtual void VisitThrowStatement(BoundThrowStatement node)
+    {
+        VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitThrowExpression(BoundThrowExpression node)
     {
         VisitExpression(node.Expression);
     }
