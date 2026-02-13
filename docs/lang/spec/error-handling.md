@@ -15,9 +15,10 @@ Raven supports two forms:
 - Statement form: `throw <expression>` as a statement.
 - Expression form: `throw <expression>` anywhere an expression is valid (for example in `??`).
 
-The statement form still follows statement placement rules. When a throw statement
-appears inside an expression-only context (such as inside a block expression), the
-compiler reports `RAV1907`. Use throw expression form in those contexts.
+The statement form still follows statement placement rules. The compiler reports
+`RAV1907` when a statement `throw` is used in inline expression contexts (for
+example, expression `if`/`match` arms). Use throw expression form in those
+contexts.
 
 Unlike `return`, `throw` has a single control-flow meaning in both forms: it
 always aborts the current evaluation path and propagates an exception. That

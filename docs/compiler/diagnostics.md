@@ -18,6 +18,10 @@ Useful sample entry points:
 - `samples/async/async-await.rav` and `samples/async/async-task-return.rav` for async/await diagnostics.
 - `samples/match.rav` and `samples/patterns/*` for match/pattern diagnostics.
 
+Return/throw context note:
+- `RAV1900` and `RAV1907` apply to inline expression contexts.
+- Explicit `return <value>` and `throw` statements are valid in statement contexts (including statement-form `match` arms and supported block-expression early-exit regions).
+
 ## Diagnostics catalog
 
 | ID | Severity | Title | Message template | Related samples |

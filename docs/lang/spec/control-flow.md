@@ -157,9 +157,9 @@ Raven supports both statement and expression forms:
 * Expression form: `return <expression>` in expression contexts where early exit
   is valid (for example, `name ?? return -1`).
 
-`return` statements remain statement-only. When a return statement appears inside
-an expression context (for example, in a block expression), the compiler reports
-diagnostic `RAV1900`.
+`return` statements remain statement-only. The compiler reports `RAV1900` when a
+statement `return` is used in inline expression contexts (for example, expression
+`if`/`match` arms).
 
 `return` expression form is intentionally narrow. It models an abrupt exit from
 the enclosing callable while still fitting expression-oriented operators like
@@ -174,6 +174,11 @@ A `return` statement may omit its expression when the surrounding function or
 accessor returns `unit`. See [implementation notes](dotnet-implementation.md#return-statements)
 for how such returns are emitted. This is equivalent to returning the `()` value
 explicitly.
+
+```raven
+return            // equivalent to returning ()
+return ()         // explicit unit return
+```
 
 Within a method-like body, each `return` is validated against the declared
 return type of that body. A `return` without an expression is treated as
