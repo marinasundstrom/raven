@@ -25,7 +25,7 @@ extension Dumper<T> for T {
         }
         for each propertyInfo in type
             .GetProperties()
-            .Where(pi => !pi.GetMethod.IsStatic && pi.GetMethod.GetParameters().Length == 0) 
+            .Where(pi => !(pi.GetMethod?.IsStatic ?? false) && pi.GetMethod?.GetParameters()?.Length == 0) 
         {
             val value = propertyInfo.GetValue(obj)
             WriteLine("${propertyInfo.Name} = $value")
