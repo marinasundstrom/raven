@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -82,18 +83,8 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         if (inferred is ErrorTypeSymbol)
             return;
 
-        if (inferred is ITypeUnionSymbol union &&
-            union.Types.All(t => t.SpecialType != SpecialType.System_Unit && t.SpecialType != SpecialType.System_Void))
-        {
-            var commonBase = FindCommonBase(union.Types);
-            if (commonBase is not null &&
-                commonBase.SpecialType != SpecialType.None &&
-                commonBase.SpecialType != SpecialType.System_Object &&
-                commonBase.SpecialType != SpecialType.System_ValueType)
-            {
-                inferred = commonBase;
-            }
-        }
+        if (inferred is ITypeUnionSymbol union)
+            inferred = InferBestEffortType(context.SemanticModel.Compilation, union);
 
         var typeDisplay = FormatType(inferred);
         var location = identifier.GetLocation();
@@ -114,28 +105,68 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         return type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 
-    private static ITypeSymbol? FindCommonBase(IEnumerable<ITypeSymbol> types)
+    private static ITypeSymbol InferBestEffortType(Compilation compilation, ITypeUnionSymbol union)
     {
-        HashSet<INamedTypeSymbol>? intersection = null;
+        var members = union.Types
+            .Where(t => t.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void))
+            .Distinct<ITypeSymbol>(SymbolEqualityComparer.Default)
+            .ToArray();
 
-        foreach (var type in types)
+        if (members.Length <= 1)
+            return union;
+
+        var memberCandidate = members
+            .Select(candidate => new CandidateScore(candidate, ScoreImplicitTarget(compilation, members, candidate)))
+            .Where(candidate => candidate.Score >= 0 && !IsBroadTopType(candidate.Type))
+            .OrderBy(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat), StringComparer.Ordinal)
+            .FirstOrDefault();
+
+        if (memberCandidate is not null)
+            return memberCandidate.Type;
+
+        var commonDenominator = TypeSymbolExtensionsForCodeGen.FindCommonDenominator(members);
+        if (commonDenominator is not null &&
+            !IsBroadTopType(commonDenominator) &&
+            ScoreImplicitTarget(compilation, members, commonDenominator) >= 0)
         {
-            if (type is not INamedTypeSymbol named)
-                return null;
-
-            var bases = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-            for (INamedTypeSymbol? current = named; current is not null; current = current.BaseType)
-                bases.Add(current);
-
-            if (intersection is null)
-                intersection = bases;
-            else
-                intersection.IntersectWith(bases);
-
-            if (intersection.Count == 0)
-                return null;
+            return commonDenominator;
         }
 
-        return intersection?.FirstOrDefault();
+        return union;
+    }
+
+    private static int ScoreImplicitTarget(Compilation compilation, ITypeSymbol[] sources, ITypeSymbol target)
+    {
+        var score = 0;
+        foreach (var source in sources)
+        {
+            var conversion = compilation.ClassifyConversion(source, target);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                return -1;
+
+            if (!conversion.IsIdentity)
+                score++;
+        }
+
+        return score;
+    }
+
+    private static bool IsBroadTopType(ITypeSymbol type)
+    {
+        return type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType;
+    }
+
+    private sealed class CandidateScore
+    {
+        public CandidateScore(ITypeSymbol type, int score)
+        {
+            Type = type;
+            Score = score;
+        }
+
+        public ITypeSymbol Type { get; }
+
+        public int Score { get; }
     }
 }

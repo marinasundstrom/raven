@@ -74,6 +74,61 @@ class C {
     }
 
     [Fact]
+    public void MethodWithoutAnnotation_WithImplicitlyConvertibleReturnTypes_SuggestsCommonType()
+    {
+        const string code = """
+class C {
+    GetInt() -> int => 1
+    GetLong() -> long => 2
+
+    Test(flag: bool) {
+        if flag {
+            return GetInt()
+        } else {
+            return GetLong()
+        }
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
+            expectedDiagnostics: [
+                new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
+                    .WithSpan(5, 5, 5, 9)
+                    .WithArguments("Test", "long")
+            ],
+            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MethodWithoutAnnotation_WhenOnlyCommonTypeIsObject_SuggestsUnion()
+    {
+        const string code = """
+class C {
+    Test(flag: bool) {
+        if flag {
+            return 1
+        } else {
+            return "x"
+        }
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
+            expectedDiagnostics: [
+                new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
+                    .WithSpan(2, 5, 2, 9)
+                    .WithArguments("Test", "int | string")
+            ],
+            disabledDiagnostics: ["RAV1503", "RAV1014"]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MethodReturningUnitWithoutAnnotation_NoDiagnostic()
     {
         const string code = """
