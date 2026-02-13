@@ -745,17 +745,35 @@ partial class BlockBinder : Binder
             return right;
 
         var rightType = right.Type ?? Compilation.ErrorTypeSymbol;
+        var rightNeverCompletes = IsEarlyExitExpression(right, coalesce.Right);
 
-        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { leftNonNullable, rightType });
+        var resultType = rightNeverCompletes
+            ? leftNonNullable
+            : TypeSymbolNormalization.NormalizeUnion(new[] { leftNonNullable, rightType });
 
         // Ensure the RHS can be used as the result type.
-        right = PrepareRightForAssignment(right, resultType, coalesce.Right);
-        if (right is BoundErrorExpression)
-            return right;
+        if (!rightNeverCompletes)
+        {
+            right = PrepareRightForAssignment(right, resultType, coalesce.Right);
+            if (right is BoundErrorExpression)
+                return right;
+        }
 
         // NOTE: We keep `left` as-is (possibly nullable). Codegen will implement the
         // short-circuit null test and produce `resultType`.
         return new BoundNullCoalesceExpression(left, right, resultType);
+    }
+
+    private bool IsEarlyExitExpression(BoundExpression expression, ExpressionSyntax syntax)
+    {
+        if (expression is BoundReturnExpression or BoundThrowExpression)
+            return true;
+
+        if (syntax is not BlockSyntax block)
+            return false;
+
+        var controlFlow = SemanticModel.AnalyzeControlFlowInternal(block, analyzeJumpPoints: false);
+        return controlFlow is { Succeeded: true, EndPointIsReachable: false };
     }
 
     private BoundExpression BindSelfExpression(SelfExpressionSyntax selfExpression)
