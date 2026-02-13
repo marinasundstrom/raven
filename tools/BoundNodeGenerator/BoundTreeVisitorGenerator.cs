@@ -6,9 +6,76 @@ namespace BoundNodeGenerator;
 
 static class BoundTreeVisitorGenerator
 {
+    private static bool IsDerivedFrom(
+        BoundNodeModel node,
+        string rootTypeName,
+        IReadOnlyDictionary<string, BoundNodeModel> byName)
+    {
+        if (node.Name == rootTypeName)
+            return true;
+
+        var currentBase = node.BaseTypeName;
+        while (!string.IsNullOrEmpty(currentBase))
+        {
+            if (string.Equals(currentBase, rootTypeName, StringComparison.Ordinal))
+                return true;
+
+            if (!byName.TryGetValue(currentBase!, out var baseModel))
+                break;
+
+            currentBase = baseModel.BaseTypeName;
+        }
+
+        return false;
+    }
+
+    private static void AppendDispatchVoid(
+        StringBuilder builder,
+        string methodName,
+        string parameterType,
+        string parameterName,
+        IEnumerable<BoundNodeModel> cases)
+    {
+        builder.AppendLine($"    public virtual void {methodName}({parameterType} {parameterName})");
+        builder.AppendLine("    {");
+        builder.AppendLine($"        switch ({parameterName})");
+        builder.AppendLine("        {");
+
+        foreach (var node in cases.OrderBy(n => n.Name, StringComparer.Ordinal))
+            builder.AppendLine($"            case {node.Name} n: Visit{node.VisitorMethodName}(n); return;");
+
+        builder.AppendLine($"            default: DefaultVisit({parameterName}); return;");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+    }
+
+    private static void AppendDispatchGeneric(
+        StringBuilder builder,
+        string methodName,
+        string parameterType,
+        string parameterName,
+        IEnumerable<BoundNodeModel> cases)
+    {
+        builder.AppendLine($"    public virtual TResult {methodName}({parameterType} {parameterName})");
+        builder.AppendLine("    {");
+        builder.AppendLine($"        return {parameterName} switch");
+        builder.AppendLine("        {");
+
+        foreach (var node in cases.OrderBy(n => n.Name, StringComparer.Ordinal))
+            builder.AppendLine($"            {node.Name} n => Visit{node.VisitorMethodName}(n),");
+
+        builder.AppendLine($"            _ => DefaultVisit({parameterName}),");
+        builder.AppendLine("        };");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+    }
+
     public static string GenerateVisitor(IEnumerable<BoundNodeModel> nodes)
     {
-        var concreteNodes = nodes.Where(static n => !n.IsAbstract)
+        var allNodes = nodes.ToList();
+        var byName = allNodes.ToDictionary(n => n.Name, StringComparer.Ordinal);
+        var concreteNodes = allNodes.Where(static n => !n.IsAbstract)
             .OrderBy(n => n.Name, StringComparer.Ordinal)
             .ToList();
 
@@ -20,6 +87,19 @@ static class BoundTreeVisitorGenerator
         builder.AppendLine();
         builder.AppendLine("partial class BoundTreeVisitor");
         builder.AppendLine("{");
+
+        AppendDispatchVoid(builder, "VisitStatement", "BoundStatement", "node", concreteNodes.Where(n => IsDerivedFrom(n, "BoundStatement", byName)));
+        AppendDispatchVoid(
+            builder,
+            "VisitExpression",
+            "BoundExpression",
+            "node",
+            concreteNodes.Where(n =>
+                IsDerivedFrom(n, "BoundExpression", byName) &&
+                !IsDerivedFrom(n, "BoundPattern", byName) &&
+                !IsDerivedFrom(n, "BoundDesignator", byName)));
+        AppendDispatchVoid(builder, "VisitPattern", "BoundPattern", "node", concreteNodes.Where(n => IsDerivedFrom(n, "BoundPattern", byName)));
+        AppendDispatchVoid(builder, "VisitDesignator", "BoundDesignator", "node", concreteNodes.Where(n => IsDerivedFrom(n, "BoundDesignator", byName)));
 
         foreach (var node in concreteNodes)
         {
@@ -39,7 +119,9 @@ static class BoundTreeVisitorGenerator
 
     public static string GenerateGenericVisitor(IEnumerable<BoundNodeModel> nodes)
     {
-        var concreteNodes = nodes.Where(static n => !n.IsAbstract)
+        var allNodes = nodes.ToList();
+        var byName = allNodes.ToDictionary(n => n.Name, StringComparer.Ordinal);
+        var concreteNodes = allNodes.Where(static n => !n.IsAbstract)
             .OrderBy(n => n.Name, StringComparer.Ordinal)
             .ToList();
 
@@ -51,6 +133,19 @@ static class BoundTreeVisitorGenerator
         builder.AppendLine();
         builder.AppendLine("partial class BoundTreeVisitor<TResult>");
         builder.AppendLine("{");
+
+        AppendDispatchGeneric(builder, "VisitStatement", "BoundStatement", "node", concreteNodes.Where(n => IsDerivedFrom(n, "BoundStatement", byName)));
+        AppendDispatchGeneric(
+            builder,
+            "VisitExpression",
+            "BoundExpression",
+            "node",
+            concreteNodes.Where(n =>
+                IsDerivedFrom(n, "BoundExpression", byName) &&
+                !IsDerivedFrom(n, "BoundPattern", byName) &&
+                !IsDerivedFrom(n, "BoundDesignator", byName)));
+        AppendDispatchGeneric(builder, "VisitPattern", "BoundPattern", "node", concreteNodes.Where(n => IsDerivedFrom(n, "BoundPattern", byName)));
+        AppendDispatchGeneric(builder, "VisitDesignator", "BoundDesignator", "node", concreteNodes.Where(n => IsDerivedFrom(n, "BoundDesignator", byName)));
 
         foreach (var node in concreteNodes)
         {

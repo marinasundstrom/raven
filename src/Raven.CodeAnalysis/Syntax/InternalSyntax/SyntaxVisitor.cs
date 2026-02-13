@@ -60,19 +60,4 @@ internal abstract partial class SyntaxVisitor
     {
         DefaultVisit(skippedTokens);
     }
-
-    public virtual void VisitPattern(PatternSyntax pattern)
-    {
-        DefaultVisit(pattern);
-    }
-
-    public virtual void VisitVariableDesignation(VariableDesignationSyntax variableDesignation)
-    {
-        DefaultVisit(variableDesignation);
-    }
-
-    public virtual void VisitExpressionOrPattern(ExpressionOrPatternSyntax expressionOrPattern)
-    {
-        DefaultVisit(expressionOrPattern);
-    }
 }

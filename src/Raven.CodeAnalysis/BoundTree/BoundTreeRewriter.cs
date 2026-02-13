@@ -24,7 +24,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
         where T : BoundNode
     {
         foreach (var node in nodes)
-            yield return (T)node.Accept(this)!;
+            yield return (T)Visit(node)!;
     }
 
     public virtual ImmutableArray<T> VisitSymbolList<T>(IEnumerable<ISymbol?> symbols)
@@ -49,44 +49,6 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
         return builder.MoveToImmutable();
     }
 
-    public virtual BoundStatement VisitStatement(BoundStatement statement)
-    {
-        return statement switch
-        {
-            BoundReturnStatement ret => (BoundStatement)VisitReturnStatement(ret)!,
-            BoundExpressionStatement expr => (BoundStatement)VisitExpressionStatement(expr)!,
-            BoundLocalDeclarationStatement localDecl => (BoundStatement)VisitLocalDeclarationStatement(localDecl)!,
-            BoundFunctionStatement func => (BoundStatement)VisitFunctionStatement(func)!,
-            BoundIfStatement ifStmt => (BoundStatement)VisitIfStatement(ifStmt)!,
-            BoundTryStatement tryStmt => (BoundStatement)VisitTryStatement(tryStmt)!,
-            BoundLabeledStatement labeledStmt => (BoundStatement)VisitLabeledStatement(labeledStmt)!,
-            BoundGotoStatement gotoStmt => (BoundStatement)VisitGotoStatement(gotoStmt)!,
-            BoundConditionalGotoStatement conditionalGotoStmt => (BoundStatement)VisitConditionalGotoStatement(conditionalGotoStmt)!,
-            BoundBreakStatement breakStmt => (BoundStatement)VisitBreakStatement(breakStmt)!,
-            BoundContinueStatement continueStmt => (BoundStatement)VisitContinueStatement(continueStmt)!,
-            BoundWhileStatement whileStmt => (BoundStatement)VisitWhileStatement(whileStmt)!,
-            BoundForStatement forStmt => (BoundStatement)VisitForStatement(forStmt)!,
-            BoundBlockStatement blockStmt => (BoundStatement)VisitBlockStatement(blockStmt)!,
-            BoundAssignmentStatement assignmentStmt => (BoundStatement)VisitAssignmentStatement(assignmentStmt)!,
-            BoundYieldReturnStatement yieldReturn => (BoundStatement)VisitYieldReturnStatement(yieldReturn)!,
-            BoundYieldBreakStatement yieldBreak => (BoundStatement)VisitYieldBreakStatement(yieldBreak)!,
-            _ => statement,
-        };
-    }
-
-    public virtual BoundExpression? VisitExpression(BoundExpression? node)
-    {
-        if (node is null)
-            return null;
-
-        if (node is BoundPattern pattern)
-            return (BoundExpression?)VisitPattern(pattern);
-
-        if (node is BoundDesignator designator)
-            return (BoundExpression?)VisitDesignator(designator);
-
-        return (BoundExpression?)Visit(node);
-    }
     public virtual BoundNode? VisitAssignmentExpression(BoundAssignmentExpression node) => node;
 
     public virtual BoundNode? VisitBreakStatement(BoundBreakStatement node) => node;
@@ -149,27 +111,4 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     {
         return label;
     }
-
-
-    public virtual BoundNode VisitPattern(BoundPattern pattern)
-    {
-        return pattern switch
-        {
-            BoundAndPattern andPattern => VisitAndPattern(andPattern) ?? andPattern,
-            BoundOrPattern orPattern => VisitOrPattern(orPattern) ?? orPattern,
-            BoundNotPattern notPattern => VisitNotPattern(notPattern) ?? notPattern,
-            BoundDeclarationPattern declarationPattern => VisitDeclarationPattern(declarationPattern) ?? declarationPattern,
-            _ => pattern
-        };
-    }
-
-    public virtual BoundNode VisitDesignator(BoundDesignator designator)
-    {
-        return designator switch
-        {
-            BoundSingleVariableDesignator singleVariable => VisitSingleVariableDesignator(singleVariable) ?? singleVariable,
-            _ => designator
-        };
-    }
-
 }

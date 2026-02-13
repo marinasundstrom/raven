@@ -17,22 +17,6 @@ public abstract partial class SyntaxVisitor<TResult>
     {
         return default!;
     }
-
-    public virtual TResult? VisitPattern(PatternSyntax? node)
-    {
-        return Visit(node);
-    }
-
-    public virtual TResult? VisitVariableDesignation(VariableDesignationSyntax? node)
-    {
-        return Visit(node);
-    }
-
-    public virtual TResult? VisitExpressionOrPattern(ExpressionOrPatternSyntax? node)
-    {
-        return Visit(node);
-    }
-
     public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia syntaxTrivia)
     {
         return syntaxTrivia;

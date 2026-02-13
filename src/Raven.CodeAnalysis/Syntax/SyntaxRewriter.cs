@@ -45,57 +45,6 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
     {
         return default;
     }
-
-    public virtual SyntaxNode? VisitStatement(StatementSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public virtual SyntaxNode? VisitExpression(ExpressionSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public override SyntaxNode? VisitPattern(PatternSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public override SyntaxNode? VisitVariableDesignation(VariableDesignationSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public override SyntaxNode? VisitExpressionOrPattern(ExpressionOrPatternSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public virtual SyntaxNode? VisitType(TypeSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public virtual SyntaxNode? VisitName(NameSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public virtual SyntaxNode? VisitUnqualifiedName(UnqualifiedNameSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public virtual SyntaxNode? VisitSimpleName(SimpleNameSyntax? node)
-    {
-        return node?.Accept(this);
-    }
-
-    public virtual ConstructorInitializerSyntax? VisitConstructorInitializer(ConstructorInitializerSyntax? node)
-    {
-        return (ConstructorInitializerSyntax?)node?.Accept(this);
-    }
-
     public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement>? list0)
         where TElement : SyntaxNode
     {

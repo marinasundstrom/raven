@@ -70,19 +70,4 @@ internal abstract partial class SyntaxVisitor<TResult>
     {
         return DefaultVisit(skippedTokens);
     }
-
-    public virtual TResult VisitPattern(PatternSyntax pattern)
-    {
-        return DefaultVisit(pattern);
-    }
-
-    public virtual TResult VisitVariableDesignation(VariableDesignationSyntax variableDesignation)
-    {
-        return DefaultVisit(variableDesignation);
-    }
-
-    public virtual TResult VisitExpressionOrPattern(ExpressionOrPatternSyntax expressionOrPattern)
-    {
-        return DefaultVisit(expressionOrPattern);
-    }
 }

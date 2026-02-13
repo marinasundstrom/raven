@@ -22,8 +22,4 @@ public abstract partial class SyntaxVisitor
 
     }
 
-    public virtual void VisitExpressionOrPattern(ExpressionOrPatternSyntax node)
-    {
-
-    }
 }

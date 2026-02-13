@@ -25,9 +25,6 @@ static class SpecificationLoader
 
             foreach (var classDeclaration in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
             {
-                if (!classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.PartialKeyword)))
-                    continue;
-
                 if (!IsBoundNodeClass(classDeclaration))
                     continue;
 
@@ -36,7 +33,15 @@ static class SpecificationLoader
                     continue;
 
                 var accessibility = SyntaxUtilities.GetAccessibility(classDeclaration.Modifiers);
+                var isPartial = classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.PartialKeyword));
                 var isAbstract = classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.AbstractKeyword));
+                var baseTypeName = classDeclaration.BaseList?.Types
+                    .Select(t => SyntaxUtilities.GetSimpleName(t.Type))
+                    .FirstOrDefault(n => !string.IsNullOrEmpty(n) &&
+                                         n.StartsWith("Bound", StringComparison.Ordinal) &&
+                                         !n.Contains("Visitor", StringComparison.Ordinal) &&
+                                         !n.Contains("Walker", StringComparison.Ordinal) &&
+                                         !n.Contains("Rewriter", StringComparison.Ordinal));
 
                 var ctor = classDeclaration.Members
                     .OfType<ConstructorDeclarationSyntax>()
@@ -52,6 +57,8 @@ static class SpecificationLoader
                     classDeclaration.Identifier.Text,
                     namespaceName,
                     accessibility,
+                    baseTypeName,
+                    isPartial,
                     isAbstract,
                     parameters);
 

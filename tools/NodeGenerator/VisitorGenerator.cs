@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -15,9 +16,90 @@ namespace Raven.Generators;
 
 public static class VisitorGenerator
 {
+    private static bool IsDerivedFrom(
+        SyntaxNodeModel candidate,
+        string rootName,
+        IReadOnlyDictionary<string, SyntaxNodeModel> byName)
+    {
+        var current = candidate;
+        while (!string.IsNullOrEmpty(current.Inherits))
+        {
+            if (string.Equals(current.Inherits, rootName, StringComparison.Ordinal))
+                return true;
+
+            if (!byName.TryGetValue(current.Inherits, out current!))
+                break;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<(SyntaxNodeModel Root, List<SyntaxNodeModel> Cases)> GetDispatchGroups(List<SyntaxNodeModel> allNodes)
+    {
+        var byName = allNodes.ToDictionary(n => n.Name, StringComparer.Ordinal);
+        foreach (var root in allNodes.Where(n => n.IsAbstract))
+        {
+            var cases = allNodes
+                .Where(n => !n.IsAbstract && IsDerivedFrom(n, root.Name, byName))
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
+
+            if (cases.Count > 0)
+                yield return (root, cases);
+        }
+    }
+
+    private static MemberDeclarationSyntax BuildVisitorDispatchMethod(SyntaxNodeModel root, IReadOnlyList<SyntaxNodeModel> cases)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"public virtual void Visit{root.Name}({root.Name}Syntax node)");
+        sb.AppendLine("{");
+        sb.AppendLine("    switch (node)");
+        sb.AppendLine("    {");
+        foreach (var c in cases)
+            sb.AppendLine($"        case {c.Name}Syntax n: Visit{c.Name}(n); return;");
+        sb.AppendLine("        default: DefaultVisit(node); return;");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return ParseMemberDeclaration(sb.ToString())!;
+    }
+
+    private static MemberDeclarationSyntax BuildGenericVisitorDispatchMethod(SyntaxNodeModel root, IReadOnlyList<SyntaxNodeModel> cases)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"public virtual TResult Visit{root.Name}({root.Name}Syntax node)");
+        sb.AppendLine("{");
+        sb.AppendLine("    return node switch");
+        sb.AppendLine("    {");
+        foreach (var c in cases)
+            sb.AppendLine($"        {c.Name}Syntax n => Visit{c.Name}(n),");
+        sb.AppendLine("        _ => DefaultVisit(node),");
+        sb.AppendLine("    };");
+        sb.AppendLine("}");
+        return ParseMemberDeclaration(sb.ToString())!;
+    }
+
+    private static MemberDeclarationSyntax BuildRewriterDispatchMethod(SyntaxNodeModel root, IReadOnlyList<SyntaxNodeModel> cases)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"public override SyntaxNode? Visit{root.Name}({root.Name}Syntax node)");
+        sb.AppendLine("{");
+        sb.AppendLine("    return node switch");
+        sb.AppendLine("    {");
+        foreach (var c in cases)
+            sb.AppendLine($"        {c.Name}Syntax n => Visit{c.Name}(n),");
+        sb.AppendLine("        _ => node,");
+        sb.AppendLine("    };");
+        sb.AppendLine("}");
+        return ParseMemberDeclaration(sb.ToString())!;
+    }
 
     public static CompilationUnitSyntax GenerateVisitorClass(List<SyntaxNodeModel> allNodes, bool isPublic = true, string namespaceName = "Raven.CodeAnalysis.Syntax")
     {
+        var dispatchMethods = GetDispatchGroups(allNodes)
+            .Select(group => BuildVisitorDispatchMethod(group.Root, group.Cases))
+            .ToArray();
+
         var methods = allNodes
             .Where(n => !n.IsAbstract)
             .Select(n =>
@@ -39,7 +121,7 @@ public static class VisitorGenerator
         var visitorClass =
             ClassDeclaration("SyntaxVisitor")
                 .AddModifiers(isPublic ? Token(SyntaxKind.PublicKeyword) : Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.AbstractKeyword), Token(SyntaxKind.PartialKeyword))
-                .AddMembers(methods);
+                .AddMembers(dispatchMethods.Concat(methods).ToArray());
 
         return CompilationUnit()
             .AddUsings(UsingDirective(ParseName(namespaceName)))
@@ -50,6 +132,10 @@ public static class VisitorGenerator
 
     public static CompilationUnitSyntax GenerateGenericVisitorClass(List<SyntaxNodeModel> allNodes, bool isPublic = true, string namespaceName = "Raven.CodeAnalysis.Syntax")
     {
+        var dispatchMethods = GetDispatchGroups(allNodes)
+            .Select(group => BuildGenericVisitorDispatchMethod(group.Root, group.Cases))
+            .ToArray();
+
         var methods = allNodes
             .Where(n => !n.IsAbstract)
             .Select(n =>
@@ -72,7 +158,7 @@ public static class VisitorGenerator
             ClassDeclaration("SyntaxVisitor")
                 .AddModifiers(isPublic ? Token(SyntaxKind.PublicKeyword) : Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.AbstractKeyword), Token(SyntaxKind.PartialKeyword))
                 .AddTypeParameterListParameters(TypeParameter("TResult"))
-                .AddMembers(methods);
+                .AddMembers(dispatchMethods.Concat(methods).ToArray());
 
         return CompilationUnit()
             .AddUsings(UsingDirective(ParseName(namespaceName)))
@@ -83,6 +169,10 @@ public static class VisitorGenerator
 
     public static CompilationUnitSyntax GenerateSyntaxRewriterClass(List<SyntaxNodeModel> allNodes, bool isPublic = true, string namespaceName = "Raven.CodeAnalysis.Syntax")
     {
+        var dispatchMethods = GetDispatchGroups(allNodes)
+            .Select(group => BuildRewriterDispatchMethod(group.Root, group.Cases))
+            .ToArray();
+
         var methods = allNodes
             .Where(n => !n.IsAbstract)
             .Select(n =>
@@ -134,7 +224,7 @@ public static class VisitorGenerator
                                     IdentifierName("node"),
                                     MemberBindingExpression(IdentifierName("Update"))))
                             .WithArgumentList(ArgumentList(SeparatedList(visitArgs))))));
-            });
+            }).Cast<MemberDeclarationSyntax>().ToArray();
 
         var classDecl =
             ClassDeclaration("SyntaxRewriter")
@@ -143,7 +233,7 @@ public static class VisitorGenerator
                     SimpleBaseType(GenericName("SyntaxVisitor")
                         .WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList<TypeSyntax>(
                             NullableType(IdentifierName("SyntaxNode")))))))))
-                .AddMembers(methods.ToArray());
+                .AddMembers(dispatchMethods.Concat(methods).ToArray());
 
         return CompilationUnit()
             .AddUsings(UsingDirective(ParseName(namespaceName)))

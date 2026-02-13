@@ -38,7 +38,7 @@ var symbolInterfaces = SpecificationLoader.LoadSymbolInterfaces(symbolsDir);
 var generatedBoundFiles = 0;
 var generatedSymbolFiles = 0;
 
-foreach (var node in boundNodes.Where(static n => !n.IsAbstract))
+foreach (var node in boundNodes.Where(static n => n.IsPartial && !n.IsAbstract))
 {
     var text = BoundNodePartialGenerator.Generate(node);
     File.WriteAllText(Path.Combine(boundOutputDir, $"{node.Name}.g.cs"), text);

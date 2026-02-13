@@ -13,9 +13,34 @@ static class BoundTreeRewriterGenerator
         "ContinueStatement",
     };
 
+    private static bool IsDerivedFrom(
+        BoundNodeModel node,
+        string rootTypeName,
+        IReadOnlyDictionary<string, BoundNodeModel> byName)
+    {
+        if (node.Name == rootTypeName)
+            return true;
+
+        var currentBase = node.BaseTypeName;
+        while (!string.IsNullOrEmpty(currentBase))
+        {
+            if (string.Equals(currentBase, rootTypeName, StringComparison.Ordinal))
+                return true;
+
+            if (!byName.TryGetValue(currentBase!, out var baseModel))
+                break;
+
+            currentBase = baseModel.BaseTypeName;
+        }
+
+        return false;
+    }
+
     public static string Generate(IEnumerable<BoundNodeModel> nodes)
     {
-        var concreteNodes = nodes.Where(static n => !n.IsAbstract)
+        var allNodes = nodes.ToList();
+        var byName = allNodes.ToDictionary(n => n.Name, StringComparer.Ordinal);
+        var concreteNodes = allNodes.Where(static n => !n.IsAbstract)
             .OrderBy(n => n.Name, StringComparer.Ordinal)
             .ToList();
 
@@ -36,6 +61,66 @@ static class BoundTreeRewriterGenerator
         builder.AppendLine();
         builder.AppendLine("partial class BoundTreeRewriter");
         builder.AppendLine("{");
+
+        var statementNodes = concreteNodes.Where(n => IsDerivedFrom(n, "BoundStatement", byName)).OrderBy(n => n.Name, StringComparer.Ordinal).ToList();
+        var expressionNodes = concreteNodes
+            .Where(n =>
+                IsDerivedFrom(n, "BoundExpression", byName) &&
+                !IsDerivedFrom(n, "BoundPattern", byName) &&
+                !IsDerivedFrom(n, "BoundDesignator", byName))
+            .OrderBy(n => n.Name, StringComparer.Ordinal)
+            .ToList();
+        var patternNodes = concreteNodes.Where(n => IsDerivedFrom(n, "BoundPattern", byName)).OrderBy(n => n.Name, StringComparer.Ordinal).ToList();
+        var designatorNodes = concreteNodes.Where(n => IsDerivedFrom(n, "BoundDesignator", byName)).OrderBy(n => n.Name, StringComparer.Ordinal).ToList();
+
+        builder.AppendLine("    public virtual BoundStatement VisitStatement(BoundStatement statement)");
+        builder.AppendLine("    {");
+        builder.AppendLine("        return statement switch");
+        builder.AppendLine("        {");
+        foreach (var node in statementNodes)
+            builder.AppendLine($"            {node.Name} n => (BoundStatement)Visit{node.VisitorMethodName}(n)!,");
+        builder.AppendLine("            _ => statement,");
+        builder.AppendLine("        };");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+
+        builder.AppendLine("    public virtual BoundExpression? VisitExpression(BoundExpression? node)");
+        builder.AppendLine("    {");
+        builder.AppendLine("        if (node is null)");
+        builder.AppendLine("            return null;");
+        builder.AppendLine();
+        builder.AppendLine("        return node switch");
+        builder.AppendLine("        {");
+        builder.AppendLine("            BoundPattern p => (BoundExpression?)VisitPattern(p),");
+        builder.AppendLine("            BoundDesignator d => (BoundExpression?)VisitDesignator(d),");
+        foreach (var node in expressionNodes)
+            builder.AppendLine($"            {node.Name} n => (BoundExpression?)Visit{node.VisitorMethodName}(n),");
+        builder.AppendLine("            _ => node,");
+        builder.AppendLine("        };");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+
+        builder.AppendLine("    public virtual BoundNode VisitPattern(BoundPattern pattern)");
+        builder.AppendLine("    {");
+        builder.AppendLine("        return pattern switch");
+        builder.AppendLine("        {");
+        foreach (var node in patternNodes)
+            builder.AppendLine($"            {node.Name} n => Visit{node.VisitorMethodName}(n) ?? n,");
+        builder.AppendLine("            _ => pattern,");
+        builder.AppendLine("        };");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+
+        builder.AppendLine("    public virtual BoundNode VisitDesignator(BoundDesignator designator)");
+        builder.AppendLine("    {");
+        builder.AppendLine("        return designator switch");
+        builder.AppendLine("        {");
+        foreach (var node in designatorNodes)
+            builder.AppendLine($"            {node.Name} n => Visit{node.VisitorMethodName}(n) ?? n,");
+        builder.AppendLine("            _ => designator,");
+        builder.AppendLine("        };");
+        builder.AppendLine("    }");
+        builder.AppendLine();
 
         foreach (var node in concreteNodes)
         {

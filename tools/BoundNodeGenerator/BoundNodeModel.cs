@@ -32,10 +32,12 @@ sealed record BoundNodeModel(
     string Name,
     string Namespace,
     string Accessibility,
+    string? BaseTypeName,
+    bool IsPartial,
     bool IsAbstract,
     IReadOnlyList<ParameterModel> Parameters)
 {
-    public bool HasUpdate => Parameters.Count > 0;
+    public bool HasUpdate => IsPartial && Parameters.Count > 0;
     public string VisitorMethodName => Name.StartsWith("Bound", StringComparison.Ordinal)
         ? Name["Bound".Length..]
         : Name;
