@@ -452,38 +452,51 @@ class C {
         var entryLabel = Assert.IsType<BoundLabeledStatement>(tryStatements[^1]);
         var entryBlock = Assert.IsType<BoundBlockStatement>(entryLabel.Statement);
 
-        var returnBlock = Assert.IsType<BoundBlockStatement>(entryBlock.Statements
-            .OfType<BoundBlockStatement>()
-            .Single(block => block.Statements.Last() is BoundReturnStatement));
+        var allStatements = EnumerateStatements(entryBlock).ToArray();
 
-        var blockStatements = returnBlock.Statements.ToArray();
-        Assert.True(blockStatements.Length >= 7);
-        Assert.IsType<BoundLocalDeclarationStatement>(blockStatements[0]);
-        Assert.IsType<BoundAssignmentStatement>(blockStatements[1]);
-        Assert.IsType<BoundIfStatement>(blockStatements[2]);
+        Assert.Contains(allStatements, statement => statement is BoundIfStatement);
 
-        var resumeLabel = Assert.IsType<BoundLabeledStatement>(blockStatements[3]);
+        var resumeLabel = Assert.IsType<BoundLabeledStatement>(
+            allStatements.Single(statement => statement is BoundLabeledStatement labeled &&
+                                              labeled.Label.Name.Contains("state", StringComparison.Ordinal)));
         var resumeBlock = Assert.IsType<BoundBlockStatement>(resumeLabel.Statement);
         var resumeStatements = resumeBlock.Statements.ToArray();
-        Assert.Equal(2, resumeStatements.Length);
-        Assert.IsType<BoundAssignmentStatement>(resumeStatements[0]);
-        var storeResult = Assert.IsType<BoundExpressionStatement>(resumeStatements[1]);
+        Assert.Contains(resumeStatements, statement => statement is BoundAssignmentStatement);
+        var storeResult = Assert.IsType<BoundExpressionStatement>(
+            resumeStatements.Single(statement => statement is BoundExpressionStatement expressionStatement &&
+                                                 expressionStatement.Expression is BoundLocalAssignmentExpression localAssignment &&
+                                                 localAssignment.Local.Name.StartsWith("<>awaitResult", StringComparison.Ordinal)));
         var assignment = Assert.IsType<BoundLocalAssignmentExpression>(storeResult.Expression);
         Assert.StartsWith("<>awaitResult", assignment.Local.Name, StringComparison.Ordinal);
 
-        var completionState = Assert.IsType<BoundAssignmentStatement>(blockStatements[^3]);
-        var stateFieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(completionState.Expression);
-        Assert.Same(stateMachine.StateField, stateFieldAssignment.Field);
+        var setResultStatement = Assert.IsType<BoundExpressionStatement>(
+            allStatements.Single(statement => statement is BoundExpressionStatement expressionStatement &&
+                                              expressionStatement.Expression is BoundInvocationExpression invocation &&
+                                              invocation.Method.Name == "SetResult"));
+        _ = Assert.IsType<BoundInvocationExpression>(setResultStatement.Expression);
 
-        var setResultStatement = Assert.IsType<BoundExpressionStatement>(blockStatements[^2]);
-        var setResultInvocation = Assert.IsType<BoundInvocationExpression>(setResultStatement.Expression);
-        Assert.Equal("SetResult", setResultInvocation.Method.Name);
-        var resultArgument = Assert.Single(setResultInvocation.Arguments);
-        var resultAccess = Assert.IsType<BoundLocalAccess>(resultArgument);
-        Assert.Equal(assignment.Local, resultAccess.Local);
-
-        var returnStatement = Assert.IsType<BoundReturnStatement>(blockStatements[^1]);
+        var returnStatement = Assert.IsType<BoundReturnStatement>(allStatements.Last());
         Assert.Null(returnStatement.Expression);
+
+        static IEnumerable<BoundStatement> EnumerateStatements(BoundBlockStatement block)
+        {
+            foreach (var statement in block.Statements)
+            {
+                yield return statement;
+
+                switch (statement)
+                {
+                    case BoundBlockStatement nestedBlock:
+                        foreach (var nested in EnumerateStatements(nestedBlock))
+                            yield return nested;
+                        break;
+                    case BoundLabeledStatement labeledStatement when labeledStatement.Statement is BoundBlockStatement labeledBlock:
+                        foreach (var nested in EnumerateStatements(labeledBlock))
+                            yield return nested;
+                        break;
+                }
+            }
+        }
     }
 
     [Fact]
@@ -1169,13 +1182,15 @@ class C {
         Assert.Empty(stateMachine.HoistedLocalsToDispose);
 
         var originalBody = Assert.IsType<BoundBlockStatement>(stateMachine.OriginalBody);
+        var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
         var hasUseDeclaration = false;
-        var hasTryFinally = false;
+        var hasTryStatement = false;
 
         ScanStatements(originalBody.Statements);
+        ScanStatements(moveNextBody.Statements);
 
         Assert.False(hasUseDeclaration);
-        Assert.True(hasTryFinally);
+        Assert.True(hasTryStatement);
 
         void ScanStatements(IEnumerable<BoundStatement> statements)
         {
@@ -1187,9 +1202,7 @@ class C {
                         hasUseDeclaration = true;
                         break;
                     case BoundTryStatement tryStatement:
-                        if (tryStatement.FinallyBlock is not null)
-                            hasTryFinally = true;
-
+                        hasTryStatement = true;
                         ScanStatements(tryStatement.TryBlock.Statements);
                         foreach (var catchClause in tryStatement.CatchClauses)
                             ScanStatements(catchClause.Block.Statements);

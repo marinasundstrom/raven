@@ -1610,11 +1610,11 @@ internal static class AsyncLowerer
                 for (var guardIndex = 0; guardIndex < guards.Length; guardIndex++)
                 {
                     var guard = guards[guardIndex];
-                    if (_blockMap.TryGetValue(guard, out var mapped))
+                    var mapped = ResolveMappedGuardBlock(guard);
+                    if (!ReferenceEquals(mapped, guard))
                     {
                         builder.Add(mapped);
-                        if (!ReferenceEquals(mapped, guard))
-                            changed = true;
+                        changed = true;
                     }
                     else
                     {
@@ -1625,6 +1625,18 @@ internal static class AsyncLowerer
                 if (changed)
                     _dispatches[i] = new StateDispatch(dispatch.State, dispatch.Label, builder.MoveToImmutable());
             }
+        }
+
+        private BoundBlockStatement ResolveMappedGuardBlock(BoundBlockStatement guard)
+        {
+            var current = guard;
+
+            // Guard blocks can be rewritten more than once (placeholder -> intermediate -> final).
+            // Follow the remap chain so dispatch guards always reference the final block instance.
+            while (_blockMap.TryGetValue(current, out var mapped) && !ReferenceEquals(mapped, current))
+                current = mapped;
+
+            return current;
         }
 
         private ImmutableArray<BoundBlockStatement> GetCurrentGuardPath()
@@ -1980,6 +1992,30 @@ internal static class AsyncLowerer
 
                 var tryStatements = new List<BoundStatement>();
 
+                // Await lowering can produce a block-expression that contains resume labels.
+                // Keep those labels in statement flow inside this guarded try region so
+                // state dispatch never needs to jump into expression-only control flow.
+                if (expression is BoundBlockExpression blockExpression)
+                {
+                    var spilledStatements = blockExpression.Statements.ToList();
+                    BoundExpression blockValueExpression;
+
+                    if (spilledStatements.Count > 0 && spilledStatements[^1] is BoundExpressionStatement tailExpression)
+                    {
+                        blockValueExpression = tailExpression.Expression;
+                        spilledStatements.RemoveAt(spilledStatements.Count - 1);
+                    }
+                    else
+                    {
+                        blockValueExpression = new BoundUnitExpression(unitType);
+                    }
+
+                    if (spilledStatements.Count > 0)
+                        tryStatements.AddRange(spilledStatements);
+
+                    expression = blockValueExpression;
+                }
+
                 // If the try-expression already produces the enclosing Result type (common for `try? await ...` where
                 // the awaited expression returns Result<TOk, TErr>), do NOT wrap it in an Ok-case. Just pass it through.
                 // We still need the try/catch here to convert *thrown* exceptions (from await) into the Error-case.
@@ -2103,22 +2139,22 @@ internal static class AsyncLowerer
 
                 case BoundCarrierConditionalAccessExpression carrierConditionalAccessExpression:
                     {
-                        // Let the base rewriter visit/rewrite children, then ensure all carried
-                        // symbols/types are substituted for the constructed async state machine.
+                        // Keep object identity stable for dispatch/guard mapping in the async
+                        // rewriter; carrier symbols are already rewritten by node-specific visits.
                         var visited = (BoundExpression?)base.VisitCarrierConditionalAccessExpression(carrierConditionalAccessExpression)
                                       ?? carrierConditionalAccessExpression;
 
-                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, visited);
+                        return visited;
                     }
 
                 case BoundPropagateExpression propagateExpression:
                     {
-                        // Let the base rewriter visit/rewrite the operand first, then substitute
-                        // carried symbols/types so codegen never sees open/definition symbols.
+                        // Keep object identity stable for dispatch/guard mapping in the async
+                        // rewriter; propagate symbols are rewritten by node-specific visits.
                         var visited = (BoundExpression?)base.VisitPropagateExpression(propagateExpression)
                                       ?? propagateExpression;
 
-                        return AsyncMethodExpressionSubstituter.Substitute(_stateMachine, visited);
+                        return visited;
                     }
 
                 case BoundBinaryExpression binaryExpression:
