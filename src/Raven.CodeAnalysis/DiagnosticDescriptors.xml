@@ -172,6 +172,10 @@
     Title="Modifier not valid on member"
     Message="Modifier '{modifier}' is not valid on {memberKind} '{memberName}'" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0333" Identifier="OpenModifierRedundantOnAbstractClass"
+    Title="Redundant open modifier on abstract class"
+    Message="Modifier 'open' is redundant on abstract class '{typeName}'" Category="compiler"
+    Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0608" Identifier="AbstractMemberCannotHaveBody"
     Title="Abstract member cannot have a body"
     Message="'{memberName}' cannot declare a body because it is marked abstract" Category="compiler"

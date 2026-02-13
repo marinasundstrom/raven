@@ -166,6 +166,8 @@ public partial class SemanticModel
         INamespaceSymbol parentNamespace,
         INamedTypeSymbol? objectType)
     {
+        ReportRedundantOpenModifierOnAbstractClass(classDecl, _declarationDiagnostics);
+
         var declaredTypeKind = IsStructLikeNominalType(classDecl)
             ? TypeKind.Struct
             : TypeKind.Class;
@@ -266,6 +268,8 @@ public partial class SemanticModel
             {
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
+                        ReportRedundantOpenModifierOnAbstractClass(nestedClass, _declarationDiagnostics);
+
                         var nestedTypeKind = IsStructLikeNominalType(nestedClass)
                             ? TypeKind.Struct
                             : TypeKind.Class;
@@ -1261,6 +1265,27 @@ public partial class SemanticModel
 
     private static bool IsNominalTypeDeclaration(TypeDeclarationSyntax declaration)
         => declaration is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax;
+
+    private static void ReportRedundantOpenModifierOnAbstractClass(
+        TypeDeclarationSyntax declaration,
+        DiagnosticBag diagnostics)
+    {
+        if (declaration is not (ClassDeclarationSyntax or RecordDeclarationSyntax))
+            return;
+
+        var hasAbstractModifier = declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.AbstractKeyword);
+        if (!hasAbstractModifier)
+            return;
+
+        var hasOpenModifier = declaration.Modifiers.Any(static m => m.Kind == SyntaxKind.OpenKeyword);
+        if (!hasOpenModifier)
+            return;
+
+        var openModifier = declaration.Modifiers.First(static m => m.Kind == SyntaxKind.OpenKeyword);
+        diagnostics.ReportOpenModifierRedundantOnAbstractClass(
+            declaration.Identifier.ValueText,
+            openModifier.GetLocation());
+    }
 
     private static INamedTypeSymbol? GetDefaultBaseTypeForNominalDeclaration(
         TypeDeclarationSyntax declaration,

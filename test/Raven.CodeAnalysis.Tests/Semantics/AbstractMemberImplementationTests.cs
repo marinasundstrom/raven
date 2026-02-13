@@ -11,7 +11,7 @@ public class AbstractMemberImplementationTests : DiagnosticTestBase
     public void DerivedClassWithoutAbstractMember_ReportsWarning()
     {
         const string source = """
-open abstract class Base {
+abstract class Base {
     public abstract Bar()
 }
 

@@ -12,13 +12,20 @@ Allow classes to inherit from other classes while explicitly controlling whether
 
 ### Declaring an inheritable class
 
-Classes are sealed by default. A class must be marked `open` to allow derivation. This keeps instantiable classes from becoming
-base types unless their author consciously opts in:
+Classes are sealed by default. Marking a class `open` allows derivation and keeps instantiable classes from becoming base types
+unless their author consciously opts in:
 
 ```raven
 open class Parent {}
 class DerivedA : Parent {}
 class DerivedB : Parent {}
+```
+
+Abstract classes are implicitly open and can be inherited without adding `open`:
+
+```raven
+abstract class Animal {}
+class Dog : Animal {}
 ```
 
 ### Sealed hierarchies
@@ -54,12 +61,10 @@ Classes and their members support the existing access modifiers (`public`, `inte
 - ✅ Default constructor chaining to the base default constructor
 - ✅ Access modifiers on classes and members
 - ✅ Explicit base constructor invocation
-- ⚠️ Advanced inheritance features (interfaces, abstract classes, etc.)
+- ⚠️ Advanced inheritance features (for example multiple inheritance)
 
 ## Limitations
 
 * Only single inheritance is supported.
 * Base constructors must have no parameters for automatic chaining.
-* Interfaces, abstract classes, and other inheritance features are out of scope for this MVP.
 * Future work will explore Kotlin-style extensibility options and default constructors.
-

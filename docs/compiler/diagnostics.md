@@ -91,6 +91,7 @@ Return/throw context note:
 | `RAV0330` | Error | Type does not implement abstract member | Type '{typeName}' does not implement abstract member '{memberName}' from base type '{baseTypeName}' | — |
 | `RAV0331` | Warning | Member hides inherited member | Member '{memberName}' hides inherited member '{hiddenMemberName}'. Add the 'new' modifier if hiding was intended. | — |
 | `RAV0332` | Error | Modifier not valid on member | Modifier '{modifier}' is not valid on {memberKind} '{memberName}' | — |
+| `RAV0333` | Warning | Redundant open modifier on abstract class | Modifier 'open' is redundant on abstract class '{typeName}' | — |
 | `RAV0400` | Error | Nullable type not allowed in union | Nullable types are not allowed in union types | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
 | `RAV0401` | Error | Type parameter cannot be nullable | Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |
 | `RAV0402` | Error | Possible null reference access | Possible null reference access | `samples/nullable-reference.rav`, `samples/nullable-value.rav` |

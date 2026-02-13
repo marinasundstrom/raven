@@ -82,7 +82,7 @@ enum DialogResult {
 [JsonPolymorphic(TypeDiscriminatorPropertyName: "type")]
 [JsonDerivedType(typeof(Button), "Button")]
 [JsonDerivedType(typeof(StackPanel), "StackPanel")]
-open abstract class Control {}
+abstract class Control {}
 
 interface IHasChildren {
     Children: IEnumerable<Control> { get; }
