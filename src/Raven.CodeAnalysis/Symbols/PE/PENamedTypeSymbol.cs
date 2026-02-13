@@ -267,7 +267,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _isValueType = IsValueTypeLike(typeInfo);
 
-        if (typeInfo?.Name == "Object")
+        if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
         {
             TypeKind = TypeKind.Class;
             (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();

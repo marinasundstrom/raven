@@ -284,9 +284,8 @@ public partial class Compilation
                 continue;
             }
 
-            // Prefer runtime implementation assemblies over reference assemblies when both exist.
-            if (IsReferenceAssemblyPath(existingPath) && !IsReferenceAssemblyPath(fullPath))
-                pathByAssemblyIdentity[identityKey] = fullPath;
+            // Keep the first path for an identity (typically reference assemblies from project metadata).
+            // Preferring runtime assemblies here can hide reference-surface namespaces during binding.
         }
 
         var normalizedPaths = pathByAssemblyIdentity.Values
