@@ -617,6 +617,32 @@ func LoadAndParse(path: string) -> Result<int, Exception> {
 }
 ```
 
+##### Propagating into a different error type with an extension implicit converter
+
+```raven
+public class ParserError { }
+public class DomainError { }
+
+public extension ErrorConverters for ParserError {
+    public static implicit operator(value: ParserError) -> DomainError {
+        return DomainError()
+    }
+}
+
+public func Parse(text: string) -> Result<int, ParserError> {
+    return .Error(ParserError())
+}
+
+public func Execute(text: string) -> Result<int, DomainError> {
+    val value = Parse(text)?
+    return .Ok(value)
+}
+```
+
+When propagation uses a user-defined implicit conversion on the error channel,
+the compiler reports informational diagnostic `RAV1506` (at `?`, or at `?.` for
+direct-return carrier conditional access).
+
 ##### Unwrapping Option values
 
 ```raven

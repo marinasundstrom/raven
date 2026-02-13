@@ -1230,6 +1230,17 @@ partial class BlockBinder
                 enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 syntax.OperatorToken.GetLocation());
         }
+        else if (errorConversion.IsImplicit &&
+                 !errorConversion.IsIdentity &&
+                 errorConversion.IsUserDefined &&
+                 errorConversion.MethodSymbol is { } conversionMethod)
+        {
+            _diagnostics.ReportResultPropagationImplicitErrorConversion(
+                resultErrorType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                conversionMethod.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.OperatorToken.GetLocation());
+        }
     }
 
     private static bool IsDirectReturnExpression(ConditionalAccessExpressionSyntax syntax)

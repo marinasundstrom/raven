@@ -412,6 +412,24 @@ Implicit conversion between types is not allowed.
 let x: int = "hi" // RAV1503
 ```
 
+## RAV1506: Result propagation applies implicit error conversion
+Informational diagnostic emitted when `Result` error propagation relies on a
+user-defined implicit conversion from `EFrom` to `ETo` (for `expr?`, and for
+carrier conditional access in direct `return` expressions like `return expr?.M`).
+
+```raven
+public extension ErrorConverters for ParserError {
+    public static implicit operator(value: ParserError) -> DomainError {
+        return default
+    }
+}
+
+func Execute(text: string) -> Result<int, DomainError> {
+    val value = Parse(text)? // RAV1506 (info)
+    return .Ok(value)
+}
+```
+
 ## RAV1504: Cannot assign to type
 Assignment from incompatible type.
 

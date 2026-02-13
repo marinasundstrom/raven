@@ -2154,6 +2154,17 @@ partial class BlockBinder : Binder
                     enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     questionToken.GetLocation());
             }
+            else if (errorConversion.IsImplicit &&
+                     !errorConversion.IsIdentity &&
+                     errorConversion.IsUserDefined &&
+                     errorConversion.MethodSymbol is { } conversionMethod)
+            {
+                _diagnostics.ReportResultPropagationImplicitErrorConversion(
+                    operandInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    enclosingInfo.ErrorPayloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    conversionMethod.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    questionToken.GetLocation());
+            }
         }
 
         // Best-effort lookup for `UnwrapError()`; this can be an extension method.

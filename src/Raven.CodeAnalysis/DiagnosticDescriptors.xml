@@ -450,6 +450,10 @@
     Title="Cannot convert from type to type"
     Message="Cannot convert from '{fromType}' to '{toType}'" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1506" Identifier="ResultPropagationImplicitErrorConversion"
+    Title="Result propagation applies implicit error conversion"
+    Message="Result propagation converts errors from '{fromType}' to '{toType}' via implicit conversion '{conversion}'."
+    Category="compiler" Severity="Info" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1504" Identifier="CannotAssignFromTypeToType" Title="Cannot assign to type"
     Message="Cannot assign {fromType} to {toType}" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
