@@ -18,6 +18,8 @@ dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--frame
 - `--framework <tfm>` &ndash; target framework (e.g. `net8.0`)
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
 - `-o <path>` &ndash; output path (`.rav` inputs: assembly file path; `.ravenproj` inputs: output directory path)
+- `--publish` &ndash; publish-style output (copies runtime dependencies, emits runtime artifacts, and defaults `.ravenproj` output to `<project-dir>/bin/publish`)
+- `--run` &ndash; execute after successful compile (console apps only); runs from normal output (`bin` for `.ravenproj`) and stages runtime dependencies there as needed
 - `-s` &ndash; display the syntax tree (single file only)
 - `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` writes the source text, `pretty` emits highlighted syntax; append `:no-diagnostics` to skip diagnostic underlines, single file only)
 - `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
@@ -25,6 +27,7 @@ dotnet run --project src/Raven.Compiler -- init [--name <project-name>] [--frame
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
 - `-bt` &ndash; print the binder and bound tree (single file only)
+- `--no-emit` &ndash; analyze only; skip assembly emission
 - `-h`, `--help` &ndash; show help
 
 ## Init command

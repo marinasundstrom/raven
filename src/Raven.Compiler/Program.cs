@@ -37,6 +37,7 @@ var stopwatch = Stopwatch.StartNew();
 // --doc-tool [ravendoc|comments] - documentation generator
 // --doc-format [md|xml] - documentation format (comment emission only)
 // --no-emit         - skip emitting the output assembly
+// --publish         - emit runtime artifacts (.runtimeconfig.json and apphost for console apps)
 // --fix             - apply supported code fixes before diagnostics/emission
 // --format          - normalize whitespace and indentation in source files
 // --highlight       - display diagnostics with highlighted source
@@ -91,6 +92,7 @@ var enableOverloadLog = false;
 string? overloadLogPath = null;
 OverloadResolutionLog? overloadResolutionLog = null;
 var run = false;
+var publish = false;
 var emitDocs = false;
 string? documentationOutputPath = null;
 var documentationFormat = DocumentationFormat.Markdown;
@@ -282,6 +284,9 @@ for (int i = 0; i < args.Length; i++)
         case "--run":
             run = true;
             break;
+        case "--publish":
+            publish = true;
+            break;
         case "--output-type":
             if (!TryParseOutputKind(args, ref i, out var kind))
                 hasInvalidOption = true;
@@ -450,7 +455,9 @@ if (projectFileInput is not null)
     var projectDirectory = Path.GetDirectoryName(projectFileInput)!;
     outputDirectory = explicitOutputPath
         ? Path.GetFullPath(outputPath!)
-        : Path.Combine(projectDirectory, "bin");
+        : publish
+            ? Path.Combine(projectDirectory, "bin", "publish")
+            : Path.Combine(projectDirectory, "bin");
     assemblyName = defaultAssemblyBaseName;
     outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
 }
@@ -465,7 +472,9 @@ else
     if (string.IsNullOrEmpty(outputDirectory))
         outputDirectory = Directory.GetCurrentDirectory();
 }
-if (!string.IsNullOrEmpty(ravenCorePath))
+Directory.CreateDirectory(outputDirectory);
+
+if ((publish || run) && !string.IsNullOrEmpty(ravenCorePath))
 {
     Directory.CreateDirectory(outputDirectory!);
     var ravenCoreDestination = Path.Combine(outputDirectory!, Path.GetFileName(ravenCorePath));
@@ -533,6 +542,9 @@ string? ResolveAndCopyLocalDependency(string fileName, params string[] candidate
         var full = Path.GetFullPath(candidate);
         if (!File.Exists(full) || !IsValidAssemblyReference(full))
             continue;
+
+        if (!(publish || run))
+            return full;
 
         Directory.CreateDirectory(outputDirectory!);
         var destination = Path.Combine(outputDirectory!, fileName);
@@ -709,7 +721,7 @@ project = AddDefaultAnalyzers(project);
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
 
-if (!noEmit)
+if (!noEmit && (publish || run))
 {
     CopyNuGetReferencesToOutput(project, targetFramework, outputDirectory!);
 }
@@ -1470,6 +1482,7 @@ static void PrintHelp()
     Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
     Console.WriteLine("  -q                 Display AST as compilable C# code");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
+    Console.WriteLine("  --publish        Emit runtime artifacts; for .ravenproj defaults output to <project-dir>/bin/publish");
     Console.WriteLine("  --fix            Apply supported code fixes to source files before compiling");
     Console.WriteLine("  --format         Normalize whitespace and indentation in source files before compiling");
     Console.WriteLine("  --doc-tool [ravendoc|comments]");

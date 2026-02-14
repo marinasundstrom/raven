@@ -11,6 +11,32 @@ namespace Raven;
 
 static class AppHostBuilder
 {
+    public static void WriteRuntimeConfig(string outputPath, string targetFramework, string? frameworkVersion = null)
+    {
+        var tfm = TargetFrameworkMoniker.Parse(targetFramework);
+        if (tfm.Framework != FrameworkId.NetCoreApp)
+            return;
+
+        var version = frameworkVersion;
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            version = tfm.Version.Build >= 0
+                ? $"{tfm.Version.Major}.{tfm.Version.Minor}.{tfm.Version.Build}"
+                : $"{tfm.Version.Major}.{tfm.Version.Minor}.0";
+        }
+
+        var runtimeConfigPath = Path.ChangeExtension(outputPath, ".runtimeconfig.json");
+        File.WriteAllText(runtimeConfigPath, $@"{{
+  ""runtimeOptions"": {{
+    ""tfm"": ""{tfm}"",
+    ""framework"": {{
+      ""name"": ""Microsoft.NETCore.App"",
+      ""version"": ""{version}""
+    }}
+  }}
+}}");
+    }
+
     public static void CreateAppHost(Compilation compilation, string outputPath, string targetFramework)
     {
         if (compilation.Options.OutputKind != OutputKind.ConsoleApplication)
@@ -92,19 +118,9 @@ static class AppHostBuilder
         TryRemoveQuarantine(appHostDestination);    // remove com.apple.quarantine if present (macOS only)
         TryAdHocSign(appHostDestination);           // codesign -s - (macOS only)
 
-        // 8) Emit runtimeconfig.json using the picked pack version (product version)
-        var runtimeConfigPath = Path.ChangeExtension(outputPath, ".runtimeconfig.json");
-        var tfm = TargetFrameworkMoniker.Parse(targetFramework);
+        // 8) Emit runtimeconfig.json using the picked host-pack product version.
         var productVersion = Path.GetFileName(pickVersionDir); // e.g. "10.0.0" or "10.0.1"
-        File.WriteAllText(runtimeConfigPath, $@"{{
-  ""runtimeOptions"": {{
-    ""tfm"": ""{tfm}"",
-    ""framework"": {{
-      ""name"": ""Microsoft.NETCore.App"",
-      ""version"": ""{productVersion}""
-    }}
-  }}
-}}");
+        WriteRuntimeConfig(outputPath, targetFramework, productVersion);
     }
 
     private static string ResolveAppHostDestination(string directory, string baseName)

@@ -85,9 +85,22 @@ When a `.ravenproj` includes `<FrameworkReference>`:
 2. Raven resolves the corresponding framework reference packs from installed .NET SDK `packs/`.
 3. Pack reference assemblies are added as metadata references for compilation.
 
-## Output dependency copying
+## Build vs publish outputs
 
-When compiling from a `.ravenproj`, Raven also copies NuGet package DLLs to the output directory so produced binaries can run without manual dependency copying.
+Raven now separates normal build output from publish-style output:
+
+- Normal compile (`ravenc App.ravenproj`)
+  - default output directory: `<project-dir>/bin`
+  - emits apphost + `.dll` + `.runtimeconfig.json` for console apps
+  - does **not** copy package/runtime dependency sets
+- Publish (`ravenc App.ravenproj --publish`)
+  - default output directory: `<project-dir>/bin/publish`
+  - copies runtime dependencies (NuGet/framework/local assemblies) to output
+  - emits runtime artifacts (`.runtimeconfig.json`, apphost)
+
+`--run` uses the normal output directory (`bin` for `.ravenproj`) and stages runtime dependencies there as needed so the produced program can execute immediately.
+
+Dependency copy details:
 
 - Only `.dll` package dependencies are copied.
 - If a compile reference comes from `ref/`, Raven prefers the runtime assembly under `lib/`.
@@ -98,6 +111,12 @@ Compile a project file:
 
 ```bash
 dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.ravenproj
+```
+
+Publish a project file:
+
+```bash
+dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.ravenproj --publish
 ```
 
 Use `-o` to override the output directory:
