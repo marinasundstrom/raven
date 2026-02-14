@@ -2,14 +2,13 @@ import System.*
 import System.Console.*
 
 val res = Test(null)
-
 WriteLine(res)
 
 func Test(name: string?) -> Result<string, CustomError> {
     val str = name ?? {
         // Either act or return value
-
-        return .Error(CustomError(nameof(name)))
+        
+        return .Error(CustomError("Argument '${nameof(name)}' is null"))
     }
 
     WriteLine(str)
