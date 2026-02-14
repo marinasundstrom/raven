@@ -726,6 +726,7 @@ internal class CodeGenerator
 
             AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
             ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
+            ApplyCustomAttributes(_compilation.Assembly.GetAttributes(), attribute => AssemblyBuilder.SetCustomAttribute(attribute));
 
             DetermineShimTypeRequirements();
             PrintDebug("Determined shim type requirements.");

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.Versioning;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
@@ -145,4 +146,29 @@ class Widget
         Assert.Equal(DebuggerBrowsableState.Never, (DebuggerBrowsableState)debuggerBrowsable.ConstructorArguments[0].Value!);
     }
 
+    [Fact]
+    public void AssemblyTargetedAttribute_IsEmitted()
+    {
+        const string source = """
+import System.Runtime.Versioning.*
+
+[assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+class C { }
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var targetFrameworkAttribute = Assert.Single(
+            assembly.GetCustomAttributesData(),
+            static a => a.AttributeType == typeof(TargetFrameworkAttribute));
+
+        Assert.Equal(".NETCoreApp,Version=v9.0", targetFrameworkAttribute.ConstructorArguments[0].Value);
+    }
 }

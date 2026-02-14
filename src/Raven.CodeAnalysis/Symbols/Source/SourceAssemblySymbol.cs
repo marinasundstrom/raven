@@ -10,8 +10,12 @@ internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
     private readonly List<SourceModuleSymbol> _modules = new List<SourceModuleSymbol>();
     private INamespaceSymbol _globalNamespace;
 
-    public SourceAssemblySymbol(Compilation compilation, string name, Location[] locations)
-        : base(SymbolKind.Assembly, name, null!, null, null, locations, [])
+    public SourceAssemblySymbol(
+        Compilation compilation,
+        string name,
+        SyntaxReference[] declaringSyntaxReferences,
+        Location[]? locations = null)
+        : base(SymbolKind.Assembly, name, null!, null, null, locations ?? [], declaringSyntaxReferences)
     {
         Compilation = compilation;
     }

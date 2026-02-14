@@ -231,7 +231,11 @@ public partial class Compilation
         BinderFactory = new BinderFactory(this);
         DeclarationTable = new DeclarationTable(SyntaxTrees);
 
-        Assembly = new SourceAssemblySymbol(this, AssemblyName, []);
+        var assemblyDeclaringSyntaxReferences = SyntaxTrees
+            .Select(static tree => tree.GetRoot().GetReference())
+            .ToArray();
+
+        Assembly = new SourceAssemblySymbol(this, AssemblyName, assemblyDeclaringSyntaxReferences);
 
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 

@@ -130,4 +130,23 @@ class C { }
         var constructor = Assert.Single(type.Constructors, static c => !c.IsStatic);
         Assert.DoesNotContain(constructor.GetAttributes(), static a => a.AttributeClass?.Name == "ObsoleteAttribute");
     }
+
+    [Fact]
+    public void AssemblyTargetedAttribute_BindsToAssemblySymbol()
+    {
+        const string source = """
+import System.Runtime.Versioning.*
+
+[assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+class C { }
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        _ = compilation.GetDiagnostics();
+        var attribute = Assert.Single(compilation.Assembly.GetAttributes());
+
+        Assert.Equal("TargetFrameworkAttribute", attribute.AttributeClass?.Name);
+        Assert.Equal(".NETCoreApp,Version=v9.0", attribute.ConstructorArguments.Single().Value);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }
