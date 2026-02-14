@@ -1,0 +1,9 @@
+import System.Runtime.Versioning.*
+
+[assembly: TargetFramework("net9.0")]
+
+public class Greeter {
+    public static Message() -> string {
+        "Hello from Raven via MSBuild integration"
+    }
+}

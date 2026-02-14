@@ -6,6 +6,8 @@ few switches for inspecting the compiler's output.
 
 It also supports scaffolding a new Raven project in the current directory via `init`.
 
+For temporary C# interop, see the project-system page's MSBuild bridge section (`build/Raven.MSBuild.targets`).
+
 ## Usage
 
 ```bash

@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <RavenCompilerProject Condition="'$(RavenCompilerProject)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\Raven.Compiler.csproj'))</RavenCompilerProject>
+    <RavenProjectFile Condition="'$(RavenProjectFile)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(MSBuildProjectName).ravenproj'))</RavenProjectFile>
+    <RavenOutputDir Condition="'$(RavenOutputDir)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', 'obj', 'raven'))</RavenOutputDir>
+    <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''">--property WarningLevel=0</RavenBuildArgs>
+    <RavenAssemblyName Condition="'$(RavenAssemblyName)' == ''">$([System.IO.Path]::GetFileNameWithoutExtension('$(RavenProjectFile)'))</RavenAssemblyName>
+    <RavenAssemblyPath Condition="'$(RavenAssemblyPath)' == ''">$([System.IO.Path]::Combine('$(RavenOutputDir)', '$(RavenAssemblyName).dll'))</RavenAssemblyPath>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(RavenProjectFile)')">
+    <Reference Include="$(RavenAssemblyName)">
+      <HintPath>$(RavenAssemblyPath)</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="BuildRavenProject"
+          BeforeTargets="ResolveReferences"
+          Condition="Exists('$(RavenProjectFile)')">
+    <MakeDir Directories="$(RavenOutputDir)" />
+
+    <Exec Command="dotnet run --project &quot;$(RavenCompilerProject)&quot; $(RavenBuildArgs) -- &quot;$(RavenProjectFile)&quot; -o &quot;$(RavenOutputDir)&quot;" />
+
+  </Target>
+
+  <Target Name="BuildRavenProjectMissing"
+          BeforeTargets="ResolveReferences"
+          Condition="!Exists('$(RavenProjectFile)') and '$(RavenProjectFile)' != ''">
+    <Warning Text="Raven project file was not found at '$(RavenProjectFile)'. Set &lt;RavenProjectFile&gt; in the importing .csproj." />
+  </Target>
+</Project>

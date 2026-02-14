@@ -128,6 +128,38 @@ dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App
 Sample:
 
 - `samples/project-files/nuget-demo/README.md`
+- `samples/project-files/raven-msbuild-integration/README.md`
+
+## Temporary C# MSBuild bridge
+
+For temporary integration from a C# SDK project, import:
+
+- `build/Raven.MSBuild.targets`
+
+and set:
+
+- `RavenProjectFile` - path to the `.ravenproj` to compile
+
+Example in a `.csproj`:
+
+```xml
+<PropertyGroup>
+  <RavenProjectFile>..\raven\RavenGreeter.ravenproj</RavenProjectFile>
+</PropertyGroup>
+<Import Project="..\..\..\..\build\Raven.MSBuild.targets" />
+```
+
+Behavior:
+
+- Before `ResolveReferences`, MSBuild runs Raven compilation for `RavenProjectFile`.
+- Output goes to `$(IntermediateOutputPath)raven\` by default.
+- The produced Raven assembly is added as a `<Reference>` for the C# build.
+
+Current limitation (temporary bridge):
+
+- Compile-time typed consumption of Raven-defined types from C# may fail with `CS0012` (`System.Private.CoreLib` reference mismatch).
+- Runtime loading/invocation of the produced Raven assembly works.
+- See `samples/project-files/raven-msbuild-integration/README.md` for the current reflection-based host example.
 
 ## Scaffolding with `ravc init`
 
