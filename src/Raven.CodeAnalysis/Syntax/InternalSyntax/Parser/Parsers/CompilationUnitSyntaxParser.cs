@@ -45,13 +45,6 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
-            if (nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
-                TryParseCompilationAttributeList(out var deferredCompilationAttributeList))
-            {
-                compilationAttributeLists.Add(deferredCompilationAttributeList);
-                continue;
-            }
-
             var start = Position;
             var importCount = importDirectives.Count;
             var aliasCount = aliasDirectives.Count;
@@ -444,4 +437,5 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         return modifiers;
     }
+
 }

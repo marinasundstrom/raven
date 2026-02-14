@@ -249,6 +249,45 @@ public class AttributeParsingTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void CompilationUnit_AssemblyAttributeSeparatedByBlankLine_PreservesSourceOrder()
+    {
+        const string code = """
+            import System.Runtime.Versioning.*
+
+            [assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+
+        Assert.Empty(root.AttributeLists);
+
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
+        var declarationAttributeList = Assert.Single(declaration.AttributeLists);
+        Assert.Equal("assembly", declarationAttributeList.Target?.Identifier.Text);
+    }
+
+    [Fact]
+    public void CompilationUnit_AssemblyAttributeWithoutBlankLine_RemainsOnFollowingDeclaration()
+    {
+        const string code = """
+            import System.Runtime.Versioning.*
+            [assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+        Assert.Empty(root.AttributeLists);
+
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
+        var declarationAttributeList = Assert.Single(declaration.AttributeLists);
+        Assert.Equal("assembly", declarationAttributeList.Target?.Identifier.Text);
+    }
+
+    [Fact]
     public void MethodDeclaration_WithReturnAttributeTarget_ParsesTarget()
     {
         const string code = """

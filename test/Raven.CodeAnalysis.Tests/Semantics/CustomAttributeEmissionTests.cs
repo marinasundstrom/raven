@@ -153,6 +153,7 @@ class Widget
 import System.Runtime.Versioning.*
 
 [assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+
 class C { }
 """;
 

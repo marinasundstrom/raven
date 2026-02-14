@@ -138,6 +138,7 @@ class C { }
 import System.Runtime.Versioning.*
 
 [assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+
 class C { }
 """;
 
@@ -148,5 +149,23 @@ class C { }
         Assert.Equal("TargetFrameworkAttribute", attribute.AttributeClass?.Name);
         Assert.Equal(".NETCoreApp,Version=v9.0", attribute.ConstructorArguments.Single().Value);
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void AssemblyTargetedAttribute_OnTypeWithoutBlankLine_ReportsInvalidTarget()
+    {
+        const string source = """
+import System.Runtime.Versioning.*
+[assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+class C { }
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        _ = type.GetAttributes();
+        Assert.Empty(compilation.Assembly.GetAttributes());
+        Assert.Single(type.GetAttributes());
     }
 }

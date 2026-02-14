@@ -72,13 +72,16 @@ internal abstract class SourceSymbol : Symbol
             var syntax = syntaxReference.GetSyntax();
             var attributeLists = GetAttributeListsForDeclaration(syntax);
 
-            if (attributeLists.Count == 0)
+            if (attributeLists is null)
                 continue;
 
             var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
 
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
+                if (!ShouldBindAttributeForOwner(attribute))
+                    continue;
+
                 var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
                 var binder = semanticModel.GetBinder(binderNode);
                 var attributeBinder = binder as AttributeBinder ?? new AttributeBinder(this, binder);
@@ -181,10 +184,13 @@ internal abstract class SourceSymbol : Symbol
             : null;
     }
 
-    private SyntaxList<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
+    private IEnumerable<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
         => syntax switch
         {
-            CompilationUnitSyntax compilationUnit when this is IAssemblySymbol => compilationUnit.AttributeLists,
+            CompilationUnitSyntax compilationUnit when this is IAssemblySymbol => compilationUnit
+                .DescendantNodesAndSelf()
+                .OfType<AttributeListSyntax>()
+                .Where(static list => HasExplicitTarget(list, "assembly")),
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
@@ -199,6 +205,66 @@ internal abstract class SourceSymbol : Symbol
             VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is FieldDeclarationSyntax field => field.AttributeLists,
             ParameterSyntax parameter => parameter.AttributeLists,
             ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists,
-            _ => default
+            _ => Enumerable.Empty<AttributeListSyntax>()
         };
+
+    private bool ShouldBindAttributeForOwner(AttributeSyntax attribute)
+    {
+        if (attribute.Parent is not AttributeListSyntax list || list.Target is null)
+            return true;
+
+        if (this is IAssemblySymbol)
+            return HasExplicitTarget(list, "assembly") && IsAssemblyAttributeDeclarationContext(list);
+
+        return true;
+    }
+
+    private static bool HasExplicitTarget(AttributeListSyntax list, string targetName)
+        => string.Equals(
+            list.Target?.Identifier.ValueText,
+            targetName,
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAssemblyAttributeDeclarationContext(AttributeListSyntax list)
+    {
+        return list.Parent is CompilationUnitSyntax
+            or NamespaceDeclarationSyntax
+            or FileScopedNamespaceDeclarationSyntax
+            || IsDetachedContainerAttributeList(list);
+    }
+
+    private static bool IsDetachedContainerAttributeList(AttributeListSyntax list)
+    {
+        if (list.Parent is not MemberDeclarationSyntax member)
+            return false;
+
+        var container = member.Parent;
+        if (container is not CompilationUnitSyntax
+            and not NamespaceDeclarationSyntax
+            and not FileScopedNamespaceDeclarationSyntax)
+        {
+            return false;
+        }
+
+        var tokenAfterAttributeList = member
+            .DescendantTokens()
+            .FirstOrDefault(token => token.Span.Start >= list.Span.End);
+
+        if (tokenAfterAttributeList.Kind == SyntaxKind.None)
+            return false;
+
+        return CountLeadingEndOfLineTrivia(tokenAfterAttributeList) >= 2;
+    }
+
+    private static int CountLeadingEndOfLineTrivia(SyntaxToken token)
+    {
+        var count = 0;
+        foreach (var trivia in token.LeadingTrivia)
+        {
+            if (trivia.Kind == SyntaxKind.EndOfLineTrivia)
+                count++;
+        }
+
+        return count;
+    }
 }
