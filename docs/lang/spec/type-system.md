@@ -2,6 +2,13 @@
 
 Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation. Conceptually, every CLR type (including structs and other value types) behaves as an object in Raven: value types keep their value semantics, but they participate uniformly in member lookup, generics, and unions through boxing when necessary. Nullability is explicit for both reference and value types, so `?` and `null` are treated consistently regardless of runtime representation.
 
+> ❗ **Important:** `T?` is the canonical nullable form in Raven. `T | null` is
+> an equivalent union spelling that canonicalizes to `T?` when exactly one
+> non-nullable `T` is present. `unit` (`()`) is separate: it means "no
+> meaningful result" (void-like), not nullable absence. For domain-level
+> absence, prefer `Option<T>` instead of nullable types. `Option<T>` supports
+> implicit interop conversions with nullable forms (`Option<T> <-> T?`).
+
 ## Primitive types
 
 | Raven keyword | .NET type | Notes |
@@ -162,6 +169,9 @@ value types lift member access through the underlying `Nullable<T>` API; nullabl
 reference types retain the same runtime representation as their non-nullable
 form but influence static flow analysis and conversion rules.
 
+In nullable modeling, `T?` is canonical. The union form `T | null` is allowed
+and expresses the same nullable shape when there is a single non-nullable `T`.
+
 #### Strict null checks and flow narrowing
 
 Raven treats `is null` and `is not null` as the strict null-check forms for
@@ -213,8 +223,8 @@ val union: int | string = "foo"
 Console.WriteLine(union.ToString()) // members from the common base type are available
 ```
 
-Common use cases include mixing unrelated primitives, modeling optional values,
-or constraining a value to specific literals:
+Common use cases include mixing unrelated primitives, representing interop null
+shapes, or constraining a value to specific literals:
 
 ```raven
 val a: int | string = "2"   // either an int or a string
@@ -229,7 +239,8 @@ To model absence explicitly, Raven recommends the **Option union** defined in
 `src/Raven.Core/Option.rav` (`System.Option<T>`). It behaves like a `T | null`
 union for both reference and value types and implicitly converts to nullable
 forms (`T?` or `Nullable<T>`) when interacting with existing .NET APIs that
-expect nullable types.
+expect nullable types. In other words: use nullable forms for interoperability
+and use `Option<T>` for domain modeling.
 
 A value is assignable to a union when it can convert to at least one member.
 Literal branches are matched by value rather than by type:
@@ -240,10 +251,10 @@ val e: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
 val f: "true" | int = 1 // ok: 1 matches int
 ```
 
-When a union contains `null` and exactly one other type, it remains a union but
-implicitly converts to that type's nullable form when a nullable target is
-expected. Attempting to write `string? | int` still produces diagnostic
-`RAV0400` because nullable wrappers may not appear explicitly inside unions.
+When a union contains `null` and exactly one non-nullable type `T`, the
+canonical form is `T?`. Attempting to write `string? | int` still produces
+diagnostic `RAV0400` because nullable wrappers may not appear explicitly inside
+unions.
 ### Generics
 
 Types and functions declare type parameters by appending `<...>` to their
@@ -485,11 +496,10 @@ print(u) // calls print(object)
   even when both interfaces derive from a common parent. Consider intersecting
   implemented interfaces and exposing those members when no class-based join
   exists.
-- **Canonical form for `T | null`.** Unions that include `null` convert to
-  nullable targets but remain unions internally. Evaluate whether the binder
-  should normalise `T | null` into `T?` (when `T` is non-nullable) or continue to
-  keep the union form and emit clearer diagnostics when a nullable annotation is
-  expected.
+- **`T | null` diagnostic presentation.** `T | null` canonicalizes to `T?` for a
+  single non-nullable `T`. Consider whether diagnostics should always print
+  canonical `T?` or preserve author-written `T | null` in selected messages for
+  clarity.
 - **Distribution of `System.Unit`.** Each compiled assembly currently defines its
   own `System.Unit` type. To simplify interop, consider shipping a shared
   reference assembly or mapping `unit` directly onto `System.Void` where the

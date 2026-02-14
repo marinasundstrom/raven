@@ -183,6 +183,21 @@ Raven has no `void` type. The absence of a meaningful value is represented by th
 spelled `unit` or `()`. Functions without an explicit return type implicitly
 return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes](dotnet-implementation.md#unit-type)). The `unit` type participates in generics, tuples, and unions like any other type.
 
+## Null and absence
+
+Raven distinguishes "nullable value" from "no meaningful result":
+
+* `T?` is the canonical way to represent nullable values.
+* `T | null` is an equivalent union spelling and canonicalizes to `T?` when
+  there is exactly one non-nullable `T`.
+* `unit` (`()`) represents no meaningful result (`void`-like), not nullability.
+* `Option<T>` is the recommended way to model absence in APIs and business
+  logic. Nullable forms (`T?` / `T | null`) are primarily for nullability and
+  .NET interop boundaries.
+* `Option<T>` supports implicit interop conversions with nullable forms
+  (`Option<T> <-> T?`) so domain models can stay option-based while external
+  .NET boundaries remain nullable-friendly.
+
 ## Statements
 
 Raven is primarily **expression-oriented**: most constructs yield values and can
