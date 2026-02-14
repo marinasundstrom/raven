@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -21,7 +22,9 @@ internal static class AsyncDiagnosticUtilities
 
         var display = methodSymbol.ToDisplayString(SymbolDisplayFormat.RavenShortErrorMessageFormat);
 
-        if (string.IsNullOrWhiteSpace(display) || display == "<lambda>")
+        if (string.IsNullOrWhiteSpace(display) ||
+            display == "<lambda>" ||
+            display.StartsWith("<lambda_", StringComparison.Ordinal))
             return kind;
 
         return $"{kind} '{display}'";

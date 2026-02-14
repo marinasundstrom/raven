@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Immutable;
+using System.Threading;
 
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 {
+    private static int _fallbackLambdaOrdinal;
     private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
     private bool _hasAsyncReturnTypeError;
     private bool _containsAwait;
@@ -21,7 +23,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         bool isAsync = false)
         : base(
             SymbolKind.Method,
-            "<lambda>",
+            CreateLambdaName(locations),
             containingSymbol,
             containingType,
             containingNamespace,
@@ -117,5 +119,18 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
     {
         throw new NotSupportedException("Lambdas cannot be constructed with type arguments.");
+    }
+
+    private static string CreateLambdaName(Location[]? locations)
+    {
+        if (locations is { Length: > 0 } &&
+            locations[0] is { } first &&
+            first.SourceSpan.Start >= 0)
+        {
+            return $"<lambda_{first.SourceSpan.Start}>";
+        }
+
+        var ordinal = Interlocked.Increment(ref _fallbackLambdaOrdinal);
+        return $"<lambda_{ordinal}>";
     }
 }
