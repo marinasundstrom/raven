@@ -49,9 +49,7 @@ val result = value match {
 }
 """;
 
-        var verifier = CreateVerifier(
-            code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("_")]);
+        var verifier = CreateVerifier(code);
 
         verifier.Verify();
     }
@@ -99,7 +97,7 @@ val value: bool | (flag: bool, text: string) = false
 val result = value match {
     true => "true"
     false => "false"
-    (flag: bool, text: string) => "tuple ${text}"
+    (val flag: bool, val text: string) => "tuple ${text}"
 }
 """;
 
@@ -133,7 +131,6 @@ val value: object = "hello"
 
 val result = value match {
     string text => text
-    object obj => obj.ToString()
     _ => ""
 }
 """;
@@ -224,7 +221,13 @@ val result = value match {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV0134").WithAnySpan(),
+                new DiagnosticResult("RAV0103").WithAnySpan().WithArguments(string.Empty),
+                new DiagnosticResult("RAV2101").WithAnySpan(),
+            ]);
 
         verifier.Verify();
     }
@@ -237,7 +240,7 @@ val x: bool | (a: int, b: string) = false
 
 val result = x match {
     true => "hej"
-    (a: int, b: string) => "tuple ${a} ${b}"
+    (val a: int, val b: string) => "tuple ${a} ${b}"
     _ => "none"
 }
 """;
@@ -272,6 +275,27 @@ val result = x match {
                 var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
                 Assert.Equal("b", designator.Local.Name);
             });
+    }
+
+    [Fact]
+    public void MatchExpression_WithAbruptArms_DoesNotPolluteValueTypeInference()
+    {
+        const string code = """
+import System.*
+
+func Test(y: int) -> int {
+    val r = y match {
+        0 => return 0
+        1 => 42
+        _ => throw Exception("x")
+    }
+
+    return r + 1
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
     }
 
     [Fact]
@@ -351,7 +375,12 @@ val result = value match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2101").WithAnySpan()]);
+            [
+                new DiagnosticResult("RAV0134").WithAnySpan(),
+                new DiagnosticResult("RAV0103").WithAnySpan().WithArguments(string.Empty),
+                new DiagnosticResult("RAV2101").WithAnySpan(),
+                new DiagnosticResult("RAV2101").WithAnySpan(),
+            ]);
 
         verifier.Verify();
     }
@@ -390,7 +419,6 @@ val value: object = "hello"
 
 val result = value match {
     val text => text
-    _ => ""
 }
 """;
 
@@ -422,7 +450,6 @@ val value: object = "hello"
 
 val result = value match {
     var text => text
-    _ => ""
 }
 """;
 
@@ -524,9 +551,7 @@ func describe(value: object) -> string? {
 }
 """;
 
-        var verifier = CreateVerifier(
-            code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("_")]);
+        var verifier = CreateVerifier(code);
 
         verifier.Verify();
     }
@@ -580,11 +605,11 @@ val result = value match {
     {
         const string code = """
 func describe(input: bool) -> string {
-    if input {
+    (if input {
         1
     } else {
         2
-    } match {
+    }) match {
         1 => "one"
         _ => "two"
     }
@@ -609,7 +634,7 @@ val result = state match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"off\"")]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
 
         verifier.Verify();
     }
@@ -627,10 +652,7 @@ val result = state match {
 
         var verifier = CreateVerifier(
             code,
-            [
-                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"off\""),
-                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"unknown\""),
-            ]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
 
         verifier.Verify();
     }
@@ -717,7 +739,7 @@ val result = input match {
 val pair: object = (1, "two")
 
 val result = pair match {
-    (first: int, second: string) => second
+    (val first: int, val second: string) => second
     _ => ""
 }
 """;
@@ -763,7 +785,10 @@ val result = pair match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type '(int, int, int)'", "(int, int)")]);
+            [
+                new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type '(int, int, int)'", "(int, int)"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("_"),
+            ]);
 
         verifier.Verify();
     }
@@ -801,7 +826,7 @@ val result = value match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type 'bool'", "\"on\" | \"off\"")]);
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type 'bool'", "string | string")]);
 
         verifier.Verify();
     }
@@ -820,7 +845,10 @@ val result = value match {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("\"foo\"", "int")]);
+            [
+                new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("string", "int"),
+                new DiagnosticResult("RAV2101").WithAnySpan(),
+            ]);
 
         verifier.Verify();
     }

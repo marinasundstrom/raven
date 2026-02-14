@@ -3199,6 +3199,13 @@ return represents an action with no meaningful result.
 Unions express multiple possible types (e.g., `int | string`). A union’s members are **normalized**: nested unions flatten, duplicates are removed, and order is irrelevant. For example, `int | (string | int)` simplifies to `int | string`.
 These are type-level unions, separate from `union Name { ... }` declarations.
 
+Core model:
+- A union contains two or more type elements, literal elements, or both.
+- The compiler computes an **underlying nominal type** (the nearest common nominal supertype after normalization).
+- Each union element is implicitly convertible to that underlying nominal type.
+- Once converted to the underlying type, normal nominal conversions (including base/interface conversions) apply as usual.
+- Literal precision is preserved for flow analysis and exhaustiveness as long as it is not intentionally widened by context.
+
 #### When to use type unions
 
 Use a type union when a value is intentionally one of several concrete types and

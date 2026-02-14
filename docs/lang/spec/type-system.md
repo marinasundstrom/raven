@@ -196,6 +196,15 @@ CLR representation; the union records the set of possibilities and supplies a
 shared view when one is needed. Raven determines that common view using these
 rules:
 
+Core model:
+1. A union has two or more type elements, literal elements, or both.
+2. The compiler computes an underlying nominal type (the nearest common nominal
+   supertype after normalization).
+3. Each union element is implicitly convertible to that underlying type.
+4. From the underlying type, normal base/interface conversions apply.
+5. Literal precision is preserved for narrowing/exhaustiveness until widening is
+   required by context.
+
 This section covers type unions written with `|`, not `union Name { ... }`
 declarations.
 The `union` keyword declares nominal tagged unions (discriminated unions), a

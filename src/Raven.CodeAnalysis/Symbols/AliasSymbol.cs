@@ -195,7 +195,9 @@ internal sealed class AliasTypeUnionSymbol : AliasSymbol, ITypeUnionSymbol
 
     public bool IsValueType => _type.IsValueType;
 
-    public IEnumerable<ITypeSymbol> Types => _type.Types;
+    public ImmutableArray<ITypeSymbol> Types => _type.Types;
+
+    public ITypeSymbol UnderlyingType => _type.UnderlyingType;
 
     public ITypeSymbol? DeclaredUnderlyingType => _type.DeclaredUnderlyingType;
 

@@ -602,7 +602,21 @@ public interface ITupleTypeSymbol : INamedTypeSymbol
 
 public interface ITypeUnionSymbol : ITypeSymbol
 {
-    IEnumerable<ITypeSymbol> Types { get; }
+    /// <summary>
+    /// Gets the types that make up this union.
+    /// </summary>
+    ImmutableArray<ITypeSymbol> Types { get; }
+
+    /// <summary>
+    /// Gets the types that make up this union (Alias for Types)
+    /// </summary>
+    ImmutableArray<ITypeSymbol> Elements => Types;
+
+    /// <summary>
+    /// Gets the compiler-computed common nominal type for the union.
+    /// This type is used for implicit widening conversions, inference, and diagnostics.
+    /// </summary>
+    ITypeSymbol UnderlyingType { get; }
 
     /// <summary>
     /// Gets the CLR type that originally declared the union, if any.

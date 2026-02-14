@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -7,6 +8,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class TypeUnionSymbol : SourceSymbol, ITypeUnionSymbol
 {
     private readonly ImmutableArray<ITypeSymbol> _types;
+    private readonly ITypeSymbol _underlyingType;
 
     public TypeUnionSymbol(
         IEnumerable<ITypeSymbol> types,
@@ -18,17 +20,22 @@ internal partial class TypeUnionSymbol : SourceSymbol, ITypeUnionSymbol
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
     {
         _types = types is ImmutableArray<ITypeSymbol> array ? array : ImmutableArray.CreateRange(types);
+        if (_types.IsDefaultOrEmpty)
+            throw new ArgumentException("A union type must contain at least one element.", nameof(types));
 
         DeclaredUnderlyingType = declaredUnderlyingType;
 
-        BaseType = declaredUnderlyingType as INamedTypeSymbol ?? ComputeBaseType(_types);
+        BaseType = ComputeBaseType(_types);
+        _underlyingType = BaseType ?? DeclaredUnderlyingType ?? _types[0];
 
         TypeKind = TypeKind.TypeUnion;
     }
 
     public override string Name => string.Join(" | ", Types.Select(x => x.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat)));
 
-    public IEnumerable<ITypeSymbol> Types => _types;
+    public ImmutableArray<ITypeSymbol> Types => _types;
+
+    public ITypeSymbol UnderlyingType => _underlyingType;
 
     public ITypeSymbol? DeclaredUnderlyingType { get; }
 

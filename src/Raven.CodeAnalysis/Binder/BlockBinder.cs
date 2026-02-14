@@ -1977,10 +1977,35 @@ partial class BlockBinder : Binder
             matchExpression.Arms,
             allowReturnInArmExpressions: _allowReturnsInExpression,
             requireArmValue: true);
-        var resultType = TypeSymbolNormalization.NormalizeUnion(
-            arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
+        var contributingArmTypes = arms
+            .Select(arm => arm.Expression)
+            .Where(static expression => !IsAbruptMatchArmExpression(expression))
+            .Select(expression => expression.Type ?? Compilation.ErrorTypeSymbol)
+            .ToArray();
+
+        // If every arm is abrupt (e.g., all return/throw), retain legacy behavior.
+        if (contributingArmTypes.Length == 0)
+        {
+            contributingArmTypes = arms
+                .Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol)
+                .ToArray();
+        }
+
+        var resultType = TypeSymbolNormalization.NormalizeUnion(contributingArmTypes);
 
         return new BoundMatchExpression(scrutinee, arms, resultType);
+
+        static bool IsAbruptMatchArmExpression(BoundExpression expression)
+        {
+            return expression switch
+            {
+                BoundReturnExpression => true,
+                BoundThrowExpression => true,
+                BoundRequiredResultExpression { Operand: BoundReturnExpression } => true,
+                BoundRequiredResultExpression { Operand: BoundThrowExpression } => true,
+                _ => false,
+            };
+        }
     }
 
     private (BoundExpression Scrutinee, ImmutableArray<BoundMatchArm> Arms) BindMatchCommon(
