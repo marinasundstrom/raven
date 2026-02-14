@@ -1742,6 +1742,37 @@ internal static class AsyncLowerer
             return node;
         }
 
+        public override BoundNode? VisitMatchStatement(BoundMatchStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var expression = VisitExpression(node.Expression) ?? node.Expression;
+            var changed = !ReferenceEquals(expression, node.Expression);
+
+            var rewrittenArms = ImmutableArray.CreateBuilder<BoundMatchArm>(node.Arms.Length);
+            foreach (var arm in node.Arms)
+            {
+                var guard = arm.Guard is null ? null : VisitExpression(arm.Guard) ?? arm.Guard;
+                var armExpression = VisitExpression(arm.Expression) ?? arm.Expression;
+
+                if (!ReferenceEquals(guard, arm.Guard) || !ReferenceEquals(armExpression, arm.Expression))
+                {
+                    changed = true;
+                    rewrittenArms.Add(new BoundMatchArm(arm.Pattern, guard, armExpression));
+                }
+                else
+                {
+                    rewrittenArms.Add(arm);
+                }
+            }
+
+            if (!changed)
+                return node;
+
+            return new BoundMatchStatement(expression, rewrittenArms.MoveToImmutable());
+        }
+
         public override BoundNode? VisitAssignmentStatement(BoundAssignmentStatement node)
         {
             if (node is null)

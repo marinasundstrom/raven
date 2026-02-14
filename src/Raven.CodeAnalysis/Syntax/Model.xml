@@ -202,6 +202,14 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
+  <Node Name="MatchStatement" Inherits="Statement">
+    <Slot Name="MatchKeyword" Type="Token" DefaultToken="MatchKeyword" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="Arms" Type="List" ElementType="MatchArm" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
   <Node Name="IncompleteStatement" Inherits="Statement">
     <Slot Name="SkippedTokens" Type="Token" />
   </Node>

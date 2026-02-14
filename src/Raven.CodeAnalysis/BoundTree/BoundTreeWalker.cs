@@ -173,6 +173,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundLocalDeclarationStatement localDeclaration:
                 VisitLocalDeclarationStatement(localDeclaration);
                 break;
+            case BoundMatchStatement matchStatement:
+                VisitMatchStatement(matchStatement);
+                break;
             case BoundReturnStatement ret:
                 VisitReturnStatement(ret);
                 break;
@@ -255,6 +258,18 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         foreach (var declarator in node.Declarators)
             VisitVariableDeclarator(declarator);
+    }
+
+    public virtual void VisitMatchStatement(BoundMatchStatement node)
+    {
+        VisitExpression(node.Expression);
+        foreach (var arm in node.Arms)
+        {
+            if (arm.Guard is not null)
+                VisitExpression(arm.Guard);
+
+            VisitExpression(arm.Expression);
+        }
     }
 
     public override void VisitVariableDeclarator(BoundVariableDeclarator node)

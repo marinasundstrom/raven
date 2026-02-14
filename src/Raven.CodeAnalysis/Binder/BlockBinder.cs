@@ -494,6 +494,7 @@ partial class BlockBinder : Binder
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclarationStatement(localDeclaration),
             UseDeclarationStatementSyntax useDeclaration => BindUseDeclarationStatement(useDeclaration),
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
+            MatchStatementSyntax matchStatement => BindMatchStatement(matchStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
             WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
@@ -1957,13 +1958,43 @@ partial class BlockBinder : Binder
         return new BoundAsExpression(expression, resultType, conversion);
     }
 
+    private BoundStatement BindMatchStatement(MatchStatementSyntax matchStatement)
+    {
+        var (scrutinee, arms) = BindMatchCommon(
+            matchStatement,
+            matchStatement.Expression,
+            matchStatement.Arms,
+            allowReturnInArmExpressions: true,
+            requireArmValue: false);
+        return new BoundMatchStatement(scrutinee, arms);
+    }
+
     private BoundExpression BindMatchExpression(MatchExpressionSyntax matchExpression)
     {
-        var scrutinee = BindExpression(matchExpression.Expression);
+        var (scrutinee, arms) = BindMatchCommon(
+            matchExpression,
+            matchExpression.Expression,
+            matchExpression.Arms,
+            allowReturnInArmExpressions: _allowReturnsInExpression,
+            requireArmValue: true);
+        var resultType = TypeSymbolNormalization.NormalizeUnion(
+            arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
+
+        return new BoundMatchExpression(scrutinee, arms, resultType);
+    }
+
+    private (BoundExpression Scrutinee, ImmutableArray<BoundMatchArm> Arms) BindMatchCommon(
+        SyntaxNode matchSyntax,
+        ExpressionSyntax scrutineeSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        bool allowReturnInArmExpressions,
+        bool requireArmValue)
+    {
+        var scrutinee = BindExpression(scrutineeSyntax);
 
         var armBuilder = ImmutableArray.CreateBuilder<BoundMatchArm>();
 
-        foreach (var arm in matchExpression.Arms)
+        foreach (var arm in armSyntaxes)
         {
             _scopeDepth++;
             var depth = _scopeDepth;
@@ -1977,7 +2008,9 @@ partial class BlockBinder : Binder
             if (arm.WhenClause is { } whenClause)
                 guard = BindExpression(whenClause.Condition);
 
-            var expression = BindExpression(arm.Expression, allowReturn: _allowReturnsInExpression).RequireValue();
+            var expression = BindExpression(arm.Expression, allowReturn: allowReturnInArmExpressions);
+            if (requireArmValue)
+                expression = expression.RequireValue();
 
             foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
                 _locals.Remove(name);
@@ -1989,14 +2022,10 @@ partial class BlockBinder : Binder
 
         var arms = armBuilder.ToImmutable();
 
-        EnsureMatchArmPatternsValid(scrutinee, matchExpression, arms);
-        EnsureMatchArmOrder(matchExpression, scrutinee, arms);
-        EnsureMatchExhaustive(matchExpression, scrutinee, arms);
-
-        var resultType = TypeSymbolNormalization.NormalizeUnion(
-            arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
-
-        return new BoundMatchExpression(scrutinee, arms, resultType);
+        EnsureMatchArmPatternsValid(scrutinee, matchSyntax, armSyntaxes, arms);
+        EnsureMatchArmOrder(matchSyntax, armSyntaxes, scrutinee, arms);
+        EnsureMatchExhaustive(matchSyntax, armSyntaxes, scrutinee, arms);
+        return (scrutinee, arms);
 
         // Local helper: take locals carried by the bound pattern and register them in this arm scope.
         void RegisterPatternDesignatorLocals(BoundPattern boundPattern, int depth)
@@ -2369,7 +2398,8 @@ partial class BlockBinder : Binder
 
     private void EnsureMatchArmPatternsValid(
         BoundExpression scrutinee,
-        MatchExpressionSyntax matchExpression,
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms)
     {
         if (scrutinee.Type is not ITypeSymbol scrutineeType)
@@ -2383,7 +2413,7 @@ partial class BlockBinder : Binder
         for (var i = 0; i < arms.Length; i++)
         {
             var arm = arms[i];
-            var patternSyntax = matchExpression.Arms[i].Pattern;
+            var patternSyntax = armSyntaxes[i].Pattern;
             EnsureMatchArmPatternValid(scrutineeType, patternSyntax, arm.Pattern);
         }
     }
@@ -2767,7 +2797,8 @@ partial class BlockBinder : Binder
     }
 
     private void EnsureMatchArmOrder(
-        MatchExpressionSyntax matchExpression,
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
         BoundExpression scrutinee,
         ImmutableArray<BoundMatchArm> arms)
     {
@@ -2788,7 +2819,7 @@ partial class BlockBinder : Binder
             if (seenCatchAll)
             {
                 _diagnostics.ReportMatchExpressionArmUnreachable(
-                    matchExpression.Arms[i].Pattern.GetLocation());
+                    armSyntaxes[i].Pattern.GetLocation());
                 continue;
             }
 
@@ -2801,7 +2832,8 @@ partial class BlockBinder : Binder
     }
 
     private void EnsureMatchExhaustive(
-        MatchExpressionSyntax matchExpression,
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
         BoundExpression scrutinee,
         ImmutableArray<BoundMatchArm> arms)
     {
@@ -2817,7 +2849,7 @@ partial class BlockBinder : Binder
 
         if (IsBooleanType(scrutineeType))
         {
-            EnsureBooleanMatchExhaustive(matchExpression, arms, catchAllIndex);
+            EnsureBooleanMatchExhaustive(matchSyntax, arms, catchAllIndex);
             return;
         }
 
@@ -2826,13 +2858,13 @@ partial class BlockBinder : Binder
 
         if (discriminatedUnion is not null)
         {
-            EnsureDiscriminatedUnionMatchExhaustive(matchExpression, arms, discriminatedUnion, catchAllIndex);
+            EnsureDiscriminatedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, discriminatedUnion, catchAllIndex);
             return;
         }
 
         if (scrutineeType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
         {
-            EnsureEnumMatchExhaustive(matchExpression, arms, enumType, catchAllIndex);
+            EnsureEnumMatchExhaustive(matchSyntax, armSyntaxes, arms, enumType, catchAllIndex);
             return;
         }
 
@@ -2885,7 +2917,7 @@ partial class BlockBinder : Binder
 
             _diagnostics.ReportMatchExpressionNotExhaustive(
                 "_",
-                matchExpression.GetLocation());
+                matchSyntax.GetLocation());
             return;
         }
 
@@ -2924,13 +2956,13 @@ partial class BlockBinder : Binder
                     {
                         if (guaranteedRemaining is null || guaranteedRemaining.Count == 0)
                         {
-                            ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                            ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                             reportedRedundantCatchAll = true;
                         }
                     }
                     else if (i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
                     {
-                        ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                        ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                         reportedRedundantCatchAll = true;
                     }
                 }
@@ -2940,7 +2972,7 @@ partial class BlockBinder : Binder
 
             if (catchAllIndex >= 0 && !reportedRedundantCatchAll && i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
             {
-                ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                 reportedRedundantCatchAll = true;
             }
         }
@@ -2951,7 +2983,7 @@ partial class BlockBinder : Binder
             {
                 if (remaining.Contains(type))
                 {
-                    ReportMissingLiteralCoverage(matchExpression, type, constants);
+                    ReportMissingLiteralCoverage(matchSyntax, type, constants);
                     return;
                 }
             }
@@ -2966,7 +2998,7 @@ partial class BlockBinder : Binder
         {
             _diagnostics.ReportMatchExpressionNotExhaustive(
                 missing,
-                matchExpression.GetLocation());
+                matchSyntax.GetLocation());
         }
 
         static bool IsNullConstantPattern(BoundPattern pattern)
@@ -2999,9 +3031,9 @@ partial class BlockBinder : Binder
         return -1;
     }
 
-    private void ReportRedundantCatchAll(MatchExpressionSyntax matchExpression, int catchAllIndex)
+    private void ReportRedundantCatchAll(SyntaxList<MatchArmSyntax> armSyntaxes, int catchAllIndex)
     {
-        var patternLocation = matchExpression.Arms[catchAllIndex].Pattern.GetLocation();
+        var patternLocation = armSyntaxes[catchAllIndex].Pattern.GetLocation();
         _diagnostics.ReportMatchExpressionCatchAllRedundant(patternLocation);
     }
 
@@ -3057,7 +3089,8 @@ partial class BlockBinder : Binder
     }
 
     private void EnsureDiscriminatedUnionMatchExhaustive(
-        MatchExpressionSyntax matchExpression,
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
         IDiscriminatedUnionSymbol union,
         int catchAllIndex)
@@ -3089,13 +3122,13 @@ partial class BlockBinder : Binder
                     {
                         if (guaranteedRemaining is null || guaranteedRemaining.Count == 0)
                         {
-                            ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                            ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                             reportedRedundantCatchAll = true;
                         }
                     }
                     else if (i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
                     {
-                        ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                        ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                         reportedRedundantCatchAll = true;
                     }
                 }
@@ -3105,7 +3138,7 @@ partial class BlockBinder : Binder
 
             if (catchAllIndex >= 0 && !reportedRedundantCatchAll && i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
             {
-                ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                 reportedRedundantCatchAll = true;
             }
         }
@@ -3116,12 +3149,13 @@ partial class BlockBinder : Binder
         {
             _diagnostics.ReportMatchExpressionNotExhaustive(
                 missingCase.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                matchExpression.GetLocation());
+                matchSyntax.GetLocation());
         }
     }
 
     private void EnsureEnumMatchExhaustive(
-        MatchExpressionSyntax matchExpression,
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
         INamedTypeSymbol enumType,
         int catchAllIndex)
@@ -3152,7 +3186,7 @@ partial class BlockBinder : Binder
         {
             _diagnostics.ReportMatchExpressionNotExhaustive(
                 missing,
-                matchExpression.GetLocation());
+                matchSyntax.GetLocation());
         }
     }
 
@@ -3525,7 +3559,7 @@ partial class BlockBinder : Binder
     }
 
     private void EnsureBooleanMatchExhaustive(
-        MatchExpressionSyntax matchExpression,
+        SyntaxNode matchSyntax,
         ImmutableArray<BoundMatchArm> arms,
         int catchAllIndex)
     {
@@ -3549,10 +3583,10 @@ partial class BlockBinder : Binder
             return;
 
         if ((remaining & BooleanCoverage.True) != 0)
-            _diagnostics.ReportMatchExpressionNotExhaustive("true", matchExpression.GetLocation());
+            _diagnostics.ReportMatchExpressionNotExhaustive("true", matchSyntax.GetLocation());
 
         if ((remaining & BooleanCoverage.False) != 0)
-            _diagnostics.ReportMatchExpressionNotExhaustive("false", matchExpression.GetLocation());
+            _diagnostics.ReportMatchExpressionNotExhaustive("false", matchSyntax.GetLocation());
     }
 
     private BooleanCoverage GetBooleanCoverage(BoundPattern pattern)
@@ -3654,7 +3688,7 @@ partial class BlockBinder : Binder
     }
 
     private void ReportMissingLiteralCoverage(
-        MatchExpressionSyntax matchExpression,
+        SyntaxNode matchSyntax,
         ITypeSymbol type,
         HashSet<object?> constants)
     {
@@ -3663,10 +3697,10 @@ partial class BlockBinder : Binder
         if (targetType.SpecialType == SpecialType.System_Boolean)
         {
             if (!constants.Contains(true))
-                _diagnostics.ReportMatchExpressionNotExhaustive("true", matchExpression.GetLocation());
+                _diagnostics.ReportMatchExpressionNotExhaustive("true", matchSyntax.GetLocation());
 
             if (!constants.Contains(false))
-                _diagnostics.ReportMatchExpressionNotExhaustive("false", matchExpression.GetLocation());
+                _diagnostics.ReportMatchExpressionNotExhaustive("false", matchSyntax.GetLocation());
         }
     }
 

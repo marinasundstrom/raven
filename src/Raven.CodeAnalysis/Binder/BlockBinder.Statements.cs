@@ -12,10 +12,8 @@ partial class BlockBinder
 {
     private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
     {
-        var isStatementFormMatch = expressionStmt.Expression is MatchExpressionSyntax;
         var expr = expressionStmt.Parent is BlockStatementSyntax block &&
             IsImplicitReturnTarget(block, expressionStmt) &&
-            !isStatementFormMatch &&
             _containingSymbol is IMethodSymbol method
             ? BindExpressionWithTargetType(expressionStmt.Expression, GetReturnTargetType(method))
             : BindExpression(expressionStmt.Expression, allowReturn: true);
@@ -26,15 +24,7 @@ partial class BlockBinder
             CacheBoundNode(expressionStmt.Expression, expr);
         }
 
-        var statement = ExpressionToStatement(expr);
-
-        // Prefix-form `match ... { ... }` is statement syntax that currently reuses the
-        // expression node. Wrap it so method trailing-expression return checks do not
-        // reinterpret it as an implicit return value.
-        if (isStatementFormMatch && statement is BoundExpressionStatement)
-            return new BoundBlockStatement([statement]);
-
-        return statement;
+        return ExpressionToStatement(expr);
     }
 
     private BoundStatement BindIfStatement(IfStatementSyntax ifStmt)

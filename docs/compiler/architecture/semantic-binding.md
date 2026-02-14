@@ -50,6 +50,18 @@ The Bound tree contains Bound nodes that represent meaning in the program, such 
 
 The code generator is using this bound tree when generating the actual IL (bytecode).
 
+### Match binding split
+
+Pattern matching uses separate bound nodes for expression and statement forms:
+
+* `BindMatchExpression` produces `BoundMatchExpression` for value-producing
+  contexts.
+* `BindMatchStatement` produces `BoundMatchStatement` for statement control-flow
+  contexts.
+
+Both paths share arm binding, pattern validation, and exhaustiveness checks so
+diagnostics stay consistent between forms.
+
 ## Bound tree walkers
 
 Analyses that operate on bound nodes use `BoundTreeWalker`, a base class that provides

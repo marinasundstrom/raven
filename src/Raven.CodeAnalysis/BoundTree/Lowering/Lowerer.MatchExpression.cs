@@ -6,6 +6,57 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
+    public override BoundNode? VisitMatchStatement(BoundMatchStatement node)
+    {
+        var compilation = GetCompilation();
+        var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
+
+        var scrutinee = (BoundExpression)VisitExpression(node.Expression)!;
+        var scrutineeType = scrutinee.Type ?? compilation.ErrorTypeSymbol;
+        ILocalSymbol scrutineeLocal;
+
+        var statements = new List<BoundStatement>();
+
+        if (scrutinee is BoundLocalAccess localAccess)
+        {
+            scrutineeLocal = localAccess.Local;
+        }
+        else
+        {
+            scrutineeLocal = CreateTempLocal("match_scrutinee", scrutineeType, isMutable: false);
+            statements.Add(new BoundLocalDeclarationStatement([
+                new BoundVariableDeclarator(scrutineeLocal, scrutinee)
+            ]));
+        }
+
+        var endLabel = CreateLabel("match_end");
+
+        foreach (var arm in node.Arms)
+        {
+            var pattern = RewriteNullDiscardPattern(arm.Pattern, compilation);
+            var guard = (BoundExpression?)VisitExpression(arm.Guard);
+            var expression = (BoundExpression)VisitExpression(arm.Expression)!;
+
+            BoundStatement armResult = new BoundBlockStatement([
+                new BoundExpressionStatement(expression),
+                new BoundGotoStatement(endLabel)
+            ]);
+
+            if (guard is not null)
+                armResult = new BoundIfStatement(guard, armResult, null);
+
+            var condition = new BoundIsPatternExpression(
+                new BoundLocalAccess(scrutineeLocal),
+                pattern,
+                booleanType);
+
+            statements.Add(new BoundIfStatement(condition, armResult, null));
+        }
+
+        statements.Add(CreateLabelStatement(endLabel));
+        return new BoundBlockStatement(statements);
+    }
+
     public override BoundNode? VisitMatchExpression(BoundMatchExpression node)
     {
         var compilation = GetCompilation();
@@ -41,17 +92,7 @@ internal sealed partial class Lowerer
 
         foreach (var arm in node.Arms)
         {
-            var pattern = arm.Pattern;
-            if (pattern is BoundDeclarationPattern
-                {
-                    Type: NullTypeSymbol,
-                    Designator: BoundDiscardDesignator
-                } declarationPattern)
-            {
-                var objectType = compilation.GetSpecialType(SpecialType.System_Object);
-                var literalType = new LiteralTypeSymbol(objectType, constantValue: null!, compilation);
-                pattern = new BoundConstantPattern(literalType, declarationPattern.Reason);
-            }
+            var pattern = RewriteNullDiscardPattern(arm.Pattern, compilation);
             var guard = (BoundExpression?)VisitExpression(arm.Guard);
             var expression = (BoundExpression)VisitExpression(arm.Expression)!;
 
@@ -81,5 +122,21 @@ internal sealed partial class Lowerer
         statements.Add(new BoundExpressionStatement(new BoundLocalAccess(resultLocal)));
 
         return new BoundBlockExpression(statements, unitType);
+    }
+
+    private static BoundPattern RewriteNullDiscardPattern(BoundPattern pattern, Compilation compilation)
+    {
+        if (pattern is BoundDeclarationPattern
+            {
+                Type: NullTypeSymbol,
+                Designator: BoundDiscardDesignator
+            } declarationPattern)
+        {
+            var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+            var literalType = new LiteralTypeSymbol(objectType, constantValue: null!, compilation);
+            return new BoundConstantPattern(literalType, declarationPattern.Reason);
+        }
+
+        return pattern;
     }
 }

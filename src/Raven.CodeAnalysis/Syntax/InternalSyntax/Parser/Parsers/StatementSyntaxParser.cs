@@ -861,9 +861,15 @@ internal class StatementSyntaxParser : SyntaxParser
     private StatementSyntax ParseMatchStatementSyntax()
     {
         SetTreatNewlinesAsTokens(false);
-        var expression = new ExpressionSyntaxParser(this).ParseMatchExpressionStatementForm();
+        var matchExpression = new ExpressionSyntaxParser(this).ParseMatchExpressionStatementForm();
         var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
-        return ExpressionStatement(expression, terminatorToken);
+        return MatchStatement(
+            matchExpression.MatchKeyword,
+            matchExpression.Expression,
+            matchExpression.OpenBraceToken,
+            matchExpression.Arms,
+            matchExpression.CloseBraceToken,
+            terminatorToken);
     }
 
     public StatementSyntax? LastStatement { get; set; }
