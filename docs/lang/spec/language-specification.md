@@ -12,6 +12,12 @@ An overview of available types, literal semantics, and conversions can be found 
 * Notes and tips highlight rationale, examples, or implementation remarks. They are informative rather than normative.
 * Code snippets use the `.rav` file extension and omit surrounding boilerplate unless it is essential to the rule being described.
 * When behaviour is intentionally unspecified or still under design, this specification calls it out explicitly and, where possible, links to suggested follow-up work.
+* Callout boxes use a small, consistent emoji set:
+  * `ℹ️` **Info** for factual clarification and context.
+  * `⚠️` **Warning** for pitfalls or behavior likely to surprise.
+  * `❗` **Important** for distinctions that affect correctness or interpretation.
+  * `🧭` **Disambiguation** for parser/binder interpretation rules.
+  * `⚠️` **Open Question** for unresolved design choices that need follow-up.
 
 ## Code samples
 
@@ -202,7 +208,7 @@ const greeting = "Hi"  // inferred string constant
 val count: long = 0     // explicit type
 ```
 
-> **Note:** We should decide upon whether to prefer `val` over `let`.
+> ⚠️ **Open Question:** We should decide whether to prefer `val` over `let`.
 
 If the type annotation is omitted, an initializer is required so the compiler can
 determine the variable's type. Const bindings always require an initializer, even when
@@ -1145,9 +1151,9 @@ Content entries use one of the following binding rules:
 If more than one content entry is provided for a type that uses the Content property convention, the compiler reports `RAV1505`.
 
 
-> **Note:** The grammar permits an initializer trailer after any invocation, but in statement headers such as `if`, `while`, and `for`, the `{` token begins the statement body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
+> 🧭 **Disambiguation:** The grammar permits an initializer trailer after any invocation, but in statement headers such as `if`, `while`, and `for`, the `{` token begins the statement body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
 
-> **Note:** The Content property convention is intended to support DSL-style UI composition (for example SwiftUI/Flutter-like syntax). Container types that accept multiple children should expose a collection-like API (for example `Add(TChild)` or a `Children` collection) instead of `Content`.
+> ℹ️ **Info:** The Content property convention is intended to support DSL-style UI composition (for example SwiftUI/Flutter-like syntax). Container types that accept multiple children should expose a collection-like API (for example `Add(TChild)` or a `Children` collection) instead of `Content`.
 
 
 #### Required members and init semantics
@@ -1332,7 +1338,7 @@ val empty = List<int>.Empty()
 val cap = List<int>.DefaultCapacity
 ```
 
-> **Note:** Extensions are trait-like: they group behavior that is treated as part of the target type for member lookup and overload resolution, without introducing storage or inheritance. In the current version of Raven, extensions and traits are applied implicitly based on scope. The design is still evolving, and future versions may introduce explicitly applied traits.
+> ℹ️ **Info:** Extensions are trait-like: they group behavior that is treated as part of the target type for member lookup and overload resolution, without introducing storage or inheritance. In the current version of Raven, extensions and traits are applied implicitly based on scope. The design is still evolving, and future versions may introduce explicitly applied traits.
 
 Each member inside the body is implicitly an extension member for the receiver
 type. Members may be function declarations or computed properties. The compiler
@@ -1989,7 +1995,7 @@ Patterns compose from the following primitives.
   (for example, an enum type or a type with static fields), the leading-dot
   expression resolves against that target type and matches the resulting value.
 
-> **Note:** A bare identifier in pattern position is context-sensitive. If the
+> 🧭 **Disambiguation:** A bare identifier in pattern position is context-sensitive. If the
 > name resolves to a value symbol, it forms a value pattern. Otherwise, it is
 > interpreted as a type name and participates in a type or declaration pattern.
 > This disambiguation is performed by the binder, not the grammar.
@@ -2257,9 +2263,7 @@ enum Color {
 }
 ```
 
-> **Design note**
->
-> Enums in Raven represent *named constants only*. They do **not** support
+> ℹ️ **Design Note:** Enums in Raven represent *named constants only*. They do **not** support
 > attaching additional data to individual members, and they are treated as
 > **non-exhaustive** in pattern matching. This reflects their CLR representation
 > and preserves compatibility with existing .NET libraries.
@@ -3447,9 +3451,9 @@ of **cases**. Union values are stored inline (as value types) and do not allocat
 on the managed heap. Each case acts like an inline constructor with an optional
 payload described by a parameter list. Unions use the `union` keyword:
 
-> ❗ Declared `union` types are nominal **tagged unions** (also called
-**discriminated unions**). They are separate from
-inferred/annotated type unions written with `|`.
+> ❗ **Important:** Declared `union` types are nominal **tagged unions** (also
+> called **discriminated unions**). They are separate from inferred/annotated
+> type unions written with `|`.
 
 ```raven
 union Token {
@@ -3521,7 +3525,7 @@ Lowest → highest (all left-associative unless noted):
 14. Unary (prefix): `+  -  !  typeof`
 15. Postfix trailers: call `()`, member `.`, index `[]`
 
-> **Disambiguation notes**
+> 🧭 **Disambiguation:**
 >
 > * `(<expr>)` is a **parenthesized expression** unless a comma appears (including trailing), in which case it’s a **tuple**.
 > * `<` starts **type arguments** only in a **type context**; elsewhere it’s the less-than operator.

@@ -175,7 +175,7 @@ Raven includes an analyzer that recommends replacing `== null`/`!= null` with
 
 Warning message:
 
-> This comparison may call a custom equality operator, so nullability isn’t
+> ⚠️ This comparison may call a custom equality operator, so nullability isn’t
 > narrowed. Use `is null` or `is not null` for a strict check.
 
 ### Union types
