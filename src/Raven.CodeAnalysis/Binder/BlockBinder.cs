@@ -6300,9 +6300,14 @@ partial class BlockBinder : Binder
             if (candidates.IsDefaultOrEmpty)
             {
                 if (methodName == "Invoke")
-                    _diagnostics.ReportInvalidInvocation(receiverSyntax.GetLocation());
+                {
+                    if (TryGetInvokedMemberName(receiverSyntax, out var memberName))
+                        _diagnostics.ReportNonInvocableMember(memberName, receiverSyntax.GetLocation());
+                    else
+                        _diagnostics.ReportInvalidInvocation(receiverSyntax.GetLocation());
+                }
                 else
-                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, receiverSyntax.GetLocation());
+                    _diagnostics.ReportMemberDoesNotContainDefinition(receiver.Type.Name, methodName, receiverSyntax.GetLocation());
 
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
             }
@@ -6374,7 +6379,7 @@ partial class BlockBinder : Binder
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
-            if (LookupType(methodName) is INamedTypeSymbol typeFallback)
+            if (LookupType(methodName) is INamedTypeSymbol { TypeKind: not TypeKind.Error } typeFallback)
             {
                 // Rebind arguments against ctor parameter types so target-typed member bindings can resolve.
                 if (callSyntax is InvocationExpressionSyntax inv)
@@ -6388,7 +6393,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        if (LookupType(methodName) is INamedTypeSymbol typeSymbol)
+        if (LookupType(methodName) is INamedTypeSymbol { TypeKind: not TypeKind.Error } typeSymbol)
         {
             if (callSyntax is InvocationExpressionSyntax inv)
                 return BindConstructorInvocation(typeSymbol, inv, receiverSyntax: receiverSyntax, receiver: null);
@@ -6401,6 +6406,28 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, receiverSyntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private static bool TryGetInvokedMemberName(SyntaxNode receiverSyntax, out string memberName)
+    {
+        switch (receiverSyntax)
+        {
+            case IdentifierNameSyntax identifier:
+                memberName = identifier.Identifier.ValueText;
+                return !string.IsNullOrEmpty(memberName);
+            case GenericNameSyntax generic:
+                memberName = generic.Identifier.ValueText;
+                return !string.IsNullOrEmpty(memberName);
+            case MemberAccessExpressionSyntax memberAccess:
+                memberName = memberAccess.Name.Identifier.ValueText;
+                return !string.IsNullOrEmpty(memberName);
+            case MemberBindingExpressionSyntax memberBinding:
+                memberName = memberBinding.Name.Identifier.ValueText;
+                return !string.IsNullOrEmpty(memberName);
+            default:
+                memberName = string.Empty;
+                return false;
+        }
     }
 
     private BoundArgument[] BindInvocationArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, out bool hasErrors)

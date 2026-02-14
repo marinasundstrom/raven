@@ -1373,7 +1373,10 @@ partial class BlockBinder
                     }
                     else
                     {
-                        _diagnostics.ReportInvalidInvocation(invocation.GetLocation());
+                        if (TryGetInvokedMemberName(memberBinding, out var memberName))
+                            _diagnostics.ReportNonInvocableMember(memberName, invocation.GetLocation());
+                        else
+                            _diagnostics.ReportInvalidInvocation(invocation.GetLocation());
                         whenNotNull = ErrorExpression(reason: BoundExpressionReason.NotFound);
                     }
 
@@ -2579,7 +2582,15 @@ partial class BlockBinder
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
         }
 
-        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation ?? simpleName.GetLocation() ?? Location.None);
+        if (preferMethods && receiver.Type is not null)
+        {
+            var receiverType = receiverTypeForLookup ?? (receiver.Type.UnwrapLiteralType() ?? receiver.Type);
+            _diagnostics.ReportMemberDoesNotContainDefinition(receiverType.Name, name, nameLocation ?? simpleName.GetLocation() ?? Location.None);
+        }
+        else
+        {
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, nameLocation ?? simpleName.GetLocation() ?? Location.None);
+        }
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
