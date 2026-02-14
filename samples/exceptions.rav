@@ -1,7 +1,11 @@
 import System.*
 import System.Console.*
 
-Test(null)
+try {
+    Test(null)
+} catch (Exception exc) {
+    WriteLine(exc)
+}
 
 func Test(name: string?) {
     val x = name ?? throw ArgumentNullException(nameof(name))
