@@ -19,6 +19,7 @@ For `.ravenproj` + NuGet restore/cache behavior, see:
 - `samples/project-files/nuget-demo/README.md`
 - `samples/project-files/aspnet-minimal-api/README.md`
 - `samples/project-files/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
+- `samples/project-files/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 
 ### Compiler options
 

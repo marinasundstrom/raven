@@ -10,6 +10,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
     private bool _hasAsyncReturnTypeError;
     private bool _containsAwait;
+    private bool _isExpressionTreeLambda;
     private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
 
     public SourceLambdaSymbol(
@@ -80,6 +81,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     }
 
     public bool ContainsAwait => _containsAwait;
+    internal bool IsExpressionTreeLambda => _isExpressionTreeLambda;
 
     internal SynthesizedAsyncStateMachineTypeSymbol? AsyncStateMachine => _asyncStateMachine;
 
@@ -109,6 +111,11 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public void SetContainsAwait(bool containsAwait)
     {
         _containsAwait = containsAwait;
+    }
+
+    internal void MarkExpressionTreeLambda()
+    {
+        _isExpressionTreeLambda = true;
     }
 
     internal void SetAsyncStateMachine(SynthesizedAsyncStateMachineTypeSymbol stateMachine)

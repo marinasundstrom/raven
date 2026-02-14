@@ -10,6 +10,19 @@ internal sealed partial class Lowerer
 {
     public override BoundNode? VisitConversionExpression(BoundConversionExpression node)
     {
+        var lambda = node.Expression as BoundLambdaExpression;
+        if (lambda is null &&
+            node.Expression is BoundConversionExpression { Expression: BoundLambdaExpression convertedLambda, IsExplicit: false })
+        {
+            lambda = convertedLambda;
+        }
+
+        if (lambda is not null &&
+            TryLowerExpressionTreeConversion(node, lambda, out var loweredExpressionTree))
+        {
+            return loweredExpressionTree;
+        }
+
         var rewrittenExpression = (BoundExpression?)Visit(node.Expression) ?? node.Expression;
 
         if (node.Conversion.IsDiscriminatedUnion && node.Conversion.MethodSymbol is null)

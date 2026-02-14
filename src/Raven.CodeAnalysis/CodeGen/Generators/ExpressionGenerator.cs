@@ -730,6 +730,10 @@ internal partial class ExpressionGenerator : Generator
     {
         if (lambdaExpression.Symbol is not ILambdaSymbol lambdaSymbol)
             throw new InvalidOperationException("Lambda symbol missing.");
+        if (lambdaSymbol is SourceLambdaSymbol expressionTreeLambda && expressionTreeLambda.IsExpressionTreeLambda)
+        {
+            throw new InvalidOperationException("Expression-tree lambda reached delegate emission. Expected lowering to Expression.* APIs.");
+        }
 
         var typeGenerator = MethodGenerator.TypeGenerator;
         var lambdaGenerator = typeGenerator.GetMethodGenerator(lambdaSymbol);

@@ -1,0 +1,5 @@
+<Project Name="EfCoreExpressionTrees" TargetFramework="net9.0" Output="EfCoreExpressionTrees">
+  <Document Path="src/main.rav" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
+</Project>

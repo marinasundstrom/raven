@@ -74,6 +74,8 @@
       href: development/node-generator.md
     - name: Lambda functions
       href: development/lambda-functions.md
+    - name: Expression trees
+      href: development/expression-trees.md
     - name: Completion service
       href: development/completion-service.md
     - name: Analyzers

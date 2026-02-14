@@ -1,0 +1,23 @@
+import System.*
+import System.Linq.*
+import System.Linq.Expressions.*
+import System.Collections.Generic.*
+
+// Baseline delegate behavior (should compile and run).
+val positive: Func<int, bool> = x => x > 0
+Console.WriteLine(positive(2))
+Console.WriteLine(positive(-2))
+
+val numbers = List<int>()
+numbers.Add(3)
+numbers.Add(-1)
+numbers.Add(4)
+numbers.Add(0)
+
+val filtered = numbers.Where(positive).ToList()
+Console.WriteLine(filtered.Count)
+
+// Expression-tree playground.
+val asTree: Expression<System.Func<int, bool>> = (x: int) => x > 0
+val compiled = asTree.Compile()
+Console.WriteLine(compiled(5))

@@ -1,0 +1,43 @@
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+import Microsoft.EntityFrameworkCore.*
+
+func Seed(db: AppDbContext) -> () {
+    db.Users.Add(User(1, "Ana", 29, true))
+    db.Users.Add(User(2, "Bob", 17, true))
+    db.Users.Add(User(3, "Cara", 42, false))
+    db.Users.Add(User(4, "Dan", 34, true))
+    db.SaveChanges()
+}
+
+func Main() -> () {
+    val db = AppDbContext()
+    db.Database.EnsureDeleted()
+    db.Database.EnsureCreated()
+
+    Seed(db)
+
+    val minAge = 21
+    val onlyActiveAdults: Expression<System.Func<User, bool>> =
+        user => user.IsActive && user.Age >= minAge
+
+    val query = db.Users
+        .Where(onlyActiveAdults)
+        .OrderBy((user: User) => user.Name)
+        .Select((user: User) => user.Name)
+
+    val names = query.ToList()
+    Console.WriteLine("Matched users count: " + names.Count.ToString())
+}
+
+public record class User(Id: int, Name: string, Age: int, IsActive: bool)
+
+public class AppDbContext : DbContext {
+    public Users: DbSet<User> { get; set; }
+
+    protected override OnConfiguring(optionsBuilder: DbContextOptionsBuilder) -> () {
+        optionsBuilder.UseInMemoryDatabase("Raven.ExpressionTrees.Stage1")
+    }
+}

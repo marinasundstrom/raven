@@ -7363,8 +7363,40 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindLambdaToDelegateIfNeeded(BoundExpression expression, ITypeSymbol targetType)
     {
-        if (expression is not BoundLambdaExpression lambda)
+        var lambda = expression as BoundLambdaExpression;
+        if (lambda is null &&
+            expression is BoundConversionExpression { Expression: BoundLambdaExpression convertedLambda, IsExplicit: false })
+        {
+            lambda = convertedLambda;
+        }
+
+        if (lambda is null)
             return expression;
+
+        if (TryGetExpressionTreeDelegateType(targetType, out var expressionTreeDelegate))
+        {
+            // Stage 1: shape the lambda to the inner delegate signature so expression-tree
+            // lowering can consume stable parameter/return metadata in follow-up stages.
+            var replayed = ReplayLambda(lambda, expressionTreeDelegate);
+            var lambdaForTree = replayed;
+            if (lambdaForTree is null)
+            {
+                // Function-type-shaped lambdas can be compatible without symbol identity.
+                // Preserve existing lambda binding and still mark the expression-tree conversion.
+                if (!lambda.IsCompatibleWithDelegate(expressionTreeDelegate, Compilation))
+                    return expression;
+
+                lambdaForTree = lambda;
+            }
+
+            if (lambdaForTree.Symbol is SourceLambdaSymbol sourceLambda)
+                sourceLambda.MarkExpressionTreeLambda();
+
+            return new BoundConversionExpression(
+                lambdaForTree,
+                targetType,
+                new Conversion(isImplicit: true, isReference: true));
+        }
 
         if (targetType is not INamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
             return expression;
@@ -7537,6 +7569,7 @@ partial class BlockBinder : Binder
 
         return converted;
     }
+
     private static bool IsSystemDelegateLike(ITypeSymbol type)
     {
         if (type is not INamedTypeSymbol named)

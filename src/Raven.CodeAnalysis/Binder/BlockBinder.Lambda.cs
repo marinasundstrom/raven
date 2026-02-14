@@ -71,6 +71,14 @@ partial class BlockBinder
         if (targetDelegate?.TypeKind != TypeKind.Delegate)
             targetDelegate = null;
 
+        // Stage 1 expression trees: for Expression<TDelegate> targets, infer lambda shape
+        // from the inner delegate the same way we do for direct delegate targets.
+        if (targetDelegate is null &&
+            TryGetLambdaTargetDelegateFromContext(syntax, targetType, out var contextDelegate))
+        {
+            targetDelegate = contextDelegate;
+        }
+
         if (targetDelegate is not null && candidateDelegates.IsDefault)
         {
             candidateDelegates = ImmutableArray.Create(targetDelegate);
@@ -613,6 +621,55 @@ partial class BlockBinder
         }
 
         return boundLambda;
+    }
+
+    private bool TryGetLambdaTargetDelegateFromContext(
+        LambdaExpressionSyntax syntax,
+        ITypeSymbol? contextualTargetType,
+        out INamedTypeSymbol delegateType)
+    {
+        delegateType = null!;
+
+        if (contextualTargetType is INamedTypeSymbol directDelegate &&
+            directDelegate.TypeKind == TypeKind.Delegate)
+        {
+            delegateType = directDelegate;
+            return true;
+        }
+
+        if (contextualTargetType is not null &&
+            TryGetExpressionTreeDelegateType(contextualTargetType, out var expressionDelegate))
+        {
+            delegateType = expressionDelegate;
+            return true;
+        }
+
+        // Fallback for local declaration initializers where contextual target typing can be missing.
+        if (syntax.Parent is EqualsValueClauseSyntax
+            {
+                Parent: VariableDeclaratorSyntax
+                {
+                    TypeAnnotation: { Type: { } annotatedTypeSyntax }
+                }
+            })
+        {
+            var annotatedType = ResolveTypeSyntaxOrError(annotatedTypeSyntax);
+
+            if (annotatedType is INamedTypeSymbol annotatedDelegate &&
+                annotatedDelegate.TypeKind == TypeKind.Delegate)
+            {
+                delegateType = annotatedDelegate;
+                return true;
+            }
+
+            if (TryGetExpressionTreeDelegateType(annotatedType, out expressionDelegate))
+            {
+                delegateType = expressionDelegate;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ReportLambdaBodyDiagnostics(LambdaBinder lambdaBinder)

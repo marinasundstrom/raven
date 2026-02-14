@@ -82,6 +82,52 @@ public partial class Compilation
         if (destination is null)
             return Conversion.None;
 
+        static bool TryGetExpressionTreeDelegateType(ITypeSymbol type, out INamedTypeSymbol delegateType)
+        {
+            delegateType = null!;
+
+            static ITypeSymbol Unalias(ITypeSymbol symbol)
+            {
+                while (symbol.IsAlias && symbol.UnderlyingSymbol is ITypeSymbol underlying)
+                    symbol = underlying;
+
+                return symbol;
+            }
+
+            type = Unalias(type);
+            if (type is NullableTypeSymbol nullable)
+                type = nullable.UnderlyingType;
+
+            if (type is not INamedTypeSymbol named)
+                return false;
+
+            var definition = (named.OriginalDefinition as INamedTypeSymbol) ?? named;
+            if (definition.Arity != 1)
+                return false;
+
+            var isExpressionType =
+                string.Equals(definition.Name, "Expression", StringComparison.Ordinal) ||
+                string.Equals(definition.MetadataName, "Expression`1", StringComparison.Ordinal);
+            if (!isExpressionType)
+                return false;
+
+            if (named.TypeArguments.Length != 1)
+                return false;
+
+            var candidate = Unalias(named.TypeArguments[0]);
+            if (candidate is not INamedTypeSymbol candidateDelegate)
+                return false;
+
+            if (candidateDelegate.TypeKind != TypeKind.Delegate &&
+                candidateDelegate.GetDelegateInvokeMethod() is null)
+            {
+                return false;
+            }
+
+            delegateType = candidateDelegate;
+            return true;
+        }
+
         var aliasInvolved = sourceUsedAlias || destinationUsedAlias;
 
         if (source.SpecialType is SpecialType.System_Unit &&
@@ -98,6 +144,14 @@ public partial class Compilation
                 return conversion;
 
             return conversion.WithAlias(aliasInvolved);
+        }
+
+        if (TryGetExpressionTreeDelegateType(destination, out var expressionTreeDelegate) &&
+            source is INamedTypeSymbol sourceDelegate &&
+            (sourceDelegate.TypeKind == TypeKind.Delegate || sourceDelegate.GetDelegateInvokeMethod() is not null) &&
+            SymbolEqualityComparer.Default.Equals(sourceDelegate, expressionTreeDelegate))
+        {
+            return Finalize(new Conversion(isImplicit: true, isReference: true));
         }
 
         if (source.ContainsErrorType() || destination.ContainsErrorType())
