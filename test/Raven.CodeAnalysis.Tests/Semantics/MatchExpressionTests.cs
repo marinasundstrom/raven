@@ -846,7 +846,7 @@ val result = value match {
         var verifier = CreateVerifier(
             code,
             [
-                new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("string", "int"),
+                new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("\"foo\"", "int"),
                 new DiagnosticResult("RAV2101").WithAnySpan(),
             ]);
 

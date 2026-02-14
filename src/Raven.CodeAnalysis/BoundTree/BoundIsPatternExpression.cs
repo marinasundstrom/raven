@@ -535,7 +535,7 @@ internal partial class BlockBinder
             if (!literalConversion.Exists)
             {
                 _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                    literalType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    literalType.Name,
                     inputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     expressionSyntax.GetLocation());
 

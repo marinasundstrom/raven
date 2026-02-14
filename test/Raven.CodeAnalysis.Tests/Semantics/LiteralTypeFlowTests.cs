@@ -279,6 +279,30 @@ val x = if true { "true" } else { 1 }
     }
 
     [Fact]
+    public void LiteralUnionTarget_WithMatchingLiteral_AssignsSuccessfully()
+    {
+        const string code = """
+val mode: "on" | "off" = "on"
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void LiteralUnionTarget_WithNonMemberLiteral_ReportsConversionDiagnostic()
+    {
+        const string code = """
+val mode: "on" | "off" = "unknown"
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("'string'", "'string | string'")]);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void IfExpression_WithMixedNumericBranches_InferredUnderlyingType()
     {
         var code = """

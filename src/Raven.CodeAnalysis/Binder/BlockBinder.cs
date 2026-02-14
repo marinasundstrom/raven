@@ -4647,6 +4647,7 @@ partial class BlockBinder : Binder
         }
 
         var value = syntax.Token.Value ?? syntax.Token.Text!;
+        var contextualTargetType = GetTargetType(syntax);
         var underlying = value switch
         {
             byte => Compilation.GetSpecialType(SpecialType.System_Byte),
@@ -4661,7 +4662,10 @@ partial class BlockBinder : Binder
             _ => throw new Exception("Unsupported literal type")
         };
 
-        ITypeSymbol type = new LiteralTypeSymbol(underlying, value, Compilation);
+        var preserveLiteralPrecision = ShouldPreserveLiteralPrecision(contextualTargetType);
+        ITypeSymbol type = preserveLiteralPrecision
+            ? new LiteralTypeSymbol(underlying, value, Compilation)
+            : underlying;
 
         BoundLiteralExpressionKind kind = syntax.Kind switch
         {
@@ -4676,6 +4680,33 @@ partial class BlockBinder : Binder
         };
 
         return new BoundLiteralExpression(kind, value, type);
+    }
+
+    private static bool ShouldPreserveLiteralPrecision(ITypeSymbol? targetType)
+    {
+        if (targetType is null)
+            return true;
+
+        return RequiresLiteralPrecision(targetType);
+    }
+
+    private static bool RequiresLiteralPrecision(ITypeSymbol type)
+    {
+        type = UnwrapAlias(type);
+
+        if (type is LiteralTypeSymbol)
+            return true;
+
+        if (type is not ITypeUnionSymbol union)
+            return false;
+
+        foreach (var element in union.Elements)
+        {
+            if (RequiresLiteralPrecision(element))
+                return true;
+        }
+
+        return false;
     }
 
     private BoundExpression BindDefaultExpression(DefaultExpressionSyntax syntax)
