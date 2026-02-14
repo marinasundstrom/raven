@@ -352,6 +352,9 @@ still allowing safe narrowing through implicit *constant* conversions.
 
 * **Unsuffixed integer literals** default to `int`.
   * If the value does not fit in `int`, the literal is typed as `long`.
+* **Base prefixes**:
+  * `0b` / `0B` — binary integer literal
+  * `0x` / `0X` — hexadecimal integer literal
 * The following suffixes override the default:
   * `b` / `B` — `byte`
   * `l` / `L` — `long`
@@ -370,6 +373,8 @@ val y: byte = 300 // error: constant out of range
 
 val z = 32b      // explicit byte literal
 val n = 10L      // explicit long literal
+val bits = 0b1010_0101 // binary int literal
+val mask = 0xFF  // hexadecimal int literal
 ```
 
 #### Floating-point literals

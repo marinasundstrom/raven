@@ -74,6 +74,7 @@ Supported literal types are:
 | `'a'`                  | `char`          | single UTF-16 code unit   |
 | `"hi"`                | `string`        | sequence of characters    |
 | `1`                    | `int`           | 32-bit signed integer     |
+| `0b1010`               | `int`           | binary integer literal    |
 | `4_000_000_000`        | `long`          | promoted when `int` overflows |
 | `3.14`                 | `double`        | default floating literal  |
 | `3.14f`                | `float`         | `f` or `F` suffix selects `float` |
