@@ -87,6 +87,9 @@ union only reports distinct possibilities. Literal members collapse into their
 underlying type when a non-literal of that type also flows to the location,
 while disjoint literal values remain literal to preserve the precise set of
 constants.
+These inference-produced unions are referred to as **inferred union types**.
+Inferred union types (`A | B`) are separate from nominal discriminated/tagged
+unions declared with the `union` keyword.
 
 ```raven
 val yes: "yes" = "yes"
@@ -182,6 +185,16 @@ CLR representation; the union records the set of possibilities and supplies a
 shared view when one is needed. Raven determines that common view using these
 rules:
 
+This section covers type unions written with `|`, not `union Name { ... }`
+declarations.
+The `union` keyword declares nominal tagged unions (discriminated unions), a
+separate language feature.
+
+Use type unions when a value is deliberately allowed to be one of multiple
+concrete types and you want that set to stay explicit. This is most useful when
+the alternatives do not share a meaningful common base class; otherwise the type
+would typically degrade to `object` and lose precision.
+
 1. Flatten nested unions and unwrap aliases or literal types to their underlying
    CLR types.
 2. Ignore branches whose type kind is `null` while searching for a base type.
@@ -208,6 +221,9 @@ val a: int | string = "2"   // either an int or a string
 val b: string | null = null // optional string (converts to `string?` when required)
 val c: "yes" | "no" = "yes" // constrained to specific constants
 ```
+
+Pattern matching is the primary way to consume union-typed values safely.
+`match` and `is` patterns narrow each arm/branch to the matched union member.
 
 To model absence explicitly, Raven recommends the **Option union** defined in
 `src/Raven.Core/Option.rav` (`System.Option<T>`). It behaves like a `T | null`

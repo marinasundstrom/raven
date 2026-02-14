@@ -268,6 +268,9 @@ the expression. If multiple different types can flow to a location—through
 conditional branches or early `return` statements—the inferred result becomes a
 **union** of those types. The compiler does not collapse distinct types to their
 nearest common base; returning `Dog` and `Cat` infers `Dog | Cat`, not `Animal`.
+This specification refers to such results as **inferred union types**.
+Inferred union types (`A | B`) are distinct from declared discriminated/tagged
+unions introduced with the `union` keyword.
 
 ```raven
 val pet = if flag { Dog() } else { Cat() }
@@ -3170,6 +3173,15 @@ return represents an action with no meaningful result.
 ### Union types
 
 Unions express multiple possible types (e.g., `int | string`). A union’s members are **normalized**: nested unions flatten, duplicates are removed, and order is irrelevant. For example, `int | (string | int)` simplifies to `int | string`.
+These are type-level unions, separate from `union Name { ... }` declarations.
+
+#### When to use type unions
+
+Use a type union when a value is intentionally one of several concrete types and
+you want that set to remain explicit in the type system. This is especially
+useful when alternatives have no meaningful shared base type beyond `object`.
+Without a union annotation or inference context, those values would otherwise
+often collapse to `object` and lose branch-specific intent.
 
 ```raven
 val a: int | string
@@ -3434,6 +3446,10 @@ A discriminated union declaration defines a value type composed of a fixed set
 of **cases**. Union values are stored inline (as value types) and do not allocate
 on the managed heap. Each case acts like an inline constructor with an optional
 payload described by a parameter list. Unions use the `union` keyword:
+
+> ❗ Declared `union` types are nominal **tagged unions** (also called
+**discriminated unions**). They are separate from
+inferred/annotated type unions written with `|`.
 
 ```raven
 union Token {
