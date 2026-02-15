@@ -5109,20 +5109,17 @@ partial class BlockBinder : Binder
         // 1. Specialfall: string + any → string-konkatenering
         if (opKind == SyntaxKind.PlusToken)
         {
-            var leftIsString = left.Type.SpecialType == SpecialType.System_String ||
-                                (left.Type is LiteralTypeSymbol lls && lls.UnderlyingType.SpecialType == SpecialType.System_String);
-            var rightIsString = right.Type.SpecialType == SpecialType.System_String ||
-                                 (right.Type is LiteralTypeSymbol rls && rls.UnderlyingType.SpecialType == SpecialType.System_String);
+            var leftIsString = left.Type.UnwrapLiteralType().SpecialType == SpecialType.System_String;
+            var rightIsString = right.Type.UnwrapLiteralType().SpecialType == SpecialType.System_String;
 
-            if (left.Type is LiteralTypeSymbol litLeft &&
-                right.Type is LiteralTypeSymbol litRight &&
+            if (left is BoundLiteralExpression litLeft &&
+                right is BoundLiteralExpression litRight &&
                 (leftIsString || rightIsString))
             {
                 var stringType = Compilation.GetSpecialType(SpecialType.System_String);
-                var value = (litLeft.ConstantValue?.ToString() ?? string.Empty) +
-                            (litRight.ConstantValue?.ToString() ?? string.Empty);
-                var resultType = new LiteralTypeSymbol(stringType, value, Compilation);
-                return new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, value, resultType);
+                var value = (litLeft.Value?.ToString() ?? string.Empty) +
+                            (litRight.Value?.ToString() ?? string.Empty);
+                return new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, value, stringType);
             }
 
             if (leftIsString || rightIsString)

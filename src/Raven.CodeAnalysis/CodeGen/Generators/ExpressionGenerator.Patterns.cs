@@ -774,16 +774,16 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        if (rhs is BoundLiteralExpression litExpr && rhs.Type is LiteralTypeSymbol litType)
+        if (rhs is BoundLiteralExpression litExpr)
         {
-            var value = litType.ConstantValue;
+            var value = litExpr.Value;
             if (value is null)
             {
                 EmitDefaultValue(targetType);
                 return;
             }
 
-            EmitLiteralInTargetType(value, targetType, litType);
+            EmitLiteralInTargetType(value, targetType, litExpr.Type);
             return;
         }
 
@@ -1277,7 +1277,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ceq);
     }
 
-    private void EmitReferenceConstantCompare(object value, LiteralTypeSymbol literal, IILocal? local)
+    private void EmitReferenceConstantCompare(object value, ITypeSymbol sourceType, IILocal? local)
     {
         var obj = local ?? ILGenerator.DeclareLocal(typeof(object));
         ILGenerator.Emit(OpCodes.Stloc, obj);
@@ -1308,7 +1308,8 @@ internal partial class ExpressionGenerator
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, obj);
-        EmitConstantAsObject(literal, value);
+        var underlyingSource = sourceType is LiteralTypeSymbol ls ? ls.UnderlyingType : sourceType;
+        EmitConstantAsObject(underlyingSource, value);
 
         var equals = typeof(object).GetMethod(nameof(object.Equals), new[] { typeof(object) })!;
         ILGenerator.Emit(OpCodes.Callvirt, equals);
@@ -1316,7 +1317,7 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(done);
     }
 
-    private void EmitNullableValueConstantCompare(ITypeSymbol nullableType, object value, LiteralTypeSymbol literal)
+    private void EmitNullableValueConstantCompare(ITypeSymbol nullableType, object value, ITypeSymbol sourceType)
     {
         var nullableClr = ResolveClrType(nullableType);
         var underlyingType = nullableType.GetNullableUnderlyingType();
@@ -1342,19 +1343,19 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ldloca_S, loc);
         ILGenerator.Emit(OpCodes.Call, getValueOrDefault); // underlying T
 
-        EmitLiteralInTargetType(value, underlyingType, literal);
+        EmitLiteralInTargetType(value, underlyingType, sourceType);
         ILGenerator.Emit(OpCodes.Ceq);
 
         ILGenerator.MarkLabel(done);
     }
 
-    private void EmitLiteralInTargetType(object value, ITypeSymbol targetType, LiteralTypeSymbol literal)
+    private void EmitLiteralInTargetType(object value, ITypeSymbol targetType, ITypeSymbol sourceType)
     {
         // Unwrap literal wrapper types
         if (targetType is LiteralTypeSymbol lt)
             targetType = lt.UnderlyingType;
 
-        var litUnderlying = literal.UnderlyingType;
+        var litUnderlying = sourceType is LiteralTypeSymbol ls ? ls.UnderlyingType : sourceType;
 
         // Enums compare via underlying integral type
         if (targetType.TypeKind == TypeKind.Enum)
@@ -1419,10 +1420,10 @@ internal partial class ExpressionGenerator
         }
 
         // Fallback: boxed constant (caller must compare via Equals)
-        EmitConstantAsObject(literal, value);
+        EmitConstantAsObject(litUnderlying, value);
     }
 
-    private void EmitConstantAsObject(LiteralTypeSymbol literal, object value)
+    private void EmitConstantAsObject(ITypeSymbol sourceType, object value)
     {
         switch (value)
         {
@@ -1433,7 +1434,7 @@ internal partial class ExpressionGenerator
             case char ch:
                 ILGenerator.Emit(OpCodes.Ldc_I4, (int)ch);
                 ILGenerator.Emit(OpCodes.Conv_U2);
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(literal.UnderlyingType));
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
                 return;
 
             case bool b:
@@ -1443,8 +1444,8 @@ internal partial class ExpressionGenerator
 
             default:
                 EmitLiteral(value);
-                if (literal.UnderlyingType.IsValueType)
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(literal.UnderlyingType));
+                if (sourceType.IsValueType)
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
                 return;
         }
     }

@@ -208,9 +208,9 @@ public partial class SemanticModel
         if (boundExpr is null)
             return new TypeInfo(null, null);
 
-        ITypeSymbol? naturalType = UnwrapLiteralType(boundExpr.Type);
+        ITypeSymbol? naturalType = boundExpr.Type;
 
-        ITypeSymbol? convertedType = UnwrapLiteralType(boundExpr.GetConvertedType() ?? boundExpr.Type);
+        ITypeSymbol? convertedType = boundExpr.GetConvertedType() ?? boundExpr.Type;
 
         var conversion = boundExpr switch
         {
@@ -239,9 +239,6 @@ public partial class SemanticModel
             return new TypeInfo(null, null);
         }
     }
-
-    private static ITypeSymbol? UnwrapLiteralType(ITypeSymbol? type)
-        => type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
 
     private Conversion ComputeConversion(ITypeSymbol? naturalType, ITypeSymbol? convertedType)
     {
