@@ -7900,7 +7900,8 @@ partial class BlockBinder : Binder
             if (targetType != null)
                 return new BoundEmptyCollectionExpression(targetType);
 
-            return new BoundEmptyCollectionExpression();
+            _diagnostics.ReportEmptyCollectionLiteralRequiresTargetType(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
         var elements = new List<BoundExpression>(syntax.Elements.Count);

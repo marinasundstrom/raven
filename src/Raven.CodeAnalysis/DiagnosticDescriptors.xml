@@ -573,6 +573,10 @@
     Title="Single-element tuple type is not allowed"
     Message="Single-element tuple types are not supported; use parenthesized type syntax only for grouping"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2024" Identifier="EmptyCollectionLiteralRequiresTargetType"
+    Title="Empty collection literal requires a target type"
+    Message="An empty collection literal '[]' can only be used when a target type is known"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2100" Identifier="MatchExpressionNotExhaustive"
     Title="Match must cover all cases" Message="Missing match case: '{missingType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

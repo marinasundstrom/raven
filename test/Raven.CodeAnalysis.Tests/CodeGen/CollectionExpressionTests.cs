@@ -2,6 +2,7 @@ using System.IO;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -116,5 +117,34 @@ class Foo {
         var instance = Activator.CreateInstance(type!);
 
         Assert.Equal(1, (int)method!.Invoke(instance, null)!);
+    }
+}
+
+public class CollectionExpressionDiagnosticTests : DiagnosticTestBase
+{
+    [Fact]
+    public void EmptyCollectionLiteral_WithoutTargetType_ReportsDiagnostic()
+    {
+        const string code = """
+        val arr = []
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult("RAV2024").WithSpan(1, 11, 1, 13)
+        ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void EmptyCollectionLiteral_WithTargetType_NoDiagnostic()
+    {
+        const string code = """
+        val arr: int[] = []
+        """;
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
     }
 }
