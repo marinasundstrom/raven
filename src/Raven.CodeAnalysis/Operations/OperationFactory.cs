@@ -10,10 +10,13 @@ internal static class OperationFactory
         var kind = GetOperationKind(bound);
         var type = bound switch
         {
-            BoundExpression expr => expr.Type,
+            BoundExpression expr => UnwrapLiteralType(expr.Type),
             BoundVariableDeclarator declarator => declarator.Type,
             _ => null
         };
+
+        static ITypeSymbol? UnwrapLiteralType(ITypeSymbol? t)
+            => t is LiteralTypeSymbol literal ? literal.UnderlyingType : t;
 
         var isImplicit = bound is BoundExpression implicitExpr && implicitExpr.Reason != BoundExpressionReason.None;
 

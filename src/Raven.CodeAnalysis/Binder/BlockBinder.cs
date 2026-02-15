@@ -220,7 +220,7 @@ partial class BlockBinder : Binder
             ShouldAttemptConversion(boundInitializer))
         {
             boundInitializer = BindLambdaToDelegateIfNeeded(boundInitializer, type);
-            if (!IsAssignable(type, boundInitializer.Type!, out var conversion))
+            if (!IsAssignable(type, boundInitializer, out var conversion))
             {
                 if (isConst &&
                     initializer is not null &&
@@ -7353,6 +7353,23 @@ partial class BlockBinder : Binder
 
         conversion = Compilation.ClassifyConversion(sourceType, targetType);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    protected bool IsAssignable(ITypeSymbol targetType, BoundExpression sourceExpression, out Conversion conversion)
+    {
+        var sourceType = sourceExpression.Type!;
+
+        // For literal expressions, temporarily wrap the source type as a LiteralTypeSymbol
+        // so that ClassifyConversion can perform implicit constant narrowing checks
+        // (e.g. int literal 2 -> byte). The LiteralTypeSymbol never escapes to the bound tree.
+        if (sourceExpression is BoundLiteralExpression literal &&
+            sourceType is not LiteralTypeSymbol)
+        {
+            var literalType = new LiteralTypeSymbol(sourceType, literal.Value, Compilation);
+            return IsAssignable(targetType, literalType, out conversion);
+        }
+
+        return IsAssignable(targetType, sourceType, out conversion);
     }
 
     private static bool ShouldAttemptConversion(BoundExpression expression)

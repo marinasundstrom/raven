@@ -581,11 +581,16 @@ public partial class Compilation
 
         static bool IsImplicitInt32ConstantConversion(int value, SpecialType destination)
         {
-            // Match C#'s implicit constant expression conversions for the subset Raven currently supports.
-            // Today we only need byte/char, but keeping this structured makes it easy to extend.
+            // Match C#'s implicit constant expression conversions.
+            // An int constant can be implicitly converted to smaller integral types when the value fits.
             return destination switch
             {
+                SpecialType.System_SByte => value >= sbyte.MinValue && value <= sbyte.MaxValue,
                 SpecialType.System_Byte => (uint)value <= byte.MaxValue,
+                SpecialType.System_Int16 => value >= short.MinValue && value <= short.MaxValue,
+                SpecialType.System_UInt16 => (uint)value <= ushort.MaxValue,
+                SpecialType.System_UInt32 => value >= 0,
+                SpecialType.System_UInt64 => value >= 0,
                 SpecialType.System_Char => (uint)value <= char.MaxValue,
                 _ => false
             };
