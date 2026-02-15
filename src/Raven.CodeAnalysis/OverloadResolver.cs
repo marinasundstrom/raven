@@ -448,11 +448,17 @@ internal sealed class OverloadResolver
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
         IMethodSymbol? inferenceMethod)
     {
-        if (parameterType is not INamedTypeSymbol delegateType ||
-            delegateType.TypeKind != TypeKind.Delegate)
+        INamedTypeSymbol? delegateType = null;
+        if (parameterType is INamedTypeSymbol named)
         {
-            return true;
+            if (named.TypeKind == TypeKind.Delegate)
+                delegateType = named;
+            else if (TryGetExpressionTreeDelegateType(named, out var innerDelegate))
+                delegateType = innerDelegate;
         }
+
+        if (delegateType is null)
+            return true;
 
         var invoke = delegateType.GetDelegateInvokeMethod();
         if (invoke is null)
@@ -1039,6 +1045,20 @@ internal sealed class OverloadResolver
                 continue;
             }
 
+            // C# §12.6.4.4: when a lambda argument converts to both D and Expression<D>,
+            // neither conversion is better. Skip this argument so the extension-receiver
+            // distance (which correctly prefers IQueryable<T> over IEnumerable<T>) can decide.
+            if (arguments[i].Expression is BoundLambdaExpression &&
+                candParamType is INamedTypeSymbol candParamNamed &&
+                currentParamType is INamedTypeSymbol currentParamNamed)
+            {
+                var candIsExprTree = TryGetExpressionTreeDelegateType(candParamNamed, out _);
+                var currIsExprTree = TryGetExpressionTreeDelegateType(currentParamNamed, out _);
+
+                if (candIsExprTree != currIsExprTree)
+                    continue;
+            }
+
             // Tie-breaker (C#-like): if one parameter type implicitly converts to the other (but not vice versa),
             // prefer the more specific type. This is essential for numeric overload resolution where inheritance
             // distance is not informative (e.g. byte -> int vs byte -> double/decimal).
@@ -1392,46 +1412,57 @@ internal sealed class OverloadResolver
         bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
-            if (delegateType.TypeKind == TypeKind.Delegate)
+            // Unwrap Expression<TDelegate> — treat it like a delegate parameter for lambda compatibility,
+            // using the inner delegate type for signature checking.
+            var isExpressionTree = false;
+            var effectiveDelegateType = delegateType;
+            if (delegateType.TypeKind != TypeKind.Delegate &&
+                TryGetExpressionTreeDelegateType(delegateType, out var innerDelegateType))
+            {
+                effectiveDelegateType = innerDelegateType;
+                isExpressionTree = true;
+            }
+
+            if (effectiveDelegateType.TypeKind == TypeKind.Delegate)
             {
                 if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
                 {
-                    var invoke = delegateType.GetDelegateInvokeMethod();
+                    var invoke = effectiveDelegateType.GetDelegateInvokeMethod();
                     string? asyncDetail = null;
                     var asyncCompatible = invoke is not null && IsAsyncDelegateCompatible(lambda, invoke.ReturnType, compilation, out asyncDetail);
 
                     if (!asyncCompatible)
                     {
-                        LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, asyncDetail ?? "async delegate mismatch");
+                        LogComparison(comparisonLog, parameter, effectiveDelegateType, OverloadArgumentComparisonResult.LambdaIncompatible, asyncDetail ?? "async delegate mismatch");
                         return false;
                     }
                 }
 
-                if (delegateType.IsGenericType && delegateType.TypeArguments.Any(static t => t is ITypeParameterSymbol))
+                if (effectiveDelegateType.IsGenericType && effectiveDelegateType.TypeArguments.Any(static t => t is ITypeParameterSymbol))
                 {
                     lambdaCompatible = true;
-                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda retained for generic delegate binding");
+                    LogComparison(comparisonLog, parameter, effectiveDelegateType, OverloadArgumentComparisonResult.Success, isExpressionTree ? "lambda retained for generic expression-tree binding" : "lambda retained for generic delegate binding");
                 }
                 else if (canBindLambda is not null)
                 {
                     if (!canBindLambda(parameter, lambda))
                     {
-                        LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda rejected by binder callback");
+                        LogComparison(comparisonLog, parameter, effectiveDelegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda rejected by binder callback");
                         return false;
                     }
 
                     lambdaCompatible = true;
-                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda accepted via binder callback");
+                    LogComparison(comparisonLog, parameter, effectiveDelegateType, OverloadArgumentComparisonResult.Success, "lambda accepted via binder callback");
                 }
-                else if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
+                else if (!lambda.IsCompatibleWithDelegate(effectiveDelegateType, compilation))
                 {
-                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda signature is incompatible with delegate");
+                    LogComparison(comparisonLog, parameter, effectiveDelegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda signature is incompatible with delegate");
                     return false;
                 }
                 else
                 {
                     lambdaCompatible = true;
-                    LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.Success, "lambda compatible with delegate");
+                    LogComparison(comparisonLog, parameter, effectiveDelegateType, OverloadArgumentComparisonResult.Success, isExpressionTree ? "lambda compatible with expression-tree delegate" : "lambda compatible with delegate");
                 }
 
                 argType = lambda.DelegateType ?? argType;
@@ -1655,15 +1686,58 @@ internal sealed class OverloadResolver
 
     private static int GetInheritanceDistance(ITypeSymbol? derived, ITypeSymbol baseType)
     {
-        int distance = 0;
-        var current = derived;
-        while (current is not null)
+        if (derived is null)
+            return int.MaxValue;
+
+        if (SymbolEqualityComparer.Default.Equals(derived, baseType))
+            return 0;
+
+        // Non-interface target: walk the BaseType chain (class hierarchy).
+        if (baseType.TypeKind != TypeKind.Interface)
         {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
-                return distance;
-            current = current.BaseType;
-            distance++;
+            int distance = 1;
+            var current = derived.BaseType;
+            while (current is not null)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, baseType))
+                    return distance;
+                current = current.BaseType;
+                distance++;
+            }
+            return int.MaxValue;
         }
+
+        // Interface target: BFS over directly-declared interfaces to find shortest path.
+        // Quick containment check first — if the interface isn't implemented at all, bail out.
+        if (baseType is INamedTypeSymbol baseNamed &&
+            !derived.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, baseNamed)))
+        {
+            return int.MaxValue;
+        }
+
+        var queue = new Queue<(INamedTypeSymbol iface, int depth)>();
+        var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        // Seed with the derived type's directly-declared interfaces at depth 1.
+        foreach (var iface in derived.Interfaces)
+        {
+            if (visited.Add(iface))
+                queue.Enqueue((iface, 1));
+        }
+
+        while (queue.Count > 0)
+        {
+            var (iface, depth) = queue.Dequeue();
+            if (SymbolEqualityComparer.Default.Equals(iface, baseType))
+                return depth;
+
+            foreach (var parent in iface.Interfaces)
+            {
+                if (visited.Add(parent))
+                    queue.Enqueue((parent, depth + 1));
+            }
+        }
+
         return int.MaxValue;
     }
 
@@ -1712,6 +1786,43 @@ internal sealed class OverloadResolver
             required--;
 
         return required;
+    }
+
+    /// <summary>
+    /// If <paramref name="type"/> is <c>Expression&lt;TDelegate&gt;</c>, extracts <c>TDelegate</c> and
+    /// returns <see langword="true"/>. Otherwise returns <see langword="false"/>.
+    /// </summary>
+    private static bool TryGetExpressionTreeDelegateType(ITypeSymbol type, out INamedTypeSymbol delegateType)
+    {
+        delegateType = null!;
+
+        if (type is NullableTypeSymbol nullable)
+            type = nullable.UnderlyingType;
+
+        if (type is not INamedTypeSymbol named)
+            return false;
+
+        var definition = (named.OriginalDefinition as INamedTypeSymbol) ?? named;
+        if (definition.Arity != 1)
+            return false;
+
+        if (!string.Equals(definition.Name, "Expression", StringComparison.Ordinal) &&
+            !string.Equals(definition.MetadataName, "Expression`1", StringComparison.Ordinal))
+            return false;
+
+        if (named.TypeArguments.Length != 1)
+            return false;
+
+        var candidate = named.TypeArguments[0];
+        if (candidate is not INamedTypeSymbol candidateDelegate)
+            return false;
+
+        if (candidateDelegate.TypeKind != TypeKind.Delegate &&
+            candidateDelegate.GetDelegateInvokeMethod() is null)
+            return false;
+
+        delegateType = candidateDelegate;
+        return true;
     }
 }
 

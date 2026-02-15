@@ -787,10 +787,19 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
-            if (parameter.Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            INamedTypeSymbol? delegateToAdd = null;
+            if (parameter.Type is INamedTypeSymbol rawType)
             {
-                if (!builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateType)))
-                    builder.Add(delegateType);
+                if (rawType.TypeKind == TypeKind.Delegate)
+                    delegateToAdd = rawType;
+                else if (TryGetExpressionTreeDelegateType(rawType, out var innerDelegate))
+                    delegateToAdd = innerDelegate;
+            }
+
+            if (delegateToAdd is not null &&
+                !builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateToAdd)))
+            {
+                builder.Add(delegateToAdd);
             }
         }
 
@@ -834,11 +843,17 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
-            if (parameter.Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            INamedTypeSymbol? delegateToAdd = null;
+            if (parameter.Type is INamedTypeSymbol rawType)
             {
-                if (seen.Add(delegateType))
-                    builder.Add(delegateType);
+                if (rawType.TypeKind == TypeKind.Delegate)
+                    delegateToAdd = rawType;
+                else if (TryGetExpressionTreeDelegateType(rawType, out var innerDelegate))
+                    delegateToAdd = innerDelegate;
             }
+
+            if (delegateToAdd is not null && seen.Add(delegateToAdd))
+                builder.Add(delegateToAdd);
         }
 
         if (builder.Count > 0)
@@ -980,9 +995,18 @@ partial class BlockBinder
                 continue;
 
             var parameterType = parameter.Type;
-            if (parameterType is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            INamedTypeSymbol? effectiveDelegateType = null;
+            if (parameterType is INamedTypeSymbol namedParamType)
             {
-                var invoke = delegateType.GetDelegateInvokeMethod();
+                if (namedParamType.TypeKind == TypeKind.Delegate)
+                    effectiveDelegateType = namedParamType;
+                else if (TryGetExpressionTreeDelegateType(namedParamType, out var innerDelegate))
+                    effectiveDelegateType = innerDelegate;
+            }
+
+            if (effectiveDelegateType is not null)
+            {
+                var invoke = effectiveDelegateType.GetDelegateInvokeMethod();
                 if (invoke is null)
                     continue;
 
@@ -1009,10 +1033,16 @@ partial class BlockBinder
         var instrumentation = Compilation.PerformanceInstrumentation.LambdaReplay;
         instrumentation.RecordReplayAttempt();
 
+        // Unwrap Expression<TDelegate> so the lambda can be replayed against the inner delegate type.
         if (delegateType.TypeKind != TypeKind.Delegate)
         {
-            instrumentation.RecordReplayFailure();
-            return null;
+            if (TryGetExpressionTreeDelegateType(delegateType, out var innerDelegate))
+                delegateType = innerDelegate;
+            else
+            {
+                instrumentation.RecordReplayFailure();
+                return null;
+            }
         }
 
         var syntax = GetLambdaSyntax(lambda);
