@@ -26,7 +26,7 @@ internal readonly record struct SymbolQuery(
         {
             symbols = IsStatic == true
                 ? containingType.GetMembers(Name)
-                : containingType.ResolveMembers(Name);
+                : ResolveInstanceMembersIncludingInterfaces(containingType, Name);
         }
         else
         {
@@ -56,6 +56,45 @@ internal readonly record struct SymbolQuery(
 
     public IEnumerable<IMethodSymbol> LookupMethods(Binder binder) =>
         Lookup(binder).OfType<IMethodSymbol>();
+
+    private static IEnumerable<ISymbol> ResolveInstanceMembersIncludingInterfaces(ITypeSymbol type, string name)
+    {
+        // NOTE: `ResolveMembers` currently seems to walk BaseType but not Interfaces.
+        // This breaks patterns like IEnumerator<T>.MoveNext(), where MoveNext is declared
+        // on the non-generic IEnumerator base interface.
+        //
+        // Important: when we add interface members we must avoid duplicates/hidden members
+        // (e.g. List<T>.Add vs ICollection<T>.Add, IEnumerable<T>.GetEnumerator vs IEnumerable.GetEnumerator).
+        // We therefore de-duplicate by signature (name + parameter types), preferring members found earlier.
+
+        if (type is not INamedTypeSymbol named)
+            return type.GetMembers(name);
+
+        var seenKeys = new HashSet<string>();
+        var results = new List<ISymbol>();
+
+        void AddFrom(INamedTypeSymbol t)
+        {
+            foreach (var m in t.GetMembers(name))
+            {
+                // Ignore return type for the purpose of de-duplication; this matches .NET interface hiding patterns.
+                var key = GetSignatureKey(m);
+                if (seenKeys.Add(key))
+                    results.Add(m);
+            }
+        }
+
+        // 1) Declared + base types (class/struct inheritance). These should win over interface members.
+        for (INamedTypeSymbol? t = named; t is not null; t = t.BaseType)
+            AddFrom(t);
+
+        // 2) Interfaces (flattened). For interfaces, AllInterfaces includes inherited interfaces.
+        // For classes, AllInterfaces includes interfaces from base types too.
+        foreach (var iface in named.AllInterfaces)
+            AddFrom(iface);
+
+        return results;
+    }
 
     private IEnumerable<ISymbol> LookupTypeParameterMembers(Binder binder, ITypeParameterSymbol typeParameter)
     {
@@ -175,13 +214,18 @@ internal readonly record struct SymbolQuery(
 
     private static string GetSignatureKey(ISymbol symbol)
     {
-        if (symbol is IMethodSymbol method)
-        {
-            var paramTypes = string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()));
-            return $"{method.Name}({paramTypes})";
-        }
+        // We intentionally do NOT include return type: interface members like
+        // IEnumerable.GetEnumerator() and IEnumerable<T>.GetEnumerator() differ only by return type
+        // and are meant to be treated as a single callable member (the more-derived one wins).
 
-        return symbol.Name;
+        return symbol switch
+        {
+            IMethodSymbol method => $"M:{method.Name}({string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()))})",
+            IPropertySymbol property => $"P:{property.Name}",
+            IFieldSymbol field => $"F:{field.Name}",
+            IEventSymbol evt => $"E:{evt.Name}",
+            _ => $"O:{symbol.Name}"
+        };
     }
 
     private static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int argumentCount)

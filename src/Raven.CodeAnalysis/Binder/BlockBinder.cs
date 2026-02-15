@@ -456,7 +456,7 @@ partial class BlockBinder : Binder
             type,
             isMutable,
             _containingSymbol,
-            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [declaringSyntax.GetLocation()],
             [declaringSyntax.GetReference()],
