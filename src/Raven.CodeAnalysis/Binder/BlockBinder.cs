@@ -202,9 +202,13 @@ partial class BlockBinder : Binder
                     type = Compilation.ErrorTypeSymbol;
                 }
             }
+            else if (boundInitializer?.Type is { } initType)
+            {
+                type = TypeSymbolNormalization.NormalizeForInference(initType);
+            }
             else
             {
-                type = TypeSymbolNormalization.NormalizeForInference(boundInitializer!.Type!);
+                type = Compilation.ErrorTypeSymbol;
             }
         }
         else
