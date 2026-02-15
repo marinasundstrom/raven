@@ -1,302 +1,303 @@
-# Proposal: Macro System with Token Processing, Syntax Building, and Source Mapping
+# Raven Macro System
 
-## Summary
+## 1. Goals
 
-This proposal introduces a macro system for Raven based on:
+Raven macros provide:
 
-* **Token processing** (macros read a token stream)
-* **Syntax building** (macros emit Raven syntax or tokens)
-* **Structured source mapping** (diagnostics map back to original DSL source)
+* Structured syntactic transformation
+* Explicit and contained DSL boundaries
+* Precise source diagnostics
+* Minimal compiler intrusion
+* Optional semantic validation
+* Full tooling compatibility
 
-Macros are treated as **syntactic lowering passes** that transform macro invocations into normal Raven syntax before semantic binding.
-
-The system is designed to:
-
-* Preserve Raven’s Roslyn-like stability
-* Maintain deterministic parsing
-* Provide precise diagnostic attribution
-* Support DSLs such as `linq!{}`, `xml!{}`, routing DSLs, etc.
+Macros are **compiler-integrated syntax transformers**, not textual preprocessors.
 
 ---
 
-# 1. Design Principles
+# 2. Core Principles
 
-1. Macros are **syntax transformations**, not runtime features.
-2. Macro expansion occurs **after parsing** but **before binding**.
-3. The original syntax tree (SourceTree) is preserved.
-4. The binder operates on a fully expanded syntax tree (ExpandedTree).
-5. All diagnostics must map to meaningful source locations.
+1. **SourceTree is the source of truth**
+   All diagnostics are reported in terms of original source spans.
 
----
+2. **Macros are explicit**
+   DSL content only exists within explicit macro invocation syntax.
 
-# 2. Macro Invocation Syntax
+3. **Parsing is deterministic**
+   The file parses fully without macro expansion.
 
-Macros are explicitly marked and syntactically recognizable:
+4. **Expansion happens at binding time**
+   Macros are expanded lazily when encountered during binding.
 
-```raven
-name! { ... }
-name!( ... )
-name![ ... ]
-```
+5. **Expansion is pure and cached**
+   Macro expansion must be deterministic and side-effect free.
 
-The parser recognizes these forms in valid syntactic slots and produces dedicated macro invocation nodes:
-
-* `MacroInvocationExpressionSyntax`
-* `MacroInvocationStatementSyntax`
-* `MacroInvocationMemberSyntax`
-
-The macro body is captured as a **TokenTree** (or flat token stream).
+6. **Expansion lowers to ordinary Raven syntax**
+   Binder and codegen operate only on standard Raven constructs.
 
 ---
 
-# 3. Macro Targets (Expansion Slots)
+# 3. Macro Syntax
 
-Each macro declares a target category:
-
-```raven
-macro linq: expr { ... }
-macro route: member { ... }
-macro sql: stmt { ... }
-```
-
-Supported targets (v1):
-
-* `expr` — expands to `ExpressionSyntax`
-* `stmt` — expands to `StatementSyntax`
-* `member` — expands to `MemberDeclarationSyntax`
-
-Placement is validated during parsing. A macro invocation in the wrong slot is a compile-time error.
-
----
-
-# 4. Macro Architecture: Processor + Builder
-
-A macro consists of two conceptual phases:
-
-## 4.1 Processor
-
-The processor reads the macro body token stream and builds an intermediate representation (IR).
-
-Macros receive a token cursor:
-
-```text
-Peek()
-Read()
-Expect(kind)
-TryRead(kind)
-```
-
-The macro context provides helpers:
-
-```text
-ParseExpression(cursor, stopCondition)
-ParseStatement(cursor, stopCondition)
-```
-
-These methods:
-
-* Consume tokens from the same cursor
-* Invoke Raven’s real parser
-* Preserve original token spans
-
-## 4.2 Builder
-
-The builder constructs the expansion:
-
-* Preferably using `SyntaxFactory`
-* Alternatively emitting tokens (advanced mode)
-* Must record source mappings
-
----
-
-# 5. Expansion Pipeline
-
-Compilation pipeline:
-
-1. Parse source → **SourceTree**
-2. Identify macro invocations
-3. Expand each macro:
-
-   * Process input tokens
-   * Build expansion
-   * Collect diagnostics
-   * Produce source mapping
-4. Replace invocation node
-5. Produce **ExpandedTree**
-6. Binder operates on ExpandedTree
-
-Macro expansion may recurse (bounded by `MaxExpansionDepth`).
-
----
-
-# 6. Embedded Expression Parsing
-
-When a DSL contains embedded Raven expressions:
+## Invocation Macros (Rust-style)
 
 ```raven
 linq! {
-    where user.IsActive && user.Age >= 21
-}
-```
-
-The macro should:
-
-1. Capture the predicate token slice
-2. Call `ParseExpression` on those tokens
-3. Splice the resulting `ExpressionSyntax` into the expansion
-
-Because original tokens are reused:
-
-* Semantic diagnostics inside the predicate naturally point to DSL source.
-* No additional mapping is required for those tokens.
-
-This provides precise source attribution automatically.
-
----
-
-# 7. Source Mapping Model
-
-## 7.1 Motivation
-
-Generated wrapper code (e.g. `.Where(...)`, lambda wrappers) does not exist in source. Diagnostics in such regions must still map to meaningful locations.
-
-## 7.2 Mapping Structure
-
-Each macro expansion produces a `MacroExpansionMap`:
-
-```text
-MacroExpansionMap
-  InvocationSpan
-  Entries: ExpandedSpan -> SourceSpan
-```
-
-Mapping categories:
-
-* `Exact` — precise fragment from macro body
-* `Clause` — maps to DSL clause keyword (e.g. `where`)
-* `Invocation` — fallback to invocation span
-
-## 7.3 Diagnostic Remapping Algorithm
-
-When a diagnostic occurs in ExpandedTree:
-
-1. If location already refers to original source tokens, use as-is.
-2. Otherwise, find the most specific mapping entry.
-3. Rewrite diagnostic location to mapped SourceSpan.
-4. If no entry found, use InvocationSpan.
-
-This guarantees no diagnostic points to unmapped generated code.
-
----
-
-# 8. Macro Output Modes
-
-## 8.1 Syntax Expansion (Preferred)
-
-Macro returns:
-
-```text
-ExpressionSyntax | StatementSyntax | MemberDeclarationSyntax
-```
-
-Built via `SyntaxFactory`.
-
-Benefits:
-
-* Strong typing
-* Stable structure
-* Easier tooling
-* Cleaner mapping
-
-## 8.2 Token Expansion (Advanced)
-
-Macro returns:
-
-```text
-TokenTree
-```
-
-Compiler reparses tokens using the macro’s target entrypoint.
-
-Token expansions must still provide mapping information.
-
----
-
-# 9. MacroContext API (Conceptual)
-
-```text
-interface MacroContext {
-    TokenCursor Cursor
-    ExpressionSyntax ParseExpression(...)
-    StatementSyntax ParseStatement(...)
-    IdentifierToken Gensym(string hint)
-    void Report(Diagnostic)
-    void Map(ExpandedSpan, SourceSpan)
-}
-```
-
----
-
-# 10. Example: LINQ Macro
-
-Input:
-
-```raven
-val query = linq! {
     from user in db.Users
     where user.IsActive && user.Age >= 21
-    orderby user.Name
     select user.Name
 }
 ```
 
-Expansion:
+Characteristics:
 
-```raven
-val query =
-    db.Users
-        .Where((user: User) => user.IsActive && user.Age >= 21)
-        .OrderBy((user: User) => user.Name)
-        .Select((user: User) => user.Name)
+* Explicit `!` invocation marker
+* Body captured as `TokenTree`
+* Must appear in a valid syntactic slot
+* No attribute-based macros
+* No scope macros
+
+---
+
+# 4. Macro Targets
+
+Each macro declares a target category:
+
+* `expr`
+* `stmt`
+* `member`
+
+Expansion must match the declared category.
+
+The parser enforces placement correctness.
+
+---
+
+# 5. Macro Processing Model
+
+Macros consist of three conceptual stages:
+
+1. **Token Processing**
+2. **Optional Semantic Validation**
+3. **Expansion Building**
+
+---
+
+# 6. Token Processing
+
+Macros receive a `MacroContext` with:
+
+### Token Cursor
+
+* `Peek(offset)`
+* `Read()`
+* `TryRead(kind or text)`
+* `Expect(kind or text)`
+
+### Token Remapping (Optional)
+
+Macros may use a local remapping view to interpret identifiers (e.g. `"where"`) as DSL keywords.
+
+Remapping:
+
+* Is contextual
+* Does not mutate underlying tokens
+* Does not affect the core language
+
+---
+
+# 7. Embedded Raven Parsing
+
+`MacroContext` provides parser entrypoints:
+
+* `ParseExpression(stopCondition)`
+* `ParseStatement(stopCondition)`
+* (optional) `ParseType`, `ParseMember`
+
+These:
+
+* Consume tokens from the macro cursor
+* Use Raven’s real parser
+* Preserve original token spans
+
+This ensures precise source mapping for embedded Raven fragments.
+
+---
+
+# 8. Optional Semantic Pass
+
+Macros may perform semantic validation before expansion.
+
+Semantic context may provide:
+
+* `GetOperation(node)`
+* `GetTypeInfo(expression)`
+* `GetSymbolInfo(node)`
+* `LookupSymbols(position)`
+* `ExpectedType` at invocation site
+
+### Operations API
+
+The semantic pass uses Raven’s Operations API as the primary semantic entrypoint.
+
+### Constraint
+
+The semantic pass must not require binding the macro’s generated expansion.
+
+Allowed:
+
+* Querying semantics of SourceTree nodes
+* Querying semantics of embedded fragments parsed from macro input
+
+Not allowed:
+
+* Binding expansion output during semantic validation
+
+This prevents semantic cycles.
+
+---
+
+# 9. Binding Strategy (Substitution Model)
+
+There is no global expansion phase.
+
+Instead:
+
+When binder encounters a macro invocation node:
+
+1. Retrieve or compute expansion
+2. Bind expansion root using the same binder context
+3. Remap diagnostics
+4. Return bound result
+
+This is a substitution model.
+
+SourceTree remains authoritative.
+
+No merged tree is required.
+
+---
+
+# 10. Macro Expansion Result
+
+Each expansion produces:
+
+```text
+MacroExpansionResult {
+    ExpansionRootSyntax
+    MappingTable
+    Diagnostics
+}
 ```
 
-Mapping behavior:
+Expansion must be:
 
-* Predicate expression → exact DSL span
-* Wrapper `.Where(...)` → `where` keyword span
-* Entire expansion → invocation span fallback
+* Deterministic
+* Pure
+* Cached at Compilation level
 
-Semantic errors inside the predicate map precisely to the DSL source.
+Cache key includes:
 
----
-
-# 11. Stability Guarantees
-
-* SourceTree remains unchanged.
-* ExpandedTree is derived.
-* Binder never sees macro invocation nodes.
-* Diagnostics never point to unmapped generated code.
-* Macro invocation syntax is always parseable without expansion.
+* Invocation span
+* Macro name
+* Body token hash
+* Compilation version
 
 ---
 
-# 12. Future Extensions
+# 11. Source Mapping
 
-* Limited semantic queries inside macros
-* Hygienic capture avoidance
-* Plugin-based macro assemblies
-* IDE “Show Expansion” view
-* Incremental macro caching
+## Mapping Structure
+
+Each expansion maintains:
+
+```
+ExpandedSpan → SourceSpan
+```
+
+Categories:
+
+* `Exact` (derived from original tokens)
+* `Clause` (maps to DSL clause keyword span)
+* `Invocation` (fallback)
+
+## Diagnostic Remapping
+
+When binding emits a diagnostic:
+
+1. If location already points to original source span → keep.
+2. Otherwise lookup mapping.
+3. Rewrite to mapped source span.
+4. If no entry → map to invocation span.
+
+All user-facing diagnostics reference SourceTree coordinates.
 
 ---
 
-# Conclusion
+# 12. Expanded View (Optional)
 
-This macro design:
+The compiler may expose:
 
-* Treats macros as syntactic lowering passes
-* Preserves Raven’s Roslyn-like architecture
-* Provides precise diagnostic mapping
-* Enables powerful DSLs without destabilizing the core grammar
+* Full ExpandedTree
+* Pretty-printed expansion
+* Mapping information
+* Diff view (source vs expansion)
 
-It balances power, safety, and tooling stability.
+ExpandedTree is not required for binding.
+
+SourceTree remains canonical.
+
+---
+
+# 13. Stability Model
+
+Stable:
+
+* Syntax tree model
+* Token model
+* Macro host API
+* Mapping infrastructure
+* Operations API surface
+* Diagnostic model
+
+Internal / free to evolve:
+
+* Binder internals
+* Lowering passes
+* Code generation
+* Optimization pipeline
+
+---
+
+# 14. Architectural Positioning
+
+Raven’s macro system combines:
+
+* Rust-style explicit invocation syntax
+* Roslyn-style structured syntax trees
+* Nemerle-style compile-time transformation
+* Compiler-as-a-service discipline
+
+While preserving:
+
+* Deterministic grammar
+* Clear DSL boundaries
+* Source-accurate diagnostics
+* Controlled expansion
+
+---
+
+# 15. Summary
+
+Raven macros are:
+
+* Explicit
+* Localized
+* Deterministic
+* Cached
+* Source-mapped
+* Tooling-friendly
+
+Expansion occurs lazily during binding via substitution.
+
+SourceTree remains the single source of truth for diagnostics and user-facing locations.

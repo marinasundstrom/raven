@@ -7,6 +7,7 @@ Compiler-plugin. Macro. Integration points.
 In a macro you can put any content and parse it however you want.
 
 * Syntax-producing macros - from Token Stream
+* Expand and substitute
 * Read and Peek
 * Ability to use Ravens expression and statement parsers
 * Report diagnostics
