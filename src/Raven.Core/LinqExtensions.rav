@@ -10,6 +10,9 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // First
     // -------------------------
 
+    // Captures the first element, or none. May throw.
+    // .Some(x)   => first element
+    // .None      => no elements
     public FirstOrNone() -> Option<T> {
         val values = self.Take(1).ToList()
         if values.Count == 1 {
@@ -18,12 +21,79 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         .None
     }
 
+    // Captures the first element on predicate, or none. May throw.
+    // .Some(x)   => first element
+    // .None      => no elements
     public FirstOrNone(predicate: T -> bool) -> Option<T> {
         val values = self.Where(predicate).Take(1).ToList()
         if values.Count == 1 {
             return .Some(values[0])
         }
         .None
+    }
+
+    // -------------------------
+    // First (exception-capturing)
+    // -------------------------
+
+    // Captures enumeration exceptions. Never throws.
+    // .Ok(.None)      => no elements
+    // .Ok(.Some(x))   => first element
+    // .Error(ex)      => enumeration threw
+    public TryFirstOrNone() -> Result<Option<T>, Exception> {
+        try {
+            val e = self.GetEnumerator()
+            if e.MoveNext() {
+                return .Ok(.Some(e.Current))
+            }
+            return .Ok(.None)
+        } catch (Exception ex) {
+            return .Error(ex)
+        }
+    }
+
+    // Captures enumeration/predicate exceptions. Never throws.
+    public TryFirstOrNone(predicate: T -> bool) -> Result<Option<T>, Exception> {
+        try {
+            val e = self.GetEnumerator()
+            while e.MoveNext() {
+                val item = e.Current
+                if predicate(item) {
+                    return .Ok(.Some(item))
+                }
+            }
+            return .Ok(.None)
+        } catch (Exception ex) {
+            return .Error(ex)
+        }
+    }
+
+    // Captures exceptions and maps them (and/or absence) into E.
+    // errorFactory(.None)      => no elements / no match
+    // errorFactory(.Some(ex))  => enumeration/predicate threw
+    public TryFirstOrError<E>(errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
+        return self.TryFirstOrNone() match {
+            .Ok(val opt) => opt match {
+                .Some(val item) => .Ok(.Some(item))
+                .None => .Error(errorFactory(.None))
+            }
+            .Error(val ex) => .Error(errorFactory(.Some(ex)))
+        }
+    }
+
+    public TryFirstOrError<E>(predicate: T -> bool, errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
+        try {
+            val e = self.GetEnumerator()
+            while e.MoveNext() {
+                val item = e.Current
+                if predicate(item) {
+                    return .Ok(.Some(item))
+                }
+            }
+            return .Error(errorFactory(.None))
+        } catch (Exception ex) {
+            return .Error(errorFactory(.Some(ex)))
+        }
     }
 
     public FirstOrError<E>(errorFactory: () -> E) -> Result<T, E> {
@@ -62,6 +132,78 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         .Some(values[values.Count - 1])
     }
 
+    // -------------------------
+    // Last (exception-capturing)
+    // -------------------------
+
+    public TryLastOrNone() -> Result<Option<T>, Exception> {
+        try {
+            val e = self.GetEnumerator()
+            if !e.MoveNext() {
+                return .Ok(.None)
+            }
+            var last = e.Current
+            while e.MoveNext() {
+                last = e.Current
+            }
+            return .Ok(.Some(last))
+        } catch (Exception ex) {
+            return .Error(ex)
+        }
+    }
+
+    public TryLastOrNone(predicate: T -> bool) -> Result<Option<T>, Exception> {
+        try {
+            val e = self.GetEnumerator()
+            var has = false
+            var last = default(T)
+            while e.MoveNext() {
+                val item = e.Current
+                if predicate(item) {
+                    last = item
+                    has = true
+                }
+            }
+            if has {
+                return .Ok(.Some(last))
+            }
+            return .Ok(.None)
+        } catch (Exception ex) {
+            return .Error(ex)
+        }
+    }
+
+    public TryLastOrError<E>(errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
+        return self.TryLastOrNone() match {
+            .Ok(val opt) => opt match {
+                .Some(val item) => .Ok(.Some(item))
+                .None => .Error(errorFactory(.None))
+            }
+            .Error(val ex) => .Error(errorFactory(.Some(ex)))
+        }
+    }
+
+    public TryLastOrError<E>(predicate: T -> bool, errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
+        try {
+            val e = self.GetEnumerator()
+            var has = false
+            var last = default(T)
+            while e.MoveNext() {
+                val item = e.Current
+                if predicate(item) {
+                    last = item
+                    has = true
+                }
+            }
+            if has {
+                return .Ok(.Some(last))
+            }
+            return .Error(errorFactory(.None))
+        } catch (Exception ex) {
+            return .Error(errorFactory(.Some(ex)))
+        }
+    }
+
     public LastOrError<E>(errorFactory: () -> E) -> Result<T, E> {
         val values = self.ToList()
         if values.Count == 0 {
@@ -96,6 +238,84 @@ public extension EnumerableOption<T> for IEnumerable<T> {
             return .Some(values[0])
         }
         .None
+    }
+
+    // -------------------------
+    // Single (exception-capturing)
+    // -------------------------
+
+    public TrySingleOrNone() -> Result<Option<T>, Exception> {
+        try {
+            val e = self.GetEnumerator()
+            if !e.MoveNext() {
+                return .Ok(.None)
+            }
+            val first = e.Current
+            if e.MoveNext() {
+                return .Ok(.None)
+            }
+            return .Ok(.Some(first))
+        } catch (Exception ex) {
+            return .Error(ex)
+        }
+    }
+
+    public TrySingleOrNone(predicate: T -> bool) -> Result<Option<T>, Exception> {
+        try {
+            val e = self.GetEnumerator()
+            var found = false
+            var single = default(T)
+            while e.MoveNext() {
+                val item = e.Current
+                if predicate(item) {
+                    if found {
+                        return .Ok(.None)
+                    }
+                    single = item
+                    found = true
+                }
+            }
+            if found {
+                return .Ok(.Some(single))
+            }
+            return .Ok(.None)
+        } catch (Exception ex) {
+            return .Error(ex)
+        }
+    }
+
+    public TrySingleOrError<E>(errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
+        return self.TrySingleOrNone() match {
+            .Ok(val opt) => opt match {
+                .Some(val item) => .Ok(.Some(item))
+                .None => .Error(errorFactory(.None))
+            }
+            .Error(val ex) => .Error(errorFactory(.Some(ex)))
+        }
+    }
+
+    public TrySingleOrError<E>(predicate: T -> bool, errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
+        try {
+            val e = self.GetEnumerator()
+            var found = false
+            var single = default(T)
+            while e.MoveNext() {
+                val item = e.Current
+                if predicate(item) {
+                    if found {
+                        return .Ok(.None)
+                    }
+                    single = item
+                    found = true
+                }
+            }
+            if found {
+                return .Ok(.Some(single))
+            }
+            return .Error(errorFactory(.None))
+        } catch (Exception ex) {
+            return .Error(errorFactory(.Some(ex)))
+        }
     }
 
     public SingleOrError<E>(errorFactory: () -> E) -> Result<T, E> {
@@ -151,6 +371,46 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         }
 
         .None
+    }
+
+    public TryElementAtOrNone(index: int) -> Result<Option<T>, Exception> {
+        if index < 0 {
+            return .Ok(.None)
+        }
+
+        try {
+            val e = self.GetEnumerator()
+            var i = 0
+            while e.MoveNext() {
+                if i == index {
+                    return .Ok(.Some(e.Current))
+                }
+                i = i + 1
+            }
+            return .Ok(.None)
+        } catch (Exception ex) {
+            return .Error(ex)
+        }
+    }
+
+    public TryElementAtOrError<E>(index: int, errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
+        if index < 0 {
+            return .Error(errorFactory(.None))
+        }
+
+        try {
+            val e = self.GetEnumerator()
+            var i = 0
+            while e.MoveNext() {
+                if i == index {
+                    return .Ok(.Some(e.Current))
+                }
+                i = i + 1
+            }
+            return .Error(errorFactory(.None))
+        } catch (Exception ex) {
+            return .Error(errorFactory(.Some(ex)))
+        }
     }
 
     public ElementAtOrError<E>(index: int, errorFactory: () -> E) -> Result<T, E> {

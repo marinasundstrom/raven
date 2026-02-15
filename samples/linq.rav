@@ -1,0 +1,19 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+
+val arr = [1, 2, 3]
+
+var x = arr.TryFirstOrError(ex =>
+    ex match {
+        .None => DomainError.NotFound
+        .Some(val e) => DomainError.Unexpected(e)
+    }
+)
+
+WriteLine(x)
+
+union DomainError {
+    NotFound
+    Unexpected(exception: Exception)
+}
