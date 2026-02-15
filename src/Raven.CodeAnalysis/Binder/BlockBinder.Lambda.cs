@@ -709,6 +709,7 @@ partial class BlockBinder
 
         ImmutableArray<IMethodSymbol> methods = default;
         var extensionReceiverImplicit = false;
+        ITypeSymbol? extensionReceiverType = null;
 
         switch (invocation.Expression)
         {
@@ -718,11 +719,15 @@ partial class BlockBinder
                     if (boundMember is BoundMethodGroupExpression methodGroup)
                     {
                         extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                        if (extensionReceiverImplicit)
+                            extensionReceiverType = methodGroup.Receiver?.Type;
                         methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit);
                     }
                     else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
                     {
                         extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
+                        if (extensionReceiverImplicit)
+                            extensionReceiverType = receiver?.Type;
                         methods = ImmutableArray.Create(method);
                     }
 
@@ -735,11 +740,15 @@ partial class BlockBinder
                     if (boundMember is BoundMethodGroupExpression methodGroup)
                     {
                         extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                        if (extensionReceiverImplicit)
+                            extensionReceiverType = methodGroup.Receiver?.Type;
                         methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit);
                     }
                     else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
                     {
                         extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
+                        if (extensionReceiverImplicit)
+                            extensionReceiverType = receiver?.Type;
                         methods = ImmutableArray.Create(method);
                     }
 
@@ -765,7 +774,7 @@ partial class BlockBinder
         if (methods.IsDefaultOrEmpty)
             return ImmutableArray<INamedTypeSymbol>.Empty;
 
-        var delegates = ExtractLambdaDelegates(methods, parameterIndex, extensionReceiverImplicit);
+        var delegates = ExtractLambdaDelegates(methods, parameterIndex, extensionReceiverImplicit, extensionReceiverType);
         if (!delegates.IsDefaultOrEmpty)
             _lambdaDelegateTargets[syntax] = delegates;
         else
@@ -775,7 +784,8 @@ partial class BlockBinder
     private ImmutableArray<INamedTypeSymbol> ExtractLambdaDelegates(
         ImmutableArray<IMethodSymbol> methods,
         int parameterIndex,
-        bool extensionReceiverImplicit)
+        bool extensionReceiverImplicit,
+        ITypeSymbol? receiverType = null)
     {
         if (methods.IsDefaultOrEmpty)
             return ImmutableArray<INamedTypeSymbol>.Empty;
@@ -796,6 +806,22 @@ partial class BlockBinder
                     delegateToAdd = innerDelegate;
             }
 
+            // For generic extension methods, partially substitute type parameters that
+            // can be inferred from the receiver. For example, Func<TSource, TResult> becomes
+            // Func<User, TResult> when the receiver is DbSet<User> (implements IQueryable<User>).
+            if (delegateToAdd is not null && receiverType is not null &&
+                extensionReceiverImplicit && method.IsExtensionMethod &&
+                !method.TypeParameters.IsDefaultOrEmpty)
+            {
+                var substitutions = TryInferTypeParametersFromReceiver(method, receiverType);
+                if (substitutions is not null)
+                {
+                    var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
+                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                        delegateToAdd = substitutedNamed;
+                }
+            }
+
             if (delegateToAdd is not null &&
                 !builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateToAdd)))
             {
@@ -810,7 +836,8 @@ partial class BlockBinder
         ExpressionSyntax argumentExpression,
         ImmutableArray<IMethodSymbol> methods,
         int parameterIndex,
-        bool extensionReceiverImplicit = false)
+        bool extensionReceiverImplicit = false,
+        ITypeSymbol? receiverType = null)
     {
         if (argumentExpression is not LambdaExpressionSyntax lambda)
         {
@@ -850,6 +877,20 @@ partial class BlockBinder
                     delegateToAdd = rawType;
                 else if (TryGetExpressionTreeDelegateType(rawType, out var innerDelegate))
                     delegateToAdd = innerDelegate;
+            }
+
+            // For generic extension methods, partially substitute type parameters inferrable from the receiver.
+            if (delegateToAdd is not null && receiverType is not null &&
+                extensionReceiverImplicit && method.IsExtensionMethod &&
+                !method.TypeParameters.IsDefaultOrEmpty)
+            {
+                var substitutions = TryInferTypeParametersFromReceiver(method, receiverType);
+                if (substitutions is not null)
+                {
+                    var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
+                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                        delegateToAdd = substitutedNamed;
+                }
             }
 
             if (delegateToAdd is not null && seen.Add(delegateToAdd))
@@ -907,6 +948,107 @@ partial class BlockBinder
             return null;
 
         return inferredType;
+    }
+
+    /// <summary>
+    /// For generic extension methods, infer type parameters from the receiver type
+    /// by matching the method's first parameter type against the concrete receiver type.
+    /// For example, given <c>Select&lt;TSource, TResult&gt;(this IQueryable&lt;TSource&gt; source, ...)</c>
+    /// and receiver type <c>DbSet&lt;User&gt;</c> (which implements <c>IQueryable&lt;User&gt;</c>),
+    /// this infers <c>TSource = User</c>.
+    /// </summary>
+    private static Dictionary<ITypeParameterSymbol, ITypeSymbol>? TryInferTypeParametersFromReceiver(
+        IMethodSymbol method,
+        ITypeSymbol receiverType)
+    {
+        if (!method.IsExtensionMethod || method.TypeParameters.IsDefaultOrEmpty)
+            return null;
+
+        var firstParamType = method.Parameters[0].Type;
+        if (firstParamType is null)
+            return null;
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        InferTypeParametersFromMatch(firstParamType, receiverType, substitutions, method);
+
+        return substitutions.Count > 0 ? substitutions : null;
+    }
+
+    /// <summary>
+    /// Recursively matches a parameter type (which may contain type parameters) against
+    /// a concrete argument type, collecting substitutions. Walks named type arguments,
+    /// arrays, and interface hierarchies.
+    /// </summary>
+    private static void InferTypeParametersFromMatch(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        IMethodSymbol method)
+    {
+        if (argumentType.TypeKind == TypeKind.Error)
+            return;
+
+        if (parameterType is ITypeParameterSymbol typeParam)
+        {
+            // Only infer type parameters that belong to this method
+            if (typeParam.ContainingSymbol is IMethodSymbol &&
+                typeParam.Ordinal >= 0 &&
+                typeParam.Ordinal < method.TypeParameters.Length)
+            {
+                var canonical = method.TypeParameters[typeParam.Ordinal];
+                if (!substitutions.ContainsKey(canonical))
+                    substitutions[canonical] = argumentType;
+            }
+            return;
+        }
+
+        if (parameterType is INamedTypeSymbol paramNamed && !paramNamed.TypeArguments.IsDefaultOrEmpty)
+        {
+            // Try direct match (same OriginalDefinition)
+            if (argumentType is INamedTypeSymbol argNamed &&
+                SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, argNamed.OriginalDefinition) &&
+                !argNamed.TypeArguments.IsDefaultOrEmpty &&
+                paramNamed.TypeArguments.Length == argNamed.TypeArguments.Length)
+            {
+                for (int i = 0; i < paramNamed.TypeArguments.Length; i++)
+                    InferTypeParametersFromMatch(paramNamed.TypeArguments[i], argNamed.TypeArguments[i], substitutions, method);
+                return;
+            }
+
+            // Try interfaces (e.g., DbSet<User> implements IQueryable<User>)
+            if (argumentType is INamedTypeSymbol argNamed2)
+            {
+                foreach (var iface in argNamed2.AllInterfaces)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, iface.OriginalDefinition) &&
+                        !iface.TypeArguments.IsDefaultOrEmpty &&
+                        paramNamed.TypeArguments.Length == iface.TypeArguments.Length)
+                    {
+                        for (int i = 0; i < paramNamed.TypeArguments.Length; i++)
+                            InferTypeParametersFromMatch(paramNamed.TypeArguments[i], iface.TypeArguments[i], substitutions, method);
+                        return;
+                    }
+                }
+
+                // Try base types
+                for (var baseType = argNamed2.BaseType; baseType is not null; baseType = baseType.BaseType)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, baseType.OriginalDefinition) &&
+                        !baseType.TypeArguments.IsDefaultOrEmpty &&
+                        paramNamed.TypeArguments.Length == baseType.TypeArguments.Length)
+                    {
+                        for (int i = 0; i < paramNamed.TypeArguments.Length; i++)
+                            InferTypeParametersFromMatch(paramNamed.TypeArguments[i], baseType.TypeArguments[i], substitutions, method);
+                        return;
+                    }
+                }
+            }
+        }
+
+        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+        {
+            InferTypeParametersFromMatch(paramArray.ElementType, argArray.ElementType, substitutions, method);
+        }
     }
 
     private static bool TryGetLambdaParameter(
