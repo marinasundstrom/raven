@@ -710,6 +710,7 @@ partial class BlockBinder
         ImmutableArray<IMethodSymbol> methods = default;
         var extensionReceiverImplicit = false;
         ITypeSymbol? extensionReceiverType = null;
+        var callSiteArgumentCount = argumentList.Arguments.Count;
 
         switch (invocation.Expression)
         {
@@ -721,7 +722,7 @@ partial class BlockBinder
                         extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
                         if (extensionReceiverImplicit)
                             extensionReceiverType = methodGroup.Receiver?.Type;
-                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit);
+                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
                     }
                     else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
                     {
@@ -742,7 +743,7 @@ partial class BlockBinder
                         extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
                         if (extensionReceiverImplicit)
                             extensionReceiverType = methodGroup.Receiver?.Type;
-                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit);
+                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
                     }
                     else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
                     {
@@ -764,7 +765,7 @@ partial class BlockBinder
                     var accessible = GetAccessibleMethods(candidates, identifier.Identifier.GetLocation(), reportIfInaccessible: false);
                     if (!accessible.IsDefaultOrEmpty)
                     {
-                        methods = FilterMethodsForLambda(accessible, parameterIndex, argumentExpression, extensionReceiverImplicit: false);
+                        methods = FilterMethodsForLambda(accessible, parameterIndex, argumentExpression, extensionReceiverImplicit: false, callSiteArgumentCount);
                     }
 
                     break;
@@ -1114,7 +1115,8 @@ partial class BlockBinder
         ImmutableArray<IMethodSymbol> methods,
         int parameterIndex,
         ExpressionSyntax argumentExpression,
-        bool extensionReceiverImplicit)
+        bool extensionReceiverImplicit,
+        int callSiteArgumentCount = -1)
     {
         if (methods.IsDefaultOrEmpty)
             return methods;
@@ -1133,6 +1135,28 @@ partial class BlockBinder
 
         foreach (var method in methods)
         {
+            // When we know the total number of call-site arguments, skip overloads
+            // whose visible parameter count doesn't match. This prevents overloads
+            // like F(predicate, errorFactory) from polluting inference when only
+            // F(errorFactory) is being called with a single argument.
+            if (callSiteArgumentCount >= 0)
+            {
+                var firstVisible = (method.IsExtensionMethod && extensionReceiverImplicit) ? 1 : 0;
+                var visibleParams = method.Parameters.Length - firstVisible;
+
+                var requiredParams = visibleParams;
+                for (var i = method.Parameters.Length - 1; i >= firstVisible; i--)
+                {
+                    if (method.Parameters[i].HasExplicitDefaultValue || method.Parameters[i].IsParams)
+                        requiredParams--;
+                    else
+                        break;
+                }
+
+                if (callSiteArgumentCount < requiredParams || callSiteArgumentCount > visibleParams)
+                    continue;
+            }
+
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 

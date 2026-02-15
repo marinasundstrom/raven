@@ -102,7 +102,7 @@ val _ = arr.DoesNotExist()
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult("RAV0103")
+                new DiagnosticResult("RAV0117")
                     .WithAnySpan()
                     .WithArguments("DoesNotExist")
             ]);
