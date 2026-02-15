@@ -1,0 +1,12 @@
+import System.Console.*
+import System.Runtime.Versioning.*
+
+[assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
+
+WriteLine(Greeter.Message())
+
+public class Greeter {
+    public static Message() -> string {
+        "Hello from Raven via MSBuild integration"
+    }
+}

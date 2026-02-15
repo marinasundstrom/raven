@@ -398,9 +398,9 @@
     <Slot Name="Block" Type="BlockStatement" />
   </Node>
   <Node Name="CompilationUnit" Inherits="Node">
-    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" />
     <Slot Name="Aliases" Type="List" ElementType="AliasDirective" />
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" />
     <Slot Name="EndOfFileToken" Type="Token" DefaultToken="EndOfFileToken" />
   </Node>

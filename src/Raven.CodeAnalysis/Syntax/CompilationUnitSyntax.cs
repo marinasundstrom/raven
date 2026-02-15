@@ -4,12 +4,12 @@ public partial class CompilationUnitSyntax : SyntaxNode
 {
     public CompilationUnitSyntax(
         SyntaxTree syntaxTree,
-        SyntaxList<AttributeListSyntax> attributeLists,
         SyntaxList<ImportDirectiveSyntax> imports,
         SyntaxList<AliasDirectiveSyntax> aliases,
+        SyntaxList<AttributeListSyntax> attributeLists,
         SyntaxList<MemberDeclarationSyntax> members,
         SyntaxToken endOfFileToken)
-        : base(new InternalSyntax.CompilationUnitSyntax(attributeLists.Green, imports.Green, aliases.Green, members.Green, endOfFileToken.Green), syntaxTree)
+        : base(new InternalSyntax.CompilationUnitSyntax(imports.Green, aliases.Green, attributeLists.Green, members.Green, endOfFileToken.Green), syntaxTree)
     {
     }
 

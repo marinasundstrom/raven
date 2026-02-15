@@ -50,6 +50,15 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             var aliasCount = aliasDirectives.Count;
             var memberCount = memberDeclarations.Count;
 
+            // Allow compilation-level attributes (e.g. [assembly: ...]) to appear after imports/aliases,
+            // before any other members/statements.
+            if (nextToken.IsKind(SyntaxKind.OpenBracketToken) &&
+                TryParseCompilationAttributeList(out var compilationAttributeList))
+            {
+                compilationAttributeLists.Add(compilationAttributeList);
+                continue;
+            }
+
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
 
             if (Position == start &&
@@ -66,7 +75,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         var attributeLists = List(compilationAttributeLists);
 
-        var cu = CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken);
+        var cu = CompilationUnit(List(importDirectives), List(aliasDirectives), attributeLists, List(memberDeclarations), nextToken);
 
         _stopwatch.Stop();
 
