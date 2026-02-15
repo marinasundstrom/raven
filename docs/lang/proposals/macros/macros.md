@@ -9,6 +9,7 @@ Raven macros provide:
 * Precise source diagnostics
 * Minimal compiler intrusion
 * Optional semantic validation
+* Strong developer experience (completion, tooling, navigation)
 * Full tooling compatibility
 
 Macros are **compiler-integrated syntax transformers**, not textual preprocessors.
@@ -21,7 +22,7 @@ Macros are **compiler-integrated syntax transformers**, not textual preprocessor
    All diagnostics are reported in terms of original source spans.
 
 2. **Macros are explicit**
-   DSL content only exists within explicit macro invocation syntax.
+   DSL content exists only within explicit macro invocation syntax.
 
 3. **Parsing is deterministic**
    The file parses fully without macro expansion.
@@ -34,6 +35,9 @@ Macros are **compiler-integrated syntax transformers**, not textual preprocessor
 
 6. **Expansion lowers to ordinary Raven syntax**
    Binder and codegen operate only on standard Raven constructs.
+
+7. **Macros are compiled code**
+   Macros are implemented as compiled Raven or .NET code and executed at compile time.
 
 ---
 
@@ -73,7 +77,63 @@ The parser enforces placement correctness.
 
 ---
 
-# 5. Macro Processing Model
+# 5. Macro Implementations
+
+## 5.1 Compiled Macro Assemblies
+
+Macros are implemented as compiled code:
+
+* Raven
+* Any .NET language
+
+They may reside in:
+
+* A referenced macro assembly
+* The same project (subject to compilation model)
+
+Macros are discovered via a well-known contract (e.g. `IMacro` and/or `[RavenMacro]`).
+
+---
+
+## 5.2 Execution Model
+
+When binding encounters a macro invocation:
+
+1. Resolve macro implementation from referenced assemblies
+2. Execute macro with captured `TokenTree`
+3. Receive:
+
+   * Lowered Raven syntax
+   * Source mapping
+   * Macro diagnostics
+4. Bind the lowered syntax in the invocation’s binder context
+
+Macro output becomes part of the build as if written by the user.
+
+---
+
+## 5.3 Determinism Requirement
+
+Macro expansion must be deterministic with respect to:
+
+* Invocation body tokens
+* Compilation options
+* Referenced assemblies
+* Semantic context (if enabled)
+
+Expansion results are cached per compilation.
+
+Cache key includes:
+
+* Invocation span
+* Macro name
+* Body token hash
+* Macro assembly identity/version
+* Compilation version
+
+---
+
+# 6. Macro Processing Model
 
 Macros consist of three conceptual stages:
 
@@ -83,7 +143,7 @@ Macros consist of three conceptual stages:
 
 ---
 
-# 6. Token Processing
+# 7. Token Processing
 
 Macros receive a `MacroContext` with:
 
@@ -106,7 +166,7 @@ Remapping:
 
 ---
 
-# 7. Embedded Raven Parsing
+# 8. Embedded Raven Parsing
 
 `MacroContext` provides parser entrypoints:
 
@@ -124,7 +184,7 @@ This ensures precise source mapping for embedded Raven fragments.
 
 ---
 
-# 8. Optional Semantic Pass
+# 9. Optional Semantic Pass
 
 Macros may perform semantic validation before expansion.
 
@@ -157,7 +217,7 @@ This prevents semantic cycles.
 
 ---
 
-# 9. Binding Strategy (Substitution Model)
+# 10. Binding Strategy (Substitution Model)
 
 There is no global expansion phase.
 
@@ -178,11 +238,62 @@ No merged tree is required.
 
 ---
 
-# 10. Macro Expansion Result
+# 11. Developer Experience and Tooling
+
+## 11.1 Completion Inside Macro Bodies
+
+The macro system supports completion within macro invocations.
+
+Two levels are supported:
+
+### DSL-Level Completion
+
+Macros may optionally implement a language service interface:
+
+```
+GetCompletionItems(MacroCompletionContext context)
+```
+
+This enables:
+
+* Clause keyword suggestions
+* DSL structure suggestions
+* Context-aware macro completions
+
+### Embedded Raven Completion
+
+When completion occurs inside an embedded Raven fragment:
+
+1. The macro parses the fragment using `ParseExpression` or `ParseStatement`
+2. A temporary binder overlay is created
+3. Normal Raven completion is executed
+
+This allows:
+
+* Member completion (e.g. `user.`)
+* Type-aware suggestions
+* Full semantic completion inside macro bodies
+
+---
+
+## 11.2 Language Service Integration
+
+Macros may optionally provide:
+
+* Completion
+* Classification
+* Navigation
+* Quick info
+
+These integrate with Raven’s tooling pipeline without requiring macro expansion.
+
+---
+
+# 12. Macro Expansion Result
 
 Each expansion produces:
 
-```text
+```
 MacroExpansionResult {
     ExpansionRootSyntax
     MappingTable
@@ -196,16 +307,9 @@ Expansion must be:
 * Pure
 * Cached at Compilation level
 
-Cache key includes:
-
-* Invocation span
-* Macro name
-* Body token hash
-* Compilation version
-
 ---
 
-# 11. Source Mapping
+# 13. Source Mapping
 
 ## Mapping Structure
 
@@ -217,8 +321,8 @@ ExpandedSpan → SourceSpan
 
 Categories:
 
-* `Exact` (derived from original tokens)
-* `Clause` (maps to DSL clause keyword span)
+* `Exact`
+* `Clause`
 * `Invocation` (fallback)
 
 ## Diagnostic Remapping
@@ -234,7 +338,7 @@ All user-facing diagnostics reference SourceTree coordinates.
 
 ---
 
-# 12. Expanded View (Optional)
+# 14. Expanded View (Optional)
 
 The compiler may expose:
 
@@ -249,7 +353,7 @@ SourceTree remains canonical.
 
 ---
 
-# 13. Stability Model
+# 15. Stability Model
 
 Stable:
 
@@ -259,6 +363,7 @@ Stable:
 * Mapping infrastructure
 * Operations API surface
 * Diagnostic model
+* Macro language service contracts
 
 Internal / free to evolve:
 
@@ -269,7 +374,7 @@ Internal / free to evolve:
 
 ---
 
-# 14. Architectural Positioning
+# 16. Architectural Positioning
 
 Raven’s macro system combines:
 
@@ -277,6 +382,7 @@ Raven’s macro system combines:
 * Roslyn-style structured syntax trees
 * Nemerle-style compile-time transformation
 * Compiler-as-a-service discipline
+* First-class tooling integration
 
 While preserving:
 
@@ -287,7 +393,7 @@ While preserving:
 
 ---
 
-# 15. Summary
+# 17. Summary
 
 Raven macros are:
 
@@ -296,7 +402,8 @@ Raven macros are:
 * Deterministic
 * Cached
 * Source-mapped
-* Tooling-friendly
+* Tooling-aware
+* Implemented as compiled code
 
 Expansion occurs lazily during binding via substitution.
 
