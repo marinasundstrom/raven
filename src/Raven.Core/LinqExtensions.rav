@@ -42,7 +42,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // .Error(ex)      => enumeration threw
     public TryFirstOrNone() -> Result<Option<T>, Exception> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             if e.MoveNext() {
                 return .Ok(.Some(e.Current))
             }
@@ -55,7 +55,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
     // Captures enumeration/predicate exceptions. Never throws.
     public TryFirstOrNone(predicate: T -> bool) -> Result<Option<T>, Exception> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             while e.MoveNext() {
                 val item = e.Current
                 if predicate(item) {
@@ -83,7 +83,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
 
     public TryFirstOrError<E>(predicate: T -> bool, errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             while e.MoveNext() {
                 val item = e.Current
                 if predicate(item) {
@@ -138,7 +138,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
 
     public TryLastOrNone() -> Result<Option<T>, Exception> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             if !e.MoveNext() {
                 return .Ok(.None)
             }
@@ -154,7 +154,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
 
     public TryLastOrNone(predicate: T -> bool) -> Result<Option<T>, Exception> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             var has = false
             var last = default(T)
             while e.MoveNext() {
@@ -185,7 +185,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
 
     public TryLastOrError<E>(predicate: T -> bool, errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             var has = false
             var last = default(T)
             while e.MoveNext() {
@@ -246,7 +246,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
 
     public TrySingleOrNone() -> Result<Option<T>, Exception> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             if !e.MoveNext() {
                 return .Ok(.None)
             }
@@ -262,7 +262,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
 
     public TrySingleOrNone(predicate: T -> bool) -> Result<Option<T>, Exception> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             var found = false
             var single = default(T)
             while e.MoveNext() {
@@ -296,7 +296,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
 
     public TrySingleOrError<E>(predicate: T -> bool, errorFactory: Option<Exception> -> E) -> Result<Option<T>, E> {
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             var found = false
             var single = default(T)
             while e.MoveNext() {
@@ -379,7 +379,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         }
 
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             var i = 0
             while e.MoveNext() {
                 if i == index {
@@ -399,7 +399,7 @@ public extension EnumerableOption<T> for IEnumerable<T> {
         }
 
         try {
-            val e = self.GetEnumerator()
+            use e = self.GetEnumerator()
             var i = 0
             while e.MoveNext() {
                 if i == index {
